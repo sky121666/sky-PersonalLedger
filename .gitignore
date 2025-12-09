@@ -1,0 +1,63 @@
+# 依赖
+node_modules/
+vendor/
+
+# 构建产物
+dist/
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 环境配置
+.env
+.env.local
+.env.*.local
+*.local
+
+# 日志
+*.log
+logs/
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.temp
+
+# 测试覆盖率
+coverage/
+*.cover
+*.out
+
+# Go
+*.test
+
+# uni-app
+unpackage/
+.hbuilderx/
+
+# 备份文件
+*.bak
+*.backup
+docs/
