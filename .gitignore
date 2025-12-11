@@ -60,4 +60,19 @@ unpackage/
 # 备份文件
 *.bak
 *.backup
-docs/
+.windsurf/
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.tar
+*.gz
+*.bz2
+*.xz
+*.lz
+*.lzma
+*.zst
+*.zstd
+*.zstdignore
+*.zstdignore
+*.zstdignore

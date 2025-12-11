@@ -4,91 +4,44 @@
 
 ## 功能特点
 
-- **多平台支持**: Web、Android、iOS、微信小程序
+- **多平台支持**: Android、iOS、微信小程序、Web (H5/PC)
+- **原生渲染**: uni-app x 原生引擎，性能接近原生
+- **响应式设计**: 统一 Apple 简约风，自适应移动端/PC 端布局
 - **单用户设计**: 个人专属，无需复杂权限
 - **本地优先**: SQLite 单文件数据库，数据完全自控
-- **Docker 部署**: 一键部署，简单运维
+
+## UI/UX 设计
+
+**统一设计风格**: Apple 极简主义 (iOS Human Interface Guidelines)
+
+- **视觉语言**: 大量留白、圆角卡片、毛玻璃效果、细腻阴影
+- **图标系统**: SF Symbols 风格线性图标
+- **响应式布局**:
+  - **移动端** (App / 小程序 / H5 < 768px): 单栏全屏 + 底部 Tab Bar
+  - **PC 端** (H5 ≥ 768px): 侧边栏导航 + 多列卡片布局
 
 ## 技术栈
 
-> ⚠️ 使用最新稳定版本
+### 后端
 
-| 层级 | 技术 | 版本 |
-|------|------|------|
-| 前端 | uni-app (Vue 3 + TypeScript) | Vue 3.4+ |
-| 构建 | Vite | 5.0+ |
-| 状态 | Pinia | 2.1+ |
-| 图表 | ECharts | 5.5+ |
-| 后端 | Go (Gin) | Go 1.22+, Gin 1.9+ |
-| ORM | GORM | 1.25+ |
-| 数据库 | SQLite | 3.40+ |
-| 部署 | Docker | 24.0+ |
+| 技术 | 版本 |
+|------|------|
+| Go | 1.23+ |
+| Gin | 1.11.0 |
+| GORM | 1.31.1 |
+| SQLite | 1.14.32 |
+| Zap | 1.27.1 |
+| Viper | 1.21.0 |
+| JWT | 5.3.0 |
 
----
+### 前端
 
-## 📋 TODO
-
-### Phase 1: 项目初始化
-
-- [ ] 初始化 Go 后端项目结构
-- [ ] 初始化 uni-app 前端项目
-- [ ] 配置 Docker 环境
-- [ ] 数据库表结构创建
-
-### Phase 2: 认证模块
-
-- [ ] 首次初始化接口 (创建用户)
-- [ ] 登录/登出接口
-- [ ] JWT Token 生成与验证
-- [ ] Token 刷新机制
-- [ ] 登录失败锁定
-
-### Phase 3: 核心功能
-
-- [ ] 账户管理 CRUD
-- [ ] 分类管理 CRUD
-- [ ] 交易管理 CRUD
-- [ ] 账户余额自动计算 (触发器)
-
-### Phase 4: 扩展功能
-
-- [ ] 预算管理
-- [ ] 还款提醒
-- [ ] 定时任务 (robfig/cron)
-- [ ] 多渠道通知 (企业微信/钉钉/邮件/公众号)
-- [ ] 通知日志记录
-- [ ] 数据统计 API
-- [ ] 账单导入 (微信/支付宝/银行卡)
-- [ ] 智能分类匹配规则
-- [ ] 快捷记账模板
-- [ ] 图片附件上传
-- [ ] 标签功能
-
-### Phase 5: 前端页面
-
-- [ ] 登录页面
-- [ ] 首页仪表盘
-- [ ] 交易列表页 (含离线支持)
-- [ ] 账户管理页
-- [ ] 统计图表页 (ECharts)
-- [ ] 账单导入页
-- [ ] 设置页面
-
-### Phase 6: 多端适配
-
-- [ ] H5 适配
-- [ ] Android 打包
-- [ ] iOS 打包
-- [ ] 微信小程序适配
-
-### Phase 7: 部署上线
-
-- [ ] Docker 镜像构建
-- [ ] docker-compose 配置
-- [ ] Nginx 配置
-- [ ] SSL 证书配置
-
----
+| 技术 | 版本 |
+|------|------|
+| uni-app x | 0.7.82 |
+| UTS | latest |
+| Vue | 3.5.13 |
+| Vite | 5.2.8 |
 
 ## 核心功能
 
@@ -101,13 +54,7 @@
 | 还款提醒 | 信用/贷款还款日提醒，多渠道通知 |
 | 借贷管理 | 通过应收款/应付款账户 + 转账实现 |
 | 数据统计 | 月度概览、分类占比、趋势图 |
-
-## 不包含功能
-
-- ❌ 理财/基金/股票投资
-- ❌ 多用户/权限管理
-
----
+| 账单导入 | 微信/支付宝/银行账单导入 |
 
 ## 项目结构
 
@@ -116,60 +63,52 @@ sky-PersonalLedger/
 ├── backend/              # Go 后端
 │   ├── cmd/server/       # 入口
 │   ├── internal/         # 内部模块
-│   │   ├── handler/      # HTTP 处理
-│   │   ├── service/      # 业务逻辑
-│   │   ├── repository/   # 数据访问
-│   │   ├── model/        # 数据模型
-│   │   └── notify/       # 通知模块
 │   └── pkg/              # 公共包
-│
-├── app/                  # uni-app 前端
-│   └── src/
-│       ├── pages/        # 页面
-│       ├── components/   # 组件
-│       ├── api/          # API 请求
-│       ├── stores/       # 状态管理
-│       └── utils/        # 工具函数
-│
-├── docker/               # Docker 配置
-├── docs/                 # 项目文档
-├── docker-compose.yml
-└── README.md
+├── app/                  # uni-app x 前端
+│   ├── src/
+│   │   ├── pages/        # 页面 (.uvue)
+│   │   ├── api/          # API 接口 (.uts)
+│   │   ├── utils/        # 工具函数 (.uts)
+│   │   └── static/       # 静态资源
+│   └── package.json
+└── docs/                 # 项目文档
 ```
 
----
-
 ## 快速开始
-
-### 开发环境
 
 ```bash
 # 启动后端
 cd backend
 go run cmd/server/main.go
 
-# 启动前端
+# 启动前端 (H5)
 cd app
-pnpm dev
+npm install
+npm run dev:h5
+
+# 启动前端 (Android)
+npm run dev:app-android
+
+# 启动前端 (iOS)
+npm run dev:app-ios
 ```
-
-### Docker 部署
-
-```bash
-# 开发环境
-docker-compose up -d
-
-# 生产环境
-docker-compose -f docker-compose.prod.yml up -d
-```
-
----
 
 ## 文档
 
-- [需求文档](docs/REQUIREMENTS.md)
-- [数据库设计](docs/DATABASE.md)
+### 需求规格
+
+- [功能需求规格](docs/REQUIREMENTS.md)
+- [API 接口定义](docs/API_ENDPOINTS.md)
 - [账单导入格式](docs/IMPORT_FORMATS.md)
+
+### 设计规范
+
+- [UI/UX 设计规范](docs/UI_DESIGN.md)
+- [API 设计规范](docs/API_DESIGN.md)
+- [数据库设计规范](docs/DATABASE_DESIGN.md)
+- [同步与离线策略](docs/SYNC_STRATEGY.md)
+- [工程代码规范](docs/CODE_STYLE.md)
+- [安全设计规范](docs/SECURITY.md)
 
 ## License
 
