@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { accountApi, type Account, type CreateAccountParams, type AccountType, isDebtAccount } from '@/api/account'
-import { Plus, X, ChevronDown, Trash2, Archive, Wallet, CreditCard, ArchiveRestore, ChevronLeft, Pen } from 'lucide-vue-next'
+import { Plus, X, ChevronDown, Trash2, Archive, Wallet, CreditCard, ArchiveRestore, ChevronLeft, Pen, ScrollText } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -313,6 +313,13 @@ const displayAccounts = computed(() => showArchived.value ? archivedAccounts.val
               
               <!-- Action Buttons (Top Right) - Always visible on mobile -->
               <div class="flex gap-1.5 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 flex-shrink-0">
+                <button 
+                  class="p-2.5 bg-white/20 active:bg-white/40 md:hover:bg-white/30 rounded-xl text-white backdrop-blur-xl transition-all active:scale-95 md:hover:scale-110 border border-white/25 shadow-md"
+                  @click.stop="router.push(`/account-logs/${account.id}`)"
+                  title="查看流水"
+                >
+                  <ScrollText :size="14" />
+                </button>
                 <button 
                   class="p-2.5 bg-white/20 active:bg-white/40 md:hover:bg-white/30 rounded-xl text-white backdrop-blur-xl transition-all active:scale-95 md:hover:scale-110 border border-white/25 shadow-md"
                   @click.stop="openEdit(account)"

@@ -15,10 +15,11 @@ var (
 )
 
 type ReminderService struct {
-	repo         *repository.ReminderRepository
-	accountRepo  *repository.AccountRepository
-	txRepo       *repository.TransactionRepository
-	categoryRepo *repository.CategoryRepository
+	repo          *repository.ReminderRepository
+	accountRepo   *repository.AccountRepository
+	txRepo        *repository.TransactionRepository
+	categoryRepo  *repository.CategoryRepository
+	accountLogSvc *AccountLogService
 }
 
 func NewReminderService(
@@ -26,12 +27,14 @@ func NewReminderService(
 	accountRepo *repository.AccountRepository,
 	txRepo *repository.TransactionRepository,
 	categoryRepo *repository.CategoryRepository,
+	accountLogSvc *AccountLogService,
 ) *ReminderService {
 	return &ReminderService{
-		repo:         repo,
-		accountRepo:  accountRepo,
-		txRepo:       txRepo,
-		categoryRepo: categoryRepo,
+		repo:          repo,
+		accountRepo:   accountRepo,
+		txRepo:        txRepo,
+		categoryRepo:  categoryRepo,
+		accountLogSvc: accountLogSvc,
 	}
 }
 

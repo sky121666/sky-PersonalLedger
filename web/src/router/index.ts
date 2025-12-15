@@ -64,6 +64,16 @@ const router = createRouter({
           path: 'report',
           name: 'report',
           component: () => import('@/views/ReportView.vue')
+        },
+        {
+          path: 'account-logs',
+          name: 'account-logs',
+          component: () => import('@/views/AccountLogView.vue')
+        },
+        {
+          path: 'account-logs/:id',
+          name: 'account-log-detail',
+          component: () => import('@/views/AccountLogView.vue')
         }
       ]
     }

@@ -22,6 +22,7 @@ type Handlers struct {
 	Export       *ExportHandler
 	System       *SystemHandler
 	Upload       *UploadHandler
+	AccountLog   *AccountLogHandler
 }
 
 func NewHandlers(services *service.Services) *Handlers {
@@ -40,6 +41,7 @@ func NewHandlers(services *service.Services) *Handlers {
 		Export:       NewExportHandler(services.Export),
 		System:       NewSystemHandler(services.System),
 		Upload:       NewUploadHandler(services.Upload),
+		AccountLog:   NewAccountLogHandler(services.AccountLog),
 	}
 }
 
@@ -192,6 +194,13 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 			upload.DELETE("", h.Upload.Delete)
 			upload.GET("/list", h.Upload.List)
 			upload.GET("/download", h.Upload.Download)
+		}
+
+		// Account Logs
+		accountLogs := protected.Group("/account-logs")
+		{
+			accountLogs.GET("", h.AccountLog.GetAll)
+			accountLogs.GET("/account/:id", h.AccountLog.GetByAccountID)
 		}
 	}
 }

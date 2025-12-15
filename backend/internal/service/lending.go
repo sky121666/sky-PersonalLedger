@@ -40,10 +40,11 @@ func parseDateTime(s string) (time.Time, error) {
 }
 
 type LendingService struct {
-	repo         *repository.LendingRepository
-	accountRepo  *repository.AccountRepository
-	txRepo       *repository.TransactionRepository
-	categoryRepo *repository.CategoryRepository
+	repo          *repository.LendingRepository
+	accountRepo   *repository.AccountRepository
+	txRepo        *repository.TransactionRepository
+	categoryRepo  *repository.CategoryRepository
+	accountLogSvc *AccountLogService
 }
 
 func NewLendingService(
@@ -51,12 +52,14 @@ func NewLendingService(
 	accountRepo *repository.AccountRepository,
 	txRepo *repository.TransactionRepository,
 	categoryRepo *repository.CategoryRepository,
+	accountLogSvc *AccountLogService,
 ) *LendingService {
 	return &LendingService{
-		repo:         repo,
-		accountRepo:  accountRepo,
-		txRepo:       txRepo,
-		categoryRepo: categoryRepo,
+		repo:          repo,
+		accountRepo:   accountRepo,
+		txRepo:        txRepo,
+		categoryRepo:  categoryRepo,
+		accountLogSvc: accountLogSvc,
 	}
 }
 

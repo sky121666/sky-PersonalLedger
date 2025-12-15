@@ -43,6 +43,7 @@ func Init(dbPath string) (*gorm.DB, error) {
 		&model.LendingRecord{},
 		&model.NotificationLog{},
 		&model.SystemSetting{},
+		&model.AccountLog{},
 	); err != nil {
 		return nil, err
 	}

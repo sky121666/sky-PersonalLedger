@@ -256,3 +256,21 @@ type NotificationLog struct {
 	Error     string    `gorm:"type:text" json:"error"`
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }
+
+// AccountLog stores account balance change history
+type AccountLog struct {
+	ID            string    `gorm:"primaryKey;size:36" json:"id"`
+	UserID        uint      `gorm:"not null;index" json:"user_id"`
+	AccountID     string    `gorm:"size:36;not null;index" json:"account_id"`
+	Type          string    `gorm:"size:30;not null;index" json:"type"` // income, expense, transfer_in, transfer_out, rollback, adjustment
+	Amount        float64   `gorm:"type:decimal(15,2);not null" json:"amount"`
+	BalanceBefore float64   `gorm:"type:decimal(15,2);not null" json:"balance_before"`
+	BalanceAfter  float64   `gorm:"type:decimal(15,2);not null" json:"balance_after"`
+	TransactionID *string   `gorm:"size:36;index" json:"transaction_id,omitempty"`
+	ReminderID    *string   `gorm:"size:36;index" json:"reminder_id,omitempty"`
+	LendingID     *string   `gorm:"size:36;index" json:"lending_id,omitempty"`
+	Remark        string    `gorm:"size:500" json:"remark"`
+	CreatedAt     time.Time `gorm:"index" json:"created_at"`
+
+	Account *Account `gorm:"foreignKey:AccountID" json:"account,omitempty"`
+}

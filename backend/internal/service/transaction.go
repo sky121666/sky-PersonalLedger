@@ -18,10 +18,11 @@ var (
 )
 
 type TransactionService struct {
-	txRepo       *repository.TransactionRepository
-	accountRepo  *repository.AccountRepository
-	reminderRepo *repository.ReminderRepository
-	lendingRepo  *repository.LendingRepository
+	txRepo        *repository.TransactionRepository
+	accountRepo   *repository.AccountRepository
+	reminderRepo  *repository.ReminderRepository
+	lendingRepo   *repository.LendingRepository
+	accountLogSvc *AccountLogService
 }
 
 func NewTransactionService(
@@ -29,12 +30,14 @@ func NewTransactionService(
 	accountRepo *repository.AccountRepository,
 	reminderRepo *repository.ReminderRepository,
 	lendingRepo *repository.LendingRepository,
+	accountLogSvc *AccountLogService,
 ) *TransactionService {
 	return &TransactionService{
-		txRepo:       txRepo,
-		accountRepo:  accountRepo,
-		reminderRepo: reminderRepo,
-		lendingRepo:  lendingRepo,
+		txRepo:        txRepo,
+		accountRepo:   accountRepo,
+		reminderRepo:  reminderRepo,
+		lendingRepo:   lendingRepo,
+		accountLogSvc: accountLogSvc,
 	}
 }
 
@@ -81,14 +84,18 @@ func (s *TransactionService) Create(userID uint, req CreateTransactionRequest) (
 		return nil, err
 	}
 
-	// Update account balances
+	// Update account balances and log
 	switch req.Type {
 	case "expense":
+		s.logBalanceChange(userID, req.AccountID, "expense", req.Amount, &tx.ID, nil, nil, "支出")
 		s.accountRepo.UpdateBalance(req.AccountID, -req.Amount)
 	case "income":
+		s.logBalanceChange(userID, req.AccountID, "income", req.Amount, &tx.ID, nil, nil, "收入")
 		s.accountRepo.UpdateBalance(req.AccountID, req.Amount)
 	case "transfer":
+		s.logBalanceChange(userID, req.AccountID, "transfer_out", req.Amount, &tx.ID, nil, nil, "转出")
 		s.accountRepo.UpdateBalance(req.AccountID, -req.Amount)
+		s.logBalanceChange(userID, *req.ToAccountID, "transfer_in", req.Amount, &tx.ID, nil, nil, "转入")
 		s.accountRepo.UpdateBalance(*req.ToAccountID, req.Amount)
 	}
 
@@ -232,15 +239,19 @@ func (s *TransactionService) Delete(id string, userID uint) error {
 		return err
 	}
 
-	// Revert balance changes
+	// Revert balance changes and log
 	switch tx.Type {
 	case "expense":
+		s.logBalanceChange(tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回支出")
 		s.accountRepo.UpdateBalance(tx.AccountID, tx.Amount)
 	case "income":
+		s.logBalanceChange(tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回收入")
 		s.accountRepo.UpdateBalance(tx.AccountID, -tx.Amount)
 	case "transfer":
+		s.logBalanceChange(tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, nil, nil, "撤回转出")
 		s.accountRepo.UpdateBalance(tx.AccountID, tx.Amount)
 		if tx.ToAccountID != nil {
+			s.logBalanceChange(tx.UserID, *tx.ToAccountID, "rollback", tx.Amount, &tx.ID, nil, nil, "撤回转入")
 			s.accountRepo.UpdateBalance(*tx.ToAccountID, -tx.Amount)
 		}
 	}
@@ -333,6 +344,23 @@ func (s *TransactionService) revertLendingTransaction(lendingID string, txType s
 	}
 
 	s.lendingRepo.Update(lending)
+}
+
+// logBalanceChange logs account balance changes
+func (s *TransactionService) logBalanceChange(userID uint, accountID string, logType string, amount float64, transactionID *string, reminderID *string, lendingID *string, remark string) {
+	if s.accountLogSvc == nil {
+		return
+	}
+	s.accountLogSvc.LogBalanceChange(&LogBalanceChangeRequest{
+		UserID:        userID,
+		AccountID:     accountID,
+		Type:          logType,
+		Amount:        amount,
+		TransactionID: transactionID,
+		ReminderID:    reminderID,
+		LendingID:     lendingID,
+		Remark:        remark,
+	})
 }
 
 func (s *TransactionService) DeleteBatch(ids []string, userID uint) error {
