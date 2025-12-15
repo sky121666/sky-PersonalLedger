@@ -25,6 +25,7 @@ type UploadResult struct {
 	ID       string `json:"id"`
 	Filename string `json:"filename"`
 	Path     string `json:"path"`
+	URL      string `json:"url"`
 	Size     int64  `json:"size"`
 	MimeType string `json:"mime_type"`
 }
@@ -94,6 +95,7 @@ func (s *UploadService) Upload(userID uint, category string, refID string, file 
 		ID:       fileID,
 		Filename: file.Filename,
 		Path:     relativePath,
+		URL:      "/uploads/" + relativePath,
 		Size:     file.Size,
 		MimeType: file.Header.Get("Content-Type"),
 	}, nil

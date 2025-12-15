@@ -10,6 +10,10 @@ type User struct {
 	ID             uint           `gorm:"primaryKey" json:"id"`
 	Username       string         `gorm:"size:50;uniqueIndex;not null" json:"username"`
 	PasswordHash   string         `gorm:"size:255;not null" json:"-"`
+	Nickname       string         `gorm:"size:50" json:"nickname"`
+	Email          string         `gorm:"size:100" json:"email"`
+	Avatar         string         `gorm:"size:255" json:"avatar"`
+	Bio            string         `gorm:"size:200" json:"bio"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	LastLoginAt    *time.Time     `json:"last_login_at"`

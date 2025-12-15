@@ -309,4 +309,54 @@ func (s *AuthService) UserExists() bool {
 	return count > 0
 }
 
+type UserProfile struct {
+	ID          uint   `json:"id"`
+	Username    string `json:"username"`
+	Nickname    string `json:"nickname"`
+	Email       string `json:"email"`
+	Avatar      string `json:"avatar"`
+	Bio         string `json:"bio"`
+	CreatedAt   string `json:"created_at"`
+	LastLoginAt string `json:"last_login_at,omitempty"`
+}
+
+func (s *AuthService) GetProfile(userID uint) (*UserProfile, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	profile := &UserProfile{
+		ID:        user.ID,
+		Username:  user.Username,
+		Nickname:  user.Nickname,
+		Email:     user.Email,
+		Avatar:    user.Avatar,
+		Bio:       user.Bio,
+		CreatedAt: user.CreatedAt.Format("2006-01-02"),
+	}
+	if user.LastLoginAt != nil {
+		profile.LastLoginAt = user.LastLoginAt.Format("2006-01-02 15:04:05")
+	}
+	return profile, nil
+}
+
+func (s *AuthService) UpdateProfile(userID uint, nickname, email, avatar, bio string) (*UserProfile, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	user.Nickname = nickname
+	user.Email = email
+	user.Avatar = avatar
+	user.Bio = bio
+
+	if err := s.userRepo.Update(user); err != nil {
+		return nil, err
+	}
+
+	return s.GetProfile(userID)
+}
+
 var _ = gorm.ErrRecordNotFound // ensure gorm is imported

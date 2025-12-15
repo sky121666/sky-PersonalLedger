@@ -39,7 +39,7 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		Statistics:   NewStatisticsService(repos.Transaction, repos.Category, repos.Account),
 		Template:     NewTemplateService(repos.Template, repos.Transaction, repos.Account),
 		Backup:       NewBackupService(repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification),
-		Notification: NewNotificationService(repos.Notification),
+		Notification: NewNotificationService(repos.Notification, repos.User),
 		Lending:      NewLendingService(repos.Lending, repos.Account, repos.Transaction, repos.Category, accountLogService),
 		Export:       NewExportService(repos.Transaction, repos.Category, repos.Account),
 		System:       NewSystemService(repos.System),

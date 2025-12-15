@@ -96,6 +96,21 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 
 	// Serve uploaded files with JWT authentication
 	r.GET("/uploads/*filepath", func(c *gin.Context) {
+		filePath := c.Param("filepath")
+
+		// Allow public access to avatars
+		if strings.Contains(filePath, "/avatars/") {
+			fullPath := filepath.Join(uploadPath, filePath)
+			absUploadPath, _ := filepath.Abs(uploadPath)
+			absFullPath, _ := filepath.Abs(fullPath)
+			if !strings.HasPrefix(absFullPath, absUploadPath) {
+				c.JSON(403, gin.H{"error": "forbidden"})
+				return
+			}
+			c.File(fullPath)
+			return
+		}
+
 		// Check JWT token from query parameter or header
 		token := c.Query("token")
 		if token == "" {
@@ -116,8 +131,6 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 			c.JSON(401, gin.H{"error": "invalid token"})
 			return
 		}
-
-		filePath := c.Param("filepath")
 		fullPath := filepath.Join(uploadPath, filePath)
 
 		// Security check: ensure path is within upload directory

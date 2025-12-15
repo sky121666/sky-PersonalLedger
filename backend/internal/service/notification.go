@@ -22,11 +22,12 @@ var (
 )
 
 type NotificationService struct {
-	repo *repository.NotificationRepository
+	repo     *repository.NotificationRepository
+	userRepo *repository.UserRepository
 }
 
-func NewNotificationService(repo *repository.NotificationRepository) *NotificationService {
-	return &NotificationService{repo: repo}
+func NewNotificationService(repo *repository.NotificationRepository, userRepo *repository.UserRepository) *NotificationService {
+	return &NotificationService{repo: repo, userRepo: userRepo}
 }
 
 type NotificationSettingRequest struct {
@@ -153,11 +154,11 @@ func (s *NotificationService) TestDingtalk(webhook, secret string) *TestResult {
 	return s.sendWebhook(url, payload)
 }
 
-func (s *NotificationService) TestEmail(setting *model.NotificationSetting) *TestResult {
+func (s *NotificationService) TestEmail(setting *model.NotificationSetting, userID uint) *TestResult {
 	subject := "【个人记账】测试通知"
 	body := "这是一条测试消息，如果您收到此邮件，说明邮箱通知配置成功！"
 
-	err := s.sendEmail(setting, subject, body)
+	err := s.sendEmail(setting, userID, subject, body)
 	if err != nil {
 		return &TestResult{Success: false, Message: err.Error()}
 	}
@@ -203,9 +204,15 @@ func (s *NotificationService) sendWebhook(url string, payload interface{}) *Test
 	return &TestResult{Success: true, Message: "发送成功"}
 }
 
-func (s *NotificationService) sendEmail(setting *model.NotificationSetting, subject, body string) error {
-	if setting.SmtpHost == "" || setting.SmtpUser == "" || setting.EmailTo == "" {
+func (s *NotificationService) sendEmail(setting *model.NotificationSetting, userID uint, subject, body string) error {
+	if setting.SmtpHost == "" || setting.SmtpUser == "" {
 		return errors.New("邮箱配置不完整")
+	}
+
+	// Get user email from profile
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil || user.Email == "" {
+		return errors.New("用户邮箱未设置，请在个人信息中设置邮箱地址")
 	}
 
 	from := setting.SmtpFrom
@@ -214,7 +221,7 @@ func (s *NotificationService) sendEmail(setting *model.NotificationSetting, subj
 	}
 
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
-		from, setting.EmailTo, subject, body)
+		from, user.Email, subject, body)
 
 	addr := fmt.Sprintf("%s:%d", setting.SmtpHost, setting.SmtpPort)
 
@@ -223,12 +230,7 @@ func (s *NotificationService) sendEmail(setting *model.NotificationSetting, subj
 		auth = smtp.PlainAuth("", setting.SmtpUser, setting.SmtpPassword, setting.SmtpHost)
 	}
 
-	recipients := strings.Split(setting.EmailTo, ",")
-	for i := range recipients {
-		recipients[i] = strings.TrimSpace(recipients[i])
-	}
-
-	return smtp.SendMail(addr, auth, from, recipients, []byte(msg))
+	return smtp.SendMail(addr, auth, from, []string{user.Email}, []byte(msg))
 }
 
 // SendNotification sends a notification through all enabled channels
@@ -273,7 +275,7 @@ func (s *NotificationService) SendNotification(userID uint, title, content strin
 	}
 
 	if setting.EmailEnabled {
-		err := s.sendEmail(setting, title, content)
+		err := s.sendEmail(setting, userID, title, content)
 		if err != nil {
 			errs = append(errs, "邮箱: "+err.Error())
 		}

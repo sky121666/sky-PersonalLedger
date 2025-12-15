@@ -39,12 +39,19 @@ const services = [
 
 onMounted(async () => {
   try {
-    const [overview, accounts] = await Promise.all([
+    const [overview, accounts, profile] = await Promise.all([
       statisticsApi.getOverview(),
-      accountApi.getList()
+      accountApi.getList(),
+      authApi.getProfile()
     ])
     userStats.value.totalTransactions = overview.transaction_count || 0
     userStats.value.accountCount = accounts.list?.length || 0
+    profileForm.value = {
+      nickname: profile.nickname || '',
+      email: profile.email || '',
+      avatar: profile.avatar || '',
+      bio: profile.bio || ''
+    }
   } catch (e) {
     console.error('Load user stats failed:', e)
   }
@@ -60,6 +67,17 @@ const showAboutModal = ref(false)
 const showPasswordModal = ref(false)
 const showRestoreModal = ref(false)
 const showSecurityModal = ref(false)
+const showProfileModal = ref(false)
+
+// Profile form
+const profileForm = ref({
+  nickname: '',
+  email: '',
+  avatar: '',
+  bio: ''
+})
+const profileLoading = ref(false)
+const avatarUploading = ref(false)
 
 // Security entry path
 const entryPathEnabled = ref(false)
@@ -140,6 +158,71 @@ const menuGroups = [
 function handleLogout() {
   authStore.logout()
   router.replace('/login')
+}
+
+// Profile functions
+async function openProfileModal() {
+  showProfileModal.value = true
+  profileLoading.value = true
+  try {
+    const profile = await authApi.getProfile()
+    profileForm.value = {
+      nickname: profile.nickname || '',
+      email: profile.email || '',
+      avatar: profile.avatar || '',
+      bio: profile.bio || ''
+    }
+  } catch (e) {
+    console.error('Load profile failed:', e)
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+async function saveProfile() {
+  profileLoading.value = true
+  try {
+    await authApi.updateProfile(profileForm.value)
+    toast.success('保存成功')
+    showProfileModal.value = false
+  } catch (e: any) {
+    toast.error(e.message || '保存失败')
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+async function handleAvatarUpload(e: Event) {
+  const target = e.target as HTMLInputElement
+  if (!target.files || !target.files[0]) return
+  
+  const file = target.files[0]
+  if (!file.type.startsWith('image/')) {
+    toast.error('请选择图片文件')
+    return
+  }
+  
+  avatarUploading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await fetch('/api/v1/upload/avatar', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
+      body: formData
+    })
+    
+    if (!response.ok) throw new Error('上传失败')
+    
+    const result = await response.json()
+    profileForm.value.avatar = result.data.url
+    toast.success('头像上传成功')
+  } catch (e: any) {
+    toast.error(e.message || '上传失败')
+  } finally {
+    avatarUploading.value = false
+  }
 }
 
 // Security entry path functions
@@ -256,8 +339,8 @@ async function testNotification(channel: string) {
         result = await notificationApi.testDingtalk(notificationForm.value.dingtalk_webhook, notificationForm.value.dingtalk_secret)
         break
       case 'email':
-        if (!notificationForm.value.smtp_host || !notificationForm.value.email_to) {
-          toast.warning('请填写邮箱配置')
+        if (!notificationForm.value.smtp_host) {
+          toast.warning('请填写SMTP服务器配置')
           return
         }
         result = await notificationApi.testEmail({
@@ -265,8 +348,7 @@ async function testNotification(channel: string) {
           smtp_port: notificationForm.value.smtp_port,
           smtp_user: notificationForm.value.smtp_user,
           smtp_password: notificationForm.value.smtp_password,
-          smtp_from: notificationForm.value.smtp_from,
-          email_to: notificationForm.value.email_to
+          smtp_from: notificationForm.value.smtp_from
         })
         break
       case 'webhook':
@@ -402,13 +484,14 @@ async function handleRestore() {
     <!-- Header / User Profile -->
     <div class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
        <div class="max-w-3xl mx-auto flex items-center justify-between">
-          <div class="flex items-center gap-4">
+          <button class="flex items-center gap-4 text-left hover:opacity-80 transition" @click="openProfileModal">
             <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center overflow-hidden shadow-inner border border-white/20">
-               <User class="text-gray-400" :size="32" />
+               <img v-if="profileForm.avatar" :src="profileForm.avatar" class="w-full h-full object-cover" />
+               <User v-else class="text-gray-400" :size="32" />
             </div>
             <div>
-               <h1 class="text-xl font-bold text-gray-900 dark:text-white">用户账户</h1>
-               <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Personal Ledger Pro</div>
+               <h1 class="text-xl font-bold text-gray-900 dark:text-white">{{ profileForm.nickname || '用户账户' }}</h1>
+               <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ profileForm.bio || '点击编辑个人信息' }}</div>
                <!-- Badges -->
                <div class="flex items-center gap-2 mt-2">
                   <div class="flex items-center gap-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-2 py-0.5 rounded text-[10px] font-medium border border-green-100 dark:border-green-900/30">
@@ -421,7 +504,7 @@ async function handleRestore() {
                   </div>
                </div>
             </div>
-          </div>
+          </button>
           <button 
             class="p-2.5 bg-gray-100/50 dark:bg-white/5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded-full transition-all"
             @click="showLogoutModal = true"
@@ -828,9 +911,10 @@ async function handleRestore() {
                 <label class="text-xs font-bold text-gray-400 uppercase">密码/授权码</label>
                 <input v-model="notificationForm.smtp_password" type="password" placeholder="留空则使用已保存的密码" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
-              <div class="space-y-1.5">
-                <label class="text-xs font-bold text-gray-400 uppercase">收件人</label>
-                <input v-model="notificationForm.email_to" type="text" placeholder="多个邮箱用逗号分隔" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+              <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                <p class="text-xs text-blue-600 dark:text-blue-400">
+                  📧 邮件将发送至个人信息中设置的邮箱地址
+                </p>
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'email'" @click="testNotification('email')">
                 {{ testingChannel === 'email' ? '测试中...' : '发送测试邮件' }}
@@ -1029,6 +1113,83 @@ async function handleRestore() {
               @click="disableEntryPath"
             >
               禁用安全入口
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Profile Edit Modal -->
+    <Teleport to="body">
+      <div v-if="showProfileModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showProfileModal = false"></div>
+        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10">
+          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-white/10">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">编辑个人信息</h3>
+            <button class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" @click="showProfileModal = false">
+              <X :size="20" class="text-gray-500" />
+            </button>
+          </div>
+          
+          <div v-if="profileLoading" class="p-10 text-center">
+            <div class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+            <p class="text-gray-500 mt-4 text-sm">加载中...</p>
+          </div>
+          
+          <div v-else class="p-6 space-y-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">昵称</label>
+              <input
+                v-model="profileForm.nickname"
+                type="text"
+                placeholder="输入昵称"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
+              />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">邮箱</label>
+              <input
+                v-model="profileForm.email"
+                type="email"
+                placeholder="your@email.com"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
+              />
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">头像</label>
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center overflow-hidden border border-white/20">
+                  <img v-if="profileForm.avatar" :src="profileForm.avatar" class="w-full h-full object-cover" />
+                  <User v-else class="text-gray-400" :size="28" />
+                </div>
+                <label class="flex-1">
+                  <div 
+                    class="h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl flex items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-black/50 transition text-sm text-gray-500"
+                    :class="{ 'opacity-50': avatarUploading }"
+                  >
+                    {{ avatarUploading ? '上传中...' : '点击上传头像' }}
+                  </div>
+                  <input type="file" accept="image/*" class="hidden" :disabled="avatarUploading" @change="handleAvatarUpload" />
+                </label>
+              </div>
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">个性签名</label>
+              <input
+                v-model="profileForm.bio"
+                type="text"
+                placeholder="一句话介绍自己"
+                maxlength="50"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
+              />
+            </div>
+
+            <button
+              class="w-full h-12 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-primary/20 mt-2"
+              :disabled="profileLoading"
+              @click="saveProfile"
+            >
+              {{ profileLoading ? '保存中...' : '保存' }}
             </button>
           </div>
         </div>

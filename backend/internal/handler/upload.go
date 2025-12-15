@@ -22,6 +22,24 @@ type UploadRequest struct {
 	RefID    string `form:"ref_id" binding:"required"`
 }
 
+func (h *UploadHandler) UploadAvatar(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.BadRequest(c, "file is required")
+		return
+	}
+
+	result, err := h.uploadService.Upload(userID, "avatars", "profile", file)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, result)
+}
+
 func (h *UploadHandler) Upload(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 

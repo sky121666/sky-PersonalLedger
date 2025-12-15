@@ -69,6 +69,8 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		// Auth
 		protected.POST("/auth/logout", h.Auth.Logout)
 		protected.POST("/auth/change-password", h.Auth.ChangePassword)
+		protected.GET("/auth/profile", h.Auth.GetProfile)
+		protected.PUT("/auth/profile", h.Auth.UpdateProfile)
 
 		// Accounts
 		accounts := protected.Group("/accounts")
@@ -193,6 +195,7 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		upload := protected.Group("/upload")
 		{
 			upload.POST("", h.Upload.Upload)
+			upload.POST("/avatar", h.Upload.UploadAvatar)
 			upload.DELETE("", h.Upload.Delete)
 			upload.GET("/list", h.Upload.List)
 			upload.GET("/download", h.Upload.Download)

@@ -116,7 +116,7 @@ func (h *NotificationHandler) TestEmail(c *gin.Context) {
 		setting.SmtpPort = 587
 	}
 
-	result := h.service.TestEmail(setting)
+	result := h.service.TestEmail(setting, userID)
 	response.Success(c, result)
 }
 

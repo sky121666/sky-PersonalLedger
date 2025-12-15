@@ -128,3 +128,37 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	response.Success(c, gin.H{"message": "password changed, please login again"})
 }
+
+func (h *AuthHandler) GetProfile(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	profile, err := h.service.GetProfile(userID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, profile)
+}
+
+type UpdateProfileRequest struct {
+	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	Avatar   string `json:"avatar"`
+	Bio      string `json:"bio"`
+}
+
+func (h *AuthHandler) UpdateProfile(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	var req UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request")
+		return
+	}
+
+	profile, err := h.service.UpdateProfile(userID, req.Nickname, req.Email, req.Avatar, req.Bio)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, profile)
+}
