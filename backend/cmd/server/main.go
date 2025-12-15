@@ -40,6 +40,15 @@ func main() {
 	// Initialize services
 	services := service.NewServices(repos, cfg)
 
+	// Sync security settings from config to database (config takes priority)
+	if cfg.Security.BasePath != "" {
+		if err := services.System.SetEntryPath(cfg.Security.BasePath); err != nil {
+			log.Printf("Warning: Failed to sync security base_path: %v", err)
+		} else {
+			log.Printf("Security entry path set to: %s", cfg.Security.BasePath)
+		}
+	}
+
 	// Initialize handlers
 	handlers := handler.NewHandlers(services)
 

@@ -10,6 +10,12 @@ type Config struct {
 	JWT      JWTConfig
 	Log      LogConfig
 	Storage  StorageConfig
+	Security SecurityConfig
+}
+
+type SecurityConfig struct {
+	BasePath string `mapstructure:"base_path"`
+	APIToken string `mapstructure:"api_token"`
 }
 
 type StorageConfig struct {
