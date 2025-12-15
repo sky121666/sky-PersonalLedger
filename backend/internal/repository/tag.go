@@ -53,6 +53,10 @@ func (r *TagRepository) Delete(id string) error {
 	return r.db.Delete(&model.Tag{}, "id = ?", id).Error
 }
 
+func (r *TagRepository) DeleteAllByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.Tag{}).Error
+}
+
 func (r *TagRepository) IncrementUsedCount(id string) error {
 	return r.db.Model(&model.Tag{}).Where("id = ?", id).UpdateColumn("used_count", gorm.Expr("used_count + 1")).Error
 }

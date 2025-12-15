@@ -48,3 +48,7 @@ func (r *BudgetRepository) Update(budget *model.Budget) error {
 func (r *BudgetRepository) Delete(id string) error {
 	return r.db.Delete(&model.Budget{}, "id = ?", id).Error
 }
+
+func (r *BudgetRepository) DeleteAllByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.Budget{}).Error
+}

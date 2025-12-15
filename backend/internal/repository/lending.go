@@ -66,3 +66,9 @@ func (r *LendingRepository) GetRecordByID(id string) (*model.LendingRecord, erro
 func (r *LendingRepository) DeleteRecord(id string) error {
 	return r.db.Delete(&model.LendingRecord{}, "id = ?", id).Error
 }
+
+func (r *LendingRepository) DeleteAllByUserID(userID uint) error {
+	// Delete records first
+	r.db.Where("user_id = ?", userID).Delete(&model.LendingRecord{})
+	return r.db.Where("user_id = ?", userID).Delete(&model.Lending{}).Error
+}

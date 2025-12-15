@@ -45,3 +45,7 @@ func (r *ReminderRepository) Update(reminder *model.Reminder) error {
 func (r *ReminderRepository) Delete(id string) error {
 	return r.db.Delete(&model.Reminder{}, "id = ?", id).Error
 }
+
+func (r *ReminderRepository) DeleteAllByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.Reminder{}).Error
+}

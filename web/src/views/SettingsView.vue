@@ -10,7 +10,7 @@ import { toast } from '@/composables/useToast'
 import {
   Lock, Upload, Download, Info, ChevronRight,
   User, Shield, Database, X, Check, LogOut, Wallet, Moon, HardDrive, Bell,
-  FolderOpen, Target, Users, FileText, Copy, RefreshCw
+  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock
 } from 'lucide-vue-next'
 import { notificationApi } from '@/api/notification'
 import { systemApi } from '@/api/system'
@@ -68,6 +68,17 @@ const showPasswordModal = ref(false)
 const showRestoreModal = ref(false)
 const showSecurityModal = ref(false)
 const showProfileModal = ref(false)
+const showAutoBackupModal = ref(false)
+
+// Auto backup form
+const autoBackupForm = ref({
+  enabled: false,
+  frequency: 'daily',
+  hour: 3,
+  max_backups: 10
+})
+const autoBackupLoading = ref(false)
+const autoBackupFiles = ref<{filename: string, size: number, created_at: string}[]>([])
 
 // Profile form
 const profileForm = ref({
@@ -123,7 +134,6 @@ const notificationForm = ref({
   notify_payment_due: true,
   notify_budget_alert: true,
   notify_lending_due: true,
-  notify_login: true,
   notify_annual_report: true,
   advance_days: 3
 })
@@ -145,6 +155,7 @@ const menuGroups = [
     items: [
       { icon: HardDrive, label: '数据备份', desc: '导出全部数据', action: handleBackup, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/30' },
       { icon: Download, label: '恢复备份', desc: '导入数据文件', action: () => showRestoreModal.value = true, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/30' },
+      { icon: Clock, label: '自动备份', desc: '定时自动备份数据', action: openAutoBackupModal, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-900/30' },
     ]
   },
   {
@@ -476,6 +487,79 @@ async function handleRestore() {
   } finally {
     restoreLoading.value = false
   }
+}
+
+// Auto backup functions
+async function openAutoBackupModal() {
+  showAutoBackupModal.value = true
+  autoBackupLoading.value = true
+  try {
+    const [settings, files] = await Promise.all([
+      fetch('/api/v1/backup/auto/settings', {
+        headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
+      }).then(r => r.json()),
+      fetch('/api/v1/backup/auto/list', {
+        headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
+      }).then(r => r.json())
+    ])
+    autoBackupForm.value = {
+      enabled: settings.data?.enabled || false,
+      frequency: settings.data?.frequency || 'daily',
+      hour: settings.data?.hour ?? 3,
+      max_backups: settings.data?.max_backups || 10
+    }
+    autoBackupFiles.value = files.data?.files || []
+  } catch (e) {
+    console.error('Load auto backup settings failed:', e)
+  } finally {
+    autoBackupLoading.value = false
+  }
+}
+
+async function saveAutoBackupSettings() {
+  autoBackupLoading.value = true
+  try {
+    await fetch('/api/v1/backup/auto/settings', {
+      method: 'PUT',
+      headers: { 
+        'Authorization': `Bearer ${authStore.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(autoBackupForm.value)
+    })
+    toast.success('自动备份设置已保存')
+    showAutoBackupModal.value = false
+  } catch (e: any) {
+    toast.error(e.message || '保存失败')
+  } finally {
+    autoBackupLoading.value = false
+  }
+}
+
+async function triggerAutoBackup() {
+  autoBackupLoading.value = true
+  try {
+    await fetch('/api/v1/backup/auto/trigger', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
+    })
+    toast.success('备份已触发')
+    // Reload file list
+    const files = await fetch('/api/v1/backup/auto/list', {
+      headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
+    }).then(r => r.json())
+    autoBackupFiles.value = files.data?.files || []
+  } catch (e: any) {
+    toast.error(e.message || '备份失败')
+  } finally {
+    autoBackupLoading.value = false
+  }
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB'
 }
 </script>
 
@@ -979,17 +1063,7 @@ async function handleRestore() {
                   <div class="w-4 h-4 bg-white rounded-full shadow transition-transform" :class="notificationForm.notify_lending_due ? 'translate-x-5' : 'translate-x-1'"></div>
                 </button>
               </div>
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-700 dark:text-gray-300">登录安全提醒</span>
-                <button 
-                  class="w-10 h-6 rounded-full transition-colors"
-                  :class="notificationForm.notify_login ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'"
-                  @click="notificationForm.notify_login = !notificationForm.notify_login"
-                >
-                  <div class="w-4 h-4 bg-white rounded-full shadow transition-transform" :class="notificationForm.notify_login ? 'translate-x-5' : 'translate-x-1'"></div>
-                </button>
-              </div>
-              <div class="flex items-center justify-between">
+                            <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-700 dark:text-gray-300">年度报告通知</span>
                 <button 
                   class="w-10 h-6 rounded-full transition-colors"
@@ -1191,6 +1265,114 @@ async function handleRestore() {
             >
               {{ profileLoading ? '保存中...' : '保存' }}
             </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Auto Backup Modal -->
+    <Teleport to="body">
+      <div v-if="showAutoBackupModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showAutoBackupModal = false"></div>
+        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10 max-h-[85vh] overflow-hidden flex flex-col">
+          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-white/10">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">自动备份设置</h3>
+            <button class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" @click="showAutoBackupModal = false">
+              <X :size="20" class="text-gray-500" />
+            </button>
+          </div>
+          
+          <div v-if="autoBackupLoading" class="p-10 text-center">
+            <div class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+            <p class="text-gray-500 mt-4 text-sm">加载中...</p>
+          </div>
+          
+          <div v-else class="p-6 space-y-5 overflow-y-auto flex-1">
+            <!-- Enable toggle -->
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-sm font-medium text-gray-900 dark:text-white">启用自动备份</span>
+                <p class="text-xs text-gray-500 mt-0.5">定时自动备份数据到服务器</p>
+              </div>
+              <button 
+                class="w-12 h-7 rounded-full transition-colors"
+                :class="autoBackupForm.enabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'"
+                @click="autoBackupForm.enabled = !autoBackupForm.enabled"
+              >
+                <div class="w-5 h-5 bg-white rounded-full shadow transition-transform" :class="autoBackupForm.enabled ? 'translate-x-6' : 'translate-x-1'"></div>
+              </button>
+            </div>
+
+            <!-- Frequency -->
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">备份周期</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button 
+                  v-for="opt in [{value: 'daily', label: '每天'}, {value: 'weekly', label: '每周'}, {value: 'monthly', label: '每月'}]"
+                  :key="opt.value"
+                  class="py-2.5 rounded-xl text-sm font-medium transition"
+                  :class="autoBackupForm.frequency === opt.value ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'"
+                  @click="autoBackupForm.frequency = opt.value"
+                >
+                  {{ opt.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Hour -->
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">备份时间</label>
+              <select 
+                v-model="autoBackupForm.hour" 
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none text-gray-900 dark:text-white"
+              >
+                <option v-for="h in 24" :key="h-1" :value="h-1">{{ String(h-1).padStart(2, '0') }}:00</option>
+              </select>
+            </div>
+
+            <!-- Max backups -->
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">保留备份数量</label>
+              <select 
+                v-model="autoBackupForm.max_backups" 
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none text-gray-900 dark:text-white"
+              >
+                <option v-for="n in [5, 10, 20, 30, 50]" :key="n" :value="n">最多保留 {{ n }} 份</option>
+              </select>
+            </div>
+
+            <!-- Backup list -->
+            <div v-if="autoBackupFiles.length > 0" class="space-y-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">已有备份 ({{ autoBackupFiles.length }})</label>
+              <div class="max-h-32 overflow-y-auto space-y-1">
+                <div 
+                  v-for="file in autoBackupFiles" 
+                  :key="file.filename"
+                  class="flex items-center justify-between p-2 bg-gray-50 dark:bg-black/30 rounded-lg text-xs"
+                >
+                  <span class="text-gray-600 dark:text-gray-400 truncate flex-1">{{ file.filename }}</span>
+                  <span class="text-gray-400 ml-2">{{ formatFileSize(file.size) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-3 pt-2">
+              <button
+                class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                :disabled="autoBackupLoading"
+                @click="triggerAutoBackup"
+              >
+                立即备份
+              </button>
+              <button
+                class="flex-1 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition shadow-lg shadow-primary/20"
+                :disabled="autoBackupLoading"
+                @click="saveAutoBackupSettings"
+              >
+                保存设置
+              </button>
+            </div>
           </div>
         </div>
       </div>

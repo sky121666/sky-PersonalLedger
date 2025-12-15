@@ -26,7 +26,6 @@ export interface NotificationSetting {
   notify_payment_due: boolean
   notify_budget_alert: boolean
   notify_lending_due: boolean
-  notify_login: boolean
   notify_annual_report: boolean
   advance_days: number
 }
@@ -56,7 +55,6 @@ export interface UpdateNotificationParams {
   notify_payment_due: boolean
   notify_budget_alert: boolean
   notify_lending_due: boolean
-  notify_login: boolean
   notify_annual_report: boolean
   advance_days: number
 }

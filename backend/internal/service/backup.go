@@ -19,6 +19,8 @@ type BackupService struct {
 	lendingRepo      *repository.LendingRepository
 	templateRepo     *repository.TemplateRepository
 	notificationRepo *repository.NotificationRepository
+	tagRepo          *repository.TagRepository
+	userRepo         *repository.UserRepository
 }
 
 func NewBackupService(
@@ -30,6 +32,8 @@ func NewBackupService(
 	lendingRepo *repository.LendingRepository,
 	templateRepo *repository.TemplateRepository,
 	notificationRepo *repository.NotificationRepository,
+	tagRepo *repository.TagRepository,
+	userRepo *repository.UserRepository,
 ) *BackupService {
 	return &BackupService{
 		accountRepo:      accountRepo,
@@ -40,12 +44,15 @@ func NewBackupService(
 		lendingRepo:      lendingRepo,
 		templateRepo:     templateRepo,
 		notificationRepo: notificationRepo,
+		tagRepo:          tagRepo,
+		userRepo:         userRepo,
 	}
 }
 
 type FullBackupData struct {
 	Version              string                     `json:"version"`
 	ExportedAt           time.Time                  `json:"exported_at"`
+	UserProfile          *UserProfileBackup         `json:"user_profile,omitempty"`
 	Accounts             []model.Account            `json:"accounts"`
 	Categories           []model.Category           `json:"categories"`
 	Transactions         []model.Transaction        `json:"transactions"`
@@ -54,7 +61,15 @@ type FullBackupData struct {
 	Lendings             []*model.Lending           `json:"lendings"`
 	LendingRecords       []*model.LendingRecord     `json:"lending_records"`
 	Templates            []model.QuickTemplate      `json:"templates"`
+	Tags                 []model.Tag                `json:"tags"`
 	NotificationSettings *model.NotificationSetting `json:"notification_settings,omitempty"`
+}
+
+type UserProfileBackup struct {
+	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	Avatar   string `json:"avatar"`
+	Bio      string `json:"bio"`
 }
 
 func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
@@ -103,11 +118,28 @@ func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
 		return nil, err
 	}
 
+	tags, err := s.tagRepo.GetByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
 	notificationSettings, _ := s.notificationRepo.GetByUserID(userID) // ignore error if not found
 
+	// Get user profile
+	var userProfile *UserProfileBackup
+	if user, err := s.userRepo.GetByID(userID); err == nil {
+		userProfile = &UserProfileBackup{
+			Nickname: user.Nickname,
+			Email:    user.Email,
+			Avatar:   user.Avatar,
+			Bio:      user.Bio,
+		}
+	}
+
 	return &FullBackupData{
-		Version:              "2.0",
+		Version:              "2.1",
 		ExportedAt:           time.Now(),
+		UserProfile:          userProfile,
 		Accounts:             accounts,
 		Categories:           categories,
 		Transactions:         transactions,
@@ -116,6 +148,7 @@ func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
 		Lendings:             lendings,
 		LendingRecords:       allLendingRecords,
 		Templates:            templates,
+		Tags:                 tags,
 		NotificationSettings: notificationSettings,
 	}, nil
 }
@@ -135,6 +168,20 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 	var backup FullBackupData
 	if err := json.Unmarshal(data, &backup); err != nil {
 		return err
+	}
+
+	// Clear existing data before restore
+	s.clearUserData(userID)
+
+	// Restore user profile
+	if backup.UserProfile != nil {
+		if user, err := s.userRepo.GetByID(userID); err == nil {
+			user.Nickname = backup.UserProfile.Nickname
+			user.Email = backup.UserProfile.Email
+			user.Avatar = backup.UserProfile.Avatar
+			user.Bio = backup.UserProfile.Bio
+			s.userRepo.Update(user)
+		}
 	}
 
 	// Restore accounts
@@ -185,6 +232,12 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 		s.templateRepo.Create(&template)
 	}
 
+	// Restore tags
+	for _, tag := range backup.Tags {
+		tag.UserID = userID
+		s.tagRepo.Create(&tag)
+	}
+
 	// Restore notification settings
 	if backup.NotificationSettings != nil {
 		backup.NotificationSettings.UserID = userID
@@ -192,4 +245,16 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 	}
 
 	return nil
+}
+
+func (s *BackupService) clearUserData(userID uint) {
+	// Delete in reverse order of dependencies
+	s.transactionRepo.DeleteAllByUserID(userID)
+	s.budgetRepo.DeleteAllByUserID(userID)
+	s.lendingRepo.DeleteAllByUserID(userID)
+	s.reminderRepo.DeleteAllByUserID(userID)
+	s.templateRepo.DeleteAllByUserID(userID)
+	s.tagRepo.DeleteAllByUserID(userID)
+	s.categoryRepo.DeleteAllByUserID(userID)
+	s.accountRepo.DeleteAllByUserID(userID)
 }

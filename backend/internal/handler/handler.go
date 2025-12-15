@@ -26,7 +26,7 @@ type Handlers struct {
 	Tag          *TagHandler
 }
 
-func NewHandlers(services *service.Services) *Handlers {
+func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler) *Handlers {
 	return &Handlers{
 		Auth:         NewAuthHandler(services.Auth, services.Notification),
 		Account:      NewAccountHandler(services.Account),
@@ -36,7 +36,7 @@ func NewHandlers(services *service.Services) *Handlers {
 		Reminder:     NewReminderHandler(services.Reminder),
 		Statistics:   NewStatisticsHandler(services.Statistics),
 		Template:     NewTemplateHandler(services.Template),
-		Backup:       NewBackupHandler(services.Backup),
+		Backup:       NewBackupHandler(services.Backup, backupScheduler),
 		Notification: NewNotificationHandler(services.Notification),
 		Lending:      NewLendingHandler(services.Lending),
 		Export:       NewExportHandler(services.Export),
@@ -140,6 +140,10 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		// Backup & Restore
 		protected.GET("/backup", h.Backup.Create)
 		protected.POST("/restore", h.Backup.Restore)
+		protected.GET("/backup/auto/settings", h.Backup.GetAutoBackupSettings)
+		protected.PUT("/backup/auto/settings", h.Backup.UpdateAutoBackupSettings)
+		protected.POST("/backup/auto/trigger", h.Backup.TriggerAutoBackup)
+		protected.GET("/backup/auto/list", h.Backup.ListAutoBackups)
 
 		// Templates
 		templates := protected.Group("/templates")

@@ -20,6 +20,7 @@ type SecurityConfig struct {
 
 type StorageConfig struct {
 	UploadPath   string `mapstructure:"upload_path"`
+	BackupPath   string `mapstructure:"backup_path"`
 	MaxFileSize  int64  `mapstructure:"max_file_size"` // MB
 	AllowedTypes string `mapstructure:"allowed_types"`
 }
@@ -60,6 +61,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "json")
 	viper.SetDefault("storage.upload_path", "./data/uploads")
+	viper.SetDefault("storage.backup_path", "./data/backups")
 	viper.SetDefault("storage.max_file_size", 10) // 10MB
 	viper.SetDefault("storage.allowed_types", "jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt")
 	if err := viper.ReadInConfig(); err != nil {

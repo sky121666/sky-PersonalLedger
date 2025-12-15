@@ -44,6 +44,10 @@ func (r *CategoryRepository) Delete(id string) error {
 	return r.db.Delete(&model.Category{}, "id = ?", id).Error
 }
 
+func (r *CategoryRepository) DeleteAllByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.Category{}).Error
+}
+
 func (r *CategoryRepository) CreateBatch(categories []model.Category) error {
 	return r.db.Create(&categories).Error
 }

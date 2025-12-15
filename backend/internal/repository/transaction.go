@@ -174,3 +174,7 @@ func (r *TransactionRepository) GetAllForExport(userID uint, startDate, endDate 
 		Find(&transactions).Error
 	return transactions, err
 }
+
+func (r *TransactionRepository) DeleteAllByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.Transaction{}).Error
+}

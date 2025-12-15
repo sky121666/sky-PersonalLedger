@@ -39,3 +39,7 @@ func (r *TemplateRepository) Update(template *model.QuickTemplate) error {
 func (r *TemplateRepository) Delete(id string) error {
 	return r.db.Delete(&model.QuickTemplate{}, "id = ?", id).Error
 }
+
+func (r *TemplateRepository) DeleteAllByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.QuickTemplate{}).Error
+}

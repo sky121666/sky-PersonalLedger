@@ -49,8 +49,12 @@ func main() {
 		}
 	}
 
+	// Initialize backup scheduler
+	backupScheduler := service.NewBackupScheduler(services.Backup, repos.System, repos.User, cfg.Storage.BackupPath)
+	backupScheduler.Start()
+
 	// Initialize handlers
-	handlers := handler.NewHandlers(services)
+	handlers := handler.NewHandlers(services, backupScheduler)
 
 	// Setup Gin
 	if cfg.Server.Mode == "release" {

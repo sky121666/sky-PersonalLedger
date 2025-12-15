@@ -55,7 +55,6 @@ type NotificationSettingRequest struct {
 	NotifyPaymentDue   bool `json:"notify_payment_due"`
 	NotifyBudgetAlert  bool `json:"notify_budget_alert"`
 	NotifyLendingDue   bool `json:"notify_lending_due"`
-	NotifyLogin        bool `json:"notify_login"`
 	NotifyAnnualReport bool `json:"notify_annual_report"`
 	AdvanceDays        int  `json:"advance_days"`
 }
@@ -99,7 +98,6 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 		NotifyPaymentDue:   req.NotifyPaymentDue,
 		NotifyBudgetAlert:  req.NotifyBudgetAlert,
 		NotifyLendingDue:   req.NotifyLendingDue,
-		NotifyLogin:        req.NotifyLogin,
 		NotifyAnnualReport: req.NotifyAnnualReport,
 		AdvanceDays:        req.AdvanceDays,
 	}
@@ -297,24 +295,6 @@ func (s *NotificationService) SendNotification(userID uint, title, content strin
 		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
-}
-
-// SendLoginNotification sends a notification when user logs in from new device/IP
-func (s *NotificationService) SendLoginNotification(userID uint, ip, userAgent, device string) error {
-	setting, err := s.repo.GetByUserID(userID)
-	if err != nil || !setting.Enabled || !setting.NotifyLogin {
-		return nil
-	}
-
-	now := time.Now()
-	title := "登录提醒"
-	content := fmt.Sprintf("您的账户刚刚登录\n\n时间: %s\nIP地址: %s\n设备: %s\n\n如果不是您本人操作，请立即修改密码！",
-		now.Format("2006-01-02 15:04:05"),
-		ip,
-		device,
-	)
-
-	return s.SendNotification(userID, title, content)
 }
 
 // SendLendingDueNotification sends notification for lending due dates

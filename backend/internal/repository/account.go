@@ -44,6 +44,10 @@ func (r *AccountRepository) Delete(id string) error {
 	return r.db.Delete(&model.Account{}, "id = ?", id).Error
 }
 
+func (r *AccountRepository) DeleteAllByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.Account{}).Error
+}
+
 func (r *AccountRepository) UpdateBalance(id string, amount float64) error {
 	return r.db.Model(&model.Account{}).Where("id = ?", id).
 		Update("current_balance", gorm.Expr("current_balance + ?", amount)).Error
