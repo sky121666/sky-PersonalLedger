@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/config"
@@ -65,11 +64,22 @@ func (s *UploadService) Upload(userID uint, category string, refID string, file 
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Generate unique filename
+	// Keep original filename, add unique prefix only if file exists
 	fileID := uuid.New().String()
-	timestamp := time.Now().Format("20060102_150405")
-	newFilename := fmt.Sprintf("%s_%s.%s", timestamp, fileID[:8], ext)
+	originalName := filepath.Base(file.Filename)
+	// Sanitize filename - remove any path separators
+	originalName = strings.ReplaceAll(originalName, "/", "_")
+	originalName = strings.ReplaceAll(originalName, "\\", "_")
+
+	newFilename := originalName
 	fullPath := filepath.Join(dirPath, newFilename)
+
+	// If file exists, add unique suffix
+	if _, err := os.Stat(fullPath); err == nil {
+		nameWithoutExt := strings.TrimSuffix(originalName, "."+ext)
+		newFilename = fmt.Sprintf("%s_%s.%s", nameWithoutExt, fileID[:8], ext)
+		fullPath = filepath.Join(dirPath, newFilename)
+	}
 
 	// Save file
 	src, err := file.Open()
