@@ -10,34 +10,34 @@ services:
     volumes:
       - ./data:/data
     environment:
-      # Server Configuration
+      # 服务器配置
       - LEDGER_SERVER_PORT=8080
       - LEDGER_SERVER_MODE=release
       - LEDGER_SERVER_WEB_PATH=/app/web/dist
       
-      # Database Configuration
+      # 数据库配置
       - LEDGER_DATABASE_PATH=/data/ledger.db
       
-      # JWT Configuration
+      # JWT 配置
       - LEDGER_JWT_SECRET=your-super-secret-jwt-key-change-this
       - LEDGER_JWT_ACCESS_EXPIRE=15
       - LEDGER_JWT_REFRESH_EXPIRE=43200
       
-      # Storage Configuration
+      # 存储配置
       - LEDGER_STORAGE_UPLOAD_PATH=/data/uploads
       - LEDGER_STORAGE_BACKUP_PATH=/data/backups
       - LEDGER_STORAGE_MAX_FILE_SIZE=10
       - LEDGER_STORAGE_ALLOWED_TYPES=jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt
       
-      # Security Configuration (Optional)
-      # Uncomment and set a random path to enable security entry
+      # 安全配置 (可选)
+      # 取消注释并设置随机路径以启用安全入口
       # - LEDGER_SECURITY_BASE_PATH=/your-random-secret-path-here
       
-      # Log Configuration
+      # 日志配置
       - LEDGER_LOG_LEVEL=info
       - LEDGER_LOG_FORMAT=json
     
-    # Health check
+    # 健康检查
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/v1/auth/status"]
       interval: 30s
