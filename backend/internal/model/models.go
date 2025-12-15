@@ -67,10 +67,12 @@ type Transaction struct {
 	TransactionDate time.Time      `gorm:"not null;index" json:"transaction_date"`
 	Remark          string         `gorm:"type:text" json:"remark"`
 	Images          string         `gorm:"type:text" json:"images"` // JSON array
+	Tags            string         `gorm:"type:text" json:"tags"`   // JSON array of tag names
 	ToAccountID     *string        `gorm:"size:36" json:"to_account_id"`
 	Source          string         `gorm:"size:50;default:manual" json:"source"`
 	ReminderID      *string        `gorm:"size:36;index" json:"reminder_id,omitempty"`
 	LendingID       *string        `gorm:"size:36;index" json:"lending_id,omitempty"`
+	RecurringID     *string        `gorm:"size:36;index" json:"recurring_id,omitempty"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
@@ -273,4 +275,46 @@ type AccountLog struct {
 	CreatedAt     time.Time `gorm:"index" json:"created_at"`
 
 	Account *Account `gorm:"foreignKey:AccountID" json:"account,omitempty"`
+}
+
+// Tag for categorizing transactions with custom labels
+type Tag struct {
+	ID        string         `gorm:"primaryKey;size:36" json:"id"`
+	UserID    uint           `gorm:"not null;index" json:"user_id"`
+	Name      string         `gorm:"size:50;not null" json:"name"`
+	Color     string         `gorm:"size:20" json:"color"`
+	Icon      string         `gorm:"size:50" json:"icon"`
+	IsSystem  bool           `gorm:"default:false" json:"is_system"`
+	UsedCount int            `gorm:"default:0" json:"used_count"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// RecurringTransaction for automatic periodic transactions
+type RecurringTransaction struct {
+	ID             string         `gorm:"primaryKey;size:36" json:"id"`
+	UserID         uint           `gorm:"not null;index" json:"user_id"`
+	Name           string         `gorm:"size:100;not null" json:"name"`
+	Type           string         `gorm:"size:20;not null" json:"type"` // income / expense
+	Amount         float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
+	AccountID      string         `gorm:"size:36;not null" json:"account_id"`
+	CategoryID     *string        `gorm:"size:36" json:"category_id"`
+	Tags           string         `gorm:"type:text" json:"tags"` // JSON array
+	Remark         string         `gorm:"type:text" json:"remark"`
+	Frequency      string         `gorm:"size:20;not null" json:"frequency"` // daily/weekly/monthly/yearly
+	DayOfWeek      *int           `json:"day_of_week"`                       // 0-6 for weekly
+	DayOfMonth     *int           `json:"day_of_month"`                      // 1-31 for monthly
+	MonthOfYear    *int           `json:"month_of_year"`                     // 1-12 for yearly
+	StartDate      time.Time      `gorm:"not null" json:"start_date"`
+	EndDate        *time.Time     `json:"end_date"`
+	LastExecutedAt *time.Time     `json:"last_executed_at"`
+	NextExecuteAt  *time.Time     `gorm:"index" json:"next_execute_at"`
+	IsActive       bool           `gorm:"default:true" json:"is_active"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+
+	Account  *Account  `gorm:"foreignKey:AccountID" json:"account,omitempty"`
+	Category *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
 }

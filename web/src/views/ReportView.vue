@@ -150,44 +150,6 @@ function getMonthLabel(monthStr: string) {
         </div>
       </div>
 
-      <!-- Savings Rate Ring -->
-      <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6">
-        <div class="flex items-center gap-6">
-          <div class="relative w-24 h-24 flex-shrink-0">
-            <svg class="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <path
-                class="text-gray-100 dark:text-gray-800"
-                stroke="currentColor"
-                stroke-width="3"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                class="text-emerald-500"
-                stroke="currentColor"
-                stroke-width="3"
-                stroke-linecap="round"
-                fill="none"
-                :stroke-dasharray="`${Math.min(report.savings_rate || 0, 100)}, 100`"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-            <div class="absolute inset-0 flex items-center justify-center">
-              <span class="text-xl font-bold">{{ (report.savings_rate || 0).toFixed(0) }}%</span>
-            </div>
-          </div>
-          <div class="flex-1">
-            <div class="text-lg font-bold text-gray-900 dark:text-white mb-1">储蓄率</div>
-            <div class="text-sm text-gray-500 dark:text-gray-400">
-              日均支出 <span class="font-semibold text-gray-900 dark:text-white">¥{{ formatMoney(report.daily_avg_expense) }}</span>
-            </div>
-            <div class="text-sm text-gray-500 dark:text-gray-400">
-              月均支出 <span class="font-semibold text-gray-900 dark:text-white">¥{{ formatMoney(report.average_expense) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Asset Trend -->
       <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6">
         <div class="flex items-center justify-between mb-4">

@@ -197,9 +197,7 @@ func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.Syst
 	})
 
 	r.GET("/manifest.json", func(c *gin.Context) {
-		if !checkEntryAccess(c) {
-			return
-		}
+		// manifest.json 公开访问 - 只包含应用名称/图标，无敏感信息
 		c.File(filepath.Join(webPath, "manifest.json"))
 	})
 

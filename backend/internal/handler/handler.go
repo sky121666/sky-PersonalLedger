@@ -23,6 +23,7 @@ type Handlers struct {
 	System       *SystemHandler
 	Upload       *UploadHandler
 	AccountLog   *AccountLogHandler
+	Tag          *TagHandler
 }
 
 func NewHandlers(services *service.Services) *Handlers {
@@ -42,6 +43,7 @@ func NewHandlers(services *service.Services) *Handlers {
 		System:       NewSystemHandler(services.System),
 		Upload:       NewUploadHandler(services.Upload),
 		AccountLog:   NewAccountLogHandler(services.AccountLog),
+		Tag:          NewTagHandler(services.Tag),
 	}
 }
 
@@ -201,6 +203,16 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		{
 			accountLogs.GET("", h.AccountLog.GetAll)
 			accountLogs.GET("/account/:id", h.AccountLog.GetByAccountID)
+		}
+
+		// Tags
+		tags := protected.Group("/tags")
+		{
+			tags.GET("", h.Tag.List)
+			tags.POST("", h.Tag.Create)
+			tags.GET("/:id", h.Tag.GetByID)
+			tags.PUT("/:id", h.Tag.Update)
+			tags.DELETE("/:id", h.Tag.Delete)
 		}
 	}
 }

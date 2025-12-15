@@ -22,6 +22,7 @@ type Services struct {
 	System       *SystemService
 	Upload       *UploadService
 	AccountLog   *AccountLogService
+	Tag          *TagService
 }
 
 func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
@@ -44,5 +45,6 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		System:       NewSystemService(repos.System),
 		Upload:       NewUploadService(&cfg.Storage),
 		AccountLog:   accountLogService,
+		Tag:          NewTagService(repos.Tag),
 	}
 }

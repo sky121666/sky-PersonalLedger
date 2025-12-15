@@ -326,9 +326,9 @@ func (s *ReminderService) createPaymentTransaction(userID uint, reminder *model.
 }
 
 type ReminderDebtSummary struct {
-	TotalDebt       float64 `json:"total_debt"`
-	TotalPaid       float64 `json:"total_paid"`
-	TotalPrincipal  float64 `json:"total_principal"`
+	TotalDebt       float64 `json:"total_debt"`      // 待还总额
+	TotalPaid       float64 `json:"total_paid"`      // 已还金额 (本金 - 待还)
+	TotalPrincipal  float64 `json:"total_principal"` // 共需还金额 (本金总额)
 	Progress        float64 `json:"progress"`
 	ActiveLoans     int     `json:"active_loans"`
 	PaidOffLoans    int     `json:"paid_off_loans"`
@@ -356,7 +356,13 @@ func (s *ReminderService) GetDebtSummary(userID uint) (*ReminderDebtSummary, err
 		if r.CurrentBalance != nil {
 			summary.TotalDebt += *r.CurrentBalance
 		}
-		summary.TotalPaid += r.TotalPaid
+		// 已还金额 = 本金 - 待还 (不使用 r.TotalPaid，因为它可能包含利息)
+		if r.Principal != nil && r.CurrentBalance != nil {
+			paid := *r.Principal - *r.CurrentBalance
+			if paid > 0 {
+				summary.TotalPaid += paid
+			}
+		}
 
 		if r.PaidOffAt != nil {
 			summary.PaidOffLoans++
@@ -385,11 +391,10 @@ func (s *ReminderService) GetDebtSummary(userID uint) (*ReminderDebtSummary, err
 		summary.DaysUntilNext = 0
 	}
 
-	// Calculate progress: paid / (paid + remaining)
-	// This gives accurate progress even when paid amount includes interest
-	totalAmount := summary.TotalPaid + summary.TotalDebt
-	if totalAmount > 0 {
-		summary.Progress = (summary.TotalPaid / totalAmount) * 100
+	// Calculate progress: paid / principal
+	// 进度 = 已还金额 / 本金总额
+	if summary.TotalPrincipal > 0 {
+		summary.Progress = (summary.TotalPaid / summary.TotalPrincipal) * 100
 	}
 
 	return summary, nil

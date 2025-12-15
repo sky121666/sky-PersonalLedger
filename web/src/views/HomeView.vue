@@ -146,13 +146,13 @@ function onTransactionSuccess() {
     <!-- Header Area -->
     <div class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
       <div class="max-w-3xl mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/20">
-            <Home class="text-white" :size="28" />
+        <div class="flex items-center gap-3 md:gap-4">
+          <div class="w-11 h-11 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/20">
+            <Home class="text-white" :size="22" />
           </div>
           <div>
-            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Personal Ledger</h1>
-            <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ currentMonth }}</div>
+            <h1 class="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Personal Ledger</h1>
+            <div class="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ currentMonth }}</div>
           </div>
         </div>
         
@@ -168,7 +168,7 @@ function onTransactionSuccess() {
 
     <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
       <!-- Assets Card -->
-      <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group">
+      <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl md:rounded-3xl p-4 md:p-6 text-white shadow-xl relative overflow-hidden group">
         <!-- Decorative background elements -->
         <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl group-hover:bg-white/10 transition duration-700"></div>
         <div class="absolute bottom-0 left-0 w-48 h-48 bg-primary/20 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl"></div>

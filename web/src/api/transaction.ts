@@ -9,7 +9,9 @@ export interface Transaction {
   transaction_date: string
   remark: string
   images: string
+  tags: string
   to_account_id: string | null
+  recurring_id: string | null
   // Nested objects from backend
   account?: {
     id: string

@@ -305,14 +305,18 @@ function selectAccount(accountId: string | undefined) {
         <div class="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-4">
           <div class="h-full bg-primary rounded-full transition-all duration-500" :style="{ width: debtSummary.progress + '%' }"></div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-3 gap-3">
           <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
-            <div class="text-xs text-gray-400 mb-1">待还总额</div>
-            <div class="text-lg font-bold text-gray-900 dark:text-white font-nums">{{ formatMoney(debtSummary.total_debt) }}</div>
+            <div class="text-xs text-gray-400 mb-1">待还</div>
+            <div class="text-base font-bold text-gray-900 dark:text-white font-nums">{{ formatMoney(debtSummary.total_debt) }}</div>
           </div>
           <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
-            <div class="text-xs text-gray-400 mb-1">已还金额</div>
-            <div class="text-lg font-bold text-teal-600 dark:text-teal-400 font-nums">{{ formatMoney(debtSummary.total_paid) }}</div>
+            <div class="text-xs text-gray-400 mb-1">已还</div>
+            <div class="text-base font-bold text-teal-600 dark:text-teal-400 font-nums">{{ formatMoney(debtSummary.total_paid) }}</div>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+            <div class="text-xs text-gray-400 mb-1">共需还</div>
+            <div class="text-base font-bold text-blue-600 dark:text-blue-400 font-nums">{{ formatMoney(debtSummary.total_principal) }}</div>
           </div>
         </div>
         <div v-if="paidOffLoans.length > 0" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2 text-teal-600 dark:text-teal-400 text-sm">

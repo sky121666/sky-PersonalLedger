@@ -155,23 +155,44 @@ function getDayLabel(dateStr: string) {
           <h3 class="font-bold text-gray-900 dark:text-white text-sm">收支趋势</h3>
         </div>
         
-        <div class="h-40 flex items-end gap-2 overflow-x-auto pb-2 scrollbar-hide px-1">
+        <div class="h-44 flex items-end gap-1.5 overflow-x-auto pb-2 scrollbar-hide px-1">
           <div 
             v-for="item in trendData" 
             :key="item.date" 
-            class="flex flex-col items-center gap-2 flex-shrink-0 group"
-            style="width: 20px"
+            class="flex flex-col items-center gap-1.5 flex-shrink-0 group cursor-pointer"
+            style="width: 24px"
           >
-            <div class="relative w-full h-32 flex items-end rounded-full bg-gray-100/50 dark:bg-gray-800/50">
-              <!-- Expense Bar (Green) -->
+            <div class="relative w-full h-36 flex items-end gap-0.5">
+              <!-- Income Bar (Green) -->
               <div 
-                v-if="item.expense > 0"
-                class="absolute bottom-0 inset-x-0 mx-auto w-full bg-black dark:bg-white rounded-t-full opacity-80"
-                :style="{ height: `${(item.expense / maxTrendAmount) * 100}%` }"
+                class="flex-1 rounded-t-sm transition-all duration-300 group-hover:opacity-100"
+                :class="item.income > 0 ? 'bg-emerald-500' : 'bg-gray-100 dark:bg-gray-800'"
+                :style="{ height: item.income > 0 ? `${Math.max((item.income / maxTrendAmount) * 100, 4)}%` : '4%' }"
               ></div>
-              <!-- Income Bar (Red - Optional, overlay or separate? Standard is usually separate bars or overlay. Let's stick to expense focus for now or overlay income lightly) -->
+              <!-- Expense Bar (Red) -->
+              <div 
+                class="flex-1 rounded-t-sm transition-all duration-300 group-hover:opacity-100"
+                :class="item.expense > 0 ? 'bg-rose-500' : 'bg-gray-100 dark:bg-gray-800'"
+                :style="{ height: item.expense > 0 ? `${Math.max((item.expense / maxTrendAmount) * 100, 4)}%` : '4%' }"
+              ></div>
             </div>
-            <span class="text-[9px] text-gray-400 font-nums">{{ getDayLabel(item.date) }}</span>
+            <span class="text-[9px] text-gray-400 font-nums group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{{ getDayLabel(item.date) }}</span>
+            <!-- Tooltip -->
+            <div class="absolute -top-16 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[10px] px-2 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
+              <div class="text-emerald-400 dark:text-emerald-600">+¥{{ formatMoney(item.income) }}</div>
+              <div class="text-rose-400 dark:text-rose-600">-¥{{ formatMoney(item.expense) }}</div>
+            </div>
+          </div>
+        </div>
+        <!-- Legend -->
+        <div class="flex items-center justify-center gap-6 mt-4 text-xs text-gray-500">
+          <div class="flex items-center gap-1.5">
+            <div class="w-3 h-3 rounded-sm bg-emerald-500"></div>
+            <span>收入</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <div class="w-3 h-3 rounded-sm bg-rose-500"></div>
+            <span>支出</span>
           </div>
         </div>
       </div>

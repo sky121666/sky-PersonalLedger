@@ -17,6 +17,7 @@ type Repositories struct {
 	Lending      *LendingRepository
 	System       *SystemRepository
 	AccountLog   *AccountLogRepository
+	Tag          *TagRepository
 }
 
 func NewRepositories(db *gorm.DB) *Repositories {
@@ -33,5 +34,6 @@ func NewRepositories(db *gorm.DB) *Repositories {
 		Lending:      NewLendingRepository(db),
 		System:       NewSystemRepository(db),
 		AccountLog:   NewAccountLogRepository(db),
+		Tag:          NewTagRepository(db),
 	}
 }
