@@ -1,0 +1,121 @@
+package middleware
+
+import (
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/sky/personal-ledger/pkg/jwt"
+	"github.com/sky/personal-ledger/pkg/logger"
+	"github.com/sky/personal-ledger/pkg/response"
+
+	"github.com/gin-gonic/gin"
+)
+
+// Note: sync was removed as rate limiter was removed
+
+// CORS handles Cross-Origin Resource Sharing with configurable origins
+func CORS(allowedOrigins ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		allowed := false
+
+		// If no origins specified, allow all (development mode)
+		if len(allowedOrigins) == 0 || (len(allowedOrigins) == 1 && allowedOrigins[0] == "*") {
+			allowed = true
+			c.Header("Access-Control-Allow-Origin", "*")
+		} else {
+			for _, o := range allowedOrigins {
+				if o == origin {
+					allowed = true
+					c.Header("Access-Control-Allow-Origin", origin)
+					break
+				}
+			}
+		}
+
+		if !allowed {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Max-Age", "86400")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// SecurityHeaders adds security-related HTTP headers
+func SecurityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("X-XSS-Protection", "1; mode=block")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+		c.Next()
+	}
+}
+
+func Logger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		method := c.Request.Method
+
+		c.Next()
+
+		latency := time.Since(start)
+		status := c.Writer.Status()
+
+		logger.Infof("%s %s %d %v", method, path, status, latency)
+	}
+}
+
+func Auth(jwtManager *jwt.Manager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			response.Unauthorized(c, "missing authorization header")
+			c.Abort()
+			return
+		}
+
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			response.Unauthorized(c, "invalid authorization header format")
+			c.Abort()
+			return
+		}
+
+		claims, err := jwtManager.ValidateToken(parts[1])
+		if err != nil {
+			if err == jwt.ErrExpiredToken {
+				response.Error(c, 401, 40102, "token expired")
+			} else {
+				response.Unauthorized(c, "invalid token")
+			}
+			c.Abort()
+			return
+		}
+
+		c.Set("userID", claims.UserID)
+		c.Next()
+	}
+}
+
+func GetUserID(c *gin.Context) uint {
+	userID, exists := c.Get("userID")
+	if !exists {
+		return 0
+	}
+	return userID.(uint)
+}

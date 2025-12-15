@@ -1,0 +1,41 @@
+# Personal Ledger 配置文件
+# 复制此文件为 config.yaml 并修改配置
+
+server:
+  port: "8080"
+  mode: "release"           # debug / release
+  web_path: "./web/dist"    # 前端构建文件路径
+
+database:
+  path: "./data/ledger.db"
+
+jwt:
+  secret: "your-jwt-secret-change-this-in-production"
+  access_expire: 15         # 分钟
+  refresh_expire: 43200     # 分钟 (30天)
+
+log:
+  level: "info"
+  format: "json"
+
+# 安全配置
+security:
+  # 自定义入口路径 (留空则使用根路径 /)
+  # 设置后只能通过 http://host:port/your-secret-path 访问
+  base_path: ""
+  
+  # API Token (移动端访问需要)
+  # 设置后，所有 API 请求必须携带 X-API-Token 头
+  # 留空则不验证 (仅 Web 端访问时可留空)
+  api_token: ""
+
+# 文件存储配置
+storage:
+  upload_path: "./data/uploads"   # 上传文件存储路径 (Docker部署时映射此目录)
+  max_file_size: 10               # 最大文件大小 (MB)
+  allowed_types: "jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt"
+
+# 示例配置:
+# security:
+#   base_path: "/my-ledger-2024"
+#   api_token: "sk-abc123xyz456"

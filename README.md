@@ -1,115 +1,192 @@
-# sky-PersonalLedger
+# Personal Ledger 个人记账本
 
-个人记账系统 - 简单、安全、跨平台
+一款现代化的个人财务管理应用，支持 Web 和移动端，帮助您轻松管理日常收支、预算、借贷和债务。
 
-## 功能特点
+## ✨ 功能特性
 
-- **多平台支持**: Android、iOS、微信小程序、Web (H5/PC)
-- **原生渲染**: uni-app x 原生引擎，性能接近原生
-- **响应式设计**: 统一 Apple 简约风，自适应移动端/PC 端布局
-- **单用户设计**: 个人专属，无需复杂权限
-- **本地优先**: SQLite 单文件数据库，数据完全自控
+### 📊 记账管理
+- **收支记录** - 快速记录收入、支出和转账
+- **分类管理** - 自定义收支分类和图标
+- **多账户** - 支持现金、银行卡、信用卡等多种账户类型
+- **交易模板** - 常用交易一键快速记录
 
-## UI/UX 设计
+### 💰 财务分析
+- **统计概览** - 收支趋势、分类占比一目了然
+- **年度报告** - 年度财务汇总和资产趋势
+- **预算管理** - 设置月度预算，超支提醒
 
-**统一设计风格**: Apple 极简主义 (iOS Human Interface Guidelines)
+### 💳 债务管理
+- **负债追踪** - 信用卡、贷款等债务还款进度
+- **借贷管理** - 借入借出记录，还款追踪
+- **联动撤回** - 删除明细时自动撤回关联数据
 
-- **视觉语言**: 大量留白、圆角卡片、毛玻璃效果、细腻阴影
-- **图标系统**: SF Symbols 风格线性图标
-- **响应式布局**:
-  - **移动端** (App / 小程序 / H5 < 768px): 单栏全屏 + 底部 Tab Bar
-  - **PC 端** (H5 ≥ 768px): 侧边栏导航 + 多列卡片布局
+### 🔐 安全特性
+- **JWT 认证** - 安全的用户认证机制
+- **自定义入口** - 可设置隐蔽访问路径
+- **API Token** - 移动端访问安全验证
+- **数据备份** - 支持数据导入导出
 
-## 技术栈
+## 🛠️ 技术栈
 
 ### 后端
 
-| 技术 | 版本 |
-|------|------|
-| Go | 1.23+ |
-| Gin | 1.11.0 |
-| GORM | 1.31.1 |
-| SQLite | 1.14.32 |
-| Zap | 1.27.1 |
-| Viper | 1.21.0 |
-| JWT | 5.3.0 |
+| 技术 | 版本 | 说明 |
+|-----|------|-----|
+| Go | 1.21+ | 高性能后端语言 |
+| Gin | 1.11.0 | 轻量级 Web 框架 |
+| GORM | 1.31.1 | ORM 框架 |
+| SQLite | 1.6.0 | 嵌入式数据库 |
+| JWT | 5.3.0 | 用户认证 |
+| Zap | 1.27.1 | 结构化日志 |
+| Viper | 1.21.0 | 配置管理 |
 
 ### 前端
 
-| 技术 | 版本 |
-|------|------|
-| uni-app x | 0.7.82 |
-| UTS | latest |
-| Vue | 3.5.13 |
-| Vite | 5.2.8 |
+| 技术 | 版本 | 说明 |
+|-----|------|-----|
+| Vue | 3.4.29 | 渐进式前端框架 |
+| TypeScript | 5.4.5 | 类型安全 |
+| Vite | 5.3.1 | 快速构建工具 |
+| TailwindCSS | 3.4.4 | 原子化 CSS |
+| Pinia | 2.1.7 | 状态管理 |
+| Vue Router | 4.3.3 | 路由管理 |
+| Axios | 1.7.2 | HTTP 客户端 |
+| Lucide | 0.378.0 | 图标库 |
+| Day.js | 1.11.11 | 日期处理 |
 
-## 核心功能
+## 📦 快速开始
 
-| 功能 | 说明 |
-|------|------|
-| 账户管理 | 现金/银行卡/支付宝/微信/信用/贷款/应收/应付 |
-| 交易记录 | 收入/支出/转账，自动更新账户余额 |
-| 分类管理 | 收入/支出分类，自定义图标颜色 |
-| 预算管理 | 月度总预算 + 分类预算 |
-| 还款提醒 | 信用/贷款还款日提醒，多渠道通知 |
-| 借贷管理 | 通过应收款/应付款账户 + 转账实现 |
-| 数据统计 | 月度概览、分类占比、趋势图 |
-| 账单导入 | 微信/支付宝/银行账单导入 |
+### 环境要求
 
-## 项目结构
+- **Go** 1.21+
+- **Node.js** 18+
+- **pnpm** / npm / yarn
 
-```
-sky-PersonalLedger/
-├── backend/              # Go 后端
-│   ├── cmd/server/       # 入口
-│   ├── internal/         # 内部模块
-│   └── pkg/              # 公共包
-├── app/                  # uni-app x 前端
-│   ├── src/
-│   │   ├── pages/        # 页面 (.uvue)
-│   │   ├── api/          # API 接口 (.uts)
-│   │   ├── utils/        # 工具函数 (.uts)
-│   │   └── static/       # 静态资源
-│   └── package.json
-└── docs/                 # 项目文档
-```
-
-## 快速开始
-
+### 1. 克隆项目
 ```bash
-# 启动后端
+git clone https://github.com/yourusername/personal-ledger.git
+cd personal-ledger
+```
+
+### 2. 配置文件
+```bash
+cp config.example.yaml config.yaml
+# 编辑 config.yaml 修改配置
+```
+
+### 3. 构建前端
+```bash
+cd web
+npm install
+npm run build
+cd ..
+```
+
+### 4. 运行后端
+```bash
 cd backend
 go run cmd/server/main.go
-
-# 启动前端 (H5)
-cd app
-npm install
-npm run dev:h5
-
-# 启动前端 (Android)
-npm run dev:app-android
-
-# 启动前端 (iOS)
-npm run dev:app-ios
 ```
 
-## 文档
+### 5. 访问应用
+打开浏览器访问 `http://localhost:8080`
 
-### 需求规格
+## 🐳 Docker 部署
 
-- [功能需求规格](docs/REQUIREMENTS.md)
-- [API 接口定义](docs/API_ENDPOINTS.md)
-- [账单导入格式](docs/IMPORT_FORMATS.md)
+```bash
+# 构建镜像
+docker build -t personal-ledger .
 
-### 设计规范
+# 运行容器
+docker run -d \
+  -p 8080:8080 \
+  -v ./data:/app/data \
+  -v ./config.yaml:/app/config.yaml \
+  personal-ledger
+```
 
-- [UI/UX 设计规范](docs/UI_DESIGN.md)
-- [API 设计规范](docs/API_DESIGN.md)
-- [数据库设计规范](docs/DATABASE_DESIGN.md)
-- [同步与离线策略](docs/SYNC_STRATEGY.md)
-- [工程代码规范](docs/CODE_STYLE.md)
-- [安全设计规范](docs/SECURITY.md)
+## ⚙️ 配置说明
 
-## License
+```yaml
+server:
+  port: "8080"           # 服务端口
+  mode: "release"        # debug / release
+  web_path: "./web/dist" # 前端文件路径
 
-MIT
+database:
+  path: "./data/ledger.db"  # 数据库路径
+
+jwt:
+  secret: "your-secret"     # JWT 密钥 (请修改!)
+  access_expire: 15         # 访问令牌过期时间 (分钟)
+  refresh_expire: 43200     # 刷新令牌过期时间 (分钟)
+
+security:
+  base_path: ""             # 自定义入口路径
+  api_token: ""             # API Token (移动端需要)
+
+storage:
+  upload_path: "./data/uploads"  # 上传文件路径
+  max_file_size: 10              # 最大文件大小 (MB)
+```
+
+## 📱 移动端
+
+项目包含基于 Capacitor 的移动端应用，支持 iOS 和 Android。
+
+```bash
+cd mobile
+npm install
+npm run build
+npx cap sync
+```
+
+## 📁 项目结构
+
+```
+personal-ledger/
+├── backend/                # 后端代码
+│   ├── cmd/server/        # 入口文件
+│   └── internal/          # 内部模块
+│       ├── config/        # 配置
+│       ├── handler/       # HTTP 处理器
+│       ├── middleware/    # 中间件
+│       ├── model/         # 数据模型
+│       ├── repository/    # 数据访问层
+│       └── service/       # 业务逻辑层
+├── web/                   # 前端代码
+│   ├── src/
+│   │   ├── api/          # API 接口
+│   │   ├── components/   # 组件
+│   │   ├── stores/       # 状态管理
+│   │   ├── utils/        # 工具函数
+│   │   └── views/        # 页面
+│   └── ...
+├── mobile/               # 移动端代码
+├── config.example.yaml   # 配置示例
+└── README.md
+```
+
+## 🔧 开发
+
+### 后端开发
+```bash
+cd backend
+go run cmd/server/main.go
+```
+
+### 前端开发
+```bash
+cd web
+npm run dev
+```
+
+前端开发服务器默认运行在 `http://localhost:5173`，会自动代理 API 请求到后端。
+
+## 📄 License
+
+MIT License
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！

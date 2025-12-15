@@ -1,0 +1,118 @@
+package handler
+
+import (
+	"path/filepath"
+
+	"github.com/gin-gonic/gin"
+	"github.com/sky/personal-ledger/internal/middleware"
+	"github.com/sky/personal-ledger/internal/service"
+	"github.com/sky/personal-ledger/pkg/response"
+)
+
+type UploadHandler struct {
+	uploadService *service.UploadService
+}
+
+func NewUploadHandler(uploadService *service.UploadService) *UploadHandler {
+	return &UploadHandler{uploadService: uploadService}
+}
+
+type UploadRequest struct {
+	Category string `form:"category" binding:"required,oneof=transactions lendings reminders"`
+	RefID    string `form:"ref_id" binding:"required"`
+}
+
+func (h *UploadHandler) Upload(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	var req UploadRequest
+	if err := c.ShouldBind(&req); err != nil {
+		response.BadRequest(c, "category and ref_id are required")
+		return
+	}
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.BadRequest(c, "file is required")
+		return
+	}
+
+	result, err := h.uploadService.Upload(userID, req.Category, req.RefID, file)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, result)
+}
+
+func (h *UploadHandler) Delete(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		response.BadRequest(c, "path is required")
+		return
+	}
+
+	if err := h.uploadService.Delete(path); err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"message": "file deleted"})
+}
+
+func (h *UploadHandler) List(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	category := c.Query("category")
+	refID := c.Query("ref_id")
+
+	if category == "" || refID == "" {
+		response.BadRequest(c, "category and ref_id are required")
+		return
+	}
+
+	files, err := h.uploadService.ListFiles(userID, category, refID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"files": files})
+}
+
+func (h *UploadHandler) Serve(c *gin.Context) {
+	// Get the file path from URL parameter
+	filePath := c.Param("filepath")
+	if filePath == "" {
+		response.BadRequest(c, "file path is required")
+		return
+	}
+
+	fullPath := h.uploadService.GetFilePath(filePath)
+
+	// Check if file exists
+	c.File(fullPath)
+}
+
+func (h *UploadHandler) Download(c *gin.Context) {
+	filePath := c.Query("path")
+	if filePath == "" {
+		response.BadRequest(c, "path is required")
+		return
+	}
+
+	fullPath := h.uploadService.GetFilePath(filePath)
+	filename := filepath.Base(filePath)
+
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Header("Content-Type", "application/octet-stream")
+	c.File(fullPath)
+}
+
+func (h *UploadHandler) ServeStatic(uploadPath string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		filePath := c.Param("filepath")
+		fullPath := filepath.Join(uploadPath, filePath)
+		c.File(fullPath)
+	}
+}

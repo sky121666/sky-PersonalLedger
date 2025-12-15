@@ -1,8 +1,8 @@
-# 依赖
+# ===== 依赖 =====
 node_modules/
 vendor/
 
-# 构建产物
+# ===== 构建产物 =====
 dist/
 build/
 *.exe
@@ -10,69 +10,65 @@ build/
 *.so
 *.dylib
 
-# 环境配置
-.env
-.env.local
-.env.*.local
-*.local
+# ===== 配置文件 =====
+config.yaml
+!config.example.yaml
 
-# 日志
+# ===== 环境变量 =====
+.env
+.env.*
+!.env.example
+
+# ===== 日志 =====
 *.log
 logs/
 
-# 数据库
+# ===== 数据库和数据 =====
 *.db
 *.sqlite
 *.sqlite3
 data/
 
-# IDE
+# ===== IDE =====
 .idea/
 .vscode/
+.windsurf/
 *.swp
 *.swo
 *~
 
-# macOS
+# ===== macOS =====
 .DS_Store
-.AppleDouble
-.LSOverride
 ._*
 
-# 临时文件
+# ===== Windows =====
+Thumbs.db
+Desktop.ini
+
+# ===== 临时文件 =====
 tmp/
 temp/
 *.tmp
 *.temp
 
-# 测试覆盖率
+# ===== 测试 =====
 coverage/
 *.cover
 *.out
-
-# Go
 *.test
 
-# uni-app
+# ===== 移动端 =====
 unpackage/
 .hbuilderx/
+mobile/android/
+mobile/ios/
+*.apk
+*.ipa
 
-# 备份文件
+# ===== 备份和压缩 =====
 *.bak
 *.backup
-.windsurf/
 *.zip
 *.tar.gz
 *.rar
 *.7z
-*.tar
-*.gz
-*.bz2
-*.xz
-*.lz
-*.lzma
-*.zst
-*.zstd
-*.zstdignore
-*.zstdignore
-*.zstdignore
