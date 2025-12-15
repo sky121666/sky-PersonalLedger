@@ -26,9 +26,9 @@ type Handlers struct {
 	Tag          *TagHandler
 }
 
-func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler) *Handlers {
+func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler, rateLimiter *middleware.RateLimiter) *Handlers {
 	return &Handlers{
-		Auth:         NewAuthHandler(services.Auth, services.Notification),
+		Auth:         NewAuthHandler(services.Auth, services.Notification, rateLimiter),
 		Account:      NewAccountHandler(services.Account),
 		Category:     NewCategoryHandler(services.Category),
 		Transaction:  NewTransactionHandler(services.Transaction),

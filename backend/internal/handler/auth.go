@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"time"
+
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/response"
@@ -11,10 +13,11 @@ import (
 type AuthHandler struct {
 	service      *service.AuthService
 	notification *service.NotificationService
+	rateLimiter  *middleware.RateLimiter
 }
 
-func NewAuthHandler(s *service.AuthService, n *service.NotificationService) *AuthHandler {
-	return &AuthHandler{service: s, notification: n}
+func NewAuthHandler(s *service.AuthService, n *service.NotificationService, rl *middleware.RateLimiter) *AuthHandler {
+	return &AuthHandler{service: s, notification: n, rateLimiter: rl}
 }
 
 func (h *AuthHandler) Status(c *gin.Context) {
@@ -61,16 +64,33 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Check account rate limit
+	allowed, lockedUntil := h.rateLimiter.CheckAccount("admin")
+	if !allowed {
+		remainingSeconds := int(time.Until(lockedUntil).Seconds())
+		c.JSON(429, gin.H{
+			"code":         42902,
+			"message":      "Account temporarily locked due to too many failed attempts.",
+			"locked_until": lockedUntil.Format(time.RFC3339),
+			"retry_after":  remainingSeconds,
+		})
+		return
+	}
+
 	result, err := h.service.Login(req.Password)
 	if err != nil {
 		if err == service.ErrUserLocked {
 			response.Error(c, 403, 40301, "account locked, try again later")
 			return
 		}
+		// Record failed attempt
+		h.rateLimiter.RecordAttempt(c.ClientIP(), "admin")
 		response.Unauthorized(c, "invalid password")
 		return
 	}
 
+	// Reset account attempts on successful login
+	h.rateLimiter.ResetAccount("admin")
 	response.Success(c, result)
 }
 

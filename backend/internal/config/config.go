@@ -1,6 +1,8 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/spf13/viper"
 )
 
@@ -52,6 +54,29 @@ func Load() (*Config, error) {
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./backend")
 
+	// Enable environment variable support
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("LEDGER")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	// Bind environment variables to config keys
+	viper.BindEnv("server.port", "LEDGER_SERVER_PORT")
+	viper.BindEnv("server.mode", "LEDGER_SERVER_MODE")
+	viper.BindEnv("server.web_path", "LEDGER_SERVER_WEB_PATH")
+	viper.BindEnv("database.path", "LEDGER_DATABASE_PATH")
+	viper.BindEnv("jwt.secret", "LEDGER_JWT_SECRET")
+	viper.BindEnv("jwt.access_expire", "LEDGER_JWT_ACCESS_EXPIRE")
+	viper.BindEnv("jwt.refresh_expire", "LEDGER_JWT_REFRESH_EXPIRE")
+	viper.BindEnv("log.level", "LEDGER_LOG_LEVEL")
+	viper.BindEnv("log.format", "LEDGER_LOG_FORMAT")
+	viper.BindEnv("storage.upload_path", "LEDGER_STORAGE_UPLOAD_PATH")
+	viper.BindEnv("storage.backup_path", "LEDGER_STORAGE_BACKUP_PATH")
+	viper.BindEnv("storage.max_file_size", "LEDGER_STORAGE_MAX_FILE_SIZE")
+	viper.BindEnv("storage.allowed_types", "LEDGER_STORAGE_ALLOWED_TYPES")
+	viper.BindEnv("security.base_path", "LEDGER_SECURITY_BASE_PATH")
+	viper.BindEnv("security.api_token", "LEDGER_SECURITY_API_TOKEN")
+
+	// Set defaults
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.mode", "debug")
 	viper.SetDefault("server.web_path", "./web/dist")
@@ -64,6 +89,8 @@ func Load() (*Config, error) {
 	viper.SetDefault("storage.backup_path", "./data/backups")
 	viper.SetDefault("storage.max_file_size", 10) // 10MB
 	viper.SetDefault("storage.allowed_types", "jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt")
+
+	// Try to read config file (optional)
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return nil, err

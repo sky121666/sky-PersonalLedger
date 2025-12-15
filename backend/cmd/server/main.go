@@ -53,8 +53,11 @@ func main() {
 	backupScheduler := service.NewBackupScheduler(services.Backup, repos.System, repos.User, cfg.Storage.BackupPath)
 	backupScheduler.Start()
 
+	// Initialize rate limiter
+	rateLimiter := middleware.NewRateLimiter()
+
 	// Initialize handlers
-	handlers := handler.NewHandlers(services, backupScheduler)
+	handlers := handler.NewHandlers(services, backupScheduler, rateLimiter)
 
 	// Setup Gin
 	if cfg.Server.Mode == "release" {
@@ -67,6 +70,7 @@ func main() {
 	r.Use(middleware.CORS("*")) // Use "*" for dev, configure specific origins for production
 	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.Logger())
+	r.Use(rateLimiter.Middleware()) // Rate limiting for login attempts
 
 	// Setup API routes
 	handler.SetupRoutes(r, handlers, services.Auth)
