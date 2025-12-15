@@ -30,7 +30,7 @@ func (h *AuthHandler) Status(c *gin.Context) {
 }
 
 type InitRequest struct {
-	Password string `json:"password" binding:"required,min=6"`
+	Password string `json:"password" binding:"required,min=8"`
 }
 
 func (h *AuthHandler) Init(c *gin.Context) {
@@ -125,7 +125,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 type ChangePasswordRequest struct {
 	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required,min=6"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
 }
 
 func (h *AuthHandler) ChangePassword(c *gin.Context) {

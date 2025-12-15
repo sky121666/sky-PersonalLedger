@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sky/personal-ledger/internal/config"
 	"github.com/sky/personal-ledger/internal/database"
@@ -23,6 +24,20 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Validate critical security settings
+	if cfg.JWT.Secret == "" || cfg.JWT.Secret == "change-this-to-a-random-secret-key" {
+		log.Fatal("FATAL: JWT_SECRET must be set to a secure random value! Please set LEDGER_JWT_SECRET environment variable.")
+	}
+	if len(cfg.JWT.Secret) < 32 {
+		log.Fatal("FATAL: JWT_SECRET must be at least 32 characters long for security.")
+	}
+
+	// Warn about CORS in production
+	if cfg.Server.Mode == "release" && cfg.CORS.AllowedOrigins == "*" {
+		log.Println("WARNING: CORS is set to allow all origins (*) in production mode. This is insecure!")
+		log.Println("WARNING: Please set LEDGER_CORS_ALLOWED_ORIGINS to your specific domain.")
 	}
 
 	// Initialize logger
@@ -55,6 +70,7 @@ func main() {
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter()
+	globalRateLimiter := middleware.NewGlobalRateLimiter(100, 1*time.Minute) // 100 requests per minute per IP
 
 	// Initialize handlers
 	handlers := handler.NewHandlers(services, backupScheduler, rateLimiter)
@@ -67,10 +83,11 @@ func main() {
 	r := gin.Default()
 
 	// Apply middlewares
-	r.Use(middleware.CORS("*")) // Use "*" for dev, configure specific origins for production
+	r.Use(middleware.CORS(cfg.CORS.AllowedOrigins))
 	r.Use(middleware.SecurityHeaders())
-	r.Use(middleware.Logger())
-	r.Use(rateLimiter.Middleware()) // Rate limiting for login attempts
+	r.Use(middleware.AuditLog())          // Security audit logging
+	r.Use(globalRateLimiter.Middleware()) // Global API rate limiting
+	r.Use(rateLimiter.Middleware())       // Rate limiting for login attempts
 
 	// Setup API routes
 	handler.SetupRoutes(r, handlers, services.Auth)
@@ -106,19 +123,6 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 	r.GET("/uploads/*filepath", func(c *gin.Context) {
 		filePath := c.Param("filepath")
 
-		// Allow public access to avatars
-		if strings.Contains(filePath, "/avatars/") {
-			fullPath := filepath.Join(uploadPath, filePath)
-			absUploadPath, _ := filepath.Abs(uploadPath)
-			absFullPath, _ := filepath.Abs(fullPath)
-			if !strings.HasPrefix(absFullPath, absUploadPath) {
-				c.JSON(403, gin.H{"error": "forbidden"})
-				return
-			}
-			c.File(fullPath)
-			return
-		}
-
 		// Check JWT token from query parameter or header
 		token := c.Query("token")
 		if token == "" {
@@ -139,6 +143,7 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 			c.JSON(401, gin.H{"error": "invalid token"})
 			return
 		}
+
 		fullPath := filepath.Join(uploadPath, filePath)
 
 		// Security check: ensure path is within upload directory

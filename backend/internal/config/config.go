@@ -13,11 +13,16 @@ type Config struct {
 	Log      LogConfig
 	Storage  StorageConfig
 	Security SecurityConfig
+	CORS     CORSConfig
 }
 
 type SecurityConfig struct {
 	BasePath string `mapstructure:"base_path"`
 	APIToken string `mapstructure:"api_token"`
+}
+
+type CORSConfig struct {
+	AllowedOrigins string `mapstructure:"allowed_origins"`
 }
 
 type StorageConfig struct {
@@ -75,6 +80,7 @@ func Load() (*Config, error) {
 	viper.BindEnv("storage.allowed_types", "LEDGER_STORAGE_ALLOWED_TYPES")
 	viper.BindEnv("security.base_path", "LEDGER_SECURITY_BASE_PATH")
 	viper.BindEnv("security.api_token", "LEDGER_SECURITY_API_TOKEN")
+	viper.BindEnv("cors.allowed_origins", "LEDGER_CORS_ALLOWED_ORIGINS")
 
 	// Set defaults
 	viper.SetDefault("server.port", "8080")
@@ -89,6 +95,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("storage.backup_path", "./data/backups")
 	viper.SetDefault("storage.max_file_size", 10) // 10MB
 	viper.SetDefault("storage.allowed_types", "jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt")
+	viper.SetDefault("cors.allowed_origins", "*") // Default to all, should be configured in production
 
 	// Try to read config file (optional)
 	if err := viper.ReadInConfig(); err != nil {

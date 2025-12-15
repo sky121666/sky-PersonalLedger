@@ -195,7 +195,7 @@ func (rl *RateLimiter) cleanup() {
 	}
 }
 
-// Middleware returns a gin middleware for rate limiting
+// Middleware returns a gin middleware for rate limiting (login only)
 func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Only apply to login endpoint
@@ -215,6 +215,103 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 				"message":      "Too many login attempts. Please try again later.",
 				"locked_until": lockedUntil.Format(time.RFC3339),
 				"retry_after":  remainingSeconds,
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// GlobalRateLimiter provides global API rate limiting
+type GlobalRateLimiter struct {
+	requests    map[string][]time.Time
+	mu          sync.RWMutex
+	maxRequests int
+	window      time.Duration
+}
+
+func NewGlobalRateLimiter(maxRequests int, window time.Duration) *GlobalRateLimiter {
+	grl := &GlobalRateLimiter{
+		requests:    make(map[string][]time.Time),
+		maxRequests: maxRequests,
+		window:      window,
+	}
+	go grl.cleanup()
+	return grl
+}
+
+func (grl *GlobalRateLimiter) Allow(ip string) bool {
+	grl.mu.Lock()
+	defer grl.mu.Unlock()
+
+	now := time.Now()
+	requests, exists := grl.requests[ip]
+
+	if !exists {
+		grl.requests[ip] = []time.Time{now}
+		return true
+	}
+
+	// Remove old requests outside the window
+	var validRequests []time.Time
+	for _, t := range requests {
+		if now.Sub(t) < grl.window {
+			validRequests = append(validRequests, t)
+		}
+	}
+
+	// Check if limit exceeded
+	if len(validRequests) >= grl.maxRequests {
+		grl.requests[ip] = validRequests
+		return false
+	}
+
+	// Add current request
+	validRequests = append(validRequests, now)
+	grl.requests[ip] = validRequests
+	return true
+}
+
+func (grl *GlobalRateLimiter) cleanup() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		grl.mu.Lock()
+		now := time.Now()
+		for ip, requests := range grl.requests {
+			var validRequests []time.Time
+			for _, t := range requests {
+				if now.Sub(t) < grl.window {
+					validRequests = append(validRequests, t)
+				}
+			}
+			if len(validRequests) == 0 {
+				delete(grl.requests, ip)
+			} else {
+				grl.requests[ip] = validRequests
+			}
+		}
+		grl.mu.Unlock()
+	}
+}
+
+func (grl *GlobalRateLimiter) Middleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Skip rate limiting for public endpoints
+		path := c.Request.URL.Path
+		if path == "/api/v1/auth/status" || path == "/api/v1/auth/init" {
+			c.Next()
+			return
+		}
+
+		ip := c.ClientIP()
+		if !grl.Allow(ip) {
+			c.JSON(429, gin.H{
+				"code":    42903,
+				"message": "Too many requests. Please slow down.",
 			})
 			c.Abort()
 			return

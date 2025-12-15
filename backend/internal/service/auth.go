@@ -8,6 +8,7 @@ import (
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
 	"github.com/sky/personal-ledger/pkg/jwt"
+	"github.com/sky/personal-ledger/pkg/validator"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -51,8 +52,8 @@ type AuthResponse struct {
 }
 
 func (s *AuthService) Init(password string) (*AuthResponse, error) {
-	if len(password) < 6 {
-		return nil, ErrPasswordTooShort
+	if err := validator.ValidatePasswordSimple(password); err != nil {
+		return nil, err
 	}
 
 	count, err := s.userRepo.Count()
@@ -143,8 +144,8 @@ func (s *AuthService) Logout(userID uint) error {
 }
 
 func (s *AuthService) ChangePassword(userID uint, oldPassword, newPassword string) error {
-	if len(newPassword) < 6 {
-		return ErrPasswordTooShort
+	if err := validator.ValidatePasswordSimple(newPassword); err != nil {
+		return err
 	}
 
 	user, err := s.userRepo.GetByID(userID)
