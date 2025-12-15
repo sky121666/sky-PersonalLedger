@@ -171,7 +171,7 @@ watch(filters, () => {
   <div class="min-h-full bg-[#F2F2F7] dark:bg-black pb-8">
     <!-- Header -->
     <div class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
-      <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <div class="max-w-3xl mx-auto flex items-center justify-between">
         <div class="flex items-center gap-4">
           <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
             <List class="text-white" :size="28" />
@@ -208,7 +208,7 @@ watch(filters, () => {
 
       <!-- Filter Panel -->
       <div v-if="showFilter" class="border-t border-gray-200/50 dark:border-white/10 bg-gray-50/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl">
-        <div class="max-w-5xl mx-auto px-4 py-3 space-y-3">
+        <div class="max-w-3xl mx-auto px-4 py-3 space-y-3">
           <!-- Type Filter -->
           <div class="flex gap-2">
             <button 
@@ -240,7 +240,7 @@ watch(filters, () => {
       </div>
     </div>
 
-    <div class="max-w-5xl mx-auto px-4 md:px-8 py-4 space-y-6">
+    <div class="max-w-3xl mx-auto px-4 md:px-8 py-4 space-y-6">
       
       <!-- Empty State -->
       <div v-if="transactions.length === 0 && !loading" class="py-20 text-center">

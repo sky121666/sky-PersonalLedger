@@ -385,12 +385,11 @@ func (s *ReminderService) GetDebtSummary(userID uint) (*ReminderDebtSummary, err
 		summary.DaysUntilNext = 0
 	}
 
-	// Calculate progress: total_paid / total_principal
-	if summary.TotalPrincipal > 0 {
-		summary.Progress = (summary.TotalPaid / summary.TotalPrincipal) * 100
-		if summary.Progress > 100 {
-			summary.Progress = 100
-		}
+	// Calculate progress: paid / (paid + remaining)
+	// This gives accurate progress even when paid amount includes interest
+	totalAmount := summary.TotalPaid + summary.TotalDebt
+	if totalAmount > 0 {
+		summary.Progress = (summary.TotalPaid / totalAmount) * 100
 	}
 
 	return summary, nil

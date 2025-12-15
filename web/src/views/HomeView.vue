@@ -145,7 +145,7 @@ function onTransactionSuccess() {
   <div class="min-h-full bg-[#F2F2F7] dark:bg-black pb-24 md:pb-8">
     <!-- Header Area -->
     <div class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
-      <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <div class="max-w-3xl mx-auto flex items-center justify-between">
         <div class="flex items-center gap-4">
           <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/20">
             <Home class="text-white" :size="28" />
@@ -166,7 +166,7 @@ function onTransactionSuccess() {
       </div>
     </div>
 
-    <div class="max-w-5xl mx-auto px-4 md:px-8 py-6 space-y-6">
+    <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
       <!-- Assets Card -->
       <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group">
         <!-- Decorative background elements -->

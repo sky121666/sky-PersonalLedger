@@ -127,24 +127,24 @@ function getMonthLabel(monthStr: string) {
 
     <div v-else-if="report" class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-4">
       <!-- Hero Section -->
-      <div class="relative bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-8 text-white overflow-hidden">
+      <div class="relative bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-5 sm:p-8 text-white overflow-hidden">
         <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
         <div class="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl"></div>
         <div class="relative text-center">
-          <div class="text-7xl font-black mb-2">{{ selectedYear }}</div>
-          <div class="text-white/80 text-sm mb-6">年度财务总结</div>
-          <div class="grid grid-cols-3 gap-4 mt-6">
-            <div class="bg-white/10 backdrop-blur rounded-2xl p-4">
-              <div class="text-white/60 text-xs mb-1">总收入</div>
-              <div class="text-xl font-bold font-nums">¥{{ formatMoney(report.total_income) }}</div>
+          <div class="text-5xl sm:text-7xl font-black mb-2">{{ selectedYear }}</div>
+          <div class="text-white/80 text-sm mb-4 sm:mb-6">年度财务总结</div>
+          <div class="grid grid-cols-3 gap-2 sm:gap-4 mt-4 sm:mt-6">
+            <div class="bg-white/10 backdrop-blur rounded-xl sm:rounded-2xl p-2.5 sm:p-4">
+              <div class="text-white/60 text-[10px] sm:text-xs mb-0.5 sm:mb-1">总收入</div>
+              <div class="text-sm sm:text-xl font-bold font-nums truncate">¥{{ formatMoney(report.total_income) }}</div>
             </div>
-            <div class="bg-white/10 backdrop-blur rounded-2xl p-4">
-              <div class="text-white/60 text-xs mb-1">总支出</div>
-              <div class="text-xl font-bold font-nums">¥{{ formatMoney(report.total_expense) }}</div>
+            <div class="bg-white/10 backdrop-blur rounded-xl sm:rounded-2xl p-2.5 sm:p-4">
+              <div class="text-white/60 text-[10px] sm:text-xs mb-0.5 sm:mb-1">总支出</div>
+              <div class="text-sm sm:text-xl font-bold font-nums truncate">¥{{ formatMoney(report.total_expense) }}</div>
             </div>
-            <div class="bg-white/10 backdrop-blur rounded-2xl p-4">
-              <div class="text-white/60 text-xs mb-1">净结余</div>
-              <div class="text-xl font-bold font-nums">{{ report.net_savings >= 0 ? '+' : '' }}¥{{ formatMoney(report.net_savings) }}</div>
+            <div class="bg-white/10 backdrop-blur rounded-xl sm:rounded-2xl p-2.5 sm:p-4">
+              <div class="text-white/60 text-[10px] sm:text-xs mb-0.5 sm:mb-1">净结余</div>
+              <div class="text-sm sm:text-xl font-bold font-nums truncate">{{ report.net_savings >= 0 ? '+' : '' }}¥{{ formatMoney(report.net_savings) }}</div>
             </div>
           </div>
         </div>

@@ -401,7 +401,7 @@ async function handleRestore() {
   <div class="min-h-full bg-[#F2F2F7] dark:bg-black pb-8">
     <!-- Header / User Profile -->
     <div class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
-       <div class="max-w-5xl mx-auto flex items-center justify-between">
+       <div class="max-w-3xl mx-auto flex items-center justify-between">
           <div class="flex items-center gap-4">
             <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center overflow-hidden shadow-inner border border-white/20">
                <User class="text-gray-400" :size="32" />
@@ -431,7 +431,7 @@ async function handleRestore() {
        </div>
     </div>
 
-    <div class="max-w-5xl mx-auto px-4 md:px-8 py-6 space-y-6">
+    <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
        <!-- Stats Cards -->
        <div class="grid grid-cols-2 gap-4">
           <div class="bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-xl rounded-[20px] p-4 flex flex-col items-center justify-center gap-1 shadow-sm border border-white/40 dark:border-white/5">

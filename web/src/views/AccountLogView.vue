@@ -133,7 +133,7 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
   <div class="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
     <!-- Header with Glassmorphism -->
     <div class="sticky top-0 z-10 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border-b border-gray-200/50 dark:border-gray-700/50">
-      <div class="max-w-2xl mx-auto flex items-center justify-between px-4 py-3">
+      <div class="max-w-3xl mx-auto flex items-center justify-between px-4 py-3">
         <button @click="goBack" class="p-2 -ml-2 rounded-xl hover:bg-gray-100/80 dark:hover:bg-gray-800/80 transition-colors">
           <ChevronLeft :size="24" class="text-gray-600 dark:text-gray-300" />
         </button>
@@ -145,7 +145,7 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
       </div>
     </div>
 
-    <div class="max-w-2xl mx-auto">
+    <div class="max-w-3xl mx-auto">
       <!-- Account Summary Card -->
       <div v-if="account" class="px-4 pt-4">
         <div 
