@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/md5"
 	"fmt"
 	"log"
 	"os"
@@ -70,7 +71,17 @@ func main() {
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter()
-	globalRateLimiter := middleware.NewGlobalRateLimiter(100, 1*time.Minute) // 100 requests per minute per IP
+	var globalRateLimiter *middleware.GlobalRateLimiter
+	// 开发环境禁用全局限速
+	if cfg.Server.Mode == "release" {
+		globalRateLimiter = middleware.NewGlobalRateLimiter(
+			cfg.RateLimit.MaxRequests,
+			time.Duration(cfg.RateLimit.WindowSecs)*time.Second,
+		)
+		log.Printf("Rate limit: %d requests per %d seconds", cfg.RateLimit.MaxRequests, cfg.RateLimit.WindowSecs)
+	} else {
+		log.Printf("Rate limit: disabled in debug mode")
+	}
 
 	// Initialize handlers
 	handlers := handler.NewHandlers(services, backupScheduler, rateLimiter)
@@ -85,16 +96,18 @@ func main() {
 	// Apply middlewares
 	r.Use(middleware.CORS(cfg.CORS.AllowedOrigins))
 	r.Use(middleware.SecurityHeaders())
-	r.Use(middleware.AuditLog())          // Security audit logging
-	r.Use(globalRateLimiter.Middleware()) // Global API rate limiting
-	r.Use(rateLimiter.Middleware())       // Rate limiting for login attempts
+	r.Use(middleware.AuditLog())    // Security audit logging
+	r.Use(rateLimiter.Middleware()) // Rate limiting for login attempts
+	if globalRateLimiter != nil {
+		r.Use(globalRateLimiter.Middleware()) // Global API rate limiting (仅生产环境)
+	}
 
 	// Setup API routes
-	handler.SetupRoutes(r, handlers, services.Auth)
+	handler.SetupRoutes(r, handlers, services.Auth, services.APIToken)
 
 	// Serve uploaded files (requires auth via JWT in query or header)
 	if cfg.Storage.UploadPath != "" {
-		setupUploadFiles(r, cfg.Storage.UploadPath, services.Auth)
+		setupUploadFiles(r, cfg.Storage.UploadPath, services.Auth, services.System)
 		log.Printf("Serving uploads from %s", cfg.Storage.UploadPath)
 	}
 
@@ -112,36 +125,54 @@ func main() {
 	}
 }
 
-func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.AuthService) {
+func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.AuthService, systemService *service.SystemService) {
 	// Create upload directory if not exists
 	if err := os.MkdirAll(uploadPath, 0755); err != nil {
 		log.Printf("Warning: Failed to create upload directory: %v", err)
 		return
 	}
 
-	// Serve uploaded files with JWT authentication
+	// Serve uploaded files
 	r.GET("/uploads/*filepath", func(c *gin.Context) {
 		filePath := c.Param("filepath")
 
-		// Check JWT token from query parameter or header
-		token := c.Query("token")
-		if token == "" {
-			token = c.GetHeader("Authorization")
-			if strings.HasPrefix(token, "Bearer ") {
-				token = token[7:]
+		// 头像文件公开访问，无需认证 (路径格式: /1/avatars/profile/xxx.gif)
+		if strings.Contains(filePath, "/avatars/") {
+			// 直接允许访问头像
+		} else {
+			// 其他文件需要认证
+			token := c.Query("token")
+			if token == "" {
+				token = strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
 			}
-		}
 
-		if token == "" {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
+			authenticated := false
 
-		// Validate token
-		_, err := authService.GetJWTManager().ValidateToken(token)
-		if err != nil {
-			c.JSON(401, gin.H{"error": "invalid token"})
-			return
+			// Method 1: JWT Token validation
+			if token != "" {
+				_, err := authService.GetJWTManager().ValidateToken(token)
+				if err == nil {
+					authenticated = true
+				}
+			}
+
+			// Method 2: Entry path cookie validation (for Web)
+			if !authenticated {
+				entryPath, _ := systemService.GetEntryPath()
+				if entryPath != "" {
+					cookieName := "entry_verified"
+					expectedValue := fmt.Sprintf("%x", md5.Sum([]byte(entryPath)))[:3]
+					cookie, err := c.Cookie(cookieName)
+					if err == nil && cookie == expectedValue {
+						authenticated = true
+					}
+				}
+			}
+
+			if !authenticated {
+				c.JSON(401, gin.H{"error": "unauthorized"})
+				return
+			}
 		}
 
 		fullPath := filepath.Join(uploadPath, filePath)
@@ -191,12 +222,10 @@ func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.Syst
 
 		// Check if accessing the entry path
 		if strings.HasPrefix(requestPath, entryPath) {
-			log.Printf("[EntryPath] Entry path accessed: %s, setting cookie and redirecting", requestPath)
-			// Set verification cookie with entry path hash and redirect to root
+			log.Printf("[EntryPath] Entry path accessed: %s, setting cookie and allowing access", requestPath)
+			// Set verification cookie with entry path hash and allow access
 			c.SetCookie(cookieName, expectedCookieValue, cookieMaxAge, "/", "", false, true)
-			c.Redirect(302, "/")
-			c.Abort()
-			return false
+			return true // 允许访问，不重定向
 		}
 
 		// Not verified, return 404

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -300,9 +301,17 @@ func (grl *GlobalRateLimiter) cleanup() {
 
 func (grl *GlobalRateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Skip rate limiting for public endpoints
 		path := c.Request.URL.Path
-		if path == "/api/v1/auth/status" || path == "/api/v1/auth/init" {
+
+		// 跳过静态资源和公共端点的限速
+		if strings.HasPrefix(path, "/assets/") ||
+			strings.HasPrefix(path, "/uploads/") ||
+			strings.HasPrefix(path, "/.well-known/") ||
+			path == "/favicon.svg" ||
+			path == "/favicon.ico" ||
+			path == "/manifest.json" ||
+			path == "/api/v1/auth/status" ||
+			path == "/api/v1/auth/init" {
 			c.Next()
 			return
 		}

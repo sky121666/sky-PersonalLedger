@@ -23,6 +23,7 @@ type Services struct {
 	Upload       *UploadService
 	AccountLog   *AccountLogService
 	Tag          *TagService
+	APIToken     *APITokenService
 }
 
 func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
@@ -46,5 +47,6 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		Upload:       NewUploadService(&cfg.Storage),
 		AccountLog:   accountLogService,
 		Tag:          NewTagService(repos.Tag),
+		APIToken:     NewAPITokenService(repos.APIToken),
 	}
 }

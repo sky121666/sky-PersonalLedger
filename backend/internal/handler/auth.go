@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"strings"
 	"time"
 
 	"github.com/sky/personal-ledger/internal/middleware"
@@ -12,12 +13,13 @@ import (
 
 type AuthHandler struct {
 	service      *service.AuthService
+	apiToken     *service.APITokenService
 	notification *service.NotificationService
 	rateLimiter  *middleware.RateLimiter
 }
 
-func NewAuthHandler(s *service.AuthService, n *service.NotificationService, rl *middleware.RateLimiter) *AuthHandler {
-	return &AuthHandler{service: s, notification: n, rateLimiter: rl}
+func NewAuthHandler(s *service.AuthService, apiToken *service.APITokenService, n *service.NotificationService, rl *middleware.RateLimiter) *AuthHandler {
+	return &AuthHandler{service: s, apiToken: apiToken, notification: n, rateLimiter: rl}
 }
 
 func (h *AuthHandler) Status(c *gin.Context) {
@@ -181,4 +183,39 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 	response.Success(c, profile)
+}
+
+// VerifyAPIToken 验证 API Token（供 App 端使用）
+func (h *AuthHandler) VerifyAPIToken(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		response.Unauthorized(c, "missing authorization header")
+		return
+	}
+
+	// 解析 Bearer token
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		response.Unauthorized(c, "invalid authorization header format")
+		return
+	}
+
+	userID, err := h.apiToken.ValidateToken(parts[1])
+	if err != nil {
+		response.Unauthorized(c, err.Error())
+		return
+	}
+
+	// 获取用户信息
+	profile, err := h.service.GetProfile(userID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"valid":   true,
+		"user_id": userID,
+		"profile": profile,
+	})
 }

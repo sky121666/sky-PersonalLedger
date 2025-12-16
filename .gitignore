@@ -60,8 +60,6 @@ coverage/
 # ===== 移动端 =====
 unpackage/
 .hbuilderx/
-mobile/android/
-mobile/ios/
 *.apk
 *.ipa
 

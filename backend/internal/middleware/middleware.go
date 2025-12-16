@@ -112,10 +112,85 @@ func Auth(jwtManager *jwt.Manager) gin.HandlerFunc {
 	}
 }
 
+// AuthWithAPIToken 同时支持 JWT 和 API Token 的认证中间件
+func AuthWithAPIToken(jwtManager *jwt.Manager, apiTokenValidator APITokenValidator) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			response.Unauthorized(c, "missing authorization header")
+			c.Abort()
+			return
+		}
+
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			response.Unauthorized(c, "invalid authorization header format")
+			c.Abort()
+			return
+		}
+
+		token := parts[1]
+
+		// 先尝试 JWT 验证
+		claims, err := jwtManager.ValidateToken(token)
+		if err == nil {
+			c.Set("userID", claims.UserID)
+			c.Next()
+			return
+		}
+
+		// JWT 验证失败，尝试 API Token 验证
+		userID, err := apiTokenValidator.ValidateToken(token)
+		if err == nil {
+			c.Set("userID", userID)
+			c.Next()
+			return
+		}
+
+		// 两种验证都失败
+		response.Unauthorized(c, "invalid token")
+		c.Abort()
+	}
+}
+
 func GetUserID(c *gin.Context) uint {
 	userID, exists := c.Get("userID")
 	if !exists {
 		return 0
 	}
 	return userID.(uint)
+}
+
+// APITokenValidator API Token 验证器接口
+type APITokenValidator interface {
+	ValidateToken(token string) (uint, error)
+}
+
+// APITokenAuth API Token 认证中间件
+func APITokenAuth(validator APITokenValidator) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			response.Unauthorized(c, "missing authorization header")
+			c.Abort()
+			return
+		}
+
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			response.Unauthorized(c, "invalid authorization header format")
+			c.Abort()
+			return
+		}
+
+		userID, err := validator.ValidateToken(parts[1])
+		if err != nil {
+			response.Unauthorized(c, err.Error())
+			c.Abort()
+			return
+		}
+
+		c.Set("userID", userID)
+		c.Next()
+	}
 }

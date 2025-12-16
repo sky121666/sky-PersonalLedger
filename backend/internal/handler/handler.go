@@ -24,11 +24,12 @@ type Handlers struct {
 	Upload       *UploadHandler
 	AccountLog   *AccountLogHandler
 	Tag          *TagHandler
+	APIToken     *APITokenHandler
 }
 
 func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler, rateLimiter *middleware.RateLimiter) *Handlers {
 	return &Handlers{
-		Auth:         NewAuthHandler(services.Auth, services.Notification, rateLimiter),
+		Auth:         NewAuthHandler(services.Auth, services.APIToken, services.Notification, rateLimiter),
 		Account:      NewAccountHandler(services.Account),
 		Category:     NewCategoryHandler(services.Category),
 		Transaction:  NewTransactionHandler(services.Transaction),
@@ -44,15 +45,16 @@ func NewHandlers(services *service.Services, backupScheduler *service.BackupSche
 		Upload:       NewUploadHandler(services.Upload),
 		AccountLog:   NewAccountLogHandler(services.AccountLog),
 		Tag:          NewTagHandler(services.Tag),
+		APIToken:     NewAPITokenHandler(services.APIToken),
 	}
 }
 
-func SetupRoutes(r *gin.Engine, h *Handlers, authService *service.AuthService) {
+func SetupRoutes(r *gin.Engine, h *Handlers, authService *service.AuthService, apiTokenService *service.APITokenService) {
 	api := r.Group("/api/v1")
-	SetupRoutesWithGroup(api, h, authService)
+	SetupRoutesWithGroup(api, h, authService, apiTokenService)
 }
 
-func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *service.AuthService) {
+func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *service.AuthService, apiTokenService *service.APITokenService) {
 	// Public routes
 	auth := api.Group("/auth")
 	{
@@ -60,11 +62,12 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		auth.POST("/init", h.Auth.Init)
 		auth.POST("/login", h.Auth.Login)
 		auth.POST("/refresh", h.Auth.Refresh)
+		auth.POST("/verify-token", h.Auth.VerifyAPIToken) // API Token 验证（App 端使用）
 	}
 
-	// Protected routes
+	// Protected routes - 支持 JWT 和 API Token
 	protected := api.Group("")
-	protected.Use(middleware.Auth(authService.GetJWTManager()))
+	protected.Use(middleware.AuthWithAPIToken(authService.GetJWTManager(), apiTokenService))
 	{
 		// Auth
 		protected.POST("/auth/logout", h.Auth.Logout)
@@ -220,6 +223,14 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 			tags.GET("/:id", h.Tag.GetByID)
 			tags.PUT("/:id", h.Tag.Update)
 			tags.DELETE("/:id", h.Tag.Delete)
+		}
+
+		// API Tokens
+		apiTokens := protected.Group("/api-tokens")
+		{
+			apiTokens.GET("", h.APIToken.List)
+			apiTokens.POST("", h.APIToken.Create)
+			apiTokens.DELETE("/:id", h.APIToken.Delete)
 		}
 	}
 }

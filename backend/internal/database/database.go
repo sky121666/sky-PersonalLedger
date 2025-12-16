@@ -46,6 +46,7 @@ func Init(dbPath string) (*gorm.DB, error) {
 		&model.AccountLog{},
 		&model.Tag{},
 		&model.RecurringTransaction{},
+		&model.APIToken{},
 	); err != nil {
 		return nil, err
 	}

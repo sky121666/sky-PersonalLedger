@@ -10,10 +10,11 @@ import { toast } from '@/composables/useToast'
 import {
   Lock, Upload, Download, Info, ChevronRight,
   User, Shield, Database, X, Check, LogOut, Wallet, Moon, HardDrive, Bell,
-  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock
+  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone
 } from 'lucide-vue-next'
 import { notificationApi } from '@/api/notification'
 import { systemApi } from '@/api/system'
+import { apiTokenApi, type APIToken } from '@/api/apiToken'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -96,6 +97,14 @@ const entryPath = ref('')
 const entryPathLoading = ref(false)
 const entryFullUrl = computed(() => window.location.origin + entryPath.value)
 
+// API Token
+const showApiTokenModal = ref(false)
+const apiTokens = ref<APIToken[]>([])
+const apiTokenLoading = ref(false)
+const newTokenName = ref('')
+const newTokenExpiry = ref(0) // 0 = never
+const createdToken = ref<string | null>(null)
+
 // Password form
 const passwordForm = ref({
   oldPassword: '',
@@ -147,7 +156,8 @@ const menuGroups = [
       { icon: Moon, label: '深色模式', desc: '切换显示外观', action: () => themeStore.toggle(), color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/30', isToggle: true },
       { icon: Bell, label: '通知设置', desc: '消息提醒配置', action: openNotificationModal, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/30' },
       { icon: Lock, label: '修改密码', desc: '更新登录密码', action: openPasswordModal, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-900/30' },
-      { icon: Shield, label: '安全入口', desc: '防止暴力破解', action: openSecurityModal, color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/30' }
+      { icon: Shield, label: '安全入口', desc: '防止暴力破解', action: openSecurityModal, color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/30' },
+      { icon: Smartphone, label: 'API Token', desc: 'App/API 访问令牌', action: openApiTokenModal, color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-900/30' }
     ]
   },
   {
@@ -299,6 +309,68 @@ async function disableEntryPath() {
 function copyEntryUrl() {
   const url = window.location.origin + entryPath.value
   navigator.clipboard.writeText(url)
+  toast.success('已复制到剪贴板')
+}
+
+// API Token functions
+async function openApiTokenModal() {
+  showApiTokenModal.value = true
+  createdToken.value = null
+  newTokenName.value = ''
+  newTokenExpiry.value = 0
+  await loadApiTokens()
+}
+
+async function loadApiTokens() {
+  apiTokenLoading.value = true
+  try {
+    const res = await apiTokenApi.list()
+    apiTokens.value = res.list || []
+  } catch (e) {
+    console.error('Load API tokens failed:', e)
+  } finally {
+    apiTokenLoading.value = false
+  }
+}
+
+async function createApiToken() {
+  if (!newTokenName.value.trim()) {
+    toast.error('请输入令牌名称')
+    return
+  }
+  apiTokenLoading.value = true
+  try {
+    const res = await apiTokenApi.create({
+      name: newTokenName.value.trim(),
+      expires_in_days: newTokenExpiry.value
+    })
+    createdToken.value = res.token
+    toast.success('令牌创建成功，请立即复制保存')
+    await loadApiTokens()
+    newTokenName.value = ''
+  } catch (e: any) {
+    toast.error(e.message || '创建失败')
+  } finally {
+    apiTokenLoading.value = false
+  }
+}
+
+async function deleteApiToken(id: number) {
+  if (!confirm('确定要删除此令牌吗？删除后使用此令牌的应用将无法访问。')) return
+  apiTokenLoading.value = true
+  try {
+    await apiTokenApi.delete(id)
+    toast.success('令牌已删除')
+    await loadApiTokens()
+  } catch (e: any) {
+    toast.error(e.message || '删除失败')
+  } finally {
+    apiTokenLoading.value = false
+  }
+}
+
+function copyToken(token: string) {
+  navigator.clipboard.writeText(token)
   toast.success('已复制到剪贴板')
 }
 
@@ -1188,6 +1260,117 @@ function formatFileSize(bytes: number) {
             >
               禁用安全入口
             </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- API Token Modal -->
+    <Teleport to="body">
+      <div v-if="showApiTokenModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showApiTokenModal = false"></div>
+        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10 max-h-[90vh] flex flex-col">
+          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-white/10 shrink-0">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">API Token 管理</h3>
+            <button class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" @click="showApiTokenModal = false">
+              <X :size="20" class="text-gray-500" />
+            </button>
+          </div>
+          
+          <div class="p-6 space-y-6 overflow-y-auto">
+            <!-- Info -->
+            <div class="bg-cyan-50 dark:bg-cyan-900/20 rounded-xl p-4 border border-cyan-100 dark:border-cyan-900/30">
+              <div class="flex gap-3">
+                <Key :size="18" class="text-cyan-500 flex-shrink-0 mt-0.5" />
+                <div class="text-sm text-cyan-700 dark:text-cyan-300">
+                  <p class="font-medium mb-1">用于 App 或 API 访问</p>
+                  <p class="text-xs opacity-90">
+                    创建令牌后，可在手机 App 中使用此令牌进行身份验证，无需每次输入密码。
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Create New Token -->
+            <div class="space-y-3">
+              <h4 class="text-sm font-bold text-gray-500">创建新令牌</h4>
+              <div class="flex gap-2">
+                <input
+                  v-model="newTokenName"
+                  type="text"
+                  placeholder="令牌名称（如：我的手机）"
+                  class="flex-1 h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
+                />
+                <select v-model.number="newTokenExpiry" class="h-11 px-3 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none text-sm text-gray-900 dark:text-white">
+                  <option :value="0">永不过期</option>
+                  <option :value="30">30 天</option>
+                  <option :value="90">90 天</option>
+                  <option :value="365">1 年</option>
+                </select>
+              </div>
+              <button
+                class="w-full h-11 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 disabled:opacity-50 transition flex items-center justify-center gap-2"
+                :disabled="apiTokenLoading || !newTokenName.trim()"
+                @click="createApiToken"
+              >
+                <Plus :size="18" />
+                创建令牌
+              </button>
+            </div>
+
+            <!-- Created Token (show once) -->
+            <div v-if="createdToken" class="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-900/30">
+              <div class="flex items-center gap-2 mb-2">
+                <Check :size="18" class="text-green-500" />
+                <span class="text-sm font-bold text-green-700 dark:text-green-300">令牌创建成功！</span>
+              </div>
+              <p class="text-xs text-green-600 dark:text-green-400 mb-3">请立即复制并保存，此令牌只显示一次：</p>
+              <div class="flex items-center gap-2">
+                <code class="flex-1 text-xs font-mono text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30 p-2 rounded-lg break-all">
+                  {{ createdToken }}
+                </code>
+                <button
+                  @click="copyToken(createdToken)"
+                  class="p-2 hover:bg-green-100 dark:hover:bg-green-800/30 rounded-lg transition"
+                  title="复制"
+                >
+                  <Copy :size="16" class="text-green-500" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Token List -->
+            <div class="space-y-3">
+              <h4 class="text-sm font-bold text-gray-500">已创建的令牌</h4>
+              <div v-if="apiTokenLoading" class="text-center py-4">
+                <div class="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+              </div>
+              <div v-else-if="apiTokens.length === 0" class="text-center py-6 text-gray-400 text-sm">
+                暂无令牌
+              </div>
+              <div v-else class="space-y-2">
+                <div v-for="token in apiTokens" :key="token.id" class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-black/20 rounded-xl">
+                  <div class="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
+                    <Smartphone :size="18" class="text-cyan-500" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium text-sm text-gray-900 dark:text-white truncate">{{ token.name }}</p>
+                    <p class="text-xs text-gray-500">
+                      <span class="font-mono">{{ token.token_prefix }}...</span>
+                      <span v-if="token.last_used_at" class="ml-2">最后使用: {{ dayjs(token.last_used_at).format('MM-DD HH:mm') }}</span>
+                      <span v-if="token.expires_at" class="ml-2 text-orange-500">{{ dayjs(token.expires_at).format('YYYY-MM-DD') }} 过期</span>
+                    </p>
+                  </div>
+                  <button
+                    @click="deleteApiToken(token.id)"
+                    class="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition"
+                    title="删除"
+                  >
+                    <Trash2 :size="16" class="text-red-500" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
