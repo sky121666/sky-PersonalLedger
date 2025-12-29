@@ -1,41 +1,59 @@
 # Personal Ledger 配置文件
 # 复制此文件为 config.yaml 并修改配置
+#
+# 注意: Docker 部署时优先使用环境变量，格式为 LEDGER_分类_配置项
+# 例如: server.port -> LEDGER_SERVER_PORT
 
 server:
   port: "8080"
   mode: "release"           # debug / release
   web_path: "./web/dist"    # 前端构建文件路径
+  # 环境变量: LEDGER_SERVER_PORT, LEDGER_SERVER_MODE, LEDGER_SERVER_WEB_PATH
 
 database:
   path: "./data/ledger.db"
+  # 环境变量: LEDGER_DATABASE_PATH
 
 jwt:
   secret: "your-jwt-secret-change-this-in-production"
   access_expire: 15         # 分钟
   refresh_expire: 43200     # 分钟 (30天)
+  # 环境变量: LEDGER_JWT_SECRET, LEDGER_JWT_ACCESS_EXPIRE, LEDGER_JWT_REFRESH_EXPIRE
 
 log:
-  level: "info"
-  format: "json"
+  level: "info"             # debug / info / warn / error
+  format: "json"            # json / text
+  # 环境变量: LEDGER_LOG_LEVEL, LEDGER_LOG_FORMAT
 
-# 安全配置
 security:
   # 自定义入口路径 (留空则使用根路径 /)
   # 设置后只能通过 http://host:port/your-secret-path 访问
   base_path: ""
+  # 环境变量: LEDGER_SECURITY_BASE_PATH
   
   # API Token (移动端访问需要)
   # 设置后，所有 API 请求必须携带 X-API-Token 头
   # 留空则不验证 (仅 Web 端访问时可留空)
   api_token: ""
+  # 环境变量: LEDGER_SECURITY_API_TOKEN
 
-# 文件存储配置
 storage:
-  upload_path: "./data/uploads"   # 上传文件存储路径 (Docker部署时映射此目录)
+  upload_path: "./data/uploads"   # 上传文件存储路径
+  backup_path: "./data/backups"   # 备份文件存储路径
   max_file_size: 10               # 最大文件大小 (MB)
   allowed_types: "jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt"
+  # 环境变量: LEDGER_STORAGE_UPLOAD_PATH, LEDGER_STORAGE_BACKUP_PATH
+  #          LEDGER_STORAGE_MAX_FILE_SIZE, LEDGER_STORAGE_ALLOWED_TYPES
 
-# 示例配置:
-# security:
-#   base_path: "/my-ledger-2024"
-#   api_token: "sk-abc123xyz456"
+# ============================================
+# Docker 部署示例
+# ============================================
+# docker run -d \
+#   -p 8080:8080 \
+#   -v ./data:/data \
+#   -e LEDGER_JWT_SECRET=your-random-secret-key \
+#   -e LEDGER_SECURITY_BASE_PATH=/my-ledger \
+#   ghcr.io/sky121666/sky-personalledger:latest
+#
+# 或使用 docker-compose:
+# docker-compose up -d

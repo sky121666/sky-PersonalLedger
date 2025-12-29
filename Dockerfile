@@ -18,14 +18,15 @@ FROM golang:1.23-alpine AS backend-builder
 
 WORKDIR /app/backend
 
-# CGO 需要 gcc
 RUN apk add --no-cache gcc musl-dev
 
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
 COPY backend/ ./
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /app/server ./cmd/server
+
+ARG VERSION=dev
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}" -o /app/server ./cmd/server
 
 # ============================================
 # Stage 3: 最终镜像
@@ -34,38 +35,44 @@ FROM alpine:3.19
 
 WORKDIR /app
 
-# 运行时依赖
 RUN apk add --no-cache ca-certificates tzdata wget
 
-# 复制构建产物
 COPY --from=backend-builder /app/server /app/server
 COPY --from=frontend-builder /app/web/dist /app/web/dist
 
-# 创建数据目录（运行时会被 volume 覆盖）
-RUN mkdir -p /data/uploads /data/backups && \
-    chown -R nobody:nobody /data
+RUN mkdir -p /data/uploads /data/backups
 
-# 默认环境变量
+# ========== 环境变量配置 ==========
+# 服务器配置
 ENV LEDGER_SERVER_PORT=8080 \
     LEDGER_SERVER_MODE=release \
     LEDGER_SERVER_WEB_PATH=/app/web/dist \
+    # 数据库配置
     LEDGER_DATABASE_PATH=/data/ledger.db \
-    LEDGER_STORAGE_UPLOAD_PATH=/data/uploads \
-    LEDGER_STORAGE_BACKUP_PATH=/data/backups \
+    # JWT 配置
+    LEDGER_JWT_SECRET=change-this-secret \
+    LEDGER_JWT_ACCESS_EXPIRE=15 \
+    LEDGER_JWT_REFRESH_EXPIRE=43200 \
+    # 日志配置
     LEDGER_LOG_LEVEL=info \
     LEDGER_LOG_FORMAT=json \
+    # 安全配置
+    LEDGER_SECURITY_BASE_PATH="" \
+    LEDGER_SECURITY_API_TOKEN="" \
+    # 存储配置
+    LEDGER_STORAGE_UPLOAD_PATH=/data/uploads \
+    LEDGER_STORAGE_BACKUP_PATH=/data/backups \
+    LEDGER_STORAGE_MAX_FILE_SIZE=10 \
+    LEDGER_STORAGE_ALLOWED_TYPES="jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt" \
+    # 时区
     TZ=Asia/Shanghai
 
 EXPOSE 8080
 
-# 数据持久化目录
+# 持久化数据目录
 VOLUME ["/data"]
 
-# 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:8080/api/v1/auth/status || exit 1
-
-# 使用非 root 用户运行（可选，需要确保 /data 权限正确）
-# USER nobody
 
 CMD ["/app/server"]
