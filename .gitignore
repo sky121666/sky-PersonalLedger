@@ -3,8 +3,8 @@ node_modules/
 vendor/
 
 # ===== 构建产物 =====
-dist/
-build/
+web/dist/
+mobile/build/
 *.exe
 *.dll
 *.so
@@ -25,14 +25,16 @@ logs/
 
 # ===== 数据库和数据 =====
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 data/
+backend/data/
 
 # ===== IDE =====
 .idea/
 .vscode/
-.windsurf/
 *.swp
 *.swo
 *~
@@ -58,8 +60,6 @@ coverage/
 *.test
 
 # ===== 移动端 =====
-unpackage/
-.hbuilderx/
 *.apk
 *.ipa
 
