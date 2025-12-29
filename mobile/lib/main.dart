@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_all/webview_all.dart';
 
 void main() {
   runApp(const MyApp());
@@ -108,7 +108,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
   final _controller = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _testing = false;
-  String? _error;
 
   @override
   void dispose() {
@@ -121,7 +120,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
 
     setState(() {
       _testing = true;
-      _error = null;
     });
 
     String url = _controller.text.trim();
@@ -248,13 +246,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                         },
                       ),
                     ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ],
                     const SizedBox(height: 24),
                     Container(
                       constraints: const BoxConstraints(maxWidth: 400),
@@ -345,63 +336,6 @@ class WebViewScreen extends StatefulWidget {
 }
 
 class _WebViewScreenState extends State<WebViewScreen> {
-  late final WebViewController _controller;
-  bool _isLoading = true;
-  double _progress = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (progress) {
-            setState(() => _progress = progress / 100);
-          },
-          onPageStarted: (url) {
-            setState(() => _isLoading = true);
-          },
-          onPageFinished: (url) {
-            setState(() => _isLoading = false);
-          },
-          onWebResourceError: (error) {
-            debugPrint('WebView error: ${error.description}');
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.serverUrl));
-  }
-
-  Future<bool> _onWillPop() async {
-    if (await _controller.canGoBack()) {
-      await _controller.goBack();
-      return false;
-    }
-    return await _showExitDialog() ?? false;
-  }
-
-  Future<bool?> _showExitDialog() {
-    return showCupertinoDialog<bool>(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('退出确认'),
-        content: const Text('确定要退出应用吗？'),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('取消'),
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text('退出'),
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showSettings() {
     showCupertinoModalPopup(
       context: context,
@@ -409,13 +343,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
         title: const Text('设置'),
         message: Text('当前服务器: ${widget.serverUrl}'),
         actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              _controller.reload();
-            },
-            child: const Text('刷新页面'),
-          ),
           CupertinoActionSheetAction(
             isDestructiveAction: true,
             onPressed: () {
@@ -459,64 +386,42 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldPop = await _onWillPop();
-        if (shouldPop && context.mounted) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  if (_isLoading)
-                    LinearProgressIndicator(
-                      value: _progress,
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF6366F1),
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            // 使用 webview_all 的 Webview 组件
+            Webview(url: widget.serverUrl),
+            // 设置按钮
+            Positioned(
+              right: 12,
+              bottom: MediaQuery.of(context).padding.bottom + 70,
+              child: GestureDetector(
+                onTap: _showSettings,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
-                  Expanded(
-                    child: WebViewWidget(controller: _controller),
+                    ],
                   ),
-                ],
-              ),
-              Positioned(
-                right: 12,
-                bottom: MediaQuery.of(context).padding.bottom + 70,
-                child: GestureDetector(
-                  onTap: _showSettings,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1),
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.settings,
-                      color: Colors.white,
-                      size: 22,
-                    ),
+                  child: const Icon(
+                    Icons.settings,
+                    color: Colors.white,
+                    size: 22,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
