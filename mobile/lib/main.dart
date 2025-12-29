@@ -1,41 +1,32 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Android 全屏沉浸式
-  if (Platform.isAndroid) {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ));
-  }
-  
+  // Android 全屏模式：边到边显示，状态栏和导航栏透明覆盖
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  ));
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-  
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '个人记账',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6366F1)),
-        useMaterial3: true,
-      ),
+      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6366F1)), useMaterial3: true),
+      darkTheme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6366F1), brightness: Brightness.dark), useMaterial3: true),
       home: const AppEntry(),
     );
   }
@@ -54,14 +45,8 @@ class _AppEntryState extends State<AppEntry> {
   @override
   void initState() {
     super.initState();
-    _loadUrl();
-  }
-
-  Future<void> _loadUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _serverUrl = prefs.getString('server_url');
-      _loading = false;
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() { _serverUrl = prefs.getString('server_url'); _loading = false; });
     });
   }
 
@@ -85,6 +70,7 @@ class _AppEntryState extends State<AppEntry> {
   }
 }
 
+
 class ConfigScreen extends StatefulWidget {
   final Function(String) onSave;
   const ConfigScreen({super.key, required this.onSave});
@@ -94,64 +80,44 @@ class ConfigScreen extends StatefulWidget {
 
 class _ConfigScreenState extends State<ConfigScreen> {
   final _ctrl = TextEditingController();
-  
   @override
   void dispose() { _ctrl.dispose(); super.dispose(); }
 
   void _submit() {
     var url = _ctrl.text.trim();
     if (url.isEmpty) return;
-    if (!url.startsWith('http')) url = 'http://$url';
+    if (!url.startsWith('http')) url = 'https://$url';
     widget.onSave(url);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80, height: 80,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF3B82F6)]),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(Icons.account_balance_wallet, size: 40, color: Colors.white),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_balance_wallet, size: 64, color: Color(0xFF6366F1)),
+              const SizedBox(height: 16),
+              const Text('个人记账', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 32),
+              TextField(
+                controller: _ctrl,
+                decoration: const InputDecoration(labelText: '服务器地址', hintText: 'example.com:8080', border: OutlineInputBorder()),
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _submit,
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), foregroundColor: Colors.white),
+                  child: const Text('连接'),
                 ),
-                const SizedBox(height: 24),
-                const Text('个人记账', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 40),
-                TextField(
-                  controller: _ctrl,
-                  decoration: InputDecoration(
-                    labelText: '服务器地址',
-                    hintText: '192.168.1.100:8080/path',
-                    prefixIcon: const Icon(Icons.link),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  keyboardType: TextInputType.url,
-                  onSubmitted: (_) => _submit(),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity, height: 52,
-                  child: ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6366F1),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('连接服务器', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -169,47 +135,20 @@ class WebScreen extends StatefulWidget {
 
 class _WebScreenState extends State<WebScreen> {
   late final WebViewController _ctrl;
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initWebView();
-  }
-
-  void _initWebView() {
-    // macOS / Windows 使用简单配置
-    if (Platform.isMacOS || Platform.isWindows) {
-      _ctrl = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setNavigationDelegate(NavigationDelegate(
-          onPageStarted: (_) => setState(() => _isLoading = true),
-          onPageFinished: (_) => setState(() => _isLoading = false),
-        ))
-        ..loadRequest(Uri.parse(widget.url));
-      return;
-    }
-
-    // Android 配置
-    final params = AndroidWebViewControllerCreationParams();
-    _ctrl = WebViewController.fromPlatformCreationParams(params);
-    
-    if (_ctrl.platform is AndroidWebViewController) {
-      (_ctrl.platform as AndroidWebViewController).setMediaPlaybackRequiresUserGesture(false);
-    }
-
-    _ctrl
+    final params = WebViewPlatform.instance is WebKitWebViewPlatform
+        ? WebKitWebViewControllerCreationParams()
+        : const PlatformWebViewControllerCreationParams();
+    _ctrl = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (_) => setState(() => _isLoading = true),
-        onPageFinished: (_) => setState(() => _isLoading = false),
-      ))
       ..loadRequest(Uri.parse(widget.url));
   }
 
+  // 清除 WebView 缓存并重新加载
   Future<void> _clearCacheAndReload() async {
-    setState(() => _isLoading = true);
     await _ctrl.clearCache();
     await _ctrl.clearLocalStorage();
     await _ctrl.loadRequest(Uri.parse(widget.url));
@@ -217,77 +156,48 @@ class _WebScreenState extends State<WebScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // macOS / Windows: 全屏 WebView，按钮右下角
-    if (Platform.isMacOS || Platform.isWindows) {
-      return Scaffold(
-        body: Stack(
-          children: [
-            WebViewWidget(controller: _ctrl),
-            if (_isLoading)
-              const Positioned(
-                top: 0, left: 0, right: 0,
-                child: LinearProgressIndicator(
-                  backgroundColor: Colors.transparent,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
-                ),
-              ),
-            Positioned(
-              right: 16,
-              bottom: 100,
-              child: _buildMenuButton(),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Android: 带安全区域
+    // 获取安全区域边距，自动适配刘海屏、状态栏、底部导航栏
     final padding = MediaQuery.of(context).padding;
-    final androidParams = AndroidWebViewWidgetCreationParams(
-      controller: _ctrl.platform as AndroidWebViewController,
-      displayWithHybridComposition: true,
-    );
-
+    
     return Scaffold(
       body: Column(
         children: [
-          Container(height: padding.top, color: const Color(0xFF6366F1)),
+          // 顶部安全区域（状态栏高度）
+          Container(
+            height: padding.top,
+            color: const Color(0xFF6366F1), // 主题色填充状态栏区域
+          ),
+          // WebView 主体
           Expanded(
             child: Stack(
               children: [
-                WebViewWidget.fromPlatformCreationParams(params: androidParams),
-                if (_isLoading)
-                  const Positioned(
-                    top: 0, left: 0, right: 0,
-                    child: LinearProgressIndicator(
-                      backgroundColor: Colors.transparent,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                WebViewWidget(controller: _ctrl),
+                // 设置按钮
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: GestureDetector(
+                    onTap: _showMenu,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.menu, color: Colors.white70, size: 18),
                     ),
                   ),
-                Positioned(
-                  right: 16,
-                  bottom: 100,
-                  child: _buildMenuButton(),
                 ),
               ],
             ),
           ),
-          Container(height: padding.bottom, color: Colors.white),
+          // 底部安全区域（导航栏高度）
+          Container(
+            height: padding.bottom,
+            color: Colors.white, // 白色填充底部区域
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMenuButton() {
-    return GestureDetector(
-      onTap: _showMenu,
-      child: Container(
-        width: 40, height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black54,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Icon(Icons.menu, color: Colors.white, size: 22),
       ),
     );
   }
@@ -297,7 +207,7 @@ class _WebScreenState extends State<WebScreen> {
       context: context,
       builder: (ctx) => CupertinoActionSheet(
         title: const Text('设置'),
-        message: Text(widget.url, style: const TextStyle(fontSize: 12)),
+        message: Text(widget.url),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () { Navigator.pop(ctx); _ctrl.reload(); },
