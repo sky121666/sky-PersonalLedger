@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { Wallet, Shield, Database, Smartphone, ArrowRight, Lock, Eye, EyeOff } from 'lucide-vue-next'
 import { toast } from '@/composables/useToast'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const password = ref('')
@@ -18,6 +19,11 @@ const showConfirmPassword = ref(false)
 onMounted(async () => {
   await authStore.checkAuth()
   isInit.value = authStore.initialized === false
+  
+  // 检查是否因登录过期跳转
+  if (route.query.reason === 'expired') {
+    toast.warning('登录已过期，请重新登录')
+  }
 })
 
 async function handleSubmit() {

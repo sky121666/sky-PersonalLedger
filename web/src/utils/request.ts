@@ -45,27 +45,37 @@ instance.interceptors.response.use(
     const originalRequest = error.config
     const authStore = useAuthStore()
 
-    if (error.response?.status === 401 && error.response?.data?.code === 40102) {
-      if (!isRefreshing) {
-        isRefreshing = true
-        const success = await authStore.refresh()
-        isRefreshing = false
+    // Handle 401 Unauthorized
+    if (error.response?.status === 401) {
+      // Token expired, try refresh
+      if (error.response?.data?.code === 40102) {
+        if (!isRefreshing) {
+          isRefreshing = true
+          const success = await authStore.refresh()
+          isRefreshing = false
 
-        if (success) {
-          onRefreshed(authStore.accessToken!)
-          originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
-          return instance(originalRequest)
+          if (success) {
+            onRefreshed(authStore.accessToken!)
+            originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
+            return instance(originalRequest)
+          } else {
+            authStore.logout()
+            router.replace('/login?reason=expired')
+            return Promise.reject(new Error('登录已过期，请重新登录'))
+          }
         } else {
-          router.replace('/login')
-          return Promise.reject(error)
+          return new Promise((resolve) => {
+            addRefreshSubscriber((token: string) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`
+              resolve(instance(originalRequest))
+            })
+          })
         }
       } else {
-        return new Promise((resolve) => {
-          addRefreshSubscriber((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`
-            resolve(instance(originalRequest))
-          })
-        })
+        // Other 401 errors (invalid token, etc.) - redirect to login
+        authStore.logout()
+        router.replace('/login?reason=expired')
+        return Promise.reject(new Error('登录已过期，请重新登录'))
       }
     }
 
