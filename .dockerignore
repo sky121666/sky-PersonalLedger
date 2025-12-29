@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Node
+web/node_modules
+web/.vite
+
+# Go
+backend/data/*.db*
+backend/tmp
+
+# Flutter (不需要打包到 Docker)
+mobile
+
+# 构建产物
+web/dist
+backend/server
+
+# 其他
+*.md
+*.log
+.DS_Store
+data/

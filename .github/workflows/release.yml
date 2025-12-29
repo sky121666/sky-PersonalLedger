@@ -1,0 +1,262 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # 提取版本号供所有 job 使用
+  prepare:
+    name: Prepare Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      build_number: ${{ github.run_number }}
+    steps:
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # Docker 镜像构建
+  # ============================================
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: prepare
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================
+  # Android APK 构建
+  # ============================================
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    needs: prepare
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Update version in pubspec.yaml
+        working-directory: mobile
+        run: |
+          sed -i "s/version: .*/version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}/" pubspec.yaml
+          cat pubspec.yaml | grep version
+
+      - name: Get dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: mobile
+        run: flutter build apk --release --build-name=${{ needs.prepare.outputs.version }} --build-number=${{ needs.prepare.outputs.build_number }}
+
+      - name: Rename APK
+        run: |
+          mv mobile/build/app/outputs/flutter-apk/app-release.apk \
+             mobile/build/app/outputs/flutter-apk/personal-ledger-${{ needs.prepare.outputs.version }}-android.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: mobile/build/app/outputs/flutter-apk/personal-ledger-*.apk
+
+  # ============================================
+  # macOS App 构建
+  # ============================================
+  macos:
+    name: Build macOS App
+    runs-on: macos-latest
+    needs: prepare
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Update version in pubspec.yaml
+        working-directory: mobile
+        run: |
+          sed -i '' "s/version: .*/version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}/" pubspec.yaml
+
+      - name: Get dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build macOS
+        working-directory: mobile
+        run: flutter build macos --release --build-name=${{ needs.prepare.outputs.version }} --build-number=${{ needs.prepare.outputs.build_number }}
+
+      - name: Create ZIP
+        run: |
+          cd mobile/build/macos/Build/Products/Release
+          zip -r personal-ledger-${{ needs.prepare.outputs.version }}-macos.zip personal_ledger.app
+
+      - name: Upload macOS App
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: mobile/build/macos/Build/Products/Release/personal-ledger-*.zip
+
+  # ============================================
+  # Windows App 构建
+  # ============================================
+  windows:
+    name: Build Windows App
+    runs-on: windows-latest
+    needs: prepare
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Update version in pubspec.yaml
+        working-directory: mobile
+        shell: bash
+        run: |
+          sed -i "s/version: .*/version: ${{ needs.prepare.outputs.version }}+${{ needs.prepare.outputs.build_number }}/" pubspec.yaml
+
+      - name: Get dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build Windows
+        working-directory: mobile
+        run: flutter build windows --release --build-name=${{ needs.prepare.outputs.version }} --build-number=${{ needs.prepare.outputs.build_number }}
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "mobile\build\windows\x64\runner\Release\*" `
+            -DestinationPath "mobile\build\windows\personal-ledger-${{ needs.prepare.outputs.version }}-windows.zip"
+
+      - name: Upload Windows App
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: mobile/build/windows/personal-ledger-*.zip
+
+  # ============================================
+  # 创建 GitHub Release
+  # ============================================
+  release:
+    name: Create Release
+    needs: [prepare, docker, android, macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release v${{ needs.prepare.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            artifacts/android-apk/*.apk
+            artifacts/macos-app/*.zip
+            artifacts/windows-app/*.zip
+          body: |
+            ## 📦 版本 v${{ needs.prepare.outputs.version }}
+            
+            ### Docker 部署 (推荐)
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
+            
+            # 或使用 docker-compose
+            wget https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
+            docker-compose up -d
+            ```
+            
+            ### 客户端下载
+            
+            | 平台 | 文件 | 说明 |
+            |------|------|------|
+            | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.apk` | 直接安装 |
+            | macOS | `personal-ledger-${{ needs.prepare.outputs.version }}-macos.zip` | 解压后运行，首次需在安全设置中允许 |
+            | Windows | `personal-ledger-${{ needs.prepare.outputs.version }}-windows.zip` | 解压后运行，需安装 [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) |

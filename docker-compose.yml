@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  personal-ledger:
+    # 使用 GitHub Container Registry 镜像
+    # image: ghcr.io/your-username/personal-ledger:latest
+    
+    # 或本地构建
+    build: .
+    
+    container_name: personal-ledger
+    restart: unless-stopped
+    
+    ports:
+      - "8080:8080"
+    
+    volumes:
+      # 数据持久化 - 包含数据库、上传文件、备份
+      - ./data:/data
+    
+    environment:
+      # ========== 必须配置 ==========
+      # JWT 密钥 (生产环境必须修改为随机字符串!)
+      - LEDGER_JWT_SECRET=please-change-this-to-a-random-secret-key-at-least-32-chars
+      
+      # ========== 可选配置 ==========
+      # 安全入口路径 (启用后只能通过 /your-path 访问)
+      # - LEDGER_SECURITY_BASE_PATH=/your-secret-path
+      
+      # JWT 过期时间
+      - LEDGER_JWT_ACCESS_EXPIRE=15      # Access Token 过期时间(分钟)
+      - LEDGER_JWT_REFRESH_EXPIRE=43200  # Refresh Token 过期时间(分钟，默认30天)
+      
+      # 文件上传限制
+      - LEDGER_STORAGE_MAX_FILE_SIZE=10  # 最大文件大小(MB)
+      
+      # 日志级别: debug / info / warn / error
+      - LEDGER_LOG_LEVEL=info
