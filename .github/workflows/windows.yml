@@ -1,0 +1,70 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '!mobile/android/**'
+      - '!mobile/macos/**'
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      build_number:
+        required: true
+        type: string
+
+jobs:
+  windows:
+    name: Build Windows App
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev" >> $GITHUB_OUTPUT
+            echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Update version in pubspec.yaml
+        working-directory: mobile
+        shell: bash
+        run: |
+          sed -i "s/version: .*/version: ${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD_NUMBER }}/" pubspec.yaml
+
+      - name: Get dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build Windows
+        working-directory: mobile
+        run: flutter build windows --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "mobile\build\windows\x64\runner\Release\*" `
+            -DestinationPath "mobile\build\windows\personal-ledger-${{ steps.version.outputs.VERSION }}-windows.zip"
+
+      - name: Upload Windows App
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: mobile/build/windows/personal-ledger-*.zip
+          retention-days: ${{ inputs.version != '' && 90 || 7 }}

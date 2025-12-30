@@ -1,0 +1,73 @@
+name: Build Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '!mobile/macos/**'
+      - '!mobile/windows/**'
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      build_number:
+        required: true
+        type: string
+
+jobs:
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev" >> $GITHUB_OUTPUT
+            echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Update version in pubspec.yaml
+        working-directory: mobile
+        run: |
+          sed -i "s/version: .*/version: ${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD_NUMBER }}/" pubspec.yaml
+
+      - name: Get dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: mobile
+        run: flutter build apk --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
+
+      - name: Rename APK
+        run: |
+          mv mobile/build/app/outputs/flutter-apk/app-release.apk \
+             mobile/build/app/outputs/flutter-apk/personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: mobile/build/app/outputs/flutter-apk/personal-ledger-*.apk
+          retention-days: ${{ inputs.version != '' && 90 || 7 }}
