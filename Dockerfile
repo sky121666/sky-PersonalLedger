@@ -26,7 +26,7 @@ RUN go mod download
 COPY backend/ ./
 
 ARG VERSION=dev
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}" -o /app/server ./cmd/server
+RUN go mod tidy && CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}" -o /app/server ./cmd/server
 
 # ============================================
 # Stage 3: 最终镜像
