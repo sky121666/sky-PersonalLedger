@@ -2,18 +2,36 @@
 
 🏠 简洁、安全的个人记账系统，支持私有部署
 
-<img width="1667" height="947" alt="image" src="https://github.com/user-attachments/assets/1ddb77fa-e564-494b-9cb0-bfaf8a0bfdc3" />
+## 📸 应用截图
 
-<img width="414" height="928" alt="image" src="https://github.com/user-attachments/assets/52ea4a37-a2a0-4e7c-96b5-8f5b0598eeb9" />
-<img width="450" height="928" alt="image" src="https://github.com/user-attachments/assets/2f5377a6-89ff-4c05-a48a-c52d0ed327e9" />
-<img width="450" height="928" alt="image" src="https://github.com/user-attachments/assets/51b57139-f909-4efe-8ff5-5575ad7a5102" />
-<img width="450" height="928" alt="image" src="https://github.com/user-attachments/assets/36709b85-711c-4dc3-a8fa-5f0cd3ac565e" />
-<img width="450" height="928" alt="image" src="https://github.com/user-attachments/assets/b042d21c-5fbd-4997-897b-33290287b869" />
-<img width="450" height="928" alt="image" src="https://github.com/user-attachments/assets/df338827-6c6f-49b4-ab0c-893d23a7376a" />
-<img width="450" height="928" alt="image" src="https://github.com/user-attachments/assets/3a839b8e-47bc-4b33-9928-c7e354dfeb1e" />
-<img width="450" height="928" alt="image" src="https://github.com/user-attachments/assets/5a9ed06c-9b73-48c7-b175-3c961d6805f3" />
-<img width="450" height="928" alt="image" src="https://github.com/user-attachments/assets/1a2004b2-1b30-4c08-99cb-32ef58fb26eb" />
-<img width="450" height="928" alt="image" src="https://github.com/user-attachments/assets/717a0a03-77c5-414a-b39d-47883612c196" />
+> 💡 **一套代码，多端适配** - Web 响应式设计，客户端通过 WebView 加载，体验一致
+
+<details>
+<summary><b>🖥️ 桌面端界面</b> (点击展开)</summary>
+<br/>
+<img width="100%" alt="Personal Ledger 桌面端界面" src="https://github.com/user-attachments/assets/1ddb77fa-e564-494b-9cb0-bfaf8a0bfdc3" />
+</details>
+
+<details open>
+<summary><b>📱 手机端界面</b> (响应式布局)</summary>
+<br/>
+<p align="center">
+  <img width="24%" alt="登录" src="https://github.com/user-attachments/assets/52ea4a37-a2a0-4e7c-96b5-8f5b0598eeb9" />
+  <img width="24%" alt="首页" src="https://github.com/user-attachments/assets/2f5377a6-89ff-4c05-a48a-c52d0ed327e9" />
+  <img width="24%" alt="记账" src="https://github.com/user-attachments/assets/51b57139-f909-4efe-8ff5-5575ad7a5102" />
+  <img width="24%" alt="账户" src="https://github.com/user-attachments/assets/36709b85-711c-4dc3-a8fa-5f0cd3ac565e" />
+</p>
+<p align="center">
+  <img width="24%" alt="统计" src="https://github.com/user-attachments/assets/b042d21c-5fbd-4997-897b-33290287b869" />
+  <img width="24%" alt="设置" src="https://github.com/user-attachments/assets/df338827-6c6f-49b4-ab0c-893d23a7376a" />
+  <img width="24%" alt="借贷" src="https://github.com/user-attachments/assets/3a839b8e-47bc-4b33-9928-c7e354dfeb1e" />
+  <img width="24%" alt="导出" src="https://github.com/user-attachments/assets/5a9ed06c-9b73-48c7-b175-3c961d6805f3" />
+</p>
+<p align="center">
+  <img width="24%" alt="标签" src="https://github.com/user-attachments/assets/1a2004b2-1b30-4c08-99cb-32ef58fb26eb" />
+  <img width="24%" alt="更多" src="https://github.com/user-attachments/assets/717a0a03-77c5-414a-b39d-47883612c196" />
+</p>
+</details>
 
 ## ✨ 特性
 
@@ -80,13 +98,15 @@ docker run -d \
 
 ## 📱 客户端下载
 
+> 📦 **客户端说明**: 使用 Flutter WebView 封装，加载 Web 端响应式界面，无需单独开发原生 UI
+
 从 [Releases](https://github.com/sky121666/sky-PersonalLedger/releases) 下载对应平台的客户端：
 
-| 平台 | 文件名 | 说明 |
-|------|--------|------|
-| 🤖 Android | `personal-ledger-xxx-android.apk` | 直接安装 APK | 已测试｜
-| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 解压后运行，首次需在安全设置中允许 |已测试|
-| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 解压后运行，需安装 [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) |未测试|
+| 平台 | 文件名 | 说明 | 测试状态 |
+|------|--------|------|----------|
+| 🤖 Android | `personal-ledger-xxx-android.apk` | 直接安装 APK | ✅ 已测试 |
+| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 解压后运行，首次需在安全设置中允许 | ✅ 已测试 |
+| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 解压后运行，需安装 [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) | ⏳ 待测试 |
 
 ## ⚙️ 配置说明
 
@@ -218,4 +238,4 @@ flutter run
 
 ## 📄 License
 
-MIT License 
+MIT License
