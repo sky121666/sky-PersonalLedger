@@ -40,6 +40,11 @@ services:
       - LEDGER_LOG_LEVEL=info             # debug/info/warn/error
       # - LEDGER_LOG_FORMAT=json          # json/text
       
+      # ========== 限流配置 ==========
+      - LEDGER_SERVER_MODE=debug #完全禁用限流
+      # - LEDGER_RATE_LIMIT_MAX_REQUESTS=2000  # 每分钟最大请求数
+      # - LEDGER_RATE_LIMIT_WINDOW_SECS=60     # 限流时间窗口(秒)
+      
       # ========== 时区 ==========
       - TZ=Asia/Shanghai
 

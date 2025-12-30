@@ -45,6 +45,12 @@ storage:
   # 环境变量: LEDGER_STORAGE_UPLOAD_PATH, LEDGER_STORAGE_BACKUP_PATH
   #          LEDGER_STORAGE_MAX_FILE_SIZE, LEDGER_STORAGE_ALLOWED_TYPES
 
+rate_limit:
+  max_requests: 1000            # 每个时间窗口最大请求数
+  window_secs: 60               # 时间窗口 (秒)
+  # 环境变量: LEDGER_RATE_LIMIT_MAX_REQUESTS, LEDGER_RATE_LIMIT_WINDOW_SECS
+  # 注意: debug 模式下全局限流会被禁用
+
 # ============================================
 # Docker 部署示例
 # ============================================
