@@ -154,6 +154,26 @@ class _WebScreenState extends State<WebScreen> {
     await _ctrl.loadRequest(Uri.parse(widget.url));
   }
 
+  // 计算按钮底部位置，适配不同平台
+  double _getBottomPosition(BuildContext context) {
+    final padding = MediaQuery.of(context).padding;
+    
+    // 检测平台
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      // Android: 底部导航栏上方 100px
+      return padding.bottom + 100;
+    } else if (Theme.of(context).platform == TargetPlatform.macOS) {
+      // macOS: 底部 100px (没有导航栏)
+      return 100;
+    } else if (Theme.of(context).platform == TargetPlatform.windows) {
+      // Windows: 底部 100px
+      return 100;
+    } else {
+      // 其他平台默认
+      return padding.bottom + 100;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // 获取安全区域边距，自动适配刘海屏、状态栏、底部导航栏
@@ -172,20 +192,27 @@ class _WebScreenState extends State<WebScreen> {
             child: Stack(
               children: [
                 WebViewWidget(controller: _ctrl),
-                // 设置按钮
+                // 设置按钮 - 右下角位置，适配不同平台
                 Positioned(
-                  left: 8,
-                  top: 8,
+                  right: 16,
+                  bottom: _getBottomPosition(context),
                   child: GestureDetector(
                     onTap: _showMenu,
                     child: Container(
-                      width: 32,
-                      height: 32,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.black45,
-                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      child: const Icon(Icons.menu, color: Colors.white70, size: 18),
+                      child: const Icon(Icons.menu, color: Colors.white, size: 24),
                     ),
                   ),
                 ),
