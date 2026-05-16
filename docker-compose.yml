@@ -27,6 +27,8 @@ services:
       
       # API Token (移动端访问验证，留空不验证)
       # - LEDGER_SECURITY_API_TOKEN=sk-your-api-token
+      # 跨域白名单 (留空仅允许同源/无 Origin 请求，多个来源用逗号分隔)
+      # - LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.com
       
       # ========== JWT 配置 ==========
       - LEDGER_JWT_ACCESS_EXPIRE=15       # Access Token 过期(分钟)

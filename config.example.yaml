@@ -37,6 +37,12 @@ security:
   api_token: ""
   # 环境变量: LEDGER_SECURITY_API_TOKEN
 
+cors:
+  # 留空仅允许同源/无 Origin 请求；开发前端可设为 http://localhost:5173
+  # 多个来源用逗号分隔，如: https://ledger.example.com,https://admin.example.com
+  allowed_origins: ""
+  # 环境变量: LEDGER_CORS_ALLOWED_ORIGINS
+
 storage:
   upload_path: "./data/uploads"   # 上传文件存储路径
   backup_path: "./data/backups"   # 备份文件存储路径

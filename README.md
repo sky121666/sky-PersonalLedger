@@ -4,7 +4,7 @@
 
 ## 📸 应用截图
 
-> 💡 **一套代码，多端适配** - Web 响应式设计，客户端通过 WebView 加载，体验一致
+> 💡 **多端适配** - Web 响应式界面 + 原生 Flutter 客户端，低频功能保留 WebView 兜底
 
 <details>
 <summary><b>🖥️ 桌面端界面</b> (点击展开)</summary>
@@ -98,15 +98,15 @@ docker run -d \
 
 ## 📱 客户端下载
 
-> 📦 **客户端说明**: 使用 Flutter WebView 封装，加载 Web 端响应式界面，无需单独开发原生 UI
+> 📦 **客户端说明**: 当前客户端正在从 Flutter WebView 壳演进为原生 Flutter 应用。核心流程已使用原生页面和 API Client；低频或未迁移功能保留 Legacy WebView 兜底入口。
 
 从 [Releases](https://github.com/sky121666/sky-PersonalLedger/releases) 下载对应平台的客户端：
 
 | 平台 | 文件名 | 说明 | 测试状态 |
 |------|--------|------|----------|
-| 🤖 Android | `personal-ledger-xxx-android.apk` | 直接安装 APK | ✅ 已测试 |
-| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 解压后运行，首次需在安全设置中允许 | ✅ 已测试 |
-| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 解压后运行，需安装 [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) | ⏳ 待测试 |
+| 🤖 Android | `personal-ledger-xxx-android.apk` | 原生 Flutter 客户端，保留 WebView 兜底 | ✅ 基础测试通过 |
+| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 原生 Flutter 客户端，首次需在安全设置中允许 | ✅ 基础测试通过 |
+| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 原生 Flutter 客户端，部分低频功能可能通过 WebView 打开 | ⏳ 待完整回归 |
 
 ## ⚙️ 配置说明
 
@@ -214,7 +214,7 @@ cp -r ./data ./data-backup-$(date +%Y%m%d)
 
 - **后端**: Go + Gin + GORM + SQLite
 - **前端**: Vue 3 + TypeScript + Tailwind CSS  
-- **客户端**: Flutter (WebView)
+- **客户端**: Flutter 原生页面 + Legacy WebView 兜底
 - **部署**: Docker + GitHub Actions
 
 ## 🔧 本地开发
