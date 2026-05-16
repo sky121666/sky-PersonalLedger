@@ -8,9 +8,11 @@ import (
 
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
+	"gorm.io/gorm"
 )
 
 type BackupService struct {
+	db               *gorm.DB
 	accountRepo      *repository.AccountRepository
 	categoryRepo     *repository.CategoryRepository
 	transactionRepo  *repository.TransactionRepository
@@ -24,6 +26,7 @@ type BackupService struct {
 }
 
 func NewBackupService(
+	db *gorm.DB,
 	accountRepo *repository.AccountRepository,
 	categoryRepo *repository.CategoryRepository,
 	transactionRepo *repository.TransactionRepository,
@@ -36,6 +39,7 @@ func NewBackupService(
 	userRepo *repository.UserRepository,
 ) *BackupService {
 	return &BackupService{
+		db:               db,
 		accountRepo:      accountRepo,
 		categoryRepo:     categoryRepo,
 		transactionRepo:  transactionRepo,
@@ -170,85 +174,102 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 		return err
 	}
 
-	// Clear existing data before restore
-	s.clearUserData(userID)
-
-	// Restore user profile
-	if backup.UserProfile != nil {
-		if user, err := s.userRepo.GetByID(userID); err == nil {
-			user.Nickname = backup.UserProfile.Nickname
-			user.Email = backup.UserProfile.Email
-			user.Avatar = backup.UserProfile.Avatar
-			user.Bio = backup.UserProfile.Bio
-			s.userRepo.Update(user)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := s.clearUserDataTx(tx, userID); err != nil {
+			return err
 		}
-	}
 
-	// Restore accounts
-	for _, acc := range backup.Accounts {
-		acc.UserID = userID
-		s.accountRepo.Create(&acc)
-	}
+		if backup.UserProfile != nil {
+			if err := tx.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+				"nickname": backup.UserProfile.Nickname,
+				"email":    backup.UserProfile.Email,
+				"avatar":   backup.UserProfile.Avatar,
+				"bio":      backup.UserProfile.Bio,
+			}).Error; err != nil {
+				return err
+			}
+		}
 
-	// Restore categories
-	for _, cat := range backup.Categories {
-		cat.UserID = userID
-		s.categoryRepo.Create(&cat)
-	}
+		for _, acc := range backup.Accounts {
+			acc.UserID = userID
+			if err := tx.Create(&acc).Error; err != nil {
+				return err
+			}
+		}
 
-	// Restore transactions
-	for _, tx := range backup.Transactions {
-		tx.UserID = userID
-		s.transactionRepo.Create(&tx)
-	}
+		for _, cat := range backup.Categories {
+			cat.UserID = userID
+			if err := tx.Create(&cat).Error; err != nil {
+				return err
+			}
+		}
 
-	// Restore budgets
-	for _, budget := range backup.Budgets {
-		budget.UserID = userID
-		s.budgetRepo.Create(&budget)
-	}
+		for _, item := range backup.Transactions {
+			item.UserID = userID
+			if err := tx.Create(&item).Error; err != nil {
+				return err
+			}
+		}
 
-	// Restore reminders
-	for _, reminder := range backup.Reminders {
-		reminder.UserID = userID
-		s.reminderRepo.Create(&reminder)
-	}
+		for _, budget := range backup.Budgets {
+			budget.UserID = userID
+			if err := tx.Create(&budget).Error; err != nil {
+				return err
+			}
+		}
 
-	// Restore lendings
-	for _, lending := range backup.Lendings {
-		lending.UserID = userID
-		s.lendingRepo.Create(lending)
-	}
+		for _, reminder := range backup.Reminders {
+			reminder.UserID = userID
+			if err := tx.Create(&reminder).Error; err != nil {
+				return err
+			}
+		}
 
-	// Restore lending records
-	for _, record := range backup.LendingRecords {
-		record.UserID = userID
-		s.lendingRepo.CreateRecord(record)
-	}
+		for _, lending := range backup.Lendings {
+			lending.UserID = userID
+			if err := tx.Create(lending).Error; err != nil {
+				return err
+			}
+		}
 
-	// Restore templates
-	for _, template := range backup.Templates {
-		template.UserID = userID
-		s.templateRepo.Create(&template)
-	}
+		for _, record := range backup.LendingRecords {
+			record.UserID = userID
+			if err := tx.Create(record).Error; err != nil {
+				return err
+			}
+		}
 
-	// Restore tags
-	for _, tag := range backup.Tags {
-		tag.UserID = userID
-		s.tagRepo.Create(&tag)
-	}
+		for _, template := range backup.Templates {
+			template.UserID = userID
+			if err := tx.Create(&template).Error; err != nil {
+				return err
+			}
+		}
 
-	// Restore notification settings
-	if backup.NotificationSettings != nil {
-		backup.NotificationSettings.UserID = userID
-		s.notificationRepo.Upsert(backup.NotificationSettings)
-	}
+		for _, tag := range backup.Tags {
+			tag.UserID = userID
+			if err := tx.Create(&tag).Error; err != nil {
+				return err
+			}
+		}
 
-	return nil
+		if backup.NotificationSettings != nil {
+			backup.NotificationSettings.UserID = userID
+			if err := tx.Where("user_id = ?", userID).Delete(&model.NotificationSetting{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Create(backup.NotificationSettings).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 func (s *BackupService) clearUserData(userID uint) {
 	// Delete in reverse order of dependencies
+	s.db.Unscoped().Where("user_id = ?", userID).Delete(&model.AccountLog{})
 	s.transactionRepo.DeleteAllByUserID(userID)
 	s.budgetRepo.DeleteAllByUserID(userID)
 	s.lendingRepo.DeleteAllByUserID(userID)
@@ -257,4 +278,41 @@ func (s *BackupService) clearUserData(userID uint) {
 	s.tagRepo.DeleteAllByUserID(userID)
 	s.categoryRepo.DeleteAllByUserID(userID)
 	s.accountRepo.DeleteAllByUserID(userID)
+}
+
+func (s *BackupService) clearUserDataTx(tx *gorm.DB, userID uint) error {
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.AccountLog{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.Transaction{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.Budget{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.LendingRecord{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.Lending{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.Reminder{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.QuickTemplate{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.Tag{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("user_id = ?", userID).Delete(&model.NotificationSetting{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.Category{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.Account{}).Error; err != nil {
+		return err
+	}
+	return nil
 }
