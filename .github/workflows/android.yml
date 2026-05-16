@@ -25,6 +25,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify Android wrapper files
+        run: |
+          test -f mobile/android/gradle/wrapper/gradle-wrapper.properties
+          test -f mobile/android/gradle/wrapper/gradle-wrapper.jar
+          test -f mobile/android/gradlew
+          test -f mobile/android/gradlew.bat
+
       - name: Set version
         id: version
         run: |
