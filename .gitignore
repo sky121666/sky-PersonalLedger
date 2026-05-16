@@ -29,8 +29,8 @@ logs/
 *.db-wal
 *.sqlite
 *.sqlite3
-data/
-backend/data/
+/data/
+/backend/data/
 
 # ===== IDE =====
 .idea/
