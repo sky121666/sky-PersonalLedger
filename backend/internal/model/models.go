@@ -62,24 +62,25 @@ type Category struct {
 }
 
 type Transaction struct {
-	ID              string         `gorm:"primaryKey;size:36" json:"id"`
-	UserID          uint           `gorm:"not null;index" json:"user_id"`
-	AccountID       string         `gorm:"size:36;not null;index" json:"account_id"`
-	CategoryID      *string        `gorm:"size:36;index" json:"category_id"`
-	Type            string         `gorm:"size:20;not null" json:"type"` // income / expense / transfer
-	Amount          float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
-	TransactionDate time.Time      `gorm:"not null;index" json:"transaction_date"`
-	Remark          string         `gorm:"type:text" json:"remark"`
-	Images          string         `gorm:"type:text" json:"images"` // JSON array
-	Tags            string         `gorm:"type:text" json:"tags"`   // JSON array of tag names
-	ToAccountID     *string        `gorm:"size:36" json:"to_account_id"`
-	Source          string         `gorm:"size:50;default:manual" json:"source"`
-	ReminderID      *string        `gorm:"size:36;index" json:"reminder_id,omitempty"`
-	LendingID       *string        `gorm:"size:36;index" json:"lending_id,omitempty"`
-	RecurringID     *string        `gorm:"size:36;index" json:"recurring_id,omitempty"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
-	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+	ID              string    `gorm:"primaryKey;size:36" json:"id"`
+	UserID          uint      `gorm:"not null;index" json:"user_id"`
+	AccountID       string    `gorm:"size:36;not null;index" json:"account_id"`
+	CategoryID      *string   `gorm:"size:36;index" json:"category_id"`
+	Type            string    `gorm:"size:20;not null" json:"type"` // income / expense / transfer
+	Amount          float64   `gorm:"type:decimal(15,2);not null" json:"amount"`
+	TransactionDate time.Time `gorm:"not null;index" json:"transaction_date"`
+	Remark          string    `gorm:"type:text" json:"remark"`
+	Images          string    `gorm:"type:text" json:"images"` // JSON array
+	Tags            string    `gorm:"type:text" json:"tags"`   // JSON array of tag names
+	ToAccountID     *string   `gorm:"size:36" json:"to_account_id"`
+	Source          string    `gorm:"size:50;default:manual" json:"source"`
+	ReminderID      *string   `gorm:"size:36;index" json:"reminder_id,omitempty"`
+	LendingID       *string   `gorm:"size:36;index" json:"lending_id,omitempty"`
+	// RecurringID is reserved for a future full recurring transaction workflow.
+	RecurringID *string        `gorm:"size:36;index" json:"recurring_id,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 
 	Account   *Account  `gorm:"foreignKey:AccountID" json:"account,omitempty"`
 	ToAccount *Account  `gorm:"foreignKey:ToAccountID" json:"to_account,omitempty"`
