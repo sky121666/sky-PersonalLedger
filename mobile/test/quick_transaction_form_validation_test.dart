@@ -1,0 +1,212 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
+import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
+import 'package:personal_ledger/features/transactions/presentation/quick_transaction_page.dart';
+
+void main() {
+  group('QuickTransactionPage 表单校验', () {
+    testWidgets('空表单提交时显示金额和分类必填错误', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(tester, repository: repository);
+
+      await _tapSaveButton(tester);
+      await tester.pump();
+
+      expect(find.text('请输入有效金额'), findsOneWidget);
+      expect(find.text('请选择分类'), findsOneWidget);
+      expect(repository.createCalls, isEmpty);
+    });
+
+    testWidgets('金额必须大于 0', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(tester, repository: repository);
+
+      await tester.enterText(find.byType(TextFormField).first, '0');
+      await _tapSaveButton(tester);
+      await tester.pump();
+
+      expect(find.text('请输入有效金额'), findsOneWidget);
+      expect(repository.createCalls, isEmpty);
+    });
+
+    testWidgets('支出交易选择分类后可成功提交', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(tester, repository: repository);
+
+      await tester.enterText(find.byType(TextFormField).first, '12.34');
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await tester.enterText(find.byType(TextFormField).last, '午餐');
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      final formData = repository.createCalls.single;
+      expect(formData.type, TransactionType.expense);
+      expect(formData.amount, 12.34);
+      expect(formData.accountId, 'account-1');
+      expect(formData.categoryId, 'category-expense');
+      expect(formData.remark, '午餐');
+    });
+
+    testWidgets('转账交易必须选择转入账户', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(tester, repository: repository);
+
+      await tester.tap(find.text('转账'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, '20');
+      await _tapSaveButton(tester);
+      await tester.pump();
+
+      expect(find.text('请选择转入账户'), findsOneWidget);
+      expect(repository.createCalls, isEmpty);
+    });
+
+    testWidgets('转账交易选择转入账户后可成功提交且不带分类', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(tester, repository: repository);
+
+      await tester.tap(find.text('转账'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, '20');
+      await _selectDropdownItem(tester, fieldLabel: '转入账户', itemText: '储蓄卡');
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      final formData = repository.createCalls.single;
+      expect(formData.type, TransactionType.transfer);
+      expect(formData.accountId, 'account-1');
+      expect(formData.toAccountId, 'account-2');
+      expect(formData.categoryId, isNull);
+    });
+  });
+}
+
+Future<void> _pumpTransactionPage(
+  WidgetTester tester, {
+  required _FakeTransactionRepository repository,
+}) async {
+  tester.view.physicalSize = const Size(1200, 1600);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [transactionRepositoryProvider.overrideWithValue(repository)],
+      child: const MaterialApp(home: QuickTransactionPage()),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapSaveButton(WidgetTester tester) async {
+  await tester.drag(find.byType(ListView), const Offset(0, -1000));
+  await tester.pumpAndSettle();
+
+  await tester.tap(find.widgetWithText(FilledButton, '保存'));
+}
+
+Future<void> _selectDropdownItem(
+  WidgetTester tester, {
+  required String fieldLabel,
+  required String itemText,
+}) async {
+  final dropdown = find.ancestor(
+    of: find.text(fieldLabel),
+    matching: find.byType(DropdownButtonFormField<String>),
+  );
+  await tester.tap(dropdown);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(itemText).last);
+  await tester.pumpAndSettle();
+}
+
+class _FakeTransactionRepository implements TransactionRepository {
+  final List<TransactionFormData> createCalls = [];
+
+  @override
+  Future<List<LedgerAccount>> listAccounts() async {
+    return const [
+      LedgerAccount(id: 'account-1', name: '现金', type: 'cash'),
+      LedgerAccount(id: 'account-2', name: '储蓄卡', type: 'bank_card'),
+    ];
+  }
+
+  @override
+  Future<List<LedgerCategory>> listCategories({String? type}) async {
+    return const [
+      LedgerCategory(id: 'category-expense', name: '餐饮', type: 'expense'),
+      LedgerCategory(id: 'category-income', name: '工资', type: 'income'),
+    ];
+  }
+
+  @override
+  Future<List<LedgerTag>> listTags() async {
+    return const [LedgerTag(id: 'tag-1', name: '日常')];
+  }
+
+  @override
+  Future<TransactionItem> create(TransactionFormData formData) async {
+    createCalls.add(formData);
+    return TransactionItem(
+      id: 'transaction-${createCalls.length}',
+      type: formData.type,
+      amount: formData.amount,
+      accountId: formData.accountId,
+      categoryId: formData.categoryId,
+      transactionDate: formData.transactionDate,
+      remark: formData.remark,
+      images: formData.images,
+      tags: formData.tags,
+      toAccountId: formData.toAccountId,
+    );
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+
+  @override
+  Future<TransactionItem> getById(String id) async {
+    return TransactionItem(
+      id: id,
+      type: TransactionType.expense,
+      amount: 1,
+      accountId: 'account-1',
+      categoryId: 'category-expense',
+      transactionDate: DateTime(2026, 5, 14),
+    );
+  }
+
+  @override
+  Future<TransactionListResult> list(TransactionListQuery query) async {
+    return const TransactionListResult(
+      list: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    );
+  }
+
+  @override
+  Future<TransactionItem> update(
+    String id,
+    TransactionFormData formData,
+  ) async {
+    return TransactionItem(
+      id: id,
+      type: formData.type,
+      amount: formData.amount,
+      accountId: formData.accountId,
+      categoryId: formData.categoryId,
+      transactionDate: formData.transactionDate,
+      remark: formData.remark,
+      images: formData.images,
+      tags: formData.tags,
+      toAccountId: formData.toAccountId,
+    );
+  }
+}

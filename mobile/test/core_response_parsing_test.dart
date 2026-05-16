@@ -1,0 +1,109 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/core/auth/auth_token_pair.dart';
+import 'package:personal_ledger/core/config/server_config_service.dart';
+import 'package:personal_ledger/core/network/api_exception.dart';
+import 'package:personal_ledger/core/network/api_response.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
+import 'package:personal_ledger/features/auth/data/auth_repository.dart';
+import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
+
+void main() {
+  group('ApiResponseParser', () {
+    test('成功响应返回解析后的 data', () {
+      final result = ApiResponseParser.parse<String>({
+        'code': 0,
+        'message': 'ok',
+        'data': 'done',
+      }, fromJsonT: (json) => 'parsed:$json');
+
+      expect(result, 'parsed:done');
+    });
+
+    test('非 Map 响应抛出格式异常', () {
+      expect(
+        () => ApiResponseParser.parse<String>('invalid'),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.message,
+            'message',
+            '响应格式不正确',
+          ),
+        ),
+      );
+    });
+
+    test('业务失败响应保留 code 和 message', () {
+      expect(
+        () => ApiResponseParser.parse<void>({
+          'code': 40001,
+          'message': '参数错误',
+          'data': null,
+        }),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 40001)
+              .having((error) => error.message, 'message', '参数错误'),
+        ),
+      );
+    });
+  });
+
+  group('核心模型解析', () {
+    test('ServerConfig 生成 API 基础地址', () {
+      const config = ServerConfig(baseUrl: 'https://ledger.example.com');
+
+      expect(config.apiBaseUrl, 'https://ledger.example.com/api/v1');
+    });
+
+    test('AuthTokenPair 解析 token 并校验完整性', () {
+      final tokenPair = AuthTokenPair.fromJson({
+        'access_token': 'access-token',
+        'refresh_token': 'refresh-token',
+        'expires_in': 3600,
+      });
+
+      expect(tokenPair.accessToken, 'access-token');
+      expect(tokenPair.refreshToken, 'refresh-token');
+      expect(tokenPair.expiresIn, 3600);
+      expect(tokenPair.isValid, isTrue);
+    });
+
+    test('AuthStatus 拒绝非 Map 响应', () {
+      expect(
+        () => AuthStatus.fromJson(['invalid']),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('TransactionListResult 解析分页列表和 hasMore', () {
+      final result = TransactionListResult.fromJson({
+        'list': [
+          {
+            'id': 't1',
+            'type': 'income',
+            'amount': '12.5',
+            'account_id': 'a1',
+            'category_id': 'c1',
+            'transaction_date': '2026-05-14T10:20:00Z',
+            'tags': '["工资","五月"]',
+          },
+        ],
+        'total': 30,
+        'page': 1,
+        'page_size': 20,
+      });
+
+      expect(result.list, hasLength(1));
+      expect(result.list.first.type, TransactionType.income);
+      expect(result.list.first.amount, 12.5);
+      expect(result.list.first.tags, ['工资', '五月']);
+      expect(result.hasMore, isTrue);
+    });
+
+    test('附件路径兼容 JSON 和逗号分隔格式', () {
+      expect(decodeAttachmentPaths('["a.jpg","b.pdf"]'), ['a.jpg', 'b.pdf']);
+      expect(decodeAttachmentPaths(' a.jpg, b.pdf ,, '), ['a.jpg', 'b.pdf']);
+      expect(encodeAttachmentPaths(['a.jpg']), '["a.jpg"]');
+    });
+  });
+}
