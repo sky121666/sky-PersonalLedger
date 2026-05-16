@@ -68,3 +68,7 @@ func (r *AccountRepository) UpdateSortOrder(ids []string) error {
 func (r *AccountRepository) CreateBatch(accounts []model.Account) error {
 	return r.db.Create(&accounts).Error
 }
+
+func (r *AccountRepository) DB() *gorm.DB {
+	return r.db
+}
