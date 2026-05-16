@@ -53,6 +53,14 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const Divider(height: 1),
                   ListTile(
+                    leading: const Icon(Icons.savings_outlined),
+                    title: const Text('预算管理'),
+                    subtitle: const Text('设置总预算和分类预算提醒线'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutePaths.budgets),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     leading: const Icon(Icons.storage_outlined),
                     title: const Text('数据管理'),
                     subtitle: const Text('备份、恢复和导出交易数据'),

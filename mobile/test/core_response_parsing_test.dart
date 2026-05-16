@@ -5,6 +5,7 @@ import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/network/api_response.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
+import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
@@ -186,6 +187,37 @@ void main() {
       expect(report.monthlyData.single.expense, 400);
       expect(report.topExpenses.single.categoryName, '餐饮');
       expect(report.topExpenses.single.count, 4);
+    });
+
+    test('预算模型解析总预算和分类预算', () {
+      final result = BudgetListResponse.fromJson({
+        'total_budget': {
+          'id': 'total',
+          'category_id': null,
+          'amount': '3000',
+          'spent': 1200,
+          'remaining': '1800',
+          'percentage': 40,
+          'alert_threshold': '80',
+        },
+        'category_budgets': [
+          {
+            'id': 'budget-1',
+            'category_id': 'cat-1',
+            'category_name': '餐饮',
+            'amount': 800,
+            'spent': '700',
+            'remaining': 100,
+            'percentage': '87',
+            'alert_threshold': 80,
+          },
+        ],
+      });
+
+      expect(result.totalBudget?.amount, 3000);
+      expect(result.categoryBudgets.single.categoryName, '餐饮');
+      expect(result.categoryBudgets.single.percentage, 87);
+      expect(result.categoryBudgets.single.isNearLimit, isTrue);
     });
   });
 }

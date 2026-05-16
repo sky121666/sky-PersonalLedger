@@ -137,7 +137,17 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('更换服务器'));
+      await tester.pumpAndSettle();
+      final changeServerTile = find.ancestor(
+        of: find.text('更换服务器'),
+        matching: find.byType(ListTile),
+      );
+      await Scrollable.ensureVisible(
+        tester.element(changeServerTile),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(changeServerTile);
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '更换'));
       await tester.pumpAndSettle();
