@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onBeforeUnmount, watch } from 'vue'
 import { Upload, X, FileText, Image, File, Download, Eye } from 'lucide-vue-next'
-import { useAuthStore } from '@/stores/auth'
+import { fileApi } from '@/api/file'
+import { toast } from '@/composables/useToast'
 
 const props = defineProps<{
   category: 'transactions' | 'lendings' | 'reminders'
@@ -16,10 +17,11 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const authStore = useAuthStore()
 const uploading = ref(false)
 const dragOver = ref(false)
 const previewUrl = ref<string | null>(null)
+const previewUrls = ref<Record<string, string>>({})
+const objectUrls = new Map<string, string>()
 
 const maxFilesLimit = computed(() => props.maxFiles || 5)
 const acceptTypes = computed(() => props.accept || 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt')
@@ -57,9 +59,50 @@ function isImage(path: string) {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')
 }
 
-function getFileUrl(path: string) {
-  const token = authStore.accessToken
-  return `/uploads/${path}?token=${token}`
+async function getObjectUrl(path: string) {
+  const cached = objectUrls.get(path)
+  if (cached) return cached
+
+  const objectUrl = await fileApi.previewObjectUrl(path)
+  objectUrls.set(path, objectUrl)
+  previewUrls.value = {
+    ...previewUrls.value,
+    [path]: objectUrl
+  }
+  return objectUrl
+}
+
+function revokeObjectUrl(path: string) {
+  const objectUrl = objectUrls.get(path)
+  if (!objectUrl) return
+
+  URL.revokeObjectURL(objectUrl)
+  objectUrls.delete(path)
+  const next = { ...previewUrls.value }
+  delete next[path]
+  previewUrls.value = next
+}
+
+async function syncPreviewUrls() {
+  const activeImages = new Set(files.value.filter(isImage))
+
+  for (const path of objectUrls.keys()) {
+    if (!activeImages.has(path)) {
+      revokeObjectUrl(path)
+    }
+  }
+
+  await Promise.all(
+    [...activeImages]
+      .filter(path => !objectUrls.has(path))
+      .map(async path => {
+        try {
+          await getObjectUrl(path)
+        } catch (error) {
+          console.error('Preview load failed:', error)
+        }
+      })
+  )
 }
 
 async function handleFileSelect(event: Event) {
@@ -104,20 +147,10 @@ async function uploadFiles(fileList: File[]) {
       formData.append('file', file)
       formData.append('category', props.category)
       formData.append('ref_id', props.refId)
-      
-      const response = await fetch('/api/v1/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authStore.accessToken}`
-        },
-        body: formData
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        if (result.data?.path) {
-          newPaths.push(result.data.path)
-        }
+
+      const result = await fileApi.upload(formData)
+      if (result.path) {
+        newPaths.push(result.path)
       }
     }
     
@@ -127,6 +160,7 @@ async function uploadFiles(fileList: File[]) {
     }
   } catch (error) {
     console.error('Upload failed:', error)
+    toast.error('上传失败')
   } finally {
     uploading.value = false
   }
@@ -134,27 +168,25 @@ async function uploadFiles(fileList: File[]) {
 
 async function removeFile(path: string) {
   try {
-    const response = await fetch(`/api/v1/upload?path=${encodeURIComponent(path)}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${authStore.accessToken}`
-      }
-    })
-    
-    if (response.ok) {
-      const updatedFiles = files.value.filter(f => f !== path)
-      emit('update:modelValue', JSON.stringify(updatedFiles))
-    }
+    await fileApi.delete(path)
+    const updatedFiles = files.value.filter(f => f !== path)
+    emit('update:modelValue', JSON.stringify(updatedFiles))
   } catch (error) {
     console.error('Delete failed:', error)
+    toast.error('删除失败')
   }
 }
 
-function openPreview(path: string) {
-  if (isImage(path)) {
-    previewUrl.value = getFileUrl(path)
-  } else {
-    window.open(getFileUrl(path), '_blank')
+async function openPreview(path: string) {
+  try {
+    if (isImage(path)) {
+      previewUrl.value = await getObjectUrl(path)
+    } else {
+      await fileApi.download(path)
+    }
+  } catch (error) {
+    console.error('Preview failed:', error)
+    toast.error('预览失败')
   }
 }
 
@@ -162,12 +194,25 @@ function closePreview() {
   previewUrl.value = null
 }
 
-function downloadFile(path: string) {
-  const link = document.createElement('a')
-  link.href = `/api/v1/upload/download?path=${encodeURIComponent(path)}&token=${authStore.accessToken}`
-  link.download = getFileName(path)
-  link.click()
+async function downloadFile(path: string) {
+  try {
+    await fileApi.download(path)
+  } catch (error) {
+    console.error('Download failed:', error)
+    toast.error('下载失败')
+  }
 }
+
+watch(files, () => {
+  void syncPreviewUrls()
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  for (const objectUrl of objectUrls.values()) {
+    URL.revokeObjectURL(objectUrl)
+  }
+  objectUrls.clear()
+})
 </script>
 
 <template>
@@ -184,9 +229,9 @@ function downloadFile(path: string) {
           class="w-10 h-10 rounded-lg bg-gray-200 dark:bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer"
           @click="openPreview(path)"
         >
-          <img 
-            v-if="isImage(path)" 
-            :src="getFileUrl(path)" 
+          <img
+            v-if="isImage(path) && previewUrls[path]"
+            :src="previewUrls[path]"
             class="w-full h-full object-cover"
             loading="lazy"
           />

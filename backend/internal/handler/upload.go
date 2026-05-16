@@ -2,6 +2,7 @@ package handler
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/middleware"
@@ -11,10 +12,16 @@ import (
 
 type UploadHandler struct {
 	uploadService *service.UploadService
+	apiToken      *service.APITokenService
+	authService   *service.AuthService
 }
 
-func NewUploadHandler(uploadService *service.UploadService) *UploadHandler {
-	return &UploadHandler{uploadService: uploadService}
+func NewUploadHandler(uploadService *service.UploadService, apiToken *service.APITokenService, authService *service.AuthService) *UploadHandler {
+	return &UploadHandler{
+		uploadService: uploadService,
+		apiToken:      apiToken,
+		authService:   authService,
+	}
 }
 
 type UploadRequest struct {
@@ -117,6 +124,26 @@ func (h *UploadHandler) Download(c *gin.Context) {
 	if filePath == "" {
 		response.BadRequest(c, "path is required")
 		return
+	}
+
+	token := c.Query("token")
+	if token == "" {
+		authHeader := c.GetHeader("Authorization")
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			token = parts[1]
+		}
+	}
+	if token == "" {
+		response.Unauthorized(c, "missing authorization token")
+		return
+	}
+
+	if _, err := h.authService.GetJWTManager().ValidateToken(token); err != nil {
+		if _, apiErr := h.apiToken.ValidateToken(token); apiErr != nil {
+			response.Unauthorized(c, "invalid token")
+			return
+		}
 	}
 
 	fullPath := h.uploadService.GetFilePath(filePath)

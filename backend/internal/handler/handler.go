@@ -42,7 +42,7 @@ func NewHandlers(services *service.Services, backupScheduler *service.BackupSche
 		Lending:      NewLendingHandler(services.Lending),
 		Export:       NewExportHandler(services.Export),
 		System:       NewSystemHandler(services.System),
-		Upload:       NewUploadHandler(services.Upload),
+		Upload:       NewUploadHandler(services.Upload, services.APIToken, services.Auth),
 		AccountLog:   NewAccountLogHandler(services.AccountLog),
 		Tag:          NewTagHandler(services.Tag),
 		APIToken:     NewAPITokenHandler(services.APIToken),
