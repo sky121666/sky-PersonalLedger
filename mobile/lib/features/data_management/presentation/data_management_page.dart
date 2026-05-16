@@ -14,11 +14,32 @@ class DataManagementPage extends ConsumerStatefulWidget {
 }
 
 class _DataManagementPageState extends ConsumerState<DataManagementPage> {
+  final _maxBackupsController = TextEditingController(text: '10');
   String? _busyAction;
   String? _lastSavedPath;
   String? _errorMessage;
+  AutoBackupSettings _autoBackupSettings = const AutoBackupSettings(
+    enabled: false,
+    frequency: 'daily',
+    hour: 3,
+    maxBackups: 10,
+  );
+  List<AutoBackupFile> _autoBackupFiles = const [];
+  bool _autoBackupLoading = true;
 
   bool get _isBusy => _busyAction != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAutoBackup();
+  }
+
+  @override
+  void dispose() {
+    _maxBackupsController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +95,38 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               enabled: !_isBusy,
               isDanger: true,
               onPressed: _pickAndRestoreBackup,
+            ),
+            const SizedBox(height: 12),
+            _AutoBackupCard(
+              settings: _autoBackupSettings,
+              files: _autoBackupFiles,
+              maxBackupsController: _maxBackupsController,
+              loading: _autoBackupLoading || _busyAction == 'auto-backup',
+              enabled: !_isBusy,
+              onEnabledChanged: (value) {
+                setState(() {
+                  _autoBackupSettings = _autoBackupSettings.copyWith(
+                    enabled: value,
+                  );
+                });
+              },
+              onFrequencyChanged: (value) {
+                setState(() {
+                  _autoBackupSettings = _autoBackupSettings.copyWith(
+                    frequency: value,
+                  );
+                });
+              },
+              onHourChanged: (value) {
+                setState(() {
+                  _autoBackupSettings = _autoBackupSettings.copyWith(
+                    hour: value,
+                  );
+                });
+              },
+              onSave: _saveAutoBackupSettings,
+              onTrigger: _triggerAutoBackup,
+              onReload: _loadAutoBackup,
             ),
           ],
         ),
@@ -147,6 +200,108 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     }
   }
 
+  Future<void> _loadAutoBackup() async {
+    setState(() {
+      _autoBackupLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final overview = await ref
+          .read(dataManagementRepositoryProvider)
+          .getAutoBackupOverview();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _autoBackupSettings = overview.settings;
+        _autoBackupFiles = overview.files;
+        _maxBackupsController.text = overview.settings.maxBackups.toString();
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _errorMessage = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _autoBackupLoading = false);
+      }
+    }
+  }
+
+  Future<void> _saveAutoBackupSettings() async {
+    final maxBackups =
+        int.tryParse(_maxBackupsController.text.trim()) ??
+        _autoBackupSettings.maxBackups;
+    final settings = _autoBackupSettings.copyWith(
+      maxBackups: maxBackups.clamp(1, 100),
+    );
+
+    setState(() {
+      _busyAction = 'auto-backup';
+      _errorMessage = null;
+      _lastSavedPath = null;
+      _autoBackupSettings = settings;
+      _maxBackupsController.text = settings.maxBackups.toString();
+    });
+
+    try {
+      final saved = await ref
+          .read(dataManagementRepositoryProvider)
+          .saveAutoBackupSettings(settings);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _autoBackupSettings = saved ?? settings;
+        _maxBackupsController.text = _autoBackupSettings.maxBackups.toString();
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('自动备份设置已保存')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _errorMessage = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _busyAction = null);
+      }
+    }
+  }
+
+  Future<void> _triggerAutoBackup() async {
+    setState(() {
+      _busyAction = 'auto-backup';
+      _errorMessage = null;
+      _lastSavedPath = null;
+    });
+
+    try {
+      final repository = ref.read(dataManagementRepositoryProvider);
+      await repository.triggerAutoBackup();
+      final files = await repository.listAutoBackupFiles();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _autoBackupFiles = files ?? const []);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('自动备份已触发')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _errorMessage = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _busyAction = null);
+      }
+    }
+  }
+
   Future<void> _runFileAction({
     required String action,
     required Future<DataFileResult> Function() request,
@@ -177,6 +332,197 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         setState(() => _busyAction = null);
       }
     }
+  }
+}
+
+class _AutoBackupCard extends StatelessWidget {
+  const _AutoBackupCard({
+    required this.settings,
+    required this.files,
+    required this.maxBackupsController,
+    required this.loading,
+    required this.enabled,
+    required this.onEnabledChanged,
+    required this.onFrequencyChanged,
+    required this.onHourChanged,
+    required this.onSave,
+    required this.onTrigger,
+    required this.onReload,
+  });
+
+  final AutoBackupSettings settings;
+  final List<AutoBackupFile> files;
+  final TextEditingController maxBackupsController;
+  final bool loading;
+  final bool enabled;
+  final ValueChanged<bool> onEnabledChanged;
+  final ValueChanged<String> onFrequencyChanged;
+  final ValueChanged<int> onHourChanged;
+  final VoidCallback onSave;
+  final VoidCallback onTrigger;
+  final VoidCallback onReload;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+                  foregroundColor: colorScheme.primary,
+                  child: const Icon(Icons.schedule_outlined),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '自动备份',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        settings.lastBackup == null ||
+                                settings.lastBackup!.isEmpty
+                            ? '定时在服务器生成备份文件'
+                            : '上次备份：${settings.lastBackup}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: enabled && !loading ? onReload : null,
+                  icon: const Icon(Icons.refresh),
+                  tooltip: '刷新自动备份',
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: settings.enabled,
+              onChanged: enabled && !loading ? onEnabledChanged : null,
+              title: const Text('启用自动备份'),
+              subtitle: const Text('按设定频率保留服务器端备份'),
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'daily', label: Text('每天')),
+                ButtonSegment(value: 'weekly', label: Text('每周')),
+                ButtonSegment(value: 'monthly', label: Text('每月')),
+              ],
+              selected: {settings.frequency},
+              showSelectedIcon: false,
+              onSelectionChanged: enabled && !loading
+                  ? (values) => onFrequencyChanged(values.first)
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    key: ValueKey(settings.hour),
+                    initialValue: settings.hour,
+                    decoration: const InputDecoration(
+                      labelText: '执行小时',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (var hour = 0; hour < 24; hour++)
+                        DropdownMenuItem(
+                          value: hour,
+                          child: Text('${hour.toString().padLeft(2, '0')}:00'),
+                        ),
+                    ],
+                    onChanged: enabled && !loading && settings.enabled
+                        ? (value) {
+                            if (value != null) {
+                              onHourChanged(value);
+                            }
+                          }
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: maxBackupsController,
+                    enabled: enabled && !loading,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '保留份数',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: enabled && !loading ? onSave : null,
+                    icon: loading
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined),
+                    label: Text(loading ? '处理中...' : '保存设置'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: enabled && !loading ? onTrigger : null,
+                    icon: const Icon(Icons.play_arrow_outlined),
+                    label: const Text('立即备份'),
+                  ),
+                ),
+              ],
+            ),
+            if (files.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                '已有备份',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              for (final file in files.take(3))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: const Icon(Icons.description_outlined),
+                  title: Text(
+                    file.filename,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${_formatFileSize(file.size)} · ${file.createdAt}',
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -362,4 +708,14 @@ class _ButtonIcon extends StatelessWidget {
       child: CircularProgressIndicator(strokeWidth: 2),
     );
   }
+}
+
+String _formatFileSize(int size) {
+  if (size >= 1024 * 1024) {
+    return '${(size / 1024 / 1024).toStringAsFixed(1)} MB';
+  }
+  if (size >= 1024) {
+    return '${(size / 1024).toStringAsFixed(1)} KB';
+  }
+  return '$size B';
 }

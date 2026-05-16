@@ -39,6 +39,31 @@ void main() {
 
       expect(find.textContaining('网络失败'), findsOneWidget);
     });
+
+    testWidgets('保存自动备份设置时提交当前设置', (tester) async {
+      final repository = _FakeDataManagementRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('启用自动备份'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存设置'));
+      await tester.pumpAndSettle();
+
+      expect(repository.saveAutoBackupCalls, hasLength(1));
+      expect(repository.saveAutoBackupCalls.single.enabled, isTrue);
+    });
+
+    testWidgets('立即备份会触发服务器备份并刷新文件列表', (tester) async {
+      final repository = _FakeDataManagementRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('立即备份'));
+      await tester.pumpAndSettle();
+
+      expect(repository.triggerAutoBackupCalls, 1);
+      expect(repository.listAutoBackupFilesCalls, greaterThanOrEqualTo(2));
+      expect(find.textContaining('auto_backup_user1'), findsOneWidget);
+    });
   });
 }
 
@@ -59,13 +84,32 @@ Future<void> _pumpPage(
       child: const MaterialApp(home: DataManagementPage()),
     ),
   );
+  await tester.pumpAndSettle();
 }
 
 class _FakeDataManagementRepository implements DataManagementRepository {
   int downloadBackupCalls = 0;
   int exportCsvCalls = 0;
   int restoreBackupCalls = 0;
+  int getAutoBackupOverviewCalls = 0;
+  int getAutoBackupSettingsCalls = 0;
+  int triggerAutoBackupCalls = 0;
+  int listAutoBackupFilesCalls = 0;
+  final List<AutoBackupSettings> saveAutoBackupCalls = [];
   String? downloadBackupError;
+  AutoBackupSettings autoBackupSettings = const AutoBackupSettings(
+    enabled: false,
+    frequency: 'daily',
+    hour: 3,
+    maxBackups: 10,
+  );
+  List<AutoBackupFile> autoBackupFiles = const [
+    AutoBackupFile(
+      filename: 'auto_backup_user1_20260516_120000.json',
+      size: 2048,
+      createdAt: '2026-05-16 12:00:00',
+    ),
+  ];
 
   @override
   Future<DataFileResult> downloadBackup() async {
@@ -94,5 +138,42 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   @override
   Future<void> restoreBackup(PlatformFile file) async {
     restoreBackupCalls += 1;
+  }
+
+  @override
+  Future<AutoBackupOverview> getAutoBackupOverview() async {
+    getAutoBackupOverviewCalls += 1;
+    final settings = await getAutoBackupSettings();
+    final files = await listAutoBackupFiles();
+    return AutoBackupOverview(
+      settings: settings ?? autoBackupSettings,
+      files: files ?? const [],
+    );
+  }
+
+  @override
+  Future<AutoBackupSettings?> getAutoBackupSettings() async {
+    getAutoBackupSettingsCalls += 1;
+    return autoBackupSettings;
+  }
+
+  @override
+  Future<List<AutoBackupFile>?> listAutoBackupFiles() async {
+    listAutoBackupFilesCalls += 1;
+    return autoBackupFiles;
+  }
+
+  @override
+  Future<AutoBackupSettings?> saveAutoBackupSettings(
+    AutoBackupSettings settings,
+  ) async {
+    saveAutoBackupCalls.add(settings);
+    autoBackupSettings = settings;
+    return autoBackupSettings;
+  }
+
+  @override
+  Future<void> triggerAutoBackup() async {
+    triggerAutoBackupCalls += 1;
   }
 }
