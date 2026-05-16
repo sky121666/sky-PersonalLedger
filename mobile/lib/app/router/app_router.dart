@@ -8,6 +8,7 @@ import '../../features/auth/presentation/login_page.dart';
 import '../../features/auth/presentation/setup_password_page.dart';
 import '../../features/bootstrap/presentation/bootstrap_page.dart';
 import '../../features/categories/presentation/categories_page.dart';
+import '../../features/data_management/presentation/data_management_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/legacy_webview/presentation/legacy_webview_page.dart';
 import '../../features/main/presentation/main_shell_page.dart';
@@ -116,6 +117,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.categories,
         builder: (context, state) => const CategoriesPage(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.dataManagement,
+        builder: (context, state) => const DataManagementPage(),
       ),
       GoRoute(
         path: AppRoutePaths.legacyWebView,

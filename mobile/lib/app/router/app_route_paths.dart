@@ -9,6 +9,7 @@ class AppRoutePaths {
   static const String profile = '/profile';
   static const String accounts = '/accounts';
   static const String categories = '/categories';
+  static const String dataManagement = '/data-management';
   static const String quickTransaction = '/quick-transaction';
   static const String legacyWebView = '/legacy-webview';
 }
