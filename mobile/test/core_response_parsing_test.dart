@@ -5,6 +5,7 @@ import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/network/api_response.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
+import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 
 void main() {
@@ -104,6 +105,47 @@ void main() {
       expect(decodeAttachmentPaths('["a.jpg","b.pdf"]'), ['a.jpg', 'b.pdf']);
       expect(decodeAttachmentPaths(' a.jpg, b.pdf ,, '), ['a.jpg', 'b.pdf']);
       expect(encodeAttachmentPaths(['a.jpg']), '["a.jpg"]');
+    });
+
+    test('统计模型解析概览、趋势和分类排行', () {
+      final overview = StatisticsOverviewData.fromJson({
+        'income': '1200.50',
+        'expense': 300,
+        'balance': 900.5,
+        'income_change': 12.5,
+        'expense_change': '-3.4',
+        'daily_average': 10,
+        'transaction_count': '6',
+      });
+      final trend = TrendResponse.fromJson({
+        'items': [
+          {'date': '2026-05-01', 'income': 100, 'expense': '20'},
+        ],
+        'total_income': 100,
+        'total_expense': '20',
+      });
+      final categories = CategoryStatResponse.fromJson({
+        'total': '88.8',
+        'items': [
+          {
+            'category_id': 'c1',
+            'category_name': '餐饮',
+            'icon': '🍽️',
+            'color': '#EF4444',
+            'amount': '88.8',
+            'percentage': 100,
+            'count': 2,
+          },
+        ],
+      });
+
+      expect(overview.income, 1200.5);
+      expect(overview.expenseChange, -3.4);
+      expect(overview.transactionCount, 6);
+      expect(trend.items.single.expense, 20);
+      expect(trend.totalExpense, 20);
+      expect(categories.total, 88.8);
+      expect(categories.items.single.categoryName, '餐饮');
     });
   });
 }

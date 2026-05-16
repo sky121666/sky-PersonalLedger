@@ -6,6 +6,7 @@ import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/auth/presentation/login_page.dart';
 import 'package:personal_ledger/features/auth/presentation/setup_password_page.dart';
+import 'package:personal_ledger/features/profile/presentation/profile_page.dart';
 
 void main() {
   group('LoginPage', () {
@@ -99,6 +100,51 @@ void main() {
       expect(controller.debugState.stage, AuthStage.authenticated);
     });
   });
+
+  group('ProfilePage', () {
+    testWidgets('确认退出时调用 logout 并回到登录态', (tester) async {
+      final repository = _FakeAuthRepository();
+      final controller = await _pumpAuthPage(
+        tester,
+        const ProfilePage(),
+        repository: repository,
+        state: const AuthState(
+          stage: AuthStage.authenticated,
+          serverUrl: 'https://ledger.example.com',
+          initialized: true,
+        ),
+      );
+
+      await tester.tap(find.byTooltip('退出登录'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '退出'));
+      await tester.pumpAndSettle();
+
+      expect(repository.logoutCalls, 1);
+      expect(controller.debugState.stage, AuthStage.loginRequired);
+    });
+
+    testWidgets('确认更换服务器时回到服务器配置态', (tester) async {
+      final repository = _FakeAuthRepository();
+      final controller = await _pumpAuthPage(
+        tester,
+        const ProfilePage(),
+        repository: repository,
+        state: const AuthState(
+          stage: AuthStage.authenticated,
+          serverUrl: 'https://ledger.example.com',
+          initialized: true,
+        ),
+      );
+
+      await tester.tap(find.text('更换服务器'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '更换'));
+      await tester.pumpAndSettle();
+
+      expect(controller.debugState.stage, AuthStage.serverRequired);
+    });
+  });
 }
 
 Future<_TestAuthController> _pumpAuthPage(
@@ -122,7 +168,12 @@ Future<_TestAuthController> _pumpAuthPage(
           return controller;
         }),
       ],
-      child: MaterialApp(home: child),
+      child: Consumer(
+        builder: (context, ref, _) {
+          ref.watch(authControllerProvider);
+          return MaterialApp(home: child);
+        },
+      ),
     ),
   );
 
@@ -171,11 +222,18 @@ class _TestAuthController extends AuthController {
   Future<void> changeServer() async {
     state = const AuthState(stage: AuthStage.serverRequired);
   }
+
+  @override
+  Future<void> logout() async {
+    await _repository.logout();
+    state = state.copyWith(stage: AuthStage.loginRequired, clearError: true);
+  }
 }
 
 class _FakeAuthRepository implements AuthRepository {
   final List<String> loginCalls = [];
   final List<String> initCalls = [];
+  int logoutCalls = 0;
 
   @override
   Future<AuthStatus> getStatus() async {
@@ -201,5 +259,7 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> logout() async {}
+  Future<void> logout() async {
+    logoutCalls += 1;
+  }
 }

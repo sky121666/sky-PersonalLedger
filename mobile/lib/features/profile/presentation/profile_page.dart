@@ -6,6 +6,7 @@ import '../../../app/router/app_route_paths.dart';
 import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../auth/application/auth_controller.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -25,8 +26,9 @@ class ProfilePage extends ConsumerWidget {
                 title: const Text('个人记账'),
                 subtitle: const Text('Flutter 原生移动端'),
                 trailing: IconButton(
-                  onPressed: () => _confirmLogout(context),
+                  onPressed: () => _confirmLogout(context, ref),
                   icon: const Icon(Icons.logout),
+                  tooltip: '退出登录',
                 ),
               ),
             ),
@@ -50,6 +52,16 @@ class ProfilePage extends ConsumerWidget {
                     onTap: () => context.push(AppRoutePaths.categories),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.dns_outlined),
+                title: const Text('更换服务器'),
+                subtitle: const Text('清除本机登录态并重新连接服务地址'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _confirmChangeServer(context, ref),
               ),
             ),
             const SizedBox(height: 16),
@@ -90,12 +102,32 @@ class ProfilePage extends ConsumerWidget {
   }
 
   /// 展示退出确认弹窗。
-  Future<void> _confirmLogout(BuildContext context) async {
-    await showAppConfirmDialog(
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showAppConfirmDialog(
       context: context,
       title: '确认退出',
-      message: '当前认证流程尚未接入，后续会在这里清理登录态。',
-      confirmText: '知道了',
+      message: '退出后需要重新输入密码登录。',
+      confirmText: '退出',
+      isDanger: true,
     );
+    if (!confirmed) {
+      return;
+    }
+    await ref.read(authControllerProvider.notifier).logout();
+  }
+
+  /// 展示更换服务器确认弹窗。
+  Future<void> _confirmChangeServer(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '更换服务器',
+      message: '这会清除当前服务器地址和本机登录态，之后需要重新连接。',
+      confirmText: '更换',
+      isDanger: true,
+    );
+    if (!confirmed) {
+      return;
+    }
+    await ref.read(authControllerProvider.notifier).changeServer();
   }
 }
