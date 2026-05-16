@@ -5,6 +5,7 @@ import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/network/api_response.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
+import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 
@@ -146,6 +147,45 @@ void main() {
       expect(trend.totalExpense, 20);
       expect(categories.total, 88.8);
       expect(categories.items.single.categoryName, '餐饮');
+    });
+
+    test('年度报告模型解析月度数据和分类排行', () {
+      final report = YearlyReport.fromJson({
+        'year': '2026',
+        'total_income': '1000',
+        'total_expense': 400,
+        'net_savings': 600,
+        'savings_rate': 60,
+        'monthly_data': [
+          {'month': '1月', 'income': 1000, 'expense': '400', 'balance': 600},
+        ],
+        'top_expenses': [
+          {
+            'category_id': 'c1',
+            'category_name': '餐饮',
+            'category_icon': '🍽️',
+            'amount': 200,
+            'percentage': 50,
+            'count': '4',
+          },
+        ],
+        'top_incomes': [],
+        'transaction_count': 5,
+        'average_expense': 33.33,
+        'average_income': 83.33,
+        'max_expense_month': '1月',
+        'min_expense_month': '1月',
+        'best_savings_month': '1月',
+        'max_single_expense': '100',
+        'max_expense_remark': '晚餐',
+        'active_days': 3,
+        'daily_avg_expense': 133.33,
+      });
+
+      expect(report.year, 2026);
+      expect(report.monthlyData.single.expense, 400);
+      expect(report.topExpenses.single.categoryName, '餐饮');
+      expect(report.topExpenses.single.count, 4);
     });
   });
 }
