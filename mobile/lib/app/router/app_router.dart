@@ -14,6 +14,7 @@ import '../../features/home/presentation/home_page.dart';
 import '../../features/legacy_webview/presentation/legacy_webview_page.dart';
 import '../../features/main/presentation/main_shell_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
+import '../../features/reminders/presentation/reminder_page.dart';
 import '../../features/reports/presentation/yearly_report_page.dart';
 import '../../features/server_config/presentation/server_config_page.dart';
 import '../../features/statistics/presentation/mobile_statistics_page.dart';
@@ -123,6 +124,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.budgets,
         builder: (context, state) => const BudgetPage(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.reminders,
+        builder: (context, state) => const ReminderPage(),
       ),
       GoRoute(
         path: AppRoutePaths.dataManagement,

@@ -6,6 +6,7 @@ import 'package:personal_ledger/core/network/api_response.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
+import 'package:personal_ledger/features/reminders/data/reminder_repository.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
@@ -218,6 +219,41 @@ void main() {
       expect(result.categoryBudgets.single.categoryName, '餐饮');
       expect(result.categoryBudgets.single.percentage, 87);
       expect(result.categoryBudgets.single.isNearLimit, isTrue);
+    });
+
+    test('负债提醒模型解析摘要和还款进度', () {
+      final summary = DebtSummary.fromJson({
+        'total_debt': '80000',
+        'total_paid': 40000,
+        'total_principal': 120000,
+        'progress': '33.3',
+        'active_loans': 1,
+        'paid_off_loans': 0,
+        'next_payment_day': 10,
+        'next_payment_name': '房贷',
+        'days_until_next': '3',
+      });
+      final reminder = ReminderItem.fromJson({
+        'id': 'r1',
+        'name': '房贷',
+        'loan_type': 'mortgage',
+        'payment_day': 10,
+        'advance_days': 3,
+        'amount': '1000',
+        'principal': 120000,
+        'current_balance': '80000',
+        'total_paid': 40000,
+        'interest_paid': 0,
+        'is_enabled': true,
+        'account': {'id': 'a1', 'name': '贷款账户'},
+      });
+
+      expect(summary.totalDebt, 80000);
+      expect(summary.daysUntilNext, 3);
+      expect(reminder.displayName, '房贷');
+      expect(reminder.loanTypeLabel, '房贷');
+      expect(reminder.progress, closeTo(33.33, 0.01));
+      expect(reminder.accountName, '贷款账户');
     });
   });
 }

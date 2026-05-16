@@ -138,6 +138,11 @@ void main() {
       );
 
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('更换服务器'),
+        120,
+        scrollable: find.byType(Scrollable),
+      );
       final changeServerTile = find.ancestor(
         of: find.text('更换服务器'),
         matching: find.byType(ListTile),

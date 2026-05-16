@@ -10,6 +10,7 @@ class AppRoutePaths {
   static const String accounts = '/accounts';
   static const String categories = '/categories';
   static const String budgets = '/budgets';
+  static const String reminders = '/reminders';
   static const String dataManagement = '/data-management';
   static const String yearlyReport = '/yearly-report';
   static const String quickTransaction = '/quick-transaction';
