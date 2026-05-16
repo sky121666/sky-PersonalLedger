@@ -35,6 +35,9 @@ instance.interceptors.request.use(
 
 instance.interceptors.response.use(
   (response: AxiosResponse) => {
+    if (response.config.responseType === 'blob') {
+      return response
+    }
     const data = response.data
     if (data.code !== 0) {
       return Promise.reject(new Error(data.message || 'Request failed'))
@@ -113,6 +116,23 @@ export function del<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
 
 export function patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   return instance.patch(url, data, config) as Promise<T>
+}
+
+export function postForm<T>(url: string, data: FormData, config?: AxiosRequestConfig): Promise<T> {
+  return instance.post(url, data, {
+    ...config,
+    headers: {
+      ...(config?.headers || {}),
+      'Content-Type': 'multipart/form-data'
+    }
+  }) as Promise<T>
+}
+
+export function getRaw(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<Blob>> {
+  return instance.get(url, {
+    ...config,
+    responseType: 'blob'
+  }) as Promise<AxiosResponse<Blob>>
 }
 
 export default instance
