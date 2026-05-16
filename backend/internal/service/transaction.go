@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
+	"gorm.io/gorm"
 )
 
 var (
@@ -50,23 +51,20 @@ type CreateTransactionRequest struct {
 	TransactionDate string  `json:"transaction_date" binding:"required"`
 	Remark          string  `json:"remark"`
 	Images          string  `json:"images"`
+	Tags            string  `json:"tags"`
 }
 
 func (s *TransactionService) Create(userID uint, req CreateTransactionRequest) (*model.Transaction, error) {
-	if req.Type == "transfer" && (req.ToAccountID == nil || *req.ToAccountID == req.AccountID) {
-		return nil, ErrSameAccount
+	if err := s.validateTransactionAccounts(userID, req); err != nil {
+		return nil, err
 	}
 
-	// Try parsing with datetime first, fallback to date only
-	txDate, err := time.Parse(time.RFC3339, req.TransactionDate)
+	txDate, err := parseTransactionDate(req.TransactionDate)
 	if err != nil {
-		txDate, err = time.Parse("2006-01-02", req.TransactionDate)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
-	tx := &model.Transaction{
+	transaction := &model.Transaction{
 		ID:              uuid.New().String(),
 		UserID:          userID,
 		AccountID:       req.AccountID,
@@ -76,30 +74,52 @@ func (s *TransactionService) Create(userID uint, req CreateTransactionRequest) (
 		TransactionDate: txDate,
 		Remark:          req.Remark,
 		Images:          req.Images,
+		Tags:            req.Tags,
 		ToAccountID:     req.ToAccountID,
 		Source:          "manual",
 	}
 
-	if err := s.txRepo.Create(tx); err != nil {
+	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		if err := txdb.Create(transaction).Error; err != nil {
+			return err
+		}
+		return s.applyBalanceChangesTx(txdb, transaction, true)
+	}); err != nil {
 		return nil, err
 	}
 
-	// Update account balances and log
-	switch req.Type {
-	case "expense":
-		s.logBalanceChange(userID, req.AccountID, "expense", req.Amount, &tx.ID, nil, nil, "支出")
-		s.accountRepo.UpdateBalance(req.AccountID, -req.Amount)
-	case "income":
-		s.logBalanceChange(userID, req.AccountID, "income", req.Amount, &tx.ID, nil, nil, "收入")
-		s.accountRepo.UpdateBalance(req.AccountID, req.Amount)
-	case "transfer":
-		s.logBalanceChange(userID, req.AccountID, "transfer_out", req.Amount, &tx.ID, nil, nil, "转出")
-		s.accountRepo.UpdateBalance(req.AccountID, -req.Amount)
-		s.logBalanceChange(userID, *req.ToAccountID, "transfer_in", req.Amount, &tx.ID, nil, nil, "转入")
-		s.accountRepo.UpdateBalance(*req.ToAccountID, req.Amount)
-	}
+	return s.txRepo.GetByID(transaction.ID)
+}
 
-	return s.txRepo.GetByID(tx.ID)
+func (s *TransactionService) validateTransactionAccounts(userID uint, req CreateTransactionRequest) error {
+	if req.Type == "transfer" {
+		if req.ToAccountID == nil || *req.ToAccountID == "" || *req.ToAccountID == req.AccountID {
+			return ErrSameAccount
+		}
+	}
+	if err := s.ensureAccountBelongsToUser(req.AccountID, userID); err != nil {
+		return err
+	}
+	if req.Type == "transfer" {
+		return s.ensureAccountBelongsToUser(*req.ToAccountID, userID)
+	}
+	return nil
+}
+
+func (s *TransactionService) ensureAccountBelongsToUser(accountID string, userID uint) error {
+	account, err := s.accountRepo.GetByID(accountID)
+	if err != nil || account.UserID != userID {
+		return ErrAccountNotFound
+	}
+	return nil
+}
+
+func parseTransactionDate(value string) (time.Time, error) {
+	txDate, err := time.Parse(time.RFC3339, value)
+	if err == nil {
+		return txDate, nil
+	}
+	return time.Parse("2006-01-02", value)
 }
 
 func (s *TransactionService) GetByID(id string, userID uint) (*model.Transaction, error) {
@@ -182,91 +202,98 @@ func (s *TransactionService) List(userID uint, req ListTransactionRequest) (*Lis
 }
 
 func (s *TransactionService) Update(id string, userID uint, req CreateTransactionRequest) (*model.Transaction, error) {
-	tx, err := s.GetByID(id, userID)
+	current, err := s.GetByID(id, userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.validateTransactionAccounts(userID, req); err != nil {
+		return nil, err
+	}
+
+	txDate, err := parseTransactionDate(req.TransactionDate)
 	if err != nil {
 		return nil, err
 	}
 
-	// Revert old balance changes
-	switch tx.Type {
-	case "expense":
-		s.accountRepo.UpdateBalance(tx.AccountID, tx.Amount)
-	case "income":
-		s.accountRepo.UpdateBalance(tx.AccountID, -tx.Amount)
-	case "transfer":
-		s.accountRepo.UpdateBalance(tx.AccountID, tx.Amount)
-		if tx.ToAccountID != nil {
-			s.accountRepo.UpdateBalance(*tx.ToAccountID, -tx.Amount)
+	next := &model.Transaction{
+		ID:              current.ID,
+		UserID:          userID,
+		AccountID:       req.AccountID,
+		CategoryID:      req.CategoryID,
+		Type:            req.Type,
+		Amount:          req.Amount,
+		TransactionDate: txDate,
+		Remark:          req.Remark,
+		Images:          req.Images,
+		Tags:            req.Tags,
+		ToAccountID:     req.ToAccountID,
+		Source:          current.Source,
+	}
+
+	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		if err := s.revertBalanceChangesTx(txdb, current, false); err != nil {
+			return err
 		}
-	}
-
-	// Update transaction
-	// Try parsing with datetime first, fallback to date only
-	txDate, err := time.Parse(time.RFC3339, req.TransactionDate)
-	if err != nil {
-		txDate, _ = time.Parse("2006-01-02", req.TransactionDate)
-	}
-	tx.AccountID = req.AccountID
-	tx.CategoryID = req.CategoryID
-	tx.Type = req.Type
-	tx.Amount = req.Amount
-	tx.TransactionDate = txDate
-	tx.Remark = req.Remark
-	tx.Images = req.Images
-	tx.ToAccountID = req.ToAccountID
-
-	if err := s.txRepo.Update(tx); err != nil {
+		result := txdb.Model(&model.Transaction{}).
+			Where("id = ? AND user_id = ?", id, userID).
+			Updates(map[string]any{
+				"account_id":       req.AccountID,
+				"category_id":      req.CategoryID,
+				"type":             req.Type,
+				"amount":           req.Amount,
+				"transaction_date": txDate,
+				"remark":           req.Remark,
+				"images":           req.Images,
+				"tags":             req.Tags,
+				"to_account_id":    req.ToAccountID,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrTransactionNotFound
+		}
+		return s.applyBalanceChangesTx(txdb, next, false)
+	}); err != nil {
 		return nil, err
-	}
-
-	// Apply new balance changes
-	switch req.Type {
-	case "expense":
-		s.accountRepo.UpdateBalance(req.AccountID, -req.Amount)
-	case "income":
-		s.accountRepo.UpdateBalance(req.AccountID, req.Amount)
-	case "transfer":
-		s.accountRepo.UpdateBalance(req.AccountID, -req.Amount)
-		s.accountRepo.UpdateBalance(*req.ToAccountID, req.Amount)
 	}
 
 	return s.txRepo.GetByID(id)
 }
 
 func (s *TransactionService) Delete(id string, userID uint) error {
-	tx, err := s.GetByID(id, userID)
+	transaction, err := s.GetByID(id, userID)
 	if err != nil {
 		return err
 	}
 
-	// Revert balance changes and log
-	switch tx.Type {
-	case "expense":
-		s.logBalanceChange(tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回支出")
-		s.accountRepo.UpdateBalance(tx.AccountID, tx.Amount)
-	case "income":
-		s.logBalanceChange(tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回收入")
-		s.accountRepo.UpdateBalance(tx.AccountID, -tx.Amount)
-	case "transfer":
-		s.logBalanceChange(tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, nil, nil, "撤回转出")
-		s.accountRepo.UpdateBalance(tx.AccountID, tx.Amount)
-		if tx.ToAccountID != nil {
-			s.logBalanceChange(tx.UserID, *tx.ToAccountID, "rollback", tx.Amount, &tx.ID, nil, nil, "撤回转入")
-			s.accountRepo.UpdateBalance(*tx.ToAccountID, -tx.Amount)
+	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		if err := s.revertBalanceChangesTx(txdb, transaction, true); err != nil {
+			return err
 		}
+		result := txdb.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Transaction{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrTransactionNotFound
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	// Revert linked reminder data
-	if tx.ReminderID != nil && *tx.ReminderID != "" {
-		s.revertReminderPayment(*tx.ReminderID, tx.Amount)
+	if transaction.ReminderID != nil && *transaction.ReminderID != "" {
+		s.revertReminderPayment(*transaction.ReminderID, transaction.Amount)
 	}
 
 	// Revert linked lending data
-	if tx.LendingID != nil && *tx.LendingID != "" {
-		s.revertLendingTransaction(*tx.LendingID, tx.Type, tx.Amount)
+	if transaction.LendingID != nil && *transaction.LendingID != "" {
+		s.revertLendingTransaction(*transaction.LendingID, transaction.Type, transaction.Amount)
 	}
 
-	return s.txRepo.Delete(id)
+	return nil
 }
 
 // revertReminderPayment reverts the reminder's total_paid and current_balance
@@ -344,6 +371,120 @@ func (s *TransactionService) revertLendingTransaction(lendingID string, txType s
 	}
 
 	s.lendingRepo.Update(lending)
+}
+
+func (s *TransactionService) applyBalanceChangesTx(txdb *gorm.DB, tx *model.Transaction, logChange bool) error {
+	switch tx.Type {
+	case "expense":
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "expense", tx.Amount, &tx.ID, nil, nil, "支出", logChange); err != nil {
+			return err
+		}
+		return s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, -tx.Amount)
+	case "income":
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "income", tx.Amount, &tx.ID, nil, nil, "收入", logChange); err != nil {
+			return err
+		}
+		return s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, tx.Amount)
+	case "transfer":
+		if tx.ToAccountID == nil || *tx.ToAccountID == "" {
+			return ErrSameAccount
+		}
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "transfer_out", tx.Amount, &tx.ID, nil, nil, "转出", logChange); err != nil {
+			return err
+		}
+		if err := s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, -tx.Amount); err != nil {
+			return err
+		}
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, *tx.ToAccountID, "transfer_in", tx.Amount, &tx.ID, nil, nil, "转入", logChange); err != nil {
+			return err
+		}
+		return s.updateAccountBalanceTx(txdb, tx.UserID, *tx.ToAccountID, tx.Amount)
+	default:
+		return nil
+	}
+}
+
+func (s *TransactionService) revertBalanceChangesTx(txdb *gorm.DB, tx *model.Transaction, logChange bool) error {
+	switch tx.Type {
+	case "expense":
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回支出", logChange); err != nil {
+			return err
+		}
+		return s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, tx.Amount)
+	case "income":
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回收入", logChange); err != nil {
+			return err
+		}
+		return s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, -tx.Amount)
+	case "transfer":
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, nil, nil, "撤回转出", logChange); err != nil {
+			return err
+		}
+		if err := s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, tx.Amount); err != nil {
+			return err
+		}
+		if tx.ToAccountID != nil && *tx.ToAccountID != "" {
+			if err := s.logBalanceChangeTx(txdb, tx.UserID, *tx.ToAccountID, "rollback", tx.Amount, &tx.ID, nil, nil, "撤回转入", logChange); err != nil {
+				return err
+			}
+			return s.updateAccountBalanceTx(txdb, tx.UserID, *tx.ToAccountID, -tx.Amount)
+		}
+		return nil
+	default:
+		return nil
+	}
+}
+
+func (s *TransactionService) updateAccountBalanceTx(txdb *gorm.DB, userID uint, accountID string, delta float64) error {
+	result := txdb.Model(&model.Account{}).
+		Where("id = ? AND user_id = ?", accountID, userID).
+		Update("current_balance", gorm.Expr("current_balance + ?", delta))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrAccountNotFound
+	}
+	return nil
+}
+
+func (s *TransactionService) logBalanceChangeTx(txdb *gorm.DB, userID uint, accountID string, logType string, amount float64, transactionID *string, reminderID *string, lendingID *string, remark string, enabled bool) error {
+	if !enabled || s.accountLogSvc == nil {
+		return nil
+	}
+
+	var account model.Account
+	if err := txdb.First(&account, "id = ? AND user_id = ?", accountID, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrAccountNotFound
+		}
+		return err
+	}
+
+	balanceBefore := account.CurrentBalance
+	return s.accountLogSvc.logRepo.CreateWithDB(txdb, &repository.CreateAccountLogRequest{
+		UserID:        userID,
+		AccountID:     accountID,
+		Type:          logType,
+		Amount:        amount,
+		BalanceBefore: balanceBefore,
+		BalanceAfter:  balanceAfterForLog(logType, balanceBefore, amount),
+		TransactionID: transactionID,
+		ReminderID:    reminderID,
+		LendingID:     lendingID,
+		Remark:        remark,
+	})
+}
+
+func balanceAfterForLog(logType string, balanceBefore float64, amount float64) float64 {
+	switch logType {
+	case "income", "transfer_in", "rollback_expense":
+		return balanceBefore + amount
+	case "expense", "transfer_out", "rollback_income":
+		return balanceBefore - amount
+	default:
+		return balanceBefore + amount
+	}
 }
 
 // logBalanceChange logs account balance changes

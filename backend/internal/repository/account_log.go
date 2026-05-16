@@ -30,6 +30,10 @@ type CreateAccountLogRequest struct {
 }
 
 func (r *AccountLogRepository) Create(req *CreateAccountLogRequest) error {
+	return r.CreateWithDB(r.db, req)
+}
+
+func (r *AccountLogRepository) CreateWithDB(db *gorm.DB, req *CreateAccountLogRequest) error {
 	log := &model.AccountLog{
 		ID:            uuid.New().String(),
 		UserID:        req.UserID,
@@ -44,7 +48,7 @@ func (r *AccountLogRepository) Create(req *CreateAccountLogRequest) error {
 		Remark:        req.Remark,
 		CreatedAt:     time.Now(),
 	}
-	return r.db.Create(log).Error
+	return db.Create(log).Error
 }
 
 func (r *AccountLogRepository) GetByAccountID(accountID string, page, pageSize int) ([]model.AccountLog, int64, error) {
