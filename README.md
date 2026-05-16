@@ -236,6 +236,24 @@ flutter pub get      # 获取依赖
 flutter run
 ```
 
+### Mobile runtime smoke
+
+Run the backend locally, then run:
+
+```bash
+cd mobile
+flutter test integration_test/app_smoke_test.dart
+flutter run
+```
+
+Manual smoke checklist:
+
+- save server URL
+- log in
+- open home
+- open accounts
+- create a quick expense transaction
+
 ## 📄 License
 
 MIT License
