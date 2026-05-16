@@ -14,43 +14,66 @@ import (
 
 // Note: sync was removed as rate limiter was removed
 
-// CORS handles Cross-Origin Resource Sharing with configurable origins
-func CORS(allowedOrigins ...string) gin.HandlerFunc {
+// CORS handles Cross-Origin Resource Sharing with configurable origins.
+func CORS(allowedOrigins string) gin.HandlerFunc {
+	origins := parseAllowedOrigins(allowedOrigins)
+	allowAll := len(origins) == 1 && origins[0] == "*"
+
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
-		allowed := false
 
-		// If no origins specified, allow all (development mode)
-		if len(allowedOrigins) == 0 || (len(allowedOrigins) == 1 && allowedOrigins[0] == "*") {
-			allowed = true
+		// Non-browser requests may not send Origin and should pass through.
+		if origin == "" {
+			setCORSCommonHeaders(c)
+			c.Next()
+			return
+		}
+
+		if allowAll {
 			c.Header("Access-Control-Allow-Origin", "*")
-		} else {
-			for _, o := range allowedOrigins {
-				if o == origin {
-					allowed = true
-					c.Header("Access-Control-Allow-Origin", origin)
-					break
+			setCORSCommonHeaders(c)
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			c.Next()
+			return
+		}
+
+		for _, allowed := range origins {
+			if allowed == origin {
+				c.Header("Access-Control-Allow-Origin", origin)
+				setCORSCommonHeaders(c)
+				if c.Request.Method == http.MethodOptions {
+					c.AbortWithStatus(http.StatusNoContent)
+					return
 				}
+				c.Next()
+				return
 			}
 		}
 
-		if !allowed {
-			c.AbortWithStatus(http.StatusForbidden)
-			return
-		}
-
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
-		c.Header("Access-Control-Allow-Credentials", "true")
-		c.Header("Access-Control-Max-Age", "86400")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
+		c.AbortWithStatus(http.StatusForbidden)
 	}
+}
+
+func parseAllowedOrigins(value string) []string {
+	parts := strings.Split(value, ",")
+	origins := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			origins = append(origins, part)
+		}
+	}
+	return origins
+}
+
+func setCORSCommonHeaders(c *gin.Context) {
+	c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+	c.Header("Access-Control-Allow-Credentials", "true")
+	c.Header("Access-Control-Max-Age", "86400")
 }
 
 // SecurityHeaders adds security-related HTTP headers
