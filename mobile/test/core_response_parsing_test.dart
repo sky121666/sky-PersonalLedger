@@ -10,6 +10,7 @@ import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
+import 'package:personal_ledger/features/profile/data/profile_repository.dart';
 import 'package:personal_ledger/features/reminders/data/reminder_repository.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/security/data/security_repository.dart';
@@ -351,6 +352,24 @@ void main() {
       expect(token.neverExpires, isFalse);
       expect(created.token, 'full-token');
       expect(created.neverExpires, isTrue);
+    });
+
+    test('个人资料模型解析显示名和登录时间', () {
+      final profile = UserProfile.fromJson({
+        'id': '1',
+        'username': 'admin',
+        'nickname': 'Sky',
+        'email': 'sky@example.com',
+        'avatar': 'https://example.com/a.png',
+        'bio': '记账中',
+        'created_at': '2026-05-01',
+        'last_login_at': '2026-05-17 09:00:00',
+      });
+
+      expect(profile.id, 1);
+      expect(profile.displayName, 'Sky');
+      expect(profile.email, 'sky@example.com');
+      expect(profile.lastLoginAt, '2026-05-17 09:00:00');
     });
 
     test('安全入口模型解析启用状态和路径', () {

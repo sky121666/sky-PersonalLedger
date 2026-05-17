@@ -18,6 +18,7 @@ import '../../features/lendings/presentation/lending_page.dart';
 import '../../features/main/presentation/main_shell_page.dart';
 import '../../features/notifications/presentation/notification_settings_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
+import '../../features/profile/presentation/profile_settings_page.dart';
 import '../../features/reminders/presentation/reminder_page.dart';
 import '../../features/reports/presentation/yearly_report_page.dart';
 import '../../features/server_config/presentation/server_config_page.dart';
@@ -125,6 +126,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.accountLogs,
         builder: (context, state) => const AccountLogPage(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.profileSettings,
+        builder: (context, state) => const ProfileSettingsPage(),
       ),
       GoRoute(
         path: '${AppRoutePaths.accountLogs}/:accountId',

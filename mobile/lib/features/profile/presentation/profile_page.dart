@@ -37,6 +37,14 @@ class ProfilePage extends ConsumerWidget {
               child: Column(
                 children: [
                   ListTile(
+                    leading: const Icon(Icons.manage_accounts_outlined),
+                    title: const Text('个人资料'),
+                    subtitle: const Text('编辑昵称、邮箱和简介'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutePaths.profileSettings),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     leading: const Icon(Icons.account_balance_wallet_outlined),
                     title: const Text('账户管理'),
                     subtitle: const Text('新增、编辑、归档和删除账户'),
