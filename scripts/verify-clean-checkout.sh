@@ -25,6 +25,7 @@ test -f "$worktree/mobile/android/gradlew.bat"
   cd "$worktree/web"
   npm ci
   npm run build
+  npm audit --audit-level=moderate
 )
 
 (
@@ -32,4 +33,5 @@ test -f "$worktree/mobile/android/gradlew.bat"
   flutter pub get
   flutter analyze
   flutter test
+  flutter test -d flutter-tester integration_test/app_smoke_test.dart
 )

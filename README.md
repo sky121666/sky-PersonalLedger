@@ -242,7 +242,7 @@ Run the backend locally, then run:
 
 ```bash
 cd mobile
-flutter test integration_test/app_smoke_test.dart
+flutter test -d flutter-tester integration_test/app_smoke_test.dart
 flutter run
 ```
 
