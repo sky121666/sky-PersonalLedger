@@ -62,6 +62,58 @@ void main() {
       expect(repository.updateCalls, isEmpty);
       expect(find.text('邮箱格式不正确'), findsOneWidget);
     });
+
+    testWidgets('加载失败时展示错误并可重试', (tester) async {
+      final repository = _FakeProfileRepository()..getProfileErrors = 1;
+      await _pumpPage(tester, repository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('个人资料加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sky'), findsWidgets);
+      expect(repository.getProfileCalls, 2);
+    });
+
+    testWidgets('保存失败时展示错误且保留输入', (tester) async {
+      final repository = _FakeProfileRepository()
+        ..updateProfileError = '保存失败';
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('profile-nickname')),
+        'Sky Failed',
+      );
+      await tester.tap(find.byKey(const ValueKey('profile-save')));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(find.text('Sky Failed'), findsOneWidget);
+      expect(find.textContaining('保存失败'), findsOneWidget);
+    });
+
+    testWidgets('刷新资料会恢复服务端最新数据', (tester) async {
+      final repository = _FakeProfileRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('profile-nickname')),
+        '本地草稿',
+      );
+      repository.profile = _profile(nickname: 'Server Sky');
+
+      await tester.tap(find.byTooltip('刷新'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Server Sky'), findsWidgets);
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('profile-nickname')),
+      );
+      expect(field.controller?.text, 'Server Sky');
+      expect(repository.getProfileCalls, 2);
+    });
   });
 }
 
@@ -84,27 +136,30 @@ Future<void> _pumpPage(
 }
 
 class _FakeProfileRepository implements ProfileRepository {
-  var profile = const UserProfile(
-    id: 1,
-    username: 'admin',
-    nickname: 'Sky',
-    email: 'sky@example.com',
-    avatar: '',
-    bio: '记账中',
-    createdAt: '2026-05-01',
-    lastLoginAt: '2026-05-17 09:00:00',
-  );
+  var profile = _profile();
+  var getProfileCalls = 0;
+  var getProfileErrors = 0;
+  String? updateProfileError;
 
   final List<UpdateProfileRequest> updateCalls = [];
 
   @override
   Future<UserProfile> getProfile() async {
+    getProfileCalls += 1;
+    if (getProfileErrors > 0) {
+      getProfileErrors -= 1;
+      throw StateError('个人资料加载失败');
+    }
     return profile;
   }
 
   @override
   Future<UserProfile> updateProfile(UpdateProfileRequest request) async {
     updateCalls.add(request);
+    final error = updateProfileError;
+    if (error != null) {
+      throw StateError(error);
+    }
     profile = UserProfile(
       id: profile.id,
       username: profile.username,
@@ -117,4 +172,17 @@ class _FakeProfileRepository implements ProfileRepository {
     );
     return profile;
   }
+}
+
+UserProfile _profile({String nickname = 'Sky'}) {
+  return UserProfile(
+    id: 1,
+    username: 'admin',
+    nickname: nickname,
+    email: 'sky@example.com',
+    avatar: '',
+    bio: '记账中',
+    createdAt: '2026-05-01',
+    lastLoginAt: '2026-05-17 09:00:00',
+  );
 }
