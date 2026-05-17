@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/account_logs/presentation/account_log_page.dart';
 import '../../features/accounts/presentation/accounts_page.dart';
+import '../../features/api_tokens/presentation/api_token_page.dart';
 import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/presentation/login_page.dart';
 import '../../features/auth/presentation/setup_password_page.dart';
@@ -132,6 +133,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ? (state.extra! as AccountLogPageAccount).account
               : null,
         ),
+      ),
+      GoRoute(
+        path: AppRoutePaths.apiTokens,
+        builder: (context, state) => const ApiTokenPage(),
       ),
       GoRoute(
         path: AppRoutePaths.categories,

@@ -4,6 +4,7 @@ import 'package:personal_ledger/core/config/server_config_service.dart';
 import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/network/api_response.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
+import 'package:personal_ledger/features/api_tokens/data/api_token_repository.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
@@ -323,6 +324,32 @@ void main() {
       expect(result.list.single.type, AccountLogType.transferIn);
       expect(result.list.single.balanceChange, 100);
       expect(result.list.single.account?.name, '现金');
+    });
+
+    test('API Token 模型解析列表和创建结果', () {
+      final token = ApiTokenItem.fromJson({
+        'id': '3',
+        'name': '我的手机',
+        'token_prefix': 'abcd1234',
+        'last_used_at': null,
+        'expires_at': '2026-06-01T09:00:00Z',
+        'created_at': '2026-05-01T09:00:00Z',
+      });
+      final created = ApiTokenCreateResult.fromJson({
+        'id': 4,
+        'name': 'iPhone',
+        'token': 'full-token',
+        'token_prefix': 'ffff0000',
+        'expires_at': null,
+        'created_at': '2026-05-02T09:00:00Z',
+      });
+
+      expect(token.id, 3);
+      expect(token.name, '我的手机');
+      expect(token.tokenPrefix, 'abcd1234');
+      expect(token.neverExpires, isFalse);
+      expect(created.token, 'full-token');
+      expect(created.neverExpires, isTrue);
     });
 
     test('通知设置模型解析通道配置和测试结果', () {

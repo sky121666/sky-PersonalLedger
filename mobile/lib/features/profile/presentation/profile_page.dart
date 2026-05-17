@@ -93,6 +93,14 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const Divider(height: 1),
                   ListTile(
+                    leading: const Icon(Icons.vpn_key_outlined),
+                    title: const Text('API Token'),
+                    subtitle: const Text('管理 App 和外部 API 访问令牌'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutePaths.apiTokens),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     leading: const Icon(Icons.storage_outlined),
                     title: const Text('数据管理'),
                     subtitle: const Text('备份、恢复和导出交易数据'),
