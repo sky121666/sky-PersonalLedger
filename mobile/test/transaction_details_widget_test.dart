@@ -62,6 +62,51 @@ void main() {
 
       expect(repository.listQueries.last.type, TransactionType.expense);
     });
+
+    testWidgets('清空筛选会重置搜索和类型条件', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-search')),
+        '午餐',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('支出'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('清空'));
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('transaction-search')),
+      );
+      expect(field.controller?.text, isEmpty);
+      expect(repository.listQueries.last.keyword, isEmpty);
+      expect(repository.listQueries.last.type, isNull);
+    });
+
+    testWidgets('滚动到底部时加载下一页交易', (tester) async {
+      final repository = _FakeTransactionRepository(
+        items: List.generate(
+          25,
+          (index) => _transaction(
+            id: 'transaction-${index + 1}',
+            remark: '流水 ${index + 1}',
+          ),
+        ),
+      );
+      await _pumpPage(tester, repository);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -1400));
+      await tester.pumpAndSettle();
+
+      expect(
+        repository.listQueries.map((query) => query.page),
+        containsAllInOrder([1, 2]),
+      );
+    });
   });
 }
 
@@ -107,23 +152,10 @@ Future<void> _pumpPage(
 }
 
 class _FakeTransactionRepository implements TransactionRepository {
-  var items = <TransactionItem>[
-    TransactionItem(
-      id: 'transaction-1',
-      type: TransactionType.expense,
-      amount: 32.5,
-      accountId: 'account-1',
-      categoryId: 'category-food',
-      transactionDate: DateTime(2026, 5, 18, 12),
-      remark: '午餐',
-      category: const LedgerCategory(
-        id: 'category-food',
-        name: '餐饮',
-        type: 'expense',
-      ),
-      tags: const ['日常'],
-    ),
-  ];
+  _FakeTransactionRepository({List<TransactionItem>? items})
+    : items = items ?? [_transaction()];
+
+  var items = <TransactionItem>[];
 
   final List<TransactionListQuery> listQueries = [];
   final List<String> deleteCalls = [];
@@ -156,8 +188,12 @@ class _FakeTransactionRepository implements TransactionRepository {
     if (query.type != null) {
       filtered = filtered.where((item) => item.type == query.type).toList();
     }
+    final start = (query.page - 1) * query.pageSize;
+    final pageItems = start >= filtered.length
+        ? const <TransactionItem>[]
+        : filtered.skip(start).take(query.pageSize).toList();
     return TransactionListResult(
-      list: filtered,
+      list: pageItems,
       total: filtered.length,
       page: query.page,
       pageSize: query.pageSize,
@@ -185,4 +221,25 @@ class _FakeTransactionRepository implements TransactionRepository {
   Future<TransactionItem> update(String id, TransactionFormData formData) {
     throw UnimplementedError();
   }
+}
+
+TransactionItem _transaction({
+  String id = 'transaction-1',
+  String remark = '午餐',
+}) {
+  return TransactionItem(
+    id: id,
+    type: TransactionType.expense,
+    amount: 32.5,
+    accountId: 'account-1',
+    categoryId: 'category-food',
+    transactionDate: DateTime(2026, 5, 18, 12),
+    remark: remark,
+    category: const LedgerCategory(
+      id: 'category-food',
+      name: '餐饮',
+      type: 'expense',
+    ),
+    tags: const ['日常'],
+  );
 }
