@@ -73,6 +73,79 @@ void main() {
       expect(find.text('午餐'), findsNothing);
       expect(find.text('模板已删除'), findsOneWidget);
     });
+
+    testWidgets('加载失败时展示错误并可重试', (tester) async {
+      final repository = _FakeTemplateRepository()..listErrors = 1;
+      await _pumpPage(tester, repository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('模板加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(repository.listCalls, 2);
+      expect(find.text('午餐'), findsOneWidget);
+    });
+
+    testWidgets('没有模板时展示空状态', (tester) async {
+      final repository = _FakeTemplateRepository()..templates = const [];
+      await _pumpPage(tester, repository);
+
+      expect(find.text('暂无快捷模板'), findsOneWidget);
+      expect(find.text('保存常用收支后，可以一键按模板记账。'), findsOneWidget);
+      expect(find.text('新增模板'), findsWidgets);
+    });
+
+    testWidgets('新增模板失败时展示错误且保留输入和原列表', (tester) async {
+      final repository = _FakeTemplateRepository()..createError = '新增模板失败';
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('新增模板'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('template-name')), '咖啡');
+      await tester.enterText(
+        find.byKey(const ValueKey('template-amount')),
+        '18.5',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await tester.tap(find.byKey(const ValueKey('template-save')));
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(find.textContaining('新增模板失败'), findsOneWidget);
+      expect(find.text('模板已保存'), findsNothing);
+      expect(find.text('咖啡'), findsOneWidget);
+      expect(find.text('午餐'), findsOneWidget);
+    });
+
+    testWidgets('套用模板失败时展示错误且保留使用次数', (tester) async {
+      final repository = _FakeTemplateRepository()..applyError = '套用模板失败';
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('套用'));
+      await tester.pumpAndSettle();
+
+      expect(repository.applyCalls, hasLength(1));
+      expect(find.textContaining('套用模板失败'), findsOneWidget);
+      expect(find.text('已按模板记账'), findsNothing);
+      expect(find.text('已用 3 次'), findsOneWidget);
+    });
+
+    testWidgets('删除模板失败时展示错误且保留模板', (tester) async {
+      final repository = _FakeTemplateRepository()..deleteError = '删除模板失败';
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byTooltip('删除模板'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '删除'));
+      await tester.pumpAndSettle();
+
+      expect(repository.deleteCalls, ['tpl-1']);
+      expect(find.textContaining('删除模板失败'), findsOneWidget);
+      expect(find.text('模板已删除'), findsNothing);
+      expect(find.text('午餐'), findsOneWidget);
+    });
   });
 }
 
@@ -126,10 +199,19 @@ class _FakeTemplateRepository implements TemplateRepository {
   final List<QuickTemplateRequest> createCalls = [];
   final List<(String, ApplyTemplateRequest)> applyCalls = [];
   final List<String> deleteCalls = [];
+  var listCalls = 0;
+  var listErrors = 0;
+  String? createError;
+  String? applyError;
+  String? deleteError;
 
   @override
   Future<TransactionItem> apply(String id, ApplyTemplateRequest request) async {
     applyCalls.add((id, request));
+    final error = applyError;
+    if (error != null) {
+      throw StateError(error);
+    }
     final template = templates.firstWhere((item) => item.id == id);
     templates = [
       for (final item in templates)
@@ -160,6 +242,10 @@ class _FakeTemplateRepository implements TemplateRepository {
   @override
   Future<QuickTemplateItem> create(QuickTemplateRequest request) async {
     createCalls.add(request);
+    final error = createError;
+    if (error != null) {
+      throw StateError(error);
+    }
     final template = QuickTemplateItem(
       id: 'tpl-${templates.length + 1}',
       name: request.name,
@@ -176,6 +262,10 @@ class _FakeTemplateRepository implements TemplateRepository {
   @override
   Future<void> delete(String id) async {
     deleteCalls.add(id);
+    final error = deleteError;
+    if (error != null) {
+      throw StateError(error);
+    }
     templates = templates.where((item) => item.id != id).toList();
   }
 
@@ -197,6 +287,11 @@ class _FakeTemplateRepository implements TemplateRepository {
 
   @override
   Future<List<QuickTemplateItem>> list() async {
+    listCalls += 1;
+    if (listErrors > 0) {
+      listErrors -= 1;
+      throw StateError('模板加载失败');
+    }
     return templates;
   }
 }
