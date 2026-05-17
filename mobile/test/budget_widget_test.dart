@@ -63,6 +63,52 @@ void main() {
 
       expect(budgetRepository.deleteCalls, ['budget-food']);
     });
+
+    testWidgets('加载失败时展示错误并可重试', (tester) async {
+      final budgetRepository = _FakeBudgetRepository()..getListErrors = 1;
+      await _pumpPage(tester, budgetRepository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('预算加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('预算管理'), findsOneWidget);
+      expect(find.text('餐饮'), findsOneWidget);
+      expect(budgetRepository.getListCalls, 2);
+    });
+
+    testWidgets('没有预算时展示总预算和分类预算空态', (tester) async {
+      final budgetRepository = _FakeBudgetRepository()
+        ..budgetList = const BudgetListResponse(
+          totalBudget: null,
+          categoryBudgets: [],
+        );
+      await _pumpPage(tester, budgetRepository);
+
+      expect(find.text('还没有设置总预算'), findsOneWidget);
+      expect(find.text('暂无分类预算'), findsOneWidget);
+      expect(find.text('给高频支出分类设置独立预算后，可以更早发现超支风险。'), findsOneWidget);
+    });
+
+    testWidgets('保存总预算失败时展示错误面板', (tester) async {
+      final budgetRepository = _FakeBudgetRepository()
+        ..setTotalError = '总预算保存失败';
+      await _pumpPage(tester, budgetRepository);
+
+      await tester.tap(find.text('修改'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), '3500');
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(budgetRepository.setTotalCalls, hasLength(1));
+      expect(budgetRepository.setTotalCalls.single.amount, 3500);
+      expect(find.textContaining('总预算保存失败'), findsOneWidget);
+      expect(find.text('总预算已保存'), findsNothing);
+      expect(find.text('¥1800.00'), findsOneWidget);
+    });
   });
 }
 
@@ -113,6 +159,10 @@ class _FakeBudgetRepository implements BudgetRepository {
     ],
   );
 
+  var getListCalls = 0;
+  var getListErrors = 0;
+  String? setTotalError;
+
   final List<_SetTotalCall> setTotalCalls = [];
   final List<_SetCategoryCall> setCategoryCalls = [];
   final List<String> deleteCalls = [];
@@ -130,6 +180,11 @@ class _FakeBudgetRepository implements BudgetRepository {
 
   @override
   Future<BudgetListResponse?> getList({String? month}) async {
+    getListCalls += 1;
+    if (getListErrors > 0) {
+      getListErrors -= 1;
+      throw StateError('预算加载失败');
+    }
     return budgetList;
   }
 
@@ -171,6 +226,10 @@ class _FakeBudgetRepository implements BudgetRepository {
     setTotalCalls.add(
       _SetTotalCall(amount: amount, alertThreshold: alertThreshold),
     );
+    final error = setTotalError;
+    if (error != null) {
+      throw StateError(error);
+    }
     final item = BudgetItem(
       id: 'total',
       categoryId: null,
