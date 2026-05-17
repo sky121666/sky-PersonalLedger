@@ -72,6 +72,75 @@ void main() {
 
       expect(lendingRepository.deleteCalls, ['lend-1']);
     });
+
+    testWidgets('加载失败时展示错误并可重试', (tester) async {
+      final lendingRepository = _FakeLendingRepository()..listErrors = 1;
+      await _pumpPage(tester, lendingRepository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('借贷列表加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('张三'), findsOneWidget);
+      expect(lendingRepository.listCalls, 2);
+    });
+
+    testWidgets('没有借出记录时展示空态', (tester) async {
+      final lendingRepository = _FakeLendingRepository()
+        ..lendings = const []
+        ..summary = const LendingSummary.empty();
+      await _pumpPage(tester, lendingRepository);
+
+      expect(find.text('暂无借出记录'), findsOneWidget);
+      expect(find.text('可以先从上方按钮新增一笔借贷往来。'), findsOneWidget);
+      expect(find.text('¥0.00'), findsWidgets);
+    });
+
+    testWidgets('新增借出失败时展示错误且保留列表', (tester) async {
+      final lendingRepository = _FakeLendingRepository()
+        ..createError = '新增借出失败';
+      await _pumpPage(tester, lendingRepository);
+
+      await tester.tap(find.byKey(const ValueKey('lending-add-lend-out')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('lending-contact-name')),
+        '王五',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('lending-principal')),
+        '500',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(lendingRepository.createCalls, hasLength(1));
+      expect(find.textContaining('新增借出失败'), findsOneWidget);
+      expect(find.text('借出记录已创建'), findsNothing);
+      expect(find.text('张三'), findsOneWidget);
+    });
+
+    testWidgets('记录还款失败时展示错误且保留原余额', (tester) async {
+      final lendingRepository = _FakeLendingRepository()
+        ..repaymentError = '还款失败';
+      await _pumpPage(tester, lendingRepository);
+
+      await tester.tap(find.byTooltip('记录还款').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('lending-repayment-amount')),
+        '300',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '确认还款'));
+      await tester.pumpAndSettle();
+
+      expect(lendingRepository.repaymentCalls, hasLength(1));
+      expect(find.textContaining('还款失败'), findsOneWidget);
+      expect(find.text('还款已记录'), findsNothing);
+      expect(find.text('剩余 ¥800.00'), findsOneWidget);
+    });
   });
 }
 
@@ -135,10 +204,18 @@ class _FakeLendingRepository implements LendingRepository {
   final List<CreateLendingRequest> createCalls = [];
   final List<_RepaymentCall> repaymentCalls = [];
   final List<String> deleteCalls = [];
+  var listCalls = 0;
+  var listErrors = 0;
+  String? createError;
+  String? repaymentError;
 
   @override
   Future<LendingItem?> create(CreateLendingRequest request) async {
     createCalls.add(request);
+    final error = createError;
+    if (error != null) {
+      throw StateError(error);
+    }
     final item = LendingItem(
       id: 'lend-new',
       type: request.type,
@@ -161,6 +238,11 @@ class _FakeLendingRepository implements LendingRepository {
 
   @override
   Future<List<LendingItem>?> list({bool includeSettled = false}) async {
+    listCalls += 1;
+    if (listErrors > 0) {
+      listErrors -= 1;
+      throw StateError('借贷列表加载失败');
+    }
     return lendings;
   }
 
@@ -170,6 +252,10 @@ class _FakeLendingRepository implements LendingRepository {
     RecordRepaymentRequest request,
   ) async {
     repaymentCalls.add(_RepaymentCall(id, request));
+    final error = repaymentError;
+    if (error != null) {
+      throw StateError(error);
+    }
     return lendings.firstWhere((item) => item.id == id);
   }
 
