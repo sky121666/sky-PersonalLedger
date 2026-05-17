@@ -93,6 +93,14 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const Divider(height: 1),
                   ListTile(
+                    leading: const Icon(Icons.security_outlined),
+                    title: const Text('账号安全'),
+                    subtitle: const Text('修改密码和配置安全入口'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutePaths.securitySettings),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     leading: const Icon(Icons.vpn_key_outlined),
                     title: const Text('API Token'),
                     subtitle: const Text('管理 App 和外部 API 访问令牌'),

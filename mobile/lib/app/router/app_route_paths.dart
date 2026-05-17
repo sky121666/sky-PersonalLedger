@@ -10,6 +10,7 @@ class AppRoutePaths {
   static const String accounts = '/accounts';
   static const String accountLogs = '/account-logs';
   static const String apiTokens = '/api-tokens';
+  static const String securitySettings = '/security-settings';
   static const String categories = '/categories';
   static const String budgets = '/budgets';
   static const String reminders = '/reminders';

@@ -12,6 +12,7 @@ import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/reminders/data/reminder_repository.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
+import 'package:personal_ledger/features/security/data/security_repository.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 
@@ -350,6 +351,24 @@ void main() {
       expect(token.neverExpires, isFalse);
       expect(created.token, 'full-token');
       expect(created.neverExpires, isTrue);
+    });
+
+    test('安全入口模型解析启用状态和路径', () {
+      final enabled = SecurityEntryPath.fromJson({
+        'entry_path': '/ledger',
+        'enabled': true,
+        'message': 'updated',
+      });
+      final disabled = SecurityEntryPath.fromJson({
+        'entry_path': '',
+        'enabled': false,
+      });
+
+      expect(enabled.entryPath, '/ledger');
+      expect(enabled.enabled, isTrue);
+      expect(enabled.displayPath, '/ledger');
+      expect(disabled.enabled, isFalse);
+      expect(disabled.displayPath, '未启用');
     });
 
     test('通知设置模型解析通道配置和测试结果', () {
