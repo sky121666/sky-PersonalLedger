@@ -54,6 +54,74 @@ void main() {
       ]);
       expect(find.text('测试成功'), findsOneWidget);
     });
+
+    testWidgets('设置加载失败时展示错误并可重试', (tester) async {
+      final repository = _FakeNotificationRepository()..getSettingsErrors = 1;
+      await _pumpPage(tester, repository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('通知设置加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('启用通知'), findsOneWidget);
+      expect(repository.getSettingsCalls, 2);
+    });
+
+    testWidgets('保存设置失败时展示错误信息', (tester) async {
+      final repository = _FakeNotificationRepository()
+        ..updateSettingsError = '保存失败';
+      await _pumpPage(tester, repository);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -900));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存设置'));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(find.textContaining('保存失败'), findsOneWidget);
+    });
+
+    testWidgets('企业微信测试失败时展示错误信息', (tester) async {
+      final repository = _FakeNotificationRepository()
+        ..wecomTestResult = const TestNotificationResult(
+          success: false,
+          message: 'Webhook 不可用',
+        );
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('notification-wecom-webhook')),
+        'https://qyapi.example.com/send?key=broken',
+      );
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('发送测试消息'));
+      await tester.pumpAndSettle();
+
+      expect(repository.wecomTestCalls, [
+        'https://qyapi.example.com/send?key=broken',
+      ]);
+      expect(find.textContaining('Webhook 不可用'), findsOneWidget);
+    });
+
+    testWidgets('企业微信测试缺少 Webhook 时使用本地校验', (tester) async {
+      final repository = _FakeNotificationRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('notification-wecom-webhook')),
+        '',
+      );
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('发送测试消息'));
+      await tester.pumpAndSettle();
+
+      expect(repository.wecomTestCalls, isEmpty);
+      expect(find.text('请填写企业微信 Webhook 地址'), findsOneWidget);
+    });
   });
 }
 
@@ -103,9 +171,21 @@ class _FakeNotificationRepository implements NotificationRepository {
 
   final List<NotificationSettingRequest> updateCalls = [];
   final List<String> wecomTestCalls = [];
+  int getSettingsCalls = 0;
+  int getSettingsErrors = 0;
+  String? updateSettingsError;
+  TestNotificationResult wecomTestResult = const TestNotificationResult(
+    success: true,
+    message: '发送成功',
+  );
 
   @override
   Future<NotificationSetting?> getSettings() async {
+    getSettingsCalls += 1;
+    if (getSettingsErrors > 0) {
+      getSettingsErrors -= 1;
+      throw StateError('通知设置加载失败');
+    }
     return settings;
   }
 
@@ -140,7 +220,7 @@ class _FakeNotificationRepository implements NotificationRepository {
   @override
   Future<TestNotificationResult?> testWecom(String webhook) async {
     wecomTestCalls.add(webhook);
-    return const TestNotificationResult(success: true, message: '发送成功');
+    return wecomTestResult;
   }
 
   @override
@@ -148,6 +228,10 @@ class _FakeNotificationRepository implements NotificationRepository {
     NotificationSettingRequest request,
   ) async {
     updateCalls.add(request);
+    final error = updateSettingsError;
+    if (error != null) {
+      throw StateError(error);
+    }
     settings = settings.copyWith(
       enabled: request.enabled,
       notifyBudgetAlert: request.notifyBudgetAlert,
