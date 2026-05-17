@@ -45,6 +45,14 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const Divider(height: 1),
                   ListTile(
+                    leading: const Icon(Icons.receipt_long_outlined),
+                    title: const Text('账户流水'),
+                    subtitle: const Text('查看全部账户余额变动记录'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutePaths.accountLogs),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     leading: const Icon(Icons.category_outlined),
                     title: const Text('分类管理'),
                     subtitle: const Text('维护收入和支出分类'),

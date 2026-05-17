@@ -8,6 +8,7 @@ class AppRoutePaths {
   static const String statistics = '/statistics';
   static const String profile = '/profile';
   static const String accounts = '/accounts';
+  static const String accountLogs = '/account-logs';
   static const String categories = '/categories';
   static const String budgets = '/budgets';
   static const String reminders = '/reminders';

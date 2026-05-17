@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/account_logs/presentation/account_log_page.dart';
 import '../../features/accounts/presentation/accounts_page.dart';
 import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/presentation/login_page.dart';
@@ -118,6 +119,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.accounts,
         builder: (context, state) => const AccountsPage(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.accountLogs,
+        builder: (context, state) => const AccountLogPage(),
+      ),
+      GoRoute(
+        path: '${AppRoutePaths.accountLogs}/:accountId',
+        builder: (context, state) => AccountLogPage(
+          accountId: state.pathParameters['accountId'],
+          account: state.extra is AccountLogPageAccount
+              ? (state.extra! as AccountLogPageAccount).account
+              : null,
+        ),
       ),
       GoRoute(
         path: AppRoutePaths.categories,

@@ -3,6 +3,7 @@ import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/core/config/server_config_service.dart';
 import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/network/api_response.dart';
+import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
@@ -294,6 +295,34 @@ void main() {
       expect(item.progress, 20);
       expect(item.accountName, '现金');
       expect(item.typeLabel, '借出');
+    });
+
+    test('账户流水模型解析分页和余额变动', () {
+      final result = AccountLogListResult.fromJson({
+        'list': [
+          {
+            'id': 'log-1',
+            'account_id': 'account-1',
+            'type': 'transfer_in',
+            'amount': '100',
+            'balance_before': 500,
+            'balance_after': '600',
+            'remark': '转入',
+            'created_at': '2026-05-01T09:30:00Z',
+            'account': {'id': 'account-1', 'name': '现金'},
+          },
+        ],
+        'total': '12',
+        'page': '1',
+        'page_size': 10,
+      });
+
+      expect(result.list, hasLength(1));
+      expect(result.total, 12);
+      expect(result.hasMore, isTrue);
+      expect(result.list.single.type, AccountLogType.transferIn);
+      expect(result.list.single.balanceChange, 100);
+      expect(result.list.single.account?.name, '现金');
     });
 
     test('通知设置模型解析通道配置和测试结果', () {

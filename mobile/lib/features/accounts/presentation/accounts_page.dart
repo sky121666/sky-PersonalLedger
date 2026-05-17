@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/app_route_paths.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../account_logs/presentation/account_log_page.dart';
 import '../application/account_controller.dart';
 import '../data/account.dart';
 
@@ -253,6 +256,10 @@ class _AccountListTile extends ConsumerWidget {
             onSelected: (action) => _handleAction(context, ref, action),
             itemBuilder: (context) => [
               const PopupMenuItem(
+                value: _AccountAction.logs,
+                child: Text('查看流水'),
+              ),
+              const PopupMenuItem(
                 value: _AccountAction.edit,
                 child: Text('编辑'),
               ),
@@ -278,6 +285,11 @@ class _AccountListTile extends ConsumerWidget {
     _AccountAction action,
   ) async {
     switch (action) {
+      case _AccountAction.logs:
+        context.push(
+          '${AppRoutePaths.accountLogs}/${account.id}',
+          extra: AccountLogPageAccount(account),
+        );
       case _AccountAction.edit:
         await showModalBottomSheet<void>(
           context: context,
@@ -537,7 +549,7 @@ class _SummaryItem extends StatelessWidget {
   }
 }
 
-enum _AccountAction { edit, archive, delete }
+enum _AccountAction { logs, edit, archive, delete }
 
 class _AccountTypeOption {
   const _AccountTypeOption(this.value, this.label);
