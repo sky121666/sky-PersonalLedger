@@ -38,6 +38,26 @@ void main() {
       expect(find.text('iPhone'), findsOneWidget);
     });
 
+    testWidgets('创建令牌时会提交选择的有效期', (tester) async {
+      final repository = _FakeApiTokenRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('api-token-name')),
+        '自动化脚本',
+      );
+      await tester.tap(find.text('永不过期').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('90 天').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('创建令牌'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls.single.name, '自动化脚本');
+      expect(repository.createCalls.single.expiresInDays, 90);
+      expect(find.text('ffff0000... · 未使用 · 2026-07-31 过期'), findsOneWidget);
+    });
+
     testWidgets('删除令牌前需要确认', (tester) async {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
@@ -49,6 +69,28 @@ void main() {
 
       expect(repository.deleteCalls, [1]);
       expect(find.text('我的手机'), findsNothing);
+    });
+
+    testWidgets('没有令牌时展示空状态', (tester) async {
+      final repository = _FakeApiTokenRepository(tokens: const []);
+      await _pumpPage(tester, repository);
+
+      expect(find.text('暂无令牌'), findsOneWidget);
+      expect(find.text('创建令牌后可用于 App 或 API 访问。'), findsOneWidget);
+    });
+
+    testWidgets('初始加载失败时展示错误并可重试', (tester) async {
+      final repository = _FakeApiTokenRepository(failingListRequests: 1);
+      await _pumpPage(tester, repository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('令牌加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('我的手机'), findsOneWidget);
+      expect(repository.listCalls, 2);
     });
   });
 }
@@ -72,14 +114,14 @@ Future<void> _pumpPage(
 }
 
 class _FakeApiTokenRepository implements ApiTokenRepository {
-  var tokens = <ApiTokenItem>[
-    ApiTokenItem(
-      id: 1,
-      name: '我的手机',
-      tokenPrefix: 'abcd1234',
-      createdAt: DateTime(2026, 5, 1, 9),
-    ),
-  ];
+  _FakeApiTokenRepository({
+    List<ApiTokenItem>? tokens,
+    this.failingListRequests = 0,
+  }) : tokens = tokens ?? [_token()];
+
+  var tokens = <ApiTokenItem>[];
+  var failingListRequests = 0;
+  var listCalls = 0;
 
   final List<ApiTokenCreateRequest> createCalls = [];
   final List<int> deleteCalls = [];
@@ -109,6 +151,20 @@ class _FakeApiTokenRepository implements ApiTokenRepository {
 
   @override
   Future<List<ApiTokenItem>> list() async {
+    listCalls += 1;
+    if (failingListRequests > 0) {
+      failingListRequests -= 1;
+      throw StateError('令牌加载失败');
+    }
     return tokens;
   }
+}
+
+ApiTokenItem _token() {
+  return ApiTokenItem(
+    id: 1,
+    name: '我的手机',
+    tokenPrefix: 'abcd1234',
+    createdAt: DateTime(2026, 5, 1, 9),
+  );
 }
