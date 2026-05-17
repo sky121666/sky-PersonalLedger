@@ -15,6 +15,7 @@ import 'package:personal_ledger/features/reminders/data/reminder_repository.dart
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/security/data/security_repository.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
+import 'package:personal_ledger/features/tags/data/tag_repository.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 
 void main() {
@@ -370,6 +371,27 @@ void main() {
       expect(profile.displayName, 'Sky');
       expect(profile.email, 'sky@example.com');
       expect(profile.lastLoginAt, '2026-05-17 09:00:00');
+    });
+
+    test('标签模型解析系统状态和使用次数', () {
+      final tag = TagItem.fromJson({
+        'id': 'tag-1',
+        'user_id': '1',
+        'name': '工资收入',
+        'color': '#22C55E',
+        'icon': 'wallet',
+        'is_system': true,
+        'used_count': '8',
+        'created_at': '2026-05-01T09:00:00Z',
+      });
+
+      expect(tag.id, 'tag-1');
+      expect(tag.userId, 1);
+      expect(tag.name, '工资收入');
+      expect(tag.icon, 'wallet');
+      expect(tag.isSystem, isTrue);
+      expect(tag.usedCount, 8);
+      expect(tag.sourceLabel, '系统标签');
     });
 
     test('安全入口模型解析启用状态和路径', () {
