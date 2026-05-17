@@ -98,6 +98,65 @@ void main() {
 
       expect(repository.deleteCalls, ['reminder-1']);
     });
+
+    testWidgets('加载失败时展示错误并可重试', (tester) async {
+      final repository = _FakeReminderRepository()..listErrors = 1;
+      await _pumpPage(tester, repository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('负债提醒加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('房贷'), findsOneWidget);
+      expect(repository.listCalls, 2);
+    });
+
+    testWidgets('没有提醒时展示空态', (tester) async {
+      final repository = _FakeReminderRepository()
+        ..reminders = const []
+        ..summary = const DebtSummary.empty();
+      await _pumpPage(tester, repository);
+
+      expect(find.text('暂无负债提醒'), findsOneWidget);
+      expect(find.text('添加分期或还款计划后，可以在这里跟踪上岸进度。'), findsOneWidget);
+      expect(find.text('¥0.00'), findsWidgets);
+    });
+
+    testWidgets('暂停提醒失败时展示错误且保留原状态', (tester) async {
+      final repository = _FakeReminderRepository()..toggleError = '暂停失败';
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('暂停提醒'));
+      await tester.pumpAndSettle();
+
+      expect(repository.toggleCalls, ['reminder-1']);
+      expect(find.textContaining('暂停失败'), findsOneWidget);
+      expect(find.text('提醒已暂停'), findsNothing);
+      expect(find.text('进行中 (1)'), findsOneWidget);
+      expect(find.text('房贷'), findsOneWidget);
+    });
+
+    testWidgets('记录还款失败时展示错误且保留待还金额', (tester) async {
+      final repository = _FakeReminderRepository()..paymentError = '还款失败';
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('记录还款'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, '1200');
+      await tester.tap(find.widgetWithText(FilledButton, '确认还款'));
+      await tester.pumpAndSettle();
+
+      expect(repository.paymentCalls, hasLength(1));
+      expect(find.textContaining('还款失败'), findsOneWidget);
+      expect(find.text('还款已记录'), findsNothing);
+      expect(find.text('待还 ¥80000.00'), findsOneWidget);
+    });
   });
 }
 
@@ -124,11 +183,26 @@ Future<void> _pumpPage(
 
 class _FakeReminderRepository implements ReminderRepository {
   List<ReminderItem> reminders = [_activeReminder()];
+  DebtSummary summary = const DebtSummary(
+    totalDebt: 80000,
+    totalPaid: 40000,
+    totalPrincipal: 120000,
+    progress: 33.3,
+    activeLoans: 1,
+    paidOffLoans: 0,
+    nextPaymentDay: 10,
+    nextPaymentName: '房贷',
+    daysUntilNext: 3,
+  );
   final List<String> toggleCalls = [];
   final List<String> deleteCalls = [];
   final List<_PaymentCall> paymentCalls = [];
   final List<ReminderFormRequest> createCalls = [];
   final List<_UpdateCall> updateCalls = [];
+  var listCalls = 0;
+  var listErrors = 0;
+  String? toggleError;
+  String? paymentError;
 
   @override
   Future<ReminderItem?> createReminder(ReminderFormRequest request) async {
@@ -152,21 +226,16 @@ class _FakeReminderRepository implements ReminderRepository {
 
   @override
   Future<DebtSummary?> getDebtSummary() async {
-    return const DebtSummary(
-      totalDebt: 80000,
-      totalPaid: 40000,
-      totalPrincipal: 120000,
-      progress: 33.3,
-      activeLoans: 1,
-      paidOffLoans: 0,
-      nextPaymentDay: 10,
-      nextPaymentName: '房贷',
-      daysUntilNext: 3,
-    );
+    return summary;
   }
 
   @override
   Future<List<ReminderItem>?> listReminders({String? accountId}) async {
+    listCalls += 1;
+    if (listErrors > 0) {
+      listErrors -= 1;
+      throw StateError('负债提醒加载失败');
+    }
     return reminders;
   }
 
@@ -187,12 +256,20 @@ class _FakeReminderRepository implements ReminderRepository {
         interestAmount: interestAmount,
       ),
     );
+    final error = paymentError;
+    if (error != null) {
+      throw StateError(error);
+    }
     return reminders.firstWhere((item) => item.id == id);
   }
 
   @override
   Future<ReminderItem?> toggleReminder(String id) async {
     toggleCalls.add(id);
+    final error = toggleError;
+    if (error != null) {
+      throw StateError(error);
+    }
     final old = reminders.firstWhere((item) => item.id == id);
     final updated = _activeReminder(isEnabled: !old.isEnabled);
     reminders = [updated];
