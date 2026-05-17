@@ -108,6 +108,10 @@ void main() {
       expect(result.list, hasLength(1));
       expect(result.list.first.type, TransactionType.income);
       expect(result.list.first.amount, 12.5);
+      expect(
+        result.list.first.transactionDate,
+        DateTime.parse('2026-05-14T10:20:00Z').toLocal(),
+      );
       expect(result.list.first.tags, ['工资', '五月']);
       expect(result.hasMore, isTrue);
     });

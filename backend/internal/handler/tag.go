@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/service"
+	"github.com/sky/personal-ledger/pkg/response"
 )
 
 type TagHandler struct {
@@ -34,7 +35,7 @@ func (h *TagHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, tag)
+	response.Created(c, tag)
 }
 
 func (h *TagHandler) List(c *gin.Context) {
@@ -46,7 +47,7 @@ func (h *TagHandler) List(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, tags)
+	response.Success(c, tags)
 }
 
 func (h *TagHandler) GetByID(c *gin.Context) {
@@ -59,7 +60,7 @@ func (h *TagHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, tag)
+	response.Success(c, tag)
 }
 
 func (h *TagHandler) Update(c *gin.Context) {
@@ -86,7 +87,7 @@ func (h *TagHandler) Update(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, tag)
+	response.Success(c, tag)
 }
 
 func (h *TagHandler) Delete(c *gin.Context) {
@@ -102,5 +103,5 @@ func (h *TagHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
+	response.Success(c, nil)
 }

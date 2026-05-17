@@ -161,6 +161,11 @@ func AuthWithAPIToken(jwtManager *jwt.Manager, apiTokenValidator APITokenValidat
 			c.Next()
 			return
 		}
+		if err == jwt.ErrExpiredToken {
+			response.Error(c, http.StatusUnauthorized, 40102, "token expired")
+			c.Abort()
+			return
+		}
 
 		// JWT 验证失败，尝试 API Token 验证
 		userID, err := apiTokenValidator.ValidateToken(token)

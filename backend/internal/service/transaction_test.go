@@ -41,6 +41,49 @@ func createAccountForTest(t *testing.T, repos *repository.Repositories, userID u
 	return id
 }
 
+func TestParseTransactionDateAcceptsFlutterLocalIsoString(t *testing.T) {
+	got, err := parseTransactionDate("2026-05-18T04:42:29.878007")
+	if err != nil {
+		t.Fatalf("parse flutter local iso date: %v", err)
+	}
+
+	if got.Year() != 2026 || got.Month() != time.May || got.Day() != 18 {
+		t.Fatalf("date = %v, want 2026-05-18", got)
+	}
+	if got.Hour() != 4 || got.Minute() != 42 || got.Second() != 29 {
+		t.Fatalf("time = %v, want 04:42:29", got)
+	}
+}
+
+func TestSumByDayUsesStoredLocalDate(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+
+	_, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          12.34,
+		AccountID:       accountID,
+		TransactionDate: "2026-05-18T04:42:29.878007",
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+
+	start, _ := time.ParseInLocation("2006-01-02", "2026-05-01", time.Local)
+	end, _ := time.ParseInLocation("2006-01-02 15:04:05", "2026-05-31 23:59:59", time.Local)
+	daily, err := repos.Transaction.SumByDay(userID, start, end)
+	if err != nil {
+		t.Fatalf("sum by day: %v", err)
+	}
+
+	if len(daily) != 1 {
+		t.Fatalf("daily len = %d, want 1: %#v", len(daily), daily)
+	}
+	if daily[0].Date != "2026-05-18" {
+		t.Fatalf("daily date = %q, want 2026-05-18", daily[0].Date)
+	}
+}
+
 func TestCreateTransferRollsBackWhenTargetAccountDoesNotExist(t *testing.T) {
 	svc, repos, userID := newTransactionTestService(t)
 	sourceID := createAccountForTest(t, repos, userID, 100)

@@ -115,11 +115,24 @@ func (s *TransactionService) ensureAccountBelongsToUser(accountID string, userID
 }
 
 func parseTransactionDate(value string) (time.Time, error) {
-	txDate, err := time.Parse(time.RFC3339, value)
-	if err == nil {
-		return txDate, nil
+	location := time.Local
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05.999999",
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+		"2006-01-02",
 	}
-	return time.Parse("2006-01-02", value)
+	var lastErr error
+	for _, layout := range layouts {
+		txDate, err := time.ParseInLocation(layout, value, location)
+		if err == nil {
+			return txDate, nil
+		}
+		lastErr = err
+	}
+	return time.Time{}, lastErr
 }
 
 func (s *TransactionService) GetByID(id string, userID uint) (*model.Transaction, error) {

@@ -152,9 +152,7 @@ class TransactionItem {
       amount: _toDouble(json['amount']),
       accountId: json['account_id'] as String? ?? '',
       categoryId: json['category_id'] as String?,
-      transactionDate:
-          DateTime.tryParse(json['transaction_date'] as String? ?? '') ??
-          DateTime.now(),
+      transactionDate: _parseDateTime(json['transaction_date']),
       remark: json['remark'] as String? ?? '',
       images: json['images'] as String? ?? '',
       tags: _parseTags(json['tags']),
@@ -304,6 +302,11 @@ double _toDouble(Object? value) {
     return double.tryParse(value) ?? 0;
   }
   return 0;
+}
+
+DateTime _parseDateTime(Object? value) {
+  final parsed = DateTime.tryParse(value?.toString() ?? '');
+  return parsed?.toLocal() ?? DateTime.now();
 }
 
 List<String> _parseTags(Object? value) {

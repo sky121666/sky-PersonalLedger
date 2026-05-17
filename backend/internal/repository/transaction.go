@@ -146,13 +146,13 @@ func (r *TransactionRepository) SumByDay(userID uint, startDate, endDate time.Ti
 	var results []DailySum
 	err := r.db.Model(&model.Transaction{}).
 		Select(`
-			DATE(transaction_date) as date,
+			SUBSTR(transaction_date, 1, 10) as date,
 			SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
 			SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
 		`).
 		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ?",
 			userID, startDate, endDate).
-		Group("DATE(transaction_date)").
+		Group("SUBSTR(transaction_date, 1, 10)").
 		Order("date ASC").
 		Scan(&results).Error
 	return results, err

@@ -3,9 +3,11 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	ledgerjwt "github.com/sky/personal-ledger/pkg/jwt"
 )
 
 func performCORSRequest(allowedOrigins string, origin string) *httptest.ResponseRecorder {
@@ -54,4 +56,35 @@ func TestCORSExactOriginList(t *testing.T) {
 	if status := performCORSRequest(allowed, "https://evil.example.com").Code; status != http.StatusForbidden {
 		t.Fatalf("rejected origin status = %d, want 403", status)
 	}
+}
+
+func TestAuthWithAPITokenReturnsExpiredCodeForExpiredJWT(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	manager := ledgerjwt.NewManager("test-secret-with-enough-length", -1, 30)
+	token, err := manager.GenerateAccessToken(1)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	r := gin.New()
+	r.Use(AuthWithAPIToken(manager, fakeAPITokenValidator{}))
+	r.GET("/protected", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", w.Code)
+	}
+	if body := w.Body.String(); !strings.Contains(body, `"code":40102`) {
+		t.Fatalf("body = %s, want code 40102", body)
+	}
+}
+
+type fakeAPITokenValidator struct{}
+
+func (fakeAPITokenValidator) ValidateToken(string) (uint, error) {
+	return 0, ledgerjwt.ErrInvalidToken
 }
