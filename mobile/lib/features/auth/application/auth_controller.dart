@@ -205,8 +205,11 @@ class AuthController extends StateNotifier<AuthState> {
 
   String _formatError(Object error) {
     final message = error.toString();
-    if (message.startsWith('Exception: ')) {
-      return message.substring(11);
+    const prefixes = ['Exception: ', 'FormatException: '];
+    for (final prefix in prefixes) {
+      if (message.startsWith(prefix)) {
+        return message.substring(prefix.length);
+      }
     }
     return message;
   }
