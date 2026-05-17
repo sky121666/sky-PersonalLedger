@@ -30,6 +30,53 @@ void main() {
       expect(repository.requestedYears, contains(2025));
       expect(find.text('2025 年账本汇总'), findsOneWidget);
     });
+
+    testWidgets('加载失败时展示错误并可重试', (tester) async {
+      final currentYear = DateTime.now().year;
+      final repository = _FakeYearlyReportRepository()
+        ..dashboardErrors = {currentYear: 1};
+      await _pumpPage(tester, repository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('年度报告加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedYears, [currentYear, currentYear]);
+      expect(find.text('$currentYear 年账本汇总'), findsOneWidget);
+    });
+
+    testWidgets('没有年度明细时展示空年度数据', (tester) async {
+      final repository = _FakeYearlyReportRepository()..emptyYears = {2026};
+      await _pumpPage(tester, repository);
+
+      expect(find.text('2026 年账本汇总'), findsOneWidget);
+      expect(find.text('暂无月度数据'), findsOneWidget);
+      expect(find.text('本年暂无支出分类数据'), findsOneWidget);
+      expect(find.text('本年暂无收入分类数据'), findsOneWidget);
+      expect(find.text('0 笔'), findsOneWidget);
+    });
+
+    testWidgets('年份切换失败后可重试恢复', (tester) async {
+      final repository = _FakeYearlyReportRepository()
+        ..dashboardErrors = {2025: 1};
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byType(DropdownMenu<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('2025 年').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('年度报告加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedYears.where((year) => year == 2025), hasLength(2));
+      expect(find.text('2025 年账本汇总'), findsOneWidget);
+    });
   });
 }
 
@@ -53,10 +100,17 @@ Future<void> _pumpPage(
 
 class _FakeYearlyReportRepository implements YearlyReportRepository {
   final List<int> requestedYears = [];
+  Map<int, int> dashboardErrors = const {};
+  Set<int> emptyYears = const {};
 
   @override
   Future<YearlyReportDashboard> getDashboard(int year) async {
     requestedYears.add(year);
+    final remainingErrors = dashboardErrors[year] ?? 0;
+    if (remainingErrors > 0) {
+      dashboardErrors = {...dashboardErrors, year: remainingErrors - 1};
+      throw StateError('年度报告加载失败');
+    }
     return YearlyReportDashboard(
       years: const [2026, 2025],
       report: _report(year),
@@ -75,6 +129,28 @@ class _FakeYearlyReportRepository implements YearlyReportRepository {
   }
 
   YearlyReport _report(int year) {
+    if (emptyYears.contains(year)) {
+      return YearlyReport(
+        year: year,
+        totalIncome: 0,
+        totalExpense: 0,
+        netSavings: 0,
+        savingsRate: 0,
+        monthlyData: const [],
+        topExpenses: const [],
+        topIncomes: const [],
+        transactionCount: 0,
+        averageExpense: 0,
+        averageIncome: 0,
+        maxExpenseMonth: '',
+        minExpenseMonth: '',
+        bestSavingsMonth: '',
+        maxSingleExpense: 0,
+        maxExpenseRemark: '',
+        activeDays: 0,
+        dailyAvgExpense: 0,
+      );
+    }
     return YearlyReport(
       year: year,
       totalIncome: 1000,
