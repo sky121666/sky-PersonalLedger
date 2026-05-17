@@ -328,6 +328,7 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: const ValueKey('category-name'),
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: '分类名称',
@@ -338,6 +339,7 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                key: const ValueKey('category-icon'),
                 initialValue: _icon,
                 decoration: const InputDecoration(
                   labelText: '图标',
@@ -374,6 +376,7 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
               ),
               const SizedBox(height: 20),
               FilledButton(
+                key: const ValueKey('category-save'),
                 onPressed: _submitting ? null : _submit,
                 child: Text(_submitting ? '保存中...' : '保存'),
               ),
