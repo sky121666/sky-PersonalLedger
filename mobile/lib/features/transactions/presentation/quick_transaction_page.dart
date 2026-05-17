@@ -101,6 +101,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
+                      key: const ValueKey('transaction-amount'),
                       controller: _amountController,
                       decoration: const InputDecoration(
                         labelText: '金额',
@@ -123,6 +124,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                     _buildDateTimePicker(),
                     const SizedBox(height: 16),
                     TextFormField(
+                      key: const ValueKey('transaction-remark'),
                       controller: _remarkController,
                       decoration: const InputDecoration(
                         labelText: '备注',
@@ -147,6 +149,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
+                      key: const ValueKey('transaction-save'),
                       onPressed: _submitting ? null : _submit,
                       child: _submitting
                           ? const SizedBox.square(
@@ -294,6 +297,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           children: [
             Expanded(
               child: TextField(
+                key: const ValueKey('transaction-custom-tag'),
                 controller: _customTagController,
                 decoration: const InputDecoration(
                   labelText: '自定义标签',

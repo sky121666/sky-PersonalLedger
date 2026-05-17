@@ -23,7 +23,10 @@ void main() {
       final repository = _FakeTransactionRepository();
       await _pumpTransactionPage(tester, repository: repository);
 
-      await tester.enterText(find.byType(TextFormField).first, '0');
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '0',
+      );
       await _tapSaveButton(tester);
       await tester.pump();
 
@@ -35,9 +38,15 @@ void main() {
       final repository = _FakeTransactionRepository();
       await _pumpTransactionPage(tester, repository: repository);
 
-      await tester.enterText(find.byType(TextFormField).first, '12.34');
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '12.34',
+      );
       await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
-      await tester.enterText(find.byType(TextFormField).last, '午餐');
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-remark')),
+        '午餐',
+      );
       await _tapSaveButton(tester);
       await tester.pumpAndSettle();
 
@@ -56,7 +65,10 @@ void main() {
 
       await tester.tap(find.text('转账'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField).first, '20');
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '20',
+      );
       await _tapSaveButton(tester);
       await tester.pump();
 
@@ -70,7 +82,10 @@ void main() {
 
       await tester.tap(find.text('转账'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField).first, '20');
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '20',
+      );
       await _selectDropdownItem(tester, fieldLabel: '转入账户', itemText: '储蓄卡');
       await _tapSaveButton(tester);
       await tester.pumpAndSettle();
@@ -82,12 +97,60 @@ void main() {
       expect(formData.toAccountId, 'account-2');
       expect(formData.categoryId, isNull);
     });
+
+    testWidgets('编辑交易时预填字段并提交更新', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        editingTransaction: TransactionItem(
+          id: 'transaction-1',
+          type: TransactionType.expense,
+          amount: 18,
+          accountId: 'account-1',
+          categoryId: 'category-expense',
+          transactionDate: DateTime(2026, 5, 18, 8, 30),
+          remark: '早餐',
+          tags: const ['日常'],
+        ),
+      );
+
+      expect(find.text('编辑交易'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const ValueKey('transaction-amount')),
+            )
+            .controller
+            ?.text,
+        '18.00',
+      );
+      expect(find.text('日常'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '20.5',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-remark')),
+        '早餐更新',
+      );
+      await _tapSaveButton(tester, label: '保存修改');
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(repository.updateCalls.single.$1, 'transaction-1');
+      expect(repository.updateCalls.single.$2.amount, 20.5);
+      expect(repository.updateCalls.single.$2.remark, '早餐更新');
+      expect(repository.updateCalls.single.$2.tags, contains('日常'));
+    });
   });
 }
 
 Future<void> _pumpTransactionPage(
   WidgetTester tester, {
   required _FakeTransactionRepository repository,
+  TransactionItem? editingTransaction,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -97,17 +160,19 @@ Future<void> _pumpTransactionPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [transactionRepositoryProvider.overrideWithValue(repository)],
-      child: const MaterialApp(home: QuickTransactionPage()),
+      child: MaterialApp(
+        home: QuickTransactionPage(editingTransaction: editingTransaction),
+      ),
     ),
   );
   await tester.pumpAndSettle();
 }
 
-Future<void> _tapSaveButton(WidgetTester tester) async {
+Future<void> _tapSaveButton(WidgetTester tester, {String label = '保存'}) async {
   await tester.drag(find.byType(ListView), const Offset(0, -1000));
   await tester.pumpAndSettle();
 
-  await tester.tap(find.widgetWithText(FilledButton, '保存'));
+  await tester.tap(find.widgetWithText(FilledButton, label));
 }
 
 Future<void> _selectDropdownItem(
@@ -127,6 +192,7 @@ Future<void> _selectDropdownItem(
 
 class _FakeTransactionRepository implements TransactionRepository {
   final List<TransactionFormData> createCalls = [];
+  final List<(String, TransactionFormData)> updateCalls = [];
 
   @override
   Future<List<LedgerAccount>> listAccounts() async {
@@ -196,6 +262,7 @@ class _FakeTransactionRepository implements TransactionRepository {
     String id,
     TransactionFormData formData,
   ) async {
+    updateCalls.add((id, formData));
     return TransactionItem(
       id: id,
       type: formData.type,
