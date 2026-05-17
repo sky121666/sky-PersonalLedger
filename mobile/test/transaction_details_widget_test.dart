@@ -107,6 +107,48 @@ void main() {
         containsAllInOrder([1, 2]),
       );
     });
+
+    testWidgets('没有交易时展示空状态并可进入记账页', (tester) async {
+      final repository = _FakeTransactionRepository(items: const []);
+      await _pumpPage(tester, repository);
+
+      expect(find.text('暂无交易明细'), findsOneWidget);
+      expect(find.text('点击“记一笔”添加第一条收支记录。'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '去记一笔'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('编辑 new'), findsOneWidget);
+    });
+
+    testWidgets('筛选无结果时展示匹配空状态', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-search')),
+        '晚餐',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      expect(find.text('没有匹配的交易'), findsOneWidget);
+      expect(find.text('调整筛选条件后再试。'), findsOneWidget);
+    });
+
+    testWidgets('初始加载失败时展示错误并可重试', (tester) async {
+      final repository = _FakeTransactionRepository(failingListRequests: 1);
+      await _pumpPage(tester, repository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('加载交易失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('餐饮'), findsOneWidget);
+      expect(repository.listQueries.length, 2);
+    });
   });
 }
 
@@ -152,10 +194,13 @@ Future<void> _pumpPage(
 }
 
 class _FakeTransactionRepository implements TransactionRepository {
-  _FakeTransactionRepository({List<TransactionItem>? items})
-    : items = items ?? [_transaction()];
+  _FakeTransactionRepository({
+    List<TransactionItem>? items,
+    this.failingListRequests = 0,
+  }) : items = items ?? [_transaction()];
 
   var items = <TransactionItem>[];
+  var failingListRequests = 0;
 
   final List<TransactionListQuery> listQueries = [];
   final List<String> deleteCalls = [];
@@ -179,6 +224,10 @@ class _FakeTransactionRepository implements TransactionRepository {
   @override
   Future<TransactionListResult> list(TransactionListQuery query) async {
     listQueries.add(query);
+    if (failingListRequests > 0) {
+      failingListRequests -= 1;
+      throw StateError('加载交易失败');
+    }
     var filtered = items;
     if (query.keyword != null && query.keyword!.trim().isNotEmpty) {
       filtered = filtered
