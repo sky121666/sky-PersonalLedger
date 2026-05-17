@@ -6,6 +6,7 @@ import 'package:personal_ledger/core/network/api_response.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
+import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
 import 'package:personal_ledger/features/reminders/data/reminder_repository.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
@@ -254,6 +255,44 @@ void main() {
       expect(reminder.loanTypeLabel, '房贷');
       expect(reminder.progress, closeTo(33.33, 0.01));
       expect(reminder.accountName, '贷款账户');
+    });
+
+    test('借贷模型解析汇总和往来记录', () {
+      final summary = LendingSummary.fromJson({
+        'total_lend_out': '1000',
+        'total_borrow_in': 500,
+        'active_lend_out': '1',
+        'active_borrow_in': 2,
+        'settled_lend_out': 0,
+        'settled_borrow_in': '1',
+        'total_receivable': '800',
+        'total_payable': 400,
+        'net_lending': '400',
+      });
+      final item = LendingItem.fromJson({
+        'id': 'lend-1',
+        'type': 'lend_out',
+        'contact_name': '张三',
+        'contact_phone': '13800000000',
+        'principal': '1000',
+        'interest_rate': '3.5',
+        'current_balance': 800,
+        'total_repaid': '200',
+        'lend_date': '2026-05-01T09:00:00Z',
+        'due_date': '2026-06-01T09:00:00Z',
+        'remark': '朋友周转',
+        'is_settled': false,
+        'account': {'id': 'a1', 'name': '现金'},
+      });
+
+      expect(summary.totalReceivable, 800);
+      expect(summary.activeBorrowIn, 2);
+      expect(summary.netLending, 400);
+      expect(item.type, LendingType.lendOut);
+      expect(item.contactName, '张三');
+      expect(item.progress, 20);
+      expect(item.accountName, '现金');
+      expect(item.typeLabel, '借出');
     });
   });
 }

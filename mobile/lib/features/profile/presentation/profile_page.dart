@@ -69,6 +69,14 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const Divider(height: 1),
                   ListTile(
+                    leading: const Icon(Icons.handshake_outlined),
+                    title: const Text('借贷往来'),
+                    subtitle: const Text('管理借出、借入和还款记录'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutePaths.lendings),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     leading: const Icon(Icons.storage_outlined),
                     title: const Text('数据管理'),
                     subtitle: const Text('备份、恢复和导出交易数据'),
