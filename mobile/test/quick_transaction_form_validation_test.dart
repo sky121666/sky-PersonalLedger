@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_picker_service.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_repository.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/quick_transaction_page.dart';
@@ -144,6 +147,55 @@ void main() {
       expect(repository.updateCalls.single.$2.remark, '早餐更新');
       expect(repository.updateCalls.single.$2.tags, contains('日常'));
     });
+
+    testWidgets('新增交易带附件时上传文件并回写附件路径', (tester) async {
+      final repository = _FakeTransactionRepository();
+      final attachmentRepository = _FakeAttachmentRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: _FakeAttachmentPickerService(
+          files: const [
+            PendingAttachmentFile(
+              path: '/tmp/receipt.jpg',
+              name: 'receipt.jpg',
+              size: 120,
+              mimeType: 'image/jpeg',
+            ),
+          ],
+        ),
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '45',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('添加附件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('receipt.jpg'), findsOneWidget);
+      expect(find.text('待上传'), findsOneWidget);
+
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(attachmentRepository.uploadCalls, hasLength(1));
+      expect(attachmentRepository.uploadCalls.single.file.name, 'receipt.jpg');
+      expect(attachmentRepository.uploadCalls.single.category, 'transactions');
+      expect(attachmentRepository.uploadCalls.single.refId, 'transaction-1');
+      expect(repository.updateCalls, hasLength(1));
+      expect(repository.updateCalls.single.$1, 'transaction-1');
+      expect(decodeAttachmentPaths(repository.updateCalls.single.$2.images), [
+        'transactions/transaction-1/receipt.jpg',
+      ]);
+    });
   });
 }
 
@@ -151,6 +203,8 @@ Future<void> _pumpTransactionPage(
   WidgetTester tester, {
   required _FakeTransactionRepository repository,
   TransactionItem? editingTransaction,
+  _FakeAttachmentRepository? attachmentRepository,
+  AttachmentPickerService? attachmentPickerService,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -159,7 +213,15 @@ Future<void> _pumpTransactionPage(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [transactionRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        transactionRepositoryProvider.overrideWithValue(repository),
+        if (attachmentRepository != null)
+          attachmentRepositoryProvider.overrideWithValue(attachmentRepository),
+        if (attachmentPickerService != null)
+          attachmentPickerServiceProvider.overrideWithValue(
+            attachmentPickerService,
+          ),
+      ],
       child: MaterialApp(
         home: QuickTransactionPage(editingTransaction: editingTransaction),
       ),
@@ -276,4 +338,79 @@ class _FakeTransactionRepository implements TransactionRepository {
       toAccountId: formData.toAccountId,
     );
   }
+}
+
+class _FakeAttachmentPickerService implements AttachmentPickerService {
+  const _FakeAttachmentPickerService({this.files = const []});
+
+  final List<PendingAttachmentFile> files;
+
+  @override
+  Future<PendingAttachmentFile?> pickImageFromCamera() async {
+    return files.isEmpty ? null : files.first;
+  }
+
+  @override
+  Future<PendingAttachmentFile?> pickImageFromGallery() async {
+    return files.isEmpty ? null : files.first;
+  }
+
+  @override
+  Future<List<PendingAttachmentFile>> pickFiles() async {
+    return files;
+  }
+}
+
+class _FakeAttachmentRepository implements AttachmentRepository {
+  final List<_UploadCall> uploadCalls = [];
+
+  @override
+  Future<void> delete(String path) async {}
+
+  @override
+  Future<void> download(String path, String savePath) async {}
+
+  @override
+  Future<List<int>> downloadBytes(String path) async {
+    return const [];
+  }
+
+  @override
+  Uri downloadUri(String path) {
+    return Uri.parse('https://example.test/download?path=$path');
+  }
+
+  @override
+  Uri previewUri(String path) {
+    return Uri.parse('https://example.test/uploads/$path');
+  }
+
+  @override
+  Future<LedgerAttachment> upload({
+    required PendingAttachmentFile file,
+    required String category,
+    required String refId,
+    void Function(int sent, int total)? onSendProgress,
+  }) async {
+    uploadCalls.add(_UploadCall(file: file, category: category, refId: refId));
+    onSendProgress?.call(1, 1);
+    return LedgerAttachment(
+      path: '$category/$refId/${file.name}',
+      filename: file.name,
+      size: file.size,
+      mimeType: file.mimeType ?? '',
+    );
+  }
+}
+
+class _UploadCall {
+  const _UploadCall({
+    required this.file,
+    required this.category,
+    required this.refId,
+  });
+
+  final PendingAttachmentFile file;
+  final String category;
+  final String refId;
 }
