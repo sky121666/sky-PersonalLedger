@@ -69,6 +69,80 @@ void main() {
       expect(find.text('交通'), findsNothing);
       expect(find.text('删除成功'), findsOneWidget);
     });
+
+    testWidgets('加载失败时展示错误并可重试', (tester) async {
+      final repository = _FakeCategoryRepository()..listErrors = 1;
+      await _pumpPage(tester, repository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('分类加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('餐饮'), findsOneWidget);
+      expect(repository.listCalls, 2);
+    });
+
+    testWidgets('没有分类时展示空状态', (tester) async {
+      final repository = _FakeCategoryRepository()..expenseCategories = const [];
+      await _pumpPage(tester, repository);
+
+      expect(find.text('暂无支出分类'), findsOneWidget);
+      expect(find.text('添加分类后，记账时可以快速归类。'), findsOneWidget);
+    });
+
+    testWidgets('新增分类失败时展示错误且保留输入', (tester) async {
+      final repository = _FakeCategoryRepository()..createError = '新增分类失败';
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('新增分类'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('category-name')), '咖啡');
+      await tester.enterText(find.byKey(const ValueKey('category-icon')), '☕');
+      await tester.tap(find.byKey(const ValueKey('category-save')));
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(find.textContaining('新增分类失败'), findsOneWidget);
+      expect(find.text('保存成功'), findsNothing);
+      expect(find.text('咖啡'), findsOneWidget);
+      expect(find.text('餐饮'), findsOneWidget);
+    });
+
+    testWidgets('编辑分类失败时展示错误且保留原列表', (tester) async {
+      final repository = _FakeCategoryRepository()..updateError = '编辑分类失败';
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('交通'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('category-name')), '通勤');
+      await tester.tap(find.byKey(const ValueKey('category-save')));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(find.textContaining('编辑分类失败'), findsOneWidget);
+      expect(find.text('保存成功'), findsNothing);
+      expect(find.text('通勤'), findsOneWidget);
+      expect(find.text('交通'), findsOneWidget);
+    });
+
+    testWidgets('删除分类失败时展示错误且保留分类', (tester) async {
+      final repository = _FakeCategoryRepository()..deleteError = '删除分类失败';
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byIcon(Icons.more_vert).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '删除'));
+      await tester.pumpAndSettle();
+
+      expect(repository.deleteCalls, ['cat-traffic']);
+      expect(find.textContaining('删除分类失败'), findsOneWidget);
+      expect(find.text('删除成功'), findsNothing);
+      expect(find.text('交通'), findsOneWidget);
+    });
   });
 }
 
@@ -115,10 +189,19 @@ class _FakeCategoryRepository implements CategoryRepository {
   final List<CreateCategoryRequest> createCalls = [];
   final List<(String, UpdateCategoryRequest)> updateCalls = [];
   final List<String> deleteCalls = [];
+  var listCalls = 0;
+  var listErrors = 0;
+  String? createError;
+  String? updateError;
+  String? deleteError;
 
   @override
   Future<Category> create(CreateCategoryRequest request) async {
     createCalls.add(request);
+    final error = createError;
+    if (error != null) {
+      throw StateError(error);
+    }
     final category = Category(
       id: 'cat-${expenseCategories.length + 1}',
       name: request.name,
@@ -137,6 +220,10 @@ class _FakeCategoryRepository implements CategoryRepository {
   @override
   Future<void> delete(String id) async {
     deleteCalls.add(id);
+    final error = deleteError;
+    if (error != null) {
+      throw StateError(error);
+    }
     expenseCategories = expenseCategories
         .where((category) => category.id != id)
         .toList();
@@ -144,6 +231,11 @@ class _FakeCategoryRepository implements CategoryRepository {
 
   @override
   Future<CategoryListResult> list(CategoryType type) async {
+    listCalls += 1;
+    if (listErrors > 0) {
+      listErrors -= 1;
+      throw StateError('分类加载失败');
+    }
     if (type == CategoryType.income) {
       return const CategoryListResult(categories: []);
     }
@@ -153,6 +245,10 @@ class _FakeCategoryRepository implements CategoryRepository {
   @override
   Future<Category> update(String id, UpdateCategoryRequest request) async {
     updateCalls.add((id, request));
+    final error = updateError;
+    if (error != null) {
+      throw StateError(error);
+    }
     late Category updated;
     expenseCategories = [
       for (final category in expenseCategories)
