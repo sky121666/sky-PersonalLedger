@@ -22,5 +22,4 @@ class AppRoutePaths {
   static const String dataManagement = '/data-management';
   static const String yearlyReport = '/yearly-report';
   static const String quickTransaction = '/quick-transaction';
-  static const String legacyWebView = '/legacy-webview';
 }

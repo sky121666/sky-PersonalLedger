@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../app/router/app_route_paths.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../auth/application/auth_controller.dart';
@@ -91,11 +89,6 @@ class _HomeContent extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _BudgetSummaryCard(summary: summary.budgetSummary),
-            const SizedBox(height: 16),
-            FilledButton.tonal(
-              onPressed: () => context.push(AppRoutePaths.legacyWebView),
-              child: const Text('进入 Legacy WebView 兜底页'),
-            ),
           ],
         ),
       ),

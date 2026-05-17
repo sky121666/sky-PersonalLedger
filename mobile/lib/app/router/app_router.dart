@@ -13,7 +13,6 @@ import '../../features/budgets/presentation/budget_page.dart';
 import '../../features/categories/presentation/categories_page.dart';
 import '../../features/data_management/presentation/data_management_page.dart';
 import '../../features/home/presentation/home_page.dart';
-import '../../features/legacy_webview/presentation/legacy_webview_page.dart';
 import '../../features/lendings/presentation/lending_page.dart';
 import '../../features/main/presentation/main_shell_page.dart';
 import '../../features/notifications/presentation/notification_settings_page.dart';
@@ -185,13 +184,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.yearlyReport,
         builder: (context, state) => const YearlyReportPage(),
-      ),
-      GoRoute(
-        path: AppRoutePaths.legacyWebView,
-        builder: (context, state) {
-          final url = state.uri.queryParameters['url'];
-          return LegacyWebViewPage(initialUrl: url);
-        },
       ),
     ],
   );
