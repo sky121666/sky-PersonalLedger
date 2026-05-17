@@ -16,6 +16,7 @@ import 'package:personal_ledger/features/reports/data/yearly_report_models.dart'
 import 'package:personal_ledger/features/security/data/security_repository.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/tags/data/tag_repository.dart';
+import 'package:personal_ledger/features/templates/data/template_repository.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 
 void main() {
@@ -392,6 +393,28 @@ void main() {
       expect(tag.isSystem, isTrue);
       expect(tag.usedCount, 8);
       expect(tag.sourceLabel, '系统标签');
+    });
+
+    test('快捷模板模型解析类型、金额和使用次数', () {
+      final template = QuickTemplateItem.fromJson({
+        'id': 'tpl-1',
+        'user_id': 1,
+        'name': '午餐',
+        'type': 'expense',
+        'amount': '32.5',
+        'account_id': 'account-1',
+        'category_id': 'category-1',
+        'remark': '工作日午餐',
+        'used_count': '4',
+        'last_used_at': '2026-05-18T12:00:00Z',
+      });
+
+      expect(template.id, 'tpl-1');
+      expect(template.type, TransactionType.expense);
+      expect(template.typeLabel, '支出');
+      expect(template.amount, 32.5);
+      expect(template.usedCount, 4);
+      expect(template.lastUsedAt, isNotNull);
     });
 
     test('安全入口模型解析启用状态和路径', () {
