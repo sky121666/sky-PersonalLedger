@@ -192,6 +192,7 @@ class _TransactionSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextField(
+      key: const ValueKey('transaction-search'),
       controller: controller,
       decoration: InputDecoration(
         hintText: '搜索备注',
@@ -318,6 +319,7 @@ class _TransactionListTile extends StatelessWidget {
     };
 
     return ListTile(
+      key: ValueKey('transaction-item-${item.id}'),
       onTap: onTap,
       leading: CircleAvatar(
         backgroundColor: amountColor.withValues(alpha: 0.12),
