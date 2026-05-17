@@ -30,6 +30,11 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
         title: const Text('负债管理'),
         actions: [
           IconButton(
+            onPressed: _isBusy ? null : () => _openReminderForm(),
+            icon: const Icon(Icons.add),
+            tooltip: '新增负债提醒',
+          ),
+          IconButton(
             onPressed: _isBusy ? null : _refresh,
             icon: const Icon(Icons.refresh),
             tooltip: '刷新',
@@ -49,6 +54,10 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
           errorMessage: _errorMessage,
           onRefresh: () => ref.refresh(reminderDashboardProvider.future),
           onToggle: _toggleReminder,
+          onEdit: (reminder) => _openReminderForm(
+            reminder: reminder,
+            debtAccounts: dashboard.debtAccounts,
+          ),
           onDelete: _deleteReminder,
           onRecordPayment: (reminder) =>
               _openPaymentDialog(reminder, dashboard.paymentAccounts),
@@ -70,6 +79,36 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
           .read(reminderRepositoryProvider)
           .toggleReminder(reminder.id)
           .then((_) {}),
+    );
+  }
+
+  Future<void> _openReminderForm({
+    ReminderItem? reminder,
+    List<Account> debtAccounts = const [],
+  }) async {
+    final dashboard = ref.read(reminderDashboardProvider).valueOrNull;
+    final accounts = debtAccounts.isEmpty
+        ? dashboard?.debtAccounts ?? const <Account>[]
+        : debtAccounts;
+    final result = await _showReminderFormDialog(
+      context: context,
+      reminder: reminder,
+      debtAccounts: accounts,
+    );
+    if (result == null || !mounted) {
+      return;
+    }
+
+    await _runAction(
+      action: reminder == null ? 'create' : 'edit-${reminder.id}',
+      successMessage: reminder == null ? '负债提醒已创建' : '负债提醒已更新',
+      request: () {
+        final repository = ref.read(reminderRepositoryProvider);
+        if (reminder == null) {
+          return repository.createReminder(result).then((_) {});
+        }
+        return repository.updateReminder(reminder.id, result).then((_) {});
+      },
     );
   }
 
@@ -161,6 +200,7 @@ class _ReminderContent extends StatelessWidget {
     required this.errorMessage,
     required this.onRefresh,
     required this.onToggle,
+    required this.onEdit,
     required this.onDelete,
     required this.onRecordPayment,
   });
@@ -170,6 +210,7 @@ class _ReminderContent extends StatelessWidget {
   final String? errorMessage;
   final Future<void> Function() onRefresh;
   final ValueChanged<ReminderItem> onToggle;
+  final ValueChanged<ReminderItem> onEdit;
   final ValueChanged<ReminderItem> onDelete;
   final ValueChanged<ReminderItem> onRecordPayment;
 
@@ -196,6 +237,7 @@ class _ReminderContent extends StatelessWidget {
                 reminders: dashboard.activeReminders,
                 busyAction: busyAction,
                 onToggle: onToggle,
+                onEdit: onEdit,
                 onDelete: onDelete,
                 onRecordPayment: onRecordPayment,
               ),
@@ -204,6 +246,7 @@ class _ReminderContent extends StatelessWidget {
                 reminders: dashboard.inactiveReminders,
                 busyAction: busyAction,
                 onToggle: onToggle,
+                onEdit: onEdit,
                 onDelete: onDelete,
                 onRecordPayment: onRecordPayment,
               ),
@@ -212,6 +255,7 @@ class _ReminderContent extends StatelessWidget {
                 reminders: dashboard.paidOffReminders,
                 busyAction: busyAction,
                 onToggle: onToggle,
+                onEdit: onEdit,
                 onDelete: onDelete,
                 onRecordPayment: onRecordPayment,
                 readOnly: true,
@@ -405,6 +449,7 @@ class _ReminderSection extends StatelessWidget {
     required this.reminders,
     required this.busyAction,
     required this.onToggle,
+    required this.onEdit,
     required this.onDelete,
     required this.onRecordPayment,
     this.readOnly = false,
@@ -414,6 +459,7 @@ class _ReminderSection extends StatelessWidget {
   final List<ReminderItem> reminders;
   final String? busyAction;
   final ValueChanged<ReminderItem> onToggle;
+  final ValueChanged<ReminderItem> onEdit;
   final ValueChanged<ReminderItem> onDelete;
   final ValueChanged<ReminderItem> onRecordPayment;
   final bool readOnly;
@@ -443,6 +489,7 @@ class _ReminderSection extends StatelessWidget {
             busyAction: busyAction,
             readOnly: readOnly,
             onToggle: () => onToggle(reminder),
+            onEdit: () => onEdit(reminder),
             onDelete: () => onDelete(reminder),
             onRecordPayment: () => onRecordPayment(reminder),
           ),
@@ -458,6 +505,7 @@ class _ReminderCard extends StatelessWidget {
     required this.reminder,
     required this.busyAction,
     required this.onToggle,
+    required this.onEdit,
     required this.onDelete,
     required this.onRecordPayment,
     required this.readOnly,
@@ -466,6 +514,7 @@ class _ReminderCard extends StatelessWidget {
   final ReminderItem reminder;
   final String? busyAction;
   final VoidCallback onToggle;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onRecordPayment;
   final bool readOnly;
@@ -537,6 +586,8 @@ class _ReminderCard extends StatelessWidget {
                       switch (action) {
                         case _ReminderMenuAction.payment:
                           onRecordPayment();
+                        case _ReminderMenuAction.edit:
+                          onEdit();
                         case _ReminderMenuAction.toggle:
                           onToggle();
                         case _ReminderMenuAction.delete:
@@ -548,6 +599,11 @@ class _ReminderCard extends StatelessWidget {
                         const PopupMenuItem(
                           value: _ReminderMenuAction.payment,
                           child: Text('记录还款'),
+                        ),
+                      if (!readOnly)
+                        const PopupMenuItem(
+                          value: _ReminderMenuAction.edit,
+                          child: Text('编辑'),
                         ),
                       PopupMenuItem(
                         value: _ReminderMenuAction.toggle,
@@ -634,6 +690,375 @@ class _EmptyReminderCard extends StatelessWidget {
           message: '添加分期或还款计划后，可以在这里跟踪上岸进度。',
           icon: Icons.notifications_none_outlined,
         ),
+      ),
+    );
+  }
+}
+
+Future<ReminderFormRequest?> _showReminderFormDialog({
+  required BuildContext context,
+  required List<Account> debtAccounts,
+  ReminderItem? reminder,
+}) {
+  return showDialog<ReminderFormRequest>(
+    context: context,
+    builder: (context) =>
+        _ReminderFormDialog(reminder: reminder, debtAccounts: debtAccounts),
+  );
+}
+
+class _ReminderFormDialog extends StatefulWidget {
+  const _ReminderFormDialog({required this.debtAccounts, this.reminder});
+
+  final ReminderItem? reminder;
+  final List<Account> debtAccounts;
+
+  @override
+  State<_ReminderFormDialog> createState() => _ReminderFormDialogState();
+}
+
+class _ReminderFormDialogState extends State<_ReminderFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _paymentDayController;
+  late final TextEditingController _billingDayController;
+  late final TextEditingController _advanceDaysController;
+  late final TextEditingController _amountController;
+  late final TextEditingController _principalController;
+  late final TextEditingController _currentBalanceController;
+  late final TextEditingController _interestRateController;
+  late final TextEditingController _remarkController;
+  late String _loanType;
+  late String _color;
+  String? _accountId;
+
+  @override
+  void initState() {
+    super.initState();
+    final reminder = widget.reminder;
+    final request = reminder == null
+        ? const ReminderFormRequest(
+            name: '',
+            loanType: 'credit_card',
+            paymentDay: 1,
+            advanceDays: 3,
+          )
+        : ReminderFormRequest.fromReminder(reminder);
+
+    _nameController = TextEditingController(text: request.name);
+    _paymentDayController = TextEditingController(
+      text: request.paymentDay.toString(),
+    );
+    _billingDayController = TextEditingController(
+      text: _formatOptionalInt(request.billingDay),
+    );
+    _advanceDaysController = TextEditingController(
+      text: request.advanceDays.toString(),
+    );
+    _amountController = TextEditingController(
+      text: _formatOptionalNumber(request.amount),
+    );
+    _principalController = TextEditingController(
+      text: _formatOptionalNumber(request.principal),
+    );
+    _currentBalanceController = TextEditingController(
+      text: _formatOptionalNumber(request.currentBalance),
+    );
+    _interestRateController = TextEditingController(
+      text: _formatOptionalNumber(request.interestRate),
+    );
+    _remarkController = TextEditingController(text: request.remark);
+    _loanType = request.loanType;
+    _color = request.color;
+    final accountId = request.accountId;
+    _accountId =
+        accountId != null &&
+            widget.debtAccounts.any((account) => account.id == accountId)
+        ? accountId
+        : null;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _paymentDayController.dispose();
+    _billingDayController.dispose();
+    _advanceDaysController.dispose();
+    _amountController.dispose();
+    _principalController.dispose();
+    _currentBalanceController.dispose();
+    _interestRateController.dispose();
+    _remarkController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.reminder == null ? '新增负债提醒' : '编辑负债提醒'),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: _loanType,
+                  decoration: const InputDecoration(
+                    labelText: '分期类型',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'credit_card', child: Text('信用卡')),
+                    DropdownMenuItem(value: 'mortgage', child: Text('房贷')),
+                    DropdownMenuItem(value: 'car_loan', child: Text('车贷')),
+                    DropdownMenuItem(
+                      value: 'consumer_loan',
+                      child: Text('消费贷'),
+                    ),
+                    DropdownMenuItem(value: 'other', child: Text('其他')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    setState(() {
+                      _loanType = value;
+                      _color = _loanTypeColor(value);
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                if (widget.debtAccounts.isNotEmpty) ...[
+                  DropdownButtonFormField<String>(
+                    initialValue: _accountId,
+                    decoration: const InputDecoration(
+                      labelText: '关联负债账户',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: '', child: Text('不关联账户')),
+                      for (final account in widget.debtAccounts)
+                        DropdownMenuItem(
+                          value: account.id,
+                          child: Text(account.name),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _accountId = value == null || value.isEmpty
+                            ? null
+                            : value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: '分期名称',
+                    hintText: '例如：房贷、花呗',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if ((value ?? '').trim().isEmpty) {
+                      return '请输入名称';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _paymentDayController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: '还款日',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _validateDay,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _billingDayController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: '账单日',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _validateOptionalDay,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _principalController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: '分期总额',
+                          prefixText: '¥ ',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _validateOptionalAmount,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _currentBalanceController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: '当前欠款',
+                          prefixText: '¥ ',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _validateOptionalAmount,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: '月供/最低还款',
+                          prefixText: '¥ ',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _validateOptionalAmount,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _advanceDaysController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: '提前提醒天数',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _validateAdvanceDays,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _interestRateController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: '年化利率',
+                    suffixText: '%',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: _validateOptionalAmount,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _remarkController,
+                  decoration: const InputDecoration(
+                    labelText: '备注',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('保存')),
+      ],
+    );
+  }
+
+  String? _validateDay(String? value) {
+    final day = int.tryParse(value?.trim() ?? '');
+    if (day == null || day < 1 || day > 31) {
+      return '请输入 1-31';
+    }
+    return null;
+  }
+
+  String? _validateOptionalDay(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return null;
+    }
+    return _validateDay(text);
+  }
+
+  String? _validateAdvanceDays(String? value) {
+    final days = int.tryParse(value?.trim() ?? '');
+    if (days == null || days < 0 || days > 30) {
+      return '请输入 0-30';
+    }
+    return null;
+  }
+
+  String? _validateOptionalAmount(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return null;
+    }
+    final amount = double.tryParse(text);
+    if (amount == null || amount < 0) {
+      return '请输入有效金额';
+    }
+    return null;
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    final principal = _parseOptionalAmount(_principalController.text);
+    final currentBalance =
+        _parseOptionalAmount(_currentBalanceController.text) ?? principal;
+
+    Navigator.of(context).pop(
+      ReminderFormRequest(
+        name: _nameController.text.trim(),
+        accountId: _accountId,
+        loanType: _loanType,
+        paymentDay: int.parse(_paymentDayController.text.trim()),
+        billingDay: _parseOptionalInt(_billingDayController.text),
+        advanceDays: int.parse(_advanceDaysController.text.trim()),
+        amount: _parseOptionalAmount(_amountController.text),
+        principal: principal,
+        currentBalance: currentBalance,
+        interestRate: _parseOptionalAmount(_interestRateController.text),
+        color: _color,
+        remark: _remarkController.text.trim(),
+        evidence: '',
       ),
     );
   }
@@ -828,7 +1253,7 @@ class _PaymentFormResult {
   final double? interestAmount;
 }
 
-enum _ReminderMenuAction { payment, toggle, delete }
+enum _ReminderMenuAction { payment, edit, toggle, delete }
 
 double? _parseOptionalAmount(String value) {
   final text = value.trim();
@@ -836,6 +1261,38 @@ double? _parseOptionalAmount(String value) {
     return null;
   }
   return double.tryParse(text);
+}
+
+int? _parseOptionalInt(String value) {
+  final text = value.trim();
+  if (text.isEmpty) {
+    return null;
+  }
+  return int.tryParse(text);
+}
+
+String _formatOptionalNumber(double? value) {
+  if (value == null) {
+    return '';
+  }
+  return value.toStringAsFixed(2);
+}
+
+String _formatOptionalInt(int? value) {
+  if (value == null) {
+    return '';
+  }
+  return value.toString();
+}
+
+String _loanTypeColor(String loanType) {
+  return switch (loanType) {
+    'credit_card' => '#3B82F6',
+    'mortgage' => '#10B981',
+    'car_loan' => '#F59E0B',
+    'consumer_loan' => '#8B5CF6',
+    _ => '#6B7280',
+  };
 }
 
 IconData _loanTypeIcon(String loanType) {

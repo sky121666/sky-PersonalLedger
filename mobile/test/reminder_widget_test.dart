@@ -49,6 +49,42 @@ void main() {
       expect(repository.paymentCalls.single.accountId, 'cash-1');
     });
 
+    testWidgets('新增提醒时提交核心表单字段', (tester) async {
+      final repository = _FakeReminderRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byTooltip('新增负债提醒'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), '花呗');
+      await tester.enterText(find.byType(TextFormField).at(1), '15');
+      await tester.enterText(find.byType(TextFormField).at(3), '3000');
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(repository.createCalls.single.name, '花呗');
+      expect(repository.createCalls.single.paymentDay, 15);
+      expect(repository.createCalls.single.principal, 3000);
+      expect(repository.createCalls.single.currentBalance, 3000);
+    });
+
+    testWidgets('编辑提醒时提交更新表单', (tester) async {
+      final repository = _FakeReminderRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, '房贷调整');
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(repository.updateCalls.single.id, 'reminder-1');
+      expect(repository.updateCalls.single.request.name, '房贷调整');
+    });
+
     testWidgets('删除提醒前需要确认', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
@@ -91,6 +127,22 @@ class _FakeReminderRepository implements ReminderRepository {
   final List<String> toggleCalls = [];
   final List<String> deleteCalls = [];
   final List<_PaymentCall> paymentCalls = [];
+  final List<ReminderFormRequest> createCalls = [];
+  final List<_UpdateCall> updateCalls = [];
+
+  @override
+  Future<ReminderItem?> createReminder(ReminderFormRequest request) async {
+    createCalls.add(request);
+    final item = _activeReminder(
+      id: 'created-1',
+      name: request.name,
+      paymentDay: request.paymentDay,
+      principal: request.principal,
+      currentBalance: request.currentBalance,
+    );
+    reminders = [...reminders, item];
+    return item;
+  }
 
   @override
   Future<void> deleteReminder(String id) async {
@@ -146,6 +198,17 @@ class _FakeReminderRepository implements ReminderRepository {
     reminders = [updated];
     return updated;
   }
+
+  @override
+  Future<ReminderItem?> updateReminder(
+    String id,
+    ReminderFormRequest request,
+  ) async {
+    updateCalls.add(_UpdateCall(id: id, request: request));
+    final updated = _activeReminder(id: id, name: request.name);
+    reminders = [updated];
+    return updated;
+  }
 }
 
 class _FakeAccountRepository implements AccountRepository {
@@ -192,19 +255,26 @@ class _FakeAccountRepository implements AccountRepository {
   }
 }
 
-ReminderItem _activeReminder({bool isEnabled = true}) {
+ReminderItem _activeReminder({
+  String id = 'reminder-1',
+  String name = '房贷',
+  int paymentDay = 10,
+  double? principal = 120000,
+  double? currentBalance = 80000,
+  bool isEnabled = true,
+}) {
   return ReminderItem(
-    id: 'reminder-1',
-    name: '房贷',
+    id: id,
+    name: name,
     accountId: 'loan-1',
     accountName: '贷款账户',
     loanType: 'mortgage',
-    paymentDay: 10,
+    paymentDay: paymentDay,
     billingDay: null,
     advanceDays: 3,
     amount: 1000,
-    principal: 120000,
-    currentBalance: 80000,
+    principal: principal,
+    currentBalance: currentBalance,
     interestRate: null,
     totalInterest: null,
     totalPaid: 40000,
@@ -232,4 +302,11 @@ class _PaymentCall {
   final String? accountId;
   final double? principalAmount;
   final double? interestAmount;
+}
+
+class _UpdateCall {
+  const _UpdateCall({required this.id, required this.request});
+
+  final String id;
+  final ReminderFormRequest request;
 }

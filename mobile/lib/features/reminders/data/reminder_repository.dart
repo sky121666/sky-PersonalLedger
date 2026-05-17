@@ -58,6 +58,22 @@ class ReminderRepository {
     );
   }
 
+  Future<ReminderItem?> createReminder(ReminderFormRequest request) {
+    return _apiClient.post<ReminderItem>(
+      '/reminders',
+      data: request.toJson(),
+      fromJsonT: ReminderItem.fromJson,
+    );
+  }
+
+  Future<ReminderItem?> updateReminder(String id, ReminderFormRequest request) {
+    return _apiClient.put<ReminderItem>(
+      '/reminders/$id',
+      data: request.toJson(),
+      fromJsonT: ReminderItem.fromJson,
+    );
+  }
+
   Future<void> deleteReminder(String id) async {
     await _apiClient.delete<void>('/reminders/$id');
   }
@@ -118,6 +134,95 @@ class ReminderDashboard {
               !account.isArchived && !_debtAccountTypes.contains(account.type),
         )
         .toList();
+  }
+
+  List<Account> get debtAccounts {
+    return accounts
+        .where(
+          (account) =>
+              !account.isArchived && _debtAccountTypes.contains(account.type),
+        )
+        .toList();
+  }
+}
+
+class ReminderFormRequest {
+  const ReminderFormRequest({
+    required this.name,
+    required this.loanType,
+    required this.paymentDay,
+    required this.advanceDays,
+    this.accountId,
+    this.billingDay,
+    this.amount,
+    this.principal,
+    this.currentBalance,
+    this.interestRate,
+    this.totalInterest,
+    this.startDate,
+    this.targetDate,
+    this.color = '#3B82F6',
+    this.remark = '',
+    this.evidence = '',
+  });
+
+  final String name;
+  final String loanType;
+  final int paymentDay;
+  final int advanceDays;
+  final String? accountId;
+  final int? billingDay;
+  final double? amount;
+  final double? principal;
+  final double? currentBalance;
+  final double? interestRate;
+  final double? totalInterest;
+  final String? startDate;
+  final String? targetDate;
+  final String color;
+  final String remark;
+  final String evidence;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'loan_type': loanType,
+      'payment_day': paymentDay,
+      'advance_days': advanceDays,
+      'color': color,
+      'remark': remark,
+      'evidence': evidence,
+      if (accountId != null && accountId!.isNotEmpty) 'account_id': accountId,
+      if (billingDay != null) 'billing_day': billingDay,
+      if (amount != null) 'amount': amount,
+      if (principal != null) 'principal': principal,
+      if (currentBalance != null) 'current_balance': currentBalance,
+      if (interestRate != null) 'interest_rate': interestRate,
+      if (totalInterest != null) 'total_interest': totalInterest,
+      if (startDate != null && startDate!.isNotEmpty) 'start_date': startDate,
+      if (targetDate != null && targetDate!.isNotEmpty)
+        'target_date': targetDate,
+    };
+  }
+
+  factory ReminderFormRequest.fromReminder(ReminderItem reminder) {
+    return ReminderFormRequest(
+      name: reminder.name,
+      accountId: reminder.accountId,
+      loanType: reminder.loanType,
+      paymentDay: reminder.paymentDay,
+      billingDay: reminder.billingDay,
+      advanceDays: reminder.advanceDays,
+      amount: reminder.amount,
+      principal: reminder.principal,
+      currentBalance: reminder.currentBalance,
+      interestRate: reminder.interestRate,
+      totalInterest: reminder.totalInterest,
+      startDate: _dateOnly(reminder.startDate),
+      targetDate: _dateOnly(reminder.targetDate),
+      color: reminder.color,
+      remark: reminder.remark,
+    );
   }
 }
 
@@ -337,4 +442,11 @@ int? _nullableInt(Object? value) {
     return null;
   }
   return _toInt(value);
+}
+
+String? _dateOnly(String? value) {
+  if (value == null || value.isEmpty) {
+    return null;
+  }
+  return value.split('T').first;
 }
