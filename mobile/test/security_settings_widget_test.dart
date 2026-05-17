@@ -80,6 +80,95 @@ void main() {
       expect(controller.debugState.stage, AuthStage.loginRequired);
       expect(find.text('密码已修改，请重新登录'), findsOneWidget);
     });
+
+    testWidgets('加载失败时展示错误并可重试', (tester) async {
+      final repository = _FakeSecurityRepository()..getEntryPathErrors = 1;
+      await _pumpPage(tester, repository);
+
+      expect(find.text('出错了'), findsOneWidget);
+      expect(find.textContaining('安全入口加载失败'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('当前入口：/ledger'), findsOneWidget);
+      expect(repository.getEntryPathCalls, 2);
+    });
+
+    testWidgets('保存入口失败时展示错误且保留输入', (tester) async {
+      final repository = _FakeSecurityRepository()
+        ..setEntryPathError = '保存失败';
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('security-entry-path')),
+        '/private',
+      );
+      await tester.tap(find.byKey(const ValueKey('security-entry-save')));
+      await tester.pumpAndSettle();
+
+      expect(repository.setEntryPathCalls, ['/private']);
+      expect(find.text('/private'), findsOneWidget);
+      expect(find.text('当前入口：/ledger'), findsOneWidget);
+      expect(find.textContaining('保存失败'), findsOneWidget);
+    });
+
+    testWidgets('刷新入口会恢复服务端最新路径', (tester) async {
+      final repository = _FakeSecurityRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('security-entry-path')),
+        '/local-draft',
+      );
+      repository.entryPath = const SecurityEntryPath(
+        entryPath: '/server',
+        enabled: true,
+      );
+
+      await tester.tap(find.byTooltip('刷新'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('/server'), findsWidgets);
+      expect(find.text('当前入口：/server'), findsOneWidget);
+      expect(repository.getEntryPathCalls, 2);
+    });
+
+    testWidgets('修改密码失败时展示错误且保留登录态', (tester) async {
+      final repository = _FakeSecurityRepository()
+        ..changePasswordError = '密码错误';
+      final authRepository = _FakeAuthRepository();
+      final controller = await _pumpPage(
+        tester,
+        repository,
+        authRepository: authRepository,
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('security-old-password')),
+        'old-password',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('security-new-password')),
+        'new-password',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('security-confirm-password')),
+        'new-password',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('security-change-password-submit')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.changePasswordCalls, [
+        const _ChangePasswordCall('old-password', 'new-password'),
+      ]);
+      expect(authRepository.logoutCalls, 0);
+      expect(controller.debugState.stage, AuthStage.authenticated);
+      expect(find.textContaining('密码错误'), findsOneWidget);
+      expect(find.text('old-password'), findsOneWidget);
+    });
   });
 }
 
@@ -120,6 +209,10 @@ Future<_TestAuthController> _pumpPage(
 
 class _FakeSecurityRepository implements SecurityRepository {
   var entryPath = const SecurityEntryPath(entryPath: '/ledger', enabled: true);
+  var getEntryPathCalls = 0;
+  var getEntryPathErrors = 0;
+  String? setEntryPathError;
+  String? changePasswordError;
 
   final List<String> setEntryPathCalls = [];
   final List<_ChangePasswordCall> changePasswordCalls = [];
@@ -132,6 +225,10 @@ class _FakeSecurityRepository implements SecurityRepository {
     required String newPassword,
   }) async {
     changePasswordCalls.add(_ChangePasswordCall(oldPassword, newPassword));
+    final error = changePasswordError;
+    if (error != null) {
+      throw StateError(error);
+    }
   }
 
   @override
@@ -150,12 +247,21 @@ class _FakeSecurityRepository implements SecurityRepository {
 
   @override
   Future<SecurityEntryPath> getEntryPath() async {
+    getEntryPathCalls += 1;
+    if (getEntryPathErrors > 0) {
+      getEntryPathErrors -= 1;
+      throw StateError('安全入口加载失败');
+    }
     return entryPath;
   }
 
   @override
   Future<SecurityEntryPath> setEntryPath(String value) async {
     setEntryPathCalls.add(value);
+    final error = setEntryPathError;
+    if (error != null) {
+      throw StateError(error);
+    }
     entryPath = SecurityEntryPath(entryPath: value, enabled: true);
     return entryPath;
   }
