@@ -77,6 +77,14 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const Divider(height: 1),
                   ListTile(
+                    leading: const Icon(Icons.notifications_none_outlined),
+                    title: const Text('通知设置'),
+                    subtitle: const Text('配置提醒通道和通知类型'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutePaths.notifications),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     leading: const Icon(Icons.storage_outlined),
                     title: const Text('数据管理'),
                     subtitle: const Text('备份、恢复和导出交易数据'),

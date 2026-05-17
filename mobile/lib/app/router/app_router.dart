@@ -14,6 +14,7 @@ import '../../features/home/presentation/home_page.dart';
 import '../../features/legacy_webview/presentation/legacy_webview_page.dart';
 import '../../features/lendings/presentation/lending_page.dart';
 import '../../features/main/presentation/main_shell_page.dart';
+import '../../features/notifications/presentation/notification_settings_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reminders/presentation/reminder_page.dart';
 import '../../features/reports/presentation/yearly_report_page.dart';
@@ -133,6 +134,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.lendings,
         builder: (context, state) => const LendingPage(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.notifications,
+        builder: (context, state) => const NotificationSettingsPage(),
       ),
       GoRoute(
         path: AppRoutePaths.dataManagement,

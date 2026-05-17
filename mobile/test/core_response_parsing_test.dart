@@ -7,6 +7,7 @@ import 'package:personal_ledger/features/attachments/data/attachment_models.dart
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
+import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/reminders/data/reminder_repository.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
@@ -293,6 +294,45 @@ void main() {
       expect(item.progress, 20);
       expect(item.accountName, '现金');
       expect(item.typeLabel, '借出');
+    });
+
+    test('通知设置模型解析通道配置和测试结果', () {
+      final setting = NotificationSetting.fromJson({
+        'id': 1,
+        'user_id': 1,
+        'enabled': true,
+        'wecom_enabled': true,
+        'wecom_webhook': 'https://qyapi.example.com/send?key=test',
+        'dingtalk_enabled': false,
+        'dingtalk_webhook': '',
+        'dingtalk_secret': '',
+        'email_enabled': true,
+        'smtp_host': 'smtp.example.com',
+        'smtp_port': '587',
+        'smtp_user': 'bot@example.com',
+        'smtp_from': 'ledger@example.com',
+        'email_to': 'me@example.com',
+        'webhook_enabled': false,
+        'webhook_url': '',
+        'webhook_secret': '',
+        'notify_payment_due': true,
+        'notify_budget_alert': false,
+        'notify_lending_due': true,
+        'notify_annual_report': true,
+        'advance_days': '5',
+      });
+      final result = TestNotificationResult.fromJson({
+        'success': true,
+        'message': '发送成功',
+      });
+
+      expect(setting.enabled, isTrue);
+      expect(setting.wecomEnabled, isTrue);
+      expect(setting.smtpPort, 587);
+      expect(setting.notifyBudgetAlert, isFalse);
+      expect(setting.advanceDays, 5);
+      expect(result.success, isTrue);
+      expect(result.message, '发送成功');
     });
   });
 }
