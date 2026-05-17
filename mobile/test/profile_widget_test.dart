@@ -1,0 +1,146 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:personal_ledger/app/router/app_route_paths.dart';
+import 'package:personal_ledger/core/auth/auth_token_pair.dart';
+import 'package:personal_ledger/features/auth/application/auth_controller.dart';
+import 'package:personal_ledger/features/auth/data/auth_repository.dart';
+import 'package:personal_ledger/features/profile/presentation/profile_page.dart';
+
+void main() {
+  testWidgets('ProfilePage 展示主要设置入口并可进入目标页面', (tester) async {
+    final authRepository = _FakeAuthRepository();
+    final router = GoRouter(
+      initialLocation: AppRoutePaths.profile,
+      routes: [
+        GoRoute(
+          path: AppRoutePaths.profile,
+          builder: (context, state) => const ProfilePage(),
+        ),
+        for (final path in _targetPaths)
+          GoRoute(
+            path: path,
+            builder: (context, state) => _TargetPage(path),
+          ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(authRepository),
+          authControllerProvider.overrideWith((ref) {
+            return _TestAuthController(ref);
+          }),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final label in _entryLabels) {
+      await tester.scrollUntilVisible(
+        find.text(label),
+        160,
+        scrollable: find.byType(Scrollable),
+      );
+      expect(find.text(label), findsOneWidget);
+    }
+
+    await tester.scrollUntilVisible(
+      find.text('API Token'),
+      160,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.tap(find.text('API Token'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppRoutePaths.apiTokens), findsOneWidget);
+  });
+}
+
+const _entryLabels = [
+  '个人资料',
+  '账户管理',
+  '账户流水',
+  '分类管理',
+  '标签管理',
+  '快捷模板',
+  '预算管理',
+  '负债管理',
+  '借贷往来',
+  '通知设置',
+  '账号安全',
+  'API Token',
+  '数据管理',
+  '年度报告',
+  '更换服务器',
+];
+
+const _targetPaths = [
+  AppRoutePaths.profileSettings,
+  AppRoutePaths.accounts,
+  AppRoutePaths.accountLogs,
+  AppRoutePaths.categories,
+  AppRoutePaths.tags,
+  AppRoutePaths.templates,
+  AppRoutePaths.budgets,
+  AppRoutePaths.reminders,
+  AppRoutePaths.lendings,
+  AppRoutePaths.notifications,
+  AppRoutePaths.securitySettings,
+  AppRoutePaths.apiTokens,
+  AppRoutePaths.dataManagement,
+  AppRoutePaths.yearlyReport,
+];
+
+class _TargetPage extends StatelessWidget {
+  const _TargetPage(this.path);
+
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(body: Center(child: Text(path)));
+  }
+}
+
+class _TestAuthController extends AuthController {
+  _TestAuthController(super.ref) {
+    state = const AuthState(
+      stage: AuthStage.authenticated,
+      serverUrl: 'https://ledger.example.com',
+      initialized: true,
+    );
+  }
+
+  @override
+  AuthState get debugState => state;
+}
+
+class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<AuthStatus> getStatus() async {
+    return const AuthStatus(initialized: true);
+  }
+
+  @override
+  Future<AuthTokenPair> init(String password) async {
+    return const AuthTokenPair(
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    );
+  }
+
+  @override
+  Future<AuthTokenPair> login(String password) async {
+    return const AuthTokenPair(
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    );
+  }
+
+  @override
+  Future<void> logout() async {}
+}
