@@ -9,6 +9,7 @@ jobs:
   # 提取版本号
   prepare:
     name: Prepare Version
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
@@ -21,6 +22,7 @@ jobs:
   # 调用 Docker 构建
   docker:
     name: Docker
+    if: ${{ github.server_url == 'https://github.com' }}
     needs: prepare
     uses: ./.github/workflows/docker.yml
     with:
@@ -32,6 +34,7 @@ jobs:
   # 调用 Android 构建
   android:
     name: Android
+    if: ${{ github.server_url == 'https://github.com' }}
     needs: prepare
     uses: ./.github/workflows/android.yml
     with:
@@ -42,6 +45,7 @@ jobs:
   # 创建 GitHub Release
   release:
     name: Create Release
+    if: ${{ github.server_url == 'https://github.com' }}
     needs: [prepare, docker, android]
     runs-on: ubuntu-latest
     permissions:

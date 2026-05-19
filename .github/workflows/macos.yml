@@ -19,6 +19,7 @@ on:
 jobs:
   macos:
     name: Build macOS App
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: macos-latest
     
     steps:

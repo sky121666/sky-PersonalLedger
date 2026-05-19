@@ -1,0 +1,40 @@
+name: Forgejo CI
+
+on:
+  push:
+    branches:
+      - main
+      - codex/**
+    paths:
+      - backend/**
+      - web/**
+      - mobile/**
+      - Dockerfile
+      - docker-compose.yml
+      - .forgejo/workflows/**
+  workflow_dispatch:
+
+jobs:
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check runner
+        run: |
+          echo "Forgejo CI on ${GITHUB_SERVER_URL}"
+          uname -a
+          docker version
+
+      - name: Build image
+        run: |
+          short_sha="${GITHUB_SHA:-dev}"
+          short_sha="${short_sha:0:12}"
+          docker build \
+            --pull=false \
+            --build-arg VERSION="forgejo-${short_sha}" \
+            -t "personal-ledger:forgejo-${short_sha}" \
+            .

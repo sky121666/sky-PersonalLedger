@@ -28,6 +28,7 @@ on:
 jobs:
   android:
     name: Build Android APK
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     
     steps:

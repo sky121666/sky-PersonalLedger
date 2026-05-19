@@ -19,6 +19,7 @@ on:
 jobs:
   windows:
     name: Build Windows App
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: windows-latest
     
     steps:
