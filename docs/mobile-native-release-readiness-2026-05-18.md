@@ -2,9 +2,11 @@
 
 ## Status
 
-Release-acceptable for the current Android native scope.
+Runtime release-acceptable for the current Android native scope.
 
 Score: 100/100 for Android simulator validation.
+
+Production Android artifacts require release keystore signing. Debug signing is no longer allowed for release builds.
 
 ## Commits Included
 
@@ -28,10 +30,11 @@ Completed:
 
 Flutter widget tests: 155.
 
-Android release APK:
+Historical Android release-candidate APK:
 
 - `mobile/build/app/outputs/flutter-apk/app-release.apk`
 - Size: 56.2 MB
+- Built before release-signing hardening; discard and rebuild with a real release keystore before publishing.
 
 ## Runtime Smoke Evidence
 
@@ -77,8 +80,8 @@ Smoke screenshots captured during validation:
 
 ## Caveats
 
-- iOS simulator validation was not completed on this machine because the simulator environment was unavailable.
-- Android release currently uses the debug signing config. This is acceptable for installable release-candidate validation, but a production release must use a real signing key.
+- iOS simulator validation was not completed on this machine because the simulator environment was unavailable; iOS is not a publish target for this release.
+- Android release builds now require `mobile/android/key.properties` or the GitHub Actions signing secrets. This is intentional and prevents debug-signed production APKs.
 - The release APK is a generated artifact and is intentionally not tracked by git.
 
 ## Release Gate
@@ -87,6 +90,8 @@ Before publishing a production artifact, rerun:
 
 ```bash
 ./scripts/verify-clean-checkout.sh
+cp mobile/android/key.properties.example mobile/android/key.properties
+# Fill mobile/android/key.properties with the real release keystore values.
 cd mobile && ANDROID_HOME=/Volumes/1t/Android/sdk ANDROID_SDK_ROOT=/Volumes/1t/Android/sdk GRADLE_USER_HOME=/Volumes/1t/Android/gradle-home flutter build apk --release
 git status --short
 ```

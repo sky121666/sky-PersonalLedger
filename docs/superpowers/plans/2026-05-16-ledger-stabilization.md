@@ -661,14 +661,14 @@ git commit -m "fix: normalize cors origin handling"
 
 Replace the client note with:
 ```markdown
-> 📦 **客户端说明**: 当前客户端正在从 Flutter WebView 壳演进为原生 Flutter 应用。核心流程已使用原生页面和 API Client；低频或未迁移功能保留 Legacy WebView 兜底入口。
+> 📦 **客户端说明**: 当前客户端已切换为原生 Flutter 应用，通过 API Client 直连服务端；旧 WebView 兜底入口已移除。Android 已完成当前原生范围验证，macOS/Windows 需要按目标平台单独回归。
 ```
 
 Update the platform table wording:
 ```markdown
-| 🤖 Android | `personal-ledger-xxx-android.apk` | 原生 Flutter 客户端，保留 WebView 兜底 | ✅ 基础测试通过 |
-| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 原生 Flutter 客户端，首次需在安全设置中允许 | ✅ 基础测试通过 |
-| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 原生 Flutter 客户端，部分低频功能可能通过 WebView 打开 | ⏳ 待完整回归 |
+| 🤖 Android | `personal-ledger-xxx-android.apk` | 原生 Flutter 客户端，正式包必须使用 release keystore 签名 | ✅ Android 模拟器 smoke 通过 |
+| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 原生 Flutter 客户端，首次需在安全设置中允许 | ⏳ 待平台回归 |
+| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 原生 Flutter 客户端 | ⏳ 待平台回归 |
 ```
 
 - [ ] **Step 2: Document CORS env var**
@@ -691,7 +691,7 @@ Run:
 rg -n "WebView 封装|无需单独开发原生 UI|WebView2" README.md config.example.yaml docker-compose.yml
 ```
 
-Expected: no stale WebView-only claim remains. `WebView2` may remain only if Windows packaging truly requires it; if native Flutter Windows no longer requires WebView2 for the main shell, remove it from the table.
+Expected: no stale WebView-only claim remains.
 
 - [ ] **Step 4: Commit**
 

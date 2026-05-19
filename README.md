@@ -4,7 +4,7 @@
 
 ## 📸 应用截图
 
-> 💡 **多端适配** - Web 响应式界面 + 原生 Flutter 客户端，低频功能保留 WebView 兜底
+> 💡 **多端适配** - Web 响应式界面 + 原生 Flutter 客户端，移动端主流程不再依赖 WebView
 
 <details>
 <summary><b>🖥️ 桌面端界面</b> (点击展开)</summary>
@@ -98,15 +98,35 @@ docker run -d \
 
 ## 📱 客户端下载
 
-> 📦 **客户端说明**: 当前客户端正在从 Flutter WebView 壳演进为原生 Flutter 应用。核心流程已使用原生页面和 API Client；低频或未迁移功能保留 Legacy WebView 兜底入口。
+> 📦 **客户端说明**: 当前客户端已切换为原生 Flutter 应用，通过 API Client 直连服务端；旧 WebView 兜底入口已移除。Android 已完成当前原生范围验证，macOS/Windows 需要按目标平台单独回归。
 
 从 [Releases](https://github.com/sky121666/sky-PersonalLedger/releases) 下载对应平台的客户端：
 
 | 平台 | 文件名 | 说明 | 测试状态 |
 |------|--------|------|----------|
-| 🤖 Android | `personal-ledger-xxx-android.apk` | 原生 Flutter 客户端，保留 WebView 兜底 | ✅ 基础测试通过 |
-| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 原生 Flutter 客户端，首次需在安全设置中允许 | ✅ 基础测试通过 |
-| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 原生 Flutter 客户端，部分低频功能可能通过 WebView 打开 | ⏳ 待完整回归 |
+| 🤖 Android | `personal-ledger-xxx-android.apk` | 原生 Flutter 客户端，正式包必须使用 release keystore 签名 | ✅ Android 模拟器 smoke 通过 |
+| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 原生 Flutter 客户端，首次需在安全设置中允许 | ⏳ 待平台回归 |
+| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 原生 Flutter 客户端 | ⏳ 待平台回归 |
+
+### Android 正式签名
+
+正式 Android APK 不允许使用 debug key 签名。发布前需要在 `mobile/android/key.properties` 配置 release keystore，或在 GitHub Actions 中配置同名 secrets：
+
+```properties
+storeFile=app/upload-keystore.jks
+storePassword=your-store-password
+keyAlias=upload
+keyPassword=your-key-password
+```
+
+GitHub Actions 需要配置：
+
+- `ANDROID_KEYSTORE_BASE64`: release keystore 文件的 base64 内容
+- `ANDROID_KEYSTORE_PASSWORD`: keystore 密码
+- `ANDROID_KEY_ALIAS`: key alias
+- `ANDROID_KEY_PASSWORD`: key 密码
+
+未配置这些签名信息时，`flutter build apk --release` 会直接失败，避免生成 debug-signed release APK。
 
 ## ⚙️ 配置说明
 
@@ -214,7 +234,7 @@ cp -r ./data ./data-backup-$(date +%Y%m%d)
 
 - **后端**: Go + Gin + GORM + SQLite
 - **前端**: Vue 3 + TypeScript + Tailwind CSS  
-- **客户端**: Flutter 原生页面 + Legacy WebView 兜底
+- **客户端**: Flutter 原生客户端
 - **部署**: Docker + GitHub Actions
 
 ## 🔧 本地开发

@@ -15,6 +15,12 @@ test -f "$worktree/mobile/android/gradle/wrapper/gradle-wrapper.jar"
 test -f "$worktree/mobile/android/gradlew"
 test -f "$worktree/mobile/android/gradlew.bat"
 
+if grep -R -n -E 'Signing with the debug keys|signingConfigs\.getByName\("debug"\)|保留 WebView 兜底|部分低频功能可能通过 WebView|WebView2' \
+  "$worktree/README.md" "$worktree/.github" "$worktree/mobile/android"; then
+  echo "Release hardening check failed: stale WebView or debug signing reference found." >&2
+  exit 1
+fi
+
 (
   cd "$worktree/backend"
   go test ./...
