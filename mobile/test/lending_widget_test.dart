@@ -287,6 +287,11 @@ class _FakeAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<Account> getById(String id) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<AccountListResult> list({bool includeArchived = true}) async {
     return const AccountListResult(
       accounts: [
@@ -310,6 +315,11 @@ class _FakeAccountRepository implements AccountRepository {
 
   @override
   Future<Account> update(String id, UpdateAccountRequest request) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> updateSort(List<String> ids) {
     throw UnimplementedError();
   }
 }

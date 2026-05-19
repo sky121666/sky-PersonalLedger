@@ -13,14 +13,38 @@ import '../data/account.dart';
 const _accountTypes = [
   _AccountTypeOption('cash', '现金'),
   _AccountTypeOption('bank_card', '银行卡'),
+  _AccountTypeOption('savings', '储蓄卡'),
   _AccountTypeOption('alipay', '支付宝'),
   _AccountTypeOption('wechat', '微信'),
-  _AccountTypeOption('savings', '储蓄'),
-  _AccountTypeOption('investment', '投资'),
+  _AccountTypeOption('qq_pay', 'QQ钱包'),
+  _AccountTypeOption('jd_pay', '京东钱包'),
+  _AccountTypeOption('apple_pay', 'Apple Pay'),
   _AccountTypeOption('credit', '信用卡'),
   _AccountTypeOption('loan', '贷款'),
+  _AccountTypeOption('mortgage', '房贷'),
+  _AccountTypeOption('car_loan', '车贷'),
+  _AccountTypeOption('consumer_loan', '消费贷'),
+  _AccountTypeOption('huabei', '花呗'),
+  _AccountTypeOption('baitiao', '白条'),
+  _AccountTypeOption('receivable', '应收款'),
+  _AccountTypeOption('payable', '应付款'),
+  _AccountTypeOption('investment', '投资账户'),
+  _AccountTypeOption('fund', '基金'),
+  _AccountTypeOption('stock', '股票'),
+  _AccountTypeOption('crypto', '数字货币'),
+  _AccountTypeOption('prepaid', '充值卡'),
   _AccountTypeOption('other', '其他'),
 ];
+
+const _debtAccountTypes = {
+  'credit',
+  'loan',
+  'mortgage',
+  'car_loan',
+  'consumer_loan',
+  'huabei',
+  'baitiao',
+};
 
 const _accountColors = [
   '#3B82F6',
@@ -348,6 +372,13 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _balanceController;
+  late final TextEditingController _paymentDayController;
+  late final TextEditingController _billingDayController;
+  late final TextEditingController _creditLimitController;
+  late final TextEditingController _interestRateController;
+  late final TextEditingController _startDateController;
+  late final TextEditingController _targetDateController;
+  late final TextEditingController _remarkController;
   late String _type;
   late String _icon;
   late String _color;
@@ -362,6 +393,25 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
     _balanceController = TextEditingController(
       text: account == null ? '0' : account.initialBalance.toStringAsFixed(2),
     );
+    _paymentDayController = TextEditingController(
+      text: account?.paymentDay?.toString() ?? '',
+    );
+    _billingDayController = TextEditingController(
+      text: account?.billingDay?.toString() ?? '',
+    );
+    _creditLimitController = TextEditingController(
+      text: _formatOptionalNumber(account?.creditLimit),
+    );
+    _interestRateController = TextEditingController(
+      text: _formatOptionalNumber(account?.interestRate),
+    );
+    _startDateController = TextEditingController(
+      text: account?.startDate ?? '',
+    );
+    _targetDateController = TextEditingController(
+      text: account?.targetDate ?? '',
+    );
+    _remarkController = TextEditingController(text: account?.remark ?? '');
     _type = account?.type ?? 'cash';
     _icon = account?.icon ?? '💰';
     _color = account?.color ?? _accountColors.first;
@@ -372,6 +422,13 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   void dispose() {
     _nameController.dispose();
     _balanceController.dispose();
+    _paymentDayController.dispose();
+    _billingDayController.dispose();
+    _creditLimitController.dispose();
+    _interestRateController.dispose();
+    _startDateController.dispose();
+    _targetDateController.dispose();
+    _remarkController.dispose();
     super.dispose();
   }
 
@@ -399,6 +456,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: const ValueKey('account-name'),
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: '账户名称',
@@ -409,6 +467,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                key: const ValueKey('account-type'),
                 initialValue: _type,
                 decoration: const InputDecoration(
                   labelText: '账户类型',
@@ -428,6 +487,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                key: const ValueKey('account-initial-balance'),
                 controller: _balanceController,
                 enabled: !isEditing,
                 decoration: const InputDecoration(
@@ -445,6 +505,145 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                   ),
                 ],
               ),
+              if (_isDebtAccount(_type)) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '负债信息',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        key: const ValueKey('account-payment-day'),
+                        controller: _paymentDayController,
+                        decoration: const InputDecoration(
+                          labelText: '还款日',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        validator: _validateOptionalDay,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        key: const ValueKey('account-billing-day'),
+                        controller: _billingDayController,
+                        decoration: const InputDecoration(
+                          labelText: '账单日',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        validator: _validateOptionalDay,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        key: const ValueKey('account-credit-limit'),
+                        controller: _creditLimitController,
+                        decoration: const InputDecoration(
+                          labelText: '授信/本金',
+                          prefixText: '¥ ',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'\d*\.?\d{0,2}'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        key: const ValueKey('account-interest-rate'),
+                        controller: _interestRateController,
+                        decoration: const InputDecoration(
+                          labelText: '年利率',
+                          suffixText: '%',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'\d*\.?\d{0,4}'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        key: const ValueKey('account-start-date'),
+                        controller: _startDateController,
+                        decoration: const InputDecoration(
+                          labelText: '开始日期',
+                          hintText: 'YYYY-MM-DD',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.datetime,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
+                        ],
+                        validator: _validateOptionalDate,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        key: const ValueKey('account-target-date'),
+                        controller: _targetDateController,
+                        decoration: const InputDecoration(
+                          labelText: '目标结清日',
+                          hintText: 'YYYY-MM-DD',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.datetime,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
+                        ],
+                        validator: _validateOptionalDate,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const ValueKey('account-remark'),
+                  controller: _remarkController,
+                  decoration: const InputDecoration(
+                    labelText: '备注',
+                    border: OutlineInputBorder(),
+                  ),
+                  minLines: 2,
+                  maxLines: 3,
+                ),
+              ],
               const SizedBox(height: 12),
               TextFormField(
                 initialValue: _icon,
@@ -470,6 +669,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
               ),
               const SizedBox(height: 20),
               FilledButton(
+                key: const ValueKey('account-save'),
                 onPressed: _submitting ? null : _submit,
                 child: Text(_submitting ? '保存中...' : '保存'),
               ),
@@ -497,6 +697,13 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
             icon: _icon.isEmpty ? '💰' : _icon,
             color: _color,
             initialBalance: double.tryParse(_balanceController.text) ?? 0,
+            paymentDay: _debtInt(_paymentDayController),
+            billingDay: _debtInt(_billingDayController),
+            creditLimit: _debtDouble(_creditLimitController),
+            interestRate: _debtDouble(_interestRateController),
+            startDate: _debtText(_startDateController),
+            targetDate: _debtText(_targetDateController),
+            remark: _debtText(_remarkController) ?? '',
           ),
         );
       } else {
@@ -506,6 +713,13 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
             name: _nameController.text.trim(),
             icon: _icon.isEmpty ? '💰' : _icon,
             color: _color,
+            paymentDay: _debtInt(_paymentDayController),
+            billingDay: _debtInt(_billingDayController),
+            creditLimit: _debtDouble(_creditLimitController),
+            interestRate: _debtDouble(_interestRateController),
+            startDate: _debtText(_startDateController),
+            targetDate: _debtText(_targetDateController),
+            remark: _debtText(_remarkController) ?? '',
           ),
         );
       }
@@ -526,6 +740,28 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
         setState(() => _submitting = false);
       }
     }
+  }
+
+  int? _debtInt(TextEditingController controller) {
+    if (!_isDebtAccount(_type)) {
+      return null;
+    }
+    return int.tryParse(controller.text.trim());
+  }
+
+  double? _debtDouble(TextEditingController controller) {
+    if (!_isDebtAccount(_type)) {
+      return null;
+    }
+    return double.tryParse(controller.text.trim());
+  }
+
+  String? _debtText(TextEditingController controller) {
+    if (!_isDebtAccount(_type)) {
+      return null;
+    }
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
   }
 }
 
@@ -571,6 +807,50 @@ String _accountTypeLabel(String type) {
         orElse: () => const _AccountTypeOption('other', '其他'),
       )
       .label;
+}
+
+/// 判断账户类型是否需要负债扩展字段。
+bool _isDebtAccount(String type) {
+  return _debtAccountTypes.contains(type);
+}
+
+/// 格式化可选数字，避免输入框出现多余的 0。
+String _formatOptionalNumber(double? value) {
+  if (value == null) {
+    return '';
+  }
+  if (value == value.roundToDouble()) {
+    return value.toStringAsFixed(0);
+  }
+  return value.toString();
+}
+
+String? _validateOptionalDay(String? value) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) {
+    return null;
+  }
+  final day = int.tryParse(text);
+  if (day == null || day < 1 || day > 31) {
+    return '请输入 1-31';
+  }
+  return null;
+}
+
+String? _validateOptionalDate(String? value) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) {
+    return null;
+  }
+  final parts = text.split('-');
+  if (parts.length != 3 ||
+      parts[0].length != 4 ||
+      parts[1].length != 2 ||
+      parts[2].length != 2 ||
+      DateTime.tryParse(text) == null) {
+    return '格式为 YYYY-MM-DD';
+  }
+  return null;
 }
 
 /// 解析十六进制颜色。

@@ -52,4 +52,10 @@ class AccountListController
     await _ref.read(accountRepositoryProvider).delete(id);
     await load();
   }
+
+  /// 更新账户排序并刷新列表。
+  Future<void> updateSort(List<String> ids) async {
+    await _ref.read(accountRepositoryProvider).updateSort(ids);
+    await load();
+  }
 }

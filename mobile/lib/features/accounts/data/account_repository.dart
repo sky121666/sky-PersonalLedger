@@ -23,6 +23,16 @@ class AccountRepository {
         );
   }
 
+  /// 获取账户详情。
+  Future<Account> getById(String id) async {
+    final result = await _apiClient.get<Account>(
+      '/accounts/$id',
+      fromJsonT: (json) =>
+          Account.fromJson((json as Map).cast<String, dynamic>()),
+    );
+    return result!;
+  }
+
   /// 创建账户。
   Future<Account> create(CreateAccountRequest request) async {
     final result = await _apiClient.post<Account>(
@@ -56,5 +66,10 @@ class AccountRepository {
   /// 删除账户。
   Future<void> delete(String id) async {
     await _apiClient.delete<void>('/accounts/$id');
+  }
+
+  /// 更新账户排序。
+  Future<void> updateSort(List<String> ids) async {
+    await _apiClient.put<void>('/accounts/sort', data: {'ids': ids});
   }
 }
