@@ -72,7 +72,16 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
+      - name: Analyze Flutter
+        working-directory: mobile
+        run: flutter analyze
+
+      - name: Run Flutter tests
+        working-directory: mobile
+        run: flutter test
+
       - name: Configure Android release signing
+        if: inputs.version != ''
         working-directory: mobile/android
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -100,15 +109,18 @@ jobs:
           EOF
 
       - name: Build APK
+        if: inputs.version != ''
         working-directory: mobile
         run: flutter build apk --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
 
       - name: Rename APK
+        if: inputs.version != ''
         run: |
           mv mobile/build/app/outputs/flutter-apk/app-release.apk \
              mobile/build/app/outputs/flutter-apk/personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk
 
       - name: Upload APK
+        if: inputs.version != ''
         uses: actions/upload-artifact@v4
         with:
           name: android-apk

@@ -21,6 +21,12 @@ if grep -R -n -E 'Signing with the debug keys|signingConfigs\.getByName\("debug"
   exit 1
 fi
 
+if grep -n -E 'artifacts/(macos-app|windows-app)|needs: \[prepare, docker, android, macos, windows\]' \
+  "$worktree/.github/workflows/release.yml"; then
+  echo "Release hardening check failed: unvalidated desktop artifacts are still attached to GitHub Release." >&2
+  exit 1
+fi
+
 (
   cd "$worktree/backend"
   go test ./...

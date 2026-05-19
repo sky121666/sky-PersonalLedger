@@ -105,8 +105,8 @@ docker run -d \
 | 平台 | 文件名 | 说明 | 测试状态 |
 |------|--------|------|----------|
 | 🤖 Android | `personal-ledger-xxx-android.apk` | 原生 Flutter 客户端，正式包必须使用 release keystore 签名 | ✅ Android 模拟器 smoke 通过 |
-| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 原生 Flutter 客户端，首次需在安全设置中允许 | ⏳ 待平台回归 |
-| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 原生 Flutter 客户端 | ⏳ 待平台回归 |
+| 🍎 macOS | 暂不随当前 Release 发布 | 原生 Flutter 客户端，首次需在安全设置中允许 | ⏳ 待平台回归 |
+| 🪟 Windows | 暂不随当前 Release 发布 | 原生 Flutter 客户端 | ⏳ 待平台回归 |
 
 ### Android 正式签名
 

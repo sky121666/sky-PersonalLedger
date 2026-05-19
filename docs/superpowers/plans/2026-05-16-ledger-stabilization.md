@@ -667,8 +667,8 @@ Replace the client note with:
 Update the platform table wording:
 ```markdown
 | 🤖 Android | `personal-ledger-xxx-android.apk` | 原生 Flutter 客户端，正式包必须使用 release keystore 签名 | ✅ Android 模拟器 smoke 通过 |
-| 🍎 macOS | `personal-ledger-xxx-macos.zip` | 原生 Flutter 客户端，首次需在安全设置中允许 | ⏳ 待平台回归 |
-| 🪟 Windows | `personal-ledger-xxx-windows.zip` | 原生 Flutter 客户端 | ⏳ 待平台回归 |
+| 🍎 macOS | 暂不随当前 Release 发布 | 原生 Flutter 客户端，首次需在安全设置中允许 | ⏳ 待平台回归 |
+| 🪟 Windows | 暂不随当前 Release 发布 | 原生 Flutter 客户端 | ⏳ 待平台回归 |
 ```
 
 - [ ] **Step 2: Document CORS env var**

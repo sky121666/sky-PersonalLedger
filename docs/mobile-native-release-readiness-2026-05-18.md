@@ -81,6 +81,7 @@ Smoke screenshots captured during validation:
 ## Caveats
 
 - iOS simulator validation was not completed on this machine because the simulator environment was unavailable; iOS is not a publish target for this release.
+- macOS and Windows clients are not publish targets for the current GitHub Release until platform-specific regression is completed.
 - Android release builds now require `mobile/android/key.properties` or the GitHub Actions signing secrets. This is intentional and prevents debug-signed production APKs.
 - The release APK is a generated artifact and is intentionally not tracked by git.
 

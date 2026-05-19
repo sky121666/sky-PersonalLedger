@@ -39,28 +39,10 @@ jobs:
       build_number: ${{ needs.prepare.outputs.build_number }}
     secrets: inherit
 
-  # 调用 macOS 构建
-  macos:
-    name: macOS
-    needs: prepare
-    uses: ./.github/workflows/macos.yml
-    with:
-      version: ${{ needs.prepare.outputs.version }}
-      build_number: ${{ needs.prepare.outputs.build_number }}
-
-  # 调用 Windows 构建
-  windows:
-    name: Windows
-    needs: prepare
-    uses: ./.github/workflows/windows.yml
-    with:
-      version: ${{ needs.prepare.outputs.version }}
-      build_number: ${{ needs.prepare.outputs.build_number }}
-
   # 创建 GitHub Release
   release:
     name: Create Release
-    needs: [prepare, docker, android, macos, windows]
+    needs: [prepare, docker, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -86,8 +68,6 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/android-apk/*.apk
-            artifacts/macos-app/*.zip
-            artifacts/windows-app/*.zip
           body: |
             ## 📦 版本 v${{ needs.prepare.outputs.version }}
             
@@ -104,6 +84,6 @@ jobs:
             
             | 平台 | 文件 | 说明 |
             |------|------|------|
-            | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.apk` | 直接安装 |
-            | macOS | `personal-ledger-${{ needs.prepare.outputs.version }}-macos.zip` | 解压后运行，首次需在安全设置中允许 |
-            | Windows | `personal-ledger-${{ needs.prepare.outputs.version }}-windows.zip` | 解压后运行 |
+            | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.apk` | 已使用 release keystore 签名 |
+
+            macOS 和 Windows 客户端仍在平台回归阶段，暂不随本次 GitHub Release 发布。
