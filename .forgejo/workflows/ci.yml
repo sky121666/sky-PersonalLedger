@@ -1,17 +1,9 @@
-name: Forgejo CI
+name: Forgejo Release
 
 on:
   push:
-    branches:
-      - main
-      - codex/**
-    paths:
-      - backend/**
-      - web/**
-      - mobile/**
-      - Dockerfile
-      - docker-compose.yml
-      - .forgejo/workflows/**
+    tags:
+      - v*
   workflow_dispatch:
 
 jobs:
@@ -32,6 +24,7 @@ jobs:
           command -v node || true
           command -v npm || true
           docker version || true
+          echo "Release ref: ${GITHUB_REF_NAME:-manual}"
 
   docker-build:
     name: Docker Build
@@ -50,8 +43,10 @@ jobs:
         run: |
           short_sha="${GITHUB_SHA:-dev}"
           short_sha="${short_sha:0:12}"
+          version="${GITHUB_REF_NAME:-forgejo-${short_sha}}"
+          version="${version#v}"
           docker build \
             --pull=false \
-            --build-arg VERSION="forgejo-${short_sha}" \
-            -t "personal-ledger:forgejo-${short_sha}" \
+            --build-arg VERSION="${version}" \
+            -t "personal-ledger:${version}" \
             .
