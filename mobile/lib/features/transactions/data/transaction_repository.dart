@@ -75,6 +75,17 @@ class TransactionRepository {
     await _apiClient.delete<void>('/transactions/$id');
   }
 
+  /// 批量删除交易。
+  Future<void> batchDelete(List<String> ids) async {
+    if (ids.isEmpty) {
+      return;
+    }
+    await _apiClient.post<void>(
+      '/transactions/batch-delete',
+      data: {'ids': ids},
+    );
+  }
+
   /// 获取账户列表。
   Future<List<LedgerAccount>> listAccounts() async {
     final data = await _apiClient.get<List<LedgerAccount>>(

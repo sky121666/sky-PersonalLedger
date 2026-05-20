@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../accounts/data/account.dart';
+import '../../attachments/data/attachment_models.dart';
+import '../../attachments/data/attachment_repository.dart';
+import '../../attachments/presentation/attachment_picker_field.dart';
 import '../data/lending_repository.dart';
 
 class LendingPage extends ConsumerStatefulWidget {
@@ -88,6 +91,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                   onDelete: _deleteLending,
                   onRepay: (item) =>
                       _openRepaymentDialog(item, dashboard.activeAccounts),
+                  onRecords: _openRecordsDialog,
                 ),
               ],
             ),
@@ -111,26 +115,49 @@ class _LendingPageState extends ConsumerState<LendingPage> {
   }
 
   Future<void> _openCreateForm(LendingType type, List<Account> accounts) async {
-    final request = await showDialog<CreateLendingRequest>(
+    final result = await showDialog<_LendingFormResult<CreateLendingRequest>>(
       context: context,
       builder: (context) => _LendingFormDialog(type: type, accounts: accounts),
     );
-    if (request == null || !mounted) {
+    if (result == null || !mounted) {
       return;
     }
+    final request = result.request;
 
     await _runAction(
       action: 'create',
       successMessage: request.type == LendingType.lendOut
           ? '借出记录已创建'
           : '借入记录已创建',
-      request: () =>
-          ref.read(lendingRepositoryProvider).create(request).then((_) {}),
+      request: () async {
+        final repository = ref.read(lendingRepositoryProvider);
+        final saved = await repository.create(request);
+        if (result.pendingFiles.isEmpty) {
+          return;
+        }
+        if (saved == null || saved.id.isEmpty) {
+          throw const FormatException('借贷创建响应为空，无法上传附件');
+        }
+        final uploadedAttachments = await _uploadPendingAttachments(
+          result.pendingFiles,
+          saved.id,
+        );
+        await repository.update(
+          saved.id,
+          _updateRequestFromCreate(
+            request,
+            evidence: _encodeAttachmentEvidence([
+              ...result.attachments,
+              ...uploadedAttachments,
+            ]),
+          ),
+        );
+      },
     );
   }
 
   Future<void> _openEditForm(LendingItem item, List<Account> accounts) async {
-    final request = await showDialog<UpdateLendingRequest>(
+    final result = await showDialog<_LendingFormResult<UpdateLendingRequest>>(
       context: context,
       builder: (context) => _LendingFormDialog(
         type: item.type,
@@ -138,17 +165,36 @@ class _LendingPageState extends ConsumerState<LendingPage> {
         editingItem: item,
       ),
     );
-    if (request == null || !mounted) {
+    if (result == null || !mounted) {
       return;
     }
+    final request = result.request;
 
     await _runAction(
       action: 'edit-${item.id}',
       successMessage: '借贷记录已更新',
-      request: () => ref
-          .read(lendingRepositoryProvider)
-          .update(item.id, request)
-          .then((_) {}),
+      request: () async {
+        final repository = ref.read(lendingRepositoryProvider);
+        final saved = await repository.update(item.id, request);
+        if (result.pendingFiles.isEmpty) {
+          return;
+        }
+        final refId = saved?.id.isNotEmpty == true ? saved!.id : item.id;
+        final uploadedAttachments = await _uploadPendingAttachments(
+          result.pendingFiles,
+          refId,
+        );
+        await repository.update(
+          refId,
+          _copyUpdateRequest(
+            request,
+            evidence: _encodeAttachmentEvidence([
+              ...result.attachments,
+              ...uploadedAttachments,
+            ]),
+          ),
+        );
+      },
     );
   }
 
@@ -172,6 +218,30 @@ class _LendingPageState extends ConsumerState<LendingPage> {
           .recordRepayment(item.id, request)
           .then((_) {}),
     );
+  }
+
+  Future<void> _openRecordsDialog(LendingItem item) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _LendingRecordsDialog(item: item),
+    );
+  }
+
+  Future<List<LedgerAttachment>> _uploadPendingAttachments(
+    List<PendingAttachmentFile> files,
+    String refId,
+  ) async {
+    if (files.isEmpty) {
+      return const [];
+    }
+    final repository = ref.read(attachmentRepositoryProvider);
+    final uploadedAttachments = <LedgerAttachment>[];
+    for (final file in files) {
+      uploadedAttachments.add(
+        await repository.upload(file: file, category: 'lendings', refId: refId),
+      );
+    }
+    return uploadedAttachments;
   }
 
   Future<void> _deleteLending(LendingItem item) async {
@@ -372,6 +442,7 @@ class _LendingList extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onRepay,
+    required this.onRecords,
   });
 
   final List<LendingItem> lendings;
@@ -380,6 +451,7 @@ class _LendingList extends StatelessWidget {
   final ValueChanged<LendingItem> onEdit;
   final ValueChanged<LendingItem> onDelete;
   final ValueChanged<LendingItem> onRepay;
+  final ValueChanged<LendingItem> onRecords;
 
   @override
   Widget build(BuildContext context) {
@@ -404,6 +476,7 @@ class _LendingList extends StatelessWidget {
             onEdit: () => onEdit(item),
             onDelete: () => onDelete(item),
             onRepay: () => onRepay(item),
+            onRecords: () => onRecords(item),
           ),
           const SizedBox(height: 12),
         ],
@@ -419,6 +492,7 @@ class _LendingCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onRepay,
+    required this.onRecords,
   });
 
   final LendingItem item;
@@ -426,6 +500,7 @@ class _LendingCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onRepay;
+  final VoidCallback onRecords;
 
   @override
   Widget build(BuildContext context) {
@@ -482,6 +557,11 @@ class _LendingCard extends StatelessWidget {
                           icon: const Icon(Icons.payments_outlined),
                           tooltip: '记录还款',
                         ),
+                      IconButton(
+                        onPressed: onRecords,
+                        icon: const Icon(Icons.receipt_long_outlined),
+                        tooltip: '查看还款记录',
+                      ),
                       IconButton(
                         onPressed: onEdit,
                         icon: const Icon(Icons.edit_outlined),
@@ -553,6 +633,92 @@ class _LendingCard extends StatelessWidget {
   }
 }
 
+class _LendingRecordsDialog extends ConsumerWidget {
+  const _LendingRecordsDialog({required this.item});
+
+  final LendingItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AlertDialog(
+      title: const Text('还款记录'),
+      content: SizedBox(
+        width: 420,
+        child: FutureBuilder<List<LendingRecordItem>?>(
+          future: ref.read(lendingRepositoryProvider).records(item.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const SizedBox(
+                height: 96,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final error = snapshot.error;
+            if (error != null) {
+              return _ErrorBanner(message: error.toString());
+            }
+            final records = snapshot.data ?? const <LendingRecordItem>[];
+            if (records.isEmpty) {
+              return const AppEmptyView(
+                title: '暂无还款记录',
+                message: '记录还款后会在这里展示明细。',
+                icon: Icons.receipt_long_outlined,
+              );
+            }
+            return ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 420),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemBuilder: (context, index) =>
+                    _LendingRecordTile(record: records[index]),
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemCount: records.length,
+              ),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
+      ],
+    );
+  }
+}
+
+class _LendingRecordTile extends StatelessWidget {
+  const _LendingRecordTile({required this.record});
+
+  final LendingRecordItem record;
+
+  @override
+  Widget build(BuildContext context) {
+    final accountName = record.accountName;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.receipt_long_outlined),
+      title: Text(record.type.label),
+      trailing: Text(
+        _formatMoney(record.amount),
+        style: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_formatDate(record.recordDate)),
+          if (accountName != null && accountName.isNotEmpty) Text(accountName),
+          if (record.remark.isNotEmpty) Text(record.remark),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoChip extends StatelessWidget {
   const _InfoChip({required this.label, required this.value});
 
@@ -616,6 +782,8 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
   DateTime? _dueDate;
   String? _accountId;
   bool _createTransaction = false;
+  late List<LedgerAttachment> _attachments;
+  List<PendingAttachmentFile> _pendingAttachmentFiles = const [];
 
   bool get _isEditing => widget.editingItem != null;
 
@@ -637,6 +805,9 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
     _lendDate = item?.lendDate ?? DateTime.now();
     _dueDate = item?.dueDate;
     _accountId = item?.accountId;
+    _attachments = decodeAttachmentPaths(
+      item?.evidence ?? '',
+    ).map(LedgerAttachment.fromPath).toList();
   }
 
   @override
@@ -787,6 +958,17 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
                     prefixIcon: Icon(Icons.notes_outlined),
                   ),
                 ),
+                const SizedBox(height: 12),
+                AttachmentPickerField(
+                  attachments: _attachments,
+                  pendingFiles: _pendingAttachmentFiles,
+                  onAttachmentsChanged: (attachments) {
+                    setState(() => _attachments = attachments);
+                  },
+                  onPendingFilesChanged: (files) {
+                    setState(() => _pendingAttachmentFiles = files);
+                  },
+                ),
               ],
             ),
           ),
@@ -836,36 +1018,92 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
     final contactName = _contactController.text.trim();
     final interestRate = _parseNullableAmount(_interestRateController.text);
     final dueDate = _dueDate == null ? null : _formatRequestDateTime(_dueDate!);
+    final evidence = _encodeAttachmentEvidence(_attachments);
 
     if (_isEditing) {
       Navigator.of(context).pop(
-        UpdateLendingRequest(
-          contactName: contactName,
-          contactPhone: _phoneController.text.trim(),
-          interestRate: interestRate,
-          dueDate: dueDate,
-          remark: _remarkController.text.trim(),
-          evidence: widget.editingItem?.evidence ?? '',
+        _LendingFormResult(
+          request: UpdateLendingRequest(
+            contactName: contactName,
+            contactPhone: _phoneController.text.trim(),
+            interestRate: interestRate,
+            dueDate: dueDate,
+            remark: _remarkController.text.trim(),
+            evidence: evidence,
+          ),
+          attachments: _attachments,
+          pendingFiles: _pendingAttachmentFiles,
         ),
       );
       return;
     }
 
     Navigator.of(context).pop(
-      CreateLendingRequest(
-        type: widget.type,
-        contactName: contactName,
-        contactPhone: _phoneController.text.trim(),
-        principal: _parseAmount(_principalController.text),
-        interestRate: interestRate,
-        lendDate: _formatRequestDateTime(_lendDate),
-        dueDate: dueDate,
-        accountId: _accountId,
-        remark: _remarkController.text.trim(),
-        createTransaction: _accountId != null && _createTransaction,
+      _LendingFormResult(
+        request: CreateLendingRequest(
+          type: widget.type,
+          contactName: contactName,
+          contactPhone: _phoneController.text.trim(),
+          principal: _parseAmount(_principalController.text),
+          interestRate: interestRate,
+          lendDate: _formatRequestDateTime(_lendDate),
+          dueDate: dueDate,
+          accountId: _accountId,
+          remark: _remarkController.text.trim(),
+          evidence: evidence,
+          createTransaction: _accountId != null && _createTransaction,
+        ),
+        attachments: _attachments,
+        pendingFiles: _pendingAttachmentFiles,
       ),
     );
   }
+}
+
+class _LendingFormResult<T> {
+  const _LendingFormResult({
+    required this.request,
+    required this.attachments,
+    required this.pendingFiles,
+  });
+
+  final T request;
+  final List<LedgerAttachment> attachments;
+  final List<PendingAttachmentFile> pendingFiles;
+}
+
+String _encodeAttachmentEvidence(List<LedgerAttachment> attachments) {
+  return encodeAttachmentPaths(attachments.map((item) => item.path).toList());
+}
+
+UpdateLendingRequest _copyUpdateRequest(
+  UpdateLendingRequest request, {
+  required String evidence,
+}) {
+  return UpdateLendingRequest(
+    contactName: request.contactName,
+    contactPhone: request.contactPhone,
+    contactRemark: request.contactRemark,
+    interestRate: request.interestRate,
+    dueDate: request.dueDate,
+    remark: request.remark,
+    evidence: evidence,
+  );
+}
+
+UpdateLendingRequest _updateRequestFromCreate(
+  CreateLendingRequest request, {
+  required String evidence,
+}) {
+  return UpdateLendingRequest(
+    contactName: request.contactName,
+    contactPhone: request.contactPhone,
+    contactRemark: request.contactRemark,
+    interestRate: request.interestRate,
+    dueDate: request.dueDate,
+    remark: request.remark,
+    evidence: evidence,
+  );
 }
 
 class _RepaymentDialog extends StatefulWidget {

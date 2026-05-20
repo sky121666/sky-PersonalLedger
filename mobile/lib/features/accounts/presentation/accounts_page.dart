@@ -144,7 +144,11 @@ class _AccountContent extends ConsumerWidget {
         children: [
           _AccountSummaryCard(result: result),
           const SizedBox(height: 16),
-          _AccountSection(title: '正常账户', accounts: activeAccounts),
+          _AccountSection(
+            title: '正常账户',
+            accounts: activeAccounts,
+            sortable: true,
+          ),
           if (archivedAccounts.isNotEmpty) ...[
             const SizedBox(height: 16),
             _AccountSection(title: '已归档账户', accounts: archivedAccounts),
@@ -212,10 +216,15 @@ class _AccountSummaryCard extends StatelessWidget {
 }
 
 class _AccountSection extends StatelessWidget {
-  const _AccountSection({required this.title, required this.accounts});
+  const _AccountSection({
+    required this.title,
+    required this.accounts,
+    this.sortable = false,
+  });
 
   final String title;
   final List<Account> accounts;
+  final bool sortable;
 
   /// 构建账户分组列表。
   @override
@@ -223,6 +232,7 @@ class _AccountSection extends StatelessWidget {
     if (accounts.isEmpty) {
       return const SizedBox.shrink();
     }
+    final accountIds = accounts.map((item) => item.id).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -234,8 +244,13 @@ class _AccountSection extends StatelessWidget {
         Card(
           child: Column(
             children: [
-              for (final account in accounts)
-                _AccountListTile(account: account),
+              for (final entry in accounts.indexed)
+                _AccountListTile(
+                  account: entry.$2,
+                  sectionAccountIds: accountIds,
+                  accountIndex: entry.$1,
+                  canSort: sortable,
+                ),
             ],
           ),
         ),
@@ -245,9 +260,17 @@ class _AccountSection extends StatelessWidget {
 }
 
 class _AccountListTile extends ConsumerWidget {
-  const _AccountListTile({required this.account});
+  const _AccountListTile({
+    required this.account,
+    required this.sectionAccountIds,
+    required this.accountIndex,
+    required this.canSort,
+  });
 
   final Account account;
+  final List<String> sectionAccountIds;
+  final int accountIndex;
+  final bool canSort;
 
   /// 构建账户列表项。
   @override
@@ -287,6 +310,18 @@ class _AccountListTile extends ConsumerWidget {
                 value: _AccountAction.edit,
                 child: Text('编辑'),
               ),
+              if (canSort) ...[
+                PopupMenuItem(
+                  value: _AccountAction.moveUp,
+                  enabled: accountIndex > 0,
+                  child: const Text('上移'),
+                ),
+                PopupMenuItem(
+                  value: _AccountAction.moveDown,
+                  enabled: accountIndex < sectionAccountIds.length - 1,
+                  child: const Text('下移'),
+                ),
+              ],
               PopupMenuItem(
                 value: _AccountAction.archive,
                 child: Text(account.isArchived ? '恢复' : '归档'),
@@ -321,6 +356,10 @@ class _AccountListTile extends ConsumerWidget {
           useSafeArea: true,
           builder: (context) => _AccountFormSheet(account: account),
         );
+      case _AccountAction.moveUp:
+        await _moveAccount(context, ref, -1);
+      case _AccountAction.moveDown:
+        await _moveAccount(context, ref, 1);
       case _AccountAction.archive:
         await ref.read(accountListControllerProvider.notifier).archive(account);
         if (context.mounted) {
@@ -355,6 +394,39 @@ class _AccountListTile extends ConsumerWidget {
             ).showSnackBar(SnackBar(content: Text(error.toString())));
           }
         }
+    }
+  }
+
+  Future<void> _moveAccount(
+    BuildContext context,
+    WidgetRef ref,
+    int offset,
+  ) async {
+    final fromIndex = sectionAccountIds.indexOf(account.id);
+    final toIndex = fromIndex + offset;
+    if (fromIndex < 0 || toIndex < 0 || toIndex >= sectionAccountIds.length) {
+      return;
+    }
+
+    final reorderedIds = [...sectionAccountIds];
+    final id = reorderedIds.removeAt(fromIndex);
+    reorderedIds.insert(toIndex, id);
+
+    try {
+      await ref
+          .read(accountListControllerProvider.notifier)
+          .updateSort(reorderedIds);
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('账户排序已更新')));
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('排序失败：$error')));
+      }
     }
   }
 }
@@ -785,7 +857,7 @@ class _SummaryItem extends StatelessWidget {
   }
 }
 
-enum _AccountAction { logs, edit, archive, delete }
+enum _AccountAction { logs, edit, moveUp, moveDown, archive, delete }
 
 class _AccountTypeOption {
   const _AccountTypeOption(this.value, this.label);

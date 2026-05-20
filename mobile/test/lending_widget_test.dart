@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_picker_service.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_repository.dart';
 import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
 import 'package:personal_ledger/features/lendings/presentation/lending_page.dart';
 
@@ -59,6 +62,81 @@ void main() {
       expect(lendingRepository.repaymentCalls, hasLength(1));
       expect(lendingRepository.repaymentCalls.single.id, 'lend-1');
       expect(lendingRepository.repaymentCalls.single.request.amount, 300);
+    });
+
+    testWidgets('可以查看借贷还款记录', (tester) async {
+      final lendingRepository = _FakeLendingRepository();
+      await _pumpPage(tester, lendingRepository);
+
+      await tester.tap(find.byTooltip('查看还款记录').first);
+      await tester.pumpAndSettle();
+
+      expect(lendingRepository.recordCalls, ['lend-1']);
+      expect(find.text('还款记录'), findsOneWidget);
+      expect(find.text('首次还款'), findsOneWidget);
+      expect(find.text('现金'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('¥200.00'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('编辑借贷记录时保留已有凭证路径', (tester) async {
+      final lendingRepository = _FakeLendingRepository();
+      await _pumpPage(tester, lendingRepository);
+
+      await tester.tap(find.byTooltip('编辑借贷记录').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(lendingRepository.updateCalls, hasLength(1));
+      expect(
+        lendingRepository.updateCalls.single.evidence,
+        '["1/lendings/lend-1/contract.pdf"]',
+      );
+    });
+
+    testWidgets('编辑借贷记录时上传新凭证并回写路径', (tester) async {
+      final lendingRepository = _FakeLendingRepository();
+      final attachmentRepository = _FakeAttachmentRepository();
+      await _pumpPage(
+        tester,
+        lendingRepository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: const _FakeAttachmentPickerService(
+          files: [
+            PendingAttachmentFile(
+              path: '/tmp/new-contract.pdf',
+              name: 'new.pdf',
+            ),
+          ],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('编辑借贷记录').first);
+      await tester.pumpAndSettle();
+      final addAttachmentButton = find.text('添加附件', skipOffstage: false);
+      await tester.ensureVisible(addAttachmentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addAttachmentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(attachmentRepository.uploadCalls, hasLength(1));
+      expect(attachmentRepository.uploadCalls.single.category, 'lendings');
+      expect(attachmentRepository.uploadCalls.single.refId, 'lend-1');
+      expect(lendingRepository.updateCalls, hasLength(2));
+      expect(
+        lendingRepository.updateCalls.last.evidence,
+        '["1/lendings/lend-1/contract.pdf","lendings/lend-1/new.pdf"]',
+      );
     });
 
     testWidgets('删除借贷记录前需要确认', (tester) async {
@@ -146,8 +224,10 @@ void main() {
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeLendingRepository lendingRepository,
-) async {
+  _FakeLendingRepository lendingRepository, {
+  _FakeAttachmentRepository? attachmentRepository,
+  _FakeAttachmentPickerService? attachmentPickerService,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -158,6 +238,12 @@ Future<void> _pumpPage(
       overrides: [
         lendingRepositoryProvider.overrideWithValue(lendingRepository),
         accountRepositoryProvider.overrideWithValue(_FakeAccountRepository()),
+        if (attachmentRepository != null)
+          attachmentRepositoryProvider.overrideWithValue(attachmentRepository),
+        if (attachmentPickerService != null)
+          attachmentPickerServiceProvider.overrideWithValue(
+            attachmentPickerService,
+          ),
       ],
       child: const MaterialApp(home: LendingPage()),
     ),
@@ -177,6 +263,7 @@ class _FakeLendingRepository implements LendingRepository {
       lendDate: DateTime(2026, 5, 1, 9),
       dueDate: DateTime(2026, 6, 1, 9),
       remark: '朋友周转',
+      evidence: '["1/lendings/lend-1/contract.pdf"]',
     ),
     LendingItem(
       id: 'borrow-1',
@@ -202,8 +289,10 @@ class _FakeLendingRepository implements LendingRepository {
   );
 
   final List<CreateLendingRequest> createCalls = [];
+  final List<UpdateLendingRequest> updateCalls = [];
   final List<_RepaymentCall> repaymentCalls = [];
   final List<String> deleteCalls = [];
+  final List<String> recordCalls = [];
   var listCalls = 0;
   var listErrors = 0;
   String? createError;
@@ -247,6 +336,23 @@ class _FakeLendingRepository implements LendingRepository {
   }
 
   @override
+  Future<List<LendingRecordItem>?> records(String id) async {
+    recordCalls.add(id);
+    return [
+      LendingRecordItem(
+        id: 'record-1',
+        lendingId: id,
+        type: LendingRecordType.repay,
+        amount: 200,
+        recordDate: DateTime(2026, 5, 10, 9),
+        accountId: 'cash',
+        accountName: '现金',
+        remark: '首次还款',
+      ),
+    ];
+  }
+
+  @override
   Future<LendingItem?> recordRepayment(
     String id,
     RecordRepaymentRequest request,
@@ -266,6 +372,7 @@ class _FakeLendingRepository implements LendingRepository {
 
   @override
   Future<LendingItem?> update(String id, UpdateLendingRequest request) async {
+    updateCalls.add(request);
     return lendings.firstWhere((item) => item.id == id);
   }
 }
@@ -329,4 +436,79 @@ class _RepaymentCall {
 
   final String id;
   final RecordRepaymentRequest request;
+}
+
+class _FakeAttachmentPickerService implements AttachmentPickerService {
+  const _FakeAttachmentPickerService({this.files = const []});
+
+  final List<PendingAttachmentFile> files;
+
+  @override
+  Future<PendingAttachmentFile?> pickImageFromCamera() async {
+    return files.isEmpty ? null : files.first;
+  }
+
+  @override
+  Future<PendingAttachmentFile?> pickImageFromGallery() async {
+    return files.isEmpty ? null : files.first;
+  }
+
+  @override
+  Future<List<PendingAttachmentFile>> pickFiles() async {
+    return files;
+  }
+}
+
+class _FakeAttachmentRepository implements AttachmentRepository {
+  final List<_UploadCall> uploadCalls = [];
+
+  @override
+  Future<void> delete(String path) async {}
+
+  @override
+  Future<void> download(String path, String savePath) async {}
+
+  @override
+  Future<List<int>> downloadBytes(String path) async {
+    return const [];
+  }
+
+  @override
+  Uri downloadUri(String path) {
+    return Uri.parse('https://example.test/download?path=$path');
+  }
+
+  @override
+  Uri previewUri(String path) {
+    return Uri.parse('https://example.test/uploads/$path');
+  }
+
+  @override
+  Future<LedgerAttachment> upload({
+    required PendingAttachmentFile file,
+    required String category,
+    required String refId,
+    void Function(int sent, int total)? onSendProgress,
+  }) async {
+    uploadCalls.add(_UploadCall(file: file, category: category, refId: refId));
+    onSendProgress?.call(1, 1);
+    return LedgerAttachment(
+      path: '$category/$refId/${file.name}',
+      filename: file.name,
+      size: file.size,
+      mimeType: file.mimeType ?? '',
+    );
+  }
+}
+
+class _UploadCall {
+  const _UploadCall({
+    required this.file,
+    required this.category,
+    required this.refId,
+  });
+
+  final PendingAttachmentFile file;
+  final String category;
+  final String refId;
 }

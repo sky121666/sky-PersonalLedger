@@ -205,6 +205,44 @@ class ReminderFormRequest {
     };
   }
 
+  ReminderFormRequest copyWith({
+    String? name,
+    String? loanType,
+    int? paymentDay,
+    int? advanceDays,
+    String? accountId,
+    int? billingDay,
+    double? amount,
+    double? principal,
+    double? currentBalance,
+    double? interestRate,
+    double? totalInterest,
+    String? startDate,
+    String? targetDate,
+    String? color,
+    String? remark,
+    String? evidence,
+  }) {
+    return ReminderFormRequest(
+      name: name ?? this.name,
+      loanType: loanType ?? this.loanType,
+      paymentDay: paymentDay ?? this.paymentDay,
+      advanceDays: advanceDays ?? this.advanceDays,
+      accountId: accountId ?? this.accountId,
+      billingDay: billingDay ?? this.billingDay,
+      amount: amount ?? this.amount,
+      principal: principal ?? this.principal,
+      currentBalance: currentBalance ?? this.currentBalance,
+      interestRate: interestRate ?? this.interestRate,
+      totalInterest: totalInterest ?? this.totalInterest,
+      startDate: startDate ?? this.startDate,
+      targetDate: targetDate ?? this.targetDate,
+      color: color ?? this.color,
+      remark: remark ?? this.remark,
+      evidence: evidence ?? this.evidence,
+    );
+  }
+
   factory ReminderFormRequest.fromReminder(ReminderItem reminder) {
     return ReminderFormRequest(
       name: reminder.name,
@@ -222,6 +260,7 @@ class ReminderFormRequest {
       targetDate: _dateOnly(reminder.targetDate),
       color: reminder.color,
       remark: reminder.remark,
+      evidence: reminder.evidence,
     );
   }
 }
@@ -248,6 +287,7 @@ class ReminderItem {
     required this.paidOffAt,
     required this.color,
     required this.remark,
+    required this.evidence,
     required this.isEnabled,
   });
 
@@ -271,6 +311,7 @@ class ReminderItem {
   final String? paidOffAt;
   final String color;
   final String remark;
+  final String evidence;
   final bool isEnabled;
 
   String get displayName {
@@ -338,6 +379,7 @@ class ReminderItem {
       paidOffAt: json['paid_off_at'] as String?,
       color: json['color'] as String? ?? '#3B82F6',
       remark: json['remark'] as String? ?? '',
+      evidence: json['evidence'] as String? ?? '',
       isEnabled: json['is_enabled'] as bool? ?? true,
     );
   }

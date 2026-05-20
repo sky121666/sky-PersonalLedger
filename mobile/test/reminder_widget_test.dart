@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_picker_service.dart';
+import 'package:personal_ledger/features/attachments/data/attachment_repository.dart';
 import 'package:personal_ledger/features/reminders/data/reminder_repository.dart';
 import 'package:personal_ledger/features/reminders/presentation/reminder_page.dart';
 
@@ -85,6 +88,65 @@ void main() {
       expect(repository.updateCalls.single.request.name, '房贷调整');
     });
 
+    testWidgets('编辑提醒时保留已有凭证路径', (tester) async {
+      final repository = _FakeReminderRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(
+        repository.updateCalls.single.request.evidence,
+        '["1/reminders/reminder-1/contract.pdf"]',
+      );
+    });
+
+    testWidgets('编辑提醒时上传新凭证并回写路径', (tester) async {
+      final repository = _FakeReminderRepository();
+      final attachmentRepository = _FakeAttachmentRepository();
+      await _pumpPage(
+        tester,
+        repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: const _FakeAttachmentPickerService(
+          files: [
+            PendingAttachmentFile(
+              path: '/tmp/new-contract.pdf',
+              name: 'new.pdf',
+            ),
+          ],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+      final addAttachmentButton = find.text('添加附件', skipOffstage: false);
+      await tester.ensureVisible(addAttachmentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addAttachmentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(attachmentRepository.uploadCalls, hasLength(1));
+      expect(attachmentRepository.uploadCalls.single.category, 'reminders');
+      expect(attachmentRepository.uploadCalls.single.refId, 'reminder-1');
+      expect(repository.updateCalls, hasLength(2));
+      expect(
+        repository.updateCalls.last.request.evidence,
+        '["1/reminders/reminder-1/contract.pdf","reminders/reminder-1/new.pdf"]',
+      );
+    });
+
     testWidgets('删除提醒前需要确认', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
@@ -162,8 +224,10 @@ void main() {
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeReminderRepository repository,
-) async {
+  _FakeReminderRepository repository, {
+  _FakeAttachmentRepository? attachmentRepository,
+  _FakeAttachmentPickerService? attachmentPickerService,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -174,6 +238,12 @@ Future<void> _pumpPage(
       overrides: [
         reminderRepositoryProvider.overrideWithValue(repository),
         accountRepositoryProvider.overrideWithValue(_FakeAccountRepository()),
+        if (attachmentRepository != null)
+          attachmentRepositoryProvider.overrideWithValue(attachmentRepository),
+        if (attachmentPickerService != null)
+          attachmentPickerServiceProvider.overrideWithValue(
+            attachmentPickerService,
+          ),
       ],
       child: const MaterialApp(home: ReminderPage()),
     ),
@@ -371,6 +441,7 @@ ReminderItem _activeReminder({
     paidOffAt: null,
     color: '#3B82F6',
     remark: '',
+    evidence: '["1/reminders/reminder-1/contract.pdf"]',
     isEnabled: isEnabled,
   );
 }
@@ -396,4 +467,79 @@ class _UpdateCall {
 
   final String id;
   final ReminderFormRequest request;
+}
+
+class _FakeAttachmentPickerService implements AttachmentPickerService {
+  const _FakeAttachmentPickerService({this.files = const []});
+
+  final List<PendingAttachmentFile> files;
+
+  @override
+  Future<PendingAttachmentFile?> pickImageFromCamera() async {
+    return files.isEmpty ? null : files.first;
+  }
+
+  @override
+  Future<PendingAttachmentFile?> pickImageFromGallery() async {
+    return files.isEmpty ? null : files.first;
+  }
+
+  @override
+  Future<List<PendingAttachmentFile>> pickFiles() async {
+    return files;
+  }
+}
+
+class _FakeAttachmentRepository implements AttachmentRepository {
+  final List<_UploadCall> uploadCalls = [];
+
+  @override
+  Future<void> delete(String path) async {}
+
+  @override
+  Future<void> download(String path, String savePath) async {}
+
+  @override
+  Future<List<int>> downloadBytes(String path) async {
+    return const [];
+  }
+
+  @override
+  Uri downloadUri(String path) {
+    return Uri.parse('https://example.test/download?path=$path');
+  }
+
+  @override
+  Uri previewUri(String path) {
+    return Uri.parse('https://example.test/uploads/$path');
+  }
+
+  @override
+  Future<LedgerAttachment> upload({
+    required PendingAttachmentFile file,
+    required String category,
+    required String refId,
+    void Function(int sent, int total)? onSendProgress,
+  }) async {
+    uploadCalls.add(_UploadCall(file: file, category: category, refId: refId));
+    onSendProgress?.call(1, 1);
+    return LedgerAttachment(
+      path: '$category/$refId/${file.name}',
+      filename: file.name,
+      size: file.size,
+      mimeType: file.mimeType ?? '',
+    );
+  }
+}
+
+class _UploadCall {
+  const _UploadCall({
+    required this.file,
+    required this.category,
+    required this.refId,
+  });
+
+  final PendingAttachmentFile file;
+  final String category;
+  final String refId;
 }

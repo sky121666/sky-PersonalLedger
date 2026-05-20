@@ -135,6 +135,21 @@ void main() {
       expect(payload['target_date'], '2056-01-01');
       expect(payload['remark'], '首套房商贷');
     });
+
+    testWidgets('账户菜单可以调整正常账户排序', (tester) async {
+      final repository = _FakeAccountRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byIcon(Icons.more_vert).at(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('上移'));
+      await tester.pumpAndSettle();
+
+      expect(repository.sortCalls, [
+        ['mortgage', 'bank-card', 'apple-pay'],
+      ]);
+      expect(find.text('账户排序已更新'), findsOneWidget);
+    });
   });
 }
 
@@ -204,6 +219,7 @@ class _FakeAccountRepository implements AccountRepository {
   final List<(String, UpdateAccountRequest)> updateCalls = [];
   final List<String> deleteCalls = [];
   final List<(String, bool)> archiveCalls = [];
+  final List<List<String>> sortCalls = [];
 
   @override
   Future<void> archive(String id, bool isArchived) async {
@@ -284,5 +300,13 @@ class _FakeAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> updateSort(List<String> ids) async {}
+  Future<void> updateSort(List<String> ids) async {
+    sortCalls.add(ids);
+    final order = {for (final entry in ids.indexed) entry.$2: entry.$1};
+    accounts = [
+      ...accounts.where((account) => order.containsKey(account.id)).toList()
+        ..sort((a, b) => order[a.id]!.compareTo(order[b.id]!)),
+      ...accounts.where((account) => !order.containsKey(account.id)),
+    ];
+  }
 }

@@ -80,6 +80,18 @@ class LendingRepository {
       fromJsonT: LendingItem.fromJson,
     );
   }
+
+  Future<List<LendingRecordItem>?> records(String id) {
+    return _apiClient.get<List<LendingRecordItem>>(
+      '/lendings/$id/records',
+      fromJsonT: (json) {
+        if (json is! List) {
+          throw const FormatException('还款记录响应格式不正确');
+        }
+        return json.map(LendingRecordItem.fromJson).toList();
+      },
+    );
+  }
 }
 
 class LendingDashboard {
@@ -227,6 +239,72 @@ class LendingItem {
       isSettled: json['is_settled'] as bool? ?? false,
       createdAt: _toDate(json['created_at']),
       updatedAt: _toDate(json['updated_at']),
+    );
+  }
+}
+
+enum LendingRecordType {
+  repay,
+  additional;
+
+  String get label {
+    return switch (this) {
+      LendingRecordType.repay => '还款',
+      LendingRecordType.additional => '追加',
+    };
+  }
+
+  static LendingRecordType fromJson(Object? value) {
+    return switch (value) {
+      'additional' => LendingRecordType.additional,
+      _ => LendingRecordType.repay,
+    };
+  }
+}
+
+class LendingRecordItem {
+  const LendingRecordItem({
+    required this.id,
+    required this.lendingId,
+    required this.type,
+    required this.amount,
+    required this.recordDate,
+    this.accountId,
+    this.accountName,
+    this.transactionId,
+    this.remark = '',
+    this.evidence = '',
+  });
+
+  final String id;
+  final String lendingId;
+  final LendingRecordType type;
+  final double amount;
+  final DateTime recordDate;
+  final String? accountId;
+  final String? accountName;
+  final String? transactionId;
+  final String remark;
+  final String evidence;
+
+  factory LendingRecordItem.fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('还款记录响应格式不正确');
+    }
+
+    final account = json['account'];
+    final accountMap = account is Map<String, dynamic> ? account : null;
+    return LendingRecordItem(
+      id: json['id'] as String? ?? '',
+      lendingId: json['lending_id'] as String? ?? '',
+      type: LendingRecordType.fromJson(json['type']),
+      amount: _toDouble(json['amount']),
+      recordDate: _toDate(json['record_date']) ?? DateTime.now(),
+      accountId: json['account_id'] as String?,
+      accountName: accountMap?['name'] as String?,
+      transactionId: json['transaction_id'] as String?,
+      remark: json['remark'] as String? ?? '',
+      evidence: json['evidence'] as String? ?? '',
     );
   }
 }

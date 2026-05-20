@@ -44,6 +44,35 @@ void main() {
       expect(repository.listQueries.length, greaterThanOrEqualTo(2));
     });
 
+    testWidgets('可以选择多笔交易并批量删除', (tester) async {
+      final repository = _FakeTransactionRepository(
+        items: [
+          _transaction(id: 'transaction-1', remark: '午餐'),
+          _transaction(id: 'transaction-2', remark: '晚餐'),
+        ],
+      );
+      await _pumpPage(tester, repository);
+
+      await tester.longPress(
+        find.byKey(const ValueKey('transaction-item-transaction-1')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-select-transaction-2')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('删除选中交易'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '删除'));
+      await tester.pumpAndSettle();
+
+      expect(repository.batchDeleteCalls, [
+        ['transaction-1', 'transaction-2'],
+      ]);
+      expect(find.text('餐饮'), findsNothing);
+      expect(find.text('已删除 2 笔交易'), findsOneWidget);
+    });
+
     testWidgets('搜索和筛选会按条件刷新交易列表', (tester) async {
       final repository = _FakeTransactionRepository();
       await _pumpPage(tester, repository);
@@ -204,6 +233,13 @@ class _FakeTransactionRepository implements TransactionRepository {
 
   final List<TransactionListQuery> listQueries = [];
   final List<String> deleteCalls = [];
+  final List<List<String>> batchDeleteCalls = [];
+
+  @override
+  Future<void> batchDelete(List<String> ids) async {
+    batchDeleteCalls.add(ids);
+    items = items.where((item) => !ids.contains(item.id)).toList();
+  }
 
   @override
   Future<TransactionItem> create(TransactionFormData formData) {

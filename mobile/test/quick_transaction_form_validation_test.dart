@@ -257,6 +257,9 @@ class _FakeTransactionRepository implements TransactionRepository {
   final List<(String, TransactionFormData)> updateCalls = [];
 
   @override
+  Future<void> batchDelete(List<String> ids) async {}
+
+  @override
   Future<List<LedgerAccount>> listAccounts() async {
     return const [
       LedgerAccount(id: 'account-1', name: '现金', type: 'cash'),

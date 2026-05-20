@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../accounts/data/account.dart';
+import '../../attachments/data/attachment_models.dart';
+import '../../attachments/data/attachment_repository.dart';
+import '../../attachments/presentation/attachment_picker_field.dart';
 import '../data/reminder_repository.dart';
 
 class ReminderPage extends ConsumerStatefulWidget {
@@ -98,16 +101,54 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
     if (result == null || !mounted) {
       return;
     }
+    final request = result.request;
 
     await _runAction(
       action: reminder == null ? 'create' : 'edit-${reminder.id}',
       successMessage: reminder == null ? '负债提醒已创建' : '负债提醒已更新',
-      request: () {
+      request: () async {
         final repository = ref.read(reminderRepositoryProvider);
         if (reminder == null) {
-          return repository.createReminder(result).then((_) {});
+          final saved = await repository.createReminder(request);
+          if (result.pendingFiles.isEmpty) {
+            return;
+          }
+          if (saved == null || saved.id.isEmpty) {
+            throw const FormatException('提醒创建响应为空，无法上传附件');
+          }
+          final uploadedAttachments = await _uploadPendingAttachments(
+            result.pendingFiles,
+            saved.id,
+          );
+          await repository.updateReminder(
+            saved.id,
+            request.copyWith(
+              evidence: _encodeAttachmentEvidence([
+                ...result.attachments,
+                ...uploadedAttachments,
+              ]),
+            ),
+          );
+          return;
         }
-        return repository.updateReminder(reminder.id, result).then((_) {});
+        final saved = await repository.updateReminder(reminder.id, request);
+        if (result.pendingFiles.isEmpty) {
+          return;
+        }
+        final refId = saved?.id.isNotEmpty == true ? saved!.id : reminder.id;
+        final uploadedAttachments = await _uploadPendingAttachments(
+          result.pendingFiles,
+          refId,
+        );
+        await repository.updateReminder(
+          refId,
+          request.copyWith(
+            evidence: _encodeAttachmentEvidence([
+              ...result.attachments,
+              ...uploadedAttachments,
+            ]),
+          ),
+        );
       },
     );
   }
@@ -159,6 +200,27 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
           )
           .then((_) {}),
     );
+  }
+
+  Future<List<LedgerAttachment>> _uploadPendingAttachments(
+    List<PendingAttachmentFile> files,
+    String refId,
+  ) async {
+    if (files.isEmpty) {
+      return const [];
+    }
+    final repository = ref.read(attachmentRepositoryProvider);
+    final uploadedAttachments = <LedgerAttachment>[];
+    for (final file in files) {
+      uploadedAttachments.add(
+        await repository.upload(
+          file: file,
+          category: 'reminders',
+          refId: refId,
+        ),
+      );
+    }
+    return uploadedAttachments;
   }
 
   Future<void> _runAction({
@@ -695,12 +757,12 @@ class _EmptyReminderCard extends StatelessWidget {
   }
 }
 
-Future<ReminderFormRequest?> _showReminderFormDialog({
+Future<_ReminderFormResult?> _showReminderFormDialog({
   required BuildContext context,
   required List<Account> debtAccounts,
   ReminderItem? reminder,
 }) {
-  return showDialog<ReminderFormRequest>(
+  return showDialog<_ReminderFormResult>(
     context: context,
     builder: (context) =>
         _ReminderFormDialog(reminder: reminder, debtAccounts: debtAccounts),
@@ -731,6 +793,8 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
   late String _loanType;
   late String _color;
   String? _accountId;
+  late List<LedgerAttachment> _attachments;
+  List<PendingAttachmentFile> _pendingAttachmentFiles = const [];
 
   @override
   void initState() {
@@ -770,6 +834,9 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
     _remarkController = TextEditingController(text: request.remark);
     _loanType = request.loanType;
     _color = request.color;
+    _attachments = decodeAttachmentPaths(
+      request.evidence,
+    ).map(LedgerAttachment.fromPath).toList();
     final accountId = request.accountId;
     _accountId =
         accountId != null &&
@@ -984,6 +1051,17 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
                     border: OutlineInputBorder(),
                   ),
                 ),
+                const SizedBox(height: 12),
+                AttachmentPickerField(
+                  attachments: _attachments,
+                  pendingFiles: _pendingAttachmentFiles,
+                  onAttachmentsChanged: (attachments) {
+                    setState(() => _attachments = attachments);
+                  },
+                  onPendingFilesChanged: (files) {
+                    setState(() => _pendingAttachmentFiles = files);
+                  },
+                ),
               ],
             ),
           ),
@@ -1045,23 +1123,43 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
         _parseOptionalAmount(_currentBalanceController.text) ?? principal;
 
     Navigator.of(context).pop(
-      ReminderFormRequest(
-        name: _nameController.text.trim(),
-        accountId: _accountId,
-        loanType: _loanType,
-        paymentDay: int.parse(_paymentDayController.text.trim()),
-        billingDay: _parseOptionalInt(_billingDayController.text),
-        advanceDays: int.parse(_advanceDaysController.text.trim()),
-        amount: _parseOptionalAmount(_amountController.text),
-        principal: principal,
-        currentBalance: currentBalance,
-        interestRate: _parseOptionalAmount(_interestRateController.text),
-        color: _color,
-        remark: _remarkController.text.trim(),
-        evidence: '',
+      _ReminderFormResult(
+        request: ReminderFormRequest(
+          name: _nameController.text.trim(),
+          accountId: _accountId,
+          loanType: _loanType,
+          paymentDay: int.parse(_paymentDayController.text.trim()),
+          billingDay: _parseOptionalInt(_billingDayController.text),
+          advanceDays: int.parse(_advanceDaysController.text.trim()),
+          amount: _parseOptionalAmount(_amountController.text),
+          principal: principal,
+          currentBalance: currentBalance,
+          interestRate: _parseOptionalAmount(_interestRateController.text),
+          color: _color,
+          remark: _remarkController.text.trim(),
+          evidence: _encodeAttachmentEvidence(_attachments),
+        ),
+        attachments: _attachments,
+        pendingFiles: _pendingAttachmentFiles,
       ),
     );
   }
+}
+
+class _ReminderFormResult {
+  const _ReminderFormResult({
+    required this.request,
+    required this.attachments,
+    required this.pendingFiles,
+  });
+
+  final ReminderFormRequest request;
+  final List<LedgerAttachment> attachments;
+  final List<PendingAttachmentFile> pendingFiles;
+}
+
+String _encodeAttachmentEvidence(List<LedgerAttachment> attachments) {
+  return encodeAttachmentPaths(attachments.map((item) => item.path).toList());
 }
 
 Future<_PaymentFormResult?> _showPaymentDialog({

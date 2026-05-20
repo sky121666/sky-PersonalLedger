@@ -21,6 +21,7 @@ class _TransactionDetailsPageState
     extends ConsumerState<TransactionDetailsPage> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
+  final Set<String> _selectedIds = {};
 
   /// 初始化列表滚动监听。
   @override
@@ -47,14 +48,38 @@ class _TransactionDetailsPageState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('明细'),
-        actions: [
-          IconButton(
-            onPressed: () => context.push(AppRoutePaths.quickTransaction),
-            icon: const Icon(Icons.add),
-            tooltip: '记一笔',
-          ),
-        ],
+        leading: _selectedIds.isEmpty
+            ? null
+            : IconButton(
+                onPressed: _clearSelection,
+                icon: const Icon(Icons.close),
+                tooltip: '退出选择',
+              ),
+        title: Text(
+          _selectedIds.isEmpty ? '明细' : '已选择 ${_selectedIds.length} 笔',
+        ),
+        actions: _selectedIds.isEmpty
+            ? [
+                IconButton(
+                  onPressed: () => context.push(AppRoutePaths.quickTransaction),
+                  icon: const Icon(Icons.add),
+                  tooltip: '记一笔',
+                ),
+              ]
+            : [
+                IconButton(
+                  onPressed: state.items.isEmpty
+                      ? null
+                      : () => _selectCurrentPage(state.items),
+                  icon: const Icon(Icons.select_all),
+                  tooltip: '全选当前页',
+                ),
+                IconButton(
+                  onPressed: _confirmBatchDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: '删除选中交易',
+                ),
+              ],
       ),
       body: AdaptivePageContainer(
         child: Column(
@@ -127,8 +152,11 @@ class _TransactionDetailsPageState
           final item = state.items[index];
           return _TransactionListTile(
             item: item,
+            selectionMode: _selectedIds.isNotEmpty,
+            selected: _selectedIds.contains(item.id),
             onTap: () =>
                 context.push(AppRoutePaths.quickTransaction, extra: item),
+            onSelectionToggle: () => _toggleSelection(item.id),
             onDelete: () => _confirmDelete(item),
           );
         },
@@ -164,6 +192,60 @@ class _TransactionDetailsPageState
         ).showSnackBar(SnackBar(content: Text('删除失败：$error')));
       }
     }
+  }
+
+  Future<void> _confirmBatchDelete() async {
+    final ids = _selectedIds.toList();
+    if (ids.isEmpty) {
+      return;
+    }
+
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '删除选中交易',
+      message: '确定删除选中的 ${ids.length} 笔交易吗？删除后账户余额会同步回滚。',
+      confirmText: '删除',
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    try {
+      await ref
+          .read(transactionListControllerProvider.notifier)
+          .deleteTransactions(ids);
+      if (mounted) {
+        setState(_selectedIds.clear);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已删除 ${ids.length} 笔交易')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('批量删除失败：$error')));
+      }
+    }
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (!_selectedIds.add(id)) {
+        _selectedIds.remove(id);
+      }
+    });
+  }
+
+  void _selectCurrentPage(List<TransactionItem> items) {
+    setState(() {
+      _selectedIds.addAll(items.map((item) => item.id));
+    });
+  }
+
+  void _clearSelection() {
+    setState(_selectedIds.clear);
   }
 
   void _handleScroll() {
@@ -295,12 +377,18 @@ class _TransactionFilterBar extends ConsumerWidget {
 class _TransactionListTile extends StatelessWidget {
   const _TransactionListTile({
     required this.item,
+    required this.selectionMode,
+    required this.selected,
     required this.onTap,
+    required this.onSelectionToggle,
     required this.onDelete,
   });
 
   final TransactionItem item;
+  final bool selectionMode;
+  final bool selected;
   final VoidCallback onTap;
+  final VoidCallback onSelectionToggle;
   final VoidCallback onDelete;
 
   /// 构建单条交易列表项。
@@ -320,12 +408,19 @@ class _TransactionListTile extends StatelessWidget {
 
     return ListTile(
       key: ValueKey('transaction-item-${item.id}'),
-      onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: amountColor.withValues(alpha: 0.12),
-        foregroundColor: amountColor,
-        child: Icon(_typeIcon(item.type)),
-      ),
+      onTap: selectionMode ? onSelectionToggle : onTap,
+      onLongPress: onSelectionToggle,
+      leading: selectionMode
+          ? Checkbox(
+              key: ValueKey('transaction-select-${item.id}'),
+              value: selected,
+              onChanged: (_) => onSelectionToggle(),
+            )
+          : CircleAvatar(
+              backgroundColor: amountColor.withValues(alpha: 0.12),
+              foregroundColor: amountColor,
+              child: Icon(_typeIcon(item.type)),
+            ),
       title: Text(item.displayTitle),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,19 +444,20 @@ class _TransactionListTile extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'edit') {
-                onTap();
-              } else if (value == 'delete') {
-                onDelete();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'edit', child: Text('编辑')),
-              PopupMenuItem(value: 'delete', child: Text('删除')),
-            ],
-          ),
+          if (!selectionMode)
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'edit') {
+                  onTap();
+                } else if (value == 'delete') {
+                  onDelete();
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'edit', child: Text('编辑')),
+                PopupMenuItem(value: 'delete', child: Text('删除')),
+              ],
+            ),
         ],
       ),
     );

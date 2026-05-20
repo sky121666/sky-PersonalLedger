@@ -154,6 +154,15 @@ class TransactionListController extends StateNotifier<TransactionListState> {
     await refresh();
   }
 
+  /// 批量删除交易并刷新列表。
+  Future<void> deleteTransactions(List<String> ids) async {
+    if (ids.isEmpty) {
+      return;
+    }
+    await _repository.batchDelete(ids);
+    await refresh();
+  }
+
   /// 按页加载交易数据。
   Future<void> _loadPage({
     required int page,
