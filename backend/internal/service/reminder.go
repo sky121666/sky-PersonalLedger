@@ -229,48 +229,87 @@ func (s *ReminderService) RecordPayment(id string, userID uint, req RecordPaymen
 		}
 	}
 
-	// Update total paid and interest paid
-	reminder.TotalPaid += req.Amount
-	if interestPaid > 0 {
-		reminder.InterestPaid += interestPaid
-	}
-
-	if reminder.CurrentBalance != nil {
-		newBalance := *reminder.CurrentBalance - principalPaid
-		if newBalance < 0 {
-			newBalance = 0
+	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		var sourceAccount *model.Account
+		if req.AccountID != nil && *req.AccountID != "" {
+			account, err := getAccountForUserTx(txdb, *req.AccountID, userID)
+			if err != nil {
+				return err
+			}
+			sourceAccount = account
 		}
-		reminder.CurrentBalance = &newBalance
-		if newBalance == 0 {
-			now := time.Now()
-			reminder.PaidOffAt = &now
-		}
-	}
 
-	if err := s.repo.Update(reminder); err != nil {
+		var debtAccount *model.Account
+		if reminder.AccountID != nil && *reminder.AccountID != "" {
+			account, err := getAccountForUserTx(txdb, *reminder.AccountID, userID)
+			if err != nil {
+				return err
+			}
+			debtAccount = account
+		}
+
+		nextTotalPaid := reminder.TotalPaid + req.Amount
+		nextInterestPaid := reminder.InterestPaid + interestPaid
+		nextCurrentBalance := reminder.CurrentBalance
+		var nextPaidOffAt *time.Time
+		if reminder.PaidOffAt != nil {
+			nextPaidOffAt = reminder.PaidOffAt
+		}
+		if reminder.CurrentBalance != nil {
+			newBalance := *reminder.CurrentBalance - principalPaid
+			if newBalance < 0 {
+				newBalance = 0
+			}
+			nextCurrentBalance = &newBalance
+			if newBalance == 0 {
+				now := time.Now()
+				nextPaidOffAt = &now
+			}
+		}
+
+		result := txdb.Model(&model.Reminder{}).
+			Where("id = ? AND user_id = ?", reminder.ID, userID).
+			Updates(map[string]any{
+				"total_paid":      nextTotalPaid,
+				"interest_paid":   nextInterestPaid,
+				"current_balance": nextCurrentBalance,
+				"paid_off_at":     nextPaidOffAt,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrReminderNotFound
+		}
+
+		if debtAccount != nil {
+			debtAccount.CurrentBalance -= principalPaid
+			debtAccount.TotalPaid += principalPaid
+			if debtAccount.CurrentBalance < 0 {
+				debtAccount.CurrentBalance = 0
+			}
+			if debtAccount.CurrentBalance == 0 {
+				now := time.Now()
+				debtAccount.PaidOffAt = &now
+			}
+			if err := txdb.Model(&model.Account{}).
+				Where("id = ? AND user_id = ?", debtAccount.ID, userID).
+				Updates(map[string]any{
+					"current_balance": debtAccount.CurrentBalance,
+					"total_paid":      debtAccount.TotalPaid,
+					"paid_off_at":     debtAccount.PaidOffAt,
+				}).Error; err != nil {
+				return err
+			}
+		}
+
+		if sourceAccount != nil {
+			return s.createPaymentTransactionTx(txdb, userID, reminder, req, principalPaid, interestPaid, sourceAccount)
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	// Sync with linked account (debt account) if exists
-	if reminder.AccountID != nil && *reminder.AccountID != "" {
-		account, err := s.accountRepo.GetByID(*reminder.AccountID)
-		if err == nil && account != nil {
-			account.CurrentBalance -= principalPaid
-			account.TotalPaid += principalPaid
-			if account.CurrentBalance < 0 {
-				account.CurrentBalance = 0
-			}
-			if account.CurrentBalance == 0 {
-				now := time.Now()
-				account.PaidOffAt = &now
-			}
-			s.accountRepo.Update(account)
-		}
-	}
-
-	// Create transaction record for this payment
-	s.createPaymentTransaction(userID, reminder, req, principalPaid, interestPaid)
-
 	return s.repo.GetByID(id)
 }
 
@@ -299,46 +338,12 @@ func normalizeReminderPaymentSplit(req RecordPaymentRequest) (float64, float64, 
 	return principalPaid, interestPaid, nil
 }
 
-func (s *ReminderService) createPaymentTransaction(userID uint, reminder *model.Reminder, req RecordPaymentRequest, principalPaid float64, interestPaid float64) {
-	// Must have source account to create transaction
-	if req.AccountID == nil || *req.AccountID == "" {
-		return
-	}
-	sourceAccountID := *req.AccountID
-
-	// Find or create repayment category
-	categories, err := s.categoryRepo.GetByUserID(userID, "expense")
+func (s *ReminderService) createPaymentTransactionTx(txdb *gorm.DB, userID uint, reminder *model.Reminder, req RecordPaymentRequest, principalPaid float64, interestPaid float64, sourceAccount *model.Account) error {
+	repaymentCategoryID, err := s.findOrCreateRepaymentCategoryTx(txdb, userID)
 	if err != nil {
-		return
+		return err
 	}
 
-	var repaymentCategoryID string
-	for _, cat := range categories {
-		if cat.Name == "还款" {
-			repaymentCategoryID = cat.ID
-			break
-		}
-	}
-
-	// Create repayment category if not exists
-	if repaymentCategoryID == "" {
-		newCat := &model.Category{
-			ID:        uuid.New().String(),
-			UserID:    userID,
-			Name:      "还款",
-			Type:      "expense",
-			Icon:      "💳",
-			Color:     "#8B5CF6",
-			IsSystem:  true,
-			SortOrder: len(categories),
-		}
-		if err := s.categoryRepo.Create(newCat); err != nil {
-			return
-		}
-		repaymentCategoryID = newCat.ID
-	}
-
-	// Build remark with loan name
 	remark := "还款"
 	if reminder.Name != "" {
 		remark = reminder.Name + " 还款"
@@ -352,24 +357,67 @@ func (s *ReminderService) createPaymentTransaction(userID uint, reminder *model.
 		Amount:          req.Amount,
 		PrincipalAmount: principalPaid,
 		InterestAmount:  interestPaid,
-		AccountID:       sourceAccountID,
-		CategoryID:      &repaymentCategoryID,
+		AccountID:       sourceAccount.ID,
+		CategoryID:      repaymentCategoryID,
 		TransactionDate: now,
 		Remark:          remark,
 		Source:          "reminder",
 		ReminderID:      &reminder.ID,
 	}
 
-	// Create transaction record
-	if err := s.txRepo.Create(tx); err != nil {
-		return
+	if err := txdb.Create(tx).Error; err != nil {
+		return err
 	}
 
-	// Deduct from source account
-	if account, err := s.accountRepo.GetByID(sourceAccountID); err == nil {
-		account.CurrentBalance -= req.Amount
-		s.accountRepo.Update(account)
+	sourceAccount.CurrentBalance -= req.Amount
+	return txdb.Model(&model.Account{}).
+		Where("id = ? AND user_id = ?", sourceAccount.ID, userID).
+		Update("current_balance", sourceAccount.CurrentBalance).Error
+}
+
+func (s *ReminderService) findOrCreateRepaymentCategoryTx(txdb *gorm.DB, userID uint) (*string, error) {
+	var category model.Category
+	err := txdb.Where("user_id = ? AND type = ? AND name = ?", userID, "expense", "还款").
+		First(&category).Error
+	if err == nil {
+		return &category.ID, nil
 	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	var sortOrder int64
+	if err := txdb.Model(&model.Category{}).
+		Where("user_id = ? AND type = ?", userID, "expense").
+		Count(&sortOrder).Error; err != nil {
+		return nil, err
+	}
+
+	category = model.Category{
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Name:      "还款",
+		Type:      "expense",
+		Icon:      "💳",
+		Color:     "#8B5CF6",
+		IsSystem:  true,
+		SortOrder: int(sortOrder),
+	}
+	if err := txdb.Create(&category).Error; err != nil {
+		return nil, err
+	}
+	return &category.ID, nil
+}
+
+func getAccountForUserTx(txdb *gorm.DB, accountID string, userID uint) (*model.Account, error) {
+	var account model.Account
+	if err := txdb.First(&account, "id = ? AND user_id = ?", accountID, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAccountNotFound
+		}
+		return nil, err
+	}
+	return &account, nil
 }
 
 type ReminderDebtSummary struct {

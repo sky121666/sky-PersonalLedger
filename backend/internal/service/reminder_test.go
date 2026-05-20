@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -150,6 +151,146 @@ func TestDeleteReminderDetachesPaymentTransactions(t *testing.T) {
 		t.Fatalf("get debt account: %v", err)
 	}
 	assertFloatEqual(t, "debt account balance", debtAccount.CurrentBalance, 400)
+}
+
+func TestReminderPaymentRejectsMissingPaymentAccountWithoutMutatingDebt(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	accountLogSvc := NewAccountLogService(repos.AccountLog, repos.Account)
+	reminderSvc := NewReminderService(
+		repos.Reminder,
+		repos.Account,
+		repos.Transaction,
+		repos.Category,
+		accountLogSvc,
+	)
+	debtAccountID := createAccountForTest(t, repos, userID, 500)
+	missingPaymentAccountID := "missing-payment-account"
+	principal := 500.0
+	currentBalance := 500.0
+
+	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
+		Name:           "车贷",
+		AccountID:      &debtAccountID,
+		PaymentDay:     15,
+		Principal:      &principal,
+		CurrentBalance: &currentBalance,
+	})
+	if err != nil {
+		t.Fatalf("create reminder: %v", err)
+	}
+
+	if _, err := reminderSvc.RecordPayment(reminder.ID, userID, RecordPaymentRequest{
+		Amount:          120,
+		PrincipalAmount: 100,
+		InterestAmount:  20,
+		AccountID:       &missingPaymentAccountID,
+	}); err == nil {
+		t.Fatal("expected missing payment account to fail")
+	}
+
+	unchangedReminder, err := reminderSvc.GetByID(reminder.ID, userID)
+	if err != nil {
+		t.Fatalf("get unchanged reminder: %v", err)
+	}
+	assertFloatEqual(t, "reminder current balance", *unchangedReminder.CurrentBalance, 500)
+	assertFloatEqual(t, "reminder total paid", unchangedReminder.TotalPaid, 0)
+	assertFloatEqual(t, "reminder interest paid", unchangedReminder.InterestPaid, 0)
+	if unchangedReminder.PaidOffAt != nil {
+		t.Fatal("reminder should not be paid off")
+	}
+
+	debtAccount, err := repos.Account.GetByID(debtAccountID)
+	if err != nil {
+		t.Fatalf("get debt account: %v", err)
+	}
+	assertFloatEqual(t, "debt account balance", debtAccount.CurrentBalance, 500)
+
+	transactions, total, err := repos.Transaction.List(repository.TransactionFilter{
+		UserID:   userID,
+		Page:     1,
+		PageSize: 20,
+	})
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if total != 0 || len(transactions) != 0 {
+		t.Fatalf("transactions after failed payment = total %d len %d, want 0", total, len(transactions))
+	}
+}
+
+func TestReminderPaymentRejectsOtherUserPaymentAccountWithoutMutatingDebt(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	otherUser := &model.User{Username: "other", PasswordHash: "hash"}
+	if err := repos.User.Create(otherUser); err != nil {
+		t.Fatalf("create other user: %v", err)
+	}
+	accountLogSvc := NewAccountLogService(repos.AccountLog, repos.Account)
+	reminderSvc := NewReminderService(
+		repos.Reminder,
+		repos.Account,
+		repos.Transaction,
+		repos.Category,
+		accountLogSvc,
+	)
+	debtAccountID := createAccountForTest(t, repos, userID, 500)
+	otherPaymentAccountID := createAccountForTest(t, repos, otherUser.ID, 1000)
+	principal := 500.0
+	currentBalance := 500.0
+
+	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
+		Name:           "车贷",
+		AccountID:      &debtAccountID,
+		PaymentDay:     15,
+		Principal:      &principal,
+		CurrentBalance: &currentBalance,
+	})
+	if err != nil {
+		t.Fatalf("create reminder: %v", err)
+	}
+
+	if _, err := reminderSvc.RecordPayment(reminder.ID, userID, RecordPaymentRequest{
+		Amount:          120,
+		PrincipalAmount: 100,
+		InterestAmount:  20,
+		AccountID:       &otherPaymentAccountID,
+	}); err == nil {
+		t.Fatal("expected other user's payment account to fail")
+	}
+
+	unchangedReminder, err := reminderSvc.GetByID(reminder.ID, userID)
+	if err != nil {
+		t.Fatalf("get unchanged reminder: %v", err)
+	}
+	assertFloatEqual(t, "reminder current balance", *unchangedReminder.CurrentBalance, 500)
+	assertFloatEqual(t, "reminder total paid", unchangedReminder.TotalPaid, 0)
+	assertFloatEqual(t, "reminder interest paid", unchangedReminder.InterestPaid, 0)
+	if unchangedReminder.PaidOffAt != nil {
+		t.Fatal("reminder should not be paid off")
+	}
+
+	debtAccount, err := repos.Account.GetByID(debtAccountID)
+	if err != nil {
+		t.Fatalf("get debt account: %v", err)
+	}
+	assertFloatEqual(t, "debt account balance", debtAccount.CurrentBalance, 500)
+
+	otherPaymentAccount, err := repos.Account.GetByID(otherPaymentAccountID)
+	if err != nil {
+		t.Fatalf("get other payment account: %v", err)
+	}
+	assertFloatEqual(t, "other payment account balance", otherPaymentAccount.CurrentBalance, 1000)
+
+	transactions, total, err := repos.Transaction.List(repository.TransactionFilter{
+		UserID:   userID,
+		Page:     1,
+		PageSize: 20,
+	})
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if total != 0 || len(transactions) != 0 {
+		t.Fatalf("transactions after failed payment = total %d len %d, want 0", total, len(transactions))
+	}
 }
 
 func findReminderTransactionID(t *testing.T, repos *repository.Repositories, userID uint, reminderID string) string {
