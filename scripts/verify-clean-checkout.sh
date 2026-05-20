@@ -47,3 +47,8 @@ fi
   flutter test
   flutter test -d flutter-tester integration_test/app_smoke_test.dart
 )
+
+(
+  cd "$worktree"
+  ./scripts/verify-mobile-e2e.sh
+)
