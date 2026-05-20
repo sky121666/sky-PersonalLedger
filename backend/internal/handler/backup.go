@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -43,13 +44,30 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 		return
 	}
 
+	var preRestoreBackup *service.BackupFileInfo
+	if h.backupScheduler != nil {
+		preRestoreBackup, err = h.backupScheduler.CreatePreRestoreBackup(userID)
+		if err != nil {
+			response.InternalError(c, "failed to create pre-restore backup: "+err.Error())
+			return
+		}
+	}
+
 	err = h.backupService.RestoreBackup(userID, file)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidBackupData) || errors.Is(err, service.ErrInvalidBackupFormat) {
+			response.BadRequest(c, err.Error())
+			return
+		}
 		response.InternalError(c, err.Error())
 		return
 	}
 
-	response.Success(c, gin.H{"message": "restore successful"})
+	payload := gin.H{"message": "restore successful"}
+	if preRestoreBackup != nil {
+		payload["pre_restore_backup"] = preRestoreBackup
+	}
+	response.Success(c, payload)
 }
 
 func (h *BackupHandler) GetAutoBackupSettings(c *gin.Context) {

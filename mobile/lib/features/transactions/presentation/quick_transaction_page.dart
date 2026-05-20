@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
+import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
 import '../../attachments/data/attachment_repository.dart';
 import '../../attachments/presentation/attachment_picker_field.dart';
@@ -36,6 +37,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   List<LedgerAttachment> _attachments = const [];
   List<PendingAttachmentFile> _pendingAttachmentFiles = const [];
   List<AttachmentUploadProgress> _uploadProgress = const [];
+  Set<String> _originalAttachmentPaths = const <String>{};
   final Set<String> _selectedTags = {};
   bool _loading = true;
   bool _submitting = false;
@@ -329,9 +331,9 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       _toAccountId = transaction.toAccountId;
       _categoryId = transaction.categoryId;
       _selectedTags.addAll(transaction.tags);
-      _attachments = decodeAttachmentPaths(
-        transaction.images,
-      ).map(LedgerAttachment.fromPath).toList();
+      final attachmentPaths = decodeAttachmentPaths(transaction.images);
+      _originalAttachmentPaths = attachmentPaths.toSet();
+      _attachments = attachmentPaths.map(LedgerAttachment.fromPath).toList();
     }
 
     try {
@@ -446,11 +448,22 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           ),
         );
       }
+      final failedCleanupPaths = await deleteRemovedAttachments(
+        repository: ref.read(attachmentRepositoryProvider),
+        originalPaths: _originalAttachmentPaths,
+        retainedPaths: allAttachments.map((item) => item.path),
+      );
       ref.invalidate(transactionListControllerProvider);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(_isEditing ? '交易已更新' : '交易已创建')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failedCleanupPaths.isEmpty
+                  ? (_isEditing ? '交易已更新' : '交易已创建')
+                  : '${_isEditing ? '交易已更新' : '交易已创建'}，但有 ${failedCleanupPaths.length} 个旧附件清理失败',
+            ),
+          ),
+        );
         Navigator.of(context).pop();
       }
     } catch (error) {

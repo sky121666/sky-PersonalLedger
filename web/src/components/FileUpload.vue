@@ -167,14 +167,8 @@ async function uploadFiles(fileList: File[]) {
 }
 
 async function removeFile(path: string) {
-  try {
-    await fileApi.delete(path)
-    const updatedFiles = files.value.filter(f => f !== path)
-    emit('update:modelValue', JSON.stringify(updatedFiles))
-  } catch (error) {
-    console.error('Delete failed:', error)
-    toast.error('删除失败')
-  }
+  const updatedFiles = files.value.filter(f => f !== path)
+  emit('update:modelValue', JSON.stringify(updatedFiles))
 }
 
 async function openPreview(path: string) {

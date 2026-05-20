@@ -2,6 +2,8 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"time"
@@ -10,6 +12,9 @@ import (
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
+
+var ErrInvalidBackupData = errors.New("backup contains no restorable data")
+var ErrInvalidBackupFormat = errors.New("invalid backup file")
 
 type BackupService struct {
 	db               *gorm.DB
@@ -171,6 +176,9 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 
 	var backup FullBackupData
 	if err := json.Unmarshal(data, &backup); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidBackupFormat, err)
+	}
+	if err := validateBackupForRestore(backup); err != nil {
 		return err
 	}
 
@@ -265,6 +273,24 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 
 		return nil
 	})
+}
+
+func validateBackupForRestore(backup FullBackupData) error {
+	if backup.UserProfile != nil || backup.NotificationSettings != nil {
+		return nil
+	}
+	if len(backup.Accounts) > 0 ||
+		len(backup.Categories) > 0 ||
+		len(backup.Transactions) > 0 ||
+		len(backup.Budgets) > 0 ||
+		len(backup.Reminders) > 0 ||
+		len(backup.Lendings) > 0 ||
+		len(backup.LendingRecords) > 0 ||
+		len(backup.Templates) > 0 ||
+		len(backup.Tags) > 0 {
+		return nil
+	}
+	return ErrInvalidBackupData
 }
 
 func (s *BackupService) clearUserData(userID uint) {

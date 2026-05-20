@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../accounts/data/account.dart';
+import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
 import '../../attachments/data/attachment_repository.dart';
 import '../../attachments/presentation/attachment_picker_field.dart';
@@ -176,7 +177,12 @@ class _LendingPageState extends ConsumerState<LendingPage> {
       request: () async {
         final repository = ref.read(lendingRepositoryProvider);
         final saved = await repository.update(item.id, request);
+        var retainedAttachments = result.attachments;
         if (result.pendingFiles.isEmpty) {
+          await _deleteRemovedAttachments(
+            originalPaths: decodeAttachmentPaths(item.evidence),
+            retainedAttachments: retainedAttachments,
+          );
           return;
         }
         final refId = saved?.id.isNotEmpty == true ? saved!.id : item.id;
@@ -184,15 +190,17 @@ class _LendingPageState extends ConsumerState<LendingPage> {
           result.pendingFiles,
           refId,
         );
+        retainedAttachments = [...result.attachments, ...uploadedAttachments];
         await repository.update(
           refId,
           _copyUpdateRequest(
             request,
-            evidence: _encodeAttachmentEvidence([
-              ...result.attachments,
-              ...uploadedAttachments,
-            ]),
+            evidence: _encodeAttachmentEvidence(retainedAttachments),
           ),
+        );
+        await _deleteRemovedAttachments(
+          originalPaths: decodeAttachmentPaths(item.evidence),
+          retainedAttachments: retainedAttachments,
         );
       },
     );
@@ -242,6 +250,17 @@ class _LendingPageState extends ConsumerState<LendingPage> {
       );
     }
     return uploadedAttachments;
+  }
+
+  Future<void> _deleteRemovedAttachments({
+    required Iterable<String> originalPaths,
+    required Iterable<LedgerAttachment> retainedAttachments,
+  }) async {
+    await deleteRemovedAttachments(
+      repository: ref.read(attachmentRepositoryProvider),
+      originalPaths: originalPaths,
+      retainedPaths: retainedAttachments.map((item) => item.path),
+    );
   }
 
   Future<void> _deleteLending(LendingItem item) async {

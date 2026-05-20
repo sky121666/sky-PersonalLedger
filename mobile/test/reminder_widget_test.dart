@@ -106,6 +106,34 @@ void main() {
       );
     });
 
+    testWidgets('编辑提醒移除已有凭证并保存后清理旧文件', (tester) async {
+      final repository = _FakeReminderRepository();
+      final attachmentRepository = _FakeAttachmentRepository();
+      await _pumpPage(
+        tester,
+        repository,
+        attachmentRepository: attachmentRepository,
+      );
+
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+      final removeButton = find.byTooltip('移除', skipOffstage: false);
+      await tester.ensureVisible(removeButton);
+      await tester.pumpAndSettle();
+      await tester.tap(removeButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(repository.updateCalls.single.request.evidence, '[]');
+      expect(attachmentRepository.deleteCalls, [
+        '1/reminders/reminder-1/contract.pdf',
+      ]);
+    });
+
     testWidgets('编辑提醒时上传新凭证并回写路径', (tester) async {
       final repository = _FakeReminderRepository();
       final attachmentRepository = _FakeAttachmentRepository();
@@ -492,9 +520,12 @@ class _FakeAttachmentPickerService implements AttachmentPickerService {
 
 class _FakeAttachmentRepository implements AttachmentRepository {
   final List<_UploadCall> uploadCalls = [];
+  final List<String> deleteCalls = [];
 
   @override
-  Future<void> delete(String path) async {}
+  Future<void> delete(String path) async {
+    deleteCalls.add(path);
+  }
 
   @override
   Future<void> download(String path, String savePath) async {}

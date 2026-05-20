@@ -241,6 +241,38 @@ func (s *BackupScheduler) TriggerBackup() error {
 	return nil
 }
 
+func (s *BackupScheduler) CreatePreRestoreBackup(userID uint) (*BackupFileInfo, error) {
+	if s.backupPath == "" {
+		return nil, fmt.Errorf("backup path is empty")
+	}
+	if err := os.MkdirAll(s.backupPath, 0755); err != nil {
+		return nil, err
+	}
+
+	backup, err := s.backupService.CreateBackup(userID)
+	if err != nil {
+		return nil, err
+	}
+	filename := fmt.Sprintf("pre_restore_backup_user%d_%s.json", userID, time.Now().Format("20060102_150405"))
+	filePath := filepath.Join(s.backupPath, filename)
+	data, err := json.MarshalIndent(backup, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
+		return nil, err
+	}
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return nil, err
+	}
+	return &BackupFileInfo{
+		Filename:  filename,
+		Size:      info.Size(),
+		CreatedAt: info.ModTime().Format("2006-01-02 15:04:05"),
+	}, nil
+}
+
 func (s *BackupScheduler) ListBackups() ([]BackupFileInfo, error) {
 	files, err := filepath.Glob(filepath.Join(s.backupPath, "auto_backup_*.json"))
 	if err != nil {

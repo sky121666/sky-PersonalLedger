@@ -6,6 +6,7 @@ import FileUpload from '@/components/FileUpload.vue'
 import { reminderApi, type Reminder, type CreateReminderParams, type DebtSummary, type LoanType } from '@/api/reminder'
 import { accountApi, type Account, isDebtAccount } from '@/api/account'
 import { toast } from '@/composables/useToast'
+import { deleteRemovedAttachments } from '@/utils/attachmentCleanup'
 
 const router = useRouter()
 
@@ -43,6 +44,7 @@ const defaultForm = (): CreateReminderParams => ({
 
 const showDialog = ref(false)
 const editingReminder = ref<Reminder | null>(null)
+const originalEvidence = ref('')
 const form = ref<CreateReminderParams>(defaultForm())
 
 const showPaymentDialog = ref(false)
@@ -109,12 +111,14 @@ function getDaysUntilPayment(day: number): number {
 
 function openCreate() {
   editingReminder.value = null
+  originalEvidence.value = ''
   form.value = defaultForm()
   showDialog.value = true
 }
 
 function openEdit(reminder: Reminder) {
   editingReminder.value = reminder
+  originalEvidence.value = reminder.evidence || ''
   form.value = {
     name: reminder.name,
     account_id: reminder.account_id,
@@ -138,6 +142,7 @@ function openEdit(reminder: Reminder) {
 function closeDialog() {
   showDialog.value = false
   editingReminder.value = null
+  originalEvidence.value = ''
 }
 
 function openPayment(reminder: Reminder) {
@@ -199,7 +204,12 @@ async function submitForm() {
   try {
     if (editingReminder.value) {
       await reminderApi.update(editingReminder.value.id, form.value)
-      toast.success('更新成功')
+      const failedCleanupPaths = await deleteRemovedAttachments(originalEvidence.value, form.value.evidence)
+      toast.success(
+        failedCleanupPaths.length > 0
+          ? `更新成功，但有 ${failedCleanupPaths.length} 个旧附件清理失败`
+          : '更新成功'
+      )
     } else {
       await reminderApi.create(form.value)
       toast.success('创建成功')

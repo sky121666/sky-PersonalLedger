@@ -6,6 +6,7 @@ import { transactionApi, type CreateTransactionParams } from '@/api/transaction'
 import { categoryApi, type Category } from '@/api/category'
 import { accountApi, type Account } from '@/api/account'
 import { toast } from '@/composables/useToast'
+import { deleteRemovedAttachments } from '@/utils/attachmentCleanup'
 import { getCategoryEmoji } from '@/utils/constants'
 import dayjs from 'dayjs'
 
@@ -35,6 +36,7 @@ const form = ref({
 })
 
 const savedTransactionId = ref<string | null>(null)
+const originalImages = ref('')
 
 const typeOptions = [
   { value: 'expense', label: '支出' },
@@ -105,6 +107,7 @@ async function loadTransaction() {
       remark: tx.remark || '',
       images: tx.images || ''
     }
+    originalImages.value = tx.images || ''
     savedTransactionId.value = tx.id
   } catch (e) {
     console.error('Load transaction failed:', e)
@@ -122,6 +125,7 @@ function resetForm() {
     remark: '',
     images: ''
   }
+  originalImages.value = ''
   savedTransactionId.value = null
 }
 
@@ -154,7 +158,12 @@ async function submit() {
     
     if (props.editId) {
       await transactionApi.update(props.editId, params)
-      toast.success('修改成功')
+      const failedCleanupPaths = await deleteRemovedAttachments(originalImages.value, form.value.images)
+      toast.success(
+        failedCleanupPaths.length > 0
+          ? `修改成功，但有 ${failedCleanupPaths.length} 个旧附件清理失败`
+          : '修改成功'
+      )
     } else {
       await transactionApi.create(params)
       toast.success('记账成功')

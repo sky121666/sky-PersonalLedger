@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/md5"
 	"fmt"
 	"log"
 	"os"
@@ -135,9 +134,17 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 	// Serve uploaded files
 	r.GET("/uploads/*filepath", func(c *gin.Context) {
 		filePath := c.Param("filepath")
+		cleanPath := filepath.Clean(strings.TrimPrefix(filePath, "/"))
+		if cleanPath == "." ||
+			cleanPath == ".." ||
+			strings.HasPrefix(cleanPath, ".."+string(os.PathSeparator)) {
+			c.JSON(403, gin.H{"error": "forbidden"})
+			return
+		}
+		pathParts := strings.Split(filepath.ToSlash(cleanPath), "/")
 
 		// 头像文件公开访问，无需认证 (路径格式: /1/avatars/profile/xxx.gif)
-		if strings.Contains(filePath, "/avatars/") {
+		if len(pathParts) >= 3 && pathParts[1] == "avatars" {
 			// 直接允许访问头像
 		} else {
 			// 其他文件需要认证
@@ -147,25 +154,13 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 			}
 
 			authenticated := false
+			var userID uint
 
-			// Method 1: JWT Token validation
 			if token != "" {
-				_, err := authService.GetJWTManager().ValidateToken(token)
+				claims, err := authService.GetJWTManager().ValidateToken(token)
 				if err == nil {
 					authenticated = true
-				}
-			}
-
-			// Method 2: Entry path cookie validation (for Web)
-			if !authenticated {
-				entryPath, _ := systemService.GetEntryPath()
-				if entryPath != "" {
-					cookieName := "entry_verified"
-					expectedValue := fmt.Sprintf("%x", md5.Sum([]byte(entryPath)))[:3]
-					cookie, err := c.Cookie(cookieName)
-					if err == nil && cookie == expectedValue {
-						authenticated = true
-					}
+					userID = claims.UserID
 				}
 			}
 
@@ -173,14 +168,19 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 				c.JSON(401, gin.H{"error": "unauthorized"})
 				return
 			}
+
+			if len(pathParts) == 0 || pathParts[0] != fmt.Sprintf("%d", userID) {
+				c.JSON(403, gin.H{"error": "forbidden"})
+				return
+			}
 		}
 
-		fullPath := filepath.Join(uploadPath, filePath)
+		fullPath := filepath.Join(uploadPath, cleanPath)
 
 		// Security check: ensure path is within upload directory
 		absUploadPath, _ := filepath.Abs(uploadPath)
 		absFullPath, _ := filepath.Abs(fullPath)
-		if !strings.HasPrefix(absFullPath, absUploadPath) {
+		if absFullPath != absUploadPath && !strings.HasPrefix(absFullPath, absUploadPath+string(os.PathSeparator)) {
 			c.JSON(403, gin.H{"error": "forbidden"})
 			return
 		}

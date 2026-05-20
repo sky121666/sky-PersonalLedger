@@ -100,6 +100,32 @@ void main() {
       );
     });
 
+    testWidgets('编辑借贷记录移除已有凭证并保存后清理旧文件', (tester) async {
+      final lendingRepository = _FakeLendingRepository();
+      final attachmentRepository = _FakeAttachmentRepository();
+      await _pumpPage(
+        tester,
+        lendingRepository,
+        attachmentRepository: attachmentRepository,
+      );
+
+      await tester.tap(find.byTooltip('编辑借贷记录').first);
+      await tester.pumpAndSettle();
+      final removeButton = find.byTooltip('移除', skipOffstage: false);
+      await tester.ensureVisible(removeButton);
+      await tester.pumpAndSettle();
+      await tester.tap(removeButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(lendingRepository.updateCalls, hasLength(1));
+      expect(lendingRepository.updateCalls.single.evidence, '[]');
+      expect(attachmentRepository.deleteCalls, [
+        '1/lendings/lend-1/contract.pdf',
+      ]);
+    });
+
     testWidgets('编辑借贷记录时上传新凭证并回写路径', (tester) async {
       final lendingRepository = _FakeLendingRepository();
       final attachmentRepository = _FakeAttachmentRepository();
@@ -461,9 +487,12 @@ class _FakeAttachmentPickerService implements AttachmentPickerService {
 
 class _FakeAttachmentRepository implements AttachmentRepository {
   final List<_UploadCall> uploadCalls = [];
+  final List<String> deleteCalls = [];
 
   @override
-  Future<void> delete(String path) async {}
+  Future<void> delete(String path) async {
+    deleteCalls.add(path);
+  }
 
   @override
   Future<void> download(String path, String savePath) async {}

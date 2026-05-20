@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -72,13 +73,22 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 }
 
 func (h *UploadHandler) Delete(c *gin.Context) {
+	userID := middleware.GetUserID(c)
 	path := c.Query("path")
 	if path == "" {
 		response.BadRequest(c, "path is required")
 		return
 	}
 
-	if err := h.uploadService.Delete(path); err != nil {
+	if err := h.uploadService.Delete(userID, path); err != nil {
+		if errors.Is(err, service.ErrUploadPathInvalid) {
+			response.BadRequest(c, "invalid file path")
+			return
+		}
+		if errors.Is(err, service.ErrUploadPathForbidden) {
+			response.Forbidden(c, "file path does not belong to current user")
+			return
+		}
 		response.InternalError(c, err.Error())
 		return
 	}
@@ -139,14 +149,35 @@ func (h *UploadHandler) Download(c *gin.Context) {
 		return
 	}
 
-	if _, err := h.authService.GetJWTManager().ValidateToken(token); err != nil {
-		if _, apiErr := h.apiToken.ValidateToken(token); apiErr != nil {
+	var userID uint
+	if claims, err := h.authService.GetJWTManager().ValidateToken(token); err == nil {
+		userID = claims.UserID
+	} else {
+		if h.apiToken == nil {
 			response.Unauthorized(c, "invalid token")
 			return
 		}
+		apiTokenUserID, apiErr := h.apiToken.ValidateToken(token)
+		if apiErr != nil {
+			response.Unauthorized(c, "invalid token")
+			return
+		}
+		userID = apiTokenUserID
 	}
 
-	fullPath := h.uploadService.GetFilePath(filePath)
+	fullPath, err := h.uploadService.GetUserFilePath(userID, filePath)
+	if err != nil {
+		if errors.Is(err, service.ErrUploadPathInvalid) {
+			response.BadRequest(c, "invalid file path")
+			return
+		}
+		if errors.Is(err, service.ErrUploadPathForbidden) {
+			response.Forbidden(c, "file path does not belong to current user")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
 	filename := filepath.Base(filePath)
 
 	c.Header("Content-Disposition", "attachment; filename="+filename)

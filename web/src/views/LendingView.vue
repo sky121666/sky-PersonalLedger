@@ -6,6 +6,7 @@ import FileUpload from '@/components/FileUpload.vue'
 import { lendingApi, type Lending, type CreateLendingParams, type LendingSummary, type RecordRepaymentParams } from '@/api/lending'
 import { accountApi, type Account } from '@/api/account'
 import { toast } from '@/composables/useToast'
+import { deleteRemovedAttachments } from '@/utils/attachmentCleanup'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -18,6 +19,7 @@ const activeTab = ref<'lend_out' | 'borrow_in' | 'settled'>('lend_out')
 
 const showDialog = ref(false)
 const editingLending = ref<Lending | null>(null)
+const originalEvidence = ref('')
 const form = ref<CreateLendingParams>({
   type: 'lend_out',
   contact_name: '',
@@ -116,6 +118,7 @@ function getDaysInfo(lending: Lending): { text: string; color: string } {
 
 function openCreate(type: 'lend_out' | 'borrow_in') {
   editingLending.value = null
+  originalEvidence.value = ''
   form.value = {
     type,
     contact_name: '',
@@ -135,6 +138,7 @@ function openCreate(type: 'lend_out' | 'borrow_in') {
 
 function openEdit(lending: Lending) {
   editingLending.value = lending
+  originalEvidence.value = lending.evidence || ''
   form.value = {
     type: lending.type,
     contact_name: lending.contact_name,
@@ -155,6 +159,7 @@ function openEdit(lending: Lending) {
 function closeDialog() {
   showDialog.value = false
   editingLending.value = null
+  originalEvidence.value = ''
 }
 
 async function submitForm() {
@@ -174,7 +179,12 @@ async function submitForm() {
         remark: form.value.remark,
         evidence: form.value.evidence
       })
-      toast.success('更新成功')
+      const failedCleanupPaths = await deleteRemovedAttachments(originalEvidence.value, form.value.evidence)
+      toast.success(
+        failedCleanupPaths.length > 0
+          ? `更新成功，但有 ${failedCleanupPaths.length} 个旧附件清理失败`
+          : '更新成功'
+      )
     } else {
       await lendingApi.create(form.value)
       toast.success('创建成功')

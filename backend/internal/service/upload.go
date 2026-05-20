@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -11,6 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/config"
 )
+
+var ErrUploadPathForbidden = errors.New("file path does not belong to current user")
+var ErrUploadPathInvalid = errors.New("invalid file path")
 
 type UploadService struct {
 	cfg *config.StorageConfig
@@ -111,18 +115,44 @@ func (s *UploadService) Upload(userID uint, category string, refID string, file 
 	}, nil
 }
 
-// Delete removes a file
-func (s *UploadService) Delete(relativePath string) error {
-	fullPath := filepath.Join(s.cfg.UploadPath, relativePath)
+// Delete removes a file owned by the current user.
+func (s *UploadService) Delete(userID uint, relativePath string) error {
+	fullPath, err := s.GetUserFilePath(userID, relativePath)
+	if err != nil {
+		return err
+	}
+
+	return os.Remove(fullPath)
+}
+
+// GetUserFilePath returns a full path only when the relative path belongs to the user.
+func (s *UploadService) GetUserFilePath(userID uint, relativePath string) (string, error) {
+	cleanPath := filepath.Clean(relativePath)
+	if cleanPath == "." ||
+		filepath.IsAbs(cleanPath) ||
+		strings.HasPrefix(cleanPath, ".."+string(os.PathSeparator)) ||
+		cleanPath == ".." {
+		return "", ErrUploadPathInvalid
+	}
+
+	userPrefix := filepath.Join(fmt.Sprintf("%d", userID))
+	if cleanPath == userPrefix {
+		return "", ErrUploadPathInvalid
+	}
+	if !strings.HasPrefix(cleanPath, userPrefix+string(os.PathSeparator)) {
+		return "", ErrUploadPathForbidden
+	}
+
+	fullPath := filepath.Join(s.cfg.UploadPath, cleanPath)
 
 	// Security check: ensure path is within upload directory
 	absUploadPath, _ := filepath.Abs(s.cfg.UploadPath)
 	absFullPath, _ := filepath.Abs(fullPath)
-	if !strings.HasPrefix(absFullPath, absUploadPath) {
-		return fmt.Errorf("invalid file path")
+	if absFullPath != absUploadPath && !strings.HasPrefix(absFullPath, absUploadPath+string(os.PathSeparator)) {
+		return "", ErrUploadPathInvalid
 	}
 
-	return os.Remove(fullPath)
+	return fullPath, nil
 }
 
 // GetFilePath returns the full path to a file

@@ -74,6 +74,36 @@ func TestRestoreBackupCanRunTwiceWithSameIDs(t *testing.T) {
 	}
 }
 
+func TestRestoreBackupRejectsEmptyPayloadWithoutClearingData(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "ledger.db")
+	db, err := database.Init(dbPath)
+	if err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	repos := repository.NewRepositories(db)
+	backupSvc := NewBackupService(db, repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification, repos.Tag, repos.User)
+
+	user := &model.User{Username: "admin", PasswordHash: "hash"}
+	if err := repos.User.Create(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	if err := db.Create(&model.Account{ID: uuid.NewString(), UserID: user.ID, Name: "Cash", Type: "cash"}).Error; err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	if err := backupSvc.RestoreBackup(user.ID, writeRawBackupFile(t, []byte(`{}`))); err == nil {
+		t.Fatal("empty backup restore succeeded, want error")
+	}
+
+	var accountCount int64
+	if err := db.Model(&model.Account{}).Where("user_id = ?", user.ID).Count(&accountCount).Error; err != nil {
+		t.Fatalf("count accounts: %v", err)
+	}
+	if accountCount != 1 {
+		t.Fatalf("active account count = %d, want original account to remain", accountCount)
+	}
+}
+
 func writeBackupFile(t *testing.T, backup *FullBackupData) *multipart.FileHeader {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "backup.json")
@@ -81,6 +111,15 @@ func writeBackupFile(t *testing.T, backup *FullBackupData) *multipart.FileHeader
 	if err != nil {
 		t.Fatalf("marshal backup: %v", err)
 	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatalf("write backup: %v", err)
+	}
+	return mustFileHeader(t, path)
+}
+
+func writeRawBackupFile(t *testing.T, data []byte) *multipart.FileHeader {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "backup.json")
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatalf("write backup: %v", err)
 	}

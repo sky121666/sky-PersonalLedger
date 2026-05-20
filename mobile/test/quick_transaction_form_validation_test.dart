@@ -148,6 +148,41 @@ void main() {
       expect(repository.updateCalls.single.$2.tags, contains('日常'));
     });
 
+    testWidgets('编辑交易移除已有附件并保存后清理旧文件', (tester) async {
+      final repository = _FakeTransactionRepository();
+      final attachmentRepository = _FakeAttachmentRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        attachmentRepository: attachmentRepository,
+        editingTransaction: TransactionItem(
+          id: 'transaction-1',
+          type: TransactionType.expense,
+          amount: 18,
+          accountId: 'account-1',
+          categoryId: 'category-expense',
+          transactionDate: DateTime(2026, 5, 18, 8, 30),
+          images: '["1/transactions/transaction-1/old.pdf"]',
+        ),
+      );
+
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('移除'));
+      await tester.pumpAndSettle();
+      await _tapSaveButton(tester, label: '保存修改');
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(
+        decodeAttachmentPaths(repository.updateCalls.single.$2.images),
+        isEmpty,
+      );
+      expect(attachmentRepository.deleteCalls, [
+        '1/transactions/transaction-1/old.pdf',
+      ]);
+    });
+
     testWidgets('新增交易带附件时上传文件并回写附件路径', (tester) async {
       final repository = _FakeTransactionRepository();
       final attachmentRepository = _FakeAttachmentRepository();
@@ -366,9 +401,12 @@ class _FakeAttachmentPickerService implements AttachmentPickerService {
 
 class _FakeAttachmentRepository implements AttachmentRepository {
   final List<_UploadCall> uploadCalls = [];
+  final List<String> deleteCalls = [];
 
   @override
-  Future<void> delete(String path) async {}
+  Future<void> delete(String path) async {
+    deleteCalls.add(path);
+  }
 
   @override
   Future<void> download(String path, String savePath) async {}
