@@ -5,11 +5,11 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/web
 
-COPY web/package*.json ./
-RUN npm ci
+COPY web/package.json web/pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile
 
 COPY web/ ./
-RUN npm run build
+RUN pnpm run build
 
 # ============================================
 # Stage 2: 构建后端

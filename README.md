@@ -247,8 +247,8 @@ go run ./cmd/server  # 启动后端服务
 
 # 前端开发
 cd web
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 
 # 移动端开发
 cd mobile

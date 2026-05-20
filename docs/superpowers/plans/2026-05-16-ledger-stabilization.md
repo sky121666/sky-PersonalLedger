@@ -721,7 +721,7 @@ Expected: pass.
 
 ```bash
 cd web
-npm run build
+pnpm run build
 ```
 
 Expected: pass.

@@ -62,8 +62,8 @@ test -f "$worktree/mobile/android/gradlew.bat"
 
 (
   cd "$worktree/web"
-  npm ci
-  npm run build
+  pnpm install --frozen-lockfile
+  pnpm run build
 )
 
 (
@@ -285,7 +285,7 @@ cd backend && go test ./internal/handler ./internal/service ./internal/middlewar
 
 Run:
 ```bash
-cd web && npm run build
+cd web && pnpm run build
 ```
 
 Run:
@@ -589,7 +589,7 @@ In `backend/internal/model/models.go`, keep `RecurringID` nullable and add this 
 Run:
 ```bash
 cd backend && go test ./...
-cd web && npm run build
+cd web && pnpm run build
 ```
 
 - [ ] **Step 5: Commit**

@@ -35,9 +35,9 @@ fi
 
 (
   cd "$worktree/web"
-  npm ci
-  npm run build
-  npm audit --audit-level=moderate
+  pnpm install --frozen-lockfile
+  pnpm run build
+  pnpm audit --audit-level=moderate
 )
 
 (

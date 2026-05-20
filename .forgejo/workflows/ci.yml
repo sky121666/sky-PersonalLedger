@@ -22,7 +22,8 @@ jobs:
           git rev-parse --short HEAD
           test -f Dockerfile
           command -v node || true
-          command -v npm || true
+          command -v corepack || true
+          command -v pnpm || true
           docker version || true
           echo "Release ref: ${GITHUB_REF_NAME:-manual}"
 
