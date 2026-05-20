@@ -284,6 +284,9 @@ func (s *TransactionService) Delete(id string, userID uint) error {
 		if err := s.revertBalanceChangesTx(txdb, transaction, true); err != nil {
 			return err
 		}
+		if err := s.revertLendingTransactionTx(txdb, transaction); err != nil {
+			return err
+		}
 		result := txdb.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Transaction{})
 		if result.Error != nil {
 			return result.Error
@@ -299,11 +302,6 @@ func (s *TransactionService) Delete(id string, userID uint) error {
 	// Revert linked reminder data
 	if transaction.ReminderID != nil && *transaction.ReminderID != "" {
 		s.revertReminderPayment(transaction)
-	}
-
-	// Revert linked lending data
-	if transaction.LendingID != nil && *transaction.LendingID != "" {
-		s.revertLendingTransaction(*transaction.LendingID, transaction.Type, transaction.Amount)
 	}
 
 	return nil
@@ -367,39 +365,47 @@ func (s *TransactionService) revertReminderPayment(tx *model.Transaction) {
 	}
 }
 
-// revertLendingTransaction reverts the lending's total_repaid and current_balance
-func (s *TransactionService) revertLendingTransaction(lendingID string, txType string, amount float64) {
-	lending, err := s.lendingRepo.GetByID(lendingID)
-	if err != nil || lending == nil {
-		return
+// revertLendingTransactionTx reverts lending totals when a linked transaction is deleted.
+func (s *TransactionService) revertLendingTransactionTx(txdb *gorm.DB, tx *model.Transaction) error {
+	if tx.LendingID == nil || *tx.LendingID == "" {
+		return nil
 	}
 
-	// For repayment transactions (income for lend_out, expense for borrow)
-	isRepayment := (lending.Type == "lend_out" && txType == "income") ||
-		(lending.Type == "borrow" && txType == "expense")
+	var lending model.Lending
+	if err := txdb.First(&lending, "id = ? AND user_id = ?", *tx.LendingID, tx.UserID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	isRepayment := (lending.Type == "lend_out" && tx.Type == "income") ||
+		(lending.Type == "borrow_in" && tx.Type == "expense")
 
 	if isRepayment {
-		// Revert repayment
-		lending.TotalRepaid -= amount
+		lending.TotalRepaid -= tx.Amount
 		if lending.TotalRepaid < 0 {
 			lending.TotalRepaid = 0
 		}
-		lending.CurrentBalance += amount
+		lending.CurrentBalance += tx.Amount
 
-		// Clear settled status if balance is restored
 		if lending.IsSettled && lending.CurrentBalance > 0 {
 			lending.IsSettled = false
 			lending.SettledAt = nil
 		}
+
+		if err := txdb.Where("user_id = ? AND transaction_id = ?", tx.UserID, tx.ID).
+			Delete(&model.LendingRecord{}).Error; err != nil {
+			return err
+		}
 	} else {
-		// Revert initial lending transaction
-		lending.CurrentBalance -= amount
+		lending.CurrentBalance -= tx.Amount
 		if lending.CurrentBalance < 0 {
 			lending.CurrentBalance = 0
 		}
 	}
 
-	s.lendingRepo.Update(lending)
+	return txdb.Save(&lending).Error
 }
 
 func (s *TransactionService) applyBalanceChangesTx(txdb *gorm.DB, tx *model.Transaction, logChange bool) error {
