@@ -139,3 +139,68 @@ func TestUpdateRejectsTransferWithoutTargetAccount(t *testing.T) {
 		t.Fatal("expected transfer update without target to fail")
 	}
 }
+
+func TestDeleteIncomeRecordsRollbackBalanceAfter(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+	tx, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "income",
+		Amount:          40,
+		AccountID:       accountID,
+		TransactionDate: time.Now().Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatalf("create income: %v", err)
+	}
+
+	if err := svc.Delete(tx.ID, userID); err != nil {
+		t.Fatalf("delete income: %v", err)
+	}
+
+	rollback := requireAccountLog(t, repos, tx.ID, accountID, "rollback")
+	assertFloatEqual(t, "rollback income balance before", rollback.BalanceBefore, 140)
+	assertFloatEqual(t, "rollback income balance after", rollback.BalanceAfter, 100)
+}
+
+func TestDeleteTransferRecordsDirectionalRollbackBalances(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	sourceID := createAccountForTest(t, repos, userID, 100)
+	targetID := createAccountForTest(t, repos, userID, 20)
+	tx, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "transfer",
+		Amount:          30,
+		AccountID:       sourceID,
+		ToAccountID:     &targetID,
+		TransactionDate: time.Now().Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatalf("create transfer: %v", err)
+	}
+
+	if err := svc.Delete(tx.ID, userID); err != nil {
+		t.Fatalf("delete transfer: %v", err)
+	}
+
+	sourceRollback := requireAccountLog(t, repos, tx.ID, sourceID, "rollback")
+	assertFloatEqual(t, "source rollback balance before", sourceRollback.BalanceBefore, 70)
+	assertFloatEqual(t, "source rollback balance after", sourceRollback.BalanceAfter, 100)
+
+	targetRollback := requireAccountLog(t, repos, tx.ID, targetID, "rollback")
+	assertFloatEqual(t, "target rollback balance before", targetRollback.BalanceBefore, 50)
+	assertFloatEqual(t, "target rollback balance after", targetRollback.BalanceAfter, 20)
+}
+
+func requireAccountLog(t *testing.T, repos *repository.Repositories, transactionID string, accountID string, logType string) model.AccountLog {
+	t.Helper()
+	logs, err := repos.AccountLog.GetByTransactionID(transactionID)
+	if err != nil {
+		t.Fatalf("get account logs: %v", err)
+	}
+	for _, log := range logs {
+		if log.AccountID == accountID && log.Type == logType {
+			return log
+		}
+	}
+	t.Fatalf("missing account log transaction_id=%s account_id=%s type=%s", transactionID, accountID, logType)
+	return model.AccountLog{}
+}

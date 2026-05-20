@@ -411,12 +411,12 @@ func (s *TransactionService) revertLendingTransactionTx(txdb *gorm.DB, tx *model
 func (s *TransactionService) applyBalanceChangesTx(txdb *gorm.DB, tx *model.Transaction, logChange bool) error {
 	switch tx.Type {
 	case "expense":
-		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "expense", tx.Amount, &tx.ID, nil, nil, "支出", logChange); err != nil {
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "expense", tx.Amount, -tx.Amount, &tx.ID, nil, nil, "支出", logChange); err != nil {
 			return err
 		}
 		return s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, -tx.Amount)
 	case "income":
-		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "income", tx.Amount, &tx.ID, nil, nil, "收入", logChange); err != nil {
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "income", tx.Amount, tx.Amount, &tx.ID, nil, nil, "收入", logChange); err != nil {
 			return err
 		}
 		return s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, tx.Amount)
@@ -424,13 +424,13 @@ func (s *TransactionService) applyBalanceChangesTx(txdb *gorm.DB, tx *model.Tran
 		if tx.ToAccountID == nil || *tx.ToAccountID == "" {
 			return ErrSameAccount
 		}
-		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "transfer_out", tx.Amount, &tx.ID, nil, nil, "转出", logChange); err != nil {
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "transfer_out", tx.Amount, -tx.Amount, &tx.ID, nil, nil, "转出", logChange); err != nil {
 			return err
 		}
 		if err := s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, -tx.Amount); err != nil {
 			return err
 		}
-		if err := s.logBalanceChangeTx(txdb, tx.UserID, *tx.ToAccountID, "transfer_in", tx.Amount, &tx.ID, nil, nil, "转入", logChange); err != nil {
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, *tx.ToAccountID, "transfer_in", tx.Amount, tx.Amount, &tx.ID, nil, nil, "转入", logChange); err != nil {
 			return err
 		}
 		return s.updateAccountBalanceTx(txdb, tx.UserID, *tx.ToAccountID, tx.Amount)
@@ -442,24 +442,24 @@ func (s *TransactionService) applyBalanceChangesTx(txdb *gorm.DB, tx *model.Tran
 func (s *TransactionService) revertBalanceChangesTx(txdb *gorm.DB, tx *model.Transaction, logChange bool) error {
 	switch tx.Type {
 	case "expense":
-		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回支出", logChange); err != nil {
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "rollback", tx.Amount, tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回支出", logChange); err != nil {
 			return err
 		}
 		return s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, tx.Amount)
 	case "income":
-		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回收入", logChange); err != nil {
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "rollback", tx.Amount, -tx.Amount, &tx.ID, tx.ReminderID, tx.LendingID, "撤回收入", logChange); err != nil {
 			return err
 		}
 		return s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, -tx.Amount)
 	case "transfer":
-		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "rollback", tx.Amount, &tx.ID, nil, nil, "撤回转出", logChange); err != nil {
+		if err := s.logBalanceChangeTx(txdb, tx.UserID, tx.AccountID, "rollback", tx.Amount, tx.Amount, &tx.ID, nil, nil, "撤回转出", logChange); err != nil {
 			return err
 		}
 		if err := s.updateAccountBalanceTx(txdb, tx.UserID, tx.AccountID, tx.Amount); err != nil {
 			return err
 		}
 		if tx.ToAccountID != nil && *tx.ToAccountID != "" {
-			if err := s.logBalanceChangeTx(txdb, tx.UserID, *tx.ToAccountID, "rollback", tx.Amount, &tx.ID, nil, nil, "撤回转入", logChange); err != nil {
+			if err := s.logBalanceChangeTx(txdb, tx.UserID, *tx.ToAccountID, "rollback", tx.Amount, -tx.Amount, &tx.ID, nil, nil, "撤回转入", logChange); err != nil {
 				return err
 			}
 			return s.updateAccountBalanceTx(txdb, tx.UserID, *tx.ToAccountID, -tx.Amount)
@@ -483,7 +483,7 @@ func (s *TransactionService) updateAccountBalanceTx(txdb *gorm.DB, userID uint, 
 	return nil
 }
 
-func (s *TransactionService) logBalanceChangeTx(txdb *gorm.DB, userID uint, accountID string, logType string, amount float64, transactionID *string, reminderID *string, lendingID *string, remark string, enabled bool) error {
+func (s *TransactionService) logBalanceChangeTx(txdb *gorm.DB, userID uint, accountID string, logType string, amount float64, balanceDelta float64, transactionID *string, reminderID *string, lendingID *string, remark string, enabled bool) error {
 	if !enabled || s.accountLogSvc == nil {
 		return nil
 	}
@@ -503,35 +503,7 @@ func (s *TransactionService) logBalanceChangeTx(txdb *gorm.DB, userID uint, acco
 		Type:          logType,
 		Amount:        amount,
 		BalanceBefore: balanceBefore,
-		BalanceAfter:  balanceAfterForLog(logType, balanceBefore, amount),
-		TransactionID: transactionID,
-		ReminderID:    reminderID,
-		LendingID:     lendingID,
-		Remark:        remark,
-	})
-}
-
-func balanceAfterForLog(logType string, balanceBefore float64, amount float64) float64 {
-	switch logType {
-	case "income", "transfer_in", "rollback_expense":
-		return balanceBefore + amount
-	case "expense", "transfer_out", "rollback_income":
-		return balanceBefore - amount
-	default:
-		return balanceBefore + amount
-	}
-}
-
-// logBalanceChange logs account balance changes
-func (s *TransactionService) logBalanceChange(userID uint, accountID string, logType string, amount float64, transactionID *string, reminderID *string, lendingID *string, remark string) {
-	if s.accountLogSvc == nil {
-		return
-	}
-	s.accountLogSvc.LogBalanceChange(&LogBalanceChangeRequest{
-		UserID:        userID,
-		AccountID:     accountID,
-		Type:          logType,
-		Amount:        amount,
+		BalanceAfter:  balanceBefore + balanceDelta,
 		TransactionID: transactionID,
 		ReminderID:    reminderID,
 		LendingID:     lendingID,
