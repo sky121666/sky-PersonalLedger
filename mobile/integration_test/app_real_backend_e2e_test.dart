@@ -18,7 +18,7 @@ const _useInMemoryStorage = bool.fromEnvironment(
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('connects to a real backend, initializes auth, and loads home', (
+  testWidgets('connects to a real backend and completes a ledger entry flow', (
     tester,
   ) async {
     if (_serverUrl.isEmpty) {
@@ -56,6 +56,10 @@ void main() {
     await _pumpUntilFound(tester, find.text('首页'));
     await _pumpUntilFound(tester, find.text('净资产'));
     expect(find.text('个人记账'), findsWidgets);
+
+    await _createAccount(tester);
+    await _createExpenseTransaction(tester);
+    await _verifyTransactionList(tester);
   });
 }
 
@@ -73,6 +77,97 @@ Future<void> _pumpUntilFound(
   }
 
   expect(finder, findsOneWidget);
+}
+
+Future<void> _createAccount(WidgetTester tester) async {
+  await _tapText(tester, '我的');
+  await _pumpUntilFound(tester, find.text('账户管理'));
+
+  await _tapText(tester, '账户管理');
+  await _pumpUntilFound(tester, find.text('账户'));
+
+  await _tapText(tester, '新增账户');
+  await _pumpUntilFound(tester, find.byKey(const ValueKey('account-name')));
+
+  await tester.enterText(find.byKey(const ValueKey('account-name')), 'E2E现金钱包');
+  await tester.enterText(
+    find.byKey(const ValueKey('account-initial-balance')),
+    '1234.56',
+  );
+  await _tapKey(tester, const ValueKey('account-save'));
+
+  await _pumpUntilFound(tester, find.text('E2E现金钱包'));
+  await tester.pageBack();
+  await _pumpUntilFound(tester, find.text('我的'));
+}
+
+Future<void> _createExpenseTransaction(WidgetTester tester) async {
+  await _tapText(tester, '首页');
+  await _pumpUntilFound(tester, find.text('净资产'));
+
+  await _tapText(tester, '记一笔');
+  await _pumpUntilFound(tester, find.text('金额'));
+
+  await tester.enterText(
+    find.byKey(const ValueKey('transaction-amount')),
+    '45.67',
+  );
+  await _selectDropdownItem(tester, fieldLabel: '账户', itemText: 'E2E现金钱包');
+  await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+  await tester.enterText(
+    find.byKey(const ValueKey('transaction-remark')),
+    'E2E午餐验证',
+  );
+  await _tapKey(tester, const ValueKey('transaction-save'));
+
+  await _pumpUntilFound(tester, find.text('交易已创建'));
+}
+
+Future<void> _verifyTransactionList(WidgetTester tester) async {
+  await _tapText(tester, '明细');
+  await _pumpUntilFound(tester, find.text('E2E午餐验证'));
+  await _pumpUntilFound(tester, find.text('-¥45.67'));
+  expect(find.text('餐饮'), findsWidgets);
+}
+
+Future<void> _tapText(WidgetTester tester, String text) async {
+  final finder = find.text(text);
+  await _pumpUntilFound(tester, finder);
+  await tester.ensureVisible(finder.last);
+  await tester.tap(finder.last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapKey(WidgetTester tester, Key key) async {
+  await _dismissKeyboard(tester);
+  final finder = find.byKey(key);
+  await _pumpUntilFound(tester, finder);
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectDropdownItem(
+  WidgetTester tester, {
+  required String fieldLabel,
+  required String itemText,
+}) async {
+  final dropdown = find.ancestor(
+    of: find.text(fieldLabel),
+    matching: find.byType(DropdownButtonFormField<String>),
+  );
+  await _pumpUntilFound(tester, dropdown);
+  await tester.ensureVisible(dropdown);
+  await tester.tap(dropdown);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(itemText).last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _dismissKeyboard(WidgetTester tester) async {
+  await tester.testTextInput.receiveAction(TextInputAction.done);
+  await tester.pumpAndSettle();
 }
 
 class _MemorySecureStorageService extends SecureStorageService {
