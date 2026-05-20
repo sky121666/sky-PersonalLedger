@@ -10,6 +10,7 @@ import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
 import '../../attachments/data/attachment_repository.dart';
 import '../../attachments/presentation/attachment_picker_field.dart';
+import '../../transactions/application/ledger_refresh.dart';
 import '../data/reminder_repository.dart';
 
 class ReminderPage extends ConsumerStatefulWidget {
@@ -258,6 +259,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
         return;
       }
       ref.invalidate(reminderDashboardProvider);
+      ref.invalidateLedgerMutationViews();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(successMessage)));

@@ -6,7 +6,7 @@ import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
 import '../../attachments/data/attachment_repository.dart';
 import '../../attachments/presentation/attachment_picker_field.dart';
-import '../application/transaction_list_controller.dart';
+import '../application/ledger_refresh.dart';
 import '../data/transaction_models.dart';
 import '../data/transaction_repository.dart';
 
@@ -453,7 +453,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
         originalPaths: _originalAttachmentPaths,
         retainedPaths: allAttachments.map((item) => item.path),
       );
-      ref.invalidate(transactionListControllerProvider);
+      ref.invalidateLedgerMutationViews();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

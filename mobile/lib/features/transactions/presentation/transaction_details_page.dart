@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/app_route_paths.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../application/ledger_refresh.dart';
 import '../application/transaction_list_controller.dart';
 import '../data/transaction_models.dart';
 import '../data/transaction_repository.dart';
@@ -180,6 +181,7 @@ class _TransactionDetailsPageState
       await ref
           .read(transactionListControllerProvider.notifier)
           .deleteTransaction(item.id);
+      ref.invalidateLedgerMutationViews();
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -215,6 +217,7 @@ class _TransactionDetailsPageState
       await ref
           .read(transactionListControllerProvider.notifier)
           .deleteTransactions(ids);
+      ref.invalidateLedgerMutationViews();
       if (mounted) {
         setState(_selectedIds.clear);
         ScaffoldMessenger.of(

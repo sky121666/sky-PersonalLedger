@@ -8,6 +8,7 @@ import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
 import '../../attachments/data/attachment_repository.dart';
 import '../../attachments/presentation/attachment_picker_field.dart';
+import '../../transactions/application/ledger_refresh.dart';
 import '../data/lending_repository.dart';
 
 class LendingPage extends ConsumerStatefulWidget {
@@ -298,6 +299,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
         return;
       }
       ref.invalidate(lendingDashboardProvider);
+      ref.invalidateLedgerMutationViews();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(successMessage)));

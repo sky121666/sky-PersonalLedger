@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../transactions/application/transaction_list_controller.dart';
+import '../../transactions/application/ledger_refresh.dart';
 import '../../transactions/data/transaction_models.dart';
 import '../data/template_repository.dart';
 
@@ -109,7 +109,7 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
         ApplyTemplateRequest(transactionDate: DateTime.now()),
       );
       final templates = await repository.list();
-      ref.invalidate(transactionListControllerProvider);
+      ref.invalidateLedgerMutationViews();
       if (!mounted) {
         return;
       }
