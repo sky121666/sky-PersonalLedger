@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -195,24 +196,22 @@ func (s *ReminderService) RecordPayment(id string, userID uint, req RecordPaymen
 		return nil, err
 	}
 
-	// Validate repayment doesn't exceed remaining balance
+	principalPaid, interestPaid, err := normalizeReminderPaymentSplit(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate repayment principal doesn't exceed remaining principal balance.
 	if reminder.CurrentBalance != nil && *reminder.CurrentBalance > 0 {
-		if req.Amount > *reminder.CurrentBalance {
+		if principalPaid > *reminder.CurrentBalance {
 			return nil, fmt.Errorf("还款金额不能超过待还金额 ¥%.2f", *reminder.CurrentBalance)
 		}
 	}
 
 	// Update total paid and interest paid
 	reminder.TotalPaid += req.Amount
-	if req.InterestAmount > 0 {
-		reminder.InterestPaid += req.InterestAmount
-	}
-
-	// Update current balance (reduce by principal amount)
-	principalPaid := req.PrincipalAmount
-	if principalPaid == 0 {
-		// If not specified, assume all payment goes to principal
-		principalPaid = req.Amount
+	if interestPaid > 0 {
+		reminder.InterestPaid += interestPaid
 	}
 
 	if reminder.CurrentBalance != nil {
@@ -235,8 +234,8 @@ func (s *ReminderService) RecordPayment(id string, userID uint, req RecordPaymen
 	if reminder.AccountID != nil && *reminder.AccountID != "" {
 		account, err := s.accountRepo.GetByID(*reminder.AccountID)
 		if err == nil && account != nil {
-			account.CurrentBalance -= req.Amount
-			account.TotalPaid += req.Amount
+			account.CurrentBalance -= principalPaid
+			account.TotalPaid += principalPaid
 			if account.CurrentBalance < 0 {
 				account.CurrentBalance = 0
 			}
@@ -249,12 +248,37 @@ func (s *ReminderService) RecordPayment(id string, userID uint, req RecordPaymen
 	}
 
 	// Create transaction record for this payment
-	s.createPaymentTransaction(userID, reminder, req)
+	s.createPaymentTransaction(userID, reminder, req, principalPaid, interestPaid)
 
 	return s.repo.GetByID(id)
 }
 
-func (s *ReminderService) createPaymentTransaction(userID uint, reminder *model.Reminder, req RecordPaymentRequest) {
+func normalizeReminderPaymentSplit(req RecordPaymentRequest) (float64, float64, error) {
+	if req.Amount <= 0 {
+		return 0, 0, fmt.Errorf("还款金额必须大于 0")
+	}
+	if req.PrincipalAmount < 0 || req.InterestAmount < 0 {
+		return 0, 0, fmt.Errorf("本金和利息不能为负数")
+	}
+	if req.PrincipalAmount == 0 && req.InterestAmount == 0 {
+		return req.Amount, 0, nil
+	}
+
+	principalPaid := req.PrincipalAmount
+	interestPaid := req.InterestAmount
+	if principalPaid == 0 {
+		principalPaid = req.Amount - interestPaid
+	}
+	if interestPaid == 0 {
+		interestPaid = req.Amount - principalPaid
+	}
+	if principalPaid < 0 || interestPaid < 0 || math.Abs(principalPaid+interestPaid-req.Amount) > 0.01 {
+		return 0, 0, fmt.Errorf("本金+利息必须等于还款金额")
+	}
+	return principalPaid, interestPaid, nil
+}
+
+func (s *ReminderService) createPaymentTransaction(userID uint, reminder *model.Reminder, req RecordPaymentRequest, principalPaid float64, interestPaid float64) {
 	// Must have source account to create transaction
 	if req.AccountID == nil || *req.AccountID == "" {
 		return
@@ -305,6 +329,8 @@ func (s *ReminderService) createPaymentTransaction(userID uint, reminder *model.
 		UserID:          userID,
 		Type:            "expense",
 		Amount:          req.Amount,
+		PrincipalAmount: principalPaid,
+		InterestAmount:  interestPaid,
 		AccountID:       sourceAccountID,
 		CategoryID:      &repaymentCategoryID,
 		TransactionDate: now,

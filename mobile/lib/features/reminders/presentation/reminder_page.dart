@@ -1301,7 +1301,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                             labelText: '利息',
                             border: OutlineInputBorder(),
                           ),
-                          validator: _validateOptionalAmount,
+                          validator: _validateInterestAmount,
                         ),
                       ),
                     ],
@@ -1338,6 +1338,31 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     final amount = double.tryParse(text);
     if (amount == null || amount < 0) {
       return '请输入有效金额';
+    }
+    return null;
+  }
+
+  String? _validateInterestAmount(String? value) {
+    final valueError = _validateOptionalAmount(value);
+    if (valueError != null) {
+      return valueError;
+    }
+    final amount = double.tryParse(_amountController.text.trim());
+    if (amount == null || amount <= 0) {
+      return null;
+    }
+    final principal = _parseOptionalAmount(_principalController.text);
+    final interest = _parseOptionalAmount(value ?? '');
+    if (principal == null && interest == null) {
+      return null;
+    }
+
+    final normalizedPrincipal = principal ?? amount - (interest ?? 0);
+    final normalizedInterest = interest ?? amount - (principal ?? 0);
+    if (normalizedPrincipal < 0 ||
+        normalizedInterest < 0 ||
+        (normalizedPrincipal + normalizedInterest - amount).abs() > 0.01) {
+      return '本金+利息必须等于还款金额';
     }
     return null;
   }

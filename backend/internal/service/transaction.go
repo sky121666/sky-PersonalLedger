@@ -298,7 +298,7 @@ func (s *TransactionService) Delete(id string, userID uint) error {
 
 	// Revert linked reminder data
 	if transaction.ReminderID != nil && *transaction.ReminderID != "" {
-		s.revertReminderPayment(*transaction.ReminderID, transaction.Amount)
+		s.revertReminderPayment(transaction)
 	}
 
 	// Revert linked lending data
@@ -309,11 +309,23 @@ func (s *TransactionService) Delete(id string, userID uint) error {
 	return nil
 }
 
-// revertReminderPayment reverts the reminder's total_paid and current_balance
-func (s *TransactionService) revertReminderPayment(reminderID string, amount float64) {
-	reminder, err := s.reminderRepo.GetByID(reminderID)
+// revertReminderPayment reverts the reminder's paid totals and principal balance.
+func (s *TransactionService) revertReminderPayment(tx *model.Transaction) {
+	if tx.ReminderID == nil || *tx.ReminderID == "" {
+		return
+	}
+	reminder, err := s.reminderRepo.GetByID(*tx.ReminderID)
 	if err != nil || reminder == nil {
 		return
+	}
+	amount := tx.Amount
+	principalAmount := tx.PrincipalAmount
+	if principalAmount == 0 {
+		principalAmount = amount
+	}
+	interestAmount := tx.InterestAmount
+	if interestAmount == 0 && amount > principalAmount {
+		interestAmount = amount - principalAmount
 	}
 
 	// Revert total_paid
@@ -321,10 +333,14 @@ func (s *TransactionService) revertReminderPayment(reminderID string, amount flo
 	if reminder.TotalPaid < 0 {
 		reminder.TotalPaid = 0
 	}
+	reminder.InterestPaid -= interestAmount
+	if reminder.InterestPaid < 0 {
+		reminder.InterestPaid = 0
+	}
 
 	// Revert current_balance (add back the principal paid)
 	if reminder.CurrentBalance != nil {
-		newBalance := *reminder.CurrentBalance + amount
+		newBalance := *reminder.CurrentBalance + principalAmount
 		reminder.CurrentBalance = &newBalance
 	}
 
@@ -338,8 +354,8 @@ func (s *TransactionService) revertReminderPayment(reminderID string, amount flo
 	// Also revert linked account if exists
 	if reminder.AccountID != nil && *reminder.AccountID != "" {
 		if account, err := s.accountRepo.GetByID(*reminder.AccountID); err == nil && account != nil {
-			account.CurrentBalance += amount
-			account.TotalPaid -= amount
+			account.CurrentBalance += principalAmount
+			account.TotalPaid -= principalAmount
 			if account.TotalPaid < 0 {
 				account.TotalPaid = 0
 			}

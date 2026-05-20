@@ -52,6 +52,23 @@ void main() {
       expect(repository.paymentCalls.single.accountId, 'cash-1');
     });
 
+    testWidgets('记录还款时校验本金利息拆分不能超过总额', (tester) async {
+      final repository = _FakeReminderRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('记录还款'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), '1000');
+      await tester.enterText(find.byType(TextFormField).at(1), '1200');
+      await tester.tap(find.widgetWithText(FilledButton, '确认还款'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('本金+利息必须等于还款金额'), findsOneWidget);
+      expect(repository.paymentCalls, isEmpty);
+    });
+
     testWidgets('新增提醒时提交核心表单字段', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);

@@ -68,6 +68,8 @@ type Transaction struct {
 	CategoryID      *string   `gorm:"size:36;index" json:"category_id"`
 	Type            string    `gorm:"size:20;not null" json:"type"` // income / expense / transfer
 	Amount          float64   `gorm:"type:decimal(15,2);not null" json:"amount"`
+	PrincipalAmount float64   `gorm:"type:decimal(15,2);default:0" json:"principal_amount,omitempty"`
+	InterestAmount  float64   `gorm:"type:decimal(15,2);default:0" json:"interest_amount,omitempty"`
 	TransactionDate time.Time `gorm:"not null;index" json:"transaction_date"`
 	Remark          string    `gorm:"type:text" json:"remark"`
 	Images          string    `gorm:"type:text" json:"images"` // JSON array

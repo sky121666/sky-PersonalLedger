@@ -118,7 +118,7 @@ Future<void> _createAccount(WidgetTester tester) async {
   await _tapKey(tester, const ValueKey('account-save'));
 
   await _pumpUntilFound(tester, find.text('E2E现金钱包'));
-  await _goBack(tester);
+  await _goBack(tester, untilText: '我的');
   await _pumpUntilFound(tester, find.text('我的'));
 }
 
@@ -169,7 +169,7 @@ Future<void> _editExpenseTransaction(WidgetTester tester) async {
   );
   await _tapKey(tester, const ValueKey('transaction-save'));
 
-  await _pumpUntilFound(tester, find.text('交易已更新'));
+  await _pumpUntilFound(tester, find.text('明细'));
   await _pumpUntilFound(tester, find.text('E2E午餐验证-更新'));
   await _pumpUntilFound(tester, find.text('-¥50.00'));
 }
@@ -206,7 +206,7 @@ Future<void> _verifyAccountBalance(
   await _pumpUntilFound(tester, find.text('E2E现金钱包'));
   await _pumpUntilFound(tester, find.text(expectedBalance));
 
-  await _goBack(tester);
+  await _goBack(tester, untilText: '我的');
   await _pumpUntilFound(tester, find.text('我的'));
 }
 
@@ -243,13 +243,34 @@ Future<void> _tapKey(WidgetTester tester, Key key) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _goBack(WidgetTester tester) async {
-  final popped = await tester.binding.handlePopRoute();
-  await tester.pumpAndSettle();
-  if (!popped) {
+Future<void> _goBack(WidgetTester tester, {String? untilText}) async {
+  for (var attempt = 0; attempt < 3; attempt += 1) {
+    if (_isTextVisible(untilText)) {
+      return;
+    }
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    if (_isTextVisible(untilText)) {
+      return;
+    }
+
+    final backButton = find.byTooltip('Back');
+    if (backButton.evaluate().isNotEmpty) {
+      await tester.tap(backButton.last, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      if (_isTextVisible(untilText)) {
+        return;
+      }
+    }
+
     await tester.pageBack();
     await tester.pumpAndSettle();
   }
+}
+
+bool _isTextVisible(String? text) {
+  return text == null || find.text(text).evaluate().isNotEmpty;
 }
 
 Finder _verticalScrollables() {

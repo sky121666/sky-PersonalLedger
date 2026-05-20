@@ -125,7 +125,11 @@ func (h *ReminderHandler) RecordPayment(c *gin.Context) {
 
 	reminder, err := h.service.RecordPayment(id, userID, req)
 	if err != nil {
-		response.NotFound(c, "reminder not found")
+		if err == service.ErrReminderNotFound {
+			response.NotFound(c, "reminder not found")
+			return
+		}
+		response.BadRequest(c, err.Error())
 		return
 	}
 
