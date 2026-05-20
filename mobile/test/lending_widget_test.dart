@@ -171,6 +171,9 @@ void main() {
 
       await tester.tap(find.byTooltip('删除借贷记录').first);
       await tester.pumpAndSettle();
+
+      expect(find.textContaining('账本交易会保留'), findsOneWidget);
+
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 

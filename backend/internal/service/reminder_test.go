@@ -91,6 +91,67 @@ func TestReminderPaymentUsesPrincipalForDebtBalanceAndRollback(t *testing.T) {
 	assertFloatEqual(t, "rolled back payment account balance", rolledBackPaymentAccount.CurrentBalance, 1000)
 }
 
+func TestDeleteReminderDetachesPaymentTransactions(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	accountLogSvc := NewAccountLogService(repos.AccountLog, repos.Account)
+	reminderSvc := NewReminderService(
+		repos.Reminder,
+		repos.Account,
+		repos.Transaction,
+		repos.Category,
+		accountLogSvc,
+	)
+	debtAccountID := createAccountForTest(t, repos, userID, 500)
+	paymentAccountID := createAccountForTest(t, repos, userID, 1000)
+	principal := 500.0
+	currentBalance := 500.0
+
+	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
+		Name:           "房贷",
+		AccountID:      &debtAccountID,
+		PaymentDay:     20,
+		Principal:      &principal,
+		CurrentBalance: &currentBalance,
+	})
+	if err != nil {
+		t.Fatalf("create reminder: %v", err)
+	}
+
+	if _, err := reminderSvc.RecordPayment(reminder.ID, userID, RecordPaymentRequest{
+		Amount:          120,
+		PrincipalAmount: 100,
+		InterestAmount:  20,
+		AccountID:       &paymentAccountID,
+	}); err != nil {
+		t.Fatalf("record payment: %v", err)
+	}
+	txID := findReminderTransactionID(t, repos, userID, reminder.ID)
+
+	if err := reminderSvc.Delete(reminder.ID, userID); err != nil {
+		t.Fatalf("delete reminder: %v", err)
+	}
+
+	tx, err := repos.Transaction.GetByID(txID)
+	if err != nil {
+		t.Fatalf("get reminder payment transaction after reminder delete: %v", err)
+	}
+	if tx.ReminderID != nil {
+		t.Fatalf("transaction reminder_id = %q, want nil", *tx.ReminderID)
+	}
+
+	paymentAccount, err := repos.Account.GetByID(paymentAccountID)
+	if err != nil {
+		t.Fatalf("get payment account: %v", err)
+	}
+	assertFloatEqual(t, "payment account balance", paymentAccount.CurrentBalance, 880)
+
+	debtAccount, err := repos.Account.GetByID(debtAccountID)
+	if err != nil {
+		t.Fatalf("get debt account: %v", err)
+	}
+	assertFloatEqual(t, "debt account balance", debtAccount.CurrentBalance, 400)
+}
+
 func findReminderTransactionID(t *testing.T, repos *repository.Repositories, userID uint, reminderID string) string {
 	t.Helper()
 	transactions, total, err := repos.Transaction.List(repository.TransactionFilter{

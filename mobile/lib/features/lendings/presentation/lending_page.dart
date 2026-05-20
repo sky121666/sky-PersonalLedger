@@ -268,7 +268,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除借贷记录',
-      message: '删除后该笔借贷和还款记录将无法恢复。',
+      message: '删除后该笔借贷和还款记录将无法恢复，已生成的账本交易会保留。',
       confirmText: '删除',
       isDanger: true,
     );

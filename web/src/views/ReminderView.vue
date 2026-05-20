@@ -753,7 +753,7 @@ function selectAccount(accountId: string | undefined) {
             <Trash2 :size="24" />
           </div>
           <h3 class="text-lg font-bold text-center mb-2 dark:text-white">确认删除</h3>
-          <p class="text-gray-500 dark:text-gray-400 text-center text-sm mb-6">删除后相关还款记录也将被清除。</p>
+          <p class="text-gray-500 dark:text-gray-400 text-center text-sm mb-6">删除后相关还款记录将从提醒中移除，已生成的账本交易会保留。</p>
           <div class="flex gap-3">
             <button
               class="flex-1 py-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"

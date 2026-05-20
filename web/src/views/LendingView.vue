@@ -666,7 +666,7 @@ async function deleteItem() {
             <Trash2 :size="24" />
           </div>
           <h3 class="text-lg font-bold text-center mb-2 text-gray-900 dark:text-white">确认删除</h3>
-          <p class="text-gray-500 text-center text-sm mb-6">删除后无法恢复，确定要删除吗？</p>
+          <p class="text-gray-500 text-center text-sm mb-6">删除后借贷和还款记录无法恢复，已生成的账本交易会保留。</p>
           <div class="flex gap-3">
             <button
               class="flex-1 py-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"

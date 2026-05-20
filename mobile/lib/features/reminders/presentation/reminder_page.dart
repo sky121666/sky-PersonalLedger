@@ -166,7 +166,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除负债提醒',
-      message: '删除后相关还款记录也将从提醒中移除。',
+      message: '删除后相关还款记录将从提醒中移除，已生成的账本交易会保留。',
       confirmText: '删除',
       isDanger: true,
     );

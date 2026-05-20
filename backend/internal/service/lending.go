@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
+	"gorm.io/gorm"
 )
 
 var (
@@ -237,7 +238,31 @@ func (s *LendingService) Delete(id string, userID uint) error {
 	if err != nil {
 		return err
 	}
-	return s.repo.Delete(lending.ID)
+
+	return s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		if err := txdb.Model(&model.Transaction{}).
+			Where("user_id = ? AND lending_id = ?", userID, lending.ID).
+			Update("lending_id", nil).Error; err != nil {
+			return err
+		}
+		if err := txdb.Model(&model.AccountLog{}).
+			Where("user_id = ? AND lending_id = ?", userID, lending.ID).
+			Update("lending_id", nil).Error; err != nil {
+			return err
+		}
+		if err := txdb.Where("user_id = ? AND lending_id = ?", userID, lending.ID).
+			Delete(&model.LendingRecord{}).Error; err != nil {
+			return err
+		}
+		result := txdb.Where("id = ? AND user_id = ?", lending.ID, userID).Delete(&model.Lending{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrLendingNotFound
+		}
+		return nil
+	})
 }
 
 type RecordRepaymentRequest struct {

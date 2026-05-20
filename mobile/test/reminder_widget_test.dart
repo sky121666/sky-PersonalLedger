@@ -200,6 +200,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
+
+      expect(find.textContaining('账本交易会保留'), findsOneWidget);
+
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 
