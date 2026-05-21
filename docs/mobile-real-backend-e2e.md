@@ -44,7 +44,7 @@ The script selects `iPhone 17` when available, otherwise the first available iPh
 
 `.github/workflows/mobile-e2e.yml` runs the real-backend `flutter-tester` path on GitHub push and pull request events that touch backend, mobile, or the E2E script. The workflow is guarded with `github.server_url == 'https://github.com'` so Forgejo does not execute GitHub-specific jobs.
 
-The same workflow has manual `workflow_dispatch` targets for Android emulator and iOS simulator checks. They are intentionally opt-in because platform runners are slower and more sensitive to SDK/runtime availability.
+`.github/workflows/mobile-platform-e2e.yml` has manual `workflow_dispatch` targets for Android emulator and iOS simulator checks. They are intentionally opt-in because platform runners are slower and more sensitive to SDK/runtime availability.
 
 ## Notes
 
