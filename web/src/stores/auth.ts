@@ -13,6 +13,9 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const status = await authApi.getStatus()
       initialized.value = status.initialized
+      if (!status.initialized) {
+        logout()
+      }
     } catch {
       initialized.value = false
     }
@@ -22,6 +25,7 @@ export const useAuthStore = defineStore('auth', () => {
     const result = await authApi.login(password)
     accessToken.value = result.access_token
     refreshToken.value = result.refresh_token
+    initialized.value = true
     return result
   }
 
@@ -29,6 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
     const result = await authApi.init(password)
     accessToken.value = result.access_token
     refreshToken.value = result.refresh_token
+    initialized.value = true
     return result
   }
 

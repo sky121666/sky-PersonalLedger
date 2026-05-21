@@ -656,7 +656,7 @@ function formatFileSize(bytes: number) {
                   </div>
                   <div class="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded text-[10px] font-medium border border-blue-100 dark:border-blue-900/30">
                     <Database :size="10" />
-                    <span>服务端SQLite</span>
+                    <span>服务端数据库</span>
                   </div>
                </div>
             </div>

@@ -11,6 +11,12 @@ const router = createRouter({
       meta: { requiresAuth: false }
     },
     {
+      path: '/setup',
+      name: 'setup',
+      component: () => import('@/views/SetupView.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
       path: '/',
       component: () => import('@/views/LayoutView.vue'),
       meta: { requiresAuth: true },
@@ -80,16 +86,30 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
-  
-  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
-    next('/login')
-  } else if (to.path === '/login' && authStore.isLoggedIn) {
-    next('/')
-  } else {
-    next()
+
+  if (authStore.initialized === null) {
+    await authStore.checkAuth()
   }
+
+  if (authStore.initialized === false) {
+    authStore.logout()
+    return to.path === '/setup' ? true : '/setup'
+  }
+
+  if (to.path === '/setup') {
+    return authStore.isLoggedIn ? '/' : '/login'
+  }
+
+  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
+    return '/login'
+  }
+  if (to.path === '/login' && authStore.isLoggedIn) {
+    return '/'
+  }
+
+  return true
 })
 
 export default router
