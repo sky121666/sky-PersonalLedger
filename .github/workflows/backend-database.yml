@@ -1,0 +1,67 @@
+name: Backend Database Matrix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'scripts/verify-database-matrix.sh'
+      - '.github/workflows/backend-database.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'scripts/verify-database-matrix.sh'
+      - '.github/workflows/backend-database.yml'
+
+jobs:
+  database-matrix:
+    name: SQLite PostgreSQL MySQL
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ledger
+          POSTGRES_PASSWORD: ledger
+          POSTGRES_DB: ledger_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ledger -d ledger_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root-ledger
+          MYSQL_DATABASE: ledger_test
+          MYSQL_USER: ledger
+          MYSQL_PASSWORD: ledger
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot-ledger --silent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Verify database matrix
+        env:
+          RUN_LOCAL_DATABASE_CONTAINERS: "0"
+          LEDGER_TEST_POSTGRES_DSN: "postgres://ledger:ledger@127.0.0.1:5432/ledger_test?sslmode=disable&TimeZone=UTC"
+          LEDGER_TEST_MYSQL_DSN: "ledger:ledger@tcp(127.0.0.1:3306)/ledger_test?charset=utf8mb4&parseTime=True&loc=UTC"
+        run: ./scripts/verify-database-matrix.sh

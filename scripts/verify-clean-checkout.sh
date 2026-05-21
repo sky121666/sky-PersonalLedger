@@ -33,6 +33,13 @@ fi
   go vet ./...
 )
 
+if [[ "${RUN_DATABASE_MATRIX:-0}" == "1" ]]; then
+  (
+    cd "$worktree"
+    ./scripts/verify-database-matrix.sh
+  )
+fi
+
 (
   cd "$worktree/web"
   pnpm install --frozen-lockfile

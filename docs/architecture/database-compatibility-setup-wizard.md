@@ -95,7 +95,7 @@ For Docker installs, `LEDGER_SETUP_CONFIG_PATH` should point at a mounted path s
 
 ## Migration Strategy
 
-Phase 1 can keep GORM `AutoMigrate`, but the database layer should choose the dialect by `database.driver`.
+Phase 1 keeps GORM `AutoMigrate`, but the database layer now records a schema version in `schema_migrations` and refuses to open a database whose recorded version is newer than the running application. This does not replace real migration files, but it prevents old binaries from silently mutating a newer schema.
 
 Phase 2 should introduce versioned migrations before production PostgreSQL/MySQL support is marked stable. This avoids hidden schema drift between database engines.
 
@@ -106,6 +106,27 @@ Phase 2 should introduce versioned migrations before production PostgreSQL/MySQL
 - MySQL/MariaDB has been verified against schema migration, first init, default data creation, transaction creation, list readback, overview, trend statistics, and backup settings on a local MySQL instance.
 - Backup and restore must stay database-agnostic at the application data level.
 
+## Verification
+
+Local database matrix verification:
+
+```bash
+./scripts/verify-database-matrix.sh
+```
+
+By default the script starts temporary PostgreSQL and MySQL containers with Docker. CI can pass DSNs directly and skip local container creation:
+
+```bash
+RUN_LOCAL_DATABASE_CONTAINERS=0 \
+LEDGER_TEST_POSTGRES_DSN='postgres://ledger:ledger@127.0.0.1:5432/ledger_test?sslmode=disable&TimeZone=UTC' \
+LEDGER_TEST_MYSQL_DSN='ledger:ledger@tcp(127.0.0.1:3306)/ledger_test?charset=utf8mb4&parseTime=True&loc=UTC' \
+./scripts/verify-database-matrix.sh
+```
+
+`scripts/verify-clean-checkout.sh` keeps the database matrix optional behind `RUN_DATABASE_MATRIX=1` so normal local clean checks do not require Docker.
+
+GitHub runs `.github/workflows/backend-database.yml` for backend/database changes. The workflow is guarded with `github.server_url == 'https://github.com'` so Forgejo does not attempt to execute GitHub Actions services.
+
 ## Implementation Batches
 
 1. Done: add database driver config and dialect selection, keep SQLite default.
@@ -114,4 +135,4 @@ Phase 2 should introduce versioned migrations before production PostgreSQL/MySQL
 4. Done: add config persistence for local installs and Docker guidance for env-based installs.
 5. Done: add user-friendly structured database form before login while preserving advanced DSN mode.
 6. Keep `/api/v1/auth/init` for the first access password until a true no-database bootstrap mode is introduced.
-7. Add migration/version checks and database-specific CI or local verification scripts.
+7. Done: add schema version guard plus PostgreSQL/MySQL database matrix verification script and GitHub workflow.
