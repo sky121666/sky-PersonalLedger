@@ -37,6 +37,16 @@ services:
       # ========== 存储配置 ==========
       - LEDGER_STORAGE_MAX_FILE_SIZE=10   # 最大上传文件(MB)
       # - LEDGER_STORAGE_ALLOWED_TYPES=jpg,jpeg,png,gif,webp,pdf
+
+      # ========== 数据库配置 ==========
+      # 默认使用 SQLite 单文件数据库。可改为 postgres / mysql / mariadb 并配置 DSN。
+      - LEDGER_DATABASE_DRIVER=sqlite
+      - LEDGER_DATABASE_PATH=/data/ledger.db
+      - LEDGER_SETUP_CONFIG_PATH=/data/config.yaml
+      # - LEDGER_DATABASE_DRIVER=postgres
+      # - LEDGER_DATABASE_DSN=postgres://ledger:password@db:5432/ledger?sslmode=disable&TimeZone=Asia/Shanghai
+      # - LEDGER_DATABASE_MAX_OPEN_CONNS=10
+      # - LEDGER_DATABASE_MAX_IDLE_CONNS=5
       
       # ========== 日志配置 ==========
       - LEDGER_LOG_LEVEL=info             # debug/info/warn/error

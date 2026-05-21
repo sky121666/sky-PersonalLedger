@@ -48,7 +48,12 @@ ENV LEDGER_SERVER_PORT=8080 \
     LEDGER_SERVER_MODE=release \
     LEDGER_SERVER_WEB_PATH=/app/web/dist \
     # 数据库配置
+    LEDGER_DATABASE_DRIVER=sqlite \
     LEDGER_DATABASE_PATH=/data/ledger.db \
+    LEDGER_DATABASE_DSN="" \
+    LEDGER_DATABASE_MAX_OPEN_CONNS=0 \
+    LEDGER_DATABASE_MAX_IDLE_CONNS=0 \
+    LEDGER_SETUP_CONFIG_PATH=/data/config.yaml \
     # JWT 配置
     LEDGER_JWT_SECRET=change-this-secret \
     LEDGER_JWT_ACCESS_EXPIRE=15 \

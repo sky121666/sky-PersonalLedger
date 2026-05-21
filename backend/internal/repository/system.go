@@ -3,6 +3,7 @@ package repository
 import (
 	"github.com/sky/personal-ledger/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type SystemRepository struct {
@@ -15,7 +16,7 @@ func NewSystemRepository(db *gorm.DB) *SystemRepository {
 
 func (r *SystemRepository) Get(key string) (string, error) {
 	var setting model.SystemSetting
-	err := r.db.Where("key = ?", key).First(&setting).Error
+	err := r.db.Where(systemSettingKeyEquals(key)).First(&setting).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return "", nil
@@ -27,7 +28,7 @@ func (r *SystemRepository) Get(key string) (string, error) {
 
 func (r *SystemRepository) Set(key, value string) error {
 	var setting model.SystemSetting
-	err := r.db.Where("key = ?", key).First(&setting).Error
+	err := r.db.Where(systemSettingKeyEquals(key)).First(&setting).Error
 	if err == gorm.ErrRecordNotFound {
 		setting = model.SystemSetting{
 			Key:   key,
@@ -43,5 +44,12 @@ func (r *SystemRepository) Set(key, value string) error {
 }
 
 func (r *SystemRepository) Delete(key string) error {
-	return r.db.Where("key = ?", key).Delete(&model.SystemSetting{}).Error
+	return r.db.Where(systemSettingKeyEquals(key)).Delete(&model.SystemSetting{}).Error
+}
+
+func systemSettingKeyEquals(key string) clause.Expression {
+	return clause.Eq{
+		Column: clause.Column{Name: "key"},
+		Value:  key,
+	}
 }

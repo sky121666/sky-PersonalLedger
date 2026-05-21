@@ -38,7 +38,7 @@
 - 🔐 **安全私密** - 数据存储在你自己的服务器，完全掌控
 - 📱 **多端支持** - Web 网页版 + Android/macOS/Windows 客户端
 - 🐳 **一键部署** - Docker/1Panel 快速部署，开箱即用
-- 💾 **轻量存储** - SQLite 单文件数据库，易于备份迁移
+- 💾 **灵活存储** - 默认 SQLite 单文件，也可配置 PostgreSQL/MySQL/MariaDB
 - 🚀 **高性能** - Go 后端 + Vue3 前端，响应迅速
 - 🛡️ **安全防护** - JWT 认证 + 限流保护 + 自定义入口
 
@@ -138,6 +138,35 @@ GitHub Actions 需要配置：
 | LEDGER_SECURITY_BASE_PATH | 自定义入口路径 (如 `/my-ledger`) | 空 | 🔒 安全推荐 |
 | LEDGER_SECURITY_API_TOKEN | API Token (移动端验证) | 空 | 📱 移动端必需 |
 
+### 数据库配置
+
+默认使用 SQLite，适合单人私有部署和低维护场景。长期服务器部署或多设备高频访问时，可以改用 PostgreSQL；MySQL/MariaDB 也可通过 GORM driver 连接。
+
+未初始化时 Web 会先进入 `/setup`，不会直接显示登录页。初始化页会显示当前数据库类型并支持连接测试；SQLite 可直接使用默认路径，PostgreSQL/MySQL 可填写主机、端口、库名、用户名和密码，系统会生成连接串并保存到本地配置。数据库切换应在设置访问密码前完成，保存新配置后重启服务，再回到 `/setup` 继续设置访问密码。高级用户仍可使用 DSN 模式。
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| LEDGER_DATABASE_DRIVER | 数据库类型：`sqlite` / `postgres` / `postgresql` / `mysql` / `mariadb` | sqlite |
+| LEDGER_DATABASE_PATH | SQLite 数据库文件路径 | ./data/ledger.db |
+| LEDGER_DATABASE_DSN | PostgreSQL/MySQL/MariaDB 连接串 | 空 |
+| LEDGER_DATABASE_MAX_OPEN_CONNS | 最大打开连接数，0 表示驱动默认 | 0 |
+| LEDGER_DATABASE_MAX_IDLE_CONNS | 最大空闲连接数，0 表示驱动默认 | 0 |
+| LEDGER_SETUP_CONFIG_PATH | 初始化向导保存数据库配置的 YAML 路径，Docker 建议 `/data/config.yaml` | ./data/config.yaml |
+
+PostgreSQL 示例：
+
+```bash
+LEDGER_DATABASE_DRIVER=postgres
+LEDGER_DATABASE_DSN='postgres://ledger:password@db:5432/ledger?sslmode=disable&TimeZone=Asia/Shanghai'
+```
+
+MySQL/MariaDB 示例：
+
+```bash
+LEDGER_DATABASE_DRIVER=mysql
+LEDGER_DATABASE_DSN='ledger:password@tcp(db:3306)/ledger?charset=utf8mb4&parseTime=True&loc=Local'
+```
+
 ### 功能配置
 
 | 变量 | 说明 | 默认值 |
@@ -182,6 +211,14 @@ services:
       
       # ========== 存储配置 ==========
       - LEDGER_STORAGE_MAX_FILE_SIZE=10  # 最大上传文件 10MB
+
+      # ========== 数据库配置 ==========
+      - LEDGER_DATABASE_DRIVER=sqlite
+      - LEDGER_DATABASE_PATH=/data/ledger.db
+      - LEDGER_SETUP_CONFIG_PATH=/data/config.yaml
+      # PostgreSQL 示例:
+      # - LEDGER_DATABASE_DRIVER=postgres
+      # - LEDGER_DATABASE_DSN=postgres://ledger:password@db:5432/ledger?sslmode=disable&TimeZone=Asia/Shanghai
       
       # ========== 限流配置 ==========
       # 开发模式禁用限流，生产环境可改为 release 并设置限流参数
@@ -194,7 +231,7 @@ services:
       - TZ=Asia/Shanghai                # 时区设置
 
 # 数据持久化目录说明:
-# ./data/ledger.db    - SQLite 数据库文件
+# ./data/ledger.db    - SQLite 数据库文件（默认）
 # ./data/uploads/     - 用户上传的文件
 # ./data/backups/     - 自动备份文件
 ```
@@ -225,14 +262,14 @@ cp -r ./data ./data-backup-$(date +%Y%m%d)
 
 ```
 ./data/
-├── ledger.db      # SQLite 数据库文件
+├── ledger.db      # SQLite 数据库文件（默认）
 ├── uploads/       # 用户上传的文件
 └── backups/       # 系统自动备份
 ```
 
 ## 🛠️ 技术栈
 
-- **后端**: Go + Gin + GORM + SQLite
+- **后端**: Go + Gin + GORM + SQLite/PostgreSQL/MySQL
 - **前端**: Vue 3 + TypeScript + Tailwind CSS  
 - **客户端**: Flutter 原生客户端
 - **部署**: Docker + GitHub Actions

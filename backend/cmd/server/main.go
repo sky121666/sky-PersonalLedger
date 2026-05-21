@@ -44,7 +44,7 @@ func main() {
 	logger.Init(cfg.Log.Level, cfg.Log.Format)
 
 	// Initialize database
-	db, err := database.Init(cfg.Database.Path)
+	db, err := database.InitWithConfig(cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -83,7 +83,7 @@ func main() {
 	}
 
 	// Initialize handlers
-	handlers := handler.NewHandlers(services, backupScheduler, rateLimiter)
+	handlers := handler.NewHandlers(services, backupScheduler, rateLimiter, cfg)
 
 	// Setup Gin
 	if cfg.Server.Mode == "release" {

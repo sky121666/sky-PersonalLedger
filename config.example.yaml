@@ -11,8 +11,22 @@ server:
   # 环境变量: LEDGER_SERVER_PORT, LEDGER_SERVER_MODE, LEDGER_SERVER_WEB_PATH
 
 database:
+  driver: "sqlite"             # sqlite / postgres / mysql / mariadb
   path: "./data/ledger.db"
-  # 环境变量: LEDGER_DATABASE_PATH
+  # PostgreSQL 示例:
+  # dsn: "postgres://ledger:password@db:5432/ledger?sslmode=disable&TimeZone=Asia/Shanghai"
+  # MySQL/MariaDB 示例:
+  # dsn: "ledger:password@tcp(db:3306)/ledger?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: ""
+  max_open_conns: 0            # 0 表示使用驱动默认值
+  max_idle_conns: 0            # 0 表示使用驱动默认值
+  # 环境变量: LEDGER_DATABASE_DRIVER, LEDGER_DATABASE_PATH, LEDGER_DATABASE_DSN
+  #          LEDGER_DATABASE_MAX_OPEN_CONNS, LEDGER_DATABASE_MAX_IDLE_CONNS
+
+setup:
+  # 首次安装向导写入数据库配置的位置。Docker 部署建议设为 /data/config.yaml。
+  config_path: "./data/config.yaml"
+  # 环境变量: LEDGER_SETUP_CONFIG_PATH
 
 jwt:
   secret: "your-jwt-secret-change-this-in-production"

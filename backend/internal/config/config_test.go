@@ -1,0 +1,116 @@
+package config
+
+import (
+	"os"
+	"testing"
+
+	"github.com/spf13/viper"
+)
+
+func resetViperForTest(t *testing.T) {
+	t.Helper()
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+}
+
+func chdirForTest(t *testing.T, dir string) {
+	t.Helper()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get cwd: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	})
+}
+
+func TestLoadDatabaseCompatibilityDefaults(t *testing.T) {
+	resetViperForTest(t)
+	chdirForTest(t, t.TempDir())
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Database.Driver != "sqlite" {
+		t.Fatalf("database driver = %q, want sqlite", cfg.Database.Driver)
+	}
+	if cfg.Database.Path != "./data/ledger.db" {
+		t.Fatalf("database path = %q, want ./data/ledger.db", cfg.Database.Path)
+	}
+	if cfg.Database.DSN != "" {
+		t.Fatalf("database dsn = %q, want empty", cfg.Database.DSN)
+	}
+	if cfg.Setup.ConfigPath != "./data/config.yaml" {
+		t.Fatalf("setup config path = %q, want ./data/config.yaml", cfg.Setup.ConfigPath)
+	}
+	if cfg.RateLimit.MaxRequests != 1000 {
+		t.Fatalf("rate limit max requests = %d, want 1000", cfg.RateLimit.MaxRequests)
+	}
+	if cfg.RateLimit.WindowSecs != 60 {
+		t.Fatalf("rate limit window secs = %d, want 60", cfg.RateLimit.WindowSecs)
+	}
+}
+
+func TestLoadDatabaseCompatibilityConfigFromEnv(t *testing.T) {
+	resetViperForTest(t)
+	chdirForTest(t, t.TempDir())
+	t.Setenv("LEDGER_DATABASE_DRIVER", "postgres")
+	t.Setenv("LEDGER_DATABASE_PATH", "")
+	t.Setenv("LEDGER_DATABASE_DSN", "host=db user=ledger dbname=ledger sslmode=disable")
+	t.Setenv("LEDGER_DATABASE_MAX_OPEN_CONNS", "17")
+	t.Setenv("LEDGER_DATABASE_MAX_IDLE_CONNS", "9")
+	t.Setenv("LEDGER_SETUP_CONFIG_PATH", "/data/config.yaml")
+	t.Setenv("LEDGER_RATE_LIMIT_MAX_REQUESTS", "321")
+	t.Setenv("LEDGER_RATE_LIMIT_WINDOW_SECS", "45")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Database.Driver != "postgres" {
+		t.Fatalf("database driver = %q, want postgres", cfg.Database.Driver)
+	}
+	if cfg.Database.DSN != "host=db user=ledger dbname=ledger sslmode=disable" {
+		t.Fatalf("database dsn = %q, want env dsn", cfg.Database.DSN)
+	}
+	if cfg.Database.MaxOpenConns != 17 {
+		t.Fatalf("max open conns = %d, want 17", cfg.Database.MaxOpenConns)
+	}
+	if cfg.Database.MaxIdleConns != 9 {
+		t.Fatalf("max idle conns = %d, want 9", cfg.Database.MaxIdleConns)
+	}
+	if cfg.Setup.ConfigPath != "/data/config.yaml" {
+		t.Fatalf("setup config path = %q, want /data/config.yaml", cfg.Setup.ConfigPath)
+	}
+	if cfg.RateLimit.MaxRequests != 321 {
+		t.Fatalf("rate limit max requests = %d, want 321", cfg.RateLimit.MaxRequests)
+	}
+	if cfg.RateLimit.WindowSecs != 45 {
+		t.Fatalf("rate limit window secs = %d, want 45", cfg.RateLimit.WindowSecs)
+	}
+}
+
+func TestResolveDatabaseTimeZoneRejectsInvalidValue(t *testing.T) {
+	_, err := ResolveDatabaseTimeZone("not/a-real-zone")
+	if err == nil {
+		t.Fatal("expected invalid timezone error")
+	}
+}
+
+func TestResolveDatabaseTimeZoneAcceptsExplicitIANAValue(t *testing.T) {
+	timezone, err := ResolveDatabaseTimeZone("Asia/Shanghai")
+	if err != nil {
+		t.Fatalf("resolve timezone: %v", err)
+	}
+	if timezone != "Asia/Shanghai" {
+		t.Fatalf("timezone = %q, want Asia/Shanghai", timezone)
+	}
+}

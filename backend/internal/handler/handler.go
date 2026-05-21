@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/sky/personal-ledger/internal/config"
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/service"
 
@@ -25,9 +26,10 @@ type Handlers struct {
 	AccountLog   *AccountLogHandler
 	Tag          *TagHandler
 	APIToken     *APITokenHandler
+	Setup        *SetupHandler
 }
 
-func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler, rateLimiter *middleware.RateLimiter) *Handlers {
+func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler, rateLimiter *middleware.RateLimiter, cfg *config.Config) *Handlers {
 	return &Handlers{
 		Auth:         NewAuthHandler(services.Auth, services.APIToken, services.Notification, rateLimiter),
 		Account:      NewAccountHandler(services.Account),
@@ -46,6 +48,7 @@ func NewHandlers(services *service.Services, backupScheduler *service.BackupSche
 		AccountLog:   NewAccountLogHandler(services.AccountLog),
 		Tag:          NewTagHandler(services.Tag),
 		APIToken:     NewAPITokenHandler(services.APIToken),
+		Setup:        NewSetupHandler(services.Auth, cfg.Database, cfg.Setup),
 	}
 }
 
@@ -63,6 +66,13 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		auth.POST("/login", h.Auth.Login)
 		auth.POST("/refresh", h.Auth.Refresh)
 		auth.POST("/verify-token", h.Auth.VerifyAPIToken) // API Token 验证（App 端使用）
+	}
+
+	setup := api.Group("/setup")
+	{
+		setup.GET("/status", h.Setup.Status)
+		setup.POST("/test-database", h.Setup.TestDatabase)
+		setup.POST("/apply", h.Setup.Apply)
 	}
 
 	// Protected routes - 支持 JWT 和 API Token

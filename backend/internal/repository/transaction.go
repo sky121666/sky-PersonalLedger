@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
@@ -137,25 +138,37 @@ type DateRangeSum struct {
 }
 
 type DailySum struct {
-	Date    string  `json:"date"`
+	Date    string  `gorm:"column:tx_date" json:"date"`
 	Income  float64 `json:"income"`
 	Expense float64 `json:"expense"`
 }
 
 func (r *TransactionRepository) SumByDay(userID uint, startDate, endDate time.Time) ([]DailySum, error) {
 	var results []DailySum
+	dayExpression := r.transactionDayExpression()
 	err := r.db.Model(&model.Transaction{}).
-		Select(`
-			SUBSTR(transaction_date, 1, 10) as date,
+		Select(fmt.Sprintf(`
+			%s as tx_date,
 			SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
 			SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
-		`).
+		`, dayExpression)).
 		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ?",
 			userID, startDate, endDate).
-		Group("SUBSTR(transaction_date, 1, 10)").
-		Order("date ASC").
+		Group(dayExpression).
+		Order(dayExpression + " ASC").
 		Scan(&results).Error
 	return results, err
+}
+
+func (r *TransactionRepository) transactionDayExpression() string {
+	switch r.db.Dialector.Name() {
+	case "postgres":
+		return "TO_CHAR(transaction_date, 'YYYY-MM-DD')"
+	case "mysql":
+		return "DATE_FORMAT(transaction_date, '%Y-%m-%d')"
+	default:
+		return "SUBSTR(transaction_date, 1, 10)"
+	}
 }
 
 func (r *TransactionRepository) GetAllForExport(userID uint, startDate, endDate *time.Time) ([]model.Transaction, error) {

@@ -1,7 +1,10 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -15,7 +18,8 @@ type Config struct {
 	Storage   StorageConfig
 	Security  SecurityConfig
 	CORS      CORSConfig
-	RateLimit RateLimitConfig
+	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
+	Setup     SetupConfig
 }
 
 // RateLimitConfig 限速配置
@@ -52,7 +56,16 @@ type ServerConfig struct {
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Path string
+	Driver       string `mapstructure:"driver" yaml:"driver"`
+	Path         string `mapstructure:"path" yaml:"path"`
+	DSN          string `mapstructure:"dsn" yaml:"dsn"`
+	MaxOpenConns int    `mapstructure:"max_open_conns" yaml:"max_open_conns"`
+	MaxIdleConns int    `mapstructure:"max_idle_conns" yaml:"max_idle_conns"`
+}
+
+// SetupConfig 首次安装配置
+type SetupConfig struct {
+	ConfigPath string `mapstructure:"config_path" yaml:"config_path"`
 }
 
 // JWTConfig JWT配置
@@ -73,6 +86,8 @@ func Load() (*Config, error) {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./backend")
+	viper.AddConfigPath("./data")
+	viper.AddConfigPath("/data")
 
 	// 启用环境变量支持
 	viper.AutomaticEnv()
@@ -83,7 +98,11 @@ func Load() (*Config, error) {
 	viper.BindEnv("server.port", "LEDGER_SERVER_PORT")
 	viper.BindEnv("server.mode", "LEDGER_SERVER_MODE")
 	viper.BindEnv("server.web_path", "LEDGER_SERVER_WEB_PATH")
+	viper.BindEnv("database.driver", "LEDGER_DATABASE_DRIVER")
 	viper.BindEnv("database.path", "LEDGER_DATABASE_PATH")
+	viper.BindEnv("database.dsn", "LEDGER_DATABASE_DSN")
+	viper.BindEnv("database.max_open_conns", "LEDGER_DATABASE_MAX_OPEN_CONNS")
+	viper.BindEnv("database.max_idle_conns", "LEDGER_DATABASE_MAX_IDLE_CONNS")
 	viper.BindEnv("jwt.secret", "LEDGER_JWT_SECRET")
 	viper.BindEnv("jwt.access_expire", "LEDGER_JWT_ACCESS_EXPIRE")
 	viper.BindEnv("jwt.refresh_expire", "LEDGER_JWT_REFRESH_EXPIRE")
@@ -98,12 +117,17 @@ func Load() (*Config, error) {
 	viper.BindEnv("cors.allowed_origins", "LEDGER_CORS_ALLOWED_ORIGINS")
 	viper.BindEnv("rate_limit.max_requests", "LEDGER_RATE_LIMIT_MAX_REQUESTS")
 	viper.BindEnv("rate_limit.window_secs", "LEDGER_RATE_LIMIT_WINDOW_SECS")
+	viper.BindEnv("setup.config_path", "LEDGER_SETUP_CONFIG_PATH")
 
 	// 设置默认值
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.mode", "debug")
 	viper.SetDefault("server.web_path", "./web/dist")
+	viper.SetDefault("database.driver", "sqlite")
 	viper.SetDefault("database.path", "./data/ledger.db")
+	viper.SetDefault("database.dsn", "")
+	viper.SetDefault("database.max_open_conns", 0)
+	viper.SetDefault("database.max_idle_conns", 0)
 	viper.SetDefault("jwt.access_expire", 15)
 	viper.SetDefault("jwt.refresh_expire", 43200)
 	viper.SetDefault("log.level", "info")
@@ -115,6 +139,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("cors.allowed_origins", "*")     // 默认允许所有，生产环境应配置
 	viper.SetDefault("rate_limit.max_requests", 1000) // 每窗口1000次请求
 	viper.SetDefault("rate_limit.window_secs", 60)    // 60秒窗口
+	viper.SetDefault("setup.config_path", "./data/config.yaml")
 
 	// 尝试读取配置文件(可选)
 	if err := viper.ReadInConfig(); err != nil {
@@ -129,4 +154,46 @@ func Load() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func ResolveDatabaseTimeZone(value string) (string, error) {
+	timezone := strings.TrimSpace(value)
+	if timezone == "" || strings.EqualFold(timezone, "local") {
+		timezone = localTimeZoneName()
+	}
+	if timezone == "" {
+		timezone = "UTC"
+	}
+
+	if _, err := time.LoadLocation(timezone); err != nil {
+		return "", err
+	}
+	return timezone, nil
+}
+
+func localTimeZoneName() string {
+	if timezone := strings.TrimPrefix(strings.TrimSpace(os.Getenv("TZ")), ":"); timezone != "" && !strings.EqualFold(timezone, "local") {
+		return timezone
+	}
+	if timezone := time.Local.String(); timezone != "" && !strings.EqualFold(timezone, "local") {
+		return timezone
+	}
+	if timezone := localTimeZoneFromSymlink("/etc/localtime"); timezone != "" {
+		return timezone
+	}
+	return "UTC"
+}
+
+func localTimeZoneFromSymlink(path string) string {
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return ""
+	}
+	normalized := filepath.ToSlash(target)
+	for _, marker := range []string{"/zoneinfo/", "/share/zoneinfo/"} {
+		if index := strings.LastIndex(normalized, marker); index >= 0 {
+			return normalized[index+len(marker):]
+		}
+	}
+	return ""
 }
