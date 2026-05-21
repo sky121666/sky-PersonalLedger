@@ -205,8 +205,8 @@ func TestMergeDatabaseConfigClearsUnusedSQLitePathForServerDriver(t *testing.T) 
 		TestDatabaseRequest{
 			Driver:       "mysql",
 			DSN:          "ledger:secret@tcp(127.0.0.1:3306)/ledger?charset=utf8mb4&parseTime=True&loc=Local",
-			MaxOpenConns: 2,
-			MaxIdleConns: 1,
+			MaxOpenConns: setupIntPtr(2),
+			MaxIdleConns: setupIntPtr(1),
 		},
 	)
 	if err != nil {
@@ -221,6 +221,50 @@ func TestMergeDatabaseConfigClearsUnusedSQLitePathForServerDriver(t *testing.T) 
 	}
 	if dbConfig.DSN == "" {
 		t.Fatal("dsn was cleared for server database driver")
+	}
+}
+
+func TestMergeDatabaseConfigAllowsClearingConnectionPoolDefaults(t *testing.T) {
+	dbConfig, err := mergeDatabaseConfig(
+		config.DatabaseConfig{
+			Driver:       "sqlite",
+			Path:         "./data/ledger.db",
+			MaxOpenConns: 12,
+			MaxIdleConns: 6,
+		},
+		TestDatabaseRequest{
+			Driver:       "sqlite",
+			Path:         "./data/ledger.db",
+			MaxOpenConns: setupIntPtr(0),
+			MaxIdleConns: setupIntPtr(0),
+		},
+	)
+	if err != nil {
+		t.Fatalf("merge database config: %v", err)
+	}
+
+	if dbConfig.MaxOpenConns != 0 {
+		t.Fatalf("max open conns = %d, want 0", dbConfig.MaxOpenConns)
+	}
+	if dbConfig.MaxIdleConns != 0 {
+		t.Fatalf("max idle conns = %d, want 0", dbConfig.MaxIdleConns)
+	}
+}
+
+func TestMergeDatabaseConfigRejectsNegativeConnectionPoolValues(t *testing.T) {
+	_, err := mergeDatabaseConfig(
+		config.DatabaseConfig{Driver: "sqlite", Path: "./data/ledger.db"},
+		TestDatabaseRequest{
+			Driver:       "sqlite",
+			Path:         "./data/ledger.db",
+			MaxOpenConns: setupIntPtr(-1),
+		},
+	)
+	if err == nil {
+		t.Fatal("expected negative max open connections error")
+	}
+	if !strings.Contains(err.Error(), "max open connections") {
+		t.Fatalf("error = %q, want max open connections validation", err.Error())
 	}
 }
 
@@ -377,4 +421,8 @@ func decodeSetupResponse(t *testing.T, data []byte) map[string]any {
 		t.Fatalf("decode response: %v; body=%s", err, string(data))
 	}
 	return response.Data
+}
+
+func setupIntPtr(value int) *int {
+	return &value
 }

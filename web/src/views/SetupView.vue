@@ -227,6 +227,9 @@ function buildDatabaseRequest() {
 }
 
 function validateDatabaseForm() {
+  if (Number(databaseForm.max_open_conns) < 0 || Number(databaseForm.max_idle_conns) < 0) {
+    return '连接池数量不能小于 0'
+  }
   if (usesSqlite.value) {
     return databaseForm.path.trim() ? '' : '请输入 SQLite 数据库路径'
   }
@@ -288,6 +291,14 @@ function revealDatabaseForm() {
 function revealAdvancedSettings() {
   showDatabaseForm.value = true
   showAdvancedSettings.value = true
+}
+
+function cancelDatabaseChange() {
+  resetDatabaseForm()
+  showDatabaseForm.value = false
+  showAdvancedSettings.value = false
+  useAdvancedDsn.value = false
+  databaseTested.value = false
 }
 
 function toggleAdvancedSettings() {
@@ -379,7 +390,7 @@ function enterLedger() {
             </div>
           </div>
 
-          <div class="flex flex-col gap-2 sm:flex-row">
+          <div v-if="!showDatabaseForm" class="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
               class="h-11 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -396,6 +407,16 @@ function enterLedger() {
               @click="revealAdvancedSettings"
             >
               高级设置
+            </button>
+          </div>
+          <div v-else class="flex">
+            <button
+              type="button"
+              class="h-11 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+              :disabled="!canEditDatabase"
+              @click="cancelDatabaseChange"
+            >
+              取消更换
             </button>
           </div>
 

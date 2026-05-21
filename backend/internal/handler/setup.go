@@ -58,8 +58,8 @@ type TestDatabaseRequest struct {
 	Password     string `json:"password"`
 	SSLMode      string `json:"ssl_mode"`
 	Timezone     string `json:"timezone"`
-	MaxOpenConns int    `json:"max_open_conns"`
-	MaxIdleConns int    `json:"max_idle_conns"`
+	MaxOpenConns *int   `json:"max_open_conns"`
+	MaxIdleConns *int   `json:"max_idle_conns"`
 }
 
 func (h *SetupHandler) TestDatabase(c *gin.Context) {
@@ -139,11 +139,17 @@ func mergeDatabaseConfig(base config.DatabaseConfig, req TestDatabaseRequest) (c
 	} else {
 		dbConfig.Driver = setupDriverName(dbConfig.Driver)
 	}
-	if req.MaxOpenConns > 0 {
-		dbConfig.MaxOpenConns = req.MaxOpenConns
+	if req.MaxOpenConns != nil {
+		if *req.MaxOpenConns < 0 {
+			return dbConfig, errors.New("max open connections must be greater than or equal to 0")
+		}
+		dbConfig.MaxOpenConns = *req.MaxOpenConns
 	}
-	if req.MaxIdleConns > 0 {
-		dbConfig.MaxIdleConns = req.MaxIdleConns
+	if req.MaxIdleConns != nil {
+		if *req.MaxIdleConns < 0 {
+			return dbConfig, errors.New("max idle connections must be greater than or equal to 0")
+		}
+		dbConfig.MaxIdleConns = *req.MaxIdleConns
 	}
 
 	if setupUsesSQLite(dbConfig.Driver) {
