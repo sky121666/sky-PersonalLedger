@@ -4,13 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: Platform target to run.
+        description: "Platform target to run: android or ios."
         required: true
         default: android
-        type: choice
-        options:
-          - android
-          - ios
 
 permissions:
   contents: read
@@ -18,7 +14,7 @@ permissions:
 jobs:
   android:
     name: Real backend on Android emulator
-    if: ${{ github.server_url == 'https://github.com' && inputs.platform == 'android' }}
+    if: ${{ github.server_url == 'https://github.com' && github.event.inputs.platform == 'android' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -69,7 +65,7 @@ jobs:
 
   ios:
     name: Real backend on iOS simulator
-    if: ${{ github.server_url == 'https://github.com' && inputs.platform == 'ios' }}
+    if: ${{ github.server_url == 'https://github.com' && github.event.inputs.platform == 'ios' }}
     runs-on: macos-latest
     timeout-minutes: 45
 
