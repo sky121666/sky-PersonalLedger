@@ -1,6 +1,10 @@
 name: Mobile Platform Real Backend E2E
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mobile-platform-e2e.yml'
   workflow_dispatch:
     inputs:
       platform:
@@ -12,9 +16,19 @@ permissions:
   contents: read
 
 jobs:
+  validate:
+    name: Validate manual platform workflow
+    if: ${{ github.server_url == 'https://github.com' && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Confirm workflow file is loadable
+        run: echo "Manual Android/iOS E2E workflow is available through workflow_dispatch."
+
   android:
     name: Real backend on Android emulator
-    if: ${{ github.server_url == 'https://github.com' && github.event.inputs.platform == 'android' }}
+    if: ${{ github.server_url == 'https://github.com' && github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'android' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -65,7 +79,7 @@ jobs:
 
   ios:
     name: Real backend on iOS simulator
-    if: ${{ github.server_url == 'https://github.com' && github.event.inputs.platform == 'ios' }}
+    if: ${{ github.server_url == 'https://github.com' && github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'ios' }}
     runs-on: macos-latest
     timeout-minutes: 45
 
