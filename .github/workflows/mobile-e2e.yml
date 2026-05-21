@@ -1,0 +1,148 @@
+name: Mobile Real Backend E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'mobile/**'
+      - 'scripts/verify-mobile-e2e.sh'
+      - '.github/workflows/mobile-e2e.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'mobile/**'
+      - 'scripts/verify-mobile-e2e.sh'
+      - '.github/workflows/mobile-e2e.yml'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform target to run.
+        required: true
+        default: flutter-tester
+        type: choice
+        options:
+          - flutter-tester
+          - android
+          - ios
+
+permissions:
+  contents: read
+
+jobs:
+  flutter-tester:
+    name: Real backend on flutter-tester
+    if: ${{ github.server_url == 'https://github.com' && (github.event_name != 'workflow_dispatch' || github.event.inputs.platform == 'flutter-tester') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Verify real backend mobile flow
+        env:
+          RUN_FLUTTER_TESTER_E2E: "1"
+          RUN_ANDROID_E2E: "0"
+          RUN_IOS_E2E: "0"
+        run: ./scripts/verify-mobile-e2e.sh
+
+  android:
+    name: Real backend on Android emulator
+    if: ${{ github.server_url == 'https://github.com' && github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'android' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ANDROID_E2E_SYSTEM_IMAGE: system-images;android-35;google_apis;x86_64
+      GRADLE_E2E_USER_HOME: ${{ runner.temp }}/sky-ledger-gradle-home
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Android emulator image
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" \
+            "emulator" \
+            "cmdline-tools;latest" \
+            "$ANDROID_E2E_SYSTEM_IMAGE"
+
+      - name: Get Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Verify real backend Android flow
+        env:
+          RUN_FLUTTER_TESTER_E2E: "0"
+          RUN_ANDROID_E2E: "1"
+          RUN_IOS_E2E: "0"
+        run: ./scripts/verify-mobile-e2e.sh
+
+  ios:
+    name: Real backend on iOS simulator
+    if: ${{ github.server_url == 'https://github.com' && github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'ios' }}
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Verify real backend iOS flow
+        env:
+          RUN_FLUTTER_TESTER_E2E: "0"
+          RUN_ANDROID_E2E: "0"
+          RUN_IOS_E2E: "1"
+        run: ./scripts/verify-mobile-e2e.sh

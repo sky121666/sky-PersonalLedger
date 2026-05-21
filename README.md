@@ -295,7 +295,15 @@ flutter run
 
 ### Mobile runtime smoke
 
-Run the backend locally, then run:
+For the real backend E2E path, run from the repository root:
+
+```bash
+./scripts/verify-mobile-e2e.sh
+```
+
+Android and iOS simulator variants are documented in [docs/mobile-real-backend-e2e.md](docs/mobile-real-backend-e2e.md).
+
+For a quick mocked UI smoke, run:
 
 ```bash
 cd mobile
