@@ -33,7 +33,7 @@ jobs:
             echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
             echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=dev" >> $GITHUB_OUTPUT
+            echo "VERSION=0.0.0" >> $GITHUB_OUTPUT
             echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_OUTPUT
           fi
 

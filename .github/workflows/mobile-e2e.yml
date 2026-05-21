@@ -32,7 +32,7 @@ permissions:
 jobs:
   flutter-tester:
     name: Real backend on flutter-tester
-    if: ${{ github.server_url == 'https://github.com' && (github.event_name != 'workflow_dispatch' || github.event.inputs.platform == 'flutter-tester') }}
+    if: ${{ github.server_url == 'https://github.com' && (github.event_name == 'push' || github.event_name == 'pull_request' || inputs.platform == 'flutter-tester') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -65,7 +65,7 @@ jobs:
 
   android:
     name: Real backend on Android emulator
-    if: ${{ github.server_url == 'https://github.com' && github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'android' }}
+    if: ${{ github.server_url == 'https://github.com' && inputs.platform == 'android' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -116,7 +116,7 @@ jobs:
 
   ios:
     name: Real backend on iOS simulator
-    if: ${{ github.server_url == 'https://github.com' && github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'ios' }}
+    if: ${{ github.server_url == 'https://github.com' && inputs.platform == 'ios' }}
     runs-on: macos-latest
     timeout-minutes: 45
 

@@ -136,13 +136,16 @@ async function applyDatabaseConfig() {
   }
   databaseSaving.value = true
   databaseTested.value = false
+  const request = buildDatabaseRequest()
   try {
-    const result = await setupApi.applyDatabase(buildDatabaseRequest())
+    await setupApi.testDatabase(request)
+    databaseTested.value = true
+    const result = await setupApi.applyDatabase(request)
     restartRequired.value = result.restart_required
     savedConfigPath.value = result.config_path
     toast.success('数据库配置已保存')
   } catch (e: any) {
-    toast.error(e.message || '保存数据库配置失败')
+    toast.error(e.message || '测试或保存数据库配置失败')
   } finally {
     databaseSaving.value = false
   }
@@ -389,6 +392,7 @@ function enterLedger() {
               type="button"
               class="h-11 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
               :disabled="!canEditDatabase"
+              aria-label="展开数据库高级设置"
               @click="revealAdvancedSettings"
             >
               高级设置
@@ -414,8 +418,9 @@ function enterLedger() {
             </div>
 
             <div v-if="usesSqlite" class="space-y-2">
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">SQLite 路径</label>
+              <label for="setup-sqlite-path" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">SQLite 路径</label>
               <input
+                id="setup-sqlite-path"
                 v-model="databaseForm.path"
                 type="text"
                 class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
@@ -424,8 +429,9 @@ function enterLedger() {
             </div>
 
             <div v-else-if="useAdvancedDsn" class="space-y-2">
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">数据库 DSN</label>
+              <label for="setup-database-dsn" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">数据库 DSN</label>
               <input
+                id="setup-database-dsn"
                 v-model="databaseForm.dsn"
                 type="password"
                 autocomplete="new-password"
@@ -437,8 +443,9 @@ function enterLedger() {
             <div v-else class="space-y-4">
               <div class="grid gap-3 sm:grid-cols-[1fr_112px]">
                 <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">主机</label>
+                  <label for="setup-database-host" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">主机</label>
                   <input
+                    id="setup-database-host"
                     v-model="databaseForm.host"
                     type="text"
                     class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
@@ -446,8 +453,9 @@ function enterLedger() {
                   />
                 </div>
                 <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">端口</label>
+                  <label for="setup-database-port" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">端口</label>
                   <input
+                    id="setup-database-port"
                     v-model.number="databaseForm.port"
                     type="number"
                     min="1"
@@ -459,8 +467,9 @@ function enterLedger() {
 
               <div class="grid gap-3 sm:grid-cols-2">
                 <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">数据库名</label>
+                  <label for="setup-database-name" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">数据库名</label>
                   <input
+                    id="setup-database-name"
                     v-model="databaseForm.database"
                     type="text"
                     class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
@@ -468,8 +477,9 @@ function enterLedger() {
                   />
                 </div>
                 <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">用户名</label>
+                  <label for="setup-database-username" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">用户名</label>
                   <input
+                    id="setup-database-username"
                     v-model="databaseForm.username"
                     type="text"
                     class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
@@ -479,8 +489,9 @@ function enterLedger() {
               </div>
 
               <div class="space-y-2">
-                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">密码</label>
+                <label for="setup-database-password" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">密码</label>
                 <input
+                  id="setup-database-password"
                   v-model="databaseForm.password"
                   type="password"
                   autocomplete="new-password"
@@ -494,13 +505,16 @@ function enterLedger() {
               type="button"
               class="flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 px-4 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
               :disabled="!canEditDatabase"
+              :aria-expanded="showAdvancedSettings"
+              aria-controls="setup-advanced-settings"
+              :aria-label="showAdvancedSettings ? '收起数据库高级设置' : '展开数据库高级设置'"
               @click="toggleAdvancedSettings"
             >
               <span class="flex items-center gap-2"><Settings2 :size="16" /> 高级设置</span>
               <ChevronDown :size="18" class="transition" :class="showAdvancedSettings ? 'rotate-180' : ''" />
             </button>
 
-            <div v-if="showAdvancedSettings" class="space-y-4 border-t border-gray-100 pt-4 dark:border-gray-700">
+            <div v-if="showAdvancedSettings" id="setup-advanced-settings" class="space-y-4 border-t border-gray-100 pt-4 dark:border-gray-700">
               <div v-if="!usesSqlite" class="flex items-center justify-between gap-3">
                 <div>
                   <div class="text-sm font-semibold text-gray-800 dark:text-gray-100">使用 DSN 连接串</div>
@@ -508,9 +522,10 @@ function enterLedger() {
                 </div>
                 <button
                   type="button"
-                  class="h-9 rounded-lg px-3 text-xs font-bold transition"
+                  class="h-11 rounded-lg px-3 text-xs font-bold transition"
                   :class="useAdvancedDsn ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
                   :disabled="!canEditDatabase"
+                  :aria-pressed="useAdvancedDsn"
                   @click="useAdvancedDsn = !useAdvancedDsn"
                 >
                   {{ useAdvancedDsn ? '已开启' : '开启' }}
@@ -519,8 +534,9 @@ function enterLedger() {
 
               <div v-if="!usesSqlite && !useAdvancedDsn" class="grid gap-3 sm:grid-cols-2">
                 <div v-if="usesPostgres" class="space-y-2">
-                  <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">SSL 模式</label>
+                  <label for="setup-database-ssl-mode" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">SSL 模式</label>
                   <input
+                    id="setup-database-ssl-mode"
                     v-model="databaseForm.ssl_mode"
                     type="text"
                     class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
@@ -528,8 +544,9 @@ function enterLedger() {
                   />
                 </div>
                 <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">时区</label>
+                  <label for="setup-database-timezone" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">时区</label>
                   <input
+                    id="setup-database-timezone"
                     v-model="databaseForm.timezone"
                     type="text"
                     class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
@@ -540,8 +557,9 @@ function enterLedger() {
 
               <div class="grid gap-3 sm:grid-cols-2">
                 <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">最大连接</label>
+                  <label for="setup-database-max-open-conns" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">最大连接</label>
                   <input
+                    id="setup-database-max-open-conns"
                     v-model.number="databaseForm.max_open_conns"
                     type="number"
                     min="0"
@@ -550,8 +568,9 @@ function enterLedger() {
                   />
                 </div>
                 <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">空闲连接</label>
+                  <label for="setup-database-max-idle-conns" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">空闲连接</label>
                   <input
+                    id="setup-database-max-idle-conns"
                     v-model.number="databaseForm.max_idle_conns"
                     type="number"
                     min="0"
@@ -604,20 +623,21 @@ function enterLedger() {
 
           <div class="space-y-4 border-y border-gray-100 py-4 dark:border-gray-700">
             <div class="space-y-2">
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">密码</label>
+              <label for="setup-access-password" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">密码</label>
               <div class="relative">
                 <input
+                  id="setup-access-password"
                   v-model="password"
                   :type="showPassword ? 'text' : 'password'"
                   minlength="8"
-                  class="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 pr-12 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  class="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 pr-14 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   autocomplete="new-password"
                   :disabled="creatingPassword"
                   @keyup.enter="createAccessPassword"
                 />
                 <button
                   type="button"
-                  class="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  class="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                   :aria-label="showPassword ? '隐藏密码' : '显示密码'"
                   @click="showPassword = !showPassword"
                 >
@@ -628,20 +648,21 @@ function enterLedger() {
             </div>
 
             <div class="space-y-2">
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">确认密码</label>
+              <label for="setup-confirm-password" class="block text-sm font-semibold text-gray-700 dark:text-gray-200">确认密码</label>
               <div class="relative">
                 <input
+                  id="setup-confirm-password"
                   v-model="confirmPassword"
                   :type="showConfirmPassword ? 'text' : 'password'"
                   minlength="8"
-                  class="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 pr-12 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  class="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 pr-14 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   autocomplete="new-password"
                   :disabled="creatingPassword"
                   @keyup.enter="createAccessPassword"
                 />
                 <button
                   type="button"
-                  class="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  class="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                   :aria-label="showConfirmPassword ? '隐藏确认密码' : '显示确认密码'"
                   @click="showConfirmPassword = !showConfirmPassword"
                 >
