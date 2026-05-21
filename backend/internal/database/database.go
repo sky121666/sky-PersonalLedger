@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sky/personal-ledger/internal/config"
 	"github.com/sky/personal-ledger/internal/model"
@@ -15,8 +16,16 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 )
+
+const currentSchemaVersion = 1
+
+type schemaMigration struct {
+	Version   int       `gorm:"primaryKey"`
+	AppliedAt time.Time `gorm:"not null"`
+}
 
 func Init(dbPath string) (*gorm.DB, error) {
 	return InitWithConfig(config.DatabaseConfig{
@@ -50,6 +59,10 @@ func InitWithConfig(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		}
 	}
 
+	if err := guardSchemaVersion(db); err != nil {
+		return nil, err
+	}
+
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.Account{},
@@ -69,6 +82,10 @@ func InitWithConfig(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		&model.RecurringTransaction{},
 		&model.APIToken{},
 	); err != nil {
+		return nil, err
+	}
+
+	if err := recordSchemaVersion(db); err != nil {
 		return nil, err
 	}
 
@@ -251,4 +268,42 @@ func configureConnectionPool(db *gorm.DB, cfg config.DatabaseConfig) error {
 		sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
 	}
 	return nil
+}
+
+func guardSchemaVersion(db *gorm.DB) error {
+	if err := db.AutoMigrate(&schemaMigration{}); err != nil {
+		return err
+	}
+
+	version, err := latestSchemaVersion(db)
+	if err != nil {
+		return err
+	}
+	if version > currentSchemaVersion {
+		return fmt.Errorf("database schema version %d is newer than this application supports (%d)", version, currentSchemaVersion)
+	}
+	return nil
+}
+
+func latestSchemaVersion(db *gorm.DB) (int, error) {
+	var version int
+	err := db.Model(&schemaMigration{}).
+		Select("COALESCE(MAX(version), 0)").
+		Scan(&version).Error
+	return version, err
+}
+
+func recordSchemaVersion(db *gorm.DB) error {
+	version, err := latestSchemaVersion(db)
+	if err != nil {
+		return err
+	}
+	if version >= currentSchemaVersion {
+		return nil
+	}
+
+	return db.Clauses(clause.OnConflict{DoNothing: true}).Create(&schemaMigration{
+		Version:   currentSchemaVersion,
+		AppliedAt: time.Now().UTC(),
+	}).Error
 }

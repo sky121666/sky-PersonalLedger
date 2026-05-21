@@ -5,9 +5,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sky/personal-ledger/internal/config"
 	"github.com/sky/personal-ledger/internal/model"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestInitKeepsSQLitePathCompatibility(t *testing.T) {
@@ -32,6 +36,52 @@ func TestInitWithConfigSupportsSQLiteAlias(t *testing.T) {
 
 	if !db.Migrator().HasTable(&model.Account{}) {
 		t.Fatal("accounts table was not migrated")
+	}
+}
+
+func TestInitWithConfigRecordsSchemaVersion(t *testing.T) {
+	db, err := InitWithConfig(config.DatabaseConfig{
+		Driver: "sqlite",
+		Path:   filepath.Join(t.TempDir(), "ledger.db"),
+	})
+	if err != nil {
+		t.Fatalf("init sqlite: %v", err)
+	}
+
+	version, err := latestSchemaVersion(db)
+	if err != nil {
+		t.Fatalf("read schema version: %v", err)
+	}
+	if version != currentSchemaVersion {
+		t.Fatalf("schema version = %d, want %d", version, currentSchemaVersion)
+	}
+}
+
+func TestInitWithConfigRejectsNewerSchemaVersion(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "ledger.db")
+	seedDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open seed sqlite: %v", err)
+	}
+	if err := seedDB.AutoMigrate(&schemaMigration{}); err != nil {
+		t.Fatalf("migrate seed schema versions: %v", err)
+	}
+	if err := seedDB.Create(&schemaMigration{
+		Version:   currentSchemaVersion + 1,
+		AppliedAt: time.Now().UTC(),
+	}).Error; err != nil {
+		t.Fatalf("seed future schema version: %v", err)
+	}
+
+	_, err = InitWithConfig(config.DatabaseConfig{
+		Driver: "sqlite",
+		Path:   dbPath,
+	})
+	if err == nil {
+		t.Fatal("expected newer schema version error")
+	}
+	if !strings.Contains(err.Error(), "newer than this application supports") {
+		t.Fatalf("error = %q, want newer schema version error", err.Error())
 	}
 }
 
