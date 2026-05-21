@@ -133,7 +133,11 @@ configure_android_environment() {
   export ANDROID_HOME="$sdk_root"
   export ANDROID_USER_HOME="${ANDROID_E2E_USER_HOME:-$tmp_dir/android-user-home}"
   export ANDROID_AVD_HOME="${ANDROID_E2E_AVD_HOME:-$ANDROID_USER_HOME/avd}"
-  export GRADLE_USER_HOME="${GRADLE_E2E_USER_HOME:-/private/tmp/sky-ledger-gradle-home}"
+  local default_gradle_home="/tmp/sky-ledger-gradle-home"
+  if [[ -d /private/tmp ]]; then
+    default_gradle_home="/private/tmp/sky-ledger-gradle-home"
+  fi
+  export GRADLE_USER_HOME="${GRADLE_E2E_USER_HOME:-$default_gradle_home}"
   mkdir -p "$ANDROID_USER_HOME" "$ANDROID_AVD_HOME" "$GRADLE_USER_HOME"
 
   export PATH="$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
@@ -222,18 +226,53 @@ resolve_ios_device() {
     return 0
   fi
 
-  local device
-  device="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone 17 / { print $2; exit }')"
-  if [[ -z "$device" ]]; then
-    device="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
-  fi
-  if [[ -z "$device" ]]; then
+  local selected
+  selected="$(xcrun simctl list devices available -j | python3 -c '
+import json
+import re
+import sys
+
+data = json.load(sys.stdin)
+
+def runtime_version(runtime):
+    match = re.search(r"iOS-(\d+)-(\d+)", runtime)
+    if not match:
+        return (0, 0)
+    return tuple(int(part) for part in match.groups())
+
+candidates = []
+for runtime, devices in data.get("devices", {}).items():
+    if "iOS" not in runtime:
+        continue
+    for device in devices:
+        if not device.get("isAvailable", True):
+            continue
+        name = device.get("name", "")
+        if name == "iPhone 17":
+            priority = 0
+        elif name.startswith("iPhone"):
+            priority = 1
+        else:
+            continue
+        version = runtime_version(runtime)
+        candidates.append((priority, -version[0], -version[1], name, device.get("udid", ""), device.get("state", "")))
+
+candidates.sort()
+if candidates:
+    _, _, _, name, udid, state = candidates[0]
+    print(f"{udid}\t{state}\t{name}")
+')" || {
+    echo "No available iPhone simulator found." >&2
+    return 1
+  }
+
+  if [[ -z "$selected" ]]; then
     echo "No available iPhone simulator found." >&2
     return 1
   fi
 
-  local state
-  state="$(xcrun simctl list devices available | grep "$device" | sed -E 's/.*\\((Booted|Shutdown)\\).*/\\1/' | head -n 1)"
+  local device state device_name
+  IFS=$'\t' read -r device state device_name <<<"$selected"
   if [[ "$state" != "Booted" ]]; then
     xcrun simctl boot "$device"
     booted_ios_device="$device"
@@ -247,16 +286,26 @@ RUN_FLUTTER_TESTER_E2E="${RUN_FLUTTER_TESTER_E2E:-1}"
 RUN_ANDROID_E2E="${RUN_ANDROID_E2E:-0}"
 RUN_IOS_E2E="${RUN_IOS_E2E:-0}"
 
+if [[ "$RUN_FLUTTER_TESTER_E2E" != "1" && "$RUN_ANDROID_E2E" != "1" && "$RUN_IOS_E2E" != "1" ]]; then
+  echo "No mobile E2E target enabled. Enable RUN_FLUTTER_TESTER_E2E, RUN_ANDROID_E2E, or RUN_IOS_E2E." >&2
+  exit 1
+fi
+
 backend_port="${LEDGER_E2E_BACKEND_PORT:-$(pick_port)}"
 backend_base_url="http://127.0.0.1:$backend_port"
 mkdir -p "$tmp_dir/uploads" "$tmp_dir/backups" "$tmp_dir/web"
+
+echo "Mobile E2E targets: flutter-tester=$RUN_FLUTTER_TESTER_E2E android=$RUN_ANDROID_E2E ios=$RUN_IOS_E2E"
+echo "Starting isolated SQLite backend at $backend_base_url"
 
 (
   cd "$repo_root/backend"
   LEDGER_SERVER_PORT="$backend_port" \
   LEDGER_SERVER_MODE=debug \
   LEDGER_SERVER_WEB_PATH="$tmp_dir/web" \
+  LEDGER_DATABASE_DRIVER=sqlite \
   LEDGER_DATABASE_PATH="$tmp_dir/ledger.db" \
+  LEDGER_SETUP_CONFIG_PATH="$tmp_dir/config.yaml" \
   LEDGER_JWT_SECRET="${LEDGER_JWT_SECRET:-ledger-e2e-secret-32-characters-minimum}" \
   LEDGER_STORAGE_UPLOAD_PATH="$tmp_dir/uploads" \
   LEDGER_STORAGE_BACKUP_PATH="$tmp_dir/backups" \
