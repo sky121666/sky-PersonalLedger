@@ -5,6 +5,7 @@ import { ChevronLeft, Plus, Trash2, Edit2, X, Target, AlertCircle, ChevronDown }
 import { budgetApi, type Budget } from '@/api/budget'
 import { categoryApi, type Category } from '@/api/category'
 import { toast } from '@/composables/useToast'
+import DynamicIcon from '@/components/DynamicIcon.vue'
 
 const router = useRouter()
 
@@ -285,7 +286,7 @@ function getCategoryIcon(catId: string | null | undefined) {
                 <div 
                   class="w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-gray-50 dark:bg-gray-700"
                 >
-                  {{ getCategoryIcon(budget.category_id) }}
+                  <DynamicIcon :icon="getCategoryIcon(budget.category_id)" :size="20" />
                 </div>
                 <div>
                   <div class="font-semibold text-gray-900 dark:text-white">{{ budget.category_name }}</div>

@@ -4,6 +4,7 @@ import { Plus, Trash2, Edit2, Check, X } from 'lucide-vue-next'
 import { categoryApi, type Category } from '@/api/category'
 import { toast } from '@/composables/useToast'
 import { CATEGORY_EMOJIS, CATEGORY_COLORS, getCategoryEmoji } from '@/utils/constants'
+import DynamicIcon from '@/components/DynamicIcon.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -172,7 +173,7 @@ function close() {
                     class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-sm border border-gray-100"
                     :style="{ backgroundColor: form.color + '20' }"
                   >
-                    {{ form.icon }}
+                    <DynamicIcon :icon="form.icon" :size="24" />
                   </div>
                   <input
                     v-model="form.name"
@@ -248,7 +249,7 @@ function close() {
                 class="w-10 h-10 rounded-xl flex items-center justify-center text-xl mr-3"
                 :style="{ backgroundColor: (cat.color || '#999') + '20' }"
               >
-                {{ cat.icon || getCategoryEmoji(cat.name) }}
+                <DynamicIcon :icon="cat.icon || getCategoryEmoji(cat.name)" :size="20" />
               </div>
               <div class="flex-1 text-left">
                 <div class="font-medium text-gray-900">{{ cat.name }}</div>

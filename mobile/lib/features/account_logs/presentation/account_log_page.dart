@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/ledger_icon.dart';
 import '../../accounts/data/account.dart';
 import '../data/account_log_repository.dart';
 
@@ -232,7 +233,9 @@ class _AccountSummaryCard extends StatelessWidget {
           children: [
             CircleAvatar(
               backgroundColor: color.withValues(alpha: 0.18),
-              child: Text(account.icon.isEmpty ? '💰' : account.icon),
+              child: LedgerIcon(
+                icon: account.icon.isEmpty ? account.type : account.icon,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(

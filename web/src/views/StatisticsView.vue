@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, PieChart } from 'lucide-vue-next'
 import { statisticsApi, type OverviewResponse, type CategoryStatItem, type TrendItem } from '@/api/statistics'
 import { toast } from '@/composables/useToast'
 import { getCategoryEmoji } from '@/utils/constants'
+import DynamicIcon from '@/components/DynamicIcon.vue'
 import dayjs from 'dayjs'
 
 const overview = ref<OverviewResponse | null>(null)
@@ -254,7 +255,7 @@ function getDayLabel(dateStr: string) {
                     class="w-9 h-9 rounded-full flex items-center justify-center text-lg bg-gray-50 dark:bg-gray-800"
                     :style="{ color: item.color }"
                   >
-                    {{ getCategoryEmoji(item.category_name, item.icon) }}
+                    <DynamicIcon :icon="getCategoryEmoji(item.category_name, item.icon)" :size="18" />
                   </div>
                   <div>
                     <div class="font-medium text-gray-900 dark:text-white text-sm">{{ item.category_name }}</div>

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/ledger_icon.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/home_repository.dart';
 
@@ -472,7 +473,9 @@ class _AccountLine extends StatelessWidget {
           CircleAvatar(
             radius: 18,
             backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            child: Text(account.icon, style: const TextStyle(fontSize: 16)),
+            child: LedgerIcon(
+              icon: account.icon.isEmpty ? account.type : account.icon,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/ledger_icon.dart';
 import '../application/category_controller.dart';
 import '../data/category.dart';
 
@@ -184,7 +185,10 @@ class _CategoryCard extends ConsumerWidget {
                 children: [
                   CircleAvatar(
                     backgroundColor: color.withValues(alpha: 0.14),
-                    child: Text(category.icon.isEmpty ? '📝' : category.icon),
+                    child: LedgerIcon(
+                      icon: category.icon,
+                      fallback: Icons.category_outlined,
+                    ),
                   ),
                   const Spacer(),
                   PopupMenuButton<_CategoryAction>(

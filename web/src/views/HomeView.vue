@@ -15,6 +15,7 @@ import { lendingApi, type LendingSummary } from '@/api/lending'
 import { getAccountTypeName, AMOUNT_COLORS } from '@/utils/constants'
 import TransactionDialog from '@/components/TransactionDialog.vue'
 import CalendarView from '@/components/CalendarView.vue'
+import DynamicIcon from '@/components/DynamicIcon.vue'
 import { toast } from '@/composables/useToast'
 import dayjs from 'dayjs'
 
@@ -461,7 +462,8 @@ function onTransactionSuccess() {
                 class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mr-4 transition-transform group-hover:scale-110"
                 :style="{ backgroundColor: (item.type === 'transfer' ? '#6366F1' : (item.category?.color || '#007AFF')) + '15' }"
               >
-                {{ item.type === 'transfer' ? '↔️' : getCategoryIcon(item.category?.icon || '', item.category?.name || '') }}
+                <span v-if="item.type === 'transfer'">↔️</span>
+                <DynamicIcon v-else :icon="getCategoryIcon(item.category?.icon || '', item.category?.name || '')" :size="22" />
               </div>
               <div class="flex-1 min-w-0">
                 <div class="font-bold text-gray-900 dark:text-white truncate mb-0.5">{{ item.type === 'transfer' ? '转账' : (item.category?.name || '未分类') }}</div>
@@ -522,7 +524,8 @@ function onTransactionSuccess() {
                   class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl mr-3"
                   :style="{ backgroundColor: (item.type === 'transfer' ? '#6366F1' : (item.category?.color || '#007AFF')) + '15' }"
                 >
-                  {{ item.type === 'transfer' ? '↔️' : getCategoryIcon(item.category?.icon || '', item.category?.name || '') }}
+                  <span v-if="item.type === 'transfer'">↔️</span>
+                  <DynamicIcon v-else :icon="getCategoryIcon(item.category?.icon || '', item.category?.name || '')" :size="20" />
                 </div>
                 <div class="flex-1 min-w-0">
                   <div class="font-medium text-gray-900 dark:text-white">{{ item.type === 'transfer' ? '转账' : (item.category?.name || '未分类') }}</div>

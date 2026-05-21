@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ChevronLeft, Plus, Trash2, Edit2, Check, X, Grid3X3 } from 'lucide-vue-next'
 import { categoryApi, type Category } from '@/api/category'
 import { toast } from '@/composables/useToast'
+import DynamicIcon from '@/components/DynamicIcon.vue'
 
 const router = useRouter()
 
@@ -229,7 +230,7 @@ function selectEmoji(emoji: string) {
               class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
               :style="{ backgroundColor: (cat.color || '#999') + '12' }"
             >
-              {{ cat.icon || '💳' }}
+              <DynamicIcon :icon="cat.icon || '💳'" :size="24" />
             </div>
             <div v-if="!cat.is_system" class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <button 
@@ -287,7 +288,7 @@ function selectEmoji(emoji: string) {
                   :style="{ backgroundColor: form.color + '15', borderStyle: 'solid', borderColor: form.color + '50' }"
                   @click="showEmojiPicker = !showEmojiPicker"
                 >
-                  {{ form.icon }}
+                  <DynamicIcon :icon="form.icon" :size="28" />
                 </button>
                 <input
                   v-model="form.name"

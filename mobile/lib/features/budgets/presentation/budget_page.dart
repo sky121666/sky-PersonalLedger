@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/ledger_icon.dart';
 import '../../categories/data/category.dart';
 import '../data/budget_repository.dart';
 
@@ -766,7 +767,11 @@ class _BudgetFormDialogState extends State<_BudgetFormDialog> {
                   for (final category in widget.categories)
                     DropdownMenuItem(
                       value: category.id,
-                      child: Text('${category.icon} ${category.name}'),
+                      child: LedgerIconLabel(
+                        icon: category.icon,
+                        label: category.name,
+                        fallback: Icons.category_outlined,
+                      ),
                     ),
                 ],
                 onChanged: (value) {

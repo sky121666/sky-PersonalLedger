@@ -5,6 +5,7 @@ import { ChevronLeft, Download } from 'lucide-vue-next'
 import { exportApi, type YearlyReport } from '@/api/export'
 import { statisticsApi, type AssetTrendItem } from '@/api/statistics'
 import { toast } from '@/composables/useToast'
+import DynamicIcon from '@/components/DynamicIcon.vue'
 
 const router = useRouter()
 
@@ -242,7 +243,7 @@ function getMonthLabel(monthStr: string) {
             <div v-for="(cat, index) in report.top_expenses.slice(0, 5)" :key="cat.category_id" class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-xl flex items-center justify-center text-lg" 
                 :class="index === 0 ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-800'">
-                {{ cat.category_icon || '📦' }}
+                <DynamicIcon :icon="cat.category_icon || '📦'" :size="18" />
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between mb-1">
@@ -267,7 +268,7 @@ function getMonthLabel(monthStr: string) {
             <div v-for="(cat, index) in report.top_incomes.slice(0, 5)" :key="cat.category_id" class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-xl flex items-center justify-center text-lg"
                 :class="index === 0 ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-800'">
-                {{ cat.category_icon || '💵' }}
+                <DynamicIcon :icon="cat.category_icon || '💵'" :size="18" />
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between mb-1">

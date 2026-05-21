@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/ledger_icon.dart';
 import '../data/statistics_models.dart';
 import '../data/statistics_repository.dart';
 
@@ -615,7 +616,10 @@ class _CategoryRankItem extends StatelessWidget {
               CircleAvatar(
                 radius: 18,
                 backgroundColor: color.withValues(alpha: 0.14),
-                child: Text(item.icon.isEmpty ? '📝' : item.icon),
+                child: LedgerIcon(
+                  icon: item.icon,
+                  fallback: Icons.category_outlined,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

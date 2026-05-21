@@ -5,6 +5,7 @@ import { budgetApi, type Budget } from '@/api/budget'
 import { categoryApi, type Category } from '@/api/category'
 import { toast } from '@/composables/useToast'
 import { getCategoryEmoji } from '@/utils/constants'
+import DynamicIcon from '@/components/DynamicIcon.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -220,7 +221,7 @@ function close() {
                 <div class="flex justify-between items-start mb-3">
                   <div class="flex items-center gap-3">
                     <div class="text-xl w-8 h-8 flex items-center justify-center bg-gray-50 rounded-lg">
-                      {{ getCategoryEmoji(budget.category_name || '') }}
+                      <DynamicIcon :icon="getCategoryEmoji(budget.category_name || '')" :size="20" />
                     </div>
                     <div>
                       <div class="font-medium text-gray-900">{{ budget.category_name }}</div>

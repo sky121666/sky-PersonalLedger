@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/ledger_icon.dart';
 import '../data/tag_repository.dart';
 
 const _tagColors = [
@@ -435,22 +436,9 @@ class _TagIconBadge extends StatelessWidget {
     return CircleAvatar(
       backgroundColor: color.withValues(alpha: 0.14),
       foregroundColor: color,
-      child: Icon(_tagIconData(icon), size: 22),
+      child: LedgerIcon(icon: icon, size: 22, fallback: Icons.label_outline),
     );
   }
-}
-
-IconData _tagIconData(String icon) {
-  return switch (icon) {
-    'credit-card' => Icons.credit_card,
-    'banknote' => Icons.payments_outlined,
-    'repeat' => Icons.repeat,
-    'wallet' => Icons.account_balance_wallet_outlined,
-    'receipt' => Icons.receipt_long_outlined,
-    'calendar' => Icons.calendar_month_outlined,
-    'star' => Icons.star_outline,
-    _ => Icons.label_outline,
-  };
 }
 
 String _tagIconLabel(String icon) {

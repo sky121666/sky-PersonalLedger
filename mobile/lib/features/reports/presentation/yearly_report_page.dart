@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/ledger_icon.dart';
 import '../data/yearly_report_models.dart';
 import '../data/yearly_report_repository.dart';
 
@@ -553,7 +554,10 @@ class _CategoryRankLine extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 17,
-            child: Text(item.categoryIcon.isEmpty ? '📝' : item.categoryIcon),
+            child: LedgerIcon(
+              icon: item.categoryIcon,
+              fallback: Icons.category_outlined,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

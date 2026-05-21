@@ -3,7 +3,8 @@ import { computed } from 'vue'
 import {
   Banknote, Landmark, CreditCard, CircleDot, MessageCircle, MessageSquare,
   ShoppingBag, Smartphone, Flower2, Scroll, Building2, TrendingUp,
-  PieChart, BarChart2, Bitcoin, Ticket, ClipboardList, FileText, Wallet
+  PieChart, BarChart2, Bitcoin, Ticket, ClipboardList, FileText, Wallet,
+  Home, Car, Repeat, Receipt, Calendar, Star, Tag
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -15,8 +16,10 @@ const props = defineProps<{
 // Icon name to component map
 const iconMap: Record<string, any> = {
   'banknote': Banknote,
+  'banknot': Banknote,
   'landmark': Landmark,
   'credit-card': CreditCard,
+  'credit_card': CreditCard,
   'circle-dot': CircleDot,
   'message-circle': MessageCircle,
   'message-square': MessageSquare,
@@ -25,6 +28,9 @@ const iconMap: Record<string, any> = {
   'flower-2': Flower2,
   'scroll': Scroll,
   'building-2': Building2,
+  'home': Home,
+  'house': Home,
+  'car': Car,
   'trending-up': TrendingUp,
   'pie-chart': PieChart,
   'bar-chart-2': BarChart2,
@@ -32,7 +38,12 @@ const iconMap: Record<string, any> = {
   'ticket': Ticket,
   'clipboard-list': ClipboardList,
   'file-text': FileText,
-  'wallet': Wallet
+  'wallet': Wallet,
+  'repeat': Repeat,
+  'receipt': Receipt,
+  'calendar': Calendar,
+  'star': Star,
+  'label': Tag
 }
 
 // Check if the icon is an emoji

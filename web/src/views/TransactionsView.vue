@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { Search, Trash2, ChevronDown, Calendar, X, List } from 'lucide-vue-next'
 import { transactionApi, type Transaction } from '@/api/transaction'
 import TransactionDialog from '@/components/TransactionDialog.vue'
+import DynamicIcon from '@/components/DynamicIcon.vue'
 import { toast } from '@/composables/useToast'
 import { getCategoryEmoji } from '@/utils/constants'
 import dayjs from 'dayjs'
@@ -283,7 +284,8 @@ watch(filters, () => {
                   class="w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-sm border border-gray-100/50 dark:border-white/10"
                   :style="{ backgroundColor: (item.type === 'transfer' ? '#6366F1' : (item.category?.color || '#94a3b8')) + '15' }"
                 >
-                  {{ item.type === 'transfer' ? '↔️' : getCategoryEmoji(item.category?.name || '', item.category?.icon || '') }}
+                  <span v-if="item.type === 'transfer'">↔️</span>
+                  <DynamicIcon v-else :icon="getCategoryEmoji(item.category?.name || '', item.category?.icon || '')" :size="20" />
                 </div>
                 
                 <!-- Content -->

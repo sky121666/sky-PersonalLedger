@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/app_route_paths.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/ledger_icon.dart';
 import '../../account_logs/presentation/account_log_page.dart';
 import '../application/account_controller.dart';
 import '../data/account.dart';
@@ -282,7 +283,9 @@ class _AccountListTile extends ConsumerWidget {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: color.withValues(alpha: 0.14),
-        child: Text(account.icon.isEmpty ? '💰' : account.icon),
+        child: LedgerIcon(
+          icon: account.icon.isEmpty ? account.type : account.icon,
+        ),
       ),
       title: Row(
         children: [

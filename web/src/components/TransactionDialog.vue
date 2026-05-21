@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { X, ChevronDown, Calendar, FileText, CreditCard, Paperclip } from 'lucide-vue-next'
 import FileUpload from '@/components/FileUpload.vue'
+import DynamicIcon from '@/components/DynamicIcon.vue'
 import { transactionApi, type CreateTransactionParams } from '@/api/transaction'
 import { categoryApi, type Category } from '@/api/category'
 import { accountApi, type Account } from '@/api/account'
@@ -248,7 +249,7 @@ async function submit() {
                       : (cat.color || '#94a3b8') + '15'
                   }"
                 >
-                  {{ getCategoryEmoji(cat.name, cat.icon) }}
+                  <DynamicIcon :icon="getCategoryEmoji(cat.name, cat.icon)" :size="20" />
                 </div>
                 <span 
                   class="text-[10px] font-medium truncate w-full text-center transition-colors"
