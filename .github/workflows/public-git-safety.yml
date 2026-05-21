@@ -1,0 +1,23 @@
+name: Public Git Safety
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  git-safety:
+    name: Tracked file safety
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check public tracked files
+        run: ./scripts/check-public-git-safety.sh

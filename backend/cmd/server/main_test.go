@@ -5,12 +5,39 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/jwt"
 )
+
+func TestValidateJWTSecretRejectsPublicPlaceholders(t *testing.T) {
+	for _, secret := range []string{
+		"",
+		"change-this-secret",
+		"change-this-to-a-random-secret-key",
+		"please-change-this-to-a-random-secret-key",
+		"your-jwt-secret-change-this-in-production",
+	} {
+		t.Run(secret, func(t *testing.T) {
+			err := validateJWTSecret(secret)
+			if err == nil {
+				t.Fatal("expected placeholder JWT secret to be rejected")
+			}
+			if !strings.Contains(err.Error(), "LEDGER_JWT_SECRET") {
+				t.Fatalf("error = %q, want LEDGER_JWT_SECRET guidance", err.Error())
+			}
+		})
+	}
+}
+
+func TestValidateJWTSecretAcceptsStrongSecret(t *testing.T) {
+	if err := validateJWTSecret("ledger-secret-with-at-least-32-characters"); err != nil {
+		t.Fatalf("validate strong secret: %v", err)
+	}
+}
 
 func TestSetupUploadFilesRejectsOtherUserPrivateFile(t *testing.T) {
 	gin.SetMode(gin.TestMode)

@@ -1,12 +1,16 @@
 name: Build Windows
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'mobile/**'
-      - '!mobile/android/**'
-      - '!mobile/macos/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, for example 1.0.8'
+        required: true
+        type: string
+      build_number:
+        description: 'Release build number'
+        required: true
+        type: string
   workflow_call:
     inputs:
       version:

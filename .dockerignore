@@ -1,6 +1,7 @@
 # Git
 .git
 .gitignore
+.gitattributes
 
 # IDE
 .idea
@@ -11,17 +12,44 @@
 # Node
 web/node_modules
 web/.vite
+node_modules
 
 # Go
 backend/data/*.db*
 backend/tmp
+vendor
 
 # Flutter (不需要打包到 Docker)
 mobile
 
 # 构建产物
 web/dist
+**/*.tsbuildinfo
 backend/server
+dist
+build
+
+# 本地配置和敏感文件
+.env
+.env.*
+!.env.example
+config.yaml
+**/config.yaml
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+key.properties
+local.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+*.crt
+google-services.json
+GoogleService-Info.plist
 
 # 其他
 *.md

@@ -1,18 +1,26 @@
 name: Build Docker
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'web/**'
-      - 'Dockerfile'
-      - 'docker-compose.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Docker image version tag to publish.
+        required: true
+        type: string
+      publish_latest:
+        description: Also publish the latest tag. Keep false for manual test builds.
+        required: false
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       version:
         required: true
         type: string
+      publish_latest:
+        required: false
+        type: boolean
+        default: true
 
 env:
   REGISTRY: ghcr.io
@@ -34,11 +42,11 @@ jobs:
       - name: Set version
         id: version
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=dev-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+          if [ -z "${{ inputs.version }}" ]; then
+            echo "::error title=Missing Docker version::version input is required"
+            exit 1
           fi
+          echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -59,9 +67,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ steps.version.outputs.VERSION }},enable=${{ inputs.version != '' }}
-            type=raw,value=latest,enable=${{ inputs.version != '' }}
-            type=raw,value=dev,enable=${{ inputs.version == '' }}
+            type=raw,value=${{ steps.version.outputs.VERSION }}
+            type=raw,value=latest,enable=${{ inputs.publish_latest }}
 
       - name: Build and push
         uses: docker/build-push-action@v5

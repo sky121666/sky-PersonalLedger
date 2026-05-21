@@ -27,11 +27,8 @@ func main() {
 	}
 
 	// Validate critical security settings
-	if cfg.JWT.Secret == "" || cfg.JWT.Secret == "change-this-to-a-random-secret-key" {
-		log.Fatal("FATAL: JWT_SECRET must be set to a secure random value! Please set LEDGER_JWT_SECRET environment variable.")
-	}
-	if len(cfg.JWT.Secret) < 32 {
-		log.Fatal("FATAL: JWT_SECRET must be at least 32 characters long for security.")
+	if err := validateJWTSecret(cfg.JWT.Secret); err != nil {
+		log.Fatal(err)
 	}
 
 	// Warn about CORS in production
@@ -122,6 +119,27 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+func validateJWTSecret(secret string) error {
+	value := strings.TrimSpace(secret)
+	placeholderSecrets := map[string]struct{}{
+		"change-me":                                 {},
+		"change-this-secret":                        {},
+		"change-this-to-a-random-secret-key":        {},
+		"please-change-this-to-a-random-secret-key": {},
+		"your-jwt-secret-change-this-in-production": {},
+	}
+	if value == "" {
+		return fmt.Errorf("FATAL: LEDGER_JWT_SECRET must be set to a secure random value")
+	}
+	if _, ok := placeholderSecrets[value]; ok {
+		return fmt.Errorf("FATAL: LEDGER_JWT_SECRET uses a public placeholder value; set it to a secure random value")
+	}
+	if len(value) < 32 {
+		return fmt.Errorf("FATAL: LEDGER_JWT_SECRET must be at least 32 characters long for security")
+	}
+	return nil
 }
 
 func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.AuthService, systemService *service.SystemService) {

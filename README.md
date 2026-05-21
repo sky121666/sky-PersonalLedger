@@ -293,6 +293,17 @@ flutter pub get      # 获取依赖
 flutter run
 ```
 
+### Public repository safety
+
+Before committing to the public repository, run:
+
+```bash
+./scripts/check-public-git-safety.sh
+git diff --check
+```
+
+The safety check rejects tracked local config, databases, signing keys, build caches, app packages, and high-confidence secret patterns.
+
 ### Mobile runtime smoke
 
 For the real backend E2E path, run from the repository root:
