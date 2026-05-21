@@ -175,6 +175,186 @@ func TestDeleteBorrowInRepaymentTransactionRestoresPayable(t *testing.T) {
 	assertFloatEqual(t, "account balance", account.CurrentBalance, 1000)
 }
 
+func TestCreateLendingRejectsMissingAccountWithoutCreatingRows(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	lendingSvc := newLendingTestService(repos)
+	missingAccountID := "missing-account"
+
+	if _, err := lendingSvc.Create(userID, CreateLendingRequest{
+		Type:              "lend_out",
+		ContactName:       "张三",
+		Principal:         300,
+		LendDate:          time.Now().Format(time.RFC3339),
+		AccountID:         &missingAccountID,
+		CreateTransaction: true,
+	}); err == nil {
+		t.Fatal("expected missing account to fail")
+	}
+
+	lendings, err := repos.Lending.GetByUserID(userID, true)
+	if err != nil {
+		t.Fatalf("list lendings: %v", err)
+	}
+	if len(lendings) != 0 {
+		t.Fatalf("lendings after failed create = %d, want 0", len(lendings))
+	}
+
+	transactions, total, err := repos.Transaction.List(repository.TransactionFilter{
+		UserID:   userID,
+		Page:     1,
+		PageSize: 20,
+	})
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if total != 0 || len(transactions) != 0 {
+		t.Fatalf("transactions after failed create = total %d len %d, want 0", total, len(transactions))
+	}
+}
+
+func TestCreateLendingRejectsOtherUserAccountWithoutMutatingAccount(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	otherUser := &model.User{Username: "other", PasswordHash: "hash"}
+	if err := repos.User.Create(otherUser); err != nil {
+		t.Fatalf("create other user: %v", err)
+	}
+	lendingSvc := newLendingTestService(repos)
+	otherAccountID := createAccountForTest(t, repos, otherUser.ID, 1000)
+
+	if _, err := lendingSvc.Create(userID, CreateLendingRequest{
+		Type:              "borrow_in",
+		ContactName:       "李四",
+		Principal:         300,
+		LendDate:          time.Now().Format(time.RFC3339),
+		AccountID:         &otherAccountID,
+		CreateTransaction: true,
+	}); err == nil {
+		t.Fatal("expected other user's account to fail")
+	}
+
+	lendings, err := repos.Lending.GetByUserID(userID, true)
+	if err != nil {
+		t.Fatalf("list lendings: %v", err)
+	}
+	if len(lendings) != 0 {
+		t.Fatalf("lendings after failed create = %d, want 0", len(lendings))
+	}
+
+	otherAccount, err := repos.Account.GetByID(otherAccountID)
+	if err != nil {
+		t.Fatalf("get other account: %v", err)
+	}
+	assertFloatEqual(t, "other account balance", otherAccount.CurrentBalance, 1000)
+}
+
+func TestRecordRepaymentRejectsMissingAccountWithoutMutatingLending(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	lendingSvc := newLendingTestService(repos)
+	missingAccountID := "missing-account"
+
+	lending, err := lendingSvc.Create(userID, CreateLendingRequest{
+		Type:        "lend_out",
+		ContactName: "张三",
+		Principal:   300,
+		LendDate:    time.Now().Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatalf("create lending: %v", err)
+	}
+
+	if _, err := lendingSvc.RecordRepayment(lending.ID, userID, RecordRepaymentRequest{
+		Amount:            100,
+		RecordDate:        time.Now().Format(time.RFC3339),
+		AccountID:         &missingAccountID,
+		CreateTransaction: true,
+	}); err == nil {
+		t.Fatal("expected missing account to fail")
+	}
+
+	unchangedLending, err := lendingSvc.GetByID(lending.ID, userID)
+	if err != nil {
+		t.Fatalf("get unchanged lending: %v", err)
+	}
+	assertFloatEqual(t, "current balance", unchangedLending.CurrentBalance, 300)
+	assertFloatEqual(t, "total repaid", unchangedLending.TotalRepaid, 0)
+	if unchangedLending.IsSettled {
+		t.Fatal("lending should not be settled")
+	}
+
+	records, err := repos.Lending.GetRecordsByLendingID(lending.ID)
+	if err != nil {
+		t.Fatalf("get records: %v", err)
+	}
+	if len(records) != 0 {
+		t.Fatalf("records after failed repayment = %d, want 0", len(records))
+	}
+
+	transactions, total, err := repos.Transaction.List(repository.TransactionFilter{
+		UserID:   userID,
+		Page:     1,
+		PageSize: 20,
+	})
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if total != 0 || len(transactions) != 0 {
+		t.Fatalf("transactions after failed repayment = total %d len %d, want 0", total, len(transactions))
+	}
+}
+
+func TestRecordRepaymentRejectsOtherUserAccountWithoutMutatingLending(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	otherUser := &model.User{Username: "other", PasswordHash: "hash"}
+	if err := repos.User.Create(otherUser); err != nil {
+		t.Fatalf("create other user: %v", err)
+	}
+	lendingSvc := newLendingTestService(repos)
+	otherAccountID := createAccountForTest(t, repos, otherUser.ID, 1000)
+
+	lending, err := lendingSvc.Create(userID, CreateLendingRequest{
+		Type:        "borrow_in",
+		ContactName: "李四",
+		Principal:   300,
+		LendDate:    time.Now().Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatalf("create lending: %v", err)
+	}
+
+	if _, err := lendingSvc.RecordRepayment(lending.ID, userID, RecordRepaymentRequest{
+		Amount:            100,
+		RecordDate:        time.Now().Format(time.RFC3339),
+		AccountID:         &otherAccountID,
+		CreateTransaction: true,
+	}); err == nil {
+		t.Fatal("expected other user's account to fail")
+	}
+
+	unchangedLending, err := lendingSvc.GetByID(lending.ID, userID)
+	if err != nil {
+		t.Fatalf("get unchanged lending: %v", err)
+	}
+	assertFloatEqual(t, "current balance", unchangedLending.CurrentBalance, 300)
+	assertFloatEqual(t, "total repaid", unchangedLending.TotalRepaid, 0)
+	if unchangedLending.IsSettled {
+		t.Fatal("lending should not be settled")
+	}
+
+	otherAccount, err := repos.Account.GetByID(otherAccountID)
+	if err != nil {
+		t.Fatalf("get other account: %v", err)
+	}
+	assertFloatEqual(t, "other account balance", otherAccount.CurrentBalance, 1000)
+
+	records, err := repos.Lending.GetRecordsByLendingID(lending.ID)
+	if err != nil {
+		t.Fatalf("get records: %v", err)
+	}
+	if len(records) != 0 {
+		t.Fatalf("records after failed repayment = %d, want 0", len(records))
+	}
+}
+
 func newLendingTestService(repos *repository.Repositories) *LendingService {
 	accountLogSvc := NewAccountLogService(repos.AccountLog, repos.Account)
 	return NewLendingService(

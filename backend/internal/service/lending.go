@@ -64,36 +64,6 @@ func NewLendingService(
 	}
 }
 
-func (s *LendingService) findOrCreateLendingCategory(userID uint, txType string) *string {
-	categories, err := s.categoryRepo.GetByUserID(userID, txType)
-	if err != nil {
-		return nil
-	}
-
-	// Look for existing lending category
-	for _, cat := range categories {
-		if cat.Name == "借贷" {
-			return &cat.ID
-		}
-	}
-
-	// Create a new lending category
-	newCat := &model.Category{
-		ID:        uuid.New().String(),
-		UserID:    userID,
-		Name:      "借贷",
-		Icon:      "💰",
-		Color:     "#8B5CF6",
-		Type:      txType,
-		IsSystem:  true,
-		SortOrder: len(categories),
-	}
-	if err := s.categoryRepo.Create(newCat); err != nil {
-		return nil
-	}
-	return &newCat.ID
-}
-
 type CreateLendingRequest struct {
 	Type              string   `json:"type" binding:"required,oneof=lend_out borrow_in"`
 	ContactName       string   `json:"contact_name" binding:"required"`
@@ -114,6 +84,7 @@ func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.L
 	if err != nil {
 		return nil, err
 	}
+	accountID := normalizeOptionalString(req.AccountID)
 
 	lending := &model.Lending{
 		ID:             uuid.New().String(),
@@ -127,7 +98,7 @@ func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.L
 		CurrentBalance: req.Principal,
 		TotalRepaid:    0,
 		LendDate:       lendDate,
-		AccountID:      req.AccountID,
+		AccountID:      accountID,
 		Remark:         req.Remark,
 		Evidence:       req.Evidence,
 		IsSettled:      false,
@@ -139,42 +110,40 @@ func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.L
 		}
 	}
 
-	if err := s.repo.Create(lending); err != nil {
-		return nil, err
-	}
-
-	if req.CreateTransaction && req.AccountID != nil {
-		var txType string
-		var amount float64
-		if req.Type == "lend_out" {
-			txType = "expense"
-			amount = req.Principal
-		} else {
-			txType = "income"
-			amount = req.Principal
+	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		var account *model.Account
+		if accountID != nil {
+			foundAccount, err := getAccountForUserTx(txdb, *accountID, userID)
+			if err != nil {
+				return err
+			}
+			account = foundAccount
 		}
 
-		categoryID := s.findOrCreateLendingCategory(userID, txType)
-		tx := &model.Transaction{
-			ID:              uuid.New().String(),
-			UserID:          userID,
-			AccountID:       *req.AccountID,
-			CategoryID:      categoryID,
-			Type:            txType,
-			Amount:          amount,
-			TransactionDate: lendDate,
-			Remark:          "借贷: " + req.ContactName,
-			Source:          "lending",
-			LendingID:       &lending.ID,
+		if err := txdb.Create(lending).Error; err != nil {
+			return err
 		}
 
-		if err := s.txRepo.Create(tx); err == nil {
-			if txType == "expense" {
-				s.accountRepo.UpdateBalance(*req.AccountID, -amount)
+		if req.CreateTransaction && account != nil {
+			var txType string
+			var balanceDelta float64
+			if req.Type == "lend_out" {
+				txType = "expense"
+				balanceDelta = -req.Principal
 			} else {
-				s.accountRepo.UpdateBalance(*req.AccountID, amount)
+				txType = "income"
+				balanceDelta = req.Principal
+			}
+			if _, err := s.createLendingTransactionTx(txdb, userID, lending.ID, account.ID, txType, req.Principal, lendDate, "借贷: "+req.ContactName); err != nil {
+				return err
+			}
+			if err := updateAccountBalanceForUserTx(txdb, account.ID, userID, balanceDelta); err != nil {
+				return err
 			}
 		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	return s.repo.GetByID(lending.ID)
@@ -296,72 +265,165 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 	if err != nil {
 		return nil, err
 	}
+	accountID := normalizeOptionalString(req.AccountID)
 
-	var transactionID *string
-	if req.CreateTransaction && req.AccountID != nil {
-		var txType string
-		if lending.Type == "lend_out" {
-			txType = "income"
-		} else {
-			txType = "expense"
+	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		var account *model.Account
+		if accountID != nil {
+			foundAccount, err := getAccountForUserTx(txdb, *accountID, userID)
+			if err != nil {
+				return err
+			}
+			account = foundAccount
 		}
 
-		categoryID := s.findOrCreateLendingCategory(userID, txType)
-		tx := &model.Transaction{
-			ID:              uuid.New().String(),
-			UserID:          userID,
-			AccountID:       *req.AccountID,
-			CategoryID:      categoryID,
-			Type:            txType,
-			Amount:          req.Amount,
-			TransactionDate: recordDate,
-			Remark:          "还款: " + lending.ContactName,
-			Source:          "lending",
-			LendingID:       &lendingID,
-		}
-
-		if err := s.txRepo.Create(tx); err == nil {
-			transactionID = &tx.ID
-			if txType == "income" {
-				s.accountRepo.UpdateBalance(*req.AccountID, req.Amount)
+		var transactionID *string
+		if req.CreateTransaction && account != nil {
+			var txType string
+			var balanceDelta float64
+			if lending.Type == "lend_out" {
+				txType = "income"
+				balanceDelta = req.Amount
 			} else {
-				s.accountRepo.UpdateBalance(*req.AccountID, -req.Amount)
+				txType = "expense"
+				balanceDelta = -req.Amount
+			}
+			txID, err := s.createLendingTransactionTx(txdb, userID, lendingID, account.ID, txType, req.Amount, recordDate, "还款: "+lending.ContactName)
+			if err != nil {
+				return err
+			}
+			transactionID = &txID
+			if err := updateAccountBalanceForUserTx(txdb, account.ID, userID, balanceDelta); err != nil {
+				return err
 			}
 		}
-	}
 
-	record := &model.LendingRecord{
-		ID:            uuid.New().String(),
-		LendingID:     lendingID,
-		UserID:        userID,
-		Type:          "repay",
-		Amount:        req.Amount,
-		RecordDate:    recordDate,
-		AccountID:     req.AccountID,
-		TransactionID: transactionID,
-		Remark:        req.Remark,
-		Evidence:      req.Evidence,
-	}
+		record := &model.LendingRecord{
+			ID:            uuid.New().String(),
+			LendingID:     lendingID,
+			UserID:        userID,
+			Type:          "repay",
+			Amount:        req.Amount,
+			RecordDate:    recordDate,
+			AccountID:     accountID,
+			TransactionID: transactionID,
+			Remark:        req.Remark,
+			Evidence:      req.Evidence,
+		}
 
-	if err := s.repo.CreateRecord(record); err != nil {
-		return nil, err
-	}
+		if err := txdb.Create(record).Error; err != nil {
+			return err
+		}
 
-	lending.CurrentBalance -= req.Amount
-	lending.TotalRepaid += req.Amount
+		nextBalance := lending.CurrentBalance - req.Amount
+		nextTotalRepaid := lending.TotalRepaid + req.Amount
+		isSettled := lending.IsSettled
+		settledAt := lending.SettledAt
+		if nextBalance <= 0.01 {
+			nextBalance = 0
+			isSettled = true
+			now := time.Now()
+			settledAt = &now
+		}
 
-	if lending.CurrentBalance <= 0.01 {
-		lending.CurrentBalance = 0
-		lending.IsSettled = true
-		now := time.Now()
-		lending.SettledAt = &now
-	}
-
-	if err := s.repo.Update(lending); err != nil {
+		result := txdb.Model(&model.Lending{}).
+			Where("id = ? AND user_id = ?", lending.ID, userID).
+			Updates(map[string]any{
+				"current_balance": nextBalance,
+				"total_repaid":    nextTotalRepaid,
+				"is_settled":      isSettled,
+				"settled_at":      settledAt,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrLendingNotFound
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
 	return s.repo.GetByID(lendingID)
+}
+
+func normalizeOptionalString(value *string) *string {
+	if value == nil || *value == "" {
+		return nil
+	}
+	return value
+}
+
+func (s *LendingService) createLendingTransactionTx(txdb *gorm.DB, userID uint, lendingID string, accountID string, txType string, amount float64, txDate time.Time, remark string) (string, error) {
+	categoryID, err := s.findOrCreateLendingCategoryTx(txdb, userID, txType)
+	if err != nil {
+		return "", err
+	}
+
+	tx := &model.Transaction{
+		ID:              uuid.New().String(),
+		UserID:          userID,
+		AccountID:       accountID,
+		CategoryID:      categoryID,
+		Type:            txType,
+		Amount:          amount,
+		TransactionDate: txDate,
+		Remark:          remark,
+		Source:          "lending",
+		LendingID:       &lendingID,
+	}
+	if err := txdb.Create(tx).Error; err != nil {
+		return "", err
+	}
+	return tx.ID, nil
+}
+
+func (s *LendingService) findOrCreateLendingCategoryTx(txdb *gorm.DB, userID uint, txType string) (*string, error) {
+	var category model.Category
+	err := txdb.Where("user_id = ? AND type = ? AND name = ?", userID, txType, "借贷").
+		First(&category).Error
+	if err == nil {
+		return &category.ID, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	var sortOrder int64
+	if err := txdb.Model(&model.Category{}).
+		Where("user_id = ? AND type = ?", userID, txType).
+		Count(&sortOrder).Error; err != nil {
+		return nil, err
+	}
+
+	category = model.Category{
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Name:      "借贷",
+		Icon:      "💰",
+		Color:     "#8B5CF6",
+		Type:      txType,
+		IsSystem:  true,
+		SortOrder: int(sortOrder),
+	}
+	if err := txdb.Create(&category).Error; err != nil {
+		return nil, err
+	}
+	return &category.ID, nil
+}
+
+func updateAccountBalanceForUserTx(txdb *gorm.DB, accountID string, userID uint, delta float64) error {
+	result := txdb.Model(&model.Account{}).
+		Where("id = ? AND user_id = ?", accountID, userID).
+		Update("current_balance", gorm.Expr("current_balance + ?", delta))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrAccountNotFound
+	}
+	return nil
 }
 
 func (s *LendingService) GetRecords(lendingID string, userID uint) ([]*model.LendingRecord, error) {
