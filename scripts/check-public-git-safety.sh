@@ -27,8 +27,14 @@ if git grep -nI -E 'BEGIN (RSA |OPENSSH |EC |DSA |PRIVATE )?PRIVATE KEY|AKIA[0-9
   fail=1
 fi
 
-if git grep -nI 'LEDGER_JWT_SECRET=change-this-secret' -- Dockerfile docker-compose.yml .env.example config.example.yaml README.md 2>/dev/null; then
+unsafe_jwt_placeholders='LEDGER_JWT_SECRET=(change-me|change-this-secret|change-this-to-a-random-secret-key|please-change-this-to-a-random-secret-key|your-jwt-secret-change-this-in-production|your-random-secret-key)'
+if git grep -nI -E "$unsafe_jwt_placeholders" -- Dockerfile docker-compose.yml .env.example config.example.yaml README.md 2>/dev/null; then
   echo "ERROR: unsafe Docker JWT placeholder is tracked" >&2
+  fail=1
+fi
+
+if git grep -nI -E 'secret: "(change-me|change-this-secret|change-this-to-a-random-secret-key|please-change-this-to-a-random-secret-key|your-jwt-secret-change-this-in-production|your-random-secret-key)"' -- config.example.yaml 2>/dev/null; then
+  echo "ERROR: unsafe config JWT placeholder is tracked" >&2
   fail=1
 fi
 

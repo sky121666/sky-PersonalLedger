@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   personal-ledger:
     # GitHub Container Registry 镜像
@@ -18,8 +16,9 @@ services:
     
     environment:
       # ========== 必须修改 ==========
-      # JWT 密钥 (至少32位随机字符串)
-      - LEDGER_JWT_SECRET=please-change-this-to-a-random-secret-key
+      # JWT 密钥 (至少32位随机字符串)。建议在 .env 中设置:
+      # LEDGER_JWT_SECRET=$(openssl rand -base64 32)
+      - LEDGER_JWT_SECRET=${LEDGER_JWT_SECRET:?Set LEDGER_JWT_SECRET in .env before starting}
       
       # ========== 安全配置 (可选) ==========
       # 自定义入口路径 (设置后只能通过 /your-path 访问)

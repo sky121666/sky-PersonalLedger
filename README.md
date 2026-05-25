@@ -50,9 +50,8 @@
 # 1. 下载配置文件
 wget https://raw.githubusercontent.com/sky121666/sky-PersonalLedger/main/docker-compose.yml
 
-# 2. 修改 JWT 密钥 (必须!)
-nano docker-compose.yml
-# 将 LEDGER_JWT_SECRET 改为随机字符串，如: $(openssl rand -base64 32)
+# 2. 生成 JWT 密钥 (必须)
+printf 'LEDGER_JWT_SECRET=%s\n' "$(openssl rand -base64 32)" > .env
 
 # 3. 启动服务
 docker-compose up -d
@@ -183,8 +182,6 @@ LEDGER_DATABASE_DSN='ledger:password@tcp(db:3306)/ledger?charset=utf8mb4&parseTi
 ### docker-compose.yml 完整配置
 
 ```yaml
-version: '3.8'
-
 services:
   personal-ledger:
     image: ghcr.io/sky121666/sky-personalledger:latest
@@ -196,8 +193,8 @@ services:
       - ./data:/data
     environment:
       # ========== 必须修改 ==========
-      # 生成随机密钥: openssl rand -base64 32
-      - LEDGER_JWT_SECRET=please-change-this-to-a-random-secret-key
+      # 在 .env 中设置: LEDGER_JWT_SECRET=$(openssl rand -base64 32)
+      - LEDGER_JWT_SECRET=${LEDGER_JWT_SECRET:?Set LEDGER_JWT_SECRET in .env before starting}
       
       # ========== 安全配置 (可选) ==========
       # 自定义入口路径，隐藏真实访问地址
