@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { 
   Eye, EyeOff, ChevronRight, RefreshCw, 
   LayoutList, Calendar as CalendarIcon, Wallet,
-  AlertCircle, Check, Home
+  AlertCircle, Check, Home, Users, Sparkles
 } from 'lucide-vue-next'
 import { accountApi, type AccountListResponse } from '@/api/account'
 import { transactionApi, type Transaction } from '@/api/transaction'
@@ -12,6 +12,8 @@ import { statisticsApi, type OverviewResponse } from '@/api/statistics'
 import { budgetApi, type BudgetSummary } from '@/api/budget'
 import { reminderApi, type DebtSummary } from '@/api/reminder'
 import { lendingApi, type LendingSummary } from '@/api/lending'
+import { familyApi, type FamilySummary } from '@/api/family'
+import { aiApi, type AIReport } from '@/api/ai'
 import { getAccountTypeName, AMOUNT_COLORS } from '@/utils/constants'
 import TransactionDialog from '@/components/TransactionDialog.vue'
 import CalendarView from '@/components/CalendarView.vue'
@@ -34,6 +36,8 @@ const dateTransactions = ref<Transaction[]>([])
 const debtSummary = ref<DebtSummary | null>(null)
 const budgetSummary = ref<BudgetSummary | null>(null)
 const lendingSummary = ref<LendingSummary | null>(null)
+const familySummary = ref<FamilySummary | null>(null)
+const latestAIReport = ref<AIReport | null>(null)
 
 // Dialog states
 const showDialog = ref(false)
@@ -51,13 +55,15 @@ onMounted(() => {
 async function loadData() {
   loading.value = true
   try {
-    const [acc, ov, tx, debt, bud, lending] = await Promise.all([
+    const [acc, ov, tx, debt, bud, lending, family, aiReports] = await Promise.all([
       accountApi.getList(),
       statisticsApi.getOverview(),
       transactionApi.getList({ page_size: 20 }),
       reminderApi.getDebtSummary(),
       budgetApi.getSummary(),
-      lendingApi.getSummary()
+      lendingApi.getSummary(),
+      familyApi.getSummary(dayjs().format('YYYY-MM')),
+      aiApi.listReports()
     ])
     accountData.value = acc
     overview.value = ov
@@ -67,6 +73,8 @@ async function loadData() {
     debtSummary.value = debt
     budgetSummary.value = bud
     lendingSummary.value = lending
+    familySummary.value = family
+    latestAIReport.value = aiReports[0] || null
   } catch (e: any) {
     toast.error('加载失败，请重试')
   } finally {
@@ -107,6 +115,16 @@ function handleDateSelect(date: string) {
 function formatMoney(value: number | undefined) {
   if (value === undefined) return '0.00'
   return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function getAIReportSummary(report: AIReport | null) {
+  if (!report?.content_json) return '还没有报告'
+  try {
+    const content = JSON.parse(report.content_json)
+    return content.summary || content.title || '报告已生成'
+  } catch {
+    return report.content_json
+  }
 }
 
 function getCategoryIcon(icon: string | undefined, name: string) {
@@ -269,6 +287,78 @@ function onTransactionSuccess() {
 
       <!-- Dashboard Grid: Budget & Debt -->
       <div class="grid md:grid-cols-2 gap-4">
+        <!-- Family Card -->
+        <div
+          class="bg-gradient-to-br from-emerald-50/80 to-teal-50/80 dark:from-gray-800/80 dark:to-gray-800/80 backdrop-blur-xl rounded-3xl p-6 border border-white/20 dark:border-gray-700/50 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group shadow-sm"
+          @click="router.push('/family')"
+        >
+          <div class="absolute right-0 top-0 w-32 h-32 bg-emerald-100 dark:bg-emerald-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+
+          <div class="relative">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Users :size="18" class="text-emerald-600 dark:text-emerald-400" />
+                <span>家庭支出</span>
+              </h3>
+              <span class="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm">
+                {{ familySummary?.members?.length || 0 }}人
+              </span>
+            </div>
+
+            <div class="mb-4">
+              <div class="text-2xl font-bold font-nums text-gray-900 dark:text-white">
+                {{ formatMoney(familySummary?.total_expense) }}
+              </div>
+              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ currentMonth }}家庭归属统计</div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs text-gray-500">
+              <span class="truncate">
+                {{ familySummary?.members?.[0]?.name ? `${familySummary.members[0].name} ${formatMoney(familySummary.members[0].expense_total)}` : '添加成员后自动汇总' }}
+              </span>
+              <span class="flex items-center gap-1">
+                管理 <ChevronRight :size="14" />
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Insight Card -->
+        <div
+          class="bg-gradient-to-br from-cyan-50/80 to-slate-50/80 dark:from-gray-800/80 dark:to-gray-800/80 backdrop-blur-xl rounded-3xl p-6 border border-white/20 dark:border-gray-700/50 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group shadow-sm"
+          @click="router.push('/ai')"
+        >
+          <div class="absolute right-0 top-0 w-32 h-32 bg-cyan-100 dark:bg-cyan-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+
+          <div class="relative">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Sparkles :size="18" class="text-cyan-600 dark:text-cyan-400" />
+                <span>AI 分析</span>
+              </h3>
+              <span class="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-gray-700 text-cyan-600 dark:text-cyan-400 shadow-sm">
+                {{ latestAIReport?.status === 'completed' ? '已生成' : '待生成' }}
+              </span>
+            </div>
+
+            <div class="mb-4">
+              <div class="text-sm font-semibold text-gray-900 dark:text-white">
+                {{ latestAIReport ? `${latestAIReport.period_start.slice(0, 10)} - ${latestAIReport.period_end.slice(0, 10)}` : '每周总结 / 月度总结' }}
+              </div>
+              <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400 line-clamp-2">
+                {{ getAIReportSummary(latestAIReport) }}
+              </p>
+            </div>
+
+            <div class="flex items-center justify-between text-xs text-gray-500">
+              <span>{{ latestAIReport?.provider_name || 'OpenAI-compatible Provider' }}</span>
+              <span class="flex items-center gap-1">
+                配置 <ChevronRight :size="14" />
+              </span>
+            </div>
+          </div>
+        </div>
+
         <!-- Budget Card -->
         <div 
           class="bg-gradient-to-br from-sky-50/80 to-blue-50/80 dark:from-gray-800/80 dark:to-gray-800/80 backdrop-blur-xl rounded-3xl p-6 border border-white/20 dark:border-gray-700/50 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group shadow-sm"

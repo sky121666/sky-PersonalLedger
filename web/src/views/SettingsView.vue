@@ -10,7 +10,7 @@ import { toast } from '@/composables/useToast'
 import {
   Lock, Upload, Download, Info, ChevronRight,
   User, Shield, Database, X, Check, LogOut, Wallet, Moon, HardDrive, Bell,
-  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone
+  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone, Sparkles
 } from 'lucide-vue-next'
 import { notificationApi } from '@/api/notification'
 import { systemApi } from '@/api/system'
@@ -35,6 +35,8 @@ const services = [
   { icon: Target, label: '预算设置', route: 'budgets', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
   { icon: Bell, label: '负债管理', route: 'reminders', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' },
   { icon: Users, label: '借贷往来', route: 'lendings', color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20' },
+  { icon: Users, label: '家庭成员', route: 'family', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+  { icon: Sparkles, label: 'AI 分析', route: 'ai', color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-900/20' },
   { icon: FileText, label: '年度报告', route: 'report', color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' }
 ]
 

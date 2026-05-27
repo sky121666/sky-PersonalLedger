@@ -72,6 +72,16 @@ const router = createRouter({
           component: () => import('@/views/ReportView.vue')
         },
         {
+          path: 'family',
+          name: 'family',
+          component: () => import('@/views/FamilyView.vue')
+        },
+        {
+          path: 'ai',
+          name: 'ai',
+          component: () => import('@/views/AIView.vue')
+        },
+        {
           path: 'account-logs',
           name: 'account-logs',
           component: () => import('@/views/AccountLogView.vue')
