@@ -1,6 +1,6 @@
 # Android Release Signing
 
-Android production APKs must be signed with a release keystore. The Gradle build intentionally fails release builds when signing is missing, so a release artifact cannot silently fall back to the debug key.
+Android production APKs and App Bundles must be signed with a release keystore. The Gradle build intentionally fails release builds when signing is missing, so a release artifact cannot silently fall back to the debug key.
 
 ## Local Release Build
 
@@ -20,6 +20,7 @@ keyPassword=your-key-password
 ```bash
 cd mobile
 flutter build apk --release
+flutter build appbundle --release
 ```
 
 `mobile/android/key.properties` and keystore files are ignored by git.
@@ -33,4 +34,39 @@ Configure these repository secrets:
 - `ANDROID_KEY_ALIAS`: key alias
 - `ANDROID_KEY_PASSWORD`: key password
 
-The Android workflow decodes the keystore into `mobile/android/app/upload-keystore.jks`, writes `mobile/android/key.properties`, and then builds the release APK.
+The Android workflow decodes the keystore into `mobile/android/app/upload-keystore.jks`, writes `mobile/android/key.properties`, and then builds both:
+
+- `personal-ledger-<version>-android.apk`
+- `personal-ledger-<version>-android.aab`
+- `personal-ledger-<version>-android.apk.sha256`
+- `personal-ledger-<version>-android.aab.sha256`
+
+The APK is useful for direct install testing. The AAB is the preferred artifact for formal store distribution.
+
+## Preflight
+
+Run the structural artifact preflight from the repository root:
+
+```bash
+./scripts/check-release-artifacts-preflight.sh
+```
+
+Before an actual signed release, run it with signing-secret validation in the CI environment or a local shell where the same variables are exported:
+
+```bash
+CHECK_SIGNING_SECRETS=1 ./scripts/check-release-artifacts-preflight.sh
+```
+
+For a local Android signing setup, this checks that the ignored signing files exist:
+
+```bash
+CHECK_LOCAL_ANDROID_SIGNING=1 ./scripts/check-release-artifacts-preflight.sh
+```
+
+After CI or a local release build produces artifacts, verify the actual files and record their SHA-256 values:
+
+```bash
+RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> ./scripts/check-release-artifact-files.sh
+```
+
+If `.sha256` sidecar files are present, the verifier also checks that they match the downloaded APK/AAB files.

@@ -62,7 +62,6 @@ ENV LEDGER_SERVER_PORT=8080 \
     LEDGER_LOG_FORMAT=json \
     # 安全配置
     LEDGER_SECURITY_BASE_PATH="" \
-    LEDGER_SECURITY_API_TOKEN="" \
     # 存储配置
     LEDGER_STORAGE_UPLOAD_PATH=/data/uploads \
     LEDGER_STORAGE_BACKUP_PATH=/data/backups \

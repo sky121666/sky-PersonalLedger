@@ -42,11 +42,22 @@ jobs:
       build_number: ${{ needs.prepare.outputs.build_number }}
     secrets: inherit
 
+  # 调用 iOS 构建
+  ios:
+    name: iOS
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: prepare
+    uses: ./.github/workflows/ios.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      build_number: ${{ needs.prepare.outputs.build_number }}
+    secrets: inherit
+
   # 创建 GitHub Release
   release:
     name: Create Release
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: [prepare, docker, android]
+    needs: [prepare, docker, android, ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -71,7 +82,12 @@ jobs:
           prerelease: false
           generate_release_notes: true
           files: |
-            artifacts/android-apk/*.apk
+            artifacts/android-release/*.apk
+            artifacts/android-release/*.apk.sha256
+            artifacts/android-release/*.aab
+            artifacts/android-release/*.aab.sha256
+            artifacts/ios-ipa/*.ipa
+            artifacts/ios-ipa/*.ipa.sha256
           body: |
             ## 📦 版本 v${{ needs.prepare.outputs.version }}
             
@@ -89,5 +105,8 @@ jobs:
             | 平台 | 文件 | 说明 |
             |------|------|------|
             | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.apk` | 已使用 release keystore 签名 |
+            | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.aab` | 已使用 release keystore 签名，适合正式商店分发 |
+            | iOS | `personal-ledger-${{ needs.prepare.outputs.version }}-ios.ipa` | 已使用 Apple 签名材料导出 |
+            | 校验文件 | `*.sha256` | 用于核对下载产物的 SHA-256 |
 
             macOS 和 Windows 客户端仍在平台回归阶段，暂不随本次 GitHub Release 发布。

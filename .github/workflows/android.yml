@@ -31,7 +31,7 @@ on:
 
 jobs:
   android:
-    name: Build Android APK
+    name: Build Android APK and AAB
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     
@@ -118,16 +118,43 @@ jobs:
         working-directory: mobile
         run: flutter build apk --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
 
+      - name: Build App Bundle
+        if: inputs.version != ''
+        working-directory: mobile
+        run: flutter build appbundle --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
+
       - name: Rename APK
         if: inputs.version != ''
         run: |
           mv mobile/build/app/outputs/flutter-apk/app-release.apk \
              mobile/build/app/outputs/flutter-apk/personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk
 
-      - name: Upload APK
+      - name: Rename App Bundle
+        if: inputs.version != ''
+        run: |
+          mv mobile/build/app/outputs/bundle/release/app-release.aab \
+             mobile/build/app/outputs/bundle/release/personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab
+
+      - name: Generate Android checksums
+        if: inputs.version != ''
+        run: |
+          (
+            cd mobile/build/app/outputs/flutter-apk
+            shasum -a 256 personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk > personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk.sha256
+          )
+          (
+            cd mobile/build/app/outputs/bundle/release
+            shasum -a 256 personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab > personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab.sha256
+          )
+
+      - name: Upload Android artifacts
         if: inputs.version != ''
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: mobile/build/app/outputs/flutter-apk/personal-ledger-*.apk
+          name: android-release
+          path: |
+            mobile/build/app/outputs/flutter-apk/personal-ledger-*.apk
+            mobile/build/app/outputs/flutter-apk/personal-ledger-*.apk.sha256
+            mobile/build/app/outputs/bundle/release/personal-ledger-*.aab
+            mobile/build/app/outputs/bundle/release/personal-ledger-*.aab.sha256
           retention-days: ${{ inputs.version != '' && 90 || 7 }}

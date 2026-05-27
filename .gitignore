@@ -29,6 +29,8 @@ local.properties
 *.pem
 *.key
 *.crt
+*.mobileprovision
+ExportOptions.plist
 google-services.json
 GoogleService-Info.plist
 
