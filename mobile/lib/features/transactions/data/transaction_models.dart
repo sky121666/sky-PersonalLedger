@@ -114,6 +114,8 @@ class TransactionItem {
     this.images = '',
     this.tags = const [],
     this.toAccountId,
+    this.memberId,
+    this.paidByMemberId,
     this.account,
     this.toAccount,
     this.category,
@@ -129,6 +131,8 @@ class TransactionItem {
   final String images;
   final List<String> tags;
   final String? toAccountId;
+  final String? memberId;
+  final String? paidByMemberId;
   final LedgerAccount? account;
   final LedgerAccount? toAccount;
   final LedgerCategory? category;
@@ -157,6 +161,8 @@ class TransactionItem {
       images: json['images'] as String? ?? '',
       tags: _parseTags(json['tags']),
       toAccountId: json['to_account_id'] as String?,
+      memberId: json['member_id'] as String?,
+      paidByMemberId: json['paid_by_member_id'] as String?,
       account: json['account'] is Map<String, dynamic>
           ? LedgerAccount.fromJson(json['account'] as Map<String, dynamic>)
           : null,
@@ -251,6 +257,8 @@ class TransactionFormData {
     this.remark = '',
     this.images = '',
     this.tags = const [],
+    this.memberId,
+    this.paidByMemberId,
   });
 
   final TransactionType type;
@@ -262,6 +270,8 @@ class TransactionFormData {
   final String remark;
   final String images;
   final List<String> tags;
+  final String? memberId;
+  final String? paidByMemberId;
 
   /// 转换为新增或编辑交易接口请求体。
   Map<String, dynamic> toJson() {
@@ -273,6 +283,9 @@ class TransactionFormData {
       'remark': remark.trim(),
       'images': images,
       'tags': jsonEncode(tags),
+      if (memberId != null && memberId!.isNotEmpty) 'member_id': memberId,
+      if (paidByMemberId != null && paidByMemberId!.isNotEmpty)
+        'paid_by_member_id': paidByMemberId,
       if (type == TransactionType.transfer) 'to_account_id': toAccountId,
       if (type != TransactionType.transfer) 'category_id': categoryId,
     };
@@ -290,6 +303,8 @@ class TransactionFormData {
       remark: item.remark,
       images: item.images,
       tags: item.tags,
+      memberId: item.memberId,
+      paidByMemberId: item.paidByMemberId,
     );
   }
 }

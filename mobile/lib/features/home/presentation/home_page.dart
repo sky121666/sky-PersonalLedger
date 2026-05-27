@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
+import '../../../app/widgets/animated_money_text.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/ledger_icon.dart';
+import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/home_repository.dart';
+import 'widgets/home_dashboard_widgets.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -66,34 +71,53 @@ class _HomeContent extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 96),
           children: [
-            Text(
-              '个人记账',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '下拉可刷新账户、统计和预算数据',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
+            _entry(
+              0,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '个人记账',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '下拉可刷新账户、统计和预算数据',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
-            _NetAssetsCard(accounts: summary.accounts),
+            _entry(1, _NetAssetsCard(accounts: summary.accounts)),
             const SizedBox(height: 16),
-            _MonthlyOverviewCard(overview: summary.overview),
+            _entry(2, _MonthlyOverviewCard(overview: summary.overview)),
             const SizedBox(height: 16),
-            _AccountOverviewCard(
-              accounts: visibleAccounts,
-              totalCount: accounts.length,
+            _entry(3, const QuickHomeActionCard()),
+            const SizedBox(height: 16),
+            _entry(4, FamilyHomeSummaryCard(summary: summary.familySummary)),
+            const SizedBox(height: 16),
+            _entry(
+              5,
+              _AccountOverviewCard(
+                accounts: visibleAccounts,
+                totalCount: accounts.length,
+              ),
             ),
             const SizedBox(height: 16),
-            _BudgetSummaryCard(summary: summary.budgetSummary),
+            _entry(6, _BudgetSummaryCard(summary: summary.budgetSummary)),
           ],
         ),
       ),
     );
+  }
+
+  Widget _entry(int index, Widget child) {
+    return StaggeredEntrance(index: index, child: child);
   }
 }
 
@@ -136,50 +160,47 @@ class _NetAssetsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      color: colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '净资产',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w600,
-              ),
+    return PremiumSurface(
+      accentColor: AppTheme.assetColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '净资产',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 10),
-            Text(
-              _formatCurrency(accounts.netAssets),
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          const SizedBox(height: 10),
+          AnimatedMoneyText(
+            amount: accounts.netAssets,
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: _MetricTile(
-                    label: '总资产',
-                    value: _formatCurrency(accounts.totalAssets),
-                    icon: Icons.account_balance_wallet_outlined,
-                  ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _MetricTile(
+                  label: '总资产',
+                  value: _formatCurrency(accounts.totalAssets),
+                  icon: Icons.account_balance_wallet_outlined,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _MetricTile(
-                    label: '总负债',
-                    value: _formatCurrency(accounts.totalLiabilities),
-                    icon: Icons.credit_card_outlined,
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MetricTile(
+                  label: '总负债',
+                  value: _formatCurrency(accounts.totalLiabilities),
+                  icon: Icons.credit_card_outlined,
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -193,53 +214,51 @@ class _MonthlyOverviewCard extends StatelessWidget {
   /// 构建本月收支卡片。
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '本月收支',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _AmountColumn(
-                    label: '收入',
-                    value: overview.income,
-                    color: Colors.redAccent,
-                  ),
+    return PremiumSurface(
+      accentColor: AppTheme.incomeColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '本月收支',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _AmountColumn(
+                  label: '收入',
+                  value: overview.income,
+                  color: AppTheme.incomeColor,
                 ),
-                Expanded(
-                  child: _AmountColumn(
-                    label: '支出',
-                    value: overview.expense,
-                    color: Colors.green,
-                  ),
-                ),
-                Expanded(
-                  child: _AmountColumn(
-                    label: '结余',
-                    value: overview.balance,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '本月已记 ${overview.transactionCount} 笔',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
               ),
+              Expanded(
+                child: _AmountColumn(
+                  label: '支出',
+                  value: overview.expense,
+                  color: AppTheme.expenseColor,
+                ),
+              ),
+              Expanded(
+                child: _AmountColumn(
+                  label: '结余',
+                  value: overview.balance,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '本月已记 ${overview.transactionCount} 笔',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.outline,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -257,37 +276,34 @@ class _AccountOverviewCard extends StatelessWidget {
   /// 构建账户概览卡片。
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '账户概览',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+    return PremiumSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '账户概览',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                Text(
-                  '$totalCount 个账户',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+              ),
+              Text(
+                '$totalCount 个账户',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (accounts.isEmpty)
-              const _EmptyCardLine(text: '暂无账户，请先创建账户')
-            else
-              ...accounts.map((account) => _AccountLine(account: account)),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (accounts.isEmpty)
+            const _EmptyCardLine(text: '暂无账户，请先创建账户')
+          else
+            ...accounts.map((account) => _AccountLine(account: account)),
+        ],
       ),
     );
   }
@@ -307,76 +323,74 @@ class _BudgetSummaryCard extends StatelessWidget {
         : 0.0;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '预算摘要',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            if (!hasBudget)
-              const _EmptyCardLine(text: '本月暂未设置预算')
-            else ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('已用 ${summary.percentage.toStringAsFixed(1)}%'),
-                  Text(
-                    '${_formatCurrency(summary.totalSpent)} / ${_formatCurrency(summary.totalAmount)}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              LinearProgressIndicator(
-                value: progress,
-                minHeight: 10,
-                borderRadius: BorderRadius.circular(999),
-                backgroundColor: colorScheme.surfaceContainerHighest,
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _BudgetInfoItem(
-                      label: '剩余预算',
-                      value: _formatCurrency(summary.remainingAmount),
-                    ),
-                  ),
-                  Expanded(
-                    child: _BudgetInfoItem(
-                      label: '日可用',
-                      value: _formatCurrency(summary.dailyAvailable),
-                    ),
-                  ),
-                  Expanded(
-                    child: _BudgetInfoItem(
-                      label: '剩余天数',
-                      value: '${summary.daysRemaining} 天',
-                    ),
-                  ),
-                ],
-              ),
-              if (summary.overBudgetCategories.isNotEmpty) ...[
-                const SizedBox(height: 12),
+    return PremiumSurface(
+      accentColor: AppTheme.warningColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '预算摘要',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          if (!hasBudget)
+            const _EmptyCardLine(text: '本月暂未设置预算')
+          else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('已用 ${summary.percentage.toStringAsFixed(1)}%'),
                 Text(
-                  '超预算：${summary.overBudgetCategories.map((item) => item.name).join('、')}',
+                  '${_formatCurrency(summary.totalSpent)} / ${_formatCurrency(summary.totalAmount)}',
                   style: Theme.of(
                     context,
-                  ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              value: progress,
+              minHeight: 10,
+              borderRadius: BorderRadius.circular(999),
+              backgroundColor: colorScheme.surfaceContainerHighest,
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _BudgetInfoItem(
+                    label: '剩余预算',
+                    value: _formatCurrency(summary.remainingAmount),
+                  ),
+                ),
+                Expanded(
+                  child: _BudgetInfoItem(
+                    label: '日可用',
+                    value: _formatCurrency(summary.dailyAvailable),
+                  ),
+                ),
+                Expanded(
+                  child: _BudgetInfoItem(
+                    label: '剩余天数',
+                    value: '${summary.daysRemaining} 天',
+                  ),
+                ),
+              ],
+            ),
+            if (summary.overBudgetCategories.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                '超预算：${summary.overBudgetCategories.map((item) => item.name).join('、')}',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
+              ),
             ],
           ],
-        ),
+        ],
       ),
     );
   }

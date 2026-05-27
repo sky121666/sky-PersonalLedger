@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/router/app_route_paths.dart';
+import '../../transactions/presentation/quick_transaction_page.dart';
 
 class MainShellPage extends StatelessWidget {
-  const MainShellPage({required this.navigationShell, super.key});
+  const MainShellPage({
+    required this.navigationShell,
+    this.quickTransactionBuilder,
+    super.key,
+  });
 
   final StatefulNavigationShell navigationShell;
+  final WidgetBuilder? quickTransactionBuilder;
 
   /// 构建移动端主框架，包含底部导航和快速记账入口。
   @override
@@ -47,7 +52,7 @@ class MainShellPage extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push(AppRoutePaths.quickTransaction),
+        onPressed: () => _openQuickTransaction(context),
         icon: const Icon(Icons.add),
         label: const Text('记一笔'),
       ),
@@ -90,6 +95,30 @@ class MainShellPage extends StatelessWidget {
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
+    );
+  }
+
+  void _openQuickTransaction(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
+      clipBehavior: Clip.antiAlias,
+      constraints: const BoxConstraints(maxWidth: 640),
+      elevation: 0,
+      isScrollControlled: true,
+      showDragHandle: false,
+      useSafeArea: true,
+      builder: (context) => DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child:
+            quickTransactionBuilder?.call(context) ??
+            const QuickTransactionPage(embedded: true),
+      ),
     );
   }
 }
