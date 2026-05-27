@@ -18,7 +18,7 @@ func TestBackupDoesNotExportSecurityCredentials(t *testing.T) {
 		t.Fatalf("init db: %v", err)
 	}
 	repos := repository.NewRepositories(db)
-	backupSvc := NewBackupService(db, repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification, repos.Tag, repos.User)
+	backupSvc := NewBackupService(db, repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification, repos.Tag, repos.User, repos.FamilyMember, repos.AIReport)
 
 	user := &model.User{
 		Username:     "admin",

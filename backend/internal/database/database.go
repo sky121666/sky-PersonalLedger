@@ -81,6 +81,9 @@ func InitWithConfig(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		&model.Tag{},
 		&model.RecurringTransaction{},
 		&model.APIToken{},
+		&model.FamilyMember{},
+		&model.AIProvider{},
+		&model.AIReport{},
 	); err != nil {
 		return nil, err
 	}

@@ -75,6 +75,8 @@ type Transaction struct {
 	Images          string    `gorm:"type:text" json:"images"` // JSON array
 	Tags            string    `gorm:"type:text" json:"tags"`   // JSON array of tag names
 	ToAccountID     *string   `gorm:"size:36" json:"to_account_id"`
+	MemberID        *string   `gorm:"size:36;index" json:"member_id,omitempty"`
+	PaidByMemberID  *string   `gorm:"size:36;index" json:"paid_by_member_id,omitempty"`
 	Source          string    `gorm:"size:50;default:manual" json:"source"`
 	ReminderID      *string   `gorm:"size:36;index" json:"reminder_id,omitempty"`
 	LendingID       *string   `gorm:"size:36;index" json:"lending_id,omitempty"`

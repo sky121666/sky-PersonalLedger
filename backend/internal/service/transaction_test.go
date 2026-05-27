@@ -23,7 +23,7 @@ func newTransactionTestService(t *testing.T) (*TransactionService, *repository.R
 		t.Fatalf("create user: %v", err)
 	}
 	accountLogSvc := NewAccountLogService(repos.AccountLog, repos.Account)
-	return NewTransactionService(repos.Transaction, repos.Account, repos.Reminder, repos.Lending, accountLogSvc), repos, user.ID
+	return NewTransactionService(repos.Transaction, repos.Account, repos.Reminder, repos.Lending, repos.FamilyMember, accountLogSvc), repos, user.ID
 }
 
 func createAccountForTest(t *testing.T, repos *repository.Repositories, userID uint, balance float64) string {
@@ -114,6 +114,63 @@ func TestCreateTransferRollsBackWhenTargetAccountDoesNotExist(t *testing.T) {
 	}
 	if total != 0 || len(list) != 0 {
 		t.Fatalf("transaction was persisted despite failed transfer: total=%d len=%d", total, len(list))
+	}
+}
+
+func TestCreateTransactionPersistsFamilyMemberFields(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+	memberSvc := NewFamilyMemberService(repos.FamilyMember)
+	member, err := memberSvc.Create(userID, CreateFamilyMemberRequest{Name: "我", Relationship: "self"})
+	if err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+	payer, err := memberSvc.Create(userID, CreateFamilyMemberRequest{Name: "家人", Relationship: "spouse"})
+	if err != nil {
+		t.Fatalf("create payer: %v", err)
+	}
+
+	tx, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          12.5,
+		AccountID:       accountID,
+		MemberID:        &member.ID,
+		PaidByMemberID:  &payer.ID,
+		TransactionDate: time.Now().Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+
+	if tx.MemberID == nil || *tx.MemberID != member.ID {
+		t.Fatalf("member_id = %v, want %s", tx.MemberID, member.ID)
+	}
+	if tx.PaidByMemberID == nil || *tx.PaidByMemberID != payer.ID {
+		t.Fatalf("paid_by_member_id = %v, want %s", tx.PaidByMemberID, payer.ID)
+	}
+}
+
+func TestCreateTransactionRejectsOtherUserFamilyMember(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+	otherUser := &model.User{Username: "other", PasswordHash: "hash"}
+	if err := repos.User.Create(otherUser); err != nil {
+		t.Fatalf("create other user: %v", err)
+	}
+	memberSvc := NewFamilyMemberService(repos.FamilyMember)
+	otherMember, err := memberSvc.Create(otherUser.ID, CreateFamilyMemberRequest{Name: "其他人"})
+	if err != nil {
+		t.Fatalf("create other member: %v", err)
+	}
+
+	if _, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          12.5,
+		AccountID:       accountID,
+		MemberID:        &otherMember.ID,
+		TransactionDate: time.Now().Format(time.RFC3339),
+	}); err != ErrFamilyMemberNotFound {
+		t.Fatalf("create err = %v, want ErrFamilyMemberNotFound", err)
 	}
 }
 

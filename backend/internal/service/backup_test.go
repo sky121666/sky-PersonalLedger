@@ -24,7 +24,7 @@ func TestRestoreBackupCanRunTwiceWithSameIDs(t *testing.T) {
 		t.Fatalf("init db: %v", err)
 	}
 	repos := repository.NewRepositories(db)
-	backupSvc := NewBackupService(db, repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification, repos.Tag, repos.User)
+	backupSvc := NewBackupService(db, repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification, repos.Tag, repos.User, repos.FamilyMember, repos.AIReport)
 
 	user := &model.User{Username: "admin", PasswordHash: "hash"}
 	if err := repos.User.Create(user); err != nil {
@@ -81,7 +81,7 @@ func TestRestoreBackupRejectsEmptyPayloadWithoutClearingData(t *testing.T) {
 		t.Fatalf("init db: %v", err)
 	}
 	repos := repository.NewRepositories(db)
-	backupSvc := NewBackupService(db, repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification, repos.Tag, repos.User)
+	backupSvc := NewBackupService(db, repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification, repos.Tag, repos.User, repos.FamilyMember, repos.AIReport)
 
 	user := &model.User{Username: "admin", PasswordHash: "hash"}
 	if err := repos.User.Create(user); err != nil {
@@ -101,6 +101,116 @@ func TestRestoreBackupRejectsEmptyPayloadWithoutClearingData(t *testing.T) {
 	}
 	if accountCount != 1 {
 		t.Fatalf("active account count = %d, want original account to remain", accountCount)
+	}
+}
+
+func TestBackupRestoreRehearsalIncludesFamilyTransactionsAndAIReports(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "ledger.db")
+	db, err := database.Init(dbPath)
+	if err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	repos := repository.NewRepositories(db)
+	backupSvc := NewBackupService(db, repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification, repos.Tag, repos.User, repos.FamilyMember, repos.AIReport)
+
+	user := &model.User{Username: "admin", PasswordHash: "hash"}
+	if err := repos.User.Create(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	accountID := uuid.NewString()
+	categoryID := uuid.NewString()
+	memberID := uuid.NewString()
+	txID := uuid.NewString()
+	reportID := uuid.NewString()
+	if err := db.Create(&model.Account{ID: accountID, UserID: user.ID, Name: "Household Cash", Type: "cash"}).Error; err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+	if err := db.Create(&model.Category{ID: categoryID, UserID: user.ID, Name: "Groceries", Type: "expense"}).Error; err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	if err := db.Create(&model.FamilyMember{
+		ID:           memberID,
+		UserID:       user.ID,
+		Name:         "Alice",
+		Relationship: "spouse",
+		Color:        "#2F80ED",
+		IsDefault:    true,
+		IsEnabled:    true,
+	}).Error; err != nil {
+		t.Fatalf("create family member: %v", err)
+	}
+	if err := db.Create(&model.Transaction{
+		ID:              txID,
+		UserID:          user.ID,
+		AccountID:       accountID,
+		CategoryID:      &categoryID,
+		MemberID:        &memberID,
+		PaidByMemberID:  &memberID,
+		Type:            "expense",
+		Amount:          88.8,
+		TransactionDate: time.Date(2026, 5, 27, 9, 0, 0, 0, time.UTC),
+	}).Error; err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+	if err := db.Create(&model.AIReport{
+		ID:            reportID,
+		UserID:        user.ID,
+		ReportType:    "weekly",
+		PeriodStart:   time.Date(2026, 5, 18, 0, 0, 0, 0, time.UTC),
+		PeriodEnd:     time.Date(2026, 5, 24, 0, 0, 0, 0, time.UTC),
+		Status:        "completed",
+		SnapshotJSON:  `{"expense_total":88.8}`,
+		ContentJSON:   `{"title":"Weekly summary"}`,
+		ProviderName:  "DeepSeek",
+		Model:         "deepseek-chat",
+		PromptVersion: "personal-ledger-v1",
+	}).Error; err != nil {
+		t.Fatalf("create ai report: %v", err)
+	}
+
+	backup, err := backupSvc.CreateBackup(user.ID)
+	if err != nil {
+		t.Fatalf("create backup: %v", err)
+	}
+	if len(backup.FamilyMembers) != 1 {
+		t.Fatalf("backup family member count = %d, want 1", len(backup.FamilyMembers))
+	}
+	if len(backup.Transactions) != 1 || backup.Transactions[0].MemberID == nil || *backup.Transactions[0].MemberID != memberID {
+		t.Fatalf("backup transactions = %#v, want member-linked transaction", backup.Transactions)
+	}
+	if len(backup.AIReports) != 1 || backup.AIReports[0].ID != reportID {
+		t.Fatalf("backup ai reports = %#v, want report %s", backup.AIReports, reportID)
+	}
+
+	if err := db.Create(&model.Account{ID: uuid.NewString(), UserID: user.ID, Name: "Temporary Account", Type: "cash"}).Error; err != nil {
+		t.Fatalf("create temporary account: %v", err)
+	}
+	if err := backupSvc.RestoreBackup(user.ID, writeBackupFile(t, backup)); err != nil {
+		t.Fatalf("restore backup: %v", err)
+	}
+
+	var restoredMember model.FamilyMember
+	if err := db.Where("user_id = ? AND id = ?", user.ID, memberID).First(&restoredMember).Error; err != nil {
+		t.Fatalf("restored family member missing: %v", err)
+	}
+	var restoredTx model.Transaction
+	if err := db.Where("user_id = ? AND id = ?", user.ID, txID).First(&restoredTx).Error; err != nil {
+		t.Fatalf("restored transaction missing: %v", err)
+	}
+	if restoredTx.MemberID == nil || *restoredTx.MemberID != memberID {
+		t.Fatalf("restored transaction member id = %#v, want %s", restoredTx.MemberID, memberID)
+	}
+	var restoredReport model.AIReport
+	if err := db.Where("user_id = ? AND id = ?", user.ID, reportID).First(&restoredReport).Error; err != nil {
+		t.Fatalf("restored ai report missing: %v", err)
+	}
+	var temporaryCount int64
+	if err := db.Model(&model.Account{}).Where("user_id = ? AND name = ?", user.ID, "Temporary Account").Count(&temporaryCount).Error; err != nil {
+		t.Fatalf("count temporary account: %v", err)
+	}
+	if temporaryCount != 0 {
+		t.Fatalf("temporary account count after restore = %d, want 0", temporaryCount)
 	}
 }
 

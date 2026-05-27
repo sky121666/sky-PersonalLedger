@@ -27,6 +27,8 @@ type Handlers struct {
 	Tag          *TagHandler
 	APIToken     *APITokenHandler
 	Setup        *SetupHandler
+	Family       *FamilyHandler
+	AI           *AIHandler
 }
 
 func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler, rateLimiter *middleware.RateLimiter, cfg *config.Config) *Handlers {
@@ -49,6 +51,8 @@ func NewHandlers(services *service.Services, backupScheduler *service.BackupSche
 		Tag:          NewTagHandler(services.Tag),
 		APIToken:     NewAPITokenHandler(services.APIToken),
 		Setup:        NewSetupHandler(services.Auth, cfg.Database, cfg.Setup),
+		Family:       NewFamilyHandler(services.FamilyMember),
+		AI:           NewAIHandler(services.AIProvider, services.AIReport),
 	}
 }
 
@@ -241,6 +245,37 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 			apiTokens.GET("", h.APIToken.List)
 			apiTokens.POST("", h.APIToken.Create)
 			apiTokens.DELETE("/:id", h.APIToken.Delete)
+		}
+
+		// Family members
+		family := protected.Group("/family")
+		{
+			family.GET("/summary", h.Family.Summary)
+			members := family.Group("/members")
+			{
+				members.GET("", h.Family.ListMembers)
+				members.POST("", h.Family.CreateMember)
+				members.PUT("/:id", h.Family.UpdateMember)
+				members.DELETE("/:id", h.Family.DeleteMember)
+			}
+		}
+
+		// AI providers and reports
+		ai := protected.Group("/ai")
+		{
+			ai.GET("/reports", h.AI.ListReports)
+			ai.POST("/reports/generate", h.AI.GenerateReport)
+			ai.GET("/reports/:id", h.AI.GetReport)
+			ai.DELETE("/reports/:id", h.AI.DeleteReport)
+
+			providers := ai.Group("/providers")
+			{
+				providers.GET("", h.AI.ListProviders)
+				providers.POST("", h.AI.CreateProvider)
+				providers.PUT("/:id", h.AI.UpdateProvider)
+				providers.DELETE("/:id", h.AI.DeleteProvider)
+				providers.POST("/:id/test", h.AI.TestProvider)
+			}
 		}
 	}
 }

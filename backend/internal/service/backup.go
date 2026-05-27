@@ -28,6 +28,8 @@ type BackupService struct {
 	notificationRepo *repository.NotificationRepository
 	tagRepo          *repository.TagRepository
 	userRepo         *repository.UserRepository
+	familyMemberRepo *repository.FamilyMemberRepository
+	aiReportRepo     *repository.AIReportRepository
 }
 
 func NewBackupService(
@@ -42,6 +44,8 @@ func NewBackupService(
 	notificationRepo *repository.NotificationRepository,
 	tagRepo *repository.TagRepository,
 	userRepo *repository.UserRepository,
+	familyMemberRepo *repository.FamilyMemberRepository,
+	aiReportRepo *repository.AIReportRepository,
 ) *BackupService {
 	return &BackupService{
 		db:               db,
@@ -55,6 +59,8 @@ func NewBackupService(
 		notificationRepo: notificationRepo,
 		tagRepo:          tagRepo,
 		userRepo:         userRepo,
+		familyMemberRepo: familyMemberRepo,
+		aiReportRepo:     aiReportRepo,
 	}
 }
 
@@ -71,6 +77,8 @@ type FullBackupData struct {
 	LendingRecords       []*model.LendingRecord     `json:"lending_records"`
 	Templates            []model.QuickTemplate      `json:"templates"`
 	Tags                 []model.Tag                `json:"tags"`
+	FamilyMembers        []model.FamilyMember       `json:"family_members"`
+	AIReports            []model.AIReport           `json:"ai_reports"`
 	NotificationSettings *model.NotificationSetting `json:"notification_settings,omitempty"`
 }
 
@@ -132,6 +140,16 @@ func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
 		return nil, err
 	}
 
+	familyMembers, err := s.familyMemberRepo.GetByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	aiReports, err := s.aiReportRepo.GetByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
 	notificationSettings, _ := s.notificationRepo.GetByUserID(userID) // ignore error if not found
 
 	// Get user profile
@@ -158,6 +176,8 @@ func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
 		LendingRecords:       allLendingRecords,
 		Templates:            templates,
 		Tags:                 tags,
+		FamilyMembers:        familyMembers,
+		AIReports:            aiReports,
 		NotificationSettings: notificationSettings,
 	}, nil
 }
@@ -261,6 +281,20 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 			}
 		}
 
+		for _, member := range backup.FamilyMembers {
+			member.UserID = userID
+			if err := tx.Create(&member).Error; err != nil {
+				return err
+			}
+		}
+
+		for _, report := range backup.AIReports {
+			report.UserID = userID
+			if err := tx.Create(&report).Error; err != nil {
+				return err
+			}
+		}
+
 		if backup.NotificationSettings != nil {
 			backup.NotificationSettings.UserID = userID
 			if err := tx.Where("user_id = ?", userID).Delete(&model.NotificationSetting{}).Error; err != nil {
@@ -287,7 +321,9 @@ func validateBackupForRestore(backup FullBackupData) error {
 		len(backup.Lendings) > 0 ||
 		len(backup.LendingRecords) > 0 ||
 		len(backup.Templates) > 0 ||
-		len(backup.Tags) > 0 {
+		len(backup.Tags) > 0 ||
+		len(backup.FamilyMembers) > 0 ||
+		len(backup.AIReports) > 0 {
 		return nil
 	}
 	return ErrInvalidBackupData
@@ -302,6 +338,8 @@ func (s *BackupService) clearUserData(userID uint) {
 	s.reminderRepo.DeleteAllByUserID(userID)
 	s.templateRepo.DeleteAllByUserID(userID)
 	s.tagRepo.DeleteAllByUserID(userID)
+	s.db.Unscoped().Where("user_id = ?", userID).Delete(&model.FamilyMember{})
+	s.db.Unscoped().Where("user_id = ?", userID).Delete(&model.AIReport{})
 	s.categoryRepo.DeleteAllByUserID(userID)
 	s.accountRepo.DeleteAllByUserID(userID)
 }
@@ -329,6 +367,12 @@ func (s *BackupService) clearUserDataTx(tx *gorm.DB, userID uint) error {
 		return err
 	}
 	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.Tag{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.FamilyMember{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.AIReport{}).Error; err != nil {
 		return err
 	}
 	if err := tx.Where("user_id = ?", userID).Delete(&model.NotificationSetting{}).Error; err != nil {

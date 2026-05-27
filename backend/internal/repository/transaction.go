@@ -117,6 +117,24 @@ type CategorySum struct {
 	Count      int     `json:"count"`
 }
 
+type MemberExpenseSum struct {
+	MemberID string  `json:"member_id"`
+	Total    float64 `json:"total"`
+	Count    int     `json:"count"`
+}
+
+func (r *TransactionRepository) SumExpenseByMember(userID uint, startDate, endDate time.Time) ([]MemberExpenseSum, error) {
+	var results []MemberExpenseSum
+	err := r.db.Model(&model.Transaction{}).
+		Select("COALESCE(member_id, '') as member_id, SUM(amount) as total, COUNT(*) as count").
+		Where("user_id = ? AND type = ? AND transaction_date >= ? AND transaction_date <= ?",
+			userID, "expense", startDate, endDate).
+		Group("COALESCE(member_id, '')").
+		Order("total DESC").
+		Find(&results).Error
+	return results, err
+}
+
 func (r *TransactionRepository) SumByDateRange(userID uint, startDate, endDate time.Time) (*DateRangeSum, error) {
 	var result DateRangeSum
 	err := r.db.Model(&model.Transaction{}).

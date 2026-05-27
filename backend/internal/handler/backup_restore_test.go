@@ -38,6 +38,8 @@ func TestRestoreCreatesPreRestoreBackupBeforeReplacingData(t *testing.T) {
 		repos.Notification,
 		repos.Tag,
 		repos.User,
+		repos.FamilyMember,
+		repos.AIReport,
 	)
 	backupPath := t.TempDir()
 	scheduler := service.NewBackupScheduler(
@@ -130,6 +132,8 @@ func TestRestoreRejectsEmptyBackupPayload(t *testing.T) {
 		repos.Notification,
 		repos.Tag,
 		repos.User,
+		repos.FamilyMember,
+		repos.AIReport,
 	)
 	backupHandler := NewBackupHandler(backupSvc, nil)
 
@@ -188,6 +192,8 @@ func TestRestoreRejectsMalformedBackupPayload(t *testing.T) {
 		repos.Notification,
 		repos.Tag,
 		repos.User,
+		repos.FamilyMember,
+		repos.AIReport,
 	)
 	backupHandler := NewBackupHandler(backupSvc, nil)
 
