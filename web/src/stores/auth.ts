@@ -17,7 +17,9 @@ export const useAuthStore = defineStore('auth', () => {
         logout()
       }
     } catch {
-      initialized.value = false
+      // 初始化只在后端明确返回 initialized=false 时触发。
+      // 状态接口失败可能是后端未启动、网络异常或代理错误，不能误判为需要重新初始化。
+      initialized.value = null
     }
   }
 
