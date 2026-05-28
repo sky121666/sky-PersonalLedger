@@ -28,6 +28,10 @@ func (h *AIHandler) ListProviders(c *gin.Context) {
 	response.Success(c, providers)
 }
 
+func (h *AIHandler) ListProviderPresets(c *gin.Context) {
+	response.Success(c, h.providerService.ListPresets())
+}
+
 func (h *AIHandler) CreateProvider(c *gin.Context) {
 	userID := c.GetUint("userID")
 	var req service.SaveAIProviderRequest

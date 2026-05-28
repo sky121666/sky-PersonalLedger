@@ -61,6 +61,21 @@ func TestAIReportGenerateStoresAggregatedSnapshotAndContent(t *testing.T) {
 	if snapshot["income_total"].(float64) != 500 {
 		t.Fatalf("income_total = %v, want 500", snapshot["income_total"])
 	}
+	budget := snapshot["budget"].(map[string]any)
+	if budget["monthly_budget"].(float64) != 300 {
+		t.Fatalf("monthly_budget = %v, want 300", budget["monthly_budget"])
+	}
+	if budget["used_percent"].(float64) != 40 {
+		t.Fatalf("used_percent = %v, want 40", budget["used_percent"])
+	}
+	overBudgetCategories := budget["over_budget_categories"].([]any)
+	if len(overBudgetCategories) != 1 {
+		t.Fatalf("over_budget_categories len = %d, want 1", len(overBudgetCategories))
+	}
+	memberBudgets := budget["member_budgets"].([]any)
+	if len(memberBudgets) != 1 {
+		t.Fatalf("member_budgets len = %d, want 1", len(memberBudgets))
+	}
 
 	messages := requestPayload["messages"].([]any)
 	userMessage := messages[1].(map[string]any)["content"].(string)
@@ -81,7 +96,7 @@ func newAIReportTestServices(t *testing.T) (*AIReportService, *AIProviderService
 		t.Fatalf("create user: %v", err)
 	}
 	providerSvc := NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil))
-	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil))
+	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil)).WithBudgetRepository(repos.Budget)
 	return reportSvc, providerSvc, user.ID
 }
 
@@ -117,6 +132,35 @@ func seedAIReportFacts(t *testing.T, providerSvc *AIProviderService, userID uint
 	}
 	if err := db.Create(&member).Error; err != nil {
 		t.Fatalf("create family member: %v", err)
+	}
+	if err := db.Create(&model.Budget{
+		ID:             uuid.NewString(),
+		UserID:         userID,
+		Amount:         300,
+		AlertThreshold: 80,
+		IsActive:       true,
+	}).Error; err != nil {
+		t.Fatalf("create total budget: %v", err)
+	}
+	if err := db.Create(&model.Budget{
+		ID:             uuid.NewString(),
+		UserID:         userID,
+		CategoryID:     &category.ID,
+		Amount:         100,
+		AlertThreshold: 80,
+		IsActive:       true,
+	}).Error; err != nil {
+		t.Fatalf("create category budget: %v", err)
+	}
+	if err := db.Create(&model.Budget{
+		ID:             uuid.NewString(),
+		UserID:         userID,
+		MemberID:       &member.ID,
+		Amount:         180,
+		AlertThreshold: 80,
+		IsActive:       true,
+	}).Error; err != nil {
+		t.Fatalf("create member budget: %v", err)
 	}
 
 	expenseDate := time.Date(2026, 5, 20, 12, 0, 0, 0, time.Local)

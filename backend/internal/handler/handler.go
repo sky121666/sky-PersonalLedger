@@ -271,6 +271,7 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 			providers := ai.Group("/providers")
 			{
 				providers.GET("", h.AI.ListProviders)
+				providers.GET("/presets", h.AI.ListProviderPresets)
 				providers.POST("", h.AI.CreateProvider)
 				providers.PUT("/:id", h.AI.UpdateProvider)
 				providers.DELETE("/:id", h.AI.DeleteProvider)

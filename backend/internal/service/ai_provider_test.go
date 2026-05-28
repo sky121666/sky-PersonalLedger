@@ -84,6 +84,33 @@ func TestAIProviderCreateListUpdateDeleteDoesNotExposeAPIKey(t *testing.T) {
 	}
 }
 
+func TestAIProviderPresetsIncludeDeepSeekDefaults(t *testing.T) {
+	svc, _, _ := newAIProviderTestService(t)
+
+	presets := svc.ListPresets()
+	if len(presets) == 0 {
+		t.Fatal("presets should not be empty")
+	}
+	var deepSeek *AIProviderPresetResponse
+	for i := range presets {
+		if presets[i].ID == "deepseek" {
+			deepSeek = &presets[i]
+			break
+		}
+	}
+	if deepSeek == nil {
+		t.Fatal("deepseek preset missing")
+	}
+	if deepSeek.ProviderType != aiProviderTypeOpenAICompatible ||
+		deepSeek.BaseURL != "https://api.deepseek.com" ||
+		deepSeek.Model != "deepseek-chat" {
+		t.Fatalf("deepseek preset = %#v", deepSeek)
+	}
+	if len(deepSeek.Models) < 2 {
+		t.Fatalf("deepseek models = %#v, want chat and reasoner options", deepSeek.Models)
+	}
+}
+
 func TestAIProviderProtectsStoredAPIKeyWhenEncryptionSecretConfigured(t *testing.T) {
 	_, repos, userID := newAIProviderTestService(t)
 	svc := NewAIProviderService(

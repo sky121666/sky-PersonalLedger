@@ -58,6 +58,52 @@ type AIProviderResponse struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+type AIProviderPresetResponse struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	ProviderType string   `json:"provider_type"`
+	BaseURL      string   `json:"base_url"`
+	Model        string   `json:"model"`
+	Models       []string `json:"models"`
+}
+
+func (s *AIProviderService) ListPresets() []AIProviderPresetResponse {
+	return []AIProviderPresetResponse{
+		{
+			ID:           "deepseek",
+			Name:         "DeepSeek",
+			ProviderType: aiProviderTypeOpenAICompatible,
+			BaseURL:      "https://api.deepseek.com",
+			Model:        "deepseek-chat",
+			Models:       []string{"deepseek-chat", "deepseek-reasoner"},
+		},
+		{
+			ID:           "openai",
+			Name:         "OpenAI",
+			ProviderType: aiProviderTypeOpenAICompatible,
+			BaseURL:      "https://api.openai.com",
+			Model:        "gpt-4.1-mini",
+			Models:       []string{"gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini"},
+		},
+		{
+			ID:           "siliconflow",
+			Name:         "SiliconFlow",
+			ProviderType: aiProviderTypeOpenAICompatible,
+			BaseURL:      "https://api.siliconflow.cn",
+			Model:        "deepseek-ai/DeepSeek-V3",
+			Models:       []string{"deepseek-ai/DeepSeek-V3", "deepseek-ai/DeepSeek-R1"},
+		},
+		{
+			ID:           "openai-compatible",
+			Name:         "OpenAI-compatible",
+			ProviderType: aiProviderTypeOpenAICompatible,
+			BaseURL:      "https://your-gateway.example.com",
+			Model:        "model-name",
+			Models:       []string{"model-name"},
+		},
+	}
+}
+
 func (s *AIProviderService) Create(userID uint, req SaveAIProviderRequest) (*AIProviderResponse, error) {
 	normalized, err := normalizeSaveAIProviderRequest(req)
 	if err != nil {

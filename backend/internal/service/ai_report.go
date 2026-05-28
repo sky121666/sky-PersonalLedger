@@ -24,6 +24,7 @@ type AIReportService struct {
 	repo       *repository.AIReportRepository
 	providers  *repository.AIProviderRepository
 	txs        *repository.TransactionRepository
+	budgets    *repository.BudgetRepository
 	categories *repository.CategoryRepository
 	members    *repository.FamilyMemberRepository
 	client     *OpenAICompatibleClient
@@ -50,11 +51,17 @@ func NewAIReportService(
 		repo:       repo,
 		providers:  providers,
 		txs:        txs,
+		budgets:    nil,
 		categories: categories,
 		members:    members,
 		client:     client,
 		secret:     secret,
 	}
+}
+
+func (s *AIReportService) WithBudgetRepository(budgetRepo *repository.BudgetRepository) *AIReportService {
+	s.budgets = budgetRepo
+	return s
 }
 
 type GenerateAIReportRequest struct {
@@ -92,10 +99,35 @@ type aiReportSnapshot struct {
 	IncomeTotal          float64                    `json:"income_total"`
 	ExpenseTotal         float64                    `json:"expense_total"`
 	NetCashflow          float64                    `json:"net_cashflow"`
-	Budget               map[string]any             `json:"budget"`
+	Budget               aiReportBudgetSnapshot     `json:"budget"`
 	TopExpenseCategories []aiReportCategorySnapshot `json:"top_expense_categories"`
 	FamilyMembers        []aiReportMemberSnapshot   `json:"family_members"`
 	AccountChanges       []any                      `json:"account_changes"`
+}
+
+type aiReportBudgetSnapshot struct {
+	MonthlyBudget        *float64                       `json:"monthly_budget"`
+	Spent                float64                        `json:"spent"`
+	Remaining            *float64                       `json:"remaining"`
+	UsedPercent          *int                           `json:"used_percent"`
+	OverBudgetCategories []aiReportBudgetLimitSnapshot  `json:"over_budget_categories"`
+	MemberBudgets        []aiReportMemberBudgetSnapshot `json:"member_budgets"`
+}
+
+type aiReportBudgetLimitSnapshot struct {
+	Name       string  `json:"name"`
+	Amount     float64 `json:"amount"`
+	Spent      float64 `json:"spent"`
+	Percentage int     `json:"percentage"`
+}
+
+type aiReportMemberBudgetSnapshot struct {
+	MemberName   string  `json:"member_name"`
+	CategoryName string  `json:"category_name,omitempty"`
+	Amount       float64 `json:"amount"`
+	Spent        float64 `json:"spent"`
+	Remaining    float64 `json:"remaining"`
+	Percentage   int     `json:"percentage"`
 }
 
 type aiReportCategorySnapshot struct {
@@ -228,7 +260,7 @@ func (s *AIReportService) buildSnapshotJSON(userID uint, start time.Time, end ti
 		IncomeTotal:    sum.Income,
 		ExpenseTotal:   sum.Expense,
 		NetCashflow:    sum.Income - sum.Expense,
-		Budget:         map[string]any{"monthly_budget": nil, "used_percent": nil, "over_budget_categories": []any{}},
+		Budget:         aiReportBudgetSnapshot{OverBudgetCategories: []aiReportBudgetLimitSnapshot{}, MemberBudgets: []aiReportMemberBudgetSnapshot{}},
 		AccountChanges: []any{},
 	}
 	snapshot.Period.Start = start.Format("2006-01-02")
@@ -241,12 +273,102 @@ func (s *AIReportService) buildSnapshotJSON(userID uint, start time.Time, end ti
 	if err := s.appendMemberSnapshot(userID, start, end, &snapshot); err != nil {
 		return "", err
 	}
+	if err := s.appendBudgetSnapshot(userID, start, end, &snapshot); err != nil {
+		return "", err
+	}
 
 	data, err := json.Marshal(snapshot)
 	if err != nil {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func (s *AIReportService) appendBudgetSnapshot(userID uint, start time.Time, end time.Time, snapshot *aiReportSnapshot) error {
+	if s.budgets == nil {
+		return nil
+	}
+	budgets, err := s.budgets.GetByUserID(userID)
+	if err != nil {
+		return err
+	}
+	if len(budgets) == 0 {
+		return nil
+	}
+	categorySums, err := s.txs.SumByCategory(userID, start, end, "expense")
+	if err != nil {
+		return err
+	}
+	memberCategorySums, err := s.txs.SumExpenseByMemberAndCategory(userID, start, end)
+	if err != nil {
+		return err
+	}
+	categorySpent := make(map[string]float64, len(categorySums))
+	for _, sum := range categorySums {
+		categorySpent[sum.CategoryID] = sum.Total
+	}
+	memberSpent := make(map[string]float64)
+	memberCategorySpent := make(map[string]float64)
+	for _, sum := range memberCategorySums {
+		memberSpent[sum.MemberID] += sum.Total
+		memberCategorySpent[budgetScopeKey(sum.MemberID, sum.CategoryID)] = sum.Total
+	}
+
+	for _, budget := range budgets {
+		if budget.MemberID == nil && budget.CategoryID == nil {
+			snapshot.Budget.MonthlyBudget = float64Ptr(budget.Amount)
+			snapshot.Budget.Spent = snapshot.ExpenseTotal
+			snapshot.Budget.Remaining = float64Ptr(budget.Amount - snapshot.ExpenseTotal)
+			snapshot.Budget.UsedPercent = percentPtr(snapshot.ExpenseTotal, budget.Amount)
+			continue
+		}
+		if budget.MemberID == nil && budget.CategoryID != nil {
+			spent := categorySpent[*budget.CategoryID]
+			percentage := percentValue(spent, budget.Amount)
+			if spent > budget.Amount || percentage >= budget.AlertThreshold {
+				name := "未分类"
+				if budget.Category != nil && budget.Category.Name != "" {
+					name = budget.Category.Name
+				}
+				snapshot.Budget.OverBudgetCategories = append(snapshot.Budget.OverBudgetCategories, aiReportBudgetLimitSnapshot{
+					Name:       name,
+					Amount:     budget.Amount,
+					Spent:      spent,
+					Percentage: percentage,
+				})
+			}
+			continue
+		}
+		if budget.MemberID != nil {
+			spent := memberSpent[*budget.MemberID]
+			categoryName := ""
+			if budget.CategoryID != nil {
+				spent = memberCategorySpent[budgetScopeKey(*budget.MemberID, *budget.CategoryID)]
+				if budget.Category != nil {
+					categoryName = budget.Category.Name
+				}
+			}
+			memberName := "成员"
+			if budget.Member != nil && budget.Member.Name != "" {
+				memberName = budget.Member.Name
+			}
+			snapshot.Budget.MemberBudgets = append(snapshot.Budget.MemberBudgets, aiReportMemberBudgetSnapshot{
+				MemberName:   memberName,
+				CategoryName: categoryName,
+				Amount:       budget.Amount,
+				Spent:        spent,
+				Remaining:    budget.Amount - spent,
+				Percentage:   percentValue(spent, budget.Amount),
+			})
+		}
+	}
+	if len(snapshot.Budget.OverBudgetCategories) > 5 {
+		snapshot.Budget.OverBudgetCategories = snapshot.Budget.OverBudgetCategories[:5]
+	}
+	if len(snapshot.Budget.MemberBudgets) > 8 {
+		snapshot.Budget.MemberBudgets = snapshot.Budget.MemberBudgets[:8]
+	}
+	return nil
 }
 
 func (s *AIReportService) appendCategorySnapshot(userID uint, start time.Time, end time.Time, snapshot *aiReportSnapshot) error {
@@ -338,6 +460,22 @@ func normalizeAIReportContent(content string) string {
 
 func sanitizeAIError(err error) string {
 	return strings.TrimSpace(err.Error())
+}
+
+func float64Ptr(value float64) *float64 {
+	return &value
+}
+
+func percentPtr(spent float64, amount float64) *int {
+	value := percentValue(spent, amount)
+	return &value
+}
+
+func percentValue(spent float64, amount float64) int {
+	if amount <= 0 {
+		return 0
+	}
+	return int(spent / amount * 100)
 }
 
 func aiReportResponse(report *model.AIReport) *AIReportResponse {
