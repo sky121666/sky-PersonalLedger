@@ -11,6 +11,7 @@ import (
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrInvalidBackupData = errors.New("backup contains no restorable data")
@@ -220,35 +221,42 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 
 		for _, acc := range backup.Accounts {
 			acc.UserID = userID
-			if err := tx.Create(&acc).Error; err != nil {
+			if err := tx.Omit(clause.Associations).Create(&acc).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, cat := range backup.Categories {
 			cat.UserID = userID
-			if err := tx.Create(&cat).Error; err != nil {
+			if err := tx.Omit(clause.Associations).Create(&cat).Error; err != nil {
+				return err
+			}
+		}
+
+		for _, member := range backup.FamilyMembers {
+			member.UserID = userID
+			if err := tx.Omit(clause.Associations).Create(&member).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, item := range backup.Transactions {
 			item.UserID = userID
-			if err := tx.Create(&item).Error; err != nil {
+			if err := tx.Omit(clause.Associations).Create(&item).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, budget := range backup.Budgets {
 			budget.UserID = userID
-			if err := tx.Create(&budget).Error; err != nil {
+			if err := tx.Omit(clause.Associations).Create(&budget).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, reminder := range backup.Reminders {
 			reminder.UserID = userID
-			if err := tx.Create(&reminder).Error; err != nil {
+			if err := tx.Omit(clause.Associations).Create(&reminder).Error; err != nil {
 				return err
 			}
 		}
@@ -269,28 +277,21 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 
 		for _, template := range backup.Templates {
 			template.UserID = userID
-			if err := tx.Create(&template).Error; err != nil {
+			if err := tx.Omit(clause.Associations).Create(&template).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, tag := range backup.Tags {
 			tag.UserID = userID
-			if err := tx.Create(&tag).Error; err != nil {
-				return err
-			}
-		}
-
-		for _, member := range backup.FamilyMembers {
-			member.UserID = userID
-			if err := tx.Create(&member).Error; err != nil {
+			if err := tx.Omit(clause.Associations).Create(&tag).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, report := range backup.AIReports {
 			report.UserID = userID
-			if err := tx.Create(&report).Error; err != nil {
+			if err := tx.Omit(clause.Associations).Create(&report).Error; err != nil {
 				return err
 			}
 		}

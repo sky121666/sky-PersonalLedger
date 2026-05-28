@@ -121,6 +121,7 @@ func TestBackupRestoreRehearsalIncludesFamilyTransactionsAndAIReports(t *testing
 	accountID := uuid.NewString()
 	categoryID := uuid.NewString()
 	memberID := uuid.NewString()
+	budgetID := uuid.NewString()
 	txID := uuid.NewString()
 	reportID := uuid.NewString()
 	if err := db.Create(&model.Account{ID: accountID, UserID: user.ID, Name: "Household Cash", Type: "cash"}).Error; err != nil {
@@ -153,6 +154,17 @@ func TestBackupRestoreRehearsalIncludesFamilyTransactionsAndAIReports(t *testing
 	}).Error; err != nil {
 		t.Fatalf("create transaction: %v", err)
 	}
+	if err := db.Create(&model.Budget{
+		ID:             budgetID,
+		UserID:         user.ID,
+		CategoryID:     &categoryID,
+		MemberID:       &memberID,
+		Amount:         500,
+		AlertThreshold: 80,
+		IsActive:       true,
+	}).Error; err != nil {
+		t.Fatalf("create member budget: %v", err)
+	}
 	if err := db.Create(&model.AIReport{
 		ID:            reportID,
 		UserID:        user.ID,
@@ -179,6 +191,9 @@ func TestBackupRestoreRehearsalIncludesFamilyTransactionsAndAIReports(t *testing
 	if len(backup.Transactions) != 1 || backup.Transactions[0].MemberID == nil || *backup.Transactions[0].MemberID != memberID {
 		t.Fatalf("backup transactions = %#v, want member-linked transaction", backup.Transactions)
 	}
+	if len(backup.Budgets) != 1 || backup.Budgets[0].MemberID == nil || *backup.Budgets[0].MemberID != memberID {
+		t.Fatalf("backup budgets = %#v, want member-linked budget", backup.Budgets)
+	}
 	if len(backup.AIReports) != 1 || backup.AIReports[0].ID != reportID {
 		t.Fatalf("backup ai reports = %#v, want report %s", backup.AIReports, reportID)
 	}
@@ -200,6 +215,13 @@ func TestBackupRestoreRehearsalIncludesFamilyTransactionsAndAIReports(t *testing
 	}
 	if restoredTx.MemberID == nil || *restoredTx.MemberID != memberID {
 		t.Fatalf("restored transaction member id = %#v, want %s", restoredTx.MemberID, memberID)
+	}
+	var restoredBudget model.Budget
+	if err := db.Where("user_id = ? AND id = ?", user.ID, budgetID).First(&restoredBudget).Error; err != nil {
+		t.Fatalf("restored budget missing: %v", err)
+	}
+	if restoredBudget.MemberID == nil || *restoredBudget.MemberID != memberID {
+		t.Fatalf("restored budget member id = %#v, want %s", restoredBudget.MemberID, memberID)
 	}
 	var restoredReport model.AIReport
 	if err := db.Where("user_id = ? AND id = ?", user.ID, reportID).First(&restoredReport).Error; err != nil {

@@ -65,6 +65,7 @@ Desktop.ini
 # ===== 临时文件 =====
 tmp/
 temp/
+.codex-go-cache/
 *.tmp
 *.temp
 

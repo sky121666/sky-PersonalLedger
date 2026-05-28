@@ -38,7 +38,7 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		Account:      NewAccountService(repos.Account, repos.Transaction, repos.Category),
 		Category:     NewCategoryService(repos.Category),
 		Transaction:  NewTransactionService(repos.Transaction, repos.Account, repos.Reminder, repos.Lending, repos.FamilyMember, accountLogService),
-		Budget:       NewBudgetService(repos.Budget, repos.Transaction),
+		Budget:       NewBudgetService(repos.Budget, repos.Transaction, repos.FamilyMember),
 		Reminder:     NewReminderService(repos.Reminder, repos.Account, repos.Transaction, repos.Category, accountLogService),
 		Statistics:   NewStatisticsService(repos.Transaction, repos.Category, repos.Account),
 		Template:     NewTemplateService(repos.Template, repos.Transaction, repos.Account),
@@ -53,6 +53,6 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		APIToken:     NewAPITokenService(repos.APIToken),
 		FamilyMember: NewFamilyMemberService(repos.FamilyMember, repos.Transaction),
 		AIProvider:   NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil), cfg.JWT.Secret),
-		AIReport:     NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil), cfg.JWT.Secret),
+		AIReport:     NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil), cfg.JWT.Secret).WithBudgetRepository(repos.Budget),
 	}
 }

@@ -95,6 +95,7 @@ type Budget struct {
 	ID             string         `gorm:"primaryKey;size:36" json:"id"`
 	UserID         uint           `gorm:"not null;index" json:"user_id"`
 	CategoryID     *string        `gorm:"size:36;index" json:"category_id"` // nil = total budget
+	MemberID       *string        `gorm:"size:36;index" json:"member_id,omitempty"`
 	Amount         float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
 	Period         string         `gorm:"size:20;default:monthly" json:"period"`
 	AlertThreshold int            `gorm:"default:80" json:"alert_threshold"`
@@ -103,7 +104,8 @@ type Budget struct {
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 
-	Category *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
+	Category *Category     `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
+	Member   *FamilyMember `gorm:"foreignKey:MemberID" json:"member,omitempty"`
 }
 
 type Reminder struct {
