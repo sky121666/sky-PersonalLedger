@@ -59,8 +59,12 @@ Do not remove `user_id` in this phase. It remains the deployment owner and autho
 | `/api/v1/family/members/:id` | DELETE | Soft-delete or disable member when referenced |
 | `/api/v1/family/summary` | GET | Family month summary and member ranking |
 | `/api/v1/family/statistics` | GET | Member/category trend data |
+| `/api/v1/budgets/total` | POST | Set owner-level or member-level total budget with optional `member_id` |
+| `/api/v1/budgets/category` | POST | Set owner-level or member-level category budget with optional `member_id` |
 
 Transaction create/update requests should accept `member_id` and `paid_by_member_id`. If `member_id` is omitted, the backend should use the default member when one exists and otherwise keep it empty for backward compatibility.
+
+Budget create/update requests can include `member_id`. When omitted, budgets keep the existing owner-level total/category behavior. When present, the backend validates that the member belongs to the current owner account and returns member-scoped budget progress in `member_budgets`.
 
 ## Client Experience
 
@@ -98,7 +102,7 @@ Minimum verification for the first release:
 
 - Backend tests for member CRUD and ownership checks.
 - Transaction create/update tests with `member_id` and `paid_by_member_id`.
-- Budget summary tests for member-specific budgets.
+- Budget list tests for member-specific total/category budgets and ownership checks.
 - Backup/restore tests include family members and member fields.
 - Flutter widget tests for member selector.
 - Real backend E2E creates a member, records a transaction, and sees member summary.
@@ -111,4 +115,3 @@ Minimum verification for the first release:
 - Tenant administration.
 - Per-field permissions.
 - Offline multi-user conflict resolution.
-

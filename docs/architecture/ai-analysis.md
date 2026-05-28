@@ -25,6 +25,8 @@ AI analysis must be disabled by default. Financial data is sensitive, so the bac
 
 The API key must not be logged, exported in diagnostics, returned in API responses, or included in backup files unless an explicit encrypted backup strategy is added later. Runtime storage protects new keys with AES-GCM using a key derived from `LEDGER_JWT_SECRET`; legacy plain values remain readable for backward compatibility and should be rotated by saving the provider again after upgrading.
 
+Provider setup exposes non-secret OpenAI-compatible presets for DeepSeek, OpenAI, SiliconFlow, and custom gateways. Presets only fill display name, base URL, provider type, and model choices. Users must still provide their own API key, and no preset performs an external request until the user saves and tests a provider.
+
 ## Report Model
 
 ### New Table: `ai_reports`
@@ -86,8 +88,11 @@ Weekly and monthly reports should send aggregated facts:
   "net_cashflow": 7619.5,
   "budget": {
     "monthly_budget": 8000,
+    "spent": 4380.5,
+    "remaining": 3619.5,
     "used_percent": 54,
-    "over_budget_categories": []
+    "over_budget_categories": [],
+    "member_budgets": []
   },
   "top_expense_categories": [
     {
@@ -145,6 +150,7 @@ The UI can render this contract as cards, timeline blocks, and short paragraphs.
 
 | Endpoint | Method | Behavior |
 | --- | --- | --- |
+| `/api/v1/ai/providers/presets` | GET | List non-secret provider presets |
 | `/api/v1/ai/providers` | GET | List providers without API keys |
 | `/api/v1/ai/providers` | POST | Create provider |
 | `/api/v1/ai/providers/:id` | PUT | Update provider |

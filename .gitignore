@@ -66,6 +66,7 @@ Desktop.ini
 tmp/
 temp/
 .codex-go-cache/
+.playwright-mcp/
 *.tmp
 *.temp
 

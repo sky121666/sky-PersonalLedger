@@ -16,9 +16,13 @@
 
 - Family member management with member-linked transactions.
 - Family monthly summary and premium mobile Family Hub.
+- Member-level total and category budget foundation.
 - OpenAI-compatible AI provider setup and weekly/monthly AI reports.
+- Non-secret AI provider presets for DeepSeek, OpenAI, SiliconFlow, and custom gateways.
+- AI report snapshots include aggregate budget and member-budget context without raw transaction remarks.
+- Web AI report detail renders aggregate snapshot metrics, risk cards, and family member snapshots.
 - Aggregated AI snapshots that exclude raw transaction remarks by default.
-- Premium mobile Home, Quick Transaction, AI Reports, and Family Hub screens.
+- Premium mobile Home, Quick Transaction, AI Reports, Family Hub, member-budget budget screen surfaces, and Family Hub budget strip.
 
 ## Security And Privacy
 
@@ -36,14 +40,14 @@
 | iOS signed artifact | PENDING | Requires Apple certificate, provisioning profile, and IPA/TestFlight/archive evidence |
 | Physical iPhone validation | PENDING | Requires USB-connected iPhone E2E or signed-install manual checklist |
 | VoiceOver/TalkBack | PENDING | Requires manual assistive-technology pass on release candidate |
-| Family features | PHASE 1 | Family budgets, roles, and deeper permissions are reserved for later |
+| Family features | PHASE 1+ | Member-level budgets are supported; roles and deeper permissions are reserved for later |
 
 ## Upgrade Notes
 
 1. Take a backup before upgrading.
 2. Keep the previous Docker image tag available until the new version is verified.
 3. Re-save existing AI providers after upgrade so legacy stored keys are protected by the new secret protection path.
-4. Verify family members, member-linked transactions, and AI report history after restore or upgrade.
+4. Verify family members, member-linked transactions, member-level budgets, and AI report history after restore or upgrade.
 5. Run `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` before tagging a release candidate.
 
 ## Rollback
