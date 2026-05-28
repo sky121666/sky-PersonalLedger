@@ -44,18 +44,20 @@ export const budgetApi = {
     return get<BudgetSummary>('/budgets/summary')
   },
 
-  setTotal(amount: number, alertThreshold?: number): Promise<Budget> {
+  setTotal(amount: number, alertThreshold?: number, memberId?: string): Promise<Budget> {
     return post<Budget>('/budgets/total', {
       amount,
-      alert_threshold: alertThreshold || 80
+      alert_threshold: alertThreshold || 80,
+      member_id: memberId || undefined
     })
   },
 
-  setCategory(categoryId: string, amount: number, alertThreshold?: number): Promise<Budget> {
+  setCategory(categoryId: string, amount: number, alertThreshold?: number, memberId?: string): Promise<Budget> {
     return post<Budget>('/budgets/category', {
       category_id: categoryId,
       amount,
-      alert_threshold: alertThreshold || 80
+      alert_threshold: alertThreshold || 80,
+      member_id: memberId || undefined
     })
   },
 

@@ -57,10 +57,15 @@ class BudgetRepository {
   Future<BudgetItem?> setTotalBudget({
     required double amount,
     required int alertThreshold,
+    String? memberId,
   }) {
     return _apiClient.post<BudgetItem>(
       '/budgets/total',
-      data: {'amount': amount, 'alert_threshold': alertThreshold},
+      data: {
+        'amount': amount,
+        'alert_threshold': alertThreshold,
+        if (memberId != null && memberId.isNotEmpty) 'member_id': memberId,
+      },
       fromJsonT: BudgetItem.fromJson,
     );
   }
@@ -69,6 +74,7 @@ class BudgetRepository {
     required String categoryId,
     required double amount,
     required int alertThreshold,
+    String? memberId,
   }) {
     return _apiClient.post<BudgetItem>(
       '/budgets/category',
@@ -76,6 +82,7 @@ class BudgetRepository {
         'category_id': categoryId,
         'amount': amount,
         'alert_threshold': alertThreshold,
+        if (memberId != null && memberId.isNotEmpty) 'member_id': memberId,
       },
       fromJsonT: BudgetItem.fromJson,
     );
