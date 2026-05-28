@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Plus, RefreshCw, Users, Trash2, CheckCircle2 } from 'lucide-vue-next'
+import { ArrowLeft, Plus, RefreshCw, Users, Trash2, CheckCircle2, ShieldCheck, TrendingUp } from 'lucide-vue-next'
+import { budgetApi, type Budget } from '@/api/budget'
 import { familyApi, type FamilyMember, type FamilySummary } from '@/api/family'
 import { toast } from '@/composables/useToast'
 
@@ -10,6 +11,7 @@ const loading = ref(false)
 const saving = ref(false)
 const members = ref<FamilyMember[]>([])
 const summary = ref<FamilySummary | null>(null)
+const memberBudgets = ref<Budget[]>([])
 const editingId = ref<string | null>(null)
 const month = ref(new Date().toISOString().slice(0, 7))
 
@@ -22,18 +24,31 @@ const form = reactive({
 })
 
 const enabledMembers = computed(() => members.value.filter(member => member.is_enabled))
+const memberBudgetStats = computed(() => {
+  const amount = memberBudgets.value.reduce((sum, budget) => sum + Number(budget.amount || 0), 0)
+  const spent = memberBudgets.value.reduce((sum, budget) => sum + Number(budget.spent || 0), 0)
+  return {
+    amount,
+    spent,
+    remaining: amount - spent,
+    percentage: amount > 0 ? Math.round((spent / amount) * 100) : 0
+  }
+})
+const topMemberBudgets = computed(() => [...memberBudgets.value].sort((a, b) => Number(b.percentage || 0) - Number(a.percentage || 0)).slice(0, 4))
 
 onMounted(loadData)
 
 async function loadData() {
   loading.value = true
   try {
-    const [memberList, familySummary] = await Promise.all([
+    const [memberList, familySummary, budgetList] = await Promise.all([
       familyApi.listMembers(),
-      familyApi.getSummary(month.value)
+      familyApi.getSummary(month.value),
+      budgetApi.getList()
     ])
     members.value = memberList
     summary.value = familySummary
+    memberBudgets.value = budgetList.member_budgets || []
   } catch (error: any) {
     toast.error(error.message || '家庭数据加载失败')
   } finally {
@@ -103,6 +118,12 @@ async function disableMember(member: FamilyMember) {
 function formatMoney(value = 0) {
   return `¥${Number(value).toFixed(2)}`
 }
+
+function budgetStatusClass(percentage = 0) {
+  if (percentage >= 100) return 'text-rose-600 dark:text-rose-300'
+  if (percentage >= 80) return 'text-amber-600 dark:text-amber-300'
+  return 'text-emerald-600 dark:text-emerald-300'
+}
 </script>
 
 <template>
@@ -136,6 +157,58 @@ function formatMoney(value = 0) {
               <p class="mt-2 text-3xl font-bold">{{ formatMoney(summary?.total_expense || 0) }}</p>
             </div>
             <input v-model="month" type="month" class="px-3 py-2 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" @change="loadData" />
+          </div>
+        </div>
+      </section>
+
+      <section
+        v-if="memberBudgets.length"
+        class="rounded-[28px] bg-white/90 dark:bg-[#151517]/95 border border-black/5 dark:border-white/10 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
+      >
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-start">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <ShieldCheck :size="17" />
+              <span>家庭预算健康度</span>
+            </div>
+            <div class="mt-3 flex flex-wrap items-end gap-x-4 gap-y-2">
+              <p class="text-4xl font-black tabular-nums">{{ memberBudgetStats.percentage }}%</p>
+              <p class="pb-1 text-sm text-gray-500 dark:text-gray-400">
+                已用 {{ formatMoney(memberBudgetStats.spent) }} / {{ formatMoney(memberBudgetStats.amount) }}
+              </p>
+            </div>
+            <div class="mt-4 h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+              <div
+                class="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-amber-400 transition-all duration-300"
+                :style="{ width: `${Math.min(memberBudgetStats.percentage, 100)}%` }"
+              />
+            </div>
+            <p class="mt-3 text-sm" :class="budgetStatusClass(memberBudgetStats.percentage)">
+              剩余额度 {{ formatMoney(memberBudgetStats.remaining) }}
+            </p>
+          </div>
+          <div class="grid flex-[1.2] grid-cols-1 gap-3 md:grid-cols-2">
+            <div
+              v-for="budget in topMemberBudgets"
+              :key="budget.id"
+              class="rounded-2xl border border-black/5 dark:border-white/10 bg-gray-50/80 dark:bg-white/[0.04] p-4"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="truncate font-semibold">{{ budget.member_name || '家庭成员' }}</p>
+                  <p class="mt-1 truncate text-xs text-gray-500">{{ budget.category_name || '总预算' }}</p>
+                </div>
+                <div class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-white/10">
+                  <TrendingUp :size="16" :class="budgetStatusClass(budget.percentage || 0)" />
+                </div>
+              </div>
+              <div class="mt-3 flex items-center justify-between text-sm">
+                <span class="text-gray-500">已用 {{ formatMoney(budget.spent || 0) }}</span>
+                <span class="font-semibold tabular-nums" :class="budgetStatusClass(budget.percentage || 0)">
+                  {{ Math.round(Number(budget.percentage || 0)) }}%
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

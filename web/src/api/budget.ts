@@ -4,17 +4,21 @@ export interface Budget {
   id: string
   category_id: string | null
   category_name?: string
+  member_id?: string
+  member_name?: string
   amount: number
   period: string
   alert_threshold: number
   is_active: boolean
   spent?: number
+  remaining?: number
   percentage?: number
 }
 
 export interface BudgetListResponse {
   total_budget: Budget | null
   category_budgets: Budget[]
+  member_budgets: Budget[]
 }
 
 export interface OverLimit {

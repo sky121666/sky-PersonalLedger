@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Bot, KeyRound, PlayCircle, RefreshCw, Trash2 } from 'lucide-vue-next'
-import { aiApi, type AIProvider, type AIReport } from '@/api/ai'
+import { AlertTriangle, ArrowLeft, Bot, KeyRound, PlayCircle, RefreshCw, ShieldCheck, Sparkles, Trash2, TrendingUp } from 'lucide-vue-next'
+import { aiApi, type AIProvider, type AIProviderPreset, type AIReport } from '@/api/ai'
 import { toast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -11,8 +11,10 @@ const saving = ref(false)
 const testingId = ref<string | null>(null)
 const generating = ref(false)
 const providers = ref<AIProvider[]>([])
+const providerPresets = ref<AIProviderPreset[]>([])
 const reports = ref<AIReport[]>([])
 const selectedReport = ref<AIReport | null>(null)
+const selectedPresetId = ref('deepseek')
 
 const providerForm = reactive({
   name: 'DeepSeek',
@@ -30,17 +32,24 @@ const reportForm = reactive({
 })
 
 const enabledProviders = computed(() => providers.value.filter(provider => provider.enabled))
+const selectedPreset = computed(() => providerPresets.value.find(preset => preset.id === selectedPresetId.value))
 const reportContent = computed(() => parseReportContent(selectedReport.value?.content_json))
+const reportSnapshot = computed(() => parseReportSnapshot(selectedReport.value?.snapshot_json))
+const reportRisks = computed(() => Array.isArray(reportContent.value?.risks) ? reportContent.value.risks : [])
+const snapshotBudget = computed(() => reportSnapshot.value?.budget || null)
+const snapshotMembers = computed(() => Array.isArray(reportSnapshot.value?.family_members) ? reportSnapshot.value.family_members.slice(0, 4) : [])
 
 onMounted(loadData)
 
 async function loadData() {
   loading.value = true
   try {
-    const [providerList, reportList] = await Promise.all([
+    const [presetList, providerList, reportList] = await Promise.all([
+      aiApi.listProviderPresets(),
       aiApi.listProviders(),
       aiApi.listReports()
     ])
+    providerPresets.value = presetList
     providers.value = providerList
     reports.value = reportList
     reportForm.provider_id ||= enabledProviders.value[0]?.id || ''
@@ -50,6 +59,14 @@ async function loadData() {
   } finally {
     loading.value = false
   }
+}
+
+function applyProviderPreset(preset: AIProviderPreset) {
+  selectedPresetId.value = preset.id
+  providerForm.name = preset.name
+  providerForm.base_url = preset.base_url
+  providerForm.model = preset.model
+  providerForm.enabled = true
 }
 
 async function saveProvider() {
@@ -140,6 +157,15 @@ function parseReportContent(content?: string) {
   }
 }
 
+function parseReportSnapshot(snapshot?: string) {
+  if (!snapshot) return null
+  try {
+    return JSON.parse(snapshot)
+  } catch {
+    return null
+  }
+}
+
 function statusText(status: string) {
   return ({ completed: '已完成', running: '生成中', failed: '失败', pending: '待处理' } as Record<string, string>)[status] || status
 }
@@ -150,6 +176,16 @@ function typeText(type: string) {
 
 function shortDate(value: string) {
   return value?.slice(0, 10) || ''
+}
+
+function formatMoney(value: unknown) {
+  return `¥${Number(value || 0).toFixed(2)}`
+}
+
+function riskLevelClass(level?: string) {
+  if (level === 'high') return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200'
+  if (level === 'medium') return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200'
+  return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200'
 }
 
 function defaultWeekStart() {
@@ -192,9 +228,34 @@ function defaultWeekEnd() {
               <KeyRound :size="18" />
               <h2 class="font-semibold">Provider 配置</h2>
             </div>
+            <div v-if="providerPresets.length" class="grid grid-cols-2 gap-2">
+              <button
+                v-for="preset in providerPresets"
+                :key="preset.id"
+                type="button"
+                class="min-h-14 rounded-xl border px-3 py-2 text-left transition"
+                :class="selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary' : 'border-black/5 dark:border-white/10 bg-gray-100/70 dark:bg-white/5'"
+                @click="applyProviderPreset(preset)"
+              >
+                <span class="flex items-center gap-2 text-sm font-medium">
+                  <Sparkles :size="14" />
+                  {{ preset.name }}
+                </span>
+                <span class="mt-1 block truncate text-xs opacity-70">{{ preset.model }}</span>
+              </button>
+            </div>
             <input v-model="providerForm.name" autocomplete="off" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="名称" />
             <input v-model="providerForm.base_url" autocomplete="url" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="Base URL" />
-            <input v-model="providerForm.model" autocomplete="off" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="模型，例如 deepseek-chat" />
+            <select v-if="selectedPreset && selectedPreset.id !== 'openai-compatible'" v-model="providerForm.model" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none">
+              <option
+                v-for="model in selectedPreset.models"
+                :key="model"
+                :value="model"
+              >
+                {{ model }}
+              </option>
+            </select>
+            <input v-else v-model="providerForm.model" autocomplete="off" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="模型，例如 deepseek-chat" />
             <input v-model="providerForm.api_key" type="password" autocomplete="new-password" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="API Key，保存后不会回显" />
             <label class="flex items-center gap-2 text-sm">
               <input v-model="providerForm.enabled" type="checkbox" />
@@ -286,11 +347,72 @@ function defaultWeekEnd() {
                   </button>
                 </div>
                 <p class="text-gray-700 dark:text-gray-300 leading-7">{{ reportContent?.summary || selectedReport.error_message || '暂无内容' }}</p>
+                <div v-if="reportSnapshot" class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div class="rounded-2xl border border-black/5 bg-gray-50/90 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                      <TrendingUp :size="15" />
+                      <span>净现金流</span>
+                    </div>
+                    <p class="mt-2 text-2xl font-black tabular-nums">{{ formatMoney(reportSnapshot.net_cashflow) }}</p>
+                    <p class="mt-1 text-xs text-gray-500">收入 {{ formatMoney(reportSnapshot.income_total) }}</p>
+                  </div>
+                  <div class="rounded-2xl border border-black/5 bg-gray-50/90 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                      <ShieldCheck :size="15" />
+                      <span>预算使用</span>
+                    </div>
+                    <p class="mt-2 text-2xl font-black tabular-nums">{{ snapshotBudget?.used_percent ?? 0 }}%</p>
+                    <p class="mt-1 text-xs text-gray-500">已用 {{ formatMoney(snapshotBudget?.spent) }}</p>
+                  </div>
+                  <div class="rounded-2xl border border-black/5 bg-gray-50/90 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                      <Bot :size="15" />
+                      <span>发送范围</span>
+                    </div>
+                    <p class="mt-2 text-2xl font-black tabular-nums">{{ snapshotMembers.length }}</p>
+                    <p class="mt-1 text-xs text-gray-500">仅聚合数据，无交易备注</p>
+                  </div>
+                </div>
                 <div v-if="reportContent?.highlights?.length" class="space-y-2">
                   <h3 class="font-semibold">重点</h3>
                   <ul class="list-disc pl-5 text-sm text-gray-600 dark:text-gray-300">
                     <li v-for="item in reportContent.highlights" :key="item">{{ item }}</li>
                   </ul>
+                </div>
+                <div v-if="reportRisks.length" class="space-y-2">
+                  <h3 class="font-semibold">风险</h3>
+                  <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div
+                      v-for="risk in reportRisks"
+                      :key="risk.title || risk.detail"
+                      class="rounded-2xl border p-4"
+                      :class="riskLevelClass(risk.level)"
+                    >
+                      <div class="flex items-start gap-2">
+                        <AlertTriangle :size="17" class="mt-0.5 shrink-0" />
+                        <div class="min-w-0">
+                          <p class="font-semibold">{{ risk.title || '风险提示' }}</p>
+                          <p class="mt-1 text-sm opacity-80">{{ risk.detail || risk }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="snapshotMembers.length" class="space-y-2">
+                  <h3 class="font-semibold">家庭成员快照</h3>
+                  <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div
+                      v-for="member in snapshotMembers"
+                      :key="member.display_name"
+                      class="rounded-2xl border border-black/5 bg-gray-50/90 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+                    >
+                      <div class="flex items-center justify-between gap-3">
+                        <span class="font-medium">{{ member.display_name || '成员' }}</span>
+                        <span class="text-sm font-semibold tabular-nums">{{ formatMoney(member.expense_total) }}</span>
+                      </div>
+                      <p class="mt-1 text-xs text-gray-500">{{ member.count || 0 }} 笔支出</p>
+                    </div>
+                  </div>
                 </div>
                 <div v-if="reportContent?.suggestions?.length" class="space-y-2">
                   <h3 class="font-semibold">建议</h3>

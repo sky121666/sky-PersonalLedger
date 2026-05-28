@@ -11,6 +11,15 @@ export interface AIProvider {
   updated_at: string
 }
 
+export interface AIProviderPreset {
+  id: string
+  name: string
+  provider_type: string
+  base_url: string
+  model: string
+  models: string[]
+}
+
 export interface SaveAIProviderParams {
   name: string
   provider_type?: string
@@ -45,6 +54,10 @@ export interface GenerateAIReportParams {
 }
 
 export const aiApi = {
+  listProviderPresets(): Promise<AIProviderPreset[]> {
+    return get<AIProviderPreset[]>('/ai/providers/presets')
+  },
+
   listProviders(): Promise<AIProvider[]> {
     return get<AIProvider[]>('/ai/providers')
   },
