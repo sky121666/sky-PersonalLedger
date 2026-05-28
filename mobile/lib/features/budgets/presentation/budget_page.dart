@@ -228,6 +228,15 @@ class _BudgetContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
+            if (budgetList.memberBudgets.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _MemberBudgetHeader(count: budgetList.memberBudgets.length),
+              const SizedBox(height: 8),
+              for (final budget in budgetList.memberBudgets) ...[
+                _MemberBudgetCard(budget: budget),
+                const SizedBox(height: 8),
+              ],
+            ],
           ],
         ),
       ),
@@ -540,6 +549,102 @@ class _CategoryBudgetCard extends StatelessWidget {
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+            ),
+            const SizedBox(height: 12),
+            _BudgetProgressBar(percentage: budget.percentage),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  '${budget.percentage.toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    color: _budgetStatusColor(context, budget.percentage),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    color: _budgetStatusColor(context, budget.percentage),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MemberBudgetHeader extends StatelessWidget {
+  const _MemberBudgetHeader({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionTitle(
+      icon: Icons.family_restroom_outlined,
+      title: '家庭成员预算',
+      subtitle: '$count 个成员预算正在跟踪',
+    );
+  }
+}
+
+class _MemberBudgetCard extends StatelessWidget {
+  const _MemberBudgetCard({required this.budget});
+
+  final BudgetItem budget;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final memberName = budget.memberName.isEmpty ? '家庭成员' : budget.memberName;
+    final title = budget.categoryName.isEmpty
+        ? memberName
+        : '$memberName · ${budget.categoryName}';
+    final statusText = budget.isOverBudget
+        ? '已超出预算'
+        : budget.isNearLimit
+        ? '接近预算上限'
+        : '控制良好';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: colorScheme.secondaryContainer,
+                  foregroundColor: colorScheme.onSecondaryContainer,
+                  child: Text(memberName.substring(0, 1)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '预算 ${_formatMoney(budget.amount)}，已用 ${_formatMoney(budget.spent)}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             _BudgetProgressBar(percentage: budget.percentage),

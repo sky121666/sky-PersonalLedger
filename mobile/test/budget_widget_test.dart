@@ -17,6 +17,8 @@ void main() {
       expect(find.text('¥1800.00'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('87%'), findsOneWidget);
+      expect(find.text('家庭成员预算'), findsOneWidget);
+      expect(find.text('家人'), findsOneWidget);
     });
 
     testWidgets('保存总预算时提交金额和提醒阈值', (tester) async {
@@ -157,6 +159,20 @@ class _FakeBudgetRepository implements BudgetRepository {
         alertThreshold: 80,
       ),
     ],
+    memberBudgets: [
+      BudgetItem(
+        id: 'member-budget-family',
+        categoryId: null,
+        categoryName: '',
+        memberId: 'member-family',
+        memberName: '家人',
+        amount: 1200,
+        spent: 420,
+        remaining: 780,
+        percentage: 35,
+        alertThreshold: 80,
+      ),
+    ],
   );
 
   var getListCalls = 0;
@@ -175,6 +191,7 @@ class _FakeBudgetRepository implements BudgetRepository {
       categoryBudgets: budgetList.categoryBudgets
           .where((budget) => budget.id != id)
           .toList(),
+      memberBudgets: budgetList.memberBudgets,
     );
   }
 
@@ -214,6 +231,7 @@ class _FakeBudgetRepository implements BudgetRepository {
     budgetList = BudgetListResponse(
       totalBudget: budgetList.totalBudget,
       categoryBudgets: [...budgetList.categoryBudgets, item],
+      memberBudgets: budgetList.memberBudgets,
     );
     return item;
   }
@@ -243,6 +261,7 @@ class _FakeBudgetRepository implements BudgetRepository {
     budgetList = BudgetListResponse(
       totalBudget: item,
       categoryBudgets: budgetList.categoryBudgets,
+      memberBudgets: budgetList.memberBudgets,
     );
     return item;
   }

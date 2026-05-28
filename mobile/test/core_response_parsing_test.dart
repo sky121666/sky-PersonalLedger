@@ -225,12 +225,27 @@ void main() {
             'alert_threshold': 80,
           },
         ],
+        'member_budgets': [
+          {
+            'id': 'member-budget-1',
+            'member_id': 'member-1',
+            'member_name': '家人',
+            'category_id': null,
+            'amount': 1000,
+            'spent': 420,
+            'remaining': 580,
+            'percentage': 42,
+            'alert_threshold': 80,
+          },
+        ],
       });
 
       expect(result.totalBudget?.amount, 3000);
       expect(result.categoryBudgets.single.categoryName, '餐饮');
       expect(result.categoryBudgets.single.percentage, 87);
       expect(result.categoryBudgets.single.isNearLimit, isTrue);
+      expect(result.memberBudgets.single.memberName, '家人');
+      expect(result.memberBudgets.single.remaining, 580);
     });
 
     test('负债提醒模型解析摘要和还款进度', () {

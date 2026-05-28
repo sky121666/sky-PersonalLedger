@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/family/presentation/family_page.dart';
 
@@ -54,6 +55,22 @@ void main() {
               ],
             );
           }),
+          memberBudgetsProvider.overrideWith((ref) async {
+            return const [
+              BudgetItem(
+                id: 'member-budget-1',
+                categoryId: null,
+                categoryName: '',
+                memberId: 'member-1',
+                memberName: '成员A',
+                amount: 1000,
+                spent: 450,
+                remaining: 550,
+                percentage: 45,
+                alertThreshold: 80,
+              ),
+            ];
+          }),
         ],
         child: const MaterialApp(home: FamilyPage()),
       ),
@@ -61,16 +78,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('家庭成员'), findsOneWidget);
-    expect(find.text('成员A'), findsWidgets);
-    expect(find.text('家人'), findsOneWidget);
-    expect(find.text('成员B'), findsWidgets);
-    expect(find.text('子女'), findsOneWidget);
-    expect(find.text('默认'), findsOneWidget);
-    expect(find.text('停用'), findsOneWidget);
     expect(find.text('2026-05 家庭支出'), findsOneWidget);
     expect(find.text('¥320.00'), findsOneWidget);
     expect(find.text('成员支出排行'), findsOneWidget);
     expect(find.text('¥200.00 · 3 笔'), findsOneWidget);
+    expect(find.text('家庭预算'), findsOneWidget);
+    expect(find.text('¥1000.00'), findsOneWidget);
+    expect(find.text('45%'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('默认'), 300);
+    expect(find.text('成员A'), findsWidgets);
+    expect(find.text('家人'), findsOneWidget);
+    expect(find.text('默认'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('停用'), 300);
+    expect(find.text('成员B'), findsWidgets);
+    expect(find.text('子女'), findsOneWidget);
+    expect(find.text('停用'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsWidgets);
   });
 
@@ -79,6 +101,7 @@ void main() {
       ProviderScope(
         overrides: [
           familyMembersProvider.overrideWith((ref) async => const []),
+          memberBudgetsProvider.overrideWith((ref) async => const []),
         ],
         child: const MaterialApp(home: FamilyPage()),
       ),

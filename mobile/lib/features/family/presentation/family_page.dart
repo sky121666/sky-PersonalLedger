@@ -6,6 +6,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../../app/widgets/staggered_entrance.dart';
+import '../../budgets/data/budget_repository.dart';
 import '../data/family_repository.dart';
 
 class FamilyPage extends ConsumerWidget {
@@ -15,6 +16,7 @@ class FamilyPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final membersState = ref.watch(familyMembersProvider);
     final summaryState = ref.watch(familySummaryProvider);
+    final memberBudgetsState = ref.watch(memberBudgetsProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('家庭成员'),
@@ -23,6 +25,7 @@ class FamilyPage extends ConsumerWidget {
             onPressed: () {
               ref.invalidate(familyMembersProvider);
               ref.invalidate(familySummaryProvider);
+              ref.invalidate(memberBudgetsProvider);
             },
             icon: const Icon(Icons.refresh_outlined),
             tooltip: '刷新家庭数据',
@@ -50,6 +53,15 @@ class FamilyPage extends ConsumerWidget {
                     loadingSummary: summaryState.isLoading,
                   ),
                 ),
+                if (memberBudgetsState.valueOrNull?.isNotEmpty == true) ...[
+                  const SizedBox(height: 12),
+                  StaggeredEntrance(
+                    index: 1,
+                    child: _FamilyBudgetSurface(
+                      budgets: memberBudgetsState.valueOrNull!,
+                    ),
+                  ),
+                ],
                 if (summaryState.hasError) ...[
                   const SizedBox(height: 12),
                   PremiumSurface(
@@ -60,7 +72,7 @@ class FamilyPage extends ConsumerWidget {
                 if (summary != null && summary.members.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 1,
+                    index: 2,
                     child: _FamilyRankingSurface(summary: summary),
                   ),
                 ],
@@ -77,7 +89,7 @@ class FamilyPage extends ConsumerWidget {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: StaggeredEntrance(
-                      index: index + 2,
+                      index: index + 3,
                       child: _FamilyMemberCard(member: member),
                     ),
                   );
@@ -178,6 +190,126 @@ class _FamilySummaryHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FamilyBudgetSurface extends StatelessWidget {
+  const _FamilyBudgetSurface({required this.budgets});
+
+  final List<BudgetItem> budgets;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalAmount = budgets.fold<double>(
+      0,
+      (sum, budget) => sum + budget.amount,
+    );
+    final totalSpent = budgets.fold<double>(
+      0,
+      (sum, budget) => sum + budget.spent,
+    );
+    final remaining = totalAmount - totalSpent;
+    final visibleBudgets = budgets.take(3).toList();
+    return PremiumSurface(
+      accentColor: AppTheme.warningColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.savings_outlined, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '家庭预算',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                '${budgets.length} 项',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _FamilyMetric(
+                  label: '成员预算',
+                  value: _formatMoney(totalAmount),
+                  helper: '已用 ${_formatMoney(totalSpent)}',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _FamilyMetric(
+                  label: '剩余额度',
+                  value: _formatMoney(remaining),
+                  helper: remaining >= 0 ? '仍在预算内' : '需要关注',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...visibleBudgets.map((budget) => _FamilyBudgetRow(budget: budget)),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyBudgetRow extends StatelessWidget {
+  const _FamilyBudgetRow({required this.budget});
+
+  final BudgetItem budget;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _budgetStatusColor(context, budget.percentage);
+    final memberName = budget.memberName.isEmpty ? '家庭成员' : budget.memberName;
+    final title = budget.categoryName.isEmpty
+        ? memberName
+        : '$memberName · ${budget.categoryName}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text(
+                '${budget.percentage.toStringAsFixed(0)}%',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: (budget.percentage / 100).clamp(0, 1).toDouble(),
+              minHeight: 7,
+              backgroundColor: color.withValues(alpha: 0.12),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -443,6 +575,17 @@ Color _memberColor(BuildContext context, String color) {
     return Theme.of(context).colorScheme.primary;
   }
   return Color(0xFF000000 | parsed);
+}
+
+Color _budgetStatusColor(BuildContext context, double percentage) {
+  final colorScheme = Theme.of(context).colorScheme;
+  if (percentage >= 100) {
+    return colorScheme.error;
+  }
+  if (percentage >= 80) {
+    return AppTheme.warningColor;
+  }
+  return AppTheme.incomeColor;
 }
 
 String _formatMoney(double value) {
