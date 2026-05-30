@@ -36,6 +36,10 @@ require_text ".github/workflows/docker.yml" "type=raw,value=latest,enable=\\$\\{
 require_text ".github/workflows/release.yml" "uses: \\.\\/\\.github\\/workflows\\/docker\\.yml"
 require_text ".github/workflows/release.yml" "needs: \\[prepare, docker, android, ios\\]"
 require_text ".github/workflows/release.yml" "docker pull ghcr\\.io/\\$\\{\\{ github\\.repository \\}\\}:\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}"
+require_text ".github/workflows/release.yml" "refs/tags/v\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}/docker-compose\\.yml"
+require_text ".github/workflows/release.yml" "LEDGER_IMAGE=ghcr\\.io/\\$\\{\\{ github\\.repository \\}\\}:\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}"
+require_text ".github/workflows/release.yml" "LEDGER_SERVER_MODE=release"
+require_text ".github/workflows/release.yml" "docker compose up -d"
 
 require_text "Dockerfile" "FROM node:20-alpine AS frontend-builder"
 require_text "Dockerfile" "FROM golang:1\\.24-alpine AS backend-builder"
@@ -46,8 +50,9 @@ require_text "Dockerfile" "LEDGER_SERVER_MODE=release"
 require_text "Dockerfile" "LEDGER_DATABASE_PATH=/data/ledger\\.db"
 require_text "Dockerfile" "LEDGER_STORAGE_BACKUP_PATH=/data/backups"
 
-require_text "docker-compose.yml" "ghcr\\.io/sky121666/sky-personalledger:latest"
+require_text "docker-compose.yml" "\\$\\{LEDGER_IMAGE:-ghcr\\.io/sky121666/sky-personalledger:latest\\}"
 require_text "docker-compose.yml" "LEDGER_JWT_SECRET=\\$\\{LEDGER_JWT_SECRET:\\?Set LEDGER_JWT_SECRET in \\.env before starting\\}"
 require_text "docker-compose.yml" "\\./data:/data"
+require_text "docker-compose.yml" "LEDGER_SERVER_MODE=release"
 
 echo "Docker release preflight checks passed."

@@ -1,7 +1,7 @@
 services:
   personal-ledger:
     # GitHub Container Registry 镜像
-    image: ghcr.io/sky121666/sky-personalledger:latest
+    image: ${LEDGER_IMAGE:-ghcr.io/sky121666/sky-personalledger:latest}
     # 或本地构建: build: .
     
     container_name: personal-ledger
@@ -52,7 +52,7 @@ services:
       # - LEDGER_LOG_FORMAT=json          # json/text
       
       # ========== 限流配置 ==========
-      - LEDGER_SERVER_MODE=debug          # debug=禁用限流, release=启用限流
+      - LEDGER_SERVER_MODE=release        # debug=禁用限流, release=启用限流
       # - LEDGER_RATE_LIMIT_MAX_REQUESTS=2000  # 每分钟最大请求数 (仅 release 模式)
       # - LEDGER_RATE_LIMIT_WINDOW_SECS=60     # 限流时间窗口(秒，仅 release 模式)
       

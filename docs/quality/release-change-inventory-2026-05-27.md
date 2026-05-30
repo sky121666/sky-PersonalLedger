@@ -181,11 +181,15 @@ Release workflows, signing docs, quality evidence, and gate scripts:
 .github/workflows/release.yml
 .gitignore
 Dockerfile
+README.md
+docker-compose.yml
 docs/android-release-signing.md
 docs/ios-release-signing.md
 docs/quality/
 docs/quality/final-release-runbook-2026-05-27.md
 docs/quality/docker-release-evidence-2026-05-27.md
+docs/quality/local-release-rehearsal-2026-05-27.md
+docs/quality/release-change-inventory-2026-05-27.md
 docs/superpowers/plans/2026-05-27-family-ai-mobile-modernization.md
 scripts/check-backup-operator-drill.sh
 scripts/check-backup-operator-drill-local.sh

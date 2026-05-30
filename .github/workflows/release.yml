@@ -95,9 +95,11 @@ jobs:
             ```bash
             docker pull ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
             
-            # 或使用 docker-compose
-            wget https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
-            docker-compose up -d
+            # 或使用当前 tag 的 compose 文件固定版本部署
+            curl -fsSLO https://raw.githubusercontent.com/${{ github.repository }}/refs/tags/v${{ needs.prepare.outputs.version }}/docker-compose.yml
+            export LEDGER_IMAGE=ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
+            export LEDGER_SERVER_MODE=release
+            docker compose up -d
             ```
             
             ### 客户端下载

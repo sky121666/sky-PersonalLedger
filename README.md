@@ -48,17 +48,17 @@
 
 ```bash
 # 1. 下载配置文件
-wget https://raw.githubusercontent.com/sky121666/sky-PersonalLedger/main/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/sky121666/sky-PersonalLedger/main/docker-compose.yml
 
 # 2. 生成 JWT 密钥 (必须)
 printf 'LEDGER_JWT_SECRET=%s\n' "$(openssl rand -base64 32)" > .env
 
 # 3. 启动服务
-docker-compose up -d
+docker compose up -d
 
 # 4. 查看状态
-docker-compose ps
-docker-compose logs -f
+docker compose ps
+docker compose logs -f
 ```
 
 ✅ **访问地址**: `http://localhost:8080`
@@ -85,7 +85,7 @@ docker run -d \
   -e LEDGER_JWT_ACCESS_EXPIRE=15 \
   -e LEDGER_JWT_REFRESH_EXPIRE=43200 \
   -e LEDGER_STORAGE_MAX_FILE_SIZE=10 \
-  -e LEDGER_SERVER_MODE=debug \
+  -e LEDGER_SERVER_MODE=release \
   -e LEDGER_LOG_LEVEL=info \
   -e TZ=Asia/Shanghai \
   ghcr.io/sky121666/sky-personalledger:latest
@@ -184,7 +184,7 @@ LEDGER_DATABASE_DSN='ledger:password@tcp(db:3306)/ledger?charset=utf8mb4&parseTi
 ```yaml
 services:
   personal-ledger:
-    image: ghcr.io/sky121666/sky-personalledger:latest
+    image: ${LEDGER_IMAGE:-ghcr.io/sky121666/sky-personalledger:latest}
     container_name: personal-ledger
     restart: unless-stopped
     ports:
@@ -218,8 +218,8 @@ services:
       # - LEDGER_DATABASE_DSN=postgres://ledger:password@db:5432/ledger?sslmode=disable&TimeZone=Asia/Shanghai
       
       # ========== 限流配置 ==========
-      # 开发模式禁用限流，生产环境可改为 release 并设置限流参数
-      - LEDGER_SERVER_MODE=debug        # debug=禁用限流, release=启用限流
+      # 正式部署默认启用限流；仅本地开发时改为 debug
+      - LEDGER_SERVER_MODE=release      # debug=禁用限流, release=启用限流
       # - LEDGER_RATE_LIMIT_MAX_REQUESTS=2000  # 每分钟最多请求数 (仅 release 模式)
       # - LEDGER_RATE_LIMIT_WINDOW_SECS=60     # 限流时间窗口 (仅 release 模式)
       
@@ -237,19 +237,19 @@ services:
 
 ```bash
 # 启动服务
-docker-compose up -d
+docker compose up -d
 
 # 停止服务
-docker-compose down
+docker compose down
 
 # 查看日志
-docker-compose logs -f
+docker compose logs -f
 
 # 重启服务
-docker-compose restart
+docker compose restart
 
 # 更新到最新版本
-docker-compose pull && docker-compose up -d
+docker compose pull && docker compose up -d
 
 # 备份数据
 cp -r ./data ./data-backup-$(date +%Y%m%d)

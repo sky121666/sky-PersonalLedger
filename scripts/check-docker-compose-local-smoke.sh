@@ -53,7 +53,7 @@ if env -u LEDGER_JWT_SECRET docker compose -f "$ROOT_DIR/docker-compose.yml" con
 fi
 
 PORT="$(pick_port)"
-mkdir -p "$SMOKE_DIR/data"
+mkdir -p "$SMOKE_DIR/data/uploads" "$SMOKE_DIR/data/backups"
 cat >"$SMOKE_DIR/docker-compose.yml" <<EOF
 services:
   personal-ledger:
@@ -92,7 +92,7 @@ if ! curl -fsS "$health_url" >/dev/null 2>&1; then
   exit 1
 fi
 
-for required_path in "$SMOKE_DIR/data/ledger.db" "$SMOKE_DIR/data/uploads"; do
+for required_path in "$SMOKE_DIR/data/ledger.db" "$SMOKE_DIR/data/uploads" "$SMOKE_DIR/data/backups"; do
   if [[ ! -e "$required_path" ]]; then
     echo "Expected persistent path missing: $required_path" >&2
     exit 1
@@ -101,4 +101,4 @@ done
 
 echo "Docker compose local smoke checks passed for $IMAGE on 127.0.0.1:$PORT."
 echo "JWT guard: PASS"
-echo "Persistent paths: ledger.db, uploads"
+echo "Persistent paths: ledger.db, uploads, backups"
