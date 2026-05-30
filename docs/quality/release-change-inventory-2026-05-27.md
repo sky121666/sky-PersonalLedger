@@ -195,6 +195,10 @@ README.md
 backend/cmd/server/main.go
 backend/cmd/server/main_test.go
 backend/internal/config/config.go
+backend/internal/handler/attachment.go
+backend/internal/handler/attachment_test.go
+backend/internal/handler/export.go
+backend/internal/handler/transaction.go
 backend/internal/handler/upload.go
 backend/internal/handler/upload_test.go
 backend/internal/middleware/middleware.go

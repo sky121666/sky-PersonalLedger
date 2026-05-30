@@ -38,7 +38,7 @@ func (h *ExportHandler) ExportCSV(c *gin.Context) {
 
 	filename := fmt.Sprintf("transactions_%s.csv", time.Now().Format("20060102"))
 	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	setAttachmentHeader(c, filename)
 	c.Data(http.StatusOK, "text/csv; charset=utf-8", data)
 }
 

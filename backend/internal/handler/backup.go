@@ -31,7 +31,7 @@ func (h *BackupHandler) Create(c *gin.Context) {
 
 	filename := fmt.Sprintf("backup_%s.json", time.Now().Format("20060102_150405"))
 	c.Header("Content-Type", "application/json; charset=utf-8")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	setAttachmentHeader(c, filename)
 	c.JSON(200, backup)
 }
 

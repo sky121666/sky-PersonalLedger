@@ -184,7 +184,7 @@ func (h *UploadHandler) Download(c *gin.Context) {
 	}
 	filename := filepath.Base(filePath)
 
-	c.Header("Content-Disposition", "attachment; filename="+filename)
+	setAttachmentHeader(c, filename)
 	c.Header("Content-Type", "application/octet-stream")
 	c.File(fullPath)
 }

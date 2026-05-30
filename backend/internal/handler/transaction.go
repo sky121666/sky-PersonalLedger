@@ -155,7 +155,7 @@ func (h *TransactionHandler) Export(c *gin.Context) {
 	// CSV export
 	filename := fmt.Sprintf("transactions_%s.csv", time.Now().Format("20060102"))
 	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	setAttachmentHeader(c, filename)
 	c.Writer.Write([]byte{0xEF, 0xBB, 0xBF}) // UTF-8 BOM for Excel
 
 	writer := csv.NewWriter(c.Writer)
@@ -205,7 +205,7 @@ func (h *TransactionHandler) Backup(c *gin.Context) {
 
 	filename := fmt.Sprintf("backup_%s.json", time.Now().Format("20060102_150405"))
 	c.Header("Content-Type", "application/json; charset=utf-8")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	setAttachmentHeader(c, filename)
 	c.JSON(200, backup)
 }
 
