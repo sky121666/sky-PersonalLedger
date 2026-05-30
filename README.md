@@ -92,7 +92,7 @@ docker run -d \
 
 # 可选的安全配置
 # -e LEDGER_SECURITY_BASE_PATH=/my-secret-path \
-# -e LEDGER_SECURITY_API_TOKEN=sk-your-api-token \
+# -e LEDGER_SECURITY_API_TOKEN=<api-token> \
 ```
 
 ## 📱 客户端下载
@@ -113,9 +113,9 @@ docker run -d \
 
 ```properties
 storeFile=app/upload-keystore.jks
-storePassword=your-store-password
+storePassword=<keystore-password>
 keyAlias=upload
-keyPassword=your-key-password
+keyPassword=<key-password>
 ```
 
 GitHub Actions 需要配置：
@@ -201,7 +201,7 @@ services:
       # 自定义入口路径，隐藏真实访问地址
       # - LEDGER_SECURITY_BASE_PATH=/my-secret-path
       # 移动端 API 验证 Token
-      # - LEDGER_SECURITY_API_TOKEN=sk-your-api-token
+      # - LEDGER_SECURITY_API_TOKEN=<api-token>
       # 跨域白名单；同域部署保持为空，前后端分离时设置具体域名
       # - LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.com
       

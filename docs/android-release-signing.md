@@ -12,9 +12,9 @@ Release builds also default to `android:usesCleartextTraffic=false`. Debug build
 
 ```properties
 storeFile=app/upload-keystore.jks
-storePassword=your-store-password
+storePassword=<keystore-password>
 keyAlias=upload
-keyPassword=your-key-password
+keyPassword=<key-password>
 ```
 
 4. Build:

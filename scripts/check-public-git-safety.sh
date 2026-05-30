@@ -43,4 +43,9 @@ if git grep -nI -E 'secret: "(change-me|change-this-secret|change-this-to-a-rand
   fail=1
 fi
 
+if git grep -nI -E 'sk-your-[A-Za-z0-9_-]*|your-(store|key)-password' -- README.md docker-compose.yml docs mobile/android/key.properties.example 2>/dev/null; then
+  echo "ERROR: secret-shaped placeholder is tracked; use neutral angle-bracket placeholders instead" >&2
+  fail=1
+fi
+
 exit "$fail"
