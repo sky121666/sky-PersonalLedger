@@ -3,6 +3,7 @@ import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/core/config/server_config_service.dart';
 import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/network/api_response.dart';
+import 'package:personal_ledger/core/storage/secure_storage_service.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
 import 'package:personal_ledger/features/api_tokens/data/api_token_repository.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
@@ -66,6 +67,37 @@ void main() {
       const config = ServerConfig(baseUrl: 'https://ledger.example.com');
 
       expect(config.apiBaseUrl, 'https://ledger.example.com/api/v1');
+    });
+
+    test('ServerConfigService 远程地址必须使用 HTTPS', () {
+      final service = ServerConfigService(SecureStorageService());
+
+      expect(
+        () => service.normalizeServerUrl('ledger.example.com'),
+        returnsNormally,
+      );
+      expect(
+        () => service.normalizeServerUrl('http://ledger.example.com'),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('远程服务器必须使用 HTTPS'),
+          ),
+        ),
+      );
+      expect(
+        service.normalizeServerUrl('http://localhost:8080'),
+        'http://localhost:8080',
+      );
+      expect(
+        service.normalizeServerUrl('http://127.0.0.1:8080'),
+        'http://127.0.0.1:8080',
+      );
+      expect(
+        service.normalizeServerUrl('http://192.168.1.10:8080'),
+        'http://192.168.1.10:8080',
+      );
     });
 
     test('AuthTokenPair 解析 token 并校验完整性', () {

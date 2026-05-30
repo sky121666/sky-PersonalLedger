@@ -28,6 +28,15 @@ require_absent_text() {
   fi
 }
 
+require_text() {
+  local path="$1"
+  local pattern="$2"
+  if ! grep -Eq "$pattern" "$ROOT_DIR/$path"; then
+    echo "Missing required pattern in $path: $pattern" >&2
+    exit 1
+  fi
+}
+
 require_file "docs/quality/production-readiness-2026-05-27.md"
 require_file "docs/quality/release-artifact-evidence-2026-05-27.md"
 require_file "docs/quality/docker-release-evidence-2026-05-27.md"
@@ -69,6 +78,7 @@ require_absent_text "web/src/views/SettingsView.vue" 'notificationApi\.updateSet
 require_absent_text "mobile/lib/features/notifications/data/notification_repository.dart" "^[[:space:]]*'(dingtalk_secret|webhook_secret)': (dingtalkSecret|webhookSecret),"
 require_absent_text "mobile/lib/features/ai/data/ai_report_repository.dart" "^[[:space:]]*'api_key': apiKey,"
 require_absent_text "web/src/views/AIView.vue" 'api_key: providerForm\.api_key\.trim\(\)'
+require_text "mobile/lib/core/config/server_config_service.dart" '远程服务器必须使用 HTTPS'
 require_absent_text "backend/internal/service/auth.go" 'password must be at least 6 characters'
 
 "$ROOT_DIR/scripts/check-public-git-safety.sh"
