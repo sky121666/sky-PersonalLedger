@@ -18,7 +18,7 @@ AI analysis must be disabled by default. Financial data is sensitive, so the bac
 | `provider_type` | string | First value: `openai_compatible` |
 | `base_url` | string | Base URL, e.g. `https://api.deepseek.com` |
 | `api_key_ciphertext` | string | AES-GCM protected value when `LEDGER_JWT_SECRET` is configured; never return raw key |
-| `model` | string | e.g. `deepseek-chat` |
+| `model` | string | e.g. `deepseek-v4-flash` |
 | `enabled` | bool | Main switch |
 | `created_at` | time | GORM timestamp |
 | `updated_at` | time | GORM timestamp |
@@ -35,9 +35,12 @@ DeepSeek should be configured as a normal OpenAI-compatible provider from the We
 | --- | --- |
 | Provider preset | `DeepSeek` |
 | Base URL | `https://api.deepseek.com` |
-| Chat model | `deepseek-chat` |
-| Reasoning model | `deepseek-reasoner` |
+| Default model | `deepseek-v4-flash` |
+| Higher capability model | `deepseek-v4-pro` |
+| Legacy compatible models | `deepseek-chat`, `deepseek-reasoner` |
 | Provider type | `openai_compatible` |
+
+As of the 2026-05-30 implementation check, the DeepSeek preset defaults to the current v4 model names and keeps `deepseek-chat` / `deepseek-reasoner` only as compatibility options because DeepSeek documents those legacy names as deprecated after 2026-07-24.
 
 Operational rules:
 
@@ -73,7 +76,7 @@ The adapter should target chat completions:
 
 ```json
 {
-  "model": "deepseek-chat",
+  "model": "deepseek-v4-flash",
   "messages": [
     {
       "role": "system",

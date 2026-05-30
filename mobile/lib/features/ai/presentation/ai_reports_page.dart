@@ -129,8 +129,13 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               name: 'DeepSeek',
               providerType: 'openai_compatible',
               baseUrl: 'https://api.deepseek.com',
-              model: 'deepseek-chat',
-              models: ['deepseek-chat', 'deepseek-reasoner'],
+              model: 'deepseek-v4-flash',
+              models: [
+                'deepseek-v4-flash',
+                'deepseek-v4-pro',
+                'deepseek-chat',
+                'deepseek-reasoner',
+              ],
             ),
           ]
         : setup.presets;

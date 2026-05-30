@@ -135,12 +135,24 @@ func TestAIProviderPresetsIncludeDeepSeekDefaults(t *testing.T) {
 	}
 	if deepSeek.ProviderType != aiProviderTypeOpenAICompatible ||
 		deepSeek.BaseURL != "https://api.deepseek.com" ||
-		deepSeek.Model != "deepseek-chat" {
+		deepSeek.Model != "deepseek-v4-flash" {
 		t.Fatalf("deepseek preset = %#v", deepSeek)
 	}
-	if len(deepSeek.Models) < 2 {
-		t.Fatalf("deepseek models = %#v, want chat and reasoner options", deepSeek.Models)
+	if !containsString(deepSeek.Models, "deepseek-v4-flash") ||
+		!containsString(deepSeek.Models, "deepseek-v4-pro") ||
+		!containsString(deepSeek.Models, "deepseek-chat") ||
+		!containsString(deepSeek.Models, "deepseek-reasoner") {
+		t.Fatalf("deepseek models = %#v, want current v4 models and legacy compatibility options", deepSeek.Models)
 	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestAIProviderProtectsStoredAPIKeyWhenEncryptionSecretConfigured(t *testing.T) {

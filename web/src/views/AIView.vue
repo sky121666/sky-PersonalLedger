@@ -23,7 +23,7 @@ const providerForm = reactive({
   name: 'DeepSeek',
   base_url: 'https://api.deepseek.com',
   api_key: '',
-  model: 'deepseek-chat',
+  model: 'deepseek-v4-flash',
   enabled: true
 })
 
@@ -338,7 +338,7 @@ function defaultWeekEnd() {
                 {{ model }}
               </option>
             </select>
-            <input v-else v-model="providerForm.model" autocomplete="off" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="模型，例如 deepseek-chat" />
+            <input v-else v-model="providerForm.model" autocomplete="off" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="模型，例如 deepseek-v4-flash" />
             <input v-model="providerForm.api_key" type="password" autocomplete="new-password" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="API Key，保存后不会回显" />
             <label class="flex items-center gap-2 text-sm">
               <input v-model="providerForm.enabled" type="checkbox" />

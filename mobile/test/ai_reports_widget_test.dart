@@ -19,7 +19,7 @@ void main() {
                 periodStart: '2026-05-18T00:00:00Z',
                 periodEnd: '2026-05-24T23:59:59Z',
                 providerName: 'DeepSeek',
-                model: 'deepseek-chat',
+                model: 'deepseek-v4-flash',
                 contentJson:
                     '{"summary":"支出可控","highlights":["净现金流为正"],"risks":["预算偏高"],"suggestions":["继续记录"]}',
                 snapshotJson:
@@ -41,13 +41,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('AI 财务报告'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('DeepSeek / deepseek-chat'), 300);
+    await tester.scrollUntilVisible(
+      find.text('DeepSeek / deepseek-v4-flash'),
+      300,
+    );
     expect(find.text('每周总结'), findsWidgets);
     expect(find.text('已完成'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsWidgets);
-    expect(find.text('DeepSeek / deepseek-chat'), findsWidgets);
+    expect(find.text('DeepSeek / deepseek-v4-flash'), findsWidgets);
 
-    await tester.tap(find.text('DeepSeek / deepseek-chat'));
+    await tester.tap(find.text('DeepSeek / deepseek-v4-flash'));
     await tester.pumpAndSettle();
 
     expect(find.text('支出可控'), findsWidgets);
@@ -95,7 +98,7 @@ void main() {
                 periodStart: '2026-05-18T00:00:00Z',
                 periodEnd: '2026-05-24T23:59:59Z',
                 providerName: 'DeepSeek',
-                model: 'deepseek-chat',
+                model: 'deepseek-v4-flash',
                 errorMessage: 'enabled ai provider not found',
               ),
             ];
@@ -113,10 +116,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text('DeepSeek / deepseek-chat'), 300);
+    await tester.scrollUntilVisible(
+      find.text('DeepSeek / deepseek-v4-flash'),
+      300,
+    );
     expect(find.text('失败'), findsOneWidget);
 
-    await tester.tap(find.text('DeepSeek / deepseek-chat'));
+    await tester.tap(find.text('DeepSeek / deepseek-v4-flash'));
     await tester.pumpAndSettle();
 
     expect(find.text('enabled ai provider not found'), findsWidgets);
@@ -130,7 +136,7 @@ void main() {
         name: 'DeepSeek',
         providerType: 'openai_compatible',
         baseUrl: 'https://api.deepseek.com',
-        model: 'deepseek-chat',
+        model: 'deepseek-v4-flash',
         enabled: true,
       ),
     );
@@ -145,7 +151,7 @@ void main() {
     await tester.tap(find.byTooltip('生成报告'));
     await tester.pumpAndSettle();
     expect(find.text('生成 AI 报告'), findsOneWidget);
-    expect(find.text('DeepSeek / deepseek-chat'), findsOneWidget);
+    expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('ai-report-generate-submit')));
     await tester.pumpAndSettle();
@@ -343,8 +349,13 @@ class _FakeAIReportRepository implements AIReportRepository {
         name: 'DeepSeek',
         providerType: 'openai_compatible',
         baseUrl: 'https://api.deepseek.com',
-        model: 'deepseek-chat',
-        models: ['deepseek-chat', 'deepseek-reasoner'],
+        model: 'deepseek-v4-flash',
+        models: [
+          'deepseek-v4-flash',
+          'deepseek-v4-pro',
+          'deepseek-chat',
+          'deepseek-reasoner',
+        ],
       ),
     ];
   }

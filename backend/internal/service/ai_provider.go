@@ -77,8 +77,8 @@ func (s *AIProviderService) ListPresets() []AIProviderPresetResponse {
 			Name:         "DeepSeek",
 			ProviderType: aiProviderTypeOpenAICompatible,
 			BaseURL:      "https://api.deepseek.com",
-			Model:        "deepseek-chat",
-			Models:       []string{"deepseek-chat", "deepseek-reasoner"},
+			Model:        "deepseek-v4-flash",
+			Models:       []string{"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"},
 		},
 		{
 			ID:           "openai",

@@ -97,10 +97,15 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('AI 财务报告'), findsOneWidget);
-        expect(find.byTooltip('生成本周报告'), findsOneWidget);
+        expect(find.byTooltip('生成报告'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('已完成'), 240);
         expect(find.text('已完成'), findsOneWidget);
-        expect(find.text('DeepSeek / deepseek-chat'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('生成本周报告'));
+        await tester.scrollUntilVisible(
+          find.text('DeepSeek / deepseek-v4-flash'),
+          240,
+        );
+        expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
+        _expectMinTapTarget(tester, find.byTooltip('生成报告'));
       });
     });
 
@@ -123,6 +128,7 @@ void main() {
         expect(find.byTooltip('刷新家庭数据'), findsOneWidget);
         expect(find.text('默认'), findsOneWidget);
         expect(find.text('启用'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('停用'), 240);
         expect(find.text('停用'), findsOneWidget);
         _expectMinTapTarget(tester, find.byTooltip('刷新家庭数据'));
       });
@@ -211,7 +217,7 @@ const _aiReports = [
     periodStart: '2026-05-18T00:00:00Z',
     periodEnd: '2026-05-24T23:59:59Z',
     providerName: 'DeepSeek',
-    model: 'deepseek-chat',
+    model: 'deepseek-v4-flash',
     contentJson:
         '{"summary":"支出结构稳定","highlights":["净现金流为正"],"risks":["餐饮预算接近上限"],"suggestions":["下周继续保持每日记录"]}',
   ),

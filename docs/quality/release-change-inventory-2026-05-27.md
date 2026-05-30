@@ -86,6 +86,7 @@ Mobile AI support:
 
 ```text
 mobile/lib/features/ai/
+mobile/lib/features/ai/presentation/ai_reports_page.dart
 mobile/test/ai_reports_widget_test.dart
 ```
 
