@@ -223,6 +223,7 @@ scripts/check-final-release-gates.sh
 scripts/check-final-release-runbook.sh
 scripts/check-mobile-device-qa-preflight.sh
 scripts/check-production-readiness.sh
+scripts/check-public-git-safety.sh
 scripts/check-release-artifact-files.sh
 scripts/check-release-artifacts-preflight.sh
 scripts/check-release-change-inventory.sh
