@@ -167,6 +167,7 @@ require_text "scripts/check-docker-release-evidence.sh" 'Image healthcheck: heal
 require_text "scripts/check-docker-release-evidence.sh" 'Persistent paths: ledger\.db, uploads, backups'
 require_text "scripts/check-final-release-gates.sh" 'SKIP_EXTERNAL_RELEASE_EVIDENCE cannot be used with STRICT_FINAL_RELEASE=1'
 require_text "scripts/check-final-release-gates.sh" 'STRICT_FINAL_RELEASE:-0.*!= "1"'
+require_text "scripts/check-final-release-gates.sh" 'env REQUIRE_IOS_ARTIFACT=1 "\$ROOT_DIR/scripts/check-release-artifact-files\.sh"'
 if ! perl -0ne 'exit 1 if /ShouldBindJSON\(&req\); err != nil \{\n\t\tresponse\.BadRequest\(c, err\.Error\(\)\)/' "$ROOT_DIR"/backend/internal/handler/*.go; then
   echo "Unexpected bind error detail returned from handler" >&2
   exit 1
