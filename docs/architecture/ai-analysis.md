@@ -29,7 +29,7 @@ Provider setup exposes non-secret OpenAI-compatible presets for DeepSeek, OpenAI
 
 ### DeepSeek Setup
 
-DeepSeek should be configured as a normal OpenAI-compatible provider from the Web AI page, not through `.env` or committed config files:
+DeepSeek should be configured as a normal OpenAI-compatible provider from the Web AI page or the native mobile AI report page, not through `.env` or committed config files:
 
 | Field | Value |
 | --- | --- |
@@ -165,7 +165,7 @@ Reports should be stored as structured JSON rather than only Markdown:
 
 The UI can render this contract as cards, timeline blocks, and short paragraphs.
 
-The Web AI page exposes provider setup, manual report generation, report history, and automatic weekly/monthly report schedule controls. The mobile AI page exposes the same schedule controls for native iOS/Android use. The schedule UI keeps automation explicit: users can enable or disable it, choose weekly/monthly scopes, set the run hour, inspect last run dates, and trigger due reports manually.
+The Web AI page exposes provider setup, manual report generation, report history, and automatic weekly/monthly report schedule controls. The mobile AI page exposes provider setup, edit/delete/test actions, report history, and the same schedule controls for native iOS/Android use. The schedule UI keeps automation explicit: users can enable or disable it, choose weekly/monthly scopes, set the run hour, inspect last run dates, and trigger due reports manually.
 
 Manual report generation accepts an optional `mask_names` flag. Member names are masked by default when the field is omitted; callers must explicitly send `false` to generate an unmasked report. When masking is enabled, member names in the provider snapshot are replaced with deterministic labels such as `成员1` and `成员2` before the request is sent. Masked and unmasked reports use different prompt versions so a masked request cannot reuse a previously completed unmasked cache entry. The Web UI exposes this as an explicit report-generation switch, and the mobile one-tap weekly report path sends masked snapshots by default.
 
