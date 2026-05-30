@@ -207,6 +207,7 @@ backend/internal/middleware/middleware.go
 backend/internal/middleware/middleware_test.go
 backend/internal/repository/category.go
 backend/internal/repository/api_token.go
+backend/internal/repository/refresh_token.go
 backend/internal/repository/user.go
 backend/internal/service/ai_report.go
 backend/internal/service/ai_report_test.go
@@ -218,6 +219,8 @@ backend/internal/service/notification.go
 backend/internal/service/notification_test.go
 backend/internal/service/upload.go
 backend/internal/service/upload_test.go
+backend/pkg/jwt/jwt.go
+backend/pkg/jwt/jwt_test.go
 config.example.yaml
 docker-compose.yml
 docs/android-release-signing.md

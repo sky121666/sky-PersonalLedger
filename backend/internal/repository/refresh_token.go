@@ -28,6 +28,10 @@ func (r *RefreshTokenRepository) GetByToken(token string) (*model.RefreshToken, 
 	return &rt, nil
 }
 
+func (r *RefreshTokenRepository) UpdateToken(id string, token string) error {
+	return r.db.Model(&model.RefreshToken{}).Where("id = ?", id).Update("token", token).Error
+}
+
 func (r *RefreshTokenRepository) Delete(id string) error {
 	return r.db.Delete(&model.RefreshToken{}, "id = ?", id).Error
 }

@@ -5,10 +5,14 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/database"
+	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
 	"github.com/sky/personal-ledger/pkg/jwt"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func newAuthServiceForTest(t *testing.T) (*AuthService, *repository.Repositories) {
@@ -20,6 +24,72 @@ func newAuthServiceForTest(t *testing.T) (*AuthService, *repository.Repositories
 	repos := repository.NewRepositories(db)
 	jwtManager := jwt.NewManager("test-auth-secret-with-at-least-32-chars", 15, 60)
 	return NewAuthService(repos.User, repos.RefreshToken, repos.Category, repos.Account, jwtManager), repos
+}
+
+func TestAuthStoresOnlyRefreshTokenHashAndRefreshesRawToken(t *testing.T) {
+	svc, repos := newAuthServiceForTest(t)
+
+	result, err := svc.Init("LedgerInitPass123!")
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	var stored model.RefreshToken
+	if err := repos.User.DB().First(&stored).Error; err != nil {
+		t.Fatalf("get stored refresh token: %v", err)
+	}
+	if stored.Token == result.RefreshToken {
+		t.Fatal("stored refresh token matches raw token, want hash")
+	}
+	if stored.Token != hashRefreshToken(result.RefreshToken) {
+		t.Fatalf("stored refresh token = %q, want hash", stored.Token)
+	}
+
+	refreshed, err := svc.RefreshToken(result.RefreshToken)
+	if err != nil {
+		t.Fatalf("refresh raw token: %v", err)
+	}
+	if refreshed.RefreshToken == "" || refreshed.RefreshToken == result.RefreshToken {
+		t.Fatalf("refreshed token = %q, want new token", refreshed.RefreshToken)
+	}
+}
+
+func TestAuthRefreshMigratesLegacyPlaintextRefreshToken(t *testing.T) {
+	svc, repos := newAuthServiceForTest(t)
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte("LedgerInitPass123!"), 12)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	user := &model.User{Username: "admin", PasswordHash: string(passwordHash)}
+	if err := repos.User.Create(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	rawToken, expiresAt, err := svc.jwtManager.GenerateRefreshToken(user.ID)
+	if err != nil {
+		t.Fatalf("generate refresh token: %v", err)
+	}
+	legacy := &model.RefreshToken{
+		ID:        uuid.New().String(),
+		UserID:    user.ID,
+		Token:     rawToken,
+		ExpiresAt: expiresAt.Add(time.Hour),
+	}
+	if err := repos.RefreshToken.Create(legacy); err != nil {
+		t.Fatalf("create legacy refresh token: %v", err)
+	}
+
+	if _, err := svc.RefreshToken(rawToken); err != nil {
+		t.Fatalf("refresh legacy plaintext token: %v", err)
+	}
+
+	var count int64
+	if err := repos.User.DB().Model(&model.RefreshToken{}).Where("token = ?", rawToken).Count(&count).Error; err != nil {
+		t.Fatalf("count plaintext refresh token: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("plaintext refresh token rows = %d, want migrated/deleted", count)
+	}
 }
 
 func TestAuthInitConcurrentRequestsCreateOnlyOneInitialUser(t *testing.T) {

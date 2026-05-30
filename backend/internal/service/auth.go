@@ -1,6 +1,8 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"sync"
@@ -146,9 +148,19 @@ func (s *AuthService) Login(password string) (*AuthResponse, error) {
 }
 
 func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
-	rt, err := s.refreshTokenRepo.GetByToken(refreshToken)
-	if err != nil {
+	normalizedToken := strings.TrimSpace(refreshToken)
+	if normalizedToken == "" {
 		return nil, ErrInvalidToken
+	}
+
+	tokenHash := hashRefreshToken(normalizedToken)
+	rt, err := s.refreshTokenRepo.GetByToken(tokenHash)
+	if err != nil {
+		rt, err = s.refreshTokenRepo.GetByToken(normalizedToken)
+		if err != nil {
+			return nil, ErrInvalidToken
+		}
+		_ = s.refreshTokenRepo.UpdateToken(rt.ID, tokenHash)
 	}
 
 	if rt.ExpiresAt.Before(time.Now()) {
@@ -220,7 +232,7 @@ func (s *AuthService) generateTokens(userID uint) (*AuthResponse, error) {
 	rt := &model.RefreshToken{
 		ID:        uuid.New().String(),
 		UserID:    userID,
-		Token:     refreshToken,
+		Token:     hashRefreshToken(refreshToken),
 		ExpiresAt: expiresAt,
 	}
 	if err := s.refreshTokenRepo.Create(rt); err != nil {
@@ -232,6 +244,11 @@ func (s *AuthService) generateTokens(userID uint) (*AuthResponse, error) {
 		RefreshToken: refreshToken,
 		ExpiresIn:    s.jwtManager.GetAccessExpireSeconds(),
 	}, nil
+}
+
+func hashRefreshToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 func (s *AuthService) createDefaultCategories(userID uint) error {
