@@ -2,10 +2,12 @@ package service
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/sky/personal-ledger/internal/database"
+	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -69,6 +71,36 @@ func TestAutoBackupGetSettingsFallsBackForInvalidStoredSettings(t *testing.T) {
 		settings.Hour != 3 ||
 		settings.MaxBackups != 10 {
 		t.Fatalf("settings = %#v, want safe defaults", settings)
+	}
+}
+
+func TestAutoBackupWritesPrivateBackupFiles(t *testing.T) {
+	scheduler, repos := newBackupSchedulerTestSubject(t)
+	user := &model.User{Username: "admin", PasswordHash: "hash"}
+	if err := repos.User.Create(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	scheduler.performBackup(&AutoBackupSettings{
+		Enabled:    true,
+		Frequency:  "daily",
+		Hour:       3,
+		MaxBackups: 10,
+	})
+
+	files, err := filepath.Glob(filepath.Join(scheduler.backupPath, "auto_backup_user*.json"))
+	if err != nil {
+		t.Fatalf("glob backups: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("backup files = %d, want 1", len(files))
+	}
+	info, err := os.Stat(files[0])
+	if err != nil {
+		t.Fatalf("stat backup: %v", err)
+	}
+	if mode := info.Mode().Perm(); mode != 0600 {
+		t.Fatalf("backup file mode = %o, want 0600", mode)
 	}
 }
 
