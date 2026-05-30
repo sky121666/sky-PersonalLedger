@@ -20,6 +20,12 @@ Require a USB-connected iPhone:
 REQUIRE_PHYSICAL_IOS=1 ./scripts/check-mobile-device-qa-preflight.sh
 ```
 
+Require both a USB-connected iPhone and an Android device or emulator:
+
+```bash
+REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_DEVICE=1 ./scripts/check-mobile-device-qa-preflight.sh
+```
+
 Run real-backend E2E on a USB-connected iPhone:
 
 ```bash
@@ -29,6 +35,12 @@ IOS_PHYSICAL_DEVICE_ID=<device-id> \
 ./scripts/check-mobile-device-qa-preflight.sh
 ```
 
+Run real-backend E2E on Android:
+
+```bash
+RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-preflight.sh
+```
+
 ## Physical Device Evidence
 
 | Item | Required Evidence | Status | Evidence |
@@ -36,7 +48,9 @@ IOS_PHYSICAL_DEVICE_ID=<device-id> \
 | Device identity | Physical device model, OS version, device ID, and connection type | PENDING |  |
 | Build identity | App version, build number, and artifact/source used for install | PENDING |  |
 | USB iPhone preflight | `REQUIRE_PHYSICAL_IOS=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PENDING |  |
+| Android device preflight | `REQUIRE_ANDROID_DEVICE=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PENDING |  |
 | Physical iPhone E2E | USB-connected iPhone E2E or signed-install manual result is recorded | PENDING |  |
+| Android E2E | Android device/emulator E2E or signed-install manual result is recorded | PENDING |  |
 
 ## Manual Physical Device Checklist
 
@@ -68,5 +82,6 @@ Do not mark physical mobile QA complete until every row above is changed from `P
 - device model and OS version;
 - build version/build number;
 - physical iPhone E2E result or explicit signed-install manual result;
+- Android E2E result or explicit signed-install manual result;
 - VoiceOver/TalkBack result if public accessibility is a release criterion;
 - screenshots or notes for any failed item.

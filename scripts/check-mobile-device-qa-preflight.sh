@@ -23,9 +23,14 @@ cat "$DEVICE_LIST_FILE"
 has_ios_simulator=0
 has_wired_ios_physical=0
 has_wireless_ios_physical=0
+has_android_device=0
 
 if grep -E '• ios[[:space:]]+• .*simulator' "$DEVICE_LIST_FILE" >/dev/null; then
   has_ios_simulator=1
+fi
+
+if grep -E '• android[^[:space:]]*[[:space:]]+• ' "$DEVICE_LIST_FILE" >/dev/null; then
+  has_android_device=1
 fi
 
 if grep -E '\(wireless\).*• ios • iOS ' "$DEVICE_LIST_FILE" >/dev/null; then
@@ -38,6 +43,12 @@ fi
 
 if [[ "${REQUIRE_IOS_SIMULATOR:-0}" == "1" && "$has_ios_simulator" != "1" ]]; then
   echo "No iOS simulator detected." >&2
+  exit 1
+fi
+
+if [[ "${REQUIRE_ANDROID_DEVICE:-0}" == "1" && "$has_android_device" != "1" ]]; then
+  echo "No Android device or emulator detected." >&2
+  echo "Connect an Android device or start an Android emulator, then rerun with REQUIRE_ANDROID_DEVICE=1." >&2
   exit 1
 fi
 
@@ -66,6 +77,16 @@ if [[ "${RUN_PHYSICAL_IOS_E2E:-0}" == "1" ]]; then
       RUN_ANDROID_E2E=0 \
       RUN_IOS_E2E=1 \
       IOS_DEVICE_ID="$IOS_PHYSICAL_DEVICE_ID" \
+      ./scripts/verify-mobile-e2e.sh
+  )
+fi
+
+if [[ "${RUN_ANDROID_E2E:-0}" == "1" ]]; then
+  (
+    cd "$ROOT_DIR"
+    RUN_FLUTTER_TESTER_E2E=0 \
+      RUN_ANDROID_E2E=1 \
+      RUN_IOS_E2E=0 \
       ./scripts/verify-mobile-e2e.sh
   )
 fi
