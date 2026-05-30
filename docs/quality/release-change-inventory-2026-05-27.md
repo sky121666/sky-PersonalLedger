@@ -125,8 +125,10 @@ mobile/lib/features/main/presentation/main_shell_page.dart
 mobile/lib/features/profile/presentation/profile_page.dart
 mobile/lib/features/transactions/data/transaction_models.dart
 mobile/lib/features/transactions/presentation/quick_transaction_page.dart
+mobile/lib/features/data_management/data/data_management_repository.dart
 mobile/test/animated_money_text_test.dart
 mobile/test/auth_interceptor_test.dart
+mobile/test/data_management_repository_test.dart
 mobile/test/home_widget_test.dart
 mobile/test/main_shell_widget_test.dart
 mobile/test/premium_accessibility_test.dart

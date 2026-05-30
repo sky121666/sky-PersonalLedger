@@ -24,11 +24,10 @@ class DataManagementRepository {
       '/backup',
       options: Options(responseType: ResponseType.bytes),
     );
-    final filename =
-        _filenameFromDisposition(
-          response.headers.value('content-disposition'),
-        ) ??
-        _timestampedFilename('backup', 'json');
+    final filename = safeDownloadFilename(
+      _filenameFromDisposition(response.headers.value('content-disposition')),
+      fallback: _timestampedFilename('backup', 'json'),
+    );
     return _saveBytes(filename, response.data ?? const <int>[]);
   }
 
@@ -37,11 +36,10 @@ class DataManagementRepository {
       '/export/transactions/csv',
       options: Options(responseType: ResponseType.bytes),
     );
-    final filename =
-        _filenameFromDisposition(
-          response.headers.value('content-disposition'),
-        ) ??
-        _timestampedFilename('transactions', 'csv');
+    final filename = safeDownloadFilename(
+      _filenameFromDisposition(response.headers.value('content-disposition')),
+      fallback: _timestampedFilename('transactions', 'csv'),
+    );
     return _saveBytes(filename, response.data ?? const <int>[]);
   }
 
@@ -247,6 +245,21 @@ String? _filenameFromDisposition(String? value) {
     caseSensitive: false,
   ).firstMatch(value);
   return match?.group(1)?.trim();
+}
+
+String safeDownloadFilename(String? candidate, {required String fallback}) {
+  final value = candidate?.trim();
+  if (value == null || value.isEmpty) {
+    return fallback;
+  }
+  final withoutPath = value.split(RegExp(r'[/\\]+')).last.trim();
+  if (withoutPath.isEmpty ||
+      withoutPath == '.' ||
+      withoutPath == '..' ||
+      withoutPath.contains('\u0000')) {
+    return fallback;
+  }
+  return withoutPath;
 }
 
 String _timestampedFilename(String prefix, String extension) {
