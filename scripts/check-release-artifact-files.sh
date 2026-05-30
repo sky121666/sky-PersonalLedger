@@ -61,6 +61,7 @@ check_zip_artifact() {
   fi
 
   if [[ -f "$sidecar" ]]; then
+    check_checksum_sidecar "$label" "$path" "$sidecar"
     (
       cd "$(dirname "$path")"
       shasum -a 256 -c "$(basename "$sidecar")" >/dev/null
@@ -68,6 +69,34 @@ check_zip_artifact() {
   fi
 
   printf '%s\t%s bytes\t%s\n' "$(shasum -a 256 "$path" | awk '{print $1}')" "$size" "$path"
+}
+
+check_checksum_sidecar() {
+  local label="$1"
+  local path="$2"
+  local sidecar="$3"
+  local expected_name
+  local non_empty_lines
+  local digest
+  local filename
+  local extra
+
+  expected_name="$(basename "$path")"
+  non_empty_lines="$(grep -cve '^[[:space:]]*$' "$sidecar")"
+  if [[ "$non_empty_lines" != "1" ]]; then
+    fail "$label checksum sidecar must contain exactly one non-empty line: $sidecar"
+  fi
+
+  read -r digest filename extra <"$sidecar"
+  if [[ -n "${extra:-}" ]]; then
+    fail "$label checksum sidecar must contain only digest and filename: $sidecar"
+  fi
+  if [[ ! "$digest" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    fail "$label checksum sidecar digest is not a SHA-256 hex value: $sidecar"
+  fi
+  if [[ "$filename" != "$expected_name" ]]; then
+    fail "$label checksum sidecar filename mismatch: expected $expected_name, got ${filename:-<empty>}"
+  fi
 }
 
 require_zip_entry() {

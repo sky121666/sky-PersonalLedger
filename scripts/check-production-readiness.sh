@@ -164,6 +164,8 @@ require_absent_text "backend/internal/handler/setup.go" 'invalid request: "\+err
 require_text "scripts/check-release-artifact-files.sh" 'REQUIRE_CHECKSUM_SIDECARS:-1'
 require_text "scripts/check-release-artifact-files.sh" 'VERIFY_ARTIFACT_SIGNATURES:-0'
 require_text "scripts/check-release-artifact-files.sh" 'Missing \$label checksum sidecar'
+require_text "scripts/check-release-artifact-files.sh" 'checksum sidecar must contain exactly one non-empty line'
+require_text "scripts/check-release-artifact-files.sh" 'checksum sidecar filename mismatch'
 require_text "scripts/check-release-artifact-files.sh" 'check_artifact_structure'
 require_text "scripts/check-release-artifact-files.sh" 'verify_artifact_signature'
 require_text "scripts/check-release-artifact-files.sh" 'signature checks passed'
