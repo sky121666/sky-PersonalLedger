@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Plus, RefreshCw, Users, Trash2, CheckCircle2, ShieldCheck, TrendingUp } from 'lucide-vue-next'
+import { ArrowLeft, BarChart3, CheckCircle2, Plus, RefreshCw, ShieldCheck, Trash2, TrendingUp, Users } from 'lucide-vue-next'
 import { budgetApi, type Budget } from '@/api/budget'
-import { familyApi, type FamilyMember, type FamilySummary } from '@/api/family'
+import { familyApi, type FamilyMember, type FamilyStatistics, type FamilyStatisticsCategory, type FamilyStatisticsMember, type FamilySummary } from '@/api/family'
 import { toast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -11,6 +11,7 @@ const loading = ref(false)
 const saving = ref(false)
 const members = ref<FamilyMember[]>([])
 const summary = ref<FamilySummary | null>(null)
+const statistics = ref<FamilyStatistics | null>(null)
 const memberBudgets = ref<Budget[]>([])
 const editingId = ref<string | null>(null)
 const month = ref(new Date().toISOString().slice(0, 7))
@@ -24,6 +25,8 @@ const form = reactive({
 })
 
 const enabledMembers = computed(() => members.value.filter(member => member.is_enabled))
+const rankedMembers = computed(() => [...(statistics.value?.members || [])].sort((a, b) => b.expense_total - a.expense_total))
+const activeRankedMembers = computed(() => rankedMembers.value.filter(member => member.expense_total > 0 || member.count > 0))
 const memberBudgetStats = computed(() => {
   const amount = memberBudgets.value.reduce((sum, budget) => sum + Number(budget.amount || 0), 0)
   const spent = memberBudgets.value.reduce((sum, budget) => sum + Number(budget.spent || 0), 0)
@@ -41,13 +44,15 @@ onMounted(loadData)
 async function loadData() {
   loading.value = true
   try {
-    const [memberList, familySummary, budgetList] = await Promise.all([
+    const [memberList, familySummary, familyStatistics, budgetList] = await Promise.all([
       familyApi.listMembers(),
       familyApi.getSummary(month.value),
+      familyApi.getStatistics(month.value),
       budgetApi.getList()
     ])
     members.value = memberList
     summary.value = familySummary
+    statistics.value = familyStatistics
     memberBudgets.value = budgetList.member_budgets || []
   } catch (error: any) {
     toast.error(error.message || '家庭数据加载失败')
@@ -123,6 +128,18 @@ function budgetStatusClass(percentage = 0) {
   if (percentage >= 100) return 'text-rose-600 dark:text-rose-300'
   if (percentage >= 80) return 'text-amber-600 dark:text-amber-300'
   return 'text-emerald-600 dark:text-emerald-300'
+}
+
+function memberShare(member: FamilyStatisticsMember) {
+  const total = Number(statistics.value?.total_expense || 0)
+  if (total <= 0) return 0
+  return Math.round((Number(member.expense_total || 0) / total) * 100)
+}
+
+function categoryShare(member: FamilyStatisticsMember, category: FamilyStatisticsCategory) {
+  const total = Number(member.expense_total || 0)
+  if (total <= 0) return 0
+  return Math.max(4, Math.round((Number(category.amount || 0) / total) * 100))
 }
 </script>
 
@@ -210,6 +227,70 @@ function budgetStatusClass(percentage = 0) {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section
+        class="rounded-[28px] bg-white/90 dark:bg-[#151517]/95 border border-black/5 dark:border-white/10 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
+      >
+        <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <BarChart3 :size="17" />
+              <span>成员分类拆分</span>
+            </div>
+            <h2 class="mt-2 text-xl font-bold">家庭支出结构</h2>
+          </div>
+          <div class="text-sm text-gray-500 dark:text-gray-400">
+            {{ statistics?.month || month }} · {{ formatMoney(statistics?.total_expense || 0) }}
+          </div>
+        </div>
+
+        <div v-if="activeRankedMembers.length" class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div
+            v-for="member in activeRankedMembers"
+            :key="member.member_id"
+            class="rounded-2xl border border-black/5 dark:border-white/10 bg-gray-50/80 dark:bg-white/[0.04] p-4"
+          >
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="h-3 w-3 rounded-full" :style="{ backgroundColor: member.color || '#2563EB' }" />
+                  <h3 class="truncate font-semibold">{{ member.name }}</h3>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">{{ member.relationship || '家庭成员' }} · {{ member.count }} 笔</p>
+              </div>
+              <div class="text-right">
+                <p class="font-bold tabular-nums">{{ formatMoney(member.expense_total) }}</p>
+                <p class="text-xs text-gray-500">{{ memberShare(member) }}%</p>
+              </div>
+            </div>
+
+            <div class="mt-4 space-y-3">
+              <div
+                v-for="category in member.categories.slice(0, 4)"
+                :key="category.category_id || category.name"
+                class="space-y-1.5"
+              >
+                <div class="flex items-center justify-between gap-3 text-sm">
+                  <span class="min-w-0 truncate text-gray-600 dark:text-gray-300">{{ category.name || '未分类' }}</span>
+                  <span class="shrink-0 tabular-nums text-gray-500">{{ formatMoney(category.amount) }}</span>
+                </div>
+                <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                  <div
+                    class="h-full rounded-full transition-all duration-300"
+                    :style="{ width: `${categoryShare(member, category)}%`, backgroundColor: category.color || member.color || '#2563EB' }"
+                  />
+                </div>
+              </div>
+              <div v-if="member.categories.length === 0" class="rounded-xl bg-white/70 dark:bg-white/[0.04] px-3 py-2 text-sm text-gray-500">
+                暂无分类支出
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="mt-5 rounded-2xl bg-gray-50/80 dark:bg-white/[0.04] p-6 text-center text-gray-500">
+          当前月份暂无成员支出结构
         </div>
       </section>
 

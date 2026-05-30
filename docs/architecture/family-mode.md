@@ -75,6 +75,7 @@ Web can keep the current structure. Add family controls in focused areas:
 - Settings: member management.
 - Transaction dialog: member and payer selectors.
 - Home: family summary strip.
+- Family page: month summary, member-level budget health, and member/category spending breakdown.
 - Statistics: member dimension filter.
 
 ### Flutter Mobile
@@ -104,6 +105,7 @@ Minimum verification for the first release:
 - Transaction create/update tests with `member_id` and `paid_by_member_id`.
 - Budget list tests for member-specific total/category budgets and ownership checks.
 - Backup/restore tests include family members and member fields.
+- Web build verifies the Family page consumes `/api/v1/family/statistics`.
 - Flutter widget tests for member selector.
 - Real backend E2E creates a member, records a transaction, and sees member summary.
 
