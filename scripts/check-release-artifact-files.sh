@@ -6,6 +6,7 @@ ARTIFACT_DIR="${RELEASE_ARTIFACT_DIR:-$ROOT_DIR/artifacts}"
 VERSION="${RELEASE_VERSION:-}"
 REQUIRE_ANDROID="${REQUIRE_ANDROID_ARTIFACTS:-1}"
 REQUIRE_IOS="${REQUIRE_IOS_ARTIFACT:-0}"
+REQUIRE_CHECKSUMS="${REQUIRE_CHECKSUM_SIDECARS:-1}"
 
 fail() {
   echo "$1" >&2
@@ -44,6 +45,10 @@ check_zip_artifact() {
     fail "$label artifact is too small to be a valid release file: $path ($size bytes)"
   fi
   unzip -tq "$path" >/dev/null || fail "$label artifact is not a valid zip container: $path"
+
+  if [[ "$REQUIRE_CHECKSUMS" == "1" && ! -f "$sidecar" ]]; then
+    fail "Missing $label checksum sidecar: $sidecar"
+  fi
 
   if [[ -f "$sidecar" ]]; then
     (
