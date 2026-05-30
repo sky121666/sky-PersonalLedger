@@ -11,8 +11,10 @@ Current status: structural release evidence is prepared, source-level rehearsal 
 Run from the repository root after downloading CI artifacts or collecting local signed build outputs:
 
 ```bash
-RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
+RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
 ```
+
+The release workflow verifies Android signatures on Ubuntu and iOS signatures on macOS because IPA signature verification requires `codesign`.
 
 For iOS-only verification:
 

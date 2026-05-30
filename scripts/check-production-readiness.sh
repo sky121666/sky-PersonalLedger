@@ -210,6 +210,8 @@ require_text "docs/quality/production-readiness-2026-05-27.md" 'REQUIRE_PHYSICAL
 require_text "docs/quality/production-readiness-2026-05-27.md" 'iOS/Android device validation'
 require_text "docs/quality/production-readiness-2026-05-27.md" 'USB iPhone and Android release-device evidence remain missing'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'iOS/Android device QA'
+require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1'
+require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'iOS signatures on macOS'
 require_text "docs/quality/release-notes-candidate-2026-05-27.md" 'iOS and Android device validation'
 require_text "docs/quality/local-release-rehearsal-2026-05-27.md" 'iOS/Android device QA'
 require_text "docs/quality/mobile-platform-qa-2026-05-27.md" 'iOS/Android release-device QA'
