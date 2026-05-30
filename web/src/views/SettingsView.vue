@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import type { AxiosResponse } from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { authApi } from '@/api/auth'
@@ -15,6 +16,7 @@ import {
 import { notificationApi } from '@/api/notification'
 import { systemApi } from '@/api/system'
 import { apiTokenApi, type APIToken } from '@/api/apiToken'
+import { get, post, put } from '@/utils/request'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -82,6 +84,21 @@ const autoBackupForm = ref({
 })
 const autoBackupLoading = ref(false)
 const autoBackupFiles = ref<{filename: string, size: number, created_at: string}[]>([])
+
+interface UploadResult {
+  url: string
+}
+
+interface AutoBackupSettings {
+  enabled: boolean
+  frequency: string
+  hour: number
+  max_backups: number
+}
+
+interface AutoBackupListResponse {
+  files: {filename: string, size: number, created_at: string}[]
+}
 
 // Profile form
 const profileForm = ref({
@@ -229,17 +246,11 @@ async function handleAvatarUpload(e: Event) {
   try {
     const formData = new FormData()
     formData.append('file', file)
-    
-    const response = await fetch('/api/v1/upload/avatar', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
-      body: formData
+
+    const result = await post<UploadResult>('/upload/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
-    
-    if (!response.ok) throw new Error('上传失败')
-    
-    const result = await response.json()
-    profileForm.value.avatar = result.data.url
+    profileForm.value.avatar = result.url
     toast.success('头像上传成功')
   } catch (e: any) {
     toast.error(e.message || '上传失败')
@@ -506,13 +517,10 @@ async function handleBackup() {
   backupLoading.value = true
   toast.info('正在创建备份...')
   try {
-    const response = await fetch('/api/v1/backup', {
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
+    const response = await get<AxiosResponse<Blob>>('/backup', {
+      responseType: 'blob'
     })
-    
-    if (!response.ok) throw new Error('备份失败')
-    
-    const blob = await response.blob()
+    const blob = response.data
     const filename = `backup_${dayjs().format('YYYYMMDD_HHmmss')}.json`
     downloadBlob(blob, filename)
     toast.success('备份成功')
@@ -542,15 +550,9 @@ async function handleRestore() {
     const formData = new FormData()
     formData.append('file', restoreFile.value)
 
-    const response = await fetch('/api/v1/restore', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
-      body: formData
+    await post('/restore', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
-
-    if (!response.ok) throw new Error('恢复失败')
-
-    await response.json()
     showRestoreModal.value = false
     restoreFile.value = null
     toast.success(`恢复成功`)
@@ -569,20 +571,16 @@ async function openAutoBackupModal() {
   autoBackupLoading.value = true
   try {
     const [settings, files] = await Promise.all([
-      fetch('/api/v1/backup/auto/settings', {
-        headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
-      }).then(r => r.json()),
-      fetch('/api/v1/backup/auto/list', {
-        headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
-      }).then(r => r.json())
+      get<AutoBackupSettings>('/backup/auto/settings'),
+      get<AutoBackupListResponse>('/backup/auto/list')
     ])
     autoBackupForm.value = {
-      enabled: settings.data?.enabled || false,
-      frequency: settings.data?.frequency || 'daily',
-      hour: settings.data?.hour ?? 3,
-      max_backups: settings.data?.max_backups || 10
+      enabled: settings.enabled || false,
+      frequency: settings.frequency || 'daily',
+      hour: settings.hour ?? 3,
+      max_backups: settings.max_backups || 10
     }
-    autoBackupFiles.value = files.data?.files || []
+    autoBackupFiles.value = files.files || []
   } catch (e) {
     console.error('Load auto backup settings failed:', e)
   } finally {
@@ -593,14 +591,7 @@ async function openAutoBackupModal() {
 async function saveAutoBackupSettings() {
   autoBackupLoading.value = true
   try {
-    await fetch('/api/v1/backup/auto/settings', {
-      method: 'PUT',
-      headers: { 
-        'Authorization': `Bearer ${authStore.accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(autoBackupForm.value)
-    })
+    await put('/backup/auto/settings', autoBackupForm.value)
     toast.success('自动备份设置已保存')
     showAutoBackupModal.value = false
   } catch (e: any) {
@@ -613,16 +604,11 @@ async function saveAutoBackupSettings() {
 async function triggerAutoBackup() {
   autoBackupLoading.value = true
   try {
-    await fetch('/api/v1/backup/auto/trigger', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
-    })
+    await post('/backup/auto/trigger')
     toast.success('备份已触发')
     // Reload file list
-    const files = await fetch('/api/v1/backup/auto/list', {
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
-    }).then(r => r.json())
-    autoBackupFiles.value = files.data?.files || []
+    const files = await get<AutoBackupListResponse>('/backup/auto/list')
+    autoBackupFiles.value = files.files || []
   } catch (e: any) {
     toast.error(e.message || '备份失败')
   } finally {
