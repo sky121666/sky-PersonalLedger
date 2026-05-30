@@ -191,9 +191,12 @@ backend/internal/config/config.go
 backend/internal/middleware/middleware.go
 backend/internal/middleware/middleware_test.go
 backend/internal/repository/category.go
+backend/internal/repository/api_token.go
 backend/internal/repository/user.go
 backend/internal/service/ai_report.go
 backend/internal/service/ai_report_test.go
+backend/internal/service/api_token.go
+backend/internal/service/api_token_test.go
 backend/internal/service/auth.go
 backend/internal/service/auth_test.go
 config.example.yaml

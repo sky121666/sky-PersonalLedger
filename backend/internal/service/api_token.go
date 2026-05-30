@@ -2,8 +2,10 @@ package service
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
@@ -37,7 +39,7 @@ func (s *APITokenService) GenerateToken(userID uint, name string, expiresInDays 
 	apiToken := &model.APIToken{
 		UserID:      userID,
 		Name:        name,
-		Token:       token,
+		Token:       hashAPIToken(token),
 		TokenPrefix: token[:8],
 		ExpiresAt:   expiresAt,
 	}
@@ -58,9 +60,19 @@ func (s *APITokenService) GenerateToken(userID uint, name string, expiresInDays 
 
 // ValidateToken 验证API令牌并返回用户ID
 func (s *APITokenService) ValidateToken(token string) (uint, error) {
-	apiToken, err := s.repo.FindByToken(token)
-	if err != nil {
+	normalizedToken := strings.TrimSpace(token)
+	if normalizedToken == "" {
 		return 0, errors.New("invalid token")
+	}
+
+	tokenHash := hashAPIToken(normalizedToken)
+	apiToken, err := s.repo.FindByToken(tokenHash)
+	if err != nil {
+		apiToken, err = s.repo.FindByToken(normalizedToken)
+		if err != nil {
+			return 0, errors.New("invalid token")
+		}
+		_ = s.repo.UpdateToken(apiToken.ID, tokenHash)
 	}
 
 	// 检查过期
@@ -82,4 +94,9 @@ func (s *APITokenService) ListTokens(userID uint) ([]model.APIToken, error) {
 // DeleteToken 删除令牌
 func (s *APITokenService) DeleteToken(id uint, userID uint) error {
 	return s.repo.Delete(id, userID)
+}
+
+func hashAPIToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
