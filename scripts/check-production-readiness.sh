@@ -19,6 +19,15 @@ require_absent() {
   fi
 }
 
+require_absent_text() {
+  local path="$1"
+  local pattern="$2"
+  if grep -Eq "$pattern" "$ROOT_DIR/$path"; then
+    echo "Unexpected legacy pattern in $path: $pattern" >&2
+    exit 1
+  fi
+}
+
 require_file "docs/quality/production-readiness-2026-05-27.md"
 require_file "docs/quality/release-artifact-evidence-2026-05-27.md"
 require_file "docs/quality/docker-release-evidence-2026-05-27.md"
@@ -53,6 +62,7 @@ require_file "scripts/verify-mobile-e2e.sh"
 require_absent "web/package-lock.json"
 require_absent "web/yarn.lock"
 require_absent "web/bun.lockb"
+require_absent_text "backend/internal/handler/upload.go" 'func \(h \*UploadHandler\) Serve(Static)?\('
 
 "$ROOT_DIR/scripts/check-public-git-safety.sh"
 "$ROOT_DIR/scripts/check-backup-restore-rehearsal.sh"

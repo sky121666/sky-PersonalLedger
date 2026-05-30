@@ -119,20 +119,6 @@ func (h *UploadHandler) List(c *gin.Context) {
 	response.Success(c, gin.H{"files": files})
 }
 
-func (h *UploadHandler) Serve(c *gin.Context) {
-	// Get the file path from URL parameter
-	filePath := c.Param("filepath")
-	if filePath == "" {
-		response.BadRequest(c, "file path is required")
-		return
-	}
-
-	fullPath := h.uploadService.GetFilePath(filePath)
-
-	// Check if file exists
-	c.File(fullPath)
-}
-
 func (h *UploadHandler) Download(c *gin.Context) {
 	filePath := c.Query("path")
 	if filePath == "" {
@@ -187,12 +173,4 @@ func (h *UploadHandler) Download(c *gin.Context) {
 	setAttachmentHeader(c, filename)
 	c.Header("Content-Type", "application/octet-stream")
 	c.File(fullPath)
-}
-
-func (h *UploadHandler) ServeStatic(uploadPath string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		filePath := c.Param("filepath")
-		fullPath := filepath.Join(uploadPath, filePath)
-		c.File(fullPath)
-	}
 }
