@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"time"
 
@@ -31,7 +32,7 @@ func (h *TransactionHandler) List(c *gin.Context) {
 
 	result, err := h.service.List(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list transactions")
 		return
 	}
 
@@ -49,11 +50,10 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 
 	tx, err := h.service.Create(userID, req)
 	if err != nil {
-		if err == service.ErrSameAccount {
-			response.BadRequest(c, "source and target account must be different")
+		if handleTransactionRequestError(c, err) {
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to create transaction")
 		return
 	}
 
@@ -85,6 +85,9 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 
 	tx, err := h.service.Update(id, userID, req)
 	if err != nil {
+		if handleTransactionRequestError(c, err) {
+			return
+		}
 		response.NotFound(c, "transaction not found")
 		return
 	}
@@ -118,7 +121,7 @@ func (h *TransactionHandler) BatchDelete(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteBatch(req.IDs, userID); err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to delete transactions")
 		return
 	}
 
@@ -143,7 +146,7 @@ func (h *TransactionHandler) Export(c *gin.Context) {
 
 	transactions, err := h.service.Export(userID, start, end)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to export transactions")
 		return
 	}
 
@@ -199,7 +202,7 @@ func (h *TransactionHandler) Backup(c *gin.Context) {
 
 	backup, err := h.service.Backup(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to create transaction backup")
 		return
 	}
 
@@ -220,9 +223,30 @@ func (h *TransactionHandler) Import(c *gin.Context) {
 
 	count, err := h.service.Import(userID, file)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to import transactions")
 		return
 	}
 
 	response.Success(c, gin.H{"count": count})
+}
+
+func handleTransactionRequestError(c *gin.Context, err error) bool {
+	switch {
+	case errors.Is(err, service.ErrSameAccount):
+		response.BadRequest(c, "source and target account must be different")
+	case errors.Is(err, service.ErrAccountNotFound):
+		response.BadRequest(c, "account not found")
+	case errors.Is(err, service.ErrFamilyMemberNotFound):
+		response.BadRequest(c, "family member not found")
+	case isTransactionDateParseError(err):
+		response.BadRequest(c, "invalid transaction date")
+	default:
+		return false
+	}
+	return true
+}
+
+func isTransactionDateParseError(err error) bool {
+	var parseErr *time.ParseError
+	return errors.As(err, &parseErr)
 }
