@@ -93,7 +93,7 @@ instance.interceptors.response.use(
       return Promise.reject(new Error('API Token 无效或缺失'))
     }
 
-    const message = error.response?.data?.message || error.message || 'Request failed'
+    const message = error.response?.data?.message || (error.response ? '请求失败' : '网络连接失败')
     return Promise.reject(new Error(message))
   }
 )
