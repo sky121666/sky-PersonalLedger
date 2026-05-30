@@ -60,6 +60,21 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Android signature tools
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$SDK_ROOT" ] || [ ! -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            echo "::error title=Missing Android SDK manager::sdkmanager is required before verifying Android signatures"
+            exit 1
+          fi
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0"
+
       - name: Download Android artifacts
         uses: actions/download-artifact@v4
         with:
