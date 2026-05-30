@@ -255,6 +255,7 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		family := protected.Group("/family")
 		{
 			family.GET("/summary", h.Family.Summary)
+			family.GET("/statistics", h.Family.Statistics)
 			members := family.Group("/members")
 			{
 				members.GET("", h.Family.ListMembers)

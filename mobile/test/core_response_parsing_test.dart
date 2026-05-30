@@ -8,6 +8,7 @@ import 'package:personal_ledger/features/api_tokens/data/api_token_repository.da
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
+import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/profile/data/profile_repository.dart';
@@ -246,6 +247,38 @@ void main() {
       expect(result.categoryBudgets.single.isNearLimit, isTrue);
       expect(result.memberBudgets.single.memberName, '家人');
       expect(result.memberBudgets.single.remaining, 580);
+    });
+
+    test('家庭统计模型解析成员分类拆分', () {
+      final result = FamilyStatistics.fromJson({
+        'month': '2026-05',
+        'total_expense': '320',
+        'members': [
+          {
+            'member_id': 'member-1',
+            'name': '家人',
+            'relationship': 'spouse',
+            'color': '#2563EB',
+            'expense_total': 200,
+            'count': 3,
+            'categories': [
+              {
+                'category_id': 'category-food',
+                'name': '餐饮',
+                'color': '#F97316',
+                'amount': '160',
+                'count': 2,
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result.month, '2026-05');
+      expect(result.totalExpense, 320);
+      expect(result.members.single.name, '家人');
+      expect(result.members.single.categories.single.name, '餐饮');
+      expect(result.members.single.categories.single.amount, 160);
     });
 
     test('负债提醒模型解析摘要和还款进度', () {

@@ -58,7 +58,7 @@ Do not remove `user_id` in this phase. It remains the deployment owner and autho
 | `/api/v1/family/members/:id` | PUT | Update member profile |
 | `/api/v1/family/members/:id` | DELETE | Soft-delete or disable member when referenced |
 | `/api/v1/family/summary` | GET | Family month summary and member ranking |
-| `/api/v1/family/statistics` | GET | Member/category trend data |
+| `/api/v1/family/statistics` | GET | Monthly member ranking with per-member category breakdown |
 | `/api/v1/budgets/total` | POST | Set owner-level or member-level total budget with optional `member_id` |
 | `/api/v1/budgets/category` | POST | Set owner-level or member-level category budget with optional `member_id` |
 
@@ -82,7 +82,7 @@ Web can keep the current structure. Add family controls in focused areas:
 Mobile should make family mode more visible:
 
 - Profile tab: Family entry.
-- Home dashboard: member spending cards.
+- Home dashboard: member spending cards and category breakdown.
 - Quick transaction: member selector near amount/category.
 - Statistics: segmented control for Overall / Members / Categories.
 

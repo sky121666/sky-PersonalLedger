@@ -86,6 +86,18 @@ func (h *FamilyHandler) Summary(c *gin.Context) {
 	response.Success(c, summary)
 }
 
+func (h *FamilyHandler) Statistics(c *gin.Context) {
+	userID := c.GetUint("userID")
+	month := c.Query("month")
+
+	statistics, err := h.memberService.Statistics(userID, month)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, statistics)
+}
+
 func writeFamilyMemberError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, service.ErrFamilyMemberNotFound):

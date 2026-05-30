@@ -57,7 +57,7 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		AccountLog:       accountLogService,
 		Tag:              NewTagService(repos.Tag),
 		APIToken:         NewAPITokenService(repos.APIToken),
-		FamilyMember:     NewFamilyMemberService(repos.FamilyMember, repos.Transaction),
+		FamilyMember:     NewFamilyMemberService(repos.FamilyMember, repos.Transaction).WithCategoryRepository(repos.Category),
 		AIProvider:       NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil), cfg.JWT.Secret),
 		AIReport:         aiReportService,
 		AIReportSchedule: NewAIReportScheduler(aiReportService, repos.System, repos.User),

@@ -55,6 +55,31 @@ void main() {
               ],
             );
           }),
+          familyStatisticsProvider.overrideWith((ref) async {
+            return const FamilyStatistics(
+              month: '2026-05',
+              totalExpense: 320,
+              members: [
+                FamilyStatisticsMember(
+                  memberId: 'member-1',
+                  name: '成员A',
+                  relationship: '家人',
+                  color: '#2563EB',
+                  expenseTotal: 200,
+                  count: 3,
+                  categories: [
+                    FamilyStatisticsCategory(
+                      categoryId: 'category-food',
+                      name: '餐饮',
+                      color: '#F97316',
+                      amount: 160,
+                      count: 2,
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }),
           memberBudgetsProvider.overrideWith((ref) async {
             return const [
               BudgetItem(
@@ -85,6 +110,11 @@ void main() {
     expect(find.text('家庭预算'), findsOneWidget);
     expect(find.text('¥1000.00'), findsOneWidget);
     expect(find.text('45%'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('成员分类拆分'), 300);
+    await tester.pumpAndSettle();
+    expect(find.text('成员分类拆分'), findsOneWidget);
+    expect(find.text('餐饮'), findsOneWidget);
+    expect(find.text('¥160.00'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('默认'), 300);
     expect(find.text('成员A'), findsWidgets);
     expect(find.text('家人'), findsOneWidget);

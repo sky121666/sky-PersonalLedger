@@ -36,6 +36,24 @@ export interface FamilySummary {
   members: FamilyMemberSummary[]
 }
 
+export interface FamilyStatisticsCategory {
+  category_id: string
+  name: string
+  color: string
+  amount: number
+  count: number
+}
+
+export interface FamilyStatisticsMember extends FamilyMemberSummary {
+  categories: FamilyStatisticsCategory[]
+}
+
+export interface FamilyStatistics {
+  month: string
+  total_expense: number
+  members: FamilyStatisticsMember[]
+}
+
 export const familyApi = {
   listMembers(): Promise<FamilyMember[]> {
     return get<FamilyMember[]>('/family/members')
@@ -55,6 +73,12 @@ export const familyApi = {
 
   getSummary(month?: string): Promise<FamilySummary> {
     return get<FamilySummary>('/family/summary', {
+      params: month ? { month } : undefined
+    })
+  },
+
+  getStatistics(month?: string): Promise<FamilyStatistics> {
+    return get<FamilyStatistics>('/family/statistics', {
       params: month ? { month } : undefined
     })
   }

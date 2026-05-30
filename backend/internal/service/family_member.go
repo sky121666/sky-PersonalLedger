@@ -15,8 +15,9 @@ var (
 )
 
 type FamilyMemberService struct {
-	repo   *repository.FamilyMemberRepository
-	txRepo *repository.TransactionRepository
+	repo         *repository.FamilyMemberRepository
+	txRepo       *repository.TransactionRepository
+	categoryRepo *repository.CategoryRepository
 }
 
 func NewFamilyMemberService(repo *repository.FamilyMemberRepository, txRepos ...*repository.TransactionRepository) *FamilyMemberService {
@@ -25,6 +26,11 @@ func NewFamilyMemberService(repo *repository.FamilyMemberRepository, txRepos ...
 		txRepo = txRepos[0]
 	}
 	return &FamilyMemberService{repo: repo, txRepo: txRepo}
+}
+
+func (s *FamilyMemberService) WithCategoryRepository(categoryRepo *repository.CategoryRepository) *FamilyMemberService {
+	s.categoryRepo = categoryRepo
+	return s
 }
 
 type CreateFamilyMemberRequest struct {
@@ -146,6 +152,30 @@ type FamilyMemberSummary struct {
 	Count        int     `json:"count"`
 }
 
+type FamilyStatisticsResponse struct {
+	Month        string                   `json:"month"`
+	TotalExpense float64                  `json:"total_expense"`
+	Members      []FamilyStatisticsMember `json:"members"`
+}
+
+type FamilyStatisticsMember struct {
+	MemberID     string                     `json:"member_id"`
+	Name         string                     `json:"name"`
+	Relationship string                     `json:"relationship"`
+	Color        string                     `json:"color"`
+	ExpenseTotal float64                    `json:"expense_total"`
+	Count        int                        `json:"count"`
+	Categories   []FamilyStatisticsCategory `json:"categories"`
+}
+
+type FamilyStatisticsCategory struct {
+	CategoryID string  `json:"category_id"`
+	Name       string  `json:"name"`
+	Color      string  `json:"color"`
+	Amount     float64 `json:"amount"`
+	Count      int     `json:"count"`
+}
+
 func (s *FamilyMemberService) Summary(userID uint, month string) (*FamilySummaryResponse, error) {
 	startDate, endDate, normalizedMonth, err := familySummaryMonthRange(month)
 	if err != nil {
@@ -187,6 +217,90 @@ func (s *FamilyMemberService) Summary(userID uint, month string) (*FamilySummary
 			ExpenseTotal: sum.Total,
 			Count:        sum.Count,
 		})
+	}
+	return response, nil
+}
+
+func (s *FamilyMemberService) Statistics(userID uint, month string) (*FamilyStatisticsResponse, error) {
+	startDate, endDate, normalizedMonth, err := familySummaryMonthRange(month)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FamilyStatisticsResponse{
+		Month:   normalizedMonth,
+		Members: []FamilyStatisticsMember{},
+	}
+	if s.txRepo == nil {
+		return response, nil
+	}
+
+	members, err := s.repo.GetByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	memberByID := make(map[string]model.FamilyMember, len(members))
+	for _, member := range members {
+		memberByID[member.ID] = member
+	}
+
+	categoryByID := map[string]model.Category{}
+	if s.categoryRepo != nil {
+		categories, err := s.categoryRepo.GetByUserID(userID, "expense")
+		if err != nil {
+			return nil, err
+		}
+		for _, category := range categories {
+			categoryByID[category.ID] = category
+		}
+	}
+
+	sums, err := s.txRepo.SumExpenseByMember(userID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	memberIndex := make(map[string]int, len(sums))
+	for _, sum := range sums {
+		response.TotalExpense += sum.Total
+		if sum.MemberID == "" {
+			continue
+		}
+		member := memberByID[sum.MemberID]
+		memberIndex[sum.MemberID] = len(response.Members)
+		response.Members = append(response.Members, FamilyStatisticsMember{
+			MemberID:     sum.MemberID,
+			Name:         member.Name,
+			Relationship: member.Relationship,
+			Color:        member.Color,
+			ExpenseTotal: sum.Total,
+			Count:        sum.Count,
+			Categories:   []FamilyStatisticsCategory{},
+		})
+	}
+
+	categorySums, err := s.txRepo.SumExpenseByMemberAndCategory(userID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	for _, sum := range categorySums {
+		if sum.MemberID == "" {
+			continue
+		}
+		index, ok := memberIndex[sum.MemberID]
+		if !ok {
+			continue
+		}
+		category := categoryByID[sum.CategoryID]
+		response.Members[index].Categories = append(
+			response.Members[index].Categories,
+			FamilyStatisticsCategory{
+				CategoryID: sum.CategoryID,
+				Name:       category.Name,
+				Color:      category.Color,
+				Amount:     sum.Total,
+				Count:      sum.Count,
+			},
+		)
 	}
 	return response, nil
 }

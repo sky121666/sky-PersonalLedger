@@ -25,6 +25,7 @@ class FamilyPage extends ConsumerWidget {
             onPressed: () {
               ref.invalidate(familyMembersProvider);
               ref.invalidate(familySummaryProvider);
+              ref.invalidate(familyStatisticsProvider);
               ref.invalidate(memberBudgetsProvider);
             },
             icon: const Icon(Icons.refresh_outlined),
@@ -44,6 +45,8 @@ class FamilyPage extends ConsumerWidget {
               return const _FamilyEmptyState();
             }
             final summary = summaryState.valueOrNull;
+            final statisticsState = ref.watch(familyStatisticsProvider);
+            final statistics = statisticsState.valueOrNull;
             return ListView(
               children: [
                 StaggeredEntrance(
@@ -74,6 +77,23 @@ class FamilyPage extends ConsumerWidget {
                   StaggeredEntrance(
                     index: 2,
                     child: _FamilyRankingSurface(summary: summary),
+                  ),
+                ],
+                if (statistics != null &&
+                    statistics.members.any(
+                      (member) => member.categories.isNotEmpty,
+                    )) ...[
+                  const SizedBox(height: 12),
+                  StaggeredEntrance(
+                    index: 3,
+                    child: _FamilyCategorySurface(statistics: statistics),
+                  ),
+                ],
+                if (statisticsState.hasError) ...[
+                  const SizedBox(height: 12),
+                  PremiumSurface(
+                    accentColor: Theme.of(context).colorScheme.error,
+                    child: const Text('家庭分类统计加载失败，其他家庭数据仍可查看。'),
                   ),
                 ],
                 const SizedBox(height: 18),
@@ -352,6 +372,144 @@ class _FamilyMetric extends StatelessWidget {
           ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
         ),
       ],
+    );
+  }
+}
+
+class _FamilyCategorySurface extends StatelessWidget {
+  const _FamilyCategorySurface({required this.statistics});
+
+  final FamilyStatistics statistics;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleMembers = statistics.members
+        .where((member) => member.categories.isNotEmpty)
+        .take(4)
+        .toList();
+    return PremiumSurface(
+      accentColor: AppTheme.assetColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.donut_large_outlined, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                '成员分类拆分',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...visibleMembers.map(
+            (member) => _FamilyCategoryMemberBlock(member: member),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyCategoryMemberBlock extends StatelessWidget {
+  const _FamilyCategoryMemberBlock({required this.member});
+
+  final FamilyStatisticsMember member;
+
+  @override
+  Widget build(BuildContext context) {
+    final memberColor = _memberColor(context, member.color);
+    final categories = [...member.categories]
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: memberColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const SizedBox.square(dimension: 10),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  member.name.isEmpty ? '未命名成员' : member.name,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Text(
+                _formatMoney(member.expenseTotal),
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...categories
+              .take(3)
+              .map(
+                (category) => _FamilyCategoryRow(
+                  category: category,
+                  total: member.expenseTotal,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyCategoryRow extends StatelessWidget {
+  const _FamilyCategoryRow({required this.category, required this.total});
+
+  final FamilyStatisticsCategory category;
+  final double total;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _memberColor(context, category.color);
+    final ratio = total <= 0 ? 0.0 : (category.amount / total).clamp(0, 1);
+    final name = category.name.isEmpty ? '未分类' : category.name;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              name,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          Expanded(
+            flex: 4,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: ratio.toDouble(),
+                minHeight: 7,
+                backgroundColor: color.withValues(alpha: 0.12),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _formatMoney(category.amount),
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+        ],
+      ),
     );
   }
 }

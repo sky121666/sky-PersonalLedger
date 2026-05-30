@@ -16,6 +16,7 @@
 
 - Family member management with member-linked transactions.
 - Family monthly summary and premium mobile Family Hub.
+- Family statistics expose member/category spending breakdown for native mobile Family Hub.
 - Member-level total and category budget foundation.
 - OpenAI-compatible AI provider setup and weekly/monthly AI reports across Web and native mobile.
 - Non-secret AI provider presets for DeepSeek, OpenAI, SiliconFlow, and custom gateways.
