@@ -1,3 +1,4 @@
+import type { AxiosResponse } from 'axios'
 import { get } from '@/utils/request'
 
 export interface MonthlyData {
@@ -53,20 +54,11 @@ export const exportApi = {
     if (filter?.type) params.append('type', filter.type)
     if (filter?.account_id) params.append('account_id', filter.account_id)
 
-    const token = localStorage.getItem('token')
-    const url = `/api/v1/export/transactions/csv?${params.toString()}`
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+    const response = await get<AxiosResponse<Blob>>('/export/transactions/csv', {
+      params,
+      responseType: 'blob'
     })
-    
-    if (!response.ok) {
-      throw new Error('导出失败')
-    }
-
-    const blob = await response.blob()
+    const blob = response.data
     const downloadUrl = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = downloadUrl

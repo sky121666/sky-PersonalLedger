@@ -152,6 +152,7 @@ docs/superpowers/plans/2026-05-27-mobile-premium-quick-transaction.md
 Vue family/AI integration and transaction member selector:
 
 ```text
+web/src/api/export.ts
 web/package.json
 web/pnpm-lock.yaml
 web/src/api/family.ts
