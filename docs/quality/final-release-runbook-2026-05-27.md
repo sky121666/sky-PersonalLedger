@@ -161,6 +161,8 @@ Run the strict final gate only after all evidence documents are filled:
 STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 ```
 
+This strict gate also requires a clean `git status --short` so final release evidence is tied to committed source.
+
 The release can be called fully complete only when the strict final gate passes.
 
 ## Failure Handling

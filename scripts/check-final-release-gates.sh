@@ -25,6 +25,15 @@ require_no_pending() {
   rm -f "$pending_file"
 }
 
+require_clean_worktree() {
+  local status
+  status="$(git -C "$ROOT_DIR" status --porcelain=v1)"
+  if [[ -n "$status" ]]; then
+    echo "$status" >&2
+    fail "Working tree must be clean before strict final release."
+  fi
+}
+
 run_strict_check() {
   local label="$1"
   shift
@@ -102,6 +111,9 @@ fi
 
 if [[ "${STRICT_FINAL_RELEASE:-0}" == "1" ]]; then
   strict_failures=0
+
+  run_strict_check "clean working tree" \
+    require_clean_worktree || strict_failures=1
 
   run_strict_check "release artifact evidence" \
     require_no_pending "docs/quality/release-artifact-evidence-2026-05-27.md" || strict_failures=1

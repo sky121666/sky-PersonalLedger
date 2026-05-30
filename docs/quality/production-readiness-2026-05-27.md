@@ -50,7 +50,7 @@ This document defines the remaining gates for a 100/100 release. The current sta
 | Final release runbook | Signing, tag release, artifact verification, physical QA, backup drill, accessibility, release notes, and final gate are ordered | PREPARED, AWAITING FINAL VALUES | `./scripts/check-final-release-runbook.sh`; use `STRICT_FINAL_RELEASE_RUNBOOK=1` before release |
 | Mobile device QA preflight | Current device list is inspectable, wireless iPhone is distinguished from USB iPhone, and physical E2E has a fixed command | PREPARED | `./scripts/check-mobile-device-qa-preflight.sh`; use `REQUIRE_PHYSICAL_IOS=1` for release |
 | Accessibility release evidence | Automated premium accessibility baseline passes; VoiceOver/TalkBack manual evidence template and pass criteria are defined | PARTIAL, AWAITING REAL ASSISTIVE-TECH PASS | `docs/quality/accessibility-release-evidence-2026-05-27.md` |
-| Final release gate | Structural readiness plus optional strict final proof for artifacts, physical iPhone, and accessibility evidence | PREPARED | `./scripts/check-final-release-gates.sh`; use `STRICT_FINAL_RELEASE=1` only for a real release candidate |
+| Final release gate | Structural readiness plus optional strict final proof for clean worktree, artifacts, physical iPhone, and accessibility evidence | PREPARED | `./scripts/check-final-release-gates.sh`; use `STRICT_FINAL_RELEASE=1` only for a real release candidate |
 | Local final acceptance gate | Source readiness plus strict local-only proof while external release evidence is deferred | PREPARED | `LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` |
 
 ## 100/100 Definition
