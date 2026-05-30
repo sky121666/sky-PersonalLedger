@@ -161,8 +161,10 @@ require_absent_text "backend/internal/service/auth.go" 'password must be at leas
 require_absent_text "backend/internal/handler/auth.go" 'invalid request: "\+err\.Error\(\)'
 require_absent_text "backend/internal/handler/setup.go" 'invalid request: "\+err\.Error\(\)'
 require_text "scripts/check-release-artifact-files.sh" 'REQUIRE_CHECKSUM_SIDECARS:-1'
+require_text "scripts/check-release-artifact-files.sh" 'VERIFY_ARTIFACT_SIGNATURES:-0'
 require_text "scripts/check-release-artifact-files.sh" 'Missing \$label checksum sidecar'
 require_text "scripts/check-release-artifact-files.sh" 'check_artifact_structure'
+require_text "scripts/check-release-artifact-files.sh" 'verify_artifact_signature'
 require_text "scripts/check-release-artifact-files.sh" '\^AndroidManifest\\.xml\$'
 require_text "scripts/check-release-artifact-files.sh" '\^BundleConfig\\.pb\$'
 require_text "scripts/check-release-artifact-files.sh" '\^Payload/\[\^/\]\+\\.app/Info\\.plist\$'
@@ -180,7 +182,10 @@ require_text "scripts/check-final-release-gates.sh" 'SKIP_EXTERNAL_RELEASE_EVIDE
 require_text "scripts/check-final-release-gates.sh" 'STRICT_FINAL_RELEASE:-0.*!= "1"'
 require_text "scripts/check-final-release-gates.sh" 'Final release structural checks passed'
 require_text "scripts/check-final-release-gates.sh" 'Strict final release gate checks passed'
-require_text "scripts/check-final-release-gates.sh" 'env REQUIRE_IOS_ARTIFACT=1 "\$ROOT_DIR/scripts/check-release-artifact-files\.sh"'
+require_text "scripts/check-final-release-gates.sh" 'env REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 "\$ROOT_DIR/scripts/check-release-artifact-files\.sh"'
+require_text "scripts/check-final-release-runbook.sh" 'VERIFY_ARTIFACT_SIGNATURES=1'
+require_text "docs/quality/final-release-runbook-2026-05-27.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
+require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
 if ! perl -0ne 'exit 1 if /ShouldBindJSON\(&req\); err != nil \{\n\t\tresponse\.BadRequest\(c, err\.Error\(\)\)/' "$ROOT_DIR"/backend/internal/handler/*.go; then
   echo "Unexpected bind error detail returned from handler" >&2
   exit 1

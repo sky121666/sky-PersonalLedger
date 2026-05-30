@@ -131,7 +131,7 @@ if [[ "${STRICT_FINAL_RELEASE:-0}" == "1" ]]; then
     require_no_pending "docs/quality/accessibility-release-evidence-2026-05-27.md" || strict_failures=1
 
   run_strict_check "release artifact files" \
-    env REQUIRE_IOS_ARTIFACT=1 "$ROOT_DIR/scripts/check-release-artifact-files.sh" || strict_failures=1
+    env REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 "$ROOT_DIR/scripts/check-release-artifact-files.sh" || strict_failures=1
 
   run_strict_check "USB iPhone physical preflight" \
     env REQUIRE_PHYSICAL_IOS=1 "$ROOT_DIR/scripts/check-mobile-device-qa-preflight.sh" || strict_failures=1

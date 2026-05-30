@@ -23,7 +23,7 @@ RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_ANDROID_ARTIFAC
 For a full Android + iOS release candidate:
 
 ```bash
-RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 ./scripts/check-release-artifact-files.sh
+RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
 ```
 
 ## Evidence Table

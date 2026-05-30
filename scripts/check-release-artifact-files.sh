@@ -7,6 +7,8 @@ VERSION="${RELEASE_VERSION:-}"
 REQUIRE_ANDROID="${REQUIRE_ANDROID_ARTIFACTS:-1}"
 REQUIRE_IOS="${REQUIRE_IOS_ARTIFACT:-0}"
 REQUIRE_CHECKSUMS="${REQUIRE_CHECKSUM_SIDECARS:-1}"
+VERIFY_SIGNATURES="${VERIFY_ARTIFACT_SIGNATURES:-0}"
+IOS_BUNDLE_IDENTIFIER="${IOS_BUNDLE_IDENTIFIER:-com.skyapp.personalLedger}"
 
 fail() {
   echo "$1" >&2
@@ -49,6 +51,9 @@ check_zip_artifact() {
   unzip -tq "$path" >/dev/null || fail "$label artifact is not a valid zip container: $path"
   entries="$(unzip -Z1 "$path")"
   check_artifact_structure "$label" "$structure" "$entries"
+  if [[ "$VERIFY_SIGNATURES" == "1" ]]; then
+    verify_artifact_signature "$label" "$path" "$structure"
+  fi
 
   if [[ "$REQUIRE_CHECKSUMS" == "1" && ! -f "$sidecar" ]]; then
     fail "Missing $label checksum sidecar: $sidecar"
@@ -92,6 +97,70 @@ check_artifact_structure() {
       ;;
     ipa)
       require_zip_entry "$label" "$entries" '^Payload/[^/]+\.app/Info\.plist$' 'app Info.plist'
+      ;;
+    *)
+      fail "Unknown artifact structure for $label: $structure"
+      ;;
+  esac
+}
+
+find_apksigner() {
+  if command -v apksigner >/dev/null 2>&1; then
+    command -v apksigner
+    return
+  fi
+
+  local sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
+  if [[ -d "$sdk_root/build-tools" ]]; then
+    find "$sdk_root/build-tools" -type f -name apksigner | sort -V | tail -n 1
+  fi
+}
+
+verify_ios_ipa_signature() {
+  local label="$1"
+  local path="$2"
+  local work_dir
+  local app_path
+  local bundle_id
+
+  require_tool codesign
+  work_dir="$(mktemp -d)"
+  cleanup_ios_verify() {
+    rm -rf "$work_dir"
+  }
+  trap cleanup_ios_verify EXIT
+
+  unzip -q "$path" -d "$work_dir"
+  app_path="$(find "$work_dir/Payload" -maxdepth 1 -type d -name '*.app' -print -quit 2>/dev/null || true)"
+  [[ -n "$app_path" ]] || fail "$label artifact does not contain an app bundle under Payload: $path"
+  [[ -f "$app_path/Info.plist" ]] || fail "$label artifact app bundle is missing Info.plist: $path"
+
+  bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Info.plist")"
+  if [[ "$bundle_id" != "$IOS_BUNDLE_IDENTIFIER" ]]; then
+    fail "$label artifact bundle id mismatch: expected $IOS_BUNDLE_IDENTIFIER, got $bundle_id"
+  fi
+
+  codesign --verify --deep --strict --verbose=2 "$app_path" >/dev/null
+}
+
+verify_artifact_signature() {
+  local label="$1"
+  local path="$2"
+  local structure="$3"
+  local apksigner
+
+  case "$structure" in
+    apk)
+      apksigner="$(find_apksigner)"
+      [[ -n "$apksigner" ]] || fail "Missing required tool: apksigner"
+      "$apksigner" verify --verbose --print-certs "$path" >/dev/null
+      ;;
+    aab)
+      require_tool jarsigner
+      jarsigner -verify -strict -certs "$path" >/dev/null
+      ;;
+    ipa)
+      verify_ios_ipa_signature "$label" "$path"
       ;;
     *)
       fail "Unknown artifact structure for $label: $structure"

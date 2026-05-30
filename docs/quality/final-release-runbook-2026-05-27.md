@@ -75,10 +75,10 @@ artifacts/android-release/
 artifacts/ios-ipa/
 ```
 
-Verify files and sidecar checksums:
+Verify files, sidecar checksums, and local artifact signatures:
 
 ```bash
-RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=X.Y.Z REQUIRE_IOS_ARTIFACT=1 ./scripts/check-release-artifact-files.sh
+RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=X.Y.Z REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
 ```
 
 Copy the verifier output into:
