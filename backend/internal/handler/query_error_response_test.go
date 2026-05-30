@@ -138,6 +138,28 @@ func TestNotificationGetDoesNotExposeDatabaseError(t *testing.T) {
 	assertGenericInternalError(t, response, "failed to load notification settings")
 }
 
+func TestNotificationEmailTestDoesNotIgnoreSettingsError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewNotificationHandler(service.NewNotificationService(repos.Notification, repos.User))
+
+	router := gin.New()
+	router.POST("/notifications/test-email", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.TestEmail(c)
+	})
+
+	request := httptest.NewRequest(http.MethodPost, "/notifications/test-email", bytes.NewBufferString(`{
+		"smtp_host":"smtp.example.test",
+		"smtp_user":"user@example.test",
+		"email_to":"to@example.test"
+	}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	assertGenericInternalError(t, response, "failed to load notification settings")
+}
+
 func TestFamilyListDoesNotExposeDatabaseError(t *testing.T) {
 	repos := newClosedRepositoriesForHandlerTest(t)
 	handler := NewFamilyHandler(service.NewFamilyMemberService(repos.FamilyMember, repos.Transaction))

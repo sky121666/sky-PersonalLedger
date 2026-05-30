@@ -98,7 +98,11 @@ func (h *NotificationHandler) TestEmail(c *gin.Context) {
 	// Get existing password if not provided
 	password := req.SmtpPassword
 	if password == "" {
-		existing, _ := h.service.Get(userID)
+		existing, err := h.service.Get(userID)
+		if err != nil {
+			internalServerError(c, err, "failed to load notification settings")
+			return
+		}
 		if existing != nil {
 			password = existing.SmtpPassword
 		}
