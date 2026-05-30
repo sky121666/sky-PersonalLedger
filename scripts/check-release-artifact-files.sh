@@ -111,10 +111,26 @@ find_apksigner() {
     return
   fi
 
-  local sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
-  if [[ -d "$sdk_root/build-tools" ]]; then
-    find "$sdk_root/build-tools" -type f -name apksigner | sort -V | tail -n 1
+  local sdk_roots=()
+  if [[ -n "${ANDROID_HOME:-}" ]]; then
+    sdk_roots+=("$ANDROID_HOME")
   fi
+  if [[ -n "${ANDROID_SDK_ROOT:-}" && "${ANDROID_SDK_ROOT:-}" != "${ANDROID_HOME:-}" ]]; then
+    sdk_roots+=("$ANDROID_SDK_ROOT")
+  fi
+  sdk_roots+=(
+    "$HOME/Library/Android/sdk"
+    "/usr/local/lib/android/sdk"
+    "/opt/android-sdk"
+  )
+
+  local sdk_root
+  for sdk_root in "${sdk_roots[@]}"; do
+    if [[ -d "$sdk_root/build-tools" ]]; then
+      find "$sdk_root/build-tools" -type f -name apksigner | sort -V | tail -n 1
+      return
+    fi
+  done
 }
 
 verify_ios_ipa_signature() {

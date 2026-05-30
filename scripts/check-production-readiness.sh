@@ -166,6 +166,7 @@ require_text "scripts/check-release-artifact-files.sh" 'Missing \$label checksum
 require_text "scripts/check-release-artifact-files.sh" 'check_artifact_structure'
 require_text "scripts/check-release-artifact-files.sh" 'verify_artifact_signature'
 require_text "scripts/check-release-artifact-files.sh" 'signature checks passed'
+require_text "scripts/check-release-artifact-files.sh" '/usr/local/lib/android/sdk'
 require_text "scripts/check-release-artifact-files.sh" '\^AndroidManifest\\.xml\$'
 require_text "scripts/check-release-artifact-files.sh" '\^BundleConfig\\.pb\$'
 require_text "scripts/check-release-artifact-files.sh" '\^Payload/\[\^/\]\+\\.app/Info\\.plist\$'
