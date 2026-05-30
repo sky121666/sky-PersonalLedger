@@ -92,7 +92,7 @@ require_text ".github/workflows/release.yml" "artifacts/ios-ipa/\\*\\.ipa\\.sha2
 require_text ".github/workflows/release.yml" "check-release-artifact-files\\.sh"
 require_text ".github/workflows/release.yml" "REQUIRE_IOS_ARTIFACT=0"
 require_text ".github/workflows/release.yml" "VERIFY_ARTIFACT_SIGNATURES=1"
-require_text "scripts/check-release-artifact-files.sh" "checksum sidecar must contain exactly one non-empty line"
+require_text "scripts/check-release-artifact-files.sh" "checksum sidecar must contain exactly one checksum line"
 require_text "scripts/check-release-artifact-files.sh" "checksum sidecar filename mismatch"
 require_text "mobile/android/app/build.gradle.kts" "Debug signing is intentionally disabled for release builds"
 require_text "mobile/android/app/build.gradle.kts" "ledgerAllowReleaseCleartext"

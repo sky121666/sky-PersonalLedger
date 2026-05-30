@@ -76,15 +76,15 @@ check_checksum_sidecar() {
   local path="$2"
   local sidecar="$3"
   local expected_name
-  local non_empty_lines
+  local line_count
   local digest
   local filename
   local extra
 
   expected_name="$(basename "$path")"
-  non_empty_lines="$(awk 'NF { count++ } END { print count + 0 }' "$sidecar")"
-  if [[ "$non_empty_lines" != "1" ]]; then
-    fail "$label checksum sidecar must contain exactly one non-empty line: $sidecar"
+  line_count="$(awk 'END { print NR + 0 }' "$sidecar")"
+  if [[ "$line_count" != "1" ]]; then
+    fail "$label checksum sidecar must contain exactly one checksum line: $sidecar"
   fi
 
   read -r digest filename extra <"$sidecar"
