@@ -139,6 +139,9 @@ if [[ "${STRICT_FINAL_RELEASE:-0}" == "1" ]]; then
   if [[ "$strict_failures" != "0" ]]; then
     fail "Strict final release gate failed. See FAIL entries above."
   fi
+
+  echo "Strict final release gate checks passed."
+  exit 0
 fi
 
-echo "Final release gate checks passed."
+echo "Final release structural checks passed. Set STRICT_FINAL_RELEASE=1 to require external release evidence."
