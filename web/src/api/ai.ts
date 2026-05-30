@@ -51,6 +51,7 @@ export interface GenerateAIReportParams {
   provider_id?: string
   period_start: string
   period_end: string
+  mask_names?: boolean
 }
 
 export interface AIReportScheduleSettings {

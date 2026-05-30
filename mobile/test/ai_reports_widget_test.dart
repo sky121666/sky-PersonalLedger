@@ -117,6 +117,7 @@ void main() {
 
     expect(repository.generateCalls, hasLength(1));
     expect(repository.generateCalls.single.reportType, 'weekly');
+    expect(repository.generateCalls.single.maskNames, isTrue);
     expect(find.text('AI 报告已生成'), findsOneWidget);
   });
 

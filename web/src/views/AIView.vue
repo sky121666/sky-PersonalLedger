@@ -31,7 +31,8 @@ const reportForm = reactive({
   report_type: 'weekly',
   provider_id: '',
   period_start: defaultWeekStart(),
-  period_end: defaultWeekEnd()
+  period_end: defaultWeekEnd(),
+  mask_names: true
 })
 
 const scheduleForm = reactive({
@@ -187,7 +188,8 @@ async function generateReport() {
       report_type: reportForm.report_type,
       provider_id: reportForm.provider_id || undefined,
       period_start: reportForm.period_start,
-      period_end: reportForm.period_end
+      period_end: reportForm.period_end,
+      mask_names: reportForm.mask_names
     })
     selectedReport.value = report
     toast.success('AI 报告已生成')
@@ -354,6 +356,13 @@ function defaultWeekEnd() {
               <input v-model="reportForm.period_start" type="date" class="px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" />
               <input v-model="reportForm.period_end" type="date" class="px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" />
             </div>
+            <label class="flex items-center justify-between gap-3 rounded-xl bg-gray-100/80 px-3 py-3 text-sm dark:bg-white/10">
+              <span>
+                <span class="block font-medium">遮蔽成员名称</span>
+                <span class="block text-xs text-gray-500">发送给 Provider 前将家庭成员名替换为成员1、成员2。</span>
+              </span>
+              <input v-model="reportForm.mask_names" type="checkbox" class="h-5 w-5" />
+            </label>
             <button class="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white font-medium disabled:opacity-60" :disabled="generating">
               <PlayCircle :size="18" />
               {{ generating ? '生成中...' : '生成 AI 报告' }}

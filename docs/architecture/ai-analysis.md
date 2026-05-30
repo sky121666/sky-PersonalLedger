@@ -167,6 +167,8 @@ The UI can render this contract as cards, timeline blocks, and short paragraphs.
 
 The Web AI page exposes provider setup, manual report generation, report history, and automatic weekly/monthly report schedule controls. The mobile AI page exposes the same schedule controls for native iOS/Android use. The schedule UI keeps automation explicit: users can enable or disable it, choose weekly/monthly scopes, set the run hour, inspect last run dates, and trigger due reports manually.
 
+Manual report generation accepts an optional `mask_names` flag. When enabled, member names in the provider snapshot are replaced with deterministic labels such as `成员1` and `成员2` before the request is sent. Masked and unmasked reports use different prompt versions so a masked request cannot reuse a previously completed unmasked cache entry. The Web UI exposes this as an explicit report-generation switch, and the mobile one-tap weekly report path sends masked snapshots by default.
+
 ## API Surface
 
 | Endpoint | Method | Behavior |
@@ -195,6 +197,7 @@ The Web AI page exposes provider setup, manual report generation, report history
 - Do not send file attachments.
 - Do not send API tokens, passwords, webhook URLs, or backup contents.
 - Provide a masking option for member names and account names.
+- Do not reuse an unmasked completed report for a masked request.
 - Cache completed reports by user, report type, period, provider, model, and prompt version to avoid repeated external calls for the same scope.
 - Allow deleting reports.
 - Protect stored provider API keys at rest.

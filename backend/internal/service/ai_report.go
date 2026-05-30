@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ var (
 )
 
 const aiReportPromptVersion = "personal-ledger-v1"
+const aiReportMaskedPromptVersion = "personal-ledger-v1-masked"
 
 type AIReportService struct {
 	repo       *repository.AIReportRepository
@@ -70,6 +72,7 @@ type GenerateAIReportRequest struct {
 	ProviderID  string `json:"provider_id"`
 	PeriodStart string `json:"period_start" binding:"required"`
 	PeriodEnd   string `json:"period_end" binding:"required"`
+	MaskNames   bool   `json:"mask_names"`
 }
 
 type AIReportResponse struct {
@@ -159,11 +162,12 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 	if err != nil {
 		return nil, err
 	}
-	if cached, err := s.repo.GetReusableCompleted(userID, reportType, start, end, provider.ID, provider.Model, aiReportPromptVersion); err == nil {
+	promptVersion := aiReportPromptVersionForRequest(req)
+	if cached, err := s.repo.GetReusableCompleted(userID, reportType, start, end, provider.ID, provider.Model, promptVersion); err == nil {
 		return aiReportResponse(cached), nil
 	}
 
-	snapshotJSON, err := s.buildSnapshotJSON(userID, start, end)
+	snapshotJSON, err := s.buildSnapshotJSON(userID, start, end, req.MaskNames)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +182,7 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 		ProviderID:    provider.ID,
 		ProviderName:  provider.Name,
 		Model:         provider.Model,
-		PromptVersion: aiReportPromptVersion,
+		PromptVersion: promptVersion,
 	}
 	if err := s.repo.Create(report); err != nil {
 		return nil, err
@@ -207,6 +211,13 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 		return nil, err
 	}
 	return aiReportResponse(report), nil
+}
+
+func aiReportPromptVersionForRequest(req GenerateAIReportRequest) string {
+	if req.MaskNames {
+		return aiReportMaskedPromptVersion
+	}
+	return aiReportPromptVersion
 }
 
 func isSupportedAIReportType(reportType string) bool {
@@ -266,7 +277,7 @@ func (s *AIReportService) selectProvider(userID uint, providerID string) (*model
 	return nil, ErrAIReportProviderNotFound
 }
 
-func (s *AIReportService) buildSnapshotJSON(userID uint, start time.Time, end time.Time) (string, error) {
+func (s *AIReportService) buildSnapshotJSON(userID uint, start time.Time, end time.Time, maskNames bool) (string, error) {
 	sum, err := s.txs.SumByDateRange(userID, start, end)
 	if err != nil {
 		return "", err
@@ -286,10 +297,10 @@ func (s *AIReportService) buildSnapshotJSON(userID uint, start time.Time, end ti
 	if err := s.appendCategorySnapshot(userID, start, end, &snapshot); err != nil {
 		return "", err
 	}
-	if err := s.appendMemberSnapshot(userID, start, end, &snapshot); err != nil {
+	if err := s.appendMemberSnapshot(userID, start, end, maskNames, &snapshot); err != nil {
 		return "", err
 	}
-	if err := s.appendBudgetSnapshot(userID, start, end, &snapshot); err != nil {
+	if err := s.appendBudgetSnapshot(userID, start, end, maskNames, &snapshot); err != nil {
 		return "", err
 	}
 
@@ -300,7 +311,7 @@ func (s *AIReportService) buildSnapshotJSON(userID uint, start time.Time, end ti
 	return string(data), nil
 }
 
-func (s *AIReportService) appendBudgetSnapshot(userID uint, start time.Time, end time.Time, snapshot *aiReportSnapshot) error {
+func (s *AIReportService) appendBudgetSnapshot(userID uint, start time.Time, end time.Time, maskNames bool, snapshot *aiReportSnapshot) error {
 	if s.budgets == nil {
 		return nil
 	}
@@ -368,6 +379,9 @@ func (s *AIReportService) appendBudgetSnapshot(userID uint, start time.Time, end
 			if budget.Member != nil && budget.Member.Name != "" {
 				memberName = budget.Member.Name
 			}
+			if maskNames {
+				memberName = anonymizedMemberLabel(len(snapshot.Budget.MemberBudgets) + 1)
+			}
 			snapshot.Budget.MemberBudgets = append(snapshot.Budget.MemberBudgets, aiReportMemberBudgetSnapshot{
 				MemberName:   memberName,
 				CategoryName: categoryName,
@@ -414,7 +428,7 @@ func (s *AIReportService) appendCategorySnapshot(userID uint, start time.Time, e
 	return nil
 }
 
-func (s *AIReportService) appendMemberSnapshot(userID uint, start time.Time, end time.Time, snapshot *aiReportSnapshot) error {
+func (s *AIReportService) appendMemberSnapshot(userID uint, start time.Time, end time.Time, maskNames bool, snapshot *aiReportSnapshot) error {
 	sums, err := s.txs.SumExpenseByMember(userID, start, end)
 	if err != nil {
 		return err
@@ -435,6 +449,9 @@ func (s *AIReportService) appendMemberSnapshot(userID uint, start time.Time, end
 		if name == "" {
 			name = "成员"
 		}
+		if maskNames {
+			name = anonymizedMemberLabel(len(snapshot.FamilyMembers) + 1)
+		}
 		snapshot.FamilyMembers = append(snapshot.FamilyMembers, aiReportMemberSnapshot{
 			DisplayName:  name,
 			ExpenseTotal: sum.Total,
@@ -442,6 +459,10 @@ func (s *AIReportService) appendMemberSnapshot(userID uint, start time.Time, end
 		})
 	}
 	return nil
+}
+
+func anonymizedMemberLabel(index int) string {
+	return fmt.Sprintf("成员%d", index)
 }
 
 func (s *AIReportService) getOwnedReport(id string, userID uint) (*model.AIReport, error) {

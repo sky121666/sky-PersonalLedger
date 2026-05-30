@@ -97,18 +97,21 @@ class GenerateAIReportRequest {
     required this.periodStart,
     required this.periodEnd,
     this.providerId,
+    this.maskNames = true,
   });
 
   final String reportType;
   final String periodStart;
   final String periodEnd;
   final String? providerId;
+  final bool maskNames;
 
   Map<String, dynamic> toJson() {
     return {
       'report_type': reportType,
       'period_start': periodStart,
       'period_end': periodEnd,
+      'mask_names': maskNames,
       if (providerId != null && providerId!.isNotEmpty)
         'provider_id': providerId,
     };

@@ -118,6 +118,50 @@ func TestAIReportGenerateReusesCompletedReportForSameScope(t *testing.T) {
 	}
 }
 
+func TestAIReportGenerateMasksNamesAndUsesSeparateCache(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"summary\":\"masked report\"}"}}]}`))
+	}))
+	defer server.Close()
+
+	svc, providerSvc, userID := newAIReportTestServices(t)
+	seedAIReportFacts(t, providerSvc, userID, server.URL)
+	req := GenerateAIReportRequest{
+		ReportType:  "weekly",
+		PeriodStart: "2026-05-18",
+		PeriodEnd:   "2026-05-24",
+	}
+
+	unmasked, err := svc.Generate(userID, req)
+	if err != nil {
+		t.Fatalf("generate unmasked report: %v", err)
+	}
+	masked, err := svc.Generate(userID, GenerateAIReportRequest{
+		ReportType:  "weekly",
+		PeriodStart: "2026-05-18",
+		PeriodEnd:   "2026-05-24",
+		MaskNames:   true,
+	})
+	if err != nil {
+		t.Fatalf("generate masked report: %v", err)
+	}
+	if masked.ID == unmasked.ID {
+		t.Fatal("masked report reused unmasked cache entry")
+	}
+	if strings.Contains(masked.SnapshotJSON, "成员A") {
+		t.Fatalf("masked snapshot leaked member name: %s", masked.SnapshotJSON)
+	}
+	if !strings.Contains(masked.SnapshotJSON, "成员1") {
+		t.Fatalf("masked snapshot missing anonymized member label: %s", masked.SnapshotJSON)
+	}
+	if requestCount != 2 {
+		t.Fatalf("ai request count = %d, want separate unmasked and masked requests", requestCount)
+	}
+}
+
 func TestAIReportGenerateRejectsUnsupportedType(t *testing.T) {
 	svc, _, userID := newAIReportTestServices(t)
 
