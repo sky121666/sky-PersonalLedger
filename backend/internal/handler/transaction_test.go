@@ -82,6 +82,45 @@ func TestTransactionCreateInvalidDateIsBadRequest(t *testing.T) {
 	}
 }
 
+func TestTransactionListInvalidDateIsBadRequest(t *testing.T) {
+	handler, _, userID := newTransactionHandlerForTest(t)
+
+	response := performTransactionListRequestTarget(handler, userID, "/transactions?start_date=bad-date")
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "invalid transaction date") {
+		t.Fatalf("body = %s, want invalid transaction date", response.Body.String())
+	}
+}
+
+func TestTransactionExportInvalidStartDateIsBadRequest(t *testing.T) {
+	handler, _, userID := newTransactionHandlerForTest(t)
+
+	response := performTransactionExportRequest(handler, userID, "/transactions/export?start_date=bad-date")
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "invalid start date") {
+		t.Fatalf("body = %s, want invalid start date", response.Body.String())
+	}
+}
+
+func TestTransactionExportInvalidEndDateIsBadRequest(t *testing.T) {
+	handler, _, userID := newTransactionHandlerForTest(t)
+
+	response := performTransactionExportRequest(handler, userID, "/transactions/export?end_date=bad-date")
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "invalid end date") {
+		t.Fatalf("body = %s, want invalid end date", response.Body.String())
+	}
+}
+
 func newTransactionHandlerForTest(t *testing.T) (*TransactionHandler, *repository.Repositories, uint) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -122,12 +161,16 @@ func createTransactionHandlerAccount(t *testing.T, repos *repository.Repositorie
 }
 
 func performTransactionListRequest(handler *TransactionHandler, userID uint) *httptest.ResponseRecorder {
+	return performTransactionListRequestTarget(handler, userID, "/transactions")
+}
+
+func performTransactionListRequestTarget(handler *TransactionHandler, userID uint, target string) *httptest.ResponseRecorder {
 	router := gin.New()
 	router.GET("/transactions", func(c *gin.Context) {
 		c.Set("userID", userID)
 		handler.List(c)
 	})
-	request := httptest.NewRequest(http.MethodGet, "/transactions", nil)
+	request := httptest.NewRequest(http.MethodGet, target, nil)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	return response
@@ -141,6 +184,18 @@ func performTransactionCreateRequest(handler *TransactionHandler, userID uint, b
 	})
 	request := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewBufferString(body))
 	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	return response
+}
+
+func performTransactionExportRequest(handler *TransactionHandler, userID uint, target string) *httptest.ResponseRecorder {
+	router := gin.New()
+	router.GET("/transactions/export", func(c *gin.Context) {
+		c.Set("userID", userID)
+		handler.Export(c)
+	})
+	request := httptest.NewRequest(http.MethodGet, target, nil)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	return response

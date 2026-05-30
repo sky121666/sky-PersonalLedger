@@ -215,11 +215,17 @@ func (s *TransactionService) List(userID uint, req ListTransactionRequest) (*Lis
 	}
 
 	if req.StartDate != "" {
-		t, _ := time.Parse("2006-01-02", req.StartDate)
+		t, err := time.Parse("2006-01-02", req.StartDate)
+		if err != nil {
+			return nil, err
+		}
 		filter.StartDate = &t
 	}
 	if req.EndDate != "" {
-		t, _ := time.Parse("2006-01-02", req.EndDate)
+		t, err := time.Parse("2006-01-02", req.EndDate)
+		if err != nil {
+			return nil, err
+		}
 		// Set to end of day (23:59:59)
 		endOfDay := t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 		filter.EndDate = &endOfDay

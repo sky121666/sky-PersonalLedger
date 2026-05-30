@@ -32,6 +32,9 @@ func (h *TransactionHandler) List(c *gin.Context) {
 
 	result, err := h.service.List(userID, req)
 	if err != nil {
+		if handleTransactionRequestError(c, err) {
+			return
+		}
 		internalServerError(c, err, "failed to list transactions")
 		return
 	}
@@ -134,14 +137,15 @@ func (h *TransactionHandler) Export(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
 
-	var start, end *time.Time
-	if startDate != "" {
-		t, _ := time.Parse("2006-01-02", startDate)
-		start = &t
+	start, err := parseTransactionExportDate(startDate)
+	if err != nil {
+		response.BadRequest(c, "invalid start date")
+		return
 	}
-	if endDate != "" {
-		t, _ := time.Parse("2006-01-02", endDate)
-		end = &t
+	end, err := parseTransactionExportDate(endDate)
+	if err != nil {
+		response.BadRequest(c, "invalid end date")
+		return
 	}
 
 	transactions, err := h.service.Export(userID, start, end)
@@ -249,4 +253,15 @@ func handleTransactionRequestError(c *gin.Context, err error) bool {
 func isTransactionDateParseError(err error) bool {
 	var parseErr *time.ParseError
 	return errors.As(err, &parseErr)
+}
+
+func parseTransactionExportDate(value string) (*time.Time, error) {
+	if value == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
