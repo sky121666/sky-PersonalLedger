@@ -363,6 +363,21 @@ func TestAIReportGenerateRejectsUnsupportedType(t *testing.T) {
 	}
 }
 
+func TestSanitizeAIErrorRedactsCredentialLikeValues(t *testing.T) {
+	err := errors.New("request failed Authorization: Bearer sk-secret-token-123 api_key=sk-query-secret&access_token=plain-token token=other-token")
+
+	message := sanitizeAIError(err)
+
+	for _, leaked := range []string{"sk-secret-token-123", "sk-query-secret", "plain-token", "other-token"} {
+		if strings.Contains(message, leaked) {
+			t.Fatalf("sanitized message leaked %q: %s", leaked, message)
+		}
+	}
+	if strings.Count(message, "[redacted]") < 4 {
+		t.Fatalf("sanitized message = %q, want redacted placeholders", message)
+	}
+}
+
 func newAIReportTestServices(t *testing.T) (*AIReportService, *AIProviderService, uint) {
 	t.Helper()
 	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))

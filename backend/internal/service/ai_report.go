@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,12 @@ var (
 
 const aiReportPromptVersion = "personal-ledger-v1"
 const aiReportMaskedPromptVersion = "personal-ledger-v1-masked"
+
+var aiErrorSecretPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)(authorization:\s*bearer\s+)[^\s,;]+`),
+	regexp.MustCompile(`(?i)((?:api[_-]?key|access[_-]?token|token)=)[^&\s]+`),
+	regexp.MustCompile(`sk-[A-Za-z0-9][A-Za-z0-9_-]{8,}`),
+}
 
 var aiReportGenerationLocks sync.Map
 
@@ -577,7 +584,11 @@ func normalizeAIReportContent(content string) string {
 }
 
 func sanitizeAIError(err error) string {
-	return strings.TrimSpace(err.Error())
+	message := strings.TrimSpace(err.Error())
+	for _, pattern := range aiErrorSecretPatterns {
+		message = pattern.ReplaceAllString(message, "${1}[redacted]")
+	}
+	return message
 }
 
 func float64Ptr(value float64) *float64 {
