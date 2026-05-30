@@ -108,4 +108,4 @@ After CI or a local signed export produces an IPA, verify the actual file and re
 RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_ANDROID_ARTIFACTS=0 REQUIRE_IOS_ARTIFACT=1 ./scripts/check-release-artifact-files.sh
 ```
 
-If the `.sha256` sidecar file is present, the verifier also checks that it matches the downloaded IPA file.
+The verifier requires the `.sha256` sidecar file and checks that it matches the downloaded IPA file.

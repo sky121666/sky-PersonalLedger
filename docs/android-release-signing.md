@@ -78,4 +78,4 @@ After CI or a local release build produces artifacts, verify the actual files an
 RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> ./scripts/check-release-artifact-files.sh
 ```
 
-If `.sha256` sidecar files are present, the verifier also checks that they match the downloaded APK/AAB files.
+The verifier requires `.sha256` sidecar files and checks that they match the downloaded APK/AAB files.
