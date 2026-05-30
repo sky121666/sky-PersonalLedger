@@ -201,8 +201,16 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 		fullPath := filepath.Join(uploadPath, cleanPath)
 
 		// Security check: ensure path is within upload directory
-		absUploadPath, _ := filepath.Abs(uploadPath)
-		absFullPath, _ := filepath.Abs(fullPath)
+		absUploadPath, err := filepath.Abs(uploadPath)
+		if err != nil {
+			c.JSON(403, gin.H{"error": "forbidden"})
+			return
+		}
+		absFullPath, err := filepath.Abs(fullPath)
+		if err != nil {
+			c.JSON(403, gin.H{"error": "forbidden"})
+			return
+		}
 		if absFullPath != absUploadPath && !strings.HasPrefix(absFullPath, absUploadPath+string(os.PathSeparator)) {
 			c.JSON(403, gin.H{"error": "forbidden"})
 			return
@@ -318,8 +326,16 @@ func serveStaticFile(c *gin.Context, rootPath string, requestPath string) {
 	}
 
 	fullPath := filepath.Join(rootPath, cleanPath)
-	absRootPath, _ := filepath.Abs(rootPath)
-	absFullPath, _ := filepath.Abs(fullPath)
+	absRootPath, err := filepath.Abs(rootPath)
+	if err != nil {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+	absFullPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
 	if absFullPath != absRootPath && !strings.HasPrefix(absFullPath, absRootPath+string(os.PathSeparator)) {
 		c.JSON(403, gin.H{"error": "forbidden"})
 		return

@@ -152,8 +152,14 @@ func (s *UploadService) GetUserFilePath(userID uint, relativePath string) (strin
 	fullPath := filepath.Join(s.cfg.UploadPath, cleanPath)
 
 	// Security check: ensure path is within upload directory
-	absUploadPath, _ := filepath.Abs(s.cfg.UploadPath)
-	absFullPath, _ := filepath.Abs(fullPath)
+	absUploadPath, err := filepath.Abs(s.cfg.UploadPath)
+	if err != nil {
+		return "", ErrUploadPathInvalid
+	}
+	absFullPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		return "", ErrUploadPathInvalid
+	}
 	if absFullPath != absUploadPath && !strings.HasPrefix(absFullPath, absUploadPath+string(os.PathSeparator)) {
 		return "", ErrUploadPathInvalid
 	}
