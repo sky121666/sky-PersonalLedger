@@ -86,6 +86,31 @@ func TestSetupUploadFilesRejectsOtherUserPrivateFile(t *testing.T) {
 	}
 }
 
+func TestSetupUploadFilesRejectsDirectoryRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	uploadPath := t.TempDir()
+	writeServerUploadFixture(t, uploadPath, "1/transactions/t/a.txt", "ledger attachment")
+
+	jwtManager := jwt.NewManager("test-secret", 15, 60)
+	authService := service.NewAuthService(nil, nil, nil, nil, jwtManager)
+	token, err := jwtManager.GenerateAccessToken(1)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+
+	router := gin.New()
+	setupUploadFiles(router, uploadPath, authService, nil)
+
+	request := httptest.NewRequest(http.MethodGet, "/uploads/1/transactions/t/", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403; body=%s", response.Code, response.Body.String())
+	}
+}
+
 func writeServerUploadFixture(t *testing.T, uploadPath string, relativePath string, content string) {
 	t.Helper()
 

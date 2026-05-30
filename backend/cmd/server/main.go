@@ -207,6 +207,15 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 			c.JSON(403, gin.H{"error": "forbidden"})
 			return
 		}
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			c.JSON(404, gin.H{"error": "not found"})
+			return
+		}
+		if info.IsDir() {
+			c.JSON(403, gin.H{"error": "forbidden"})
+			return
+		}
 
 		c.File(fullPath)
 	})
