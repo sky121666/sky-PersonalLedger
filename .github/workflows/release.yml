@@ -101,6 +101,7 @@ jobs:
             ### Docker 部署 (推荐)
             ```bash
             docker pull ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
+            # Immutable digest: ghcr.io/${{ github.repository }}@${{ needs.docker.outputs.image_digest }}
             
             # 或使用当前 tag 的 compose 文件固定版本部署
             curl -fsSLO https://raw.githubusercontent.com/${{ github.repository }}/refs/tags/v${{ needs.prepare.outputs.version }}/docker-compose.yml
@@ -116,6 +117,7 @@ jobs:
             | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.apk` | 已使用 release keystore 签名 |
             | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.aab` | 已使用 release keystore 签名，适合正式商店分发 |
             | iOS | `personal-ledger-${{ needs.prepare.outputs.version }}-ios.ipa` | 已使用 Apple 签名材料导出 |
+            | Docker digest | `ghcr.io/${{ github.repository }}@${{ needs.docker.outputs.image_digest }}` | 不可变镜像引用 |
             | 校验文件 | `*.sha256` | 用于核对下载产物的 SHA-256 |
 
             macOS 和 Windows 客户端仍在平台回归阶段，暂不随本次 GitHub Release 发布。

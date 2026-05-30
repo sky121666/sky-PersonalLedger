@@ -28,8 +28,10 @@ require_file "README.md"
 require_file ".env.example"
 
 require_text ".github/workflows/docker.yml" "workflow_call"
+require_text ".github/workflows/docker.yml" "image_digest"
 require_text ".github/workflows/docker.yml" "ghcr\\.io"
 require_text ".github/workflows/docker.yml" "docker/build-push-action@v5"
+require_text ".github/workflows/docker.yml" "steps\\.build\\.outputs\\.digest"
 require_text ".github/workflows/docker.yml" "platforms: linux/amd64,linux/arm64"
 require_text ".github/workflows/docker.yml" "push: true"
 require_text ".github/workflows/docker.yml" "type=raw,value=\\$\\{\\{ steps\\.version\\.outputs\\.VERSION \\}\\}"
@@ -39,6 +41,7 @@ require_text ".github/workflows/release.yml" "needs: \\[prepare, docker, android
 require_text ".github/workflows/release.yml" "docker pull ghcr\\.io/\\$\\{\\{ github\\.repository \\}\\}:\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}"
 require_text ".github/workflows/release.yml" "refs/tags/v\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}/docker-compose\\.yml"
 require_text ".github/workflows/release.yml" "LEDGER_IMAGE=ghcr\\.io/\\$\\{\\{ github\\.repository \\}\\}:\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}"
+require_text ".github/workflows/release.yml" "needs\\.docker\\.outputs\\.image_digest"
 require_text ".github/workflows/release.yml" "LEDGER_SERVER_MODE=release"
 require_text ".github/workflows/release.yml" "docker compose up -d"
 
