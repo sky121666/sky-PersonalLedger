@@ -53,6 +53,7 @@ require_text ".github/workflows/android.yml" "personal-ledger-.*-android\\.aab\\
 require_text ".github/workflows/android.yml" "Verify Android release signatures"
 require_text ".github/workflows/android.yml" "APKSIGNER.*verify --verbose --print-certs"
 require_text ".github/workflows/android.yml" "jarsigner -verify -strict -certs"
+require_text ".github/workflows/android.yml" "/usr/local/lib/android/sdk"
 require_text ".github/workflows/ios.yml" "IOS_CERTIFICATE_BASE64"
 require_text ".github/workflows/ios.yml" "workflow_call"
 require_text ".github/workflows/ios.yml" "personal-ledger-.*-ios\\.ipa"
