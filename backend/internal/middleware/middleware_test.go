@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -105,8 +106,38 @@ func TestAuthWithAPITokenReturnsExpiredCodeForExpiredJWT(t *testing.T) {
 	}
 }
 
+func TestAPITokenAuthDoesNotExposeValidatorError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	r := gin.New()
+	r.Use(APITokenAuth(erroringAPITokenValidator{}))
+	r.GET("/protected", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer raw-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "invalid token") {
+		t.Fatalf("body = %s, want generic invalid token", body)
+	}
+	if strings.Contains(strings.ToLower(body), "database") || strings.Contains(strings.ToLower(body), "sql") {
+		t.Fatalf("body exposed validator error: %s", body)
+	}
+}
+
 type fakeAPITokenValidator struct{}
 
 func (fakeAPITokenValidator) ValidateToken(string) (uint, error) {
 	return 0, ledgerjwt.ErrInvalidToken
+}
+
+type erroringAPITokenValidator struct{}
+
+func (erroringAPITokenValidator) ValidateToken(string) (uint, error) {
+	return 0, errors.New("sql: database is closed")
 }

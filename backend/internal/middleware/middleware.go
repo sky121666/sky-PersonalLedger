@@ -233,7 +233,7 @@ func APITokenAuth(validator APITokenValidator) gin.HandlerFunc {
 
 		userID, err := validator.ValidateToken(parts[1])
 		if err != nil {
-			response.Unauthorized(c, err.Error())
+			response.Unauthorized(c, "invalid token")
 			c.Abort()
 			return
 		}

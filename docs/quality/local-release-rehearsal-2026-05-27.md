@@ -47,8 +47,8 @@ Latest local final gate run on 2026-05-30: **PASS**.
 | Premium screen smoke | PASS, 8 light/dark cases |
 | Real backend mobile E2E | PASS on flutter-tester |
 | Local final release gate | PASS on 2026-05-30; `LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` completed runtime health, AI privacy, production readiness, strict release inventory, strict backup operator drill, Docker local image smoke, Docker local compose smoke, and whitespace checks |
-| Local Docker image smoke | PASS on 2026-05-30; built `personal-ledger:local-smoke`, healthcheck `healthy`, temporary localhost port `32778`, persistent `ledger.db` / `uploads` / `backups` verified |
-| Local Docker Compose smoke | PASS on 2026-05-30; built `personal-ledger:local-smoke`, healthcheck `healthy`, temporary localhost port `62159`, JWT guard PASS, persistent `ledger.db` / `uploads` / `backups` verified |
+| Local Docker image smoke | PASS on 2026-05-30; built `personal-ledger:local-smoke`, healthcheck `healthy`, latest temporary localhost port `32779`, persistent `ledger.db` / `uploads` / `backups` verified |
+| Local Docker Compose smoke | PASS on 2026-05-30; built `personal-ledger:local-smoke`, healthcheck `healthy`, latest temporary localhost port `63896`, JWT guard PASS, persistent `ledger.db` / `uploads` / `backups` verified |
 | Strict final release gate | FAIL expected on 2026-05-30; missing real signed APK/AAB/IPA or TestFlight/archive evidence, GHCR digest/multi-arch manifest, USB iPhone physical QA, manual VoiceOver/TalkBack evidence, final release notes/runbook values, and artifact files |
 
 ## Command

@@ -68,6 +68,10 @@ require_file "scripts/check-mobile-device-qa-preflight.sh"
 require_file "scripts/check-final-release-gates.sh"
 require_file "scripts/verify-mobile-e2e.sh"
 
+require_absent_text "backend/internal/service/health.go" 'Message: err\.Error\(\)'
+require_text "backend/internal/service/health.go" 'database check failed'
+require_text "backend/internal/service/health.go" 'directory is not accessible'
+require_absent_text "backend/internal/middleware/middleware.go" 'response\.Unauthorized\(c, err\.Error\(\)\)'
 require_absent "web/package-lock.json"
 require_absent "web/yarn.lock"
 require_absent "web/bun.lockb"

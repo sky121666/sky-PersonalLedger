@@ -249,6 +249,8 @@ backend/internal/service/api_token.go
 backend/internal/service/api_token_test.go
 backend/internal/service/auth.go
 backend/internal/service/auth_test.go
+backend/internal/service/health.go
+backend/internal/service/health_test.go
 backend/internal/service/lending.go
 backend/internal/service/lending_test.go
 backend/internal/service/notification.go

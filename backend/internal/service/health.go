@@ -43,7 +43,7 @@ func (s *HealthService) Check() HealthStatus {
 
 	if err := s.checkDatabase(&status); err != nil {
 		status.Status = "unhealthy"
-		status.Checks["database"] = HealthCheck{Status: "fail", Message: err.Error()}
+		status.Checks["database"] = HealthCheck{Status: "fail", Message: "database check failed"}
 	} else {
 		status.Checks["database"] = HealthCheck{Status: "ok"}
 	}
@@ -85,7 +85,7 @@ func checkDirectory(path string) HealthCheck {
 	}
 	info, err := os.Stat(path)
 	if err != nil {
-		return HealthCheck{Status: "fail", Message: err.Error()}
+		return HealthCheck{Status: "fail", Message: "directory is not accessible"}
 	}
 	if !info.IsDir() {
 		return HealthCheck{Status: "fail", Message: "not a directory"}
