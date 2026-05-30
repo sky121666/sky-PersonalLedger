@@ -23,6 +23,16 @@ require_tool() {
   command -v "$name" >/dev/null 2>&1 || fail "Missing required tool: $name"
 }
 
+pick_port() {
+  python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+}
+
 [[ -f "$ROOT_DIR/$EVIDENCE_FILE" ]] || fail "Missing Docker release evidence file: $EVIDENCE_FILE"
 
 require_text '^## Conclusion'
@@ -54,8 +64,11 @@ fi
 if [[ "$RUN_SMOKE" == "1" ]]; then
   [[ -n "$IMAGE" ]] || fail "DOCKER_RELEASE_IMAGE is required when RUN_DOCKER_RELEASE_SMOKE=1."
   require_tool docker
+  require_tool curl
+  require_tool python3
 
   smoke_dir="$(mktemp -d /tmp/personal-ledger-docker-smoke.XXXXXX)"
+  smoke_port="$(pick_port)"
   cleanup() {
     (
       cd "$smoke_dir" 2>/dev/null && docker compose down -v >/dev/null 2>&1
@@ -64,13 +77,13 @@ if [[ "$RUN_SMOKE" == "1" ]]; then
   }
   trap cleanup EXIT
 
-  mkdir -p "$smoke_dir/data"
+  mkdir -p "$smoke_dir/data/uploads" "$smoke_dir/data/backups"
   cat >"$smoke_dir/docker-compose.yml" <<EOF
 services:
   personal-ledger:
     image: $IMAGE
     ports:
-      - "18080:8080"
+      - "127.0.0.1:$smoke_port:8080"
     volumes:
       - ./data:/data
     environment:
@@ -79,6 +92,8 @@ services:
       - LEDGER_DATABASE_DRIVER=sqlite
       - LEDGER_DATABASE_PATH=/data/ledger.db
       - LEDGER_SETUP_CONFIG_PATH=/data/config.yaml
+      - LEDGER_STORAGE_UPLOAD_PATH=/data/uploads
+      - LEDGER_STORAGE_BACKUP_PATH=/data/backups
       - TZ=Asia/Shanghai
 EOF
 
@@ -88,17 +103,44 @@ EOF
     docker compose up -d
   )
 
-  health_url="http://127.0.0.1:18080/api/v1/health"
+  health_url="http://127.0.0.1:$smoke_port/api/v1/health"
   for _ in $(seq 1 30); do
     if curl -fsS "$health_url" >/dev/null 2>&1; then
-      echo "Docker release smoke checks passed for $IMAGE."
-      exit 0
+      break
     fi
     sleep 2
   done
 
-  docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
-  fail "Docker release smoke did not become healthy: $IMAGE"
+  if ! curl -fsS "$health_url" >/dev/null 2>&1; then
+    docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
+    fail "Docker release smoke did not become healthy: $IMAGE"
+  fi
+
+  container_id="$(cd "$smoke_dir" && docker compose ps -q personal-ledger)"
+  health_status=""
+  for _ in $(seq 1 10); do
+    health_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$container_id")"
+    if [[ "$health_status" == "healthy" ]]; then
+      break
+    fi
+    sleep 3
+  done
+
+  if [[ "$health_status" != "healthy" ]]; then
+    docker inspect --format '{{json .State.Health}}' "$container_id" >&2 || true
+    docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
+    fail "Docker release image HEALTHCHECK did not become healthy; status=${health_status:-unknown}: $IMAGE"
+  fi
+
+  for required_path in "$smoke_dir/data/ledger.db" "$smoke_dir/data/uploads" "$smoke_dir/data/backups"; do
+    if [[ ! -e "$required_path" ]]; then
+      fail "Expected persistent path missing: $required_path"
+    fi
+  done
+
+  echo "Docker release smoke checks passed for $IMAGE on 127.0.0.1:$smoke_port."
+  echo "Image healthcheck: healthy"
+  echo "Persistent paths: ledger.db, uploads, backups"
 fi
 
 echo "Docker release evidence checks passed."

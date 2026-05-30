@@ -162,6 +162,9 @@ require_absent_text "backend/internal/handler/auth.go" 'invalid request: "\+err\
 require_absent_text "backend/internal/handler/setup.go" 'invalid request: "\+err\.Error\(\)'
 require_text "scripts/check-release-artifact-files.sh" 'REQUIRE_CHECKSUM_SIDECARS:-1'
 require_text "scripts/check-release-artifact-files.sh" 'Missing \$label checksum sidecar'
+require_text "scripts/check-docker-release-evidence.sh" 'pick_port'
+require_text "scripts/check-docker-release-evidence.sh" 'Image healthcheck: healthy'
+require_text "scripts/check-docker-release-evidence.sh" 'Persistent paths: ledger\.db, uploads, backups'
 if ! perl -0ne 'exit 1 if /ShouldBindJSON\(&req\); err != nil \{\n\t\tresponse\.BadRequest\(c, err\.Error\(\)\)/' "$ROOT_DIR"/backend/internal/handler/*.go; then
   echo "Unexpected bind error detail returned from handler" >&2
   exit 1
