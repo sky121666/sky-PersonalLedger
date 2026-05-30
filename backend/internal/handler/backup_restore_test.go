@@ -216,6 +216,14 @@ func TestRestoreRejectsMalformedBackupPayload(t *testing.T) {
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("restore status = %d, body = %s", response.Code, response.Body.String())
 	}
+	if !strings.Contains(response.Body.String(), "invalid backup file") {
+		t.Fatalf("body = %s, want generic invalid backup file error", response.Body.String())
+	}
+	for _, leaked := range []string{"unexpected end", "invalid character", "accounts"} {
+		if strings.Contains(strings.ToLower(response.Body.String()), leaked) {
+			t.Fatalf("restore response exposed parser detail %q: %s", leaked, response.Body.String())
+		}
+	}
 }
 
 func TestRestorePreRestoreFailureDoesNotExposeBackupPath(t *testing.T) {

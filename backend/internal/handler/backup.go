@@ -55,8 +55,12 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 
 	err = h.backupService.RestoreBackup(userID, file)
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidBackupData) || errors.Is(err, service.ErrInvalidBackupFormat) {
-			response.BadRequest(c, err.Error())
+		if errors.Is(err, service.ErrInvalidBackupFormat) {
+			response.BadRequest(c, service.ErrInvalidBackupFormat.Error())
+			return
+		}
+		if errors.Is(err, service.ErrInvalidBackupData) {
+			response.BadRequest(c, service.ErrInvalidBackupData.Error())
 			return
 		}
 		internalServerError(c, err, "failed to restore backup")
