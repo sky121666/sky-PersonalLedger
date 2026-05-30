@@ -172,7 +172,7 @@ func (s *NotificationService) TestEmail(setting *model.NotificationSetting, user
 
 	err := s.sendEmail(setting, userID, subject, body)
 	if err != nil {
-		return &TestResult{Success: false, Message: err.Error()}
+		return &TestResult{Success: false, Message: sanitizeNotificationEmailError(err)}
 	}
 	return &TestResult{Success: true, Message: "邮件发送成功"}
 }
@@ -198,14 +198,14 @@ func (s *NotificationService) sendWebhook(url string, payload interface{}) *Test
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
 	if err != nil {
-		return &TestResult{Success: false, Message: err.Error()}
+		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或网络"}
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return &TestResult{Success: false, Message: err.Error()}
+		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或网络"}
 	}
 	defer resp.Body.Close()
 
@@ -289,7 +289,7 @@ func (s *NotificationService) SendNotification(userID uint, title, content strin
 	if setting.EmailEnabled {
 		err := s.sendEmail(setting, userID, title, content)
 		if err != nil {
-			errs = append(errs, "邮箱: "+err.Error())
+			errs = append(errs, "邮箱: "+sanitizeNotificationEmailError(err))
 		}
 	}
 
@@ -309,6 +309,18 @@ func (s *NotificationService) SendNotification(userID uint, title, content strin
 		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+func sanitizeNotificationEmailError(err error) string {
+	if err == nil {
+		return ""
+	}
+	switch err.Error() {
+	case "邮箱配置不完整", "用户邮箱未设置，请在个人信息中设置邮箱地址":
+		return err.Error()
+	default:
+		return "邮件发送失败，请检查邮箱配置或网络"
+	}
 }
 
 // SendLendingDueNotification sends notification for lending due dates
