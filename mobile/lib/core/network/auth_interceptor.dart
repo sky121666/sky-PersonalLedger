@@ -21,6 +21,7 @@ class AuthInterceptor extends Interceptor {
   final SecureStorageService _secureStorage;
   final FutureOr<void> Function()? _onSessionExpired;
   Future<AuthTokenPair?>? _refreshingToken;
+  Future<void>? _expiringSession;
 
   /// 请求前自动注入认证头。
   @override
@@ -58,7 +59,12 @@ class AuthInterceptor extends Interceptor {
         (err.response?.data as Map<String, dynamic>)['code'] == 40102;
     final hasRetried = err.requestOptions.extra[retriedExtraKey] == true;
 
-    if (!isTokenExpired || hasRetried) {
+    if (!isTokenExpired) {
+      handler.next(err);
+      return;
+    }
+    if (hasRetried) {
+      await _expireSession();
       handler.next(err);
       return;
     }
@@ -138,7 +144,14 @@ class AuthInterceptor extends Interceptor {
   }
 
   /// 清理登录态并通知上层会话失效。
-  Future<void> _expireSession() async {
+  Future<void> _expireSession() {
+    _expiringSession ??= _doExpireSession().whenComplete(() {
+      _expiringSession = null;
+    });
+    return _expiringSession!;
+  }
+
+  Future<void> _doExpireSession() async {
     await _secureStorage.clearTokens();
     await _onSessionExpired?.call();
   }

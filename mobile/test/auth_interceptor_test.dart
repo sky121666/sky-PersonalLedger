@@ -83,12 +83,104 @@ void main() {
       expect(storage.refreshToken, isNull);
     },
   );
+
+  test(
+    'expires the session once when concurrent refresh attempts fail',
+    () async {
+      final storage = _MemorySecureStorage(
+        accessToken: 'expired-access',
+        refreshToken: 'invalid-refresh',
+      );
+      final adapter = _TokenRefreshAdapter(refreshShouldFail: true);
+      var expiredCalls = 0;
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: 'https://ledger.example.com/api/v1',
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+        ),
+      )..httpClientAdapter = adapter;
+      dio.interceptors.add(
+        AuthInterceptor(
+          dio: dio,
+          secureStorage: storage,
+          onSessionExpired: () async {
+            expiredCalls++;
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+          },
+        ),
+      );
+
+      final results = await Future.wait(
+        [
+          dio.get<Object?>('/protected'),
+          dio.get<Object?>('/protected'),
+          dio.get<Object?>('/protected'),
+        ].map((request) async {
+          try {
+            await request;
+            return false;
+          } on DioException {
+            return true;
+          }
+        }),
+      );
+
+      expect(results, everyElement(isTrue));
+      expect(adapter.refreshRequests, 1);
+      expect(expiredCalls, 1);
+      expect(storage.accessToken, isNull);
+      expect(storage.refreshToken, isNull);
+    },
+  );
+
+  test(
+    'expires the session when a retried request is still unauthorized',
+    () async {
+      final storage = _MemorySecureStorage(
+        accessToken: 'expired-access',
+        refreshToken: 'valid-refresh',
+      );
+      final adapter = _TokenRefreshAdapter(retriedRequestShouldFail: true);
+      var expired = false;
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: 'https://ledger.example.com/api/v1',
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+        ),
+      )..httpClientAdapter = adapter;
+      dio.interceptors.add(
+        AuthInterceptor(
+          dio: dio,
+          secureStorage: storage,
+          onSessionExpired: () {
+            expired = true;
+          },
+        ),
+      );
+
+      await expectLater(
+        dio.get<Object?>('/protected'),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(adapter.refreshRequests, 1);
+      expect(expired, isTrue);
+      expect(storage.accessToken, isNull);
+      expect(storage.refreshToken, isNull);
+    },
+  );
 }
 
 class _TokenRefreshAdapter implements HttpClientAdapter {
-  _TokenRefreshAdapter({this.refreshShouldFail = false});
+  _TokenRefreshAdapter({
+    this.refreshShouldFail = false,
+    this.retriedRequestShouldFail = false,
+  });
 
   final bool refreshShouldFail;
+  final bool retriedRequestShouldFail;
   int protectedRequests = 0;
   int refreshRequests = 0;
   final List<String?> protectedRequestAuthHeaders = [];
@@ -126,7 +218,7 @@ class _TokenRefreshAdapter implements HttpClientAdapter {
       protectedRequests++;
       final authHeader = _authorizationHeader(options);
       protectedRequestAuthHeaders.add(authHeader);
-      if (authHeader == 'Bearer fresh-access') {
+      if (authHeader == 'Bearer fresh-access' && !retriedRequestShouldFail) {
         return _jsonResponse(options, 200, {
           'code': 0,
           'message': 'ok',
