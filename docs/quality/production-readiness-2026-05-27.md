@@ -4,7 +4,7 @@
 
 Personal Ledger is now on the correct product track for a private/family self-hosted release: family accounting is modeled as an owner-scoped household dimension, AI analysis uses an OpenAI-compatible adapter with aggregated snapshots, and mobile premium screens have simulator/emulator evidence.
 
-This document defines the remaining gates for a 100/100 release. The current state is strong enough for local advanced testing and has passed a source-level local release rehearsal. External release evidence is intentionally deferred for the current local acceptance scope; it is not yet a fully proven public release because physical iPhone validation, signed iOS/Android release artifacts, and store/distribution evidence are still required later.
+This document defines the remaining gates for a 100/100 release. The current state is strong enough for local advanced testing and has passed a source-level local release rehearsal. External release evidence is intentionally deferred for the current local acceptance scope; it is not yet a fully proven public release because iOS/Android device validation, signed iOS/Android release artifacts, and store/distribution evidence are still required later.
 
 ## Target
 
@@ -14,8 +14,8 @@ This document defines the remaining gates for a 100/100 release. The current sta
 | Family functions | Member CRUD, transaction member attribution, family summary, Family Hub UI | PASS for phase 1; family budget/roles remain phase 2 |
 | AI reports | OpenAI-compatible provider, weekly/monthly generation, aggregated snapshot, no raw remarks by default | PASS for phase 1 |
 | AI secret safety | Provider API keys are not returned by API, not backed up, and are protected at rest for new saves | PASS after AES-GCM protection |
-| iOS/Android native quality | Flutter native screens, light/dark premium UI, emulator/simulator smoke, accessibility widget checks | PASS with physical iPhone and manual screen-reader gaps |
-| Physical device proof | Real iPhone and Android device/simulator platform checks | PARTIAL; iPhone USB validation remains missing |
+| iOS/Android native quality | Flutter native screens, light/dark premium UI, emulator/simulator smoke, accessibility widget checks | PASS with release-device and manual screen-reader gaps |
+| Physical device proof | Real iPhone and Android device/simulator platform checks | PARTIAL; USB iPhone and Android release-device evidence remain missing |
 | Formal distribution | Docker image, signed Android APK/AAB artifact path, signed iOS artifact path, release notes, repeatable tag workflow | PARTIAL; Android APK/AAB workflow exists, iOS workflow is prepared, signing secrets have not yet produced real artifacts |
 | Recovery | Backup scope documented and restore rehearsal covers family member, member-linked transaction, and AI report history | PASS for automated rehearsal and local isolated operator drill |
 

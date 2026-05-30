@@ -4,7 +4,7 @@
 
 The local release rehearsal entrypoint is `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh`. It verifies the current working tree directly, not only `HEAD`, and is the local gate before any tag, artifact upload, or public release.
 
-This rehearsal cannot replace signed Android/iOS artifact generation or physical iPhone validation. It proves source-level release readiness on the local machine.
+This rehearsal cannot replace signed Android/iOS artifact generation, USB iPhone validation, or Android device/emulator release QA. It proves source-level release readiness on the local machine.
 
 Latest local final gate run on 2026-05-30: **PASS**.
 
@@ -49,7 +49,7 @@ Latest local final gate run on 2026-05-30: **PASS**.
 | Local final release gate | PASS on 2026-05-30; `LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` completed runtime health, AI privacy, production readiness, strict release inventory, strict backup operator drill, Docker local image smoke, Docker local compose smoke, and whitespace checks |
 | Local Docker image smoke | PASS on 2026-05-30; built `personal-ledger:local-smoke`, healthcheck `healthy`, latest temporary localhost port `32779`, persistent `ledger.db` / `uploads` / `backups` verified |
 | Local Docker Compose smoke | PASS on 2026-05-30; built `personal-ledger:local-smoke`, healthcheck `healthy`, latest temporary localhost port `63896`, JWT guard PASS, persistent `ledger.db` / `uploads` / `backups` verified |
-| Strict final release gate | FAIL expected on 2026-05-30; missing real signed APK/AAB/IPA or TestFlight/archive evidence, GHCR digest/multi-arch manifest, USB iPhone physical QA, manual VoiceOver/TalkBack evidence, final release notes/runbook values, and artifact files |
+| Strict final release gate | FAIL expected on 2026-05-30; missing real signed APK/AAB/IPA or TestFlight/archive evidence, GHCR digest/multi-arch manifest plus release-image smoke, iOS/Android device QA, manual VoiceOver/TalkBack evidence, final release notes/runbook values, and artifact files |
 
 ## Command
 
@@ -78,5 +78,5 @@ LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 | --- | --- |
 | Signed Android artifact | Requires release keystore secrets or CI artifact run |
 | Signed iOS IPA/TestFlight | Requires Apple certificate, provisioning profile, and export options |
-| Physical iPhone validation | Requires USB-connected device or supported physical-device workflow |
+| iOS/Android device validation | Requires USB-connected iPhone plus Android device/emulator E2E or supported signed-install manual workflow |
 | Real screen-reader pass | Requires manual VoiceOver/TalkBack operation on target device |
