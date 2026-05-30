@@ -45,7 +45,7 @@ void main() {
     expect(find.text('每周总结'), findsWidgets);
     expect(find.text('已完成'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsWidgets);
-    expect(find.text('DeepSeek / deepseek-chat'), findsOneWidget);
+    expect(find.text('DeepSeek / deepseek-chat'), findsWidgets);
 
     await tester.tap(find.text('DeepSeek / deepseek-chat'));
     await tester.pumpAndSettle();
@@ -79,7 +79,7 @@ void main() {
 
     await tester.scrollUntilVisible(find.text('暂无 AI 报告'), 300);
     expect(find.text('暂无 AI 报告'), findsOneWidget);
-    expect(find.text('生成本周报告'), findsWidgets);
+    expect(find.text('生成报告'), findsWidgets);
   });
 
   testWidgets('AIReportsPage 展示失败报告错误态', (tester) async {
@@ -124,6 +124,16 @@ void main() {
 
   testWidgets('AIReportsPage 可触发生成本周报告', (tester) async {
     final repository = _FakeAIReportRepository();
+    repository.providers.add(
+      const AIProviderSummary(
+        id: 'provider-existing',
+        name: 'DeepSeek',
+        providerType: 'openai_compatible',
+        baseUrl: 'https://api.deepseek.com',
+        model: 'deepseek-chat',
+        enabled: true,
+      ),
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [aiReportRepositoryProvider.overrideWithValue(repository)],
@@ -132,13 +142,46 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('生成本周报告'));
+    await tester.tap(find.byTooltip('生成报告'));
+    await tester.pumpAndSettle();
+    expect(find.text('生成 AI 报告'), findsOneWidget);
+    expect(find.text('DeepSeek / deepseek-chat'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('ai-report-generate-submit')));
     await tester.pumpAndSettle();
 
     expect(repository.generateCalls, hasLength(1));
     expect(repository.generateCalls.single.reportType, 'weekly');
+    expect(repository.generateCalls.single.providerId, 'provider-existing');
     expect(repository.generateCalls.single.maskNames, isTrue);
     expect(find.text('AI 报告已生成'), findsOneWidget);
+  });
+
+  testWidgets('AIReportsPage 校验报告周期', (tester) async {
+    final repository = _FakeAIReportRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [aiReportRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: AIReportsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('生成报告'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('ai-report-start-date')),
+      '2026-05-31',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('ai-report-end-date')),
+      '2026-05-01',
+    );
+    await tester.tap(find.byKey(const ValueKey('ai-report-generate-submit')));
+    await tester.pumpAndSettle();
+
+    expect(repository.generateCalls, isEmpty);
+    expect(find.text('开始日期不能晚于结束日期'), findsOneWidget);
   });
 
   testWidgets('AIReportsPage 可管理自动报告设置', (tester) async {

@@ -17,10 +17,11 @@
 - Family member management with member-linked transactions.
 - Family monthly summary and premium mobile Family Hub.
 - Member-level total and category budget foundation.
-- OpenAI-compatible AI provider setup and weekly/monthly AI reports.
+- OpenAI-compatible AI provider setup and weekly/monthly AI reports across Web and native mobile.
 - Non-secret AI provider presets for DeepSeek, OpenAI, SiliconFlow, and custom gateways.
 - AI report snapshots include aggregate budget and member-budget context without raw transaction remarks.
 - Web AI report detail renders aggregate snapshot metrics, risk cards, and family member snapshots.
+- Native mobile AI reports can select report type, enabled Provider, period, and member/account masking before generation.
 - Aggregated AI snapshots that exclude raw transaction remarks by default.
 - Premium mobile Home, Quick Transaction, AI Reports, Family Hub, member-budget budget screen surfaces, and Family Hub budget strip.
 

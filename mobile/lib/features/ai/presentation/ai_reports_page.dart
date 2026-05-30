@@ -33,14 +33,14 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
         title: const Text('AI 财务报告'),
         actions: [
           IconButton(
-            onPressed: _generating ? null : _generateWeeklyReport,
+            onPressed: _generating ? null : _showGenerateReportSheet,
             icon: _generating
                 ? const SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.auto_awesome_outlined),
-            tooltip: '生成本周报告',
+            tooltip: '生成报告',
           ),
         ],
       ),
@@ -77,7 +77,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                   const SizedBox(height: 12),
                   _AIReportsEmptyState(
                     generating: _generating,
-                    onGenerate: _generating ? null : _generateWeeklyReport,
+                    onGenerate: _generating ? null : _showGenerateReportSheet,
                   ),
                 ],
               );
@@ -106,7 +106,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                     period:
                         '${_formatDate(report.periodStart)} - ${_formatDate(report.periodEnd)}',
                     onRegenerate: report.status == 'failed'
-                        ? _generateWeeklyReport
+                        ? _showGenerateReportSheet
                         : null,
                   ),
                 );
@@ -228,22 +228,47 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
     }
   }
 
-  Future<void> _generateWeeklyReport() async {
+  Future<void> _showGenerateReportSheet() async {
+    late final AIProviderSetupData setup;
+    try {
+      setup = await ref.read(aiProviderSetupProvider.future);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Provider 配置加载失败：$error')));
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final weekday = now.weekday;
+    final start = DateTime(now.year, now.month, now.day - weekday + 1);
+    final end = start.add(const Duration(days: 6));
+    final request = await showModalBottomSheet<GenerateAIReportRequest>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AIReportGenerateSheet(
+        providers: setup.providers
+            .where((provider) => provider.enabled)
+            .toList(),
+        defaultStart: _formatRequestDate(start),
+        defaultEnd: _formatRequestDate(end),
+      ),
+    );
+    if (request == null) {
+      return;
+    }
+    await _generateReport(request);
+  }
+
+  Future<void> _generateReport(GenerateAIReportRequest request) async {
     setState(() => _generating = true);
     try {
-      final now = DateTime.now();
-      final weekday = now.weekday;
-      final start = DateTime(now.year, now.month, now.day - weekday + 1);
-      final end = start.add(const Duration(days: 6));
-      await ref
-          .read(aiReportRepositoryProvider)
-          .generateReport(
-            GenerateAIReportRequest(
-              reportType: 'weekly',
-              periodStart: _formatRequestDate(start),
-              periodEnd: _formatRequestDate(end),
-            ),
-          );
+      await ref.read(aiReportRepositoryProvider).generateReport(request);
       ref.invalidate(aiReportsProvider);
       if (mounted) {
         ScaffoldMessenger.of(
@@ -759,6 +784,191 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
   }
 }
 
+class _AIReportGenerateSheet extends StatefulWidget {
+  const _AIReportGenerateSheet({
+    required this.providers,
+    required this.defaultStart,
+    required this.defaultEnd,
+  });
+
+  final List<AIProviderSummary> providers;
+  final String defaultStart;
+  final String defaultEnd;
+
+  @override
+  State<_AIReportGenerateSheet> createState() => _AIReportGenerateSheetState();
+}
+
+class _AIReportGenerateSheetState extends State<_AIReportGenerateSheet> {
+  late String _reportType;
+  late String _providerId;
+  late final TextEditingController _startController;
+  late final TextEditingController _endController;
+  var _maskNames = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _reportType = 'weekly';
+    _providerId = widget.providers.isEmpty ? '' : widget.providers.first.id;
+    _startController = TextEditingController(text: widget.defaultStart);
+    _endController = TextEditingController(text: widget.defaultEnd);
+  }
+
+  @override
+  void dispose() {
+    _startController.dispose();
+    _endController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 18,
+          bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '生成 AI 报告',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _reportType,
+                decoration: const InputDecoration(labelText: '报告类型'),
+                items: const [
+                  DropdownMenuItem(value: 'weekly', child: Text('每周总结')),
+                  DropdownMenuItem(value: 'monthly', child: Text('月度总结')),
+                  DropdownMenuItem(value: 'family', child: Text('家庭分析')),
+                  DropdownMenuItem(value: 'budget', child: Text('预算建议')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _reportType = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                initialValue: _providerId,
+                decoration: const InputDecoration(labelText: 'Provider'),
+                items: [
+                  const DropdownMenuItem(
+                    value: '',
+                    child: Text('自动选择启用 Provider'),
+                  ),
+                  for (final provider in widget.providers)
+                    DropdownMenuItem(
+                      value: provider.id,
+                      child: Text('${provider.name} / ${provider.model}'),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _providerId = value ?? ''),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('ai-report-start-date'),
+                      controller: _startController,
+                      decoration: const InputDecoration(
+                        labelText: '开始日期',
+                        hintText: 'YYYY-MM-DD',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('ai-report-end-date'),
+                      controller: _endController,
+                      decoration: const InputDecoration(
+                        labelText: '结束日期',
+                        hintText: 'YYYY-MM-DD',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _maskNames,
+                title: const Text('遮蔽成员和账户名称'),
+                subtitle: const Text('发送给 Provider 前替换为成员1、账户1等匿名标签。'),
+                onChanged: (value) => setState(() => _maskNames = value),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey('ai-report-generate-submit'),
+                  onPressed: _submit,
+                  icon: const Icon(Icons.auto_awesome_outlined),
+                  label: const Text('生成报告'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _submit() {
+    final start = _startController.text.trim();
+    final end = _endController.text.trim();
+    if (start.isEmpty || end.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写报告周期')));
+      return;
+    }
+    final startDate = _parseDate(start);
+    final endDate = _parseDate(end);
+    if (startDate == null || endDate == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('日期格式应为 YYYY-MM-DD')));
+      return;
+    }
+    if (startDate.isAfter(endDate)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('开始日期不能晚于结束日期')));
+      return;
+    }
+    Navigator.of(context).pop(
+      GenerateAIReportRequest(
+        reportType: _reportType,
+        providerId: _providerId.isEmpty ? null : _providerId,
+        periodStart: start,
+        periodEnd: end,
+        maskNames: _maskNames,
+      ),
+    );
+  }
+
+  DateTime? _parseDate(String value) {
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) {
+      return null;
+    }
+    return DateTime.tryParse(value);
+  }
+}
+
 class _AIReportScheduleForm extends StatelessWidget {
   const _AIReportScheduleForm({
     required this.settings,
@@ -926,7 +1136,7 @@ class _AIReportsEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '配置 OpenAI 兼容 Provider 后，可生成周报并在这里查看聚合后的财务洞察。',
+              '配置 OpenAI 兼容 Provider 后，可选择周期生成聚合后的财务洞察。',
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
@@ -941,7 +1151,7 @@ class _AIReportsEmptyState extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.auto_awesome_outlined),
-              label: const Text('生成本周报告'),
+              label: const Text('生成报告'),
             ),
             if (generating) ...[
               const SizedBox(height: 12),
