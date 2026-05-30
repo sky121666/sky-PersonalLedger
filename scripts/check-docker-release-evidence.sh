@@ -50,6 +50,7 @@ if [[ "${STRICT_DOCKER_RELEASE_EVIDENCE:-0}" == "1" ]]; then
   if grep -nE '\bPENDING\b|<[^>]+>|X\.Y\.Z' "$ROOT_DIR/$EVIDENCE_FILE" >&2; then
     fail "Docker release evidence still contains pending placeholders."
   fi
+  [[ -n "$IMAGE" ]] || fail "DOCKER_RELEASE_IMAGE is required when STRICT_DOCKER_RELEASE_EVIDENCE=1."
 fi
 
 if [[ -n "$IMAGE" ]]; then
