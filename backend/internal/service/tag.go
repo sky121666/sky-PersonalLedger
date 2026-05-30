@@ -5,6 +5,7 @@ import (
 
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
+	"gorm.io/gorm"
 )
 
 var (
@@ -28,7 +29,11 @@ type CreateTagRequest struct {
 
 func (s *TagService) Create(userID uint, req CreateTagRequest) (*model.Tag, error) {
 	// Check if tag with same name exists
-	if existing, _ := s.repo.GetByName(userID, req.Name); existing != nil {
+	existing, err := s.repo.GetByName(userID, req.Name)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if existing != nil {
 		return nil, ErrTagExists
 	}
 
@@ -68,7 +73,11 @@ func (s *TagService) Update(id string, userID uint, req CreateTagRequest) (*mode
 	}
 
 	// Check if another tag with same name exists
-	if existing, _ := s.repo.GetByName(userID, req.Name); existing != nil && existing.ID != id {
+	existing, err := s.repo.GetByName(userID, req.Name)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if existing != nil && existing.ID != id {
 		return nil, ErrTagExists
 	}
 

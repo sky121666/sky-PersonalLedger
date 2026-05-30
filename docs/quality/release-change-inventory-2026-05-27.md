@@ -226,6 +226,7 @@ backend/internal/handler/reminder.go
 backend/internal/handler/statistics.go
 backend/internal/handler/statistics_test.go
 backend/internal/handler/system.go
+backend/internal/handler/tag.go
 backend/internal/handler/template.go
 backend/internal/handler/transaction.go
 backend/internal/handler/transaction_test.go
@@ -250,6 +251,7 @@ backend/internal/service/lending_test.go
 backend/internal/service/notification.go
 backend/internal/service/notification_test.go
 backend/internal/service/statistics.go
+backend/internal/service/tag.go
 backend/internal/service/upload.go
 backend/internal/service/upload_test.go
 backend/pkg/jwt/jwt.go

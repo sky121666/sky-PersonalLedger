@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -150,6 +151,39 @@ func TestFamilyListDoesNotExposeDatabaseError(t *testing.T) {
 	response := performQueryErrorRequest(router, "/family/members")
 
 	assertGenericInternalError(t, response, "failed to list family members")
+}
+
+func TestTagListDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewTagHandler(service.NewTagService(repos.Tag))
+
+	router := gin.New()
+	router.GET("/tags", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.List(c)
+	})
+
+	response := performQueryErrorRequest(router, "/tags")
+
+	assertGenericInternalError(t, response, "failed to list tags")
+}
+
+func TestTagCreateDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewTagHandler(service.NewTagService(repos.Tag))
+
+	router := gin.New()
+	router.POST("/tags", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.Create(c)
+	})
+
+	request := httptest.NewRequest(http.MethodPost, "/tags", bytes.NewBufferString(`{"name":"travel"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	assertGenericInternalError(t, response, "failed to create tag")
 }
 
 func newClosedRepositoriesForHandlerTest(t *testing.T) *repository.Repositories {
