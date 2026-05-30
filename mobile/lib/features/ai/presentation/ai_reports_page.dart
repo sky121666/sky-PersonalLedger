@@ -56,6 +56,9 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               state: providerState,
               testingProviderId: _testingProviderId,
               onAdd: _showProviderSheet,
+              onEdit: (setup, provider) =>
+                  _showProviderSheet(setup, provider: provider),
+              onDelete: _deleteProvider,
               onTest: _testProvider,
             );
             final scheduleSurface = _AIReportScheduleSurface(
@@ -115,7 +118,10 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
     );
   }
 
-  Future<void> _showProviderSheet(AIProviderSetupData setup) async {
+  Future<void> _showProviderSheet(
+    AIProviderSetupData setup, {
+    AIProviderSummary? provider,
+  }) async {
     final presets = setup.presets.isEmpty
         ? const [
             AIProviderPreset(
@@ -131,24 +137,71 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
     final request = await showModalBottomSheet<SaveAIProviderRequest>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _AIProviderEditorSheet(presets: presets),
+      builder: (_) =>
+          _AIProviderEditorSheet(presets: presets, provider: provider),
     );
     if (request == null) {
       return;
     }
     try {
-      await ref.read(aiReportRepositoryProvider).createProvider(request);
+      if (provider == null) {
+        await ref.read(aiReportRepositoryProvider).createProvider(request);
+      } else {
+        await ref
+            .read(aiReportRepositoryProvider)
+            .updateProvider(provider.id, request);
+      }
       ref.invalidate(aiProviderSetupProvider);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Provider 已保存')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider == null ? 'Provider 已保存' : 'Provider 已更新'),
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('保存 Provider 失败：$error')));
+      }
+    }
+  }
+
+  Future<void> _deleteProvider(AIProviderSummary provider) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除 Provider'),
+        content: Text('删除「${provider.name}」？已生成报告不会删除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    try {
+      await ref.read(aiReportRepositoryProvider).deleteProvider(provider.id);
+      ref.invalidate(aiProviderSetupProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Provider 已删除')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除 Provider 失败：$error')));
       }
     }
   }
@@ -348,12 +401,17 @@ class _AIProviderSetupSurface extends StatelessWidget {
     required this.state,
     required this.testingProviderId,
     required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
     required this.onTest,
   });
 
   final AsyncValue<AIProviderSetupData> state;
   final String? testingProviderId;
   final ValueChanged<AIProviderSetupData> onAdd;
+  final void Function(AIProviderSetupData setup, AIProviderSummary provider)
+  onEdit;
+  final ValueChanged<AIProviderSummary> onDelete;
   final ValueChanged<AIProviderSummary> onTest;
 
   @override
@@ -426,59 +484,95 @@ class _AIProviderSetupSurface extends StatelessWidget {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
-                        child: Row(
+                        child: Column(
                           children: [
-                            CircleAvatar(
-                              backgroundColor: colorScheme.secondary.withValues(
-                                alpha: 0.12,
-                              ),
-                              foregroundColor: colorScheme.secondary,
-                              child: const Icon(Icons.smart_toy_outlined),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    provider.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(fontWeight: FontWeight.w800),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${provider.baseUrl} / ${provider.model}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(color: colorScheme.outline),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            _AIReportStatusChip(
-                              status: provider.enabled
-                                  ? 'completed'
-                                  : 'pending',
-                              label: provider.enabled ? '启用' : '停用',
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              key: ValueKey('ai-provider-test-${provider.id}'),
-                              onPressed: testingProviderId == null
-                                  ? () => onTest(provider)
-                                  : null,
-                              child: testingProviderId == provider.id
-                                  ? const SizedBox.square(
-                                      dimension: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: colorScheme.secondary
+                                      .withValues(alpha: 0.12),
+                                  foregroundColor: colorScheme.secondary,
+                                  child: const Icon(Icons.smart_toy_outlined),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        provider.name,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
                                       ),
-                                    )
-                                  : const Text('测试连接'),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${provider.baseUrl} / ${provider.model}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: colorScheme.outline,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                _AIReportStatusChip(
+                                  status: provider.enabled
+                                      ? 'completed'
+                                      : 'pending',
+                                  label: provider.enabled ? '启用' : '停用',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton.icon(
+                                  key: ValueKey(
+                                    'ai-provider-edit-${provider.id}',
+                                  ),
+                                  onPressed: () => onEdit(setup, provider),
+                                  icon: const Icon(Icons.edit_outlined),
+                                  label: const Text('编辑'),
+                                ),
+                                const SizedBox(width: 4),
+                                OutlinedButton.icon(
+                                  key: ValueKey(
+                                    'ai-provider-test-${provider.id}',
+                                  ),
+                                  onPressed: testingProviderId == null
+                                      ? () => onTest(provider)
+                                      : null,
+                                  icon: testingProviderId == provider.id
+                                      ? const SizedBox.square(
+                                          dimension: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.bolt_outlined),
+                                  label: const Text('测试'),
+                                ),
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  key: ValueKey(
+                                    'ai-provider-delete-${provider.id}',
+                                  ),
+                                  onPressed: () => onDelete(provider),
+                                  icon: const Icon(Icons.delete_outline),
+                                  tooltip: '删除 Provider',
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -495,9 +589,10 @@ class _AIProviderSetupSurface extends StatelessWidget {
 }
 
 class _AIProviderEditorSheet extends StatefulWidget {
-  const _AIProviderEditorSheet({required this.presets});
+  const _AIProviderEditorSheet({required this.presets, this.provider});
 
   final List<AIProviderPreset> presets;
+  final AIProviderSummary? provider;
 
   @override
   State<_AIProviderEditorSheet> createState() => _AIProviderEditorSheetState();
@@ -514,11 +609,24 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedPreset = widget.presets.first;
-    _nameController = TextEditingController(text: _selectedPreset.name);
-    _baseUrlController = TextEditingController(text: _selectedPreset.baseUrl);
-    _modelController = TextEditingController(text: _selectedPreset.model);
+    final provider = widget.provider;
+    _selectedPreset = provider == null
+        ? widget.presets.first
+        : widget.presets.firstWhere(
+            (preset) => preset.providerType == provider.providerType,
+            orElse: () => widget.presets.first,
+          );
+    _nameController = TextEditingController(
+      text: provider?.name ?? _selectedPreset.name,
+    );
+    _baseUrlController = TextEditingController(
+      text: provider?.baseUrl ?? _selectedPreset.baseUrl,
+    );
+    _modelController = TextEditingController(
+      text: provider?.model ?? _selectedPreset.model,
+    );
     _apiKeyController = TextEditingController();
+    _enabled = provider?.enabled ?? true;
   }
 
   @override
@@ -546,7 +654,7 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '添加 Provider',
+                widget.provider == null ? '添加 Provider' : '编辑 Provider',
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -597,7 +705,7 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'API Key',
-                  helperText: '保存后不会回显，也不会写入备份。',
+                  helperText: '编辑时留空则不更换；保存后不会回显，也不会写入备份。',
                 ),
               ),
               const SizedBox(height: 10),
@@ -629,7 +737,10 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
     final baseUrl = _baseUrlController.text.trim();
     final model = _modelController.text.trim();
     final apiKey = _apiKeyController.text.trim();
-    if (name.isEmpty || baseUrl.isEmpty || model.isEmpty || apiKey.isEmpty) {
+    if (name.isEmpty ||
+        baseUrl.isEmpty ||
+        model.isEmpty ||
+        (widget.provider == null && apiKey.isEmpty)) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('请完整填写 Provider 信息')));

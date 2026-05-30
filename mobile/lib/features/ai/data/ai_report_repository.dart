@@ -142,6 +142,26 @@ class AIReportRepository {
     return provider;
   }
 
+  Future<AIProviderSummary> updateProvider(
+    String id,
+    SaveAIProviderRequest request,
+  ) async {
+    final provider = await _apiClient.put<AIProviderSummary>(
+      '/ai/providers/$id',
+      data: request.toJson(),
+      fromJsonT: (json) =>
+          AIProviderSummary.fromJson(json as Map<String, dynamic>? ?? const {}),
+    );
+    if (provider == null) {
+      throw StateError('Provider 响应为空');
+    }
+    return provider;
+  }
+
+  Future<void> deleteProvider(String id) async {
+    await _apiClient.delete<void>('/ai/providers/$id');
+  }
+
   Future<void> testProvider(String id) async {
     await _apiClient.post<void>('/ai/providers/$id/test');
   }
@@ -217,8 +237,8 @@ class SaveAIProviderRequest {
   const SaveAIProviderRequest({
     required this.name,
     required this.baseUrl,
-    required this.apiKey,
     required this.model,
+    this.apiKey = '',
     this.providerType = 'openai_compatible',
     this.enabled = true,
   });

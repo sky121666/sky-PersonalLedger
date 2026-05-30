@@ -203,12 +203,39 @@ void main() {
 
     expect(repository.testProviderIds, ['provider-1']);
     expect(find.text('连接测试通过'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    await tester.tap(find.byKey(const ValueKey('ai-provider-edit-provider-1')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(2), 'deepseek-reasoner');
+    await tester.tap(find.byKey(const ValueKey('ai-provider-save')));
+    await tester.pumpAndSettle();
+
+    expect(repository.updatedProviderIds, ['provider-1']);
+    expect(repository.updatedProviders.single.apiKey, isEmpty);
+    expect(repository.providers.single.model, 'deepseek-reasoner');
+    expect(find.text('Provider 已更新'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    await tester.tap(
+      find.byKey(const ValueKey('ai-provider-delete-provider-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedProviderIds, ['provider-1']);
+    expect(repository.providers, isEmpty);
+    expect(find.text('Provider 已删除'), findsOneWidget);
   });
 }
 
 class _FakeAIReportRepository implements AIReportRepository {
   final List<GenerateAIReportRequest> generateCalls = [];
   final List<SaveAIProviderRequest> createdProviders = [];
+  final List<SaveAIProviderRequest> updatedProviders = [];
+  final List<String> updatedProviderIds = [];
+  final List<String> deletedProviderIds = [];
   final List<String> testProviderIds = [];
   var triggerCalls = 0;
   var savedSchedule = const AIReportScheduleSettings();
@@ -299,6 +326,36 @@ class _FakeAIReportRepository implements AIReportRepository {
     );
     providers.add(provider);
     return provider;
+  }
+
+  @override
+  Future<AIProviderSummary> updateProvider(
+    String id,
+    SaveAIProviderRequest request,
+  ) async {
+    updatedProviderIds.add(id);
+    updatedProviders.add(request);
+    final index = providers.indexWhere((provider) => provider.id == id);
+    final provider = AIProviderSummary(
+      id: id,
+      name: request.name,
+      providerType: request.providerType,
+      baseUrl: request.baseUrl,
+      model: request.model,
+      enabled: request.enabled,
+    );
+    if (index == -1) {
+      providers.add(provider);
+    } else {
+      providers[index] = provider;
+    }
+    return provider;
+  }
+
+  @override
+  Future<void> deleteProvider(String id) async {
+    deletedProviderIds.add(id);
+    providers.removeWhere((provider) => provider.id == id);
   }
 
   @override
