@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -233,7 +234,22 @@ func isValidAIProviderBaseURL(baseURL string) bool {
 	if err != nil || parsed == nil {
 		return false
 	}
-	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+	if parsed.Host == "" {
+		return false
+	}
+	if parsed.Scheme == "https" {
+		return true
+	}
+	return parsed.Scheme == "http" && isLoopbackHost(parsed.Hostname())
+}
+
+func isLoopbackHost(host string) bool {
+	host = strings.TrimSpace(strings.ToLower(host))
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func aiProviderResponse(provider *model.AIProvider) *AIProviderResponse {
