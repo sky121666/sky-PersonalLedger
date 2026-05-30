@@ -70,7 +70,11 @@ run_strict_check "AI privacy contract" \
 
 "$ROOT_DIR/scripts/check-production-readiness.sh"
 
-if [[ "${LOCAL_FINAL_RELEASE:-0}" == "1" || "${SKIP_EXTERNAL_RELEASE_EVIDENCE:-0}" == "1" ]]; then
+if [[ "${STRICT_FINAL_RELEASE:-0}" == "1" && "${SKIP_EXTERNAL_RELEASE_EVIDENCE:-0}" == "1" ]]; then
+  fail "SKIP_EXTERNAL_RELEASE_EVIDENCE cannot be used with STRICT_FINAL_RELEASE=1."
+fi
+
+if [[ "${STRICT_FINAL_RELEASE:-0}" != "1" && ( "${LOCAL_FINAL_RELEASE:-0}" == "1" || "${SKIP_EXTERNAL_RELEASE_EVIDENCE:-0}" == "1" ) ]]; then
   local_failures=0
 
   run_strict_check "release change inventory coverage" \
