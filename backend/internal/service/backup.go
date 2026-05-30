@@ -151,7 +151,13 @@ func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
 		return nil, err
 	}
 
-	notificationSettings, _ := s.notificationRepo.GetByUserID(userID) // ignore error if not found
+	notificationSettings, err := s.notificationRepo.GetByUserID(userID)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		notificationSettings = nil
+	}
 
 	// Get user profile
 	var userProfile *UserProfileBackup

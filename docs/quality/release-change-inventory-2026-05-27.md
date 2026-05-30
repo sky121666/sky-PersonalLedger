@@ -210,6 +210,7 @@ backend/internal/config/config.go
 backend/internal/handler/account.go
 backend/internal/handler/account_log.go
 backend/internal/handler/account_test.go
+backend/internal/handler/api_token.go
 backend/internal/handler/auth.go
 backend/internal/handler/auth_test.go
 backend/internal/handler/attachment.go

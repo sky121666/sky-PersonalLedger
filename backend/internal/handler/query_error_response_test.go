@@ -208,6 +208,39 @@ func TestTagCreateDoesNotExposeDatabaseError(t *testing.T) {
 	assertGenericInternalError(t, response, "failed to create tag")
 }
 
+func TestAPITokenListDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewAPITokenHandler(service.NewAPITokenService(repos.APIToken))
+
+	router := gin.New()
+	router.GET("/api-tokens", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.List(c)
+	})
+
+	response := performQueryErrorRequest(router, "/api-tokens")
+
+	assertGenericInternalError(t, response, "failed to list tokens")
+}
+
+func TestAPITokenCreateDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewAPITokenHandler(service.NewAPITokenService(repos.APIToken))
+
+	router := gin.New()
+	router.POST("/api-tokens", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.Create(c)
+	})
+
+	request := httptest.NewRequest(http.MethodPost, "/api-tokens", bytes.NewBufferString(`{"name":"mobile"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	assertGenericInternalError(t, response, "failed to generate token")
+}
+
 func newClosedRepositoriesForHandlerTest(t *testing.T) *repository.Repositories {
 	t.Helper()
 	gin.SetMode(gin.TestMode)

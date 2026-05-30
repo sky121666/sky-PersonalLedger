@@ -74,3 +74,28 @@ func TestBackupDoesNotExportSecurityCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestBackupDoesNotIgnoreNotificationRepositoryFailure(t *testing.T) {
+	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))
+	if err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	repos := repository.NewRepositories(db)
+	backupSvc := NewBackupService(db, repos.Account, repos.Category, repos.Transaction, repos.Budget, repos.Reminder, repos.Lending, repos.Template, repos.Notification, repos.Tag, repos.User, repos.FamilyMember, repos.AIReport)
+
+	user := &model.User{Username: "admin", PasswordHash: "hash"}
+	if err := repos.User.Create(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	if err := db.Exec("DROP TABLE notification_settings").Error; err != nil {
+		t.Fatalf("drop notification settings table: %v", err)
+	}
+
+	_, err = backupSvc.CreateBackup(user.ID)
+	if err == nil {
+		t.Fatal("create backup succeeded, want notification repository error")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "notification") {
+		t.Fatalf("error = %q, want notification repository failure", err.Error())
+	}
+}
