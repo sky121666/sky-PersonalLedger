@@ -70,6 +70,7 @@ require_text ".github/workflows/release.yml" "artifacts/ios-ipa/\\*\\.ipa"
 require_text ".github/workflows/release.yml" "artifacts/ios-ipa/\\*\\.ipa\\.sha256"
 require_text ".github/workflows/release.yml" "check-release-artifact-files\\.sh"
 require_text ".github/workflows/release.yml" "REQUIRE_IOS_ARTIFACT=1"
+require_text ".github/workflows/release.yml" "VERIFY_ARTIFACT_SIGNATURES=1"
 require_text "mobile/android/app/build.gradle.kts" "Debug signing is intentionally disabled for release builds"
 require_text "mobile/android/app/build.gradle.kts" "ledgerAllowReleaseCleartext"
 require_text "mobile/android/app/src/main/AndroidManifest.xml" 'android:usesCleartextTraffic="\$\{usesCleartextTraffic\}"'

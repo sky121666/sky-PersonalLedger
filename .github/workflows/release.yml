@@ -79,6 +79,7 @@ jobs:
           RELEASE_ARTIFACT_DIR=artifacts \
           RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
           REQUIRE_IOS_ARTIFACT=1 \
+          VERIFY_ARTIFACT_SIGNATURES=1 \
           ./scripts/check-release-artifact-files.sh
 
       - name: Create Release
