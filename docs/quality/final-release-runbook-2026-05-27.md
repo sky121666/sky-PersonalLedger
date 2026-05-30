@@ -24,7 +24,7 @@ Use this mode while external release evidence is intentionally deferred:
 LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 ```
 
-This verifies source readiness, strict change inventory, backup operator drill evidence, local Docker image smoke, local Docker Compose smoke, and whitespace checks. It intentionally skips signed APK/AAB/IPA files, GHCR release image evidence, USB iPhone validation, and manual VoiceOver/TalkBack evidence.
+This verifies source readiness, strict change inventory, backup operator drill evidence, local Docker image smoke, local Docker Compose smoke, and whitespace checks. It intentionally skips signed APK/AAB/IPA files, GHCR release image evidence, USB iPhone validation, Android device validation, and manual VoiceOver/TalkBack evidence.
 
 ## 1. Configure Signing
 
@@ -87,12 +87,12 @@ Copy the verifier output into:
 docs/quality/release-artifact-evidence-2026-05-27.md
 ```
 
-## 4. Physical iPhone QA
+## 4. Mobile Device QA
 
-Connect the iPhone by USB, unlock it, trust this Mac, and confirm Developer Mode is enabled:
+Connect the iPhone by USB, unlock it, trust this Mac, confirm Developer Mode is enabled, and connect an Android device or start an Android emulator:
 
 ```bash
-REQUIRE_PHYSICAL_IOS=1 ./scripts/check-mobile-device-qa-preflight.sh
+REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_DEVICE=1 ./scripts/check-mobile-device-qa-preflight.sh
 ```
 
 Run real-backend E2E on the USB-connected iPhone when available:
@@ -102,6 +102,12 @@ REQUIRE_PHYSICAL_IOS=1 \
 RUN_PHYSICAL_IOS_E2E=1 \
 IOS_PHYSICAL_DEVICE_ID=<device-id> \
 ./scripts/check-mobile-device-qa-preflight.sh
+```
+
+Run real-backend E2E on Android when available:
+
+```bash
+RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-preflight.sh
 ```
 
 Record device identity, build identity, screenshots or notes, and result rows in:
@@ -175,6 +181,7 @@ The release can be called fully complete only when the strict final gate passes.
 | iOS IPA missing | Check certificate import, provisioning profile, export options, and bundle ID |
 | Artifact checksum mismatch | Discard downloaded artifacts and re-download from the trusted CI/release source |
 | USB iPhone not detected | Unlock device, trust Mac, enable Developer Mode, use cable, then rerun preflight |
+| Android device not detected | Connect an Android device or start an emulator, then rerun preflight |
 | Backup drill fails | Keep the failed backup file and target logs for diagnosis, but do not publish release as complete |
 | Accessibility fail | Fix or document scoped non-blocking exception, then retest |
 
