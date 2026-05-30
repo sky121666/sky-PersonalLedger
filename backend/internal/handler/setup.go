@@ -86,7 +86,7 @@ func (h *SetupHandler) TestDatabase(c *gin.Context) {
 	}
 
 	if err := database.TestConnection(dbConfig); err != nil {
-		response.BadRequest(c, "database test failed: "+err.Error())
+		response.BadRequest(c, "database test failed")
 		return
 	}
 
@@ -116,7 +116,7 @@ func (h *SetupHandler) Apply(c *gin.Context) {
 		return
 	}
 	if err := database.TestConnection(dbConfig); err != nil {
-		response.BadRequest(c, "database test failed: "+err.Error())
+		response.BadRequest(c, "database test failed")
 		return
 	}
 

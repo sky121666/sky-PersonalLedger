@@ -85,6 +85,34 @@ func TestSetupTestDatabaseDisabledAfterInitialization(t *testing.T) {
 	}
 }
 
+func TestSetupTestDatabaseDoesNotExposeConnectionDetails(t *testing.T) {
+	handler, _ := newSetupTestHandler(t, config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")})
+	payload := map[string]any{
+		"driver":   "mysql",
+		"host":     "127.0.0.1",
+		"port":     1,
+		"database": "ledger",
+		"username": "ledger_user",
+		"password": "setup-secret-password",
+	}
+
+	response := performSetupRequest(handler, http.MethodPost, "/setup/test-database", payload)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", response.Code, response.Body.String())
+	}
+	assertSetupResponseDoesNotExpose(t, response.Body.String(), []string{
+		"127.0.0.1",
+		"setup-secret-password",
+		"ledger_user",
+		"dial",
+		"connect",
+	})
+	if !strings.Contains(response.Body.String(), "database test failed") {
+		t.Fatalf("body = %s, want generic database test failure", response.Body.String())
+	}
+}
+
 func TestSetupApplyWritesLocalConfigBeforeInitialization(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	databasePath := filepath.Join(t.TempDir(), "applied.db")
@@ -137,6 +165,37 @@ func TestSetupApplyWritesLocalConfigBeforeInitialization(t *testing.T) {
 	}
 	if saved.Database.MaxIdleConns != 2 {
 		t.Fatalf("saved max idle conns = %d, want 2", saved.Database.MaxIdleConns)
+	}
+}
+
+func TestSetupApplyDoesNotExposeConnectionDetails(t *testing.T) {
+	handler, _ := newSetupTestHandlerWithConfig(t,
+		config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")},
+		config.SetupConfig{ConfigPath: filepath.Join(t.TempDir(), "config.yaml")},
+	)
+	payload := map[string]any{
+		"driver":   "mysql",
+		"host":     "127.0.0.1",
+		"port":     1,
+		"database": "ledger",
+		"username": "ledger_user",
+		"password": "setup-secret-password",
+	}
+
+	response := performSetupRequest(handler, http.MethodPost, "/setup/apply", payload)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", response.Code, response.Body.String())
+	}
+	assertSetupResponseDoesNotExpose(t, response.Body.String(), []string{
+		"127.0.0.1",
+		"setup-secret-password",
+		"ledger_user",
+		"dial",
+		"connect",
+	})
+	if !strings.Contains(response.Body.String(), "database test failed") {
+		t.Fatalf("body = %s, want generic database test failure", response.Body.String())
 	}
 }
 
@@ -446,6 +505,17 @@ func decodeSetupResponse(t *testing.T, data []byte) map[string]any {
 		t.Fatalf("decode response: %v; body=%s", err, string(data))
 	}
 	return response.Data
+}
+
+func assertSetupResponseDoesNotExpose(t *testing.T, body string, forbidden []string) {
+	t.Helper()
+
+	lowerBody := strings.ToLower(body)
+	for _, value := range forbidden {
+		if strings.Contains(lowerBody, strings.ToLower(value)) {
+			t.Fatalf("setup response exposed %q: %s", value, body)
+		}
+	}
 }
 
 func setupIntPtr(value int) *int {
