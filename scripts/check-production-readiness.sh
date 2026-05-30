@@ -67,6 +67,8 @@ require_absent_text "web/src/views/SettingsView.vue" '至少6位|至少6 位|至
 require_absent_text "web/src/views/SettingsView.vue" 'v-model="notificationForm\.(dingtalk_secret|smtp_password|webhook_secret)"[^>]*type="text"'
 require_absent_text "web/src/views/SettingsView.vue" 'notificationApi\.updateSettings\(notificationForm\.value\)'
 require_absent_text "mobile/lib/features/notifications/data/notification_repository.dart" "^[[:space:]]*'(dingtalk_secret|webhook_secret)': (dingtalkSecret|webhookSecret),"
+require_absent_text "mobile/lib/features/ai/data/ai_report_repository.dart" "^[[:space:]]*'api_key': apiKey,"
+require_absent_text "web/src/views/AIView.vue" 'api_key: providerForm\.api_key\.trim\(\)'
 require_absent_text "backend/internal/service/auth.go" 'password must be at least 6 characters'
 
 "$ROOT_DIR/scripts/check-public-git-safety.sh"

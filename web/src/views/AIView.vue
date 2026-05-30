@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { AlertTriangle, ArrowLeft, Bot, CalendarClock, KeyRound, PlayCircle, RefreshCw, ShieldCheck, Sparkles, Trash2, TrendingUp, Zap } from 'lucide-vue-next'
-import { aiApi, type AIProvider, type AIProviderPreset, type AIReport, type AIReportScheduleRunResult } from '@/api/ai'
+import { aiApi, type AIProvider, type AIProviderPreset, type AIReport, type AIReportScheduleRunResult, type SaveAIProviderParams } from '@/api/ai'
 import { toast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -141,14 +141,18 @@ async function saveProvider() {
   }
   saving.value = true
   try {
-    await aiApi.createProvider({
+    const params: SaveAIProviderParams = {
       name: providerForm.name.trim(),
       provider_type: 'openai_compatible',
       base_url: providerForm.base_url.trim(),
-      api_key: providerForm.api_key.trim(),
       model: providerForm.model.trim(),
       enabled: providerForm.enabled
-    })
+    }
+    const apiKey = providerForm.api_key.trim()
+    if (apiKey) {
+      params.api_key = apiKey
+    }
+    await aiApi.createProvider(params)
     providerForm.api_key = ''
     toast.success('Provider 已保存')
     await loadData()
