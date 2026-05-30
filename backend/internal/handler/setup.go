@@ -121,7 +121,7 @@ func (h *SetupHandler) Apply(c *gin.Context) {
 	}
 
 	if err := writeSetupDatabaseConfig(h.setup.ConfigPath, dbConfig); err != nil {
-		response.InternalError(c, "failed to write setup config: "+err.Error())
+		internalServerError(c, err, "failed to write setup config")
 		return
 	}
 

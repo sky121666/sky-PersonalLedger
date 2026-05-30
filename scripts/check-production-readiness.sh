@@ -80,6 +80,8 @@ require_text "backend/internal/handler/backup.go" 'failed to create pre-restore 
 require_absent_text "backend/internal/handler/auth.go" 'response\.InternalError\(c, err\.Error\(\)\)'
 require_absent_text "backend/internal/handler/auth.go" 'response\.Unauthorized\(c, err\.Error\(\)\)'
 require_text "backend/internal/handler/auth.go" 'failed to load profile'
+require_absent_text "backend/internal/handler/setup.go" 'failed to write setup config: '
+require_text "backend/internal/handler/setup.go" 'failed to write setup config'
 require_absent_text "backend/internal/handler/transaction.go" 'response\.InternalError\(c, err\.Error\(\)\)'
 require_text "backend/internal/handler/transaction.go" 'failed to list transactions'
 require_absent_text "backend/internal/handler/transaction.go" 't, _ := time\.Parse'

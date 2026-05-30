@@ -366,6 +366,31 @@ func TestSetupApplyDisabledAfterInitialization(t *testing.T) {
 	}
 }
 
+func TestSetupApplyDoesNotExposeConfigWriteError(t *testing.T) {
+	configPath := t.TempDir()
+	handler, _ := newSetupTestHandlerWithConfig(t,
+		config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")},
+		config.SetupConfig{ConfigPath: configPath},
+	)
+	payload := map[string]any{
+		"driver": "sqlite",
+		"path":   filepath.Join(t.TempDir(), "candidate.db"),
+	}
+
+	response := performSetupRequest(handler, http.MethodPost, "/setup/apply", payload)
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500; body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, "failed to write setup config") {
+		t.Fatalf("body = %s, want generic setup config error", body)
+	}
+	if strings.Contains(body, configPath) || strings.Contains(strings.ToLower(body), "is a directory") {
+		t.Fatalf("response exposed config write detail: %s", body)
+	}
+}
+
 func newSetupTestHandler(t *testing.T, dbConfig config.DatabaseConfig) (*SetupHandler, *repository.Repositories) {
 	return newSetupTestHandlerWithConfig(t, dbConfig, config.SetupConfig{
 		ConfigPath: filepath.Join(t.TempDir(), "config.yaml"),

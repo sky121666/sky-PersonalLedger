@@ -224,6 +224,8 @@ backend/internal/handler/lending_test.go
 backend/internal/handler/notification.go
 backend/internal/handler/query_error_response_test.go
 backend/internal/handler/reminder.go
+backend/internal/handler/setup.go
+backend/internal/handler/setup_test.go
 backend/internal/handler/statistics.go
 backend/internal/handler/statistics_test.go
 backend/internal/handler/system.go
