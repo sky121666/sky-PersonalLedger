@@ -332,6 +332,14 @@ func latestSchemaVersion(db *gorm.DB) (int, error) {
 	return version, err
 }
 
+func CurrentSchemaVersion() int {
+	return currentSchemaVersion
+}
+
+func LatestSchemaVersion(db *gorm.DB) (int, error) {
+	return latestSchemaVersion(db)
+}
+
 func recordSchemaMigration(db *gorm.DB, migration versionedMigration) error {
 	return db.Clauses(clause.OnConflict{DoNothing: true}).Create(&schemaMigration{
 		Version:   migration.Version,

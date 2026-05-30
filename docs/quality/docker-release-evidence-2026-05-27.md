@@ -63,7 +63,7 @@ curl -fsSLO https://raw.githubusercontent.com/<owner>/<repo>/main/docker-compose
 docker compose pull
 docker compose up -d
 docker compose ps
-curl -fsS http://127.0.0.1:8080/ >/dev/null
+curl -fsS http://127.0.0.1:8080/api/v1/health >/dev/null
 docker compose down
 ```
 
@@ -71,7 +71,7 @@ docker compose down
 | --- | --- | --- | --- |
 | Compose pull | Versioned or latest image pulls successfully | PENDING |  |
 | Container start | Container enters running/healthy state | PENDING |  |
-| HTTP health | `curl -fsS http://127.0.0.1:8080/` succeeds | PENDING |  |
+| HTTP health | `curl -fsS http://127.0.0.1:8080/api/v1/health` succeeds | PENDING |  |
 | Persistence | `/data` contains database/config/uploads/backups paths as expected | PENDING |  |
 | JWT guard | Starting without `LEDGER_JWT_SECRET` fails before container launch | PASS local, PENDING release image | Local compose config guard passed; repeat against published release compose/image |
 

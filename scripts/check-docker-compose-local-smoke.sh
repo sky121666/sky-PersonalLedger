@@ -78,14 +78,15 @@ EOF
   docker compose up -d
 )
 
+health_url="http://127.0.0.1:$PORT/api/v1/health"
 for _ in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then
+  if curl -fsS "$health_url" >/dev/null 2>&1; then
     break
   fi
   sleep 2
 done
 
-if ! curl -fsS "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then
+if ! curl -fsS "$health_url" >/dev/null 2>&1; then
   docker compose -f "$SMOKE_DIR/docker-compose.yml" logs >&2 || true
   echo "Docker compose local smoke did not become healthy." >&2
   exit 1

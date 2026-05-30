@@ -28,6 +28,7 @@ type Services struct {
 	AIProvider       *AIProviderService
 	AIReport         *AIReportService
 	AIReportSchedule *AIReportScheduler
+	Health           *HealthService
 }
 
 func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
@@ -58,5 +59,6 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		AIProvider:       NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil), cfg.JWT.Secret),
 		AIReport:         aiReportService,
 		AIReportSchedule: NewAIReportScheduler(aiReportService, repos.System, repos.User),
+		Health:           NewHealthService(repos.Account.DB(), cfg.Storage.UploadPath, cfg.Storage.BackupPath),
 	}
 }

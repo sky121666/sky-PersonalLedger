@@ -54,8 +54,9 @@ fi
 
 host_port="${port_line##*:}"
 
+health_url="http://127.0.0.1:$host_port/api/v1/health"
 for _ in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:$host_port/" >/dev/null 2>&1; then
+  if curl -fsS "$health_url" >/dev/null 2>&1; then
     echo "Docker local smoke checks passed for $IMAGE on 127.0.0.1:$host_port."
     exit 0
   fi

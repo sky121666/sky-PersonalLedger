@@ -29,6 +29,7 @@ type Handlers struct {
 	Setup        *SetupHandler
 	Family       *FamilyHandler
 	AI           *AIHandler
+	Health       *HealthHandler
 }
 
 func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler, rateLimiter *middleware.RateLimiter, cfg *config.Config) *Handlers {
@@ -53,6 +54,7 @@ func NewHandlers(services *service.Services, backupScheduler *service.BackupSche
 		Setup:        NewSetupHandler(services.Auth, cfg.Database, cfg.Setup),
 		Family:       NewFamilyHandler(services.FamilyMember),
 		AI:           NewAIHandler(services.AIProvider, services.AIReport, services.AIReportSchedule),
+		Health:       NewHealthHandler(services.Health),
 	}
 }
 
@@ -71,6 +73,8 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		auth.POST("/refresh", h.Auth.Refresh)
 		auth.POST("/verify-token", h.Auth.VerifyAPIToken) // API Token 验证（App 端使用）
 	}
+
+	api.GET("/health", h.Health.Check)
 
 	setup := api.Group("/setup")
 	{
