@@ -123,6 +123,7 @@ mobile/lib/features/home/data/home_repository.dart
 mobile/lib/features/home/presentation/home_page.dart
 mobile/lib/features/home/presentation/widgets/
 mobile/lib/features/main/presentation/main_shell_page.dart
+mobile/lib/features/notifications/data/notification_repository.dart
 mobile/lib/features/notifications/presentation/notification_settings_page.dart
 mobile/lib/features/profile/presentation/profile_page.dart
 mobile/lib/features/transactions/data/transaction_models.dart
@@ -162,6 +163,7 @@ web/src/api/export.ts
 web/package.json
 web/pnpm-lock.yaml
 web/src/api/family.ts
+web/src/api/notification.ts
 web/src/api/transaction.ts
 web/src/components/TransactionDialog.vue
 web/src/router/index.ts

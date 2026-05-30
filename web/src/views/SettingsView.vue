@@ -13,7 +13,7 @@ import {
   User, Shield, Database, X, Check, LogOut, Wallet, Moon, HardDrive, Bell,
   FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone, Sparkles
 } from 'lucide-vue-next'
-import { notificationApi } from '@/api/notification'
+import { notificationApi, type UpdateNotificationParams } from '@/api/notification'
 import { systemApi } from '@/api/system'
 import { apiTokenApi, type APIToken } from '@/api/apiToken'
 import { get, post, put } from '@/utils/request'
@@ -410,10 +410,26 @@ function clearNotificationSecrets() {
   notificationForm.value.webhook_secret = ''
 }
 
+function buildNotificationUpdateParams(): UpdateNotificationParams {
+  const {
+    dingtalk_secret: dingtalkSecret,
+    smtp_password: smtpPassword,
+    webhook_secret: webhookSecret,
+    ...params
+  } = notificationForm.value
+
+  return {
+    ...params,
+    ...(dingtalkSecret.trim() ? { dingtalk_secret: dingtalkSecret.trim() } : {}),
+    ...(smtpPassword.trim() ? { smtp_password: smtpPassword.trim() } : {}),
+    ...(webhookSecret.trim() ? { webhook_secret: webhookSecret.trim() } : {})
+  }
+}
+
 async function saveNotificationSettings() {
   notificationLoading.value = true
   try {
-    await notificationApi.updateSettings(notificationForm.value)
+    await notificationApi.updateSettings(buildNotificationUpdateParams())
     clearNotificationSecrets()
     toast.success('保存成功')
     showNotificationModal.value = false

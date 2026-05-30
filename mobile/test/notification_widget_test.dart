@@ -141,6 +141,38 @@ void main() {
       );
       expect(webhookSecret.obscureText, isTrue);
     });
+
+    test('空通知密钥不会进入更新请求 JSON', () {
+      const request = NotificationSettingRequest(
+        enabled: true,
+        wecomEnabled: false,
+        wecomWebhook: '',
+        dingtalkEnabled: true,
+        dingtalkWebhook: 'https://oapi.example.com/send',
+        dingtalkSecret: '',
+        emailEnabled: true,
+        smtpHost: 'smtp.example.com',
+        smtpPort: 587,
+        smtpUser: 'user@example.com',
+        smtpPassword: '',
+        smtpFrom: '',
+        emailTo: '',
+        webhookEnabled: true,
+        webhookUrl: 'https://example.com/webhook',
+        webhookSecret: '',
+        notifyPaymentDue: true,
+        notifyBudgetAlert: true,
+        notifyLendingDue: true,
+        notifyAnnualReport: true,
+        advanceDays: 3,
+      );
+
+      final payload = request.toJson();
+
+      expect(payload, isNot(contains('dingtalk_secret')));
+      expect(payload, isNot(contains('smtp_password')));
+      expect(payload, isNot(contains('webhook_secret')));
+    });
   });
 }
 
