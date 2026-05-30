@@ -36,8 +36,10 @@ check_zip_artifact() {
   local label="$1"
   local path="$2"
   local min_bytes="$3"
+  local structure="$4"
   local sidecar="$path.sha256"
   local size
+  local entries
 
   [[ -f "$path" ]] || fail "Missing $label artifact: $path"
   size="$(stat -f%z "$path" 2>/dev/null || stat -c%s "$path")"
@@ -45,6 +47,8 @@ check_zip_artifact() {
     fail "$label artifact is too small to be a valid release file: $path ($size bytes)"
   fi
   unzip -tq "$path" >/dev/null || fail "$label artifact is not a valid zip container: $path"
+  entries="$(unzip -Z1 "$path")"
+  check_artifact_structure "$label" "$structure" "$entries"
 
   if [[ "$REQUIRE_CHECKSUMS" == "1" && ! -f "$sidecar" ]]; then
     fail "Missing $label checksum sidecar: $sidecar"
@@ -58,6 +62,41 @@ check_zip_artifact() {
   fi
 
   printf '%s\t%s bytes\t%s\n' "$(shasum -a 256 "$path" | awk '{print $1}')" "$size" "$path"
+}
+
+require_zip_entry() {
+  local label="$1"
+  local entries="$2"
+  local pattern="$3"
+  local description="$4"
+
+  if ! grep -Eq "$pattern" <<<"$entries"; then
+    fail "$label artifact is missing required $description entry matching: $pattern"
+  fi
+}
+
+check_artifact_structure() {
+  local label="$1"
+  local structure="$2"
+  local entries="$3"
+
+  case "$structure" in
+    apk)
+      require_zip_entry "$label" "$entries" '^AndroidManifest\.xml$' 'Android manifest'
+      require_zip_entry "$label" "$entries" '^classes([0-9]+)?\.dex$' 'DEX bytecode'
+      ;;
+    aab)
+      require_zip_entry "$label" "$entries" '^BundleConfig\.pb$' 'bundle config'
+      require_zip_entry "$label" "$entries" '^base/manifest/AndroidManifest\.xml$' 'base Android manifest'
+      require_zip_entry "$label" "$entries" '^base/dex/classes([0-9]+)?\.dex$' 'base DEX bytecode'
+      ;;
+    ipa)
+      require_zip_entry "$label" "$entries" '^Payload/[^/]+\.app/Info\.plist$' 'app Info.plist'
+      ;;
+    *)
+      fail "Unknown artifact structure for $label: $structure"
+      ;;
+  esac
 }
 
 require_tool find
@@ -81,13 +120,13 @@ echo "Release artifact evidence:"
 if [[ "$REQUIRE_ANDROID" == "1" ]]; then
   apk_path="$(find_one "$apk_pattern")" || fail "Missing Android APK artifact matching $apk_pattern under $ARTIFACT_DIR"
   aab_path="$(find_one "$aab_pattern")" || fail "Missing Android AAB artifact matching $aab_pattern under $ARTIFACT_DIR"
-  check_zip_artifact "Android APK" "$apk_path" 1024000
-  check_zip_artifact "Android AAB" "$aab_path" 1024000
+  check_zip_artifact "Android APK" "$apk_path" 1024000 apk
+  check_zip_artifact "Android AAB" "$aab_path" 1024000 aab
 fi
 
 if [[ "$REQUIRE_IOS" == "1" ]]; then
   ipa_path="$(find_one "$ipa_pattern")" || fail "Missing iOS IPA artifact matching $ipa_pattern under $ARTIFACT_DIR"
-  check_zip_artifact "iOS IPA" "$ipa_path" 1024000
+  check_zip_artifact "iOS IPA" "$ipa_path" 1024000 ipa
 fi
 
 if [[ "$REQUIRE_ANDROID" != "1" && "$REQUIRE_IOS" != "1" ]]; then
