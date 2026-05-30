@@ -51,3 +51,7 @@ func (r *CategoryRepository) DeleteAllByUserID(userID uint) error {
 func (r *CategoryRepository) CreateBatch(categories []model.Category) error {
 	return r.db.Create(&categories).Error
 }
+
+func (r *CategoryRepository) DB() *gorm.DB {
+	return r.db
+}

@@ -50,3 +50,7 @@ func (r *UserRepository) GetAll() ([]*model.User, error) {
 	err := r.db.Find(&users).Error
 	return users, err
 }
+
+func (r *UserRepository) DB() *gorm.DB {
+	return r.db
+}
