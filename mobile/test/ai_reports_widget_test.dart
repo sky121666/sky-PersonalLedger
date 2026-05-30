@@ -22,6 +22,8 @@ void main() {
                 model: 'deepseek-chat',
                 contentJson:
                     '{"summary":"支出可控","highlights":["净现金流为正"],"risks":["预算偏高"],"suggestions":["继续记录"]}',
+                snapshotJson:
+                    '{"account_changes":[{"account_name":"账户1","balance_delta":380}]}',
               ),
             ];
           }),
@@ -47,6 +49,9 @@ void main() {
     expect(find.text('• 净现金流为正'), findsOneWidget);
     expect(find.text('• 预算偏高'), findsOneWidget);
     expect(find.text('• 继续记录'), findsOneWidget);
+    expect(find.text('账户变化'), findsOneWidget);
+    expect(find.text('账户1'), findsOneWidget);
+    expect(find.text('+¥380.00'), findsOneWidget);
   });
 
   testWidgets('AIReportsPage 空态可见', (tester) async {

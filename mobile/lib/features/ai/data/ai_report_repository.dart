@@ -128,6 +128,7 @@ class AIReportSummary {
     required this.providerName,
     required this.model,
     this.contentJson = '',
+    this.snapshotJson = '',
     this.errorMessage = '',
   });
 
@@ -139,6 +140,7 @@ class AIReportSummary {
   final String providerName;
   final String model;
   final String contentJson;
+  final String snapshotJson;
   final String errorMessage;
 
   factory AIReportSummary.fromJson(Map<String, dynamic> json) {
@@ -151,6 +153,7 @@ class AIReportSummary {
       providerName: json['provider_name'] as String? ?? '',
       model: json['model'] as String? ?? '',
       contentJson: json['content_json'] as String? ?? '',
+      snapshotJson: json['snapshot_json'] as String? ?? '',
       errorMessage: json['error_message'] as String? ?? '',
     );
   }

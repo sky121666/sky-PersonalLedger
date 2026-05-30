@@ -51,6 +51,7 @@ const reportSnapshot = computed(() => parseReportSnapshot(selectedReport.value?.
 const reportRisks = computed(() => Array.isArray(reportContent.value?.risks) ? reportContent.value.risks : [])
 const snapshotBudget = computed(() => reportSnapshot.value?.budget || null)
 const snapshotMembers = computed(() => Array.isArray(reportSnapshot.value?.family_members) ? reportSnapshot.value.family_members.slice(0, 4) : [])
+const snapshotAccounts = computed(() => Array.isArray(reportSnapshot.value?.account_changes) ? reportSnapshot.value.account_changes.slice(0, 5) : [])
 
 onMounted(loadData)
 
@@ -251,6 +252,19 @@ function formatMoney(value: unknown) {
   return `¥${Number(value || 0).toFixed(2)}`
 }
 
+function formatSignedMoney(value: unknown) {
+  const amount = Number(value || 0)
+  const prefix = amount > 0 ? '+' : amount < 0 ? '-' : ''
+  return `${prefix}¥${Math.abs(amount).toFixed(2)}`
+}
+
+function moneyToneClass(value: unknown) {
+  const amount = Number(value || 0)
+  if (amount > 0) return 'text-emerald-600 dark:text-emerald-300'
+  if (amount < 0) return 'text-rose-600 dark:text-rose-300'
+  return 'text-gray-500 dark:text-gray-400'
+}
+
 function riskLevelClass(level?: string) {
   if (level === 'high') return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200'
   if (level === 'medium') return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200'
@@ -358,8 +372,8 @@ function defaultWeekEnd() {
             </div>
             <label class="flex items-center justify-between gap-3 rounded-xl bg-gray-100/80 px-3 py-3 text-sm dark:bg-white/10">
               <span>
-                <span class="block font-medium">遮蔽成员名称</span>
-                <span class="block text-xs text-gray-500">发送给 Provider 前将家庭成员名替换为成员1、成员2。</span>
+                <span class="block font-medium">遮蔽成员和账户名称</span>
+                <span class="block text-xs text-gray-500">发送给 Provider 前将名称替换为成员1、账户1等匿名标签。</span>
               </span>
               <input v-model="reportForm.mask_names" type="checkbox" class="h-5 w-5" />
             </label>
@@ -498,7 +512,7 @@ function defaultWeekEnd() {
                       <span>发送范围</span>
                     </div>
                     <p class="mt-2 text-2xl font-black tabular-nums">{{ snapshotMembers.length }}</p>
-                    <p class="mt-1 text-xs text-gray-500">仅聚合数据，无交易备注</p>
+                    <p class="mt-1 text-xs text-gray-500">成员 {{ snapshotMembers.length }} · 账户 {{ snapshotAccounts.length }}</p>
                   </div>
                 </div>
                 <div v-if="reportContent?.highlights?.length" class="space-y-2">
@@ -539,6 +553,24 @@ function defaultWeekEnd() {
                         <span class="text-sm font-semibold tabular-nums">{{ formatMoney(member.expense_total) }}</span>
                       </div>
                       <p class="mt-1 text-xs text-gray-500">{{ member.count || 0 }} 笔支出</p>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="snapshotAccounts.length" class="space-y-2">
+                  <h3 class="font-semibold">账户变化快照</h3>
+                  <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div
+                      v-for="account in snapshotAccounts"
+                      :key="account.account_name"
+                      class="rounded-2xl border border-black/5 bg-gray-50/90 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+                    >
+                      <div class="flex items-center justify-between gap-3">
+                        <span class="font-medium">{{ account.account_name || '账户' }}</span>
+                        <span class="text-sm font-semibold tabular-nums" :class="moneyToneClass(account.balance_delta)">
+                          {{ formatSignedMoney(account.balance_delta) }}
+                        </span>
+                      </div>
+                      <p class="mt-1 text-xs text-gray-500">报告周期内余额净变化</p>
                     </div>
                   </div>
                 </div>

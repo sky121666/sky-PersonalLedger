@@ -535,6 +535,7 @@ class _AIReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final parsed = AIReportContentData.parse(report);
+    final snapshot = AIReportSnapshotData.parse(report.snapshotJson);
     final isFailed = report.status == 'failed';
     return PremiumSurface(
       padding: EdgeInsets.zero,
@@ -594,6 +595,10 @@ class _AIReportCard extends StatelessWidget {
           ),
           children: [
             _AIReportContent(data: parsed),
+            if (snapshot.accountChanges.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _AIReportAccountChanges(changes: snapshot.accountChanges),
+            ],
             if (isFailed && onRegenerate != null) ...[
               const SizedBox(height: 14),
               Align(
@@ -608,6 +613,60 @@ class _AIReportCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AIReportAccountChanges extends StatelessWidget {
+  const _AIReportAccountChanges({required this.changes});
+
+  final List<AIReportAccountChangeData> changes;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.account_balance_wallet_outlined,
+              size: 16,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '账户变化',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...changes.map(
+          (change) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    change.accountName.isEmpty ? '账户' : change.accountName,
+                  ),
+                ),
+                Text(
+                  _formatSignedMoney(change.balanceDelta),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: _moneyToneColor(context, change.balanceDelta),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -735,6 +794,54 @@ class _AIReportSection extends StatelessWidget {
   }
 }
 
+class AIReportSnapshotData {
+  const AIReportSnapshotData({required this.accountChanges});
+
+  final List<AIReportAccountChangeData> accountChanges;
+
+  static AIReportSnapshotData parse(String value) {
+    if (value.trim().isEmpty) {
+      return const AIReportSnapshotData(accountChanges: []);
+    }
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! Map<String, dynamic>) {
+        return const AIReportSnapshotData(accountChanges: []);
+      }
+      final changes = decoded['account_changes'];
+      return AIReportSnapshotData(
+        accountChanges: changes is List
+            ? changes
+                  .whereType<Map<String, dynamic>>()
+                  .map(AIReportAccountChangeData.fromJson)
+                  .where((change) => change.accountName.isNotEmpty)
+                  .take(5)
+                  .toList()
+            : const [],
+      );
+    } catch (_) {
+      return const AIReportSnapshotData(accountChanges: []);
+    }
+  }
+}
+
+class AIReportAccountChangeData {
+  const AIReportAccountChangeData({
+    required this.accountName,
+    required this.balanceDelta,
+  });
+
+  final String accountName;
+  final double balanceDelta;
+
+  factory AIReportAccountChangeData.fromJson(Map<String, dynamic> json) {
+    return AIReportAccountChangeData(
+      accountName: json['account_name'] as String? ?? '',
+      balanceDelta: _toDouble(json['balance_delta']),
+    );
+  }
+}
+
 class AIReportContentData {
   const AIReportContentData({
     required this.summary,
@@ -776,4 +883,24 @@ class AIReportContentData {
     }
     return value.map((item) => '$item').toList();
   }
+}
+
+double _toDouble(Object? value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse('$value') ?? 0;
+}
+
+String _formatSignedMoney(double value) {
+  final prefix = value > 0
+      ? '+'
+      : value < 0
+      ? '-'
+      : '';
+  return '$prefix¥${value.abs().toStringAsFixed(2)}';
+}
+
+Color _moneyToneColor(BuildContext context, double value) {
+  if (value > 0) return AppTheme.incomeColor;
+  if (value < 0) return AppTheme.expenseColor;
+  return Theme.of(context).colorScheme.outline;
 }
