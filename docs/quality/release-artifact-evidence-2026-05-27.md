@@ -16,6 +16,8 @@ RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 
 
 The release workflow verifies Android signatures on Ubuntu and iOS signatures on macOS because IPA signature verification requires `codesign`.
 
+Each `.sha256` sidecar must contain exactly one non-empty line in the default `shasum -a 256 <artifact>` format. The filename in that line must be the artifact basename, not an absolute path, relative path, or a different artifact name.
+
 For iOS-only verification:
 
 ```bash

@@ -225,6 +225,7 @@ require_text "docs/quality/production-readiness-2026-05-27.md" 'USB iPhone and A
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'iOS/Android device QA'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'iOS signatures on macOS'
+require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'Each `[.]sha256` sidecar must contain exactly one non-empty line'
 require_text ".forgejo/workflows/ci.yml" 'Check tracked file safety'
 require_text ".forgejo/workflows/ci.yml" './scripts/check-public-git-safety.sh'
 require_text "docs/quality/release-notes-candidate-2026-05-27.md" 'iOS and Android device validation'
