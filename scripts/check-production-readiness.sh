@@ -175,6 +175,7 @@ require_text ".github/workflows/ios.yml" "codesign --verify --deep --strict"
 require_text "scripts/check-docker-release-evidence.sh" 'pick_port'
 require_text "scripts/check-docker-release-evidence.sh" 'Image healthcheck: healthy'
 require_text "scripts/check-docker-release-evidence.sh" 'Persistent paths: ledger\.db, uploads, backups'
+require_text "scripts/check-docker-release-evidence.sh" 'mktemp /tmp/personal-ledger-docker-manifest'
 require_text "scripts/check-final-release-gates.sh" 'SKIP_EXTERNAL_RELEASE_EVIDENCE cannot be used with STRICT_FINAL_RELEASE=1'
 require_text "scripts/check-final-release-gates.sh" 'STRICT_FINAL_RELEASE:-0.*!= "1"'
 require_text "scripts/check-final-release-gates.sh" 'Final release structural checks passed'

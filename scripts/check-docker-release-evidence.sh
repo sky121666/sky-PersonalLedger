@@ -54,10 +54,20 @@ fi
 
 if [[ -n "$IMAGE" ]]; then
   require_tool docker
-  docker manifest inspect "$IMAGE" >/tmp/personal-ledger-docker-manifest.json
-  grep -q '"architecture": "amd64"' /tmp/personal-ledger-docker-manifest.json || fail "Docker manifest missing linux/amd64: $IMAGE"
-  grep -q '"architecture": "arm64"' /tmp/personal-ledger-docker-manifest.json || fail "Docker manifest missing linux/arm64: $IMAGE"
-  rm -f /tmp/personal-ledger-docker-manifest.json
+  manifest_file="$(mktemp /tmp/personal-ledger-docker-manifest.XXXXXX.json)"
+  if ! docker manifest inspect "$IMAGE" >"$manifest_file"; then
+    rm -f "$manifest_file"
+    fail "Docker manifest inspect failed: $IMAGE"
+  fi
+  if ! grep -q '"architecture": "amd64"' "$manifest_file"; then
+    rm -f "$manifest_file"
+    fail "Docker manifest missing linux/amd64: $IMAGE"
+  fi
+  if ! grep -q '"architecture": "arm64"' "$manifest_file"; then
+    rm -f "$manifest_file"
+    fail "Docker manifest missing linux/arm64: $IMAGE"
+  fi
+  rm -f "$manifest_file"
   echo "Docker manifest checks passed for $IMAGE."
 fi
 
