@@ -22,7 +22,7 @@ if [[ -n "$ignored_tracked" ]]; then
   fail=1
 fi
 
-if git grep -nI -E 'BEGIN (RSA |OPENSSH |EC |DSA |PRIVATE )?PRIVATE KEY|AKIA[0-9A-Z]{16}|github_pat_[A-Za-z0-9_]{30,}|ghp_[A-Za-z0-9_]{30,}|AIza[0-9A-Za-z_-]{35}' -- . ':!web/pnpm-lock.yaml' ':!backend/go.sum' ':!mobile/ios/Podfile.lock' ':!mobile/macos/Podfile.lock'; then
+if git grep -nI -E 'BEGIN (RSA |OPENSSH |EC |DSA |PRIVATE )?PRIVATE KEY|AKIA[0-9A-Z]{16}|github_pat_[A-Za-z0-9_]{30,}|ghp_[A-Za-z0-9_]{30,}|AIza[0-9A-Za-z_-]{35}|sk-[0-9A-Fa-f]{32,}' -- . ':!web/pnpm-lock.yaml' ':!backend/go.sum' ':!mobile/ios/Podfile.lock' ':!mobile/macos/Podfile.lock'; then
   echo "ERROR: high-confidence secret pattern found in tracked files" >&2
   fail=1
 fi
