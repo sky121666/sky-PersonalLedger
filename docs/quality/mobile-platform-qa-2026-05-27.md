@@ -4,7 +4,7 @@
 
 The mobile premium modernization is now build-verified at the Flutter, iOS simulator artifact, Android debug APK, macOS smoke integration-test, iOS Simulator smoke integration-test, and Android Emulator smoke integration-test levels. The premium target screens are also covered by a mocked-data integration smoke test on macOS, iPhone 17 Simulator, and Android API 35 Emulator, with local PNG screenshot export available for visual review.
 
-The real-backend E2E path now passes on Flutter tester, iOS Simulator, and Android Emulator. The premium visual smoke path now covers light and dark themes with exported screenshot evidence, the exported screenshots have been manually reviewed, and the premium screens now have a focused semantics/tap-target test pass. The remaining release-quality gap is physical iPhone execution and optional real VoiceOver/TalkBack review. The detected iPhone 12 is wireless-only for this session, which blocks direct `flutter test` integration execution on that physical device.
+The real-backend E2E path now passes on Flutter tester, iOS Simulator, and Android Emulator. The premium visual smoke path now covers light and dark themes with exported screenshot evidence, the exported screenshots have been manually reviewed, and the premium screens now have a focused semantics/tap-target test pass. The remaining release-quality gap is iOS/Android release-device QA plus real VoiceOver/TalkBack review. The detected iPhone 12 is wireless-only for this session, which blocks direct `flutter test` integration execution on that physical device; Android release-device evidence must also be recorded before public distribution.
 
 ## Environment
 
