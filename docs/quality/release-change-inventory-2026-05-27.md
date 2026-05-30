@@ -213,6 +213,7 @@ backend/internal/service/api_token_test.go
 backend/internal/service/auth.go
 backend/internal/service/auth_test.go
 backend/internal/service/upload.go
+backend/internal/service/upload_test.go
 config.example.yaml
 docker-compose.yml
 docs/android-release-signing.md

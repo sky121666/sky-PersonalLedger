@@ -98,7 +98,7 @@ func (s *UploadService) Upload(userID uint, category string, refID string, file 
 	}
 	defer src.Close()
 
-	dst, err := os.Create(fullPath)
+	dst, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create destination file: %w", err)
 	}
