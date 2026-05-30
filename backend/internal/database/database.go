@@ -20,10 +20,48 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const currentSchemaVersion = 1
+var schemaMigrations = []versionedMigration{
+	{
+		Version: 1,
+		Name:    "initial_ledger_schema",
+		Apply: func(tx *gorm.DB) error {
+			return tx.AutoMigrate(
+				&model.User{},
+				&model.Account{},
+				&model.Category{},
+				&model.Transaction{},
+				&model.Budget{},
+				&model.Reminder{},
+				&model.RefreshToken{},
+				&model.QuickTemplate{},
+				&model.NotificationSetting{},
+				&model.Lending{},
+				&model.LendingRecord{},
+				&model.NotificationLog{},
+				&model.SystemSetting{},
+				&model.AccountLog{},
+				&model.Tag{},
+				&model.RecurringTransaction{},
+				&model.APIToken{},
+				&model.FamilyMember{},
+				&model.AIProvider{},
+				&model.AIReport{},
+			)
+		},
+	},
+}
+
+var currentSchemaVersion = latestKnownSchemaVersion()
+
+type versionedMigration struct {
+	Version int
+	Name    string
+	Apply   func(tx *gorm.DB) error
+}
 
 type schemaMigration struct {
 	Version   int       `gorm:"primaryKey"`
+	Name      string    `gorm:"size:100;not null;default:''"`
 	AppliedAt time.Time `gorm:"not null"`
 }
 
@@ -63,32 +101,7 @@ func InitWithConfig(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(
-		&model.User{},
-		&model.Account{},
-		&model.Category{},
-		&model.Transaction{},
-		&model.Budget{},
-		&model.Reminder{},
-		&model.RefreshToken{},
-		&model.QuickTemplate{},
-		&model.NotificationSetting{},
-		&model.Lending{},
-		&model.LendingRecord{},
-		&model.NotificationLog{},
-		&model.SystemSetting{},
-		&model.AccountLog{},
-		&model.Tag{},
-		&model.RecurringTransaction{},
-		&model.APIToken{},
-		&model.FamilyMember{},
-		&model.AIProvider{},
-		&model.AIReport{},
-	); err != nil {
-		return nil, err
-	}
-
-	if err := recordSchemaVersion(db); err != nil {
+	if err := applySchemaMigrations(db); err != nil {
 		return nil, err
 	}
 
@@ -288,6 +301,29 @@ func guardSchemaVersion(db *gorm.DB) error {
 	return nil
 }
 
+func applySchemaMigrations(db *gorm.DB) error {
+	appliedVersion, err := latestSchemaVersion(db)
+	if err != nil {
+		return err
+	}
+
+	for _, migration := range schemaMigrations {
+		if migration.Version <= appliedVersion {
+			continue
+		}
+		migration := migration
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := migration.Apply(tx); err != nil {
+				return fmt.Errorf("apply schema migration %d %s: %w", migration.Version, migration.Name, err)
+			}
+			return recordSchemaMigration(tx, migration)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func latestSchemaVersion(db *gorm.DB) (int, error) {
 	var version int
 	err := db.Model(&schemaMigration{}).
@@ -296,17 +332,20 @@ func latestSchemaVersion(db *gorm.DB) (int, error) {
 	return version, err
 }
 
-func recordSchemaVersion(db *gorm.DB) error {
-	version, err := latestSchemaVersion(db)
-	if err != nil {
-		return err
-	}
-	if version >= currentSchemaVersion {
-		return nil
-	}
-
+func recordSchemaMigration(db *gorm.DB, migration versionedMigration) error {
 	return db.Clauses(clause.OnConflict{DoNothing: true}).Create(&schemaMigration{
-		Version:   currentSchemaVersion,
+		Version:   migration.Version,
+		Name:      migration.Name,
 		AppliedAt: time.Now().UTC(),
 	}).Error
+}
+
+func latestKnownSchemaVersion() int {
+	version := 0
+	for _, migration := range schemaMigrations {
+		if migration.Version > version {
+			version = migration.Version
+		}
+	}
+	return version
 }
