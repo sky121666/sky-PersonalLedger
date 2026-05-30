@@ -74,6 +74,13 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f
 
+      - name: Verify release artifacts
+        run: |
+          RELEASE_ARTIFACT_DIR=artifacts \
+          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
+          REQUIRE_IOS_ARTIFACT=1 \
+          ./scripts/check-release-artifact-files.sh
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
