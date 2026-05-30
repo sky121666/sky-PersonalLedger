@@ -14,6 +14,7 @@ var (
 	ErrLendingNotFound       = errors.New("lending not found")
 	ErrLendingRecordNotFound = errors.New("lending record not found")
 	ErrInvalidAmount         = errors.New("invalid amount")
+	ErrInvalidDateTime       = errors.New("invalid date time format")
 	ErrAlreadySettled        = errors.New("lending already settled")
 )
 
@@ -37,7 +38,7 @@ func parseDateTime(s string) (time.Time, error) {
 	if t, err := time.Parse(time.RFC3339, s); err == nil {
 		return t, nil
 	}
-	return time.Time{}, errors.New("invalid date time format")
+	return time.Time{}, ErrInvalidDateTime
 }
 
 type LendingService struct {

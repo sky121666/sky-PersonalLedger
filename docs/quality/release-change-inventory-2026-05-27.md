@@ -215,6 +215,8 @@ backend/internal/handler/attachment.go
 backend/internal/handler/attachment_test.go
 backend/internal/handler/error_response.go
 backend/internal/handler/export.go
+backend/internal/handler/lending.go
+backend/internal/handler/lending_test.go
 backend/internal/handler/transaction.go
 backend/internal/handler/transaction_test.go
 backend/internal/handler/upload.go
@@ -233,6 +235,8 @@ backend/internal/service/api_token.go
 backend/internal/service/api_token_test.go
 backend/internal/service/auth.go
 backend/internal/service/auth_test.go
+backend/internal/service/lending.go
+backend/internal/service/lending_test.go
 backend/internal/service/notification.go
 backend/internal/service/notification_test.go
 backend/internal/service/upload.go

@@ -87,6 +87,8 @@ require_absent_text "backend/internal/handler/ai.go" 'response\.Error\(c, .*err\
 require_text "backend/internal/handler/ai.go" 'failed to process AI provider request'
 require_absent_text "backend/internal/handler/account.go" 'response\.InternalError\(c, err\.Error\(\)\)'
 require_text "backend/internal/handler/account.go" 'failed to summarize accounts'
+require_absent_text "backend/internal/handler/lending.go" 'response\.InternalError\(c, err\.Error\(\)\)'
+require_text "backend/internal/handler/lending.go" 'failed to summarize lendings'
 require_absent_text "backend/internal/middleware/rate_limiter.go" 'strings\.HasPrefix\(path, "/uploads/"\)[[:space:]]*\|\|'
 require_text "backend/internal/middleware/rate_limiter.go" 'isPublicUploadPath'
 require_absent_text "web/src/views/SettingsView.vue" '至少6位|至少6 位|至少 6 位'
