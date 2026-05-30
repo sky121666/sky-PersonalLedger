@@ -66,7 +66,7 @@
 | --- | --- | --- |
 | Source-level local rehearsal | `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` | PASS, 2026-05-27 local run |
 | Artifact preflight | `./scripts/check-release-artifacts-preflight.sh` | PASS REQUIRED |
-| Artifact file evidence | `./scripts/check-release-artifact-files.sh` | PENDING REAL ARTIFACTS |
+| Artifact file evidence | `REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh` | PENDING REAL ARTIFACTS |
 | Final release gate | `STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` | PENDING REAL EVIDENCE |
 
 ## Release Decision

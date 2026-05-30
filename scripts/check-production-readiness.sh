@@ -187,6 +187,10 @@ require_text "scripts/check-final-release-gates.sh" 'env REQUIRE_IOS_ARTIFACT=1 
 require_text "scripts/check-final-release-runbook.sh" 'VERIFY_ARTIFACT_SIGNATURES=1'
 require_text "docs/quality/final-release-runbook-2026-05-27.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
+require_text "docs/android-release-signing.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
+require_text "docs/ios-release-signing.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
+require_text "docs/quality/production-readiness-2026-05-27.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
+require_text "docs/quality/release-notes-candidate-2026-05-27.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
 if ! perl -0ne 'exit 1 if /ShouldBindJSON\(&req\); err != nil \{\n\t\tresponse\.BadRequest\(c, err\.Error\(\)\)/' "$ROOT_DIR"/backend/internal/handler/*.go; then
   echo "Unexpected bind error detail returned from handler" >&2
   exit 1

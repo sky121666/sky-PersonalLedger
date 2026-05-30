@@ -72,10 +72,10 @@ For a local Android signing setup, this checks that the ignored signing files ex
 CHECK_LOCAL_ANDROID_SIGNING=1 ./scripts/check-release-artifacts-preflight.sh
 ```
 
-After CI or a local release build produces artifacts, verify the actual files and record their SHA-256 values:
+After CI or a local release build produces artifacts, verify the actual files, signatures, and SHA-256 values:
 
 ```bash
-RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> ./scripts/check-release-artifact-files.sh
+RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
 ```
 
-The verifier requires `.sha256` sidecar files and checks that they match the downloaded APK/AAB files.
+The verifier requires `.sha256` sidecar files, checks that they match the downloaded APK/AAB files, and verifies Android release signatures when `VERIFY_ARTIFACT_SIGNATURES=1` is set.

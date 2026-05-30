@@ -11,13 +11,13 @@ Current status: structural release evidence is prepared, source-level rehearsal 
 Run from the repository root after downloading CI artifacts or collecting local signed build outputs:
 
 ```bash
-RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> ./scripts/check-release-artifact-files.sh
+RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
 ```
 
 For iOS-only verification:
 
 ```bash
-RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_ANDROID_ARTIFACTS=0 REQUIRE_IOS_ARTIFACT=1 ./scripts/check-release-artifact-files.sh
+RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_ANDROID_ARTIFACTS=0 REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
 ```
 
 For a full Android + iOS release candidate:

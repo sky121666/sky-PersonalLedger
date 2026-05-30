@@ -102,10 +102,10 @@ For a local iOS signing setup, this checks that the ignored export options plist
 CHECK_LOCAL_IOS_SIGNING=1 ./scripts/check-release-artifacts-preflight.sh
 ```
 
-After CI or a local signed export produces an IPA, verify the actual file and record its SHA-256 value:
+After CI or a local signed export produces an IPA, verify the actual file, signature, bundle id, and SHA-256 value:
 
 ```bash
-RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_ANDROID_ARTIFACTS=0 REQUIRE_IOS_ARTIFACT=1 ./scripts/check-release-artifact-files.sh
+RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_ANDROID_ARTIFACTS=0 REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
 ```
 
-The verifier requires the `.sha256` sidecar file and checks that it matches the downloaded IPA file.
+The verifier requires the `.sha256` sidecar file, checks that it matches the downloaded IPA file, and verifies the app bundle signature and bundle id when `VERIFY_ARTIFACT_SIGNATURES=1` is set.
