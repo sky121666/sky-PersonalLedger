@@ -22,11 +22,12 @@ if [[ -n "$ignored_tracked" ]]; then
   fail=1
 fi
 
+secret_pattern='BEGIN (RSA |OPENSSH |EC |DSA |PRIVATE )?PRIVATE KEY|AKIA[0-9A-Z]{16}|github_pat_[A-Za-z0-9_]{30,}|ghp_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|AIza[0-9A-Za-z_-]{35}|sk-[0-9A-Fa-f]{32,}|sk-proj-[A-Za-z0-9_-]{20,}|sk-live-[A-Za-z0-9_-]{20,}|sk-ant-api03-[A-Za-z0-9_-]{20,}'
 secret_matches="$(
-  git grep -Il -E 'BEGIN (RSA |OPENSSH |EC |DSA |PRIVATE )?PRIVATE KEY|AKIA[0-9A-Z]{16}|github_pat_[A-Za-z0-9_]{30,}|ghp_[A-Za-z0-9_]{30,}|AIza[0-9A-Za-z_-]{35}|sk-[0-9A-Fa-f]{32,}' -- . ':!web/pnpm-lock.yaml' ':!backend/go.sum' ':!mobile/ios/Podfile.lock' ':!mobile/macos/Podfile.lock' || true
+  git grep --untracked -Il -E "$secret_pattern" -- . ':!web/pnpm-lock.yaml' ':!backend/go.sum' ':!mobile/ios/Podfile.lock' ':!mobile/macos/Podfile.lock' || true
 )"
 if [[ -n "$secret_matches" ]]; then
-  echo "ERROR: high-confidence secret pattern found in tracked files" >&2
+  echo "ERROR: high-confidence secret pattern found in tracked or untracked public files" >&2
   echo "$secret_matches" >&2
   fail=1
 fi
