@@ -277,6 +277,19 @@ void main() {
     expect(repository.providers, isEmpty);
     expect(find.text('Provider 已删除'), findsOneWidget);
   });
+
+  test('空 AI Provider API Key 不会进入移动端请求 JSON', () {
+    const request = SaveAIProviderRequest(
+      name: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-v4-flash',
+      apiKey: '',
+    );
+
+    final payload = request.toJson();
+
+    expect(payload, isNot(contains('api_key')));
+  });
 }
 
 class _FakeAIReportRepository implements AIReportRepository {

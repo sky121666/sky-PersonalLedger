@@ -255,7 +255,7 @@ class SaveAIProviderRequest {
       'name': name,
       'provider_type': providerType,
       'base_url': baseUrl,
-      'api_key': apiKey,
+      if (apiKey.isNotEmpty) 'api_key': apiKey,
       'model': model,
       'enabled': enabled,
     };
