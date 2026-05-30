@@ -93,7 +93,7 @@ type UpdateAutoBackupRequest struct {
 func (h *BackupHandler) UpdateAutoBackupSettings(c *gin.Context) {
 	var req UpdateAutoBackupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

@@ -33,7 +33,7 @@ func (h *TemplateHandler) Create(c *gin.Context) {
 
 	var req service.CreateTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -64,7 +64,7 @@ func (h *TemplateHandler) Apply(c *gin.Context) {
 
 	var req service.ApplyTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

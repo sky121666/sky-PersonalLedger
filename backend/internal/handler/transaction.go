@@ -47,7 +47,7 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 
 	var req service.CreateTransactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -82,7 +82,7 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 
 	var req service.CreateTransactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -119,7 +119,7 @@ func (h *TransactionHandler) BatchDelete(c *gin.Context) {
 
 	var req BatchDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

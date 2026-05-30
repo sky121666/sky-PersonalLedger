@@ -36,7 +36,7 @@ func (h *AIHandler) CreateProvider(c *gin.Context) {
 	userID := c.GetUint("userID")
 	var req service.SaveAIProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 	provider, err := h.providerService.Create(userID, req)
@@ -51,7 +51,7 @@ func (h *AIHandler) UpdateProvider(c *gin.Context) {
 	userID := c.GetUint("userID")
 	var req service.SaveAIProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 	provider, err := h.providerService.Update(c.Param("id"), userID, req)
@@ -94,7 +94,7 @@ func (h *AIHandler) GenerateReport(c *gin.Context) {
 	userID := c.GetUint("userID")
 	var req service.GenerateAIReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 	report, err := h.reportService.Generate(userID, req)
@@ -143,7 +143,7 @@ type UpdateAIReportScheduleRequest struct {
 func (h *AIHandler) UpdateReportScheduleSettings(c *gin.Context) {
 	var req UpdateAIReportScheduleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

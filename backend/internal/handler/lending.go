@@ -22,7 +22,7 @@ func (h *LendingHandler) Create(c *gin.Context) {
 
 	var req service.CreateLendingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h *LendingHandler) Update(c *gin.Context) {
 
 	var req service.UpdateLendingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -116,7 +116,7 @@ func (h *LendingHandler) RecordRepayment(c *gin.Context) {
 
 	var req service.RecordRepaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

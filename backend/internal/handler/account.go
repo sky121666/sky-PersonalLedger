@@ -47,7 +47,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 
 	var req service.CreateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -79,7 +79,7 @@ func (h *AccountHandler) Update(c *gin.Context) {
 
 	var req service.UpdateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -126,7 +126,7 @@ func (h *AccountHandler) Archive(c *gin.Context) {
 
 	var req ArchiveRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -151,7 +151,7 @@ func (h *AccountHandler) UpdateSortOrder(c *gin.Context) {
 
 	var req SortRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

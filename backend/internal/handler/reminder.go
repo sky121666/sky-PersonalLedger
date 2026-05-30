@@ -43,7 +43,7 @@ func (h *ReminderHandler) Create(c *gin.Context) {
 
 	var req service.CreateReminderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -75,7 +75,7 @@ func (h *ReminderHandler) Update(c *gin.Context) {
 
 	var req service.CreateReminderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -119,7 +119,7 @@ func (h *ReminderHandler) RecordPayment(c *gin.Context) {
 
 	var req service.RecordPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

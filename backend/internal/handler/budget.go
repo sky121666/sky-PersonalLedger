@@ -46,7 +46,7 @@ func (h *BudgetHandler) SetTotal(c *gin.Context) {
 
 	var req service.SetBudgetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -64,7 +64,7 @@ func (h *BudgetHandler) SetCategory(c *gin.Context) {
 
 	var req service.SetBudgetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

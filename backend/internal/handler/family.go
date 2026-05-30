@@ -32,7 +32,7 @@ func (h *FamilyHandler) CreateMember(c *gin.Context) {
 
 	var req service.CreateFamilyMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -50,7 +50,7 @@ func (h *FamilyHandler) UpdateMember(c *gin.Context) {
 
 	var req service.UpdateFamilyMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

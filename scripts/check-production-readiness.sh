@@ -160,6 +160,10 @@ require_text "mobile/lib/core/config/server_config_service.dart" '远程服务�
 require_absent_text "backend/internal/service/auth.go" 'password must be at least 6 characters'
 require_absent_text "backend/internal/handler/auth.go" 'invalid request: "\+err\.Error\(\)'
 require_absent_text "backend/internal/handler/setup.go" 'invalid request: "\+err\.Error\(\)'
+if ! perl -0ne 'exit 1 if /ShouldBindJSON\(&req\); err != nil \{\n\t\tresponse\.BadRequest\(c, err\.Error\(\)\)/' "$ROOT_DIR"/backend/internal/handler/*.go; then
+  echo "Unexpected bind error detail returned from handler" >&2
+  exit 1
+fi
 
 "$ROOT_DIR/scripts/check-public-git-safety.sh"
 "$ROOT_DIR/scripts/check-backup-restore-rehearsal.sh"

@@ -33,7 +33,7 @@ func (h *APITokenHandler) Create(c *gin.Context) {
 
 	var req CreateTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

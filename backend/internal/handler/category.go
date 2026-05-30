@@ -34,7 +34,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 
 	var req service.CreateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 
 	var req service.UpdateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

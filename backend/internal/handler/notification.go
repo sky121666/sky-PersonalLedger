@@ -33,7 +33,7 @@ func (h *NotificationHandler) Update(c *gin.Context) {
 
 	var req service.NotificationSettingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -53,7 +53,7 @@ type TestWecomRequest struct {
 func (h *NotificationHandler) TestWecom(c *gin.Context) {
 	var req TestWecomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -69,7 +69,7 @@ type TestDingtalkRequest struct {
 func (h *NotificationHandler) TestDingtalk(c *gin.Context) {
 	var req TestDingtalkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *NotificationHandler) TestEmail(c *gin.Context) {
 
 	var req TestEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -132,7 +132,7 @@ type TestWebhookRequest struct {
 func (h *NotificationHandler) TestWebhook(c *gin.Context) {
 	var req TestWebhookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
