@@ -27,6 +27,9 @@ jobs:
           docker version || true
           echo "Release ref: ${GITHUB_REF_NAME:-manual}"
 
+      - name: Check tracked file safety
+        run: ./scripts/check-public-git-safety.sh
+
   docker-build:
     name: Docker Build
     needs: runner-smoke

@@ -47,6 +47,7 @@ require_file "docs/quality/accessibility-release-evidence-2026-05-27.md"
 require_file "docs/quality/backup-operator-drill-2026-05-27.md"
 require_file "docs/android-release-signing.md"
 require_file "docs/ios-release-signing.md"
+require_file ".forgejo/workflows/ci.yml"
 require_file ".github/workflows/android.yml"
 require_file ".github/workflows/ios.yml"
 require_file ".github/workflows/release.yml"
@@ -222,6 +223,8 @@ require_text "docs/quality/production-readiness-2026-05-27.md" 'USB iPhone and A
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'iOS/Android device QA'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'iOS signatures on macOS'
+require_text ".forgejo/workflows/ci.yml" 'Check tracked file safety'
+require_text ".forgejo/workflows/ci.yml" './scripts/check-public-git-safety.sh'
 require_text "docs/quality/release-notes-candidate-2026-05-27.md" 'iOS and Android device validation'
 require_text "docs/quality/local-release-rehearsal-2026-05-27.md" 'iOS/Android device QA'
 require_text "docs/quality/mobile-platform-qa-2026-05-27.md" 'iOS/Android release-device QA'
