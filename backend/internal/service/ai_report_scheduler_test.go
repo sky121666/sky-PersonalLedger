@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -76,6 +77,12 @@ func TestAIReportSchedulerGeneratesPreviousWeekOncePerDay(t *testing.T) {
 	}
 	if len(reports) != 1 {
 		t.Fatalf("reports len = %d, want 1", len(reports))
+	}
+	if reports[0].PromptVersion != aiReportMaskedPromptVersion {
+		t.Fatalf("prompt version = %q, want masked prompt version", reports[0].PromptVersion)
+	}
+	if strings.Contains(reports[0].SnapshotJSON, "成员A") {
+		t.Fatalf("scheduled report leaked member name: %s", reports[0].SnapshotJSON)
 	}
 }
 

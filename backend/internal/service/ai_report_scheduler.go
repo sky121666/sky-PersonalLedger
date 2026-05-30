@@ -179,6 +179,7 @@ func (s *AIReportScheduler) generateForAllUsers(reportType string, start time.Ti
 			ReportType:  reportType,
 			PeriodStart: result.PeriodStart,
 			PeriodEnd:   result.PeriodEnd,
+			MaskNames:   true,
 		})
 		if err == nil {
 			result.Succeeded++
