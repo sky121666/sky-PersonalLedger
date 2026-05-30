@@ -30,7 +30,7 @@ func (h *AccountLogHandler) GetByAccountID(c *gin.Context) {
 
 	logs, total, err := h.service.GetByAccountID(accountID, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load account logs")
 		return
 	}
 
@@ -56,7 +56,7 @@ func (h *AccountLogHandler) GetAll(c *gin.Context) {
 
 	logs, total, err := h.service.GetByUserID(userID, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load account logs")
 		return
 	}
 

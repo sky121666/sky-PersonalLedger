@@ -208,6 +208,7 @@ backend/cmd/server/main.go
 backend/cmd/server/main_test.go
 backend/internal/config/config.go
 backend/internal/handler/account.go
+backend/internal/handler/account_log.go
 backend/internal/handler/account_test.go
 backend/internal/handler/auth.go
 backend/internal/handler/auth_test.go
@@ -217,8 +218,10 @@ backend/internal/handler/error_response.go
 backend/internal/handler/export.go
 backend/internal/handler/lending.go
 backend/internal/handler/lending_test.go
+backend/internal/handler/query_error_response_test.go
 backend/internal/handler/statistics.go
 backend/internal/handler/statistics_test.go
+backend/internal/handler/system.go
 backend/internal/handler/transaction.go
 backend/internal/handler/transaction_test.go
 backend/internal/handler/upload.go
