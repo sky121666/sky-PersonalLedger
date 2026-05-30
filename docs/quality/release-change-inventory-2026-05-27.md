@@ -179,9 +179,16 @@ Release workflows, signing docs, quality evidence, and gate scripts:
 .github/workflows/android.yml
 .github/workflows/ios.yml
 .github/workflows/release.yml
+.env.example
 .gitignore
 Dockerfile
 README.md
+backend/cmd/server/main.go
+backend/cmd/server/main_test.go
+backend/internal/config/config.go
+backend/internal/middleware/middleware.go
+backend/internal/middleware/middleware_test.go
+config.example.yaml
 docker-compose.yml
 docs/android-release-signing.md
 docs/ios-release-signing.md

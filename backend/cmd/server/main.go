@@ -30,11 +30,8 @@ func main() {
 	if err := validateJWTSecret(cfg.JWT.Secret); err != nil {
 		log.Fatal(err)
 	}
-
-	// Warn about CORS in production
-	if cfg.Server.Mode == "release" && cfg.CORS.AllowedOrigins == "*" {
-		log.Println("WARNING: CORS is set to allow all origins (*) in production mode. This is insecure!")
-		log.Println("WARNING: Please set LEDGER_CORS_ALLOWED_ORIGINS to your specific domain.")
+	if err := validateProductionCORS(cfg.Server.Mode, cfg.CORS.AllowedOrigins); err != nil {
+		log.Fatal(err)
 	}
 
 	// Initialize logger
@@ -139,6 +136,13 @@ func validateJWTSecret(secret string) error {
 	}
 	if len(value) < 32 {
 		return fmt.Errorf("FATAL: LEDGER_JWT_SECRET must be at least 32 characters long for security")
+	}
+	return nil
+}
+
+func validateProductionCORS(serverMode string, allowedOrigins string) error {
+	if strings.EqualFold(strings.TrimSpace(serverMode), "release") && strings.TrimSpace(allowedOrigins) == "*" {
+		return fmt.Errorf("FATAL: LEDGER_CORS_ALLOWED_ORIGINS cannot be * in release mode; leave it empty for same-site deployment or set explicit origins")
 	}
 	return nil
 }

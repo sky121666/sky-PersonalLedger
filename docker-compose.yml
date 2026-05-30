@@ -26,7 +26,8 @@ services:
       
       # API Token (移动端访问验证，留空不验证)
       # - LEDGER_SECURITY_API_TOKEN=sk-your-api-token
-      # 跨域白名单 (留空仅允许同源/无 Origin 请求，多个来源用逗号分隔)
+      # 跨域白名单 (留空仅允许同站 Host/无 Origin 请求，多个来源用逗号分隔)
+      # release 模式禁止使用 *；前后端分离部署时设置为具体 HTTPS 域名。
       # - LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.com
       
       # ========== JWT 配置 ==========

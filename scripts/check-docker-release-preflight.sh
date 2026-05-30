@@ -25,6 +25,7 @@ require_file ".github/workflows/release.yml"
 require_file "Dockerfile"
 require_file "docker-compose.yml"
 require_file "README.md"
+require_file ".env.example"
 
 require_text ".github/workflows/docker.yml" "workflow_call"
 require_text ".github/workflows/docker.yml" "ghcr\\.io"
@@ -55,5 +56,13 @@ require_text "docker-compose.yml" "\\$\\{LEDGER_IMAGE:-ghcr\\.io/sky121666/sky-p
 require_text "docker-compose.yml" "LEDGER_JWT_SECRET=\\$\\{LEDGER_JWT_SECRET:\\?Set LEDGER_JWT_SECRET in \\.env before starting\\}"
 require_text "docker-compose.yml" "\\./data:/data"
 require_text "docker-compose.yml" "LEDGER_SERVER_MODE=release"
+require_text "docker-compose.yml" "release 模式禁止使用 \\*"
+require_text ".env.example" "LEDGER_CORS_ALLOWED_ORIGINS="
+require_text ".env.example" "release 模式会拒绝通配 CORS"
+
+if grep -qE '^[[:space:]]*LEDGER_CORS_ALLOWED_ORIGINS=[*][[:space:]]*$' "$ROOT_DIR/.env.example"; then
+  echo "Release example must not default CORS to wildcard." >&2
+  exit 1
+fi
 
 echo "Docker release preflight checks passed."

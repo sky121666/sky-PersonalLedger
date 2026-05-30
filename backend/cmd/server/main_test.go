@@ -39,6 +39,28 @@ func TestValidateJWTSecretAcceptsStrongSecret(t *testing.T) {
 	}
 }
 
+func TestValidateProductionCORSRejectsWildcardInRelease(t *testing.T) {
+	err := validateProductionCORS("release", " * ")
+	if err == nil {
+		t.Fatal("expected wildcard CORS to be rejected in release mode")
+	}
+	if !strings.Contains(err.Error(), "LEDGER_CORS_ALLOWED_ORIGINS") {
+		t.Fatalf("error = %q, want CORS env guidance", err.Error())
+	}
+}
+
+func TestValidateProductionCORSAllowsEmptyReleaseConfig(t *testing.T) {
+	if err := validateProductionCORS("release", ""); err != nil {
+		t.Fatalf("empty release CORS should allow same-site deployment: %v", err)
+	}
+}
+
+func TestValidateProductionCORSAllowsWildcardInDebug(t *testing.T) {
+	if err := validateProductionCORS("debug", "*"); err != nil {
+		t.Fatalf("debug wildcard CORS should remain available for local development: %v", err)
+	}
+}
+
 func TestSetupUploadFilesRejectsOtherUserPrivateFile(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	uploadPath := t.TempDir()

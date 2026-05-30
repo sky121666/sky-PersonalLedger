@@ -174,6 +174,7 @@ LEDGER_DATABASE_DSN='ledger:password@tcp(db:3306)/ledger?charset=utf8mb4&parseTi
 | LEDGER_JWT_REFRESH_EXPIRE | 重新登录间隔 (分钟) | 43200 (30天) |
 | LEDGER_STORAGE_MAX_FILE_SIZE | 最大上传文件 (MB) | 10 |
 | LEDGER_SERVER_MODE | 服务器模式 (debug=禁用限流, release=启用限流) | release |
+| LEDGER_CORS_ALLOWED_ORIGINS | 跨域白名单，留空仅允许同站 Host/无 Origin；前后端分离时填具体域名；release 禁止 `*` | 空 |
 | LEDGER_RATE_LIMIT_MAX_REQUESTS | 每分钟最大请求数 (仅 release 模式) | 1000 |
 | LEDGER_RATE_LIMIT_WINDOW_SECS | 限流时间窗口 (秒，仅 release 模式) | 60 |
 | LEDGER_LOG_LEVEL | 日志级别 (debug/info/warn/error) | info |
@@ -201,6 +202,8 @@ services:
       # - LEDGER_SECURITY_BASE_PATH=/my-secret-path
       # 移动端 API 验证 Token
       # - LEDGER_SECURITY_API_TOKEN=sk-your-api-token
+      # 跨域白名单；同域部署保持为空，前后端分离时设置具体域名
+      # - LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.com
       
       # ========== 登录配置 ==========
       - LEDGER_JWT_ACCESS_EXPIRE=15      # 15分钟后自动刷新登录状态
