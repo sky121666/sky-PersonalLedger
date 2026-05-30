@@ -175,6 +175,10 @@ require_text ".github/workflows/android.yml" "jarsigner -verify -strict -certs"
 require_text ".github/workflows/ios.yml" "Verify iOS IPA signature"
 require_text ".github/workflows/ios.yml" "CFBundleIdentifier"
 require_text ".github/workflows/ios.yml" "codesign --verify --deep --strict"
+require_text ".github/workflows/release.yml" "verify-ios-artifact"
+require_text ".github/workflows/release.yml" "runs-on: macos-latest"
+require_text ".github/workflows/release.yml" "REQUIRE_ANDROID_ARTIFACTS=0"
+require_text ".github/workflows/release.yml" "REQUIRE_IOS_ARTIFACT=0"
 require_text ".github/workflows/release.yml" "VERIFY_ARTIFACT_SIGNATURES=1"
 require_text "scripts/check-docker-release-evidence.sh" 'pick_port'
 require_text "scripts/check-docker-release-evidence.sh" 'Image healthcheck: healthy'

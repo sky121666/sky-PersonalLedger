@@ -53,11 +53,35 @@ jobs:
       build_number: ${{ needs.prepare.outputs.build_number }}
     secrets: inherit
 
+  verify-ios-artifact:
+    name: Verify iOS Artifact
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: [prepare, ios]
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download iOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-ipa
+          path: artifacts/ios-ipa
+
+      - name: Verify iOS artifact signature
+        run: |
+          RELEASE_ARTIFACT_DIR=artifacts \
+          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
+          REQUIRE_ANDROID_ARTIFACTS=0 \
+          REQUIRE_IOS_ARTIFACT=1 \
+          VERIFY_ARTIFACT_SIGNATURES=1 \
+          ./scripts/check-release-artifact-files.sh
+
   # 创建 GitHub Release
   release:
     name: Create Release
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: [prepare, docker, android, ios]
+    needs: [prepare, docker, android, ios, verify-ios-artifact]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -74,12 +98,20 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f
 
-      - name: Verify release artifacts
+      - name: Verify Android release artifact signatures
         run: |
           RELEASE_ARTIFACT_DIR=artifacts \
           RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
-          REQUIRE_IOS_ARTIFACT=1 \
+          REQUIRE_IOS_ARTIFACT=0 \
           VERIFY_ARTIFACT_SIGNATURES=1 \
+          ./scripts/check-release-artifact-files.sh
+
+      - name: Verify iOS release artifact checksums
+        run: |
+          RELEASE_ARTIFACT_DIR=artifacts \
+          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
+          REQUIRE_ANDROID_ARTIFACTS=0 \
+          REQUIRE_IOS_ARTIFACT=1 \
           ./scripts/check-release-artifact-files.sh
 
       - name: Create Release
