@@ -82,7 +82,7 @@ check_checksum_sidecar() {
   local extra
 
   expected_name="$(basename "$path")"
-  non_empty_lines="$(grep -cve '^[[:space:]]*$' "$sidecar")"
+  non_empty_lines="$(awk 'NF { count++ } END { print count + 0 }' "$sidecar")"
   if [[ "$non_empty_lines" != "1" ]]; then
     fail "$label checksum sidecar must contain exactly one non-empty line: $sidecar"
   fi
