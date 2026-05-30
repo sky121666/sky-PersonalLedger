@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -24,6 +25,10 @@ func NewOpenAICompatibleClient(httpClient *http.Client) *OpenAICompatibleClient 
 
 func NormalizeOpenAIChatCompletionsURL(baseURL string) string {
 	normalized := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	parsed, err := url.Parse(normalized)
+	if err == nil && strings.EqualFold(parsed.Host, "api.deepseek.com") && (parsed.Path == "" || parsed.Path == "/") {
+		return normalized + "/chat/completions"
+	}
 	switch {
 	case strings.HasSuffix(normalized, "/chat/completions"):
 		return normalized

@@ -195,6 +195,8 @@ func TestAIProviderProtectsStoredAPIKeyWhenEncryptionSecretConfigured(t *testing
 
 func TestOpenAICompatibleChatCompletionsURL(t *testing.T) {
 	cases := map[string]string{
+		"https://api.deepseek.com":     "https://api.deepseek.com/chat/completions",
+		"https://api.deepseek.com/":    "https://api.deepseek.com/chat/completions",
 		"https://api.example.com":      "https://api.example.com/v1/chat/completions",
 		"https://api.example.com/":     "https://api.example.com/v1/chat/completions",
 		"https://api.example.com/v1":   "https://api.example.com/v1/chat/completions",
