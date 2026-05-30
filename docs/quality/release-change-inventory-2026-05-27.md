@@ -120,6 +120,7 @@ mobile/lib/app/widgets/pressable_scale.dart
 mobile/lib/app/widgets/staggered_entrance.dart
 mobile/lib/core/config/server_config_service.dart
 mobile/lib/core/network/auth_interceptor.dart
+mobile/lib/features/attachments/data/attachment_repository.dart
 mobile/lib/features/auth/presentation/setup_password_page.dart
 mobile/lib/features/home/data/home_repository.dart
 mobile/lib/features/home/presentation/home_page.dart
@@ -137,12 +138,14 @@ mobile/test/auth_interceptor_test.dart
 mobile/test/core_response_parsing_test.dart
 mobile/test/data_management_repository_test.dart
 mobile/test/home_widget_test.dart
+mobile/test/lending_widget_test.dart
 mobile/test/main_shell_widget_test.dart
 mobile/test/notification_widget_test.dart
 mobile/test/premium_accessibility_test.dart
 mobile/test/premium_motion_widgets_test.dart
 mobile/test/profile_widget_test.dart
 mobile/test/quick_transaction_form_validation_test.dart
+mobile/test/reminder_widget_test.dart
 scripts/verify-mobile-e2e.sh
 ```
 
