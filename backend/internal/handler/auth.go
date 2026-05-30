@@ -40,7 +40,7 @@ type InitRequest struct {
 func (h *AuthHandler) Init(c *gin.Context) {
 	var req InitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request: "+err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

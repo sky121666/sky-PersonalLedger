@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -113,6 +112,25 @@ func TestSetupTestDatabaseDoesNotExposeConnectionDetails(t *testing.T) {
 	}
 }
 
+func TestSetupTestDatabaseMalformedJSONDoesNotExposeParserDetails(t *testing.T) {
+	handler, _ := newSetupTestHandler(t, config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")})
+
+	response := performSetupRawRequest(handler, http.MethodPost, "/setup/test-database", `{"driver":`)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", response.Code, response.Body.String())
+	}
+	body := strings.ToLower(response.Body.String())
+	if !strings.Contains(body, "invalid request") {
+		t.Fatalf("body = %s, want invalid request", response.Body.String())
+	}
+	for _, forbidden := range []string{"unexpected", "eof", "json", "driver"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("response exposed parser detail %q: %s", forbidden, response.Body.String())
+		}
+	}
+}
+
 func TestSetupApplyWritesLocalConfigBeforeInitialization(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	databasePath := filepath.Join(t.TempDir(), "applied.db")
@@ -196,6 +214,28 @@ func TestSetupApplyDoesNotExposeConnectionDetails(t *testing.T) {
 	})
 	if !strings.Contains(response.Body.String(), "database test failed") {
 		t.Fatalf("body = %s, want generic database test failure", response.Body.String())
+	}
+}
+
+func TestSetupApplyMalformedJSONDoesNotExposeParserDetails(t *testing.T) {
+	handler, _ := newSetupTestHandlerWithConfig(t,
+		config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")},
+		config.SetupConfig{ConfigPath: filepath.Join(t.TempDir(), "config.yaml")},
+	)
+
+	response := performSetupRawRequest(handler, http.MethodPost, "/setup/apply", `{"driver":`)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", response.Code, response.Body.String())
+	}
+	body := strings.ToLower(response.Body.String())
+	if !strings.Contains(body, "invalid request") {
+		t.Fatalf("body = %s, want invalid request", response.Body.String())
+	}
+	for _, forbidden := range []string{"unexpected", "eof", "json", "driver"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("response exposed parser detail %q: %s", forbidden, response.Body.String())
+		}
 	}
 }
 
@@ -476,19 +516,23 @@ func newSetupTestHandlerWithConfig(t *testing.T, dbConfig config.DatabaseConfig,
 }
 
 func performSetupRequest(handler *SetupHandler, method string, path string, payload any) *httptest.ResponseRecorder {
+	var body string
+	if payload == nil {
+		body = ""
+	} else {
+		data, _ := json.Marshal(payload)
+		body = string(data)
+	}
+	return performSetupRawRequest(handler, method, path, body)
+}
+
+func performSetupRawRequest(handler *SetupHandler, method string, path string, payload string) *httptest.ResponseRecorder {
 	router := gin.New()
 	router.GET("/setup/status", handler.Status)
 	router.POST("/setup/test-database", handler.TestDatabase)
 	router.POST("/setup/apply", handler.Apply)
 
-	var body *bytes.Reader
-	if payload == nil {
-		body = bytes.NewReader(nil)
-	} else {
-		data, _ := json.Marshal(payload)
-		body = bytes.NewReader(data)
-	}
-	request := httptest.NewRequest(method, path, body)
+	request := httptest.NewRequest(method, path, strings.NewReader(payload))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)

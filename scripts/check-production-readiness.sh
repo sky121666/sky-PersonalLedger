@@ -158,6 +158,8 @@ require_absent_text "mobile/lib/core/network/api_client.dart" 'message: error\.m
 require_text "mobile/lib/core/network/api_client.dart" "message: error\\.response == null \\? '网络连接失败' : '请求失败'"
 require_text "mobile/lib/core/config/server_config_service.dart" '远程服务器必须使用 HTTPS'
 require_absent_text "backend/internal/service/auth.go" 'password must be at least 6 characters'
+require_absent_text "backend/internal/handler/auth.go" 'invalid request: "\+err\.Error\(\)'
+require_absent_text "backend/internal/handler/setup.go" 'invalid request: "\+err\.Error\(\)'
 
 "$ROOT_DIR/scripts/check-public-git-safety.sh"
 "$ROOT_DIR/scripts/check-backup-restore-rehearsal.sh"

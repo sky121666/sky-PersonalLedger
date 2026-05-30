@@ -17,6 +17,30 @@ import (
 	"github.com/sky/personal-ledger/pkg/jwt"
 )
 
+func TestAuthInitMalformedJSONDoesNotExposeParserDetails(t *testing.T) {
+	handler := newAuthHandlerForTest(t)
+	response := httptest.NewRecorder()
+	router := gin.New()
+	router.POST("/init", handler.Init)
+
+	request := httptest.NewRequest(http.MethodPost, "/init", strings.NewReader(`{"password":`))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", response.Code, response.Body.String())
+	}
+	body := strings.ToLower(response.Body.String())
+	if !strings.Contains(body, "invalid request") {
+		t.Fatalf("body = %s, want invalid request", response.Body.String())
+	}
+	for _, forbidden := range []string{"unexpected", "eof", "json", "password"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("response exposed parser detail %q: %s", forbidden, response.Body.String())
+		}
+	}
+}
+
 func TestAuthGetProfileMissingUserDoesNotExposeORMError(t *testing.T) {
 	handler := newAuthHandlerForTest(t)
 	response := httptest.NewRecorder()
