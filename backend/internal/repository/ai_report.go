@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
 	"gorm.io/gorm"
@@ -35,6 +37,27 @@ func (r *AIReportRepository) GetByUserID(userID uint) ([]model.AIReport, error) 
 		Order("period_start DESC, created_at DESC").
 		Find(&reports).Error
 	return reports, err
+}
+
+func (r *AIReportRepository) GetReusableCompleted(userID uint, reportType string, start, end time.Time, providerID, modelName, promptVersion string) (*model.AIReport, error) {
+	var report model.AIReport
+	err := r.db.Where(
+		"user_id = ? AND report_type = ? AND period_start = ? AND period_end = ? AND provider_id = ? AND model = ? AND prompt_version = ? AND status = ?",
+		userID,
+		reportType,
+		start,
+		end,
+		providerID,
+		modelName,
+		promptVersion,
+		"completed",
+	).
+		Order("updated_at DESC").
+		First(&report).Error
+	if err != nil {
+		return nil, err
+	}
+	return &report, nil
 }
 
 func (r *AIReportRepository) Update(report *model.AIReport) error {

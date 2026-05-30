@@ -170,7 +170,7 @@ The UI can render this contract as cards, timeline blocks, and short paragraphs.
 - Do not send file attachments.
 - Do not send API tokens, passwords, webhook URLs, or backup contents.
 - Provide a masking option for member names and account names.
-- Cache reports to avoid repeated external calls.
+- Cache completed reports by user, report type, period, provider, model, and prompt version to avoid repeated external calls for the same scope.
 - Allow deleting reports.
 - Protect stored provider API keys at rest.
 - Keep AI providers and raw provider keys out of normal ledger backup exports.
@@ -181,5 +181,6 @@ The UI can render this contract as cards, timeline blocks, and short paragraphs.
 - Unit tests for provider response parsing.
 - Handler tests proving API keys are not returned.
 - Report generation test using a fake OpenAI-compatible server.
+- Cache test proving repeated generation for the same completed scope returns the existing report without another provider request.
 - Snapshot tests proving raw remarks are excluded by default.
 - UI tests for disabled state, connection test, and generated report rendering.

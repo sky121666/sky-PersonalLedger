@@ -155,6 +155,9 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 	if err != nil {
 		return nil, err
 	}
+	if cached, err := s.repo.GetReusableCompleted(userID, reportType, start, end, provider.ID, provider.Model, aiReportPromptVersion); err == nil {
+		return aiReportResponse(cached), nil
+	}
 
 	snapshotJSON, err := s.buildSnapshotJSON(userID, start, end)
 	if err != nil {

@@ -84,6 +84,39 @@ func TestAIReportGenerateStoresAggregatedSnapshotAndContent(t *testing.T) {
 	}
 }
 
+func TestAIReportGenerateReusesCompletedReportForSameScope(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"summary\":\"cached weekly report\"}"}}]}`))
+	}))
+	defer server.Close()
+
+	svc, providerSvc, userID := newAIReportTestServices(t)
+	seedAIReportFacts(t, providerSvc, userID, server.URL)
+	req := GenerateAIReportRequest{
+		ReportType:  "weekly",
+		PeriodStart: "2026-05-18",
+		PeriodEnd:   "2026-05-24",
+	}
+
+	first, err := svc.Generate(userID, req)
+	if err != nil {
+		t.Fatalf("first generate report: %v", err)
+	}
+	second, err := svc.Generate(userID, req)
+	if err != nil {
+		t.Fatalf("second generate report: %v", err)
+	}
+	if second.ID != first.ID {
+		t.Fatalf("second report id = %s, want cached report %s", second.ID, first.ID)
+	}
+	if requestCount != 1 {
+		t.Fatalf("ai request count = %d, want 1", requestCount)
+	}
+}
+
 func newAIReportTestServices(t *testing.T) (*AIReportService, *AIProviderService, uint) {
 	t.Helper()
 	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))
