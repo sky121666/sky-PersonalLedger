@@ -53,6 +53,25 @@ export interface GenerateAIReportParams {
   period_end: string
 }
 
+export interface AIReportScheduleSettings {
+  enabled: boolean
+  weekly_enabled: boolean
+  monthly_enabled: boolean
+  hour: number
+  last_weekly_run?: string
+  last_monthly_run?: string
+}
+
+export interface AIReportScheduleRunResult {
+  report_type: string
+  period_start: string
+  period_end: string
+  attempted: number
+  succeeded: number
+  skipped: number
+  failed: number
+}
+
 export const aiApi = {
   listProviderPresets(): Promise<AIProviderPreset[]> {
     return get<AIProviderPreset[]>('/ai/providers/presets')
@@ -92,5 +111,17 @@ export const aiApi = {
 
   deleteReport(id: string): Promise<void> {
     return del<void>(`/ai/reports/${id}`)
+  },
+
+  getScheduleSettings(): Promise<AIReportScheduleSettings> {
+    return get<AIReportScheduleSettings>('/ai/schedule/settings')
+  },
+
+  updateScheduleSettings(params: AIReportScheduleSettings): Promise<AIReportScheduleSettings> {
+    return put<AIReportScheduleSettings>('/ai/schedule/settings', params)
+  },
+
+  triggerSchedule(): Promise<{ results: AIReportScheduleRunResult[] }> {
+    return post<{ results: AIReportScheduleRunResult[] }>('/ai/schedule/trigger')
   }
 }

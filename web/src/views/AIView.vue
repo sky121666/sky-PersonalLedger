@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { AlertTriangle, ArrowLeft, Bot, KeyRound, PlayCircle, RefreshCw, ShieldCheck, Sparkles, Trash2, TrendingUp } from 'lucide-vue-next'
-import { aiApi, type AIProvider, type AIProviderPreset, type AIReport } from '@/api/ai'
+import { AlertTriangle, ArrowLeft, Bot, CalendarClock, KeyRound, PlayCircle, RefreshCw, ShieldCheck, Sparkles, Trash2, TrendingUp, Zap } from 'lucide-vue-next'
+import { aiApi, type AIProvider, type AIProviderPreset, type AIReport, type AIReportScheduleRunResult } from '@/api/ai'
 import { toast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -10,11 +10,14 @@ const loading = ref(false)
 const saving = ref(false)
 const testingId = ref<string | null>(null)
 const generating = ref(false)
+const savingSchedule = ref(false)
+const triggeringSchedule = ref(false)
 const providers = ref<AIProvider[]>([])
 const providerPresets = ref<AIProviderPreset[]>([])
 const reports = ref<AIReport[]>([])
 const selectedReport = ref<AIReport | null>(null)
 const selectedPresetId = ref('deepseek')
+const scheduleResults = ref<AIReportScheduleRunResult[]>([])
 
 const providerForm = reactive({
   name: 'DeepSeek',
@@ -29,6 +32,15 @@ const reportForm = reactive({
   provider_id: '',
   period_start: defaultWeekStart(),
   period_end: defaultWeekEnd()
+})
+
+const scheduleForm = reactive({
+  enabled: false,
+  weekly_enabled: true,
+  monthly_enabled: true,
+  hour: 8,
+  last_weekly_run: '',
+  last_monthly_run: ''
 })
 
 const enabledProviders = computed(() => providers.value.filter(provider => provider.enabled))
@@ -49,15 +61,66 @@ async function loadData() {
       aiApi.listProviders(),
       aiApi.listReports()
     ])
+    const schedule = await aiApi.getScheduleSettings()
     providerPresets.value = presetList
     providers.value = providerList
     reports.value = reportList
+    Object.assign(scheduleForm, {
+      enabled: schedule.enabled,
+      weekly_enabled: schedule.weekly_enabled,
+      monthly_enabled: schedule.monthly_enabled,
+      hour: schedule.hour,
+      last_weekly_run: schedule.last_weekly_run || '',
+      last_monthly_run: schedule.last_monthly_run || ''
+    })
     reportForm.provider_id ||= enabledProviders.value[0]?.id || ''
     selectedReport.value = reportList[0] || null
   } catch (error: any) {
     toast.error(error.message || 'AI 数据加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function saveSchedule() {
+  savingSchedule.value = true
+  try {
+    const schedule = await aiApi.updateScheduleSettings({
+      enabled: scheduleForm.enabled,
+      weekly_enabled: scheduleForm.weekly_enabled,
+      monthly_enabled: scheduleForm.monthly_enabled,
+      hour: Number(scheduleForm.hour),
+      last_weekly_run: scheduleForm.last_weekly_run || undefined,
+      last_monthly_run: scheduleForm.last_monthly_run || undefined
+    })
+    Object.assign(scheduleForm, {
+      enabled: schedule.enabled,
+      weekly_enabled: schedule.weekly_enabled,
+      monthly_enabled: schedule.monthly_enabled,
+      hour: schedule.hour,
+      last_weekly_run: schedule.last_weekly_run || '',
+      last_monthly_run: schedule.last_monthly_run || ''
+    })
+    toast.success('自动报告设置已保存')
+  } catch (error: any) {
+    toast.error(error.message || '保存自动报告设置失败')
+  } finally {
+    savingSchedule.value = false
+  }
+}
+
+async function triggerSchedule() {
+  triggeringSchedule.value = true
+  try {
+    const payload = await aiApi.triggerSchedule()
+    scheduleResults.value = payload.results || []
+    const successCount = scheduleResults.value.reduce((sum, item) => sum + item.succeeded, 0)
+    toast.success(successCount > 0 ? `已生成 ${successCount} 份自动报告` : '自动报告检查完成')
+    await loadData()
+  } catch (error: any) {
+    toast.error(error.message || '触发自动报告失败')
+  } finally {
+    triggeringSchedule.value = false
   }
 }
 
@@ -172,6 +235,10 @@ function statusText(status: string) {
 
 function typeText(type: string) {
   return ({ weekly: '每周总结', monthly: '月度总结', family: '家庭分析', budget: '预算建议' } as Record<string, string>)[type] || '财务分析'
+}
+
+function scheduleResultText(result: AIReportScheduleRunResult) {
+  return `${typeText(result.report_type)} ${result.period_start} - ${result.period_end}，成功 ${result.succeeded}，跳过 ${result.skipped}，失败 ${result.failed}`
 }
 
 function shortDate(value: string) {
@@ -291,6 +358,58 @@ function defaultWeekEnd() {
               <PlayCircle :size="18" />
               {{ generating ? '生成中...' : '生成 AI 报告' }}
             </button>
+          </form>
+
+          <form class="rounded-2xl bg-white/90 dark:bg-[#1C1C1E]/90 border border-black/5 dark:border-white/10 p-5 space-y-4" @submit.prevent="saveSchedule">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <CalendarClock :size="18" />
+                <h2 class="font-semibold">自动报告</h2>
+              </div>
+              <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="scheduleForm.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200' : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'">
+                {{ scheduleForm.enabled ? '已开启' : '默认关闭' }}
+              </span>
+            </div>
+            <label class="flex items-center justify-between gap-3 rounded-xl bg-gray-100/80 px-3 py-3 text-sm dark:bg-white/10">
+              <span>
+                <span class="block font-medium">启用自动生成</span>
+                <span class="block text-xs text-gray-500">仅发送聚合快照，仍不包含交易备注和附件。</span>
+              </span>
+              <input v-model="scheduleForm.enabled" type="checkbox" class="h-5 w-5" />
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="flex items-center gap-2 rounded-xl bg-gray-100/80 px-3 py-3 text-sm dark:bg-white/10">
+                <input v-model="scheduleForm.weekly_enabled" type="checkbox" />
+                每周总结
+              </label>
+              <label class="flex items-center gap-2 rounded-xl bg-gray-100/80 px-3 py-3 text-sm dark:bg-white/10">
+                <input v-model="scheduleForm.monthly_enabled" type="checkbox" />
+                月度总结
+              </label>
+            </div>
+            <label class="block text-sm">
+              <span class="mb-2 block text-gray-500">运行小时</span>
+              <input v-model.number="scheduleForm.hour" type="number" min="0" max="23" class="w-full rounded-xl bg-gray-100 px-3 py-3 outline-none dark:bg-white/10" />
+            </label>
+            <div class="grid grid-cols-2 gap-3 text-xs text-gray-500">
+              <span>周报上次检查：{{ scheduleForm.last_weekly_run || '无' }}</span>
+              <span>月报上次检查：{{ scheduleForm.last_monthly_run || '无' }}</span>
+            </div>
+            <div v-if="scheduleResults.length" class="space-y-2 rounded-xl bg-gray-100/80 p-3 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-300">
+              <p v-for="result in scheduleResults" :key="`${result.report_type}-${result.period_start}`">
+                {{ scheduleResultText(result) }}
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <button class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 font-medium text-white disabled:opacity-60" :disabled="savingSchedule">
+                <CalendarClock :size="17" />
+                {{ savingSchedule ? '保存中...' : '保存设置' }}
+              </button>
+              <button type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-black/5 bg-gray-100 py-3 font-medium dark:border-white/10 dark:bg-white/10 disabled:opacity-60" :disabled="triggeringSchedule" @click="triggerSchedule">
+                <Zap :size="17" />
+                {{ triggeringSchedule ? '触发中...' : '立即触发' }}
+              </button>
+            </div>
           </form>
         </div>
 
