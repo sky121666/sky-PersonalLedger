@@ -14,6 +14,7 @@ import (
 var (
 	ErrAIReportNotFound         = errors.New("ai report not found")
 	ErrAIReportTypeRequired     = errors.New("ai report type is required")
+	ErrAIReportTypeUnsupported  = errors.New("ai report type is unsupported")
 	ErrAIReportPeriodInvalid    = errors.New("ai report period is invalid")
 	ErrAIReportProviderNotFound = errors.New("enabled ai provider not found")
 )
@@ -147,6 +148,9 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 	if reportType == "" {
 		return nil, ErrAIReportTypeRequired
 	}
+	if !isSupportedAIReportType(reportType) {
+		return nil, ErrAIReportTypeUnsupported
+	}
 	start, end, err := parseAIReportPeriod(req.PeriodStart, req.PeriodEnd)
 	if err != nil {
 		return nil, err
@@ -203,6 +207,15 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 		return nil, err
 	}
 	return aiReportResponse(report), nil
+}
+
+func isSupportedAIReportType(reportType string) bool {
+	switch reportType {
+	case "weekly", "monthly", "family", "budget", "anomaly":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *AIReportService) List(userID uint) ([]AIReportResponse, error) {

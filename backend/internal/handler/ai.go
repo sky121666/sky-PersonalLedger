@@ -195,6 +195,7 @@ func writeAIReportError(c *gin.Context, err error) {
 		errors.Is(err, service.ErrAIReportProviderNotFound):
 		response.NotFound(c, err.Error())
 	case errors.Is(err, service.ErrAIReportTypeRequired),
+		errors.Is(err, service.ErrAIReportTypeUnsupported),
 		errors.Is(err, service.ErrAIReportPeriodInvalid):
 		response.BadRequest(c, err.Error())
 	default:

@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -114,6 +115,19 @@ func TestAIReportGenerateReusesCompletedReportForSameScope(t *testing.T) {
 	}
 	if requestCount != 1 {
 		t.Fatalf("ai request count = %d, want 1", requestCount)
+	}
+}
+
+func TestAIReportGenerateRejectsUnsupportedType(t *testing.T) {
+	svc, _, userID := newAIReportTestServices(t)
+
+	_, err := svc.Generate(userID, GenerateAIReportRequest{
+		ReportType:  "unsupported",
+		PeriodStart: "2026-05-18",
+		PeriodEnd:   "2026-05-24",
+	})
+	if !errors.Is(err, ErrAIReportTypeUnsupported) {
+		t.Fatalf("err = %v, want ErrAIReportTypeUnsupported", err)
 	}
 }
 
