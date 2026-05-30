@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net/url"
 	"strings"
 	"time"
 
@@ -14,7 +15,9 @@ var (
 	ErrAIProviderNotFound        = errors.New("ai provider not found")
 	ErrAIProviderNameRequired    = errors.New("ai provider name is required")
 	ErrAIProviderBaseURLRequired = errors.New("ai provider base url is required")
+	ErrAIProviderBaseURLInvalid  = errors.New("ai provider base url is invalid")
 	ErrAIProviderModelRequired   = errors.New("ai provider model is required")
+	ErrAIProviderTypeUnsupported = errors.New("ai provider type is unsupported")
 )
 
 const aiProviderTypeOpenAICompatible = "openai_compatible"
@@ -210,13 +213,27 @@ func normalizeSaveAIProviderRequest(req SaveAIProviderRequest) (SaveAIProviderRe
 	if req.ProviderType == "" {
 		req.ProviderType = aiProviderTypeOpenAICompatible
 	}
+	if req.ProviderType != aiProviderTypeOpenAICompatible {
+		return req, ErrAIProviderTypeUnsupported
+	}
 	if req.BaseURL == "" {
 		return req, ErrAIProviderBaseURLRequired
+	}
+	if !isValidAIProviderBaseURL(req.BaseURL) {
+		return req, ErrAIProviderBaseURLInvalid
 	}
 	if req.Model == "" {
 		return req, ErrAIProviderModelRequired
 	}
 	return req, nil
+}
+
+func isValidAIProviderBaseURL(baseURL string) bool {
+	parsed, err := url.ParseRequestURI(baseURL)
+	if err != nil || parsed == nil {
+		return false
+	}
+	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }
 
 func aiProviderResponse(provider *model.AIProvider) *AIProviderResponse {

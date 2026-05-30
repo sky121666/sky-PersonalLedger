@@ -180,7 +180,9 @@ func writeAIProviderError(c *gin.Context, err error) {
 		response.NotFound(c, err.Error())
 	case errors.Is(err, service.ErrAIProviderNameRequired),
 		errors.Is(err, service.ErrAIProviderBaseURLRequired),
-		errors.Is(err, service.ErrAIProviderModelRequired):
+		errors.Is(err, service.ErrAIProviderBaseURLInvalid),
+		errors.Is(err, service.ErrAIProviderModelRequired),
+		errors.Is(err, service.ErrAIProviderTypeUnsupported):
 		response.BadRequest(c, err.Error())
 	default:
 		response.Error(c, http.StatusInternalServerError, 50001, err.Error())

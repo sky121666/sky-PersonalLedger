@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -81,6 +82,37 @@ func TestAIProviderCreateListUpdateDeleteDoesNotExposeAPIKey(t *testing.T) {
 	}
 	if len(list) != 0 {
 		t.Fatalf("list len after delete = %d, want 0", len(list))
+	}
+}
+
+func TestAIProviderRejectsUnsupportedType(t *testing.T) {
+	svc, _, userID := newAIProviderTestService(t)
+
+	_, err := svc.Create(userID, SaveAIProviderRequest{
+		Name:         "DeepSeek",
+		ProviderType: "unsupported_provider",
+		BaseURL:      "https://api.deepseek.com",
+		APIKey:       "sk-secret",
+		Model:        "deepseek-chat",
+		Enabled:      true,
+	})
+	if !errors.Is(err, ErrAIProviderTypeUnsupported) {
+		t.Fatalf("err = %v, want ErrAIProviderTypeUnsupported", err)
+	}
+}
+
+func TestAIProviderRejectsInvalidBaseURL(t *testing.T) {
+	svc, _, userID := newAIProviderTestService(t)
+
+	_, err := svc.Create(userID, SaveAIProviderRequest{
+		Name:    "DeepSeek",
+		BaseURL: "ftp://api.deepseek.com",
+		APIKey:  "sk-secret",
+		Model:   "deepseek-chat",
+		Enabled: true,
+	})
+	if !errors.Is(err, ErrAIProviderBaseURLInvalid) {
+		t.Fatalf("err = %v, want ErrAIProviderBaseURLInvalid", err)
 	}
 }
 
