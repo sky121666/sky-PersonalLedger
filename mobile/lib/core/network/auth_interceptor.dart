@@ -47,6 +47,11 @@ class AuthInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
+    if (err.requestOptions.extra[skipAuthExtraKey] == true) {
+      handler.next(err);
+      return;
+    }
+
     final isTokenExpired =
         err.response?.statusCode == 401 &&
         err.response?.data is Map<String, dynamic> &&
@@ -93,8 +98,7 @@ class AuthInterceptor extends Interceptor {
       return null;
     }
 
-    final refreshDio = Dio(_dio.options);
-    final response = await refreshDio.post<Object?>(
+    final response = await _dio.post<Object?>(
       '/auth/refresh',
       data: {'refresh_token': refreshToken},
       options: Options(extra: const {skipAuthExtraKey: true}),

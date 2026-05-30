@@ -116,6 +116,7 @@ mobile/lib/app/widgets/animated_money_text.dart
 mobile/lib/app/widgets/premium_surface.dart
 mobile/lib/app/widgets/pressable_scale.dart
 mobile/lib/app/widgets/staggered_entrance.dart
+mobile/lib/core/network/auth_interceptor.dart
 mobile/lib/features/home/data/home_repository.dart
 mobile/lib/features/home/presentation/home_page.dart
 mobile/lib/features/home/presentation/widgets/
@@ -124,6 +125,7 @@ mobile/lib/features/profile/presentation/profile_page.dart
 mobile/lib/features/transactions/data/transaction_models.dart
 mobile/lib/features/transactions/presentation/quick_transaction_page.dart
 mobile/test/animated_money_text_test.dart
+mobile/test/auth_interceptor_test.dart
 mobile/test/home_widget_test.dart
 mobile/test/main_shell_widget_test.dart
 mobile/test/premium_accessibility_test.dart
