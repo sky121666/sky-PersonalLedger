@@ -31,7 +31,7 @@ func (h *ReminderHandler) List(c *gin.Context) {
 	}
 
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list reminders")
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *ReminderHandler) Create(c *gin.Context) {
 
 	reminder, err := h.service.Create(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to create reminder")
 		return
 	}
 
@@ -141,7 +141,7 @@ func (h *ReminderHandler) GetDebtSummary(c *gin.Context) {
 
 	summary, err := h.service.GetDebtSummary(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to summarize reminder debt")
 		return
 	}
 

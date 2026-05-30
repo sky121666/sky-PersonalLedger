@@ -55,6 +55,103 @@ func TestExportYearlyReportDoesNotExposeDatabaseError(t *testing.T) {
 	assertGenericInternalError(t, response, "failed to load yearly report")
 }
 
+func TestCategoryListDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewCategoryHandler(service.NewCategoryService(repos.Category))
+
+	router := gin.New()
+	router.GET("/categories", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.List(c)
+	})
+
+	response := performQueryErrorRequest(router, "/categories")
+
+	assertGenericInternalError(t, response, "failed to list categories")
+}
+
+func TestTemplateListDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewTemplateHandler(service.NewTemplateService(repos.Template, repos.Transaction, repos.Account))
+
+	router := gin.New()
+	router.GET("/templates", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.List(c)
+	})
+
+	response := performQueryErrorRequest(router, "/templates")
+
+	assertGenericInternalError(t, response, "failed to list templates")
+}
+
+func TestBudgetListDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewBudgetHandler(service.NewBudgetService(repos.Budget, repos.Transaction, repos.FamilyMember))
+
+	router := gin.New()
+	router.GET("/budgets", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.List(c)
+	})
+
+	response := performQueryErrorRequest(router, "/budgets")
+
+	assertGenericInternalError(t, response, "failed to list budgets")
+}
+
+func TestReminderListDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	accountLogService := service.NewAccountLogService(repos.AccountLog, repos.Account)
+	handler := NewReminderHandler(service.NewReminderService(
+		repos.Reminder,
+		repos.Account,
+		repos.Transaction,
+		repos.Category,
+		accountLogService,
+	))
+
+	router := gin.New()
+	router.GET("/reminders", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.List(c)
+	})
+
+	response := performQueryErrorRequest(router, "/reminders")
+
+	assertGenericInternalError(t, response, "failed to list reminders")
+}
+
+func TestNotificationGetDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewNotificationHandler(service.NewNotificationService(repos.Notification, repos.User))
+
+	router := gin.New()
+	router.GET("/notifications", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.Get(c)
+	})
+
+	response := performQueryErrorRequest(router, "/notifications")
+
+	assertGenericInternalError(t, response, "failed to load notification settings")
+}
+
+func TestFamilyListDoesNotExposeDatabaseError(t *testing.T) {
+	repos := newClosedRepositoriesForHandlerTest(t)
+	handler := NewFamilyHandler(service.NewFamilyMemberService(repos.FamilyMember, repos.Transaction))
+
+	router := gin.New()
+	router.GET("/family/members", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.ListMembers(c)
+	})
+
+	response := performQueryErrorRequest(router, "/family/members")
+
+	assertGenericInternalError(t, response, "failed to list family members")
+}
+
 func newClosedRepositoriesForHandlerTest(t *testing.T) *repository.Repositories {
 	t.Helper()
 	gin.SetMode(gin.TestMode)

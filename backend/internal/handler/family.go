@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/service"
@@ -22,7 +21,7 @@ func (h *FamilyHandler) ListMembers(c *gin.Context) {
 
 	members, err := h.memberService.List(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list family members")
 		return
 	}
 	response.Success(c, members)
@@ -105,6 +104,6 @@ func writeFamilyMemberError(c *gin.Context, err error) {
 	case errors.Is(err, service.ErrFamilyMemberNameEmpty):
 		response.BadRequest(c, err.Error())
 	default:
-		response.Error(c, http.StatusInternalServerError, 50001, err.Error())
+		internalServerError(c, err, "failed to process family member")
 	}
 }

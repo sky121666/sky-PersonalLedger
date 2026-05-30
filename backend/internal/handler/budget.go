@@ -22,7 +22,7 @@ func (h *BudgetHandler) List(c *gin.Context) {
 
 	result, err := h.service.List(userID, month)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list budgets")
 		return
 	}
 
@@ -34,7 +34,7 @@ func (h *BudgetHandler) GetSummary(c *gin.Context) {
 
 	summary, err := h.service.GetSummary(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to summarize budgets")
 		return
 	}
 
@@ -52,7 +52,7 @@ func (h *BudgetHandler) SetTotal(c *gin.Context) {
 
 	budget, err := h.service.SetTotalBudget(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to update total budget")
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *BudgetHandler) SetCategory(c *gin.Context) {
 
 	budget, err := h.service.SetCategoryBudget(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to update category budget")
 		return
 	}
 

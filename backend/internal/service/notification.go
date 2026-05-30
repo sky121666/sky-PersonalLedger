@@ -15,6 +15,7 @@ import (
 
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
+	"gorm.io/gorm"
 )
 
 var (
@@ -62,7 +63,9 @@ type NotificationSettingRequest struct {
 func (s *NotificationService) Get(userID uint) (*model.NotificationSetting, error) {
 	setting, err := s.repo.GetByUserID(userID)
 	if err != nil {
-		// Return default settings if not found
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
 		return &model.NotificationSetting{
 			UserID:             userID,
 			SmtpPort:           587,
@@ -78,7 +81,10 @@ func (s *NotificationService) Get(userID uint) (*model.NotificationSetting, erro
 }
 
 func (s *NotificationService) Update(userID uint, req NotificationSettingRequest) (*model.NotificationSetting, error) {
-	existing, _ := s.repo.GetByUserID(userID)
+	existing, err := s.repo.GetByUserID(userID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
 	setting := &model.NotificationSetting{
 		UserID:             userID,
 		Enabled:            req.Enabled,

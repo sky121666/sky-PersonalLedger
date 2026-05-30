@@ -21,7 +21,7 @@ func (h *NotificationHandler) Get(c *gin.Context) {
 
 	setting, err := h.service.Get(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load notification settings")
 		return
 	}
 
@@ -39,7 +39,7 @@ func (h *NotificationHandler) Update(c *gin.Context) {
 
 	setting, err := h.service.Update(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to update notification settings")
 		return
 	}
 
