@@ -256,9 +256,12 @@ class _NotificationSettingsFormState
           ),
           const SizedBox(height: 12),
           TextField(
+            key: const ValueKey('notification-dingtalk-secret'),
             controller: _dingtalkSecretController,
+            obscureText: true,
             decoration: const InputDecoration(
               labelText: '加签密钥',
+              hintText: '留空则使用已保存密钥',
               prefixIcon: Icon(Icons.key_outlined),
             ),
           ),
@@ -349,9 +352,12 @@ class _NotificationSettingsFormState
           ),
           const SizedBox(height: 12),
           TextField(
+            key: const ValueKey('notification-webhook-secret'),
             controller: _webhookSecretController,
+            obscureText: true,
             decoration: const InputDecoration(
               labelText: '密钥',
+              hintText: '留空则使用已保存密钥',
               prefixIcon: Icon(Icons.key_outlined),
             ),
           ),
@@ -366,10 +372,16 @@ class _NotificationSettingsFormState
       request: () => ref
           .read(notificationRepositoryProvider)
           .updateSettings(_buildRequest())
-          .then((_) {}),
+          .then((_) => _clearSecretControllers()),
       successMessage: '通知设置已保存',
     );
     ref.invalidate(notificationSettingsProvider);
+  }
+
+  void _clearSecretControllers() {
+    _dingtalkSecretController.clear();
+    _smtpPasswordController.clear();
+    _webhookSecretController.clear();
   }
 
   Future<void> _testWecom() async {

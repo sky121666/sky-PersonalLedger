@@ -122,6 +122,25 @@ void main() {
       expect(repository.wecomTestCalls, isEmpty);
       expect(find.text('请填写企业微信 Webhook 地址'), findsOneWidget);
     });
+
+    testWidgets('通知通道密钥输入框默认遮罩显示', (tester) async {
+      final repository = _FakeNotificationRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('钉钉'));
+      await tester.pumpAndSettle();
+      final dingtalkSecret = tester.widget<TextField>(
+        find.byKey(const ValueKey('notification-dingtalk-secret')),
+      );
+      expect(dingtalkSecret.obscureText, isTrue);
+
+      await tester.tap(find.text('Webhook'));
+      await tester.pumpAndSettle();
+      final webhookSecret = tester.widget<TextField>(
+        find.byKey(const ValueKey('notification-webhook-secret')),
+      );
+      expect(webhookSecret.obscureText, isTrue);
+    });
   });
 }
 

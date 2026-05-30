@@ -123,6 +123,7 @@ mobile/lib/features/home/data/home_repository.dart
 mobile/lib/features/home/presentation/home_page.dart
 mobile/lib/features/home/presentation/widgets/
 mobile/lib/features/main/presentation/main_shell_page.dart
+mobile/lib/features/notifications/presentation/notification_settings_page.dart
 mobile/lib/features/profile/presentation/profile_page.dart
 mobile/lib/features/transactions/data/transaction_models.dart
 mobile/lib/features/transactions/presentation/quick_transaction_page.dart
@@ -133,6 +134,7 @@ mobile/test/auth_interceptor_test.dart
 mobile/test/data_management_repository_test.dart
 mobile/test/home_widget_test.dart
 mobile/test/main_shell_widget_test.dart
+mobile/test/notification_widget_test.dart
 mobile/test/premium_accessibility_test.dart
 mobile/test/premium_motion_widgets_test.dart
 mobile/test/profile_widget_test.dart

@@ -394,7 +394,9 @@ async function openNotificationModal() {
   try {
     const settings = await notificationApi.getSettings()
     Object.assign(notificationForm.value, settings)
+    notificationForm.value.dingtalk_secret = ''
     notificationForm.value.smtp_password = ''
+    notificationForm.value.webhook_secret = ''
   } catch (e) {
     console.error('Load notification settings failed:', e)
   } finally {
@@ -402,10 +404,17 @@ async function openNotificationModal() {
   }
 }
 
+function clearNotificationSecrets() {
+  notificationForm.value.dingtalk_secret = ''
+  notificationForm.value.smtp_password = ''
+  notificationForm.value.webhook_secret = ''
+}
+
 async function saveNotificationSettings() {
   notificationLoading.value = true
   try {
     await notificationApi.updateSettings(notificationForm.value)
+    clearNotificationSecrets()
     toast.success('保存成功')
     showNotificationModal.value = false
   } catch (e: any) {
@@ -1018,7 +1027,7 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">加签密钥（可选）</label>
-                <input v-model="notificationForm.dingtalk_secret" type="text" placeholder="SEC..." class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input v-model="notificationForm.dingtalk_secret" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'dingtalk'" @click="testNotification('dingtalk')">
                 {{ testingChannel === 'dingtalk' ? '测试中...' : '发送测试消息' }}
@@ -1053,7 +1062,7 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">密码/授权码</label>
-                <input v-model="notificationForm.smtp_password" type="password" placeholder="留空则使用已保存的密码" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input v-model="notificationForm.smtp_password" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密码" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                 <p class="text-xs text-blue-600 dark:text-blue-400">
@@ -1083,7 +1092,7 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">密钥（可选）</label>
-                <input v-model="notificationForm.webhook_secret" type="text" placeholder="用于签名验证" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input v-model="notificationForm.webhook_secret" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'webhook'" @click="testNotification('webhook')">
                 {{ testingChannel === 'webhook' ? '测试中...' : '发送测试请求' }}
