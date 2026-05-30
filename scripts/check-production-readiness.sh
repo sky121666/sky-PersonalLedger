@@ -169,6 +169,9 @@ require_text "scripts/check-release-artifact-files.sh" '\^Payload/\[\^/\]\+\\.ap
 require_text ".github/workflows/android.yml" "Verify Android release signatures"
 require_text ".github/workflows/android.yml" "APKSIGNER.*verify --verbose --print-certs"
 require_text ".github/workflows/android.yml" "jarsigner -verify -strict -certs"
+require_text ".github/workflows/ios.yml" "Verify iOS IPA signature"
+require_text ".github/workflows/ios.yml" "CFBundleIdentifier"
+require_text ".github/workflows/ios.yml" "codesign --verify --deep --strict"
 require_text "scripts/check-docker-release-evidence.sh" 'pick_port'
 require_text "scripts/check-docker-release-evidence.sh" 'Image healthcheck: healthy'
 require_text "scripts/check-docker-release-evidence.sh" 'Persistent paths: ledger\.db, uploads, backups'

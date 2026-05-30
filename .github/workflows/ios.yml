@@ -118,6 +118,24 @@ jobs:
           fi
           mv "$ipa_path" "mobile/build/ios/ipa/personal-ledger-${{ steps.version.outputs.VERSION }}-ios.ipa"
 
+      - name: Verify iOS IPA signature
+        run: |
+          IPA_PATH="mobile/build/ios/ipa/personal-ledger-${{ steps.version.outputs.VERSION }}-ios.ipa"
+          WORK_DIR="$(mktemp -d)"
+          trap 'rm -rf "$WORK_DIR"' EXIT
+          unzip -q "$IPA_PATH" -d "$WORK_DIR"
+          APP_PATH="$(find "$WORK_DIR/Payload" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          if [ -z "$APP_PATH" ]; then
+            echo "::error title=Invalid IPA::No .app bundle found under Payload"
+            exit 1
+          fi
+          BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")"
+          if [ "$BUNDLE_ID" != "com.skyapp.personalLedger" ]; then
+            echo "::error title=Unexpected bundle id::Expected com.skyapp.personalLedger, got $BUNDLE_ID"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
       - name: Generate IPA checksum
         run: |
           (
