@@ -30,6 +30,10 @@ void main() {
           aiReportScheduleProvider.overrideWith(
             (ref) async => const AIReportScheduleSettings(),
           ),
+          aiProviderSetupProvider.overrideWith(
+            (ref) async =>
+                const AIProviderSetupData(presets: [], providers: []),
+          ),
         ],
         child: const MaterialApp(home: AIReportsPage()),
       ),
@@ -37,6 +41,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('AI 财务报告'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('DeepSeek / deepseek-chat'), 300);
     expect(find.text('每周总结'), findsWidgets);
     expect(find.text('已完成'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsWidgets);
@@ -62,12 +67,17 @@ void main() {
           aiReportScheduleProvider.overrideWith(
             (ref) async => const AIReportScheduleSettings(),
           ),
+          aiProviderSetupProvider.overrideWith(
+            (ref) async =>
+                const AIProviderSetupData(presets: [], providers: []),
+          ),
         ],
         child: const MaterialApp(home: AIReportsPage()),
       ),
     );
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(find.text('暂无 AI 报告'), 300);
     expect(find.text('暂无 AI 报告'), findsOneWidget);
     expect(find.text('生成本周报告'), findsWidgets);
   });
@@ -93,12 +103,17 @@ void main() {
           aiReportScheduleProvider.overrideWith(
             (ref) async => const AIReportScheduleSettings(),
           ),
+          aiProviderSetupProvider.overrideWith(
+            (ref) async =>
+                const AIProviderSetupData(presets: [], providers: []),
+          ),
         ],
         child: const MaterialApp(home: AIReportsPage()),
       ),
     );
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(find.text('DeepSeek / deepseek-chat'), 300);
     expect(find.text('失败'), findsOneWidget);
 
     await tester.tap(find.text('DeepSeek / deepseek-chat'));
@@ -145,18 +160,60 @@ void main() {
     expect(repository.savedSchedule.enabled, isTrue);
     expect(find.text('自动报告设置已保存'), findsOneWidget);
 
-    await tester.tap(find.text('立即触发应生成报告'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.scrollUntilVisible(find.text('立即触发应生成报告'), 300);
+    await tester.drag(find.byType(ListView), const Offset(0, -160));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ai-schedule-trigger')));
     await tester.pump();
 
     expect(repository.triggerCalls, 1);
+  });
+
+  testWidgets('AIReportsPage 可配置和测试 Provider', (tester) async {
+    final repository = _FakeAIReportRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [aiReportRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: AIReportsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Provider 配置'), findsOneWidget);
+    expect(find.text('暂无 Provider'), findsOneWidget);
+
+    await tester.tap(find.text('添加 Provider'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('ai-provider-api-key')),
+      'sk-mobile-test',
+    );
+    await tester.tap(find.byKey(const ValueKey('ai-provider-save')));
+    await tester.pumpAndSettle();
+
+    expect(repository.createdProviders, hasLength(1));
+    expect(repository.createdProviders.single.name, 'DeepSeek');
+    expect(repository.createdProviders.single.apiKey, 'sk-mobile-test');
+    expect(find.text('Provider 已保存'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    await tester.tap(find.byKey(const ValueKey('ai-provider-test-provider-1')));
+    await tester.pumpAndSettle();
+
+    expect(repository.testProviderIds, ['provider-1']);
+    expect(find.text('连接测试通过'), findsOneWidget);
   });
 }
 
 class _FakeAIReportRepository implements AIReportRepository {
   final List<GenerateAIReportRequest> generateCalls = [];
+  final List<SaveAIProviderRequest> createdProviders = [];
+  final List<String> testProviderIds = [];
   var triggerCalls = 0;
   var savedSchedule = const AIReportScheduleSettings();
   final reports = <AIReportSummary>[];
+  final providers = <AIProviderSummary>[];
 
   @override
   Future<AIReportSummary> generateReport(
@@ -206,5 +263,46 @@ class _FakeAIReportRepository implements AIReportRepository {
         succeeded: 1,
       ),
     ];
+  }
+
+  @override
+  Future<List<AIProviderPreset>> listProviderPresets() async {
+    return const [
+      AIProviderPreset(
+        id: 'deepseek',
+        name: 'DeepSeek',
+        providerType: 'openai_compatible',
+        baseUrl: 'https://api.deepseek.com',
+        model: 'deepseek-chat',
+        models: ['deepseek-chat', 'deepseek-reasoner'],
+      ),
+    ];
+  }
+
+  @override
+  Future<List<AIProviderSummary>> listProviders() async {
+    return providers;
+  }
+
+  @override
+  Future<AIProviderSummary> createProvider(
+    SaveAIProviderRequest request,
+  ) async {
+    createdProviders.add(request);
+    final provider = AIProviderSummary(
+      id: 'provider-1',
+      name: request.name,
+      providerType: request.providerType,
+      baseUrl: request.baseUrl,
+      model: request.model,
+      enabled: request.enabled,
+    );
+    providers.add(provider);
+    return provider;
+  }
+
+  @override
+  Future<void> testProvider(String id) async {
+    testProviderIds.add(id);
   }
 }

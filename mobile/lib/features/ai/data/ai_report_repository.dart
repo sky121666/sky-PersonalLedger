@@ -18,6 +18,15 @@ final aiReportScheduleProvider =
       return ref.watch(aiReportRepositoryProvider).getScheduleSettings();
     });
 
+final aiProviderSetupProvider = FutureProvider.autoDispose<AIProviderSetupData>(
+  (ref) async {
+    final repository = ref.watch(aiReportRepositoryProvider);
+    final presets = await repository.listProviderPresets();
+    final providers = await repository.listProviders();
+    return AIProviderSetupData(presets: presets, providers: providers);
+  },
+);
+
 class AIReportRepository {
   const AIReportRepository(this._apiClient);
 
@@ -88,6 +97,148 @@ class AIReportRepository {
       },
     );
     return results ?? const [];
+  }
+
+  Future<List<AIProviderPreset>> listProviderPresets() async {
+    return await _apiClient.get<List<AIProviderPreset>>(
+          '/ai/providers/presets',
+          fromJsonT: (json) {
+            final list = json as List? ?? const [];
+            return list
+                .whereType<Map<String, dynamic>>()
+                .map(AIProviderPreset.fromJson)
+                .toList();
+          },
+        ) ??
+        const [];
+  }
+
+  Future<List<AIProviderSummary>> listProviders() async {
+    return await _apiClient.get<List<AIProviderSummary>>(
+          '/ai/providers',
+          fromJsonT: (json) {
+            final list = json as List? ?? const [];
+            return list
+                .whereType<Map<String, dynamic>>()
+                .map(AIProviderSummary.fromJson)
+                .toList();
+          },
+        ) ??
+        const [];
+  }
+
+  Future<AIProviderSummary> createProvider(
+    SaveAIProviderRequest request,
+  ) async {
+    final provider = await _apiClient.post<AIProviderSummary>(
+      '/ai/providers',
+      data: request.toJson(),
+      fromJsonT: (json) =>
+          AIProviderSummary.fromJson(json as Map<String, dynamic>? ?? const {}),
+    );
+    if (provider == null) {
+      throw StateError('Provider 响应为空');
+    }
+    return provider;
+  }
+
+  Future<void> testProvider(String id) async {
+    await _apiClient.post<void>('/ai/providers/$id/test');
+  }
+}
+
+class AIProviderSetupData {
+  const AIProviderSetupData({required this.presets, required this.providers});
+
+  final List<AIProviderPreset> presets;
+  final List<AIProviderSummary> providers;
+}
+
+class AIProviderPreset {
+  const AIProviderPreset({
+    required this.id,
+    required this.name,
+    required this.providerType,
+    required this.baseUrl,
+    required this.model,
+    required this.models,
+  });
+
+  final String id;
+  final String name;
+  final String providerType;
+  final String baseUrl;
+  final String model;
+  final List<String> models;
+
+  factory AIProviderPreset.fromJson(Map<String, dynamic> json) {
+    final rawModels = json['models'] as List? ?? const [];
+    return AIProviderPreset(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      providerType: json['provider_type'] as String? ?? 'openai_compatible',
+      baseUrl: json['base_url'] as String? ?? '',
+      model: json['model'] as String? ?? '',
+      models: rawModels.map((item) => '$item').toList(),
+    );
+  }
+}
+
+class AIProviderSummary {
+  const AIProviderSummary({
+    required this.id,
+    required this.name,
+    required this.providerType,
+    required this.baseUrl,
+    required this.model,
+    required this.enabled,
+  });
+
+  final String id;
+  final String name;
+  final String providerType;
+  final String baseUrl;
+  final String model;
+  final bool enabled;
+
+  factory AIProviderSummary.fromJson(Map<String, dynamic> json) {
+    return AIProviderSummary(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      providerType: json['provider_type'] as String? ?? 'openai_compatible',
+      baseUrl: json['base_url'] as String? ?? '',
+      model: json['model'] as String? ?? '',
+      enabled: json['enabled'] as bool? ?? false,
+    );
+  }
+}
+
+class SaveAIProviderRequest {
+  const SaveAIProviderRequest({
+    required this.name,
+    required this.baseUrl,
+    required this.apiKey,
+    required this.model,
+    this.providerType = 'openai_compatible',
+    this.enabled = true,
+  });
+
+  final String name;
+  final String providerType;
+  final String baseUrl;
+  final String apiKey;
+  final String model;
+  final bool enabled;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'provider_type': providerType,
+      'base_url': baseUrl,
+      'api_key': apiKey,
+      'model': model,
+      'enabled': enabled,
+    };
   }
 }
 

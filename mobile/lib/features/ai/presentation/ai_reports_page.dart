@@ -21,11 +21,13 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
   var _generating = false;
   var _savingSchedule = false;
   var _triggeringSchedule = false;
+  String? _testingProviderId;
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(aiReportsProvider);
     final scheduleState = ref.watch(aiReportScheduleProvider);
+    final providerState = ref.watch(aiProviderSetupProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('AI 财务报告'),
@@ -50,6 +52,12 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
             onRetry: () => ref.invalidate(aiReportsProvider),
           ),
           data: (reports) {
+            final providerSurface = _AIProviderSetupSurface(
+              state: providerState,
+              testingProviderId: _testingProviderId,
+              onAdd: _showProviderSheet,
+              onTest: _testProvider,
+            );
             final scheduleSurface = _AIReportScheduleSurface(
               state: scheduleState,
               saving: _savingSchedule,
@@ -60,6 +68,8 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
             if (reports.isEmpty) {
               return ListView(
                 children: [
+                  providerSurface,
+                  const SizedBox(height: 12),
                   scheduleSurface,
                   const SizedBox(height: 12),
                   _AIReportsEmptyState(
@@ -70,16 +80,19 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               );
             }
             return ListView.separated(
-              itemCount: reports.length + (_generating ? 1 : 0) + 1,
+              itemCount: reports.length + (_generating ? 1 : 0) + 2,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 if (index == 0) {
+                  return providerSurface;
+                }
+                if (index == 1) {
                   return scheduleSurface;
                 }
-                if (_generating && index == 1) {
+                if (_generating && index == 2) {
                   return const _AIReportGeneratingSurface();
                 }
-                final reportIndex = index - 1 - (_generating ? 1 : 0);
+                final reportIndex = index - 2 - (_generating ? 1 : 0);
                 final report = reports[reportIndex];
                 return StaggeredEntrance(
                   index: index,
@@ -100,6 +113,66 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _showProviderSheet(AIProviderSetupData setup) async {
+    final presets = setup.presets.isEmpty
+        ? const [
+            AIProviderPreset(
+              id: 'deepseek',
+              name: 'DeepSeek',
+              providerType: 'openai_compatible',
+              baseUrl: 'https://api.deepseek.com',
+              model: 'deepseek-chat',
+              models: ['deepseek-chat', 'deepseek-reasoner'],
+            ),
+          ]
+        : setup.presets;
+    final request = await showModalBottomSheet<SaveAIProviderRequest>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AIProviderEditorSheet(presets: presets),
+    );
+    if (request == null) {
+      return;
+    }
+    try {
+      await ref.read(aiReportRepositoryProvider).createProvider(request);
+      ref.invalidate(aiProviderSetupProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Provider 已保存')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存 Provider 失败：$error')));
+      }
+    }
+  }
+
+  Future<void> _testProvider(AIProviderSummary provider) async {
+    setState(() => _testingProviderId = provider.id);
+    try {
+      await ref.read(aiReportRepositoryProvider).testProvider(provider.id);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('连接测试通过')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('连接测试失败：$error')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _testingProviderId = null);
+      }
+    }
   }
 
   Future<void> _generateWeeklyReport() async {
@@ -270,6 +343,311 @@ class _AIReportScheduleSurface extends StatelessWidget {
   }
 }
 
+class _AIProviderSetupSurface extends StatelessWidget {
+  const _AIProviderSetupSurface({
+    required this.state,
+    required this.testingProviderId,
+    required this.onAdd,
+    required this.onTest,
+  });
+
+  final AsyncValue<AIProviderSetupData> state;
+  final String? testingProviderId;
+  final ValueChanged<AIProviderSetupData> onAdd;
+  final ValueChanged<AIProviderSummary> onTest;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return state.when(
+      loading: () => const PremiumSurface(
+        child: ListTile(
+          leading: SizedBox.square(
+            dimension: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          title: Text('正在加载 Provider 配置'),
+        ),
+      ),
+      error: (error, stackTrace) => PremiumSurface(
+        accentColor: colorScheme.error,
+        child: Text('Provider 配置加载失败：$error'),
+      ),
+      data: (setup) {
+        return PremiumSurface(
+          accentColor: colorScheme.secondary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.key_outlined, color: colorScheme.secondary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Provider 配置',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: () => onAdd(setup),
+                    icon: const Icon(Icons.add_outlined),
+                    label: const Text('添加 Provider'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '支持 DeepSeek、OpenAI 和 OpenAI-compatible 网关。API Key 保存后不会回显。',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+              ),
+              const SizedBox(height: 12),
+              if (setup.providers.isEmpty)
+                Text(
+                  '暂无 Provider',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+                )
+              else
+                ...setup.providers.map(
+                  (provider) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.55,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: colorScheme.secondary.withValues(
+                                alpha: 0.12,
+                              ),
+                              foregroundColor: colorScheme.secondary,
+                              child: const Icon(Icons.smart_toy_outlined),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    provider.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${provider.baseUrl} / ${provider.model}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(color: colorScheme.outline),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _AIReportStatusChip(
+                              status: provider.enabled
+                                  ? 'completed'
+                                  : 'pending',
+                              label: provider.enabled ? '启用' : '停用',
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              key: ValueKey('ai-provider-test-${provider.id}'),
+                              onPressed: testingProviderId == null
+                                  ? () => onTest(provider)
+                                  : null,
+                              child: testingProviderId == provider.id
+                                  ? const SizedBox.square(
+                                      dimension: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('测试连接'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AIProviderEditorSheet extends StatefulWidget {
+  const _AIProviderEditorSheet({required this.presets});
+
+  final List<AIProviderPreset> presets;
+
+  @override
+  State<_AIProviderEditorSheet> createState() => _AIProviderEditorSheetState();
+}
+
+class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
+  late AIProviderPreset _selectedPreset;
+  late final TextEditingController _nameController;
+  late final TextEditingController _baseUrlController;
+  late final TextEditingController _modelController;
+  late final TextEditingController _apiKeyController;
+  var _enabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedPreset = widget.presets.first;
+    _nameController = TextEditingController(text: _selectedPreset.name);
+    _baseUrlController = TextEditingController(text: _selectedPreset.baseUrl);
+    _modelController = TextEditingController(text: _selectedPreset.model);
+    _apiKeyController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _baseUrlController.dispose();
+    _modelController.dispose();
+    _apiKeyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 18,
+          bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '添加 Provider',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedPreset.id,
+                decoration: const InputDecoration(labelText: '预设'),
+                items: [
+                  for (final preset in widget.presets)
+                    DropdownMenuItem(
+                      value: preset.id,
+                      child: Text(preset.name),
+                    ),
+                ],
+                onChanged: (value) {
+                  final preset = widget.presets.firstWhere(
+                    (item) => item.id == value,
+                    orElse: () => widget.presets.first,
+                  );
+                  setState(() {
+                    _selectedPreset = preset;
+                    _nameController.text = preset.name;
+                    _baseUrlController.text = preset.baseUrl;
+                    _modelController.text = preset.model;
+                  });
+                },
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: '名称'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _baseUrlController,
+                decoration: const InputDecoration(labelText: 'Base URL'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _modelController,
+                decoration: const InputDecoration(labelText: '模型'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                key: const ValueKey('ai-provider-api-key'),
+                controller: _apiKeyController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'API Key',
+                  helperText: '保存后不会回显，也不会写入备份。',
+                ),
+              ),
+              const SizedBox(height: 10),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _enabled,
+                title: const Text('启用'),
+                onChanged: (value) => setState(() => _enabled = value),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey('ai-provider-save'),
+                  onPressed: _submit,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('保存 Provider'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    final baseUrl = _baseUrlController.text.trim();
+    final model = _modelController.text.trim();
+    final apiKey = _apiKeyController.text.trim();
+    if (name.isEmpty || baseUrl.isEmpty || model.isEmpty || apiKey.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请完整填写 Provider 信息')));
+      return;
+    }
+    Navigator.of(context).pop(
+      SaveAIProviderRequest(
+        name: name,
+        providerType: _selectedPreset.providerType,
+        baseUrl: baseUrl,
+        apiKey: apiKey,
+        model: model,
+        enabled: _enabled,
+      ),
+    );
+  }
+}
+
 class _AIReportScheduleForm extends StatelessWidget {
   const _AIReportScheduleForm({
     required this.settings,
@@ -382,6 +760,7 @@ class _AIReportScheduleForm extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
+              key: const ValueKey('ai-schedule-trigger'),
               onPressed: triggering ? null : onTrigger,
               icon: triggering
                   ? const SizedBox.square(
