@@ -28,8 +28,8 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
   Future<void> _submit() async {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
-    if (password.length < 6) {
-      setState(() => _localError = '密码至少需要 6 位');
+    if (password.length < 8) {
+      setState(() => _localError = '密码至少需要 8 位');
       return;
     }
     if (password != confirmPassword) {

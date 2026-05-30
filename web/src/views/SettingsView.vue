@@ -478,8 +478,8 @@ function openPasswordModal() {
 async function handleChangePassword() {
   passwordError.value = ''
   
-  if (passwordForm.value.newPassword.length < 6) {
-    passwordError.value = '新密码至少6位'
+  if (passwordForm.value.newPassword.length < 8) {
+    passwordError.value = '新密码至少8位'
     return
   }
   if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
@@ -838,7 +838,7 @@ function formatFileSize(bytes: number) {
               <input
                 v-model="passwordForm.newPassword"
                 type="password"
-                placeholder="至少6位"
+                placeholder="至少8位"
                 class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
               />
             </div>

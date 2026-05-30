@@ -63,6 +63,7 @@ require_absent "web/package-lock.json"
 require_absent "web/yarn.lock"
 require_absent "web/bun.lockb"
 require_absent_text "backend/internal/handler/upload.go" 'func \(h \*UploadHandler\) Serve(Static)?\('
+require_absent_text "web/src/views/SettingsView.vue" '至少6位|至少6 位|至少 6 位'
 
 "$ROOT_DIR/scripts/check-public-git-safety.sh"
 "$ROOT_DIR/scripts/check-backup-restore-rehearsal.sh"

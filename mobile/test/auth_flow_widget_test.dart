@@ -54,6 +54,29 @@ void main() {
   });
 
   group('SetupPasswordPage', () {
+    testWidgets('首次设置密码少于 8 位时显示本地校验错误且不提交初始化', (tester) async {
+      final repository = _FakeAuthRepository();
+      await _pumpAuthPage(
+        tester,
+        const SetupPasswordPage(),
+        repository: repository,
+        state: const AuthState(
+          stage: AuthStage.setupRequired,
+          serverUrl: 'https://ledger.example.com',
+          initialized: false,
+        ),
+      );
+
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.at(0), '1234567');
+      await tester.enterText(fields.at(1), '1234567');
+      await tester.tap(find.text('完成设置'));
+      await tester.pump();
+
+      expect(find.text('密码至少需要 8 位'), findsOneWidget);
+      expect(repository.initCalls, isEmpty);
+    });
+
     testWidgets('两次密码不一致时显示错误且不提交初始化', (tester) async {
       final repository = _FakeAuthRepository();
       await _pumpAuthPage(
@@ -68,8 +91,8 @@ void main() {
       );
 
       final fields = find.byType(TextField);
-      await tester.enterText(fields.at(0), '123456');
-      await tester.enterText(fields.at(1), '654321');
+      await tester.enterText(fields.at(0), '12345678');
+      await tester.enterText(fields.at(1), '87654321');
       await tester.tap(find.text('完成设置'));
       await tester.pump();
 
@@ -91,12 +114,12 @@ void main() {
       );
 
       final fields = find.byType(TextField);
-      await tester.enterText(fields.at(0), '123456');
-      await tester.enterText(fields.at(1), '123456');
+      await tester.enterText(fields.at(0), '12345678');
+      await tester.enterText(fields.at(1), '12345678');
       await tester.tap(find.text('完成设置'));
       await tester.pump();
 
-      expect(repository.initCalls, ['123456']);
+      expect(repository.initCalls, ['12345678']);
       expect(controller.debugState.stage, AuthStage.authenticated);
     });
   });

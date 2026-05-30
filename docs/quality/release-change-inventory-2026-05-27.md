@@ -118,6 +118,7 @@ mobile/lib/app/widgets/premium_surface.dart
 mobile/lib/app/widgets/pressable_scale.dart
 mobile/lib/app/widgets/staggered_entrance.dart
 mobile/lib/core/network/auth_interceptor.dart
+mobile/lib/features/auth/presentation/setup_password_page.dart
 mobile/lib/features/home/data/home_repository.dart
 mobile/lib/features/home/presentation/home_page.dart
 mobile/lib/features/home/presentation/widgets/
@@ -127,6 +128,7 @@ mobile/lib/features/transactions/data/transaction_models.dart
 mobile/lib/features/transactions/presentation/quick_transaction_page.dart
 mobile/lib/features/data_management/data/data_management_repository.dart
 mobile/test/animated_money_text_test.dart
+mobile/test/auth_flow_widget_test.dart
 mobile/test/auth_interceptor_test.dart
 mobile/test/data_management_repository_test.dart
 mobile/test/home_widget_test.dart
