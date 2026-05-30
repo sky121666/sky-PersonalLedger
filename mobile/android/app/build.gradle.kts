@@ -29,6 +29,10 @@ val releaseSigningConfigured = listOf(
     "keyAlias",
     "keyPassword",
 ).all { signingProperty(it) != null } && releaseStoreFile?.isFile == true
+val allowReleaseCleartext = providers
+    .gradleProperty("ledgerAllowReleaseCleartext")
+    .map { it.equals("true", ignoreCase = true) }
+    .getOrElse(false)
 
 android {
     namespace = "com.skyapp.personal_ledger"
@@ -45,14 +49,12 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.skyapp.personal_ledger"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
     }
 
     signingConfigs {
@@ -67,7 +69,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
+            manifestPlaceholders["usesCleartextTraffic"] =
+                allowReleaseCleartext.toString()
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("release")
             }
