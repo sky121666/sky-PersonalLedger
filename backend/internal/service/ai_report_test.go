@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -126,6 +127,72 @@ func TestAIReportGenerateReusesCompletedReportForSameScope(t *testing.T) {
 	}
 	if requestCount != 1 {
 		t.Fatalf("ai request count = %d, want 1", requestCount)
+	}
+}
+
+func TestAIReportGenerateSerializesConcurrentSameScopeRequests(t *testing.T) {
+	requestCount := 0
+	var requestMu sync.Mutex
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestMu.Lock()
+		requestCount++
+		requestMu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"summary\":\"single concurrent report\"}"}}]}`))
+	}))
+	defer server.Close()
+
+	svc, providerSvc, userID := newAIReportTestServices(t)
+	seedAIReportFacts(t, providerSvc, userID, server.URL)
+	req := GenerateAIReportRequest{
+		ReportType:  "weekly",
+		PeriodStart: "2026-05-18",
+		PeriodEnd:   "2026-05-24",
+	}
+
+	const attempts = 6
+	reports := make(chan *AIReportResponse, attempts)
+	errs := make(chan error, attempts)
+	var wg sync.WaitGroup
+	for i := 0; i < attempts; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			report, err := svc.Generate(userID, req)
+			if err != nil {
+				errs <- err
+				return
+			}
+			reports <- report
+		}()
+	}
+	wg.Wait()
+	close(reports)
+	close(errs)
+
+	for err := range errs {
+		t.Fatalf("concurrent generate returned error: %v", err)
+	}
+	var firstID string
+	count := 0
+	for report := range reports {
+		count++
+		if firstID == "" {
+			firstID = report.ID
+		}
+		if report.ID != firstID {
+			t.Fatalf("report id = %s, want shared cached report %s", report.ID, firstID)
+		}
+	}
+	if count != attempts {
+		t.Fatalf("reports = %d, want %d", count, attempts)
+	}
+	requestMu.Lock()
+	gotRequests := requestCount
+	requestMu.Unlock()
+	if gotRequests != 1 {
+		t.Fatalf("ai request count = %d, want 1", gotRequests)
 	}
 }
 

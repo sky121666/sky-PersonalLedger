@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
@@ -22,6 +23,8 @@ var (
 
 const aiReportPromptVersion = "personal-ledger-v1"
 const aiReportMaskedPromptVersion = "personal-ledger-v1-masked"
+
+var aiReportGenerationLocks sync.Map
 
 type AIReportService struct {
 	repo       *repository.AIReportRepository
@@ -176,6 +179,9 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 	}
 	maskNames := shouldMaskAIReportNames(req)
 	promptVersion := aiReportPromptVersionForRequest(req)
+	unlock := lockAIReportGeneration(userID, reportType, start, end, provider.ID, provider.Model, promptVersion)
+	defer unlock()
+
 	if cached, err := s.repo.GetReusableCompleted(userID, reportType, start, end, provider.ID, provider.Model, promptVersion); err == nil {
 		return aiReportResponse(cached), nil
 	}
@@ -231,6 +237,25 @@ func aiReportPromptVersionForRequest(req GenerateAIReportRequest) string {
 		return aiReportMaskedPromptVersion
 	}
 	return aiReportPromptVersion
+}
+
+func lockAIReportGeneration(userID uint, reportType string, start time.Time, end time.Time, providerID string, modelName string, promptVersion string) func() {
+	key := fmt.Sprintf(
+		"%d|%s|%s|%s|%s|%s|%s",
+		userID,
+		reportType,
+		start.Format(time.RFC3339Nano),
+		end.Format(time.RFC3339Nano),
+		providerID,
+		modelName,
+		promptVersion,
+	)
+	value, _ := aiReportGenerationLocks.LoadOrStore(key, &sync.Mutex{})
+	mu := value.(*sync.Mutex)
+	mu.Lock()
+	return func() {
+		mu.Unlock()
+	}
 }
 
 func shouldMaskAIReportNames(req GenerateAIReportRequest) bool {
