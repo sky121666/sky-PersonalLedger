@@ -6,7 +6,7 @@ The local release rehearsal entrypoint is `RUN_EXPENSIVE=1 ./scripts/check-produ
 
 This rehearsal cannot replace signed Android/iOS artifact generation or physical iPhone validation. It proves source-level release readiness on the local machine.
 
-Latest local run on 2026-05-27: **PASS**.
+Latest local final gate run on 2026-05-30: **PASS**.
 
 ## Covered Gates
 
@@ -26,6 +26,7 @@ Latest local run on 2026-05-27: **PASS**.
 | Mobile static | `cd mobile && flutter analyze && flutter test` | Prove Flutter analyzer and widget/unit tests |
 | Premium mobile smoke | `cd mobile && flutter test integration_test/premium_screens_smoke_test.dart` | Prove premium Home, Quick Transaction, AI Reports, and Family Hub render in light/dark |
 | Real backend mobile E2E | `./scripts/verify-mobile-e2e.sh` | Prove mobile auth/account/transaction flow against a real local backend |
+| Local final release gate | `LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` | Prove strict local source, Docker, backup, inventory, and whitespace gates while external release evidence is intentionally deferred |
 
 ## Latest Evidence
 
@@ -45,6 +46,10 @@ Latest local run on 2026-05-27: **PASS**.
 | Flutter tests | PASS, 192 tests |
 | Premium screen smoke | PASS, 8 light/dark cases |
 | Real backend mobile E2E | PASS on flutter-tester |
+| Local final release gate | PASS on 2026-05-30; `LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` completed runtime health, AI privacy, production readiness, strict release inventory, strict backup operator drill, Docker local image smoke, Docker local compose smoke, and whitespace checks |
+| Local Docker image smoke | PASS on 2026-05-30; built `personal-ledger:local-smoke`, healthcheck `healthy`, temporary localhost port `32778`, persistent `ledger.db` / `uploads` / `backups` verified |
+| Local Docker Compose smoke | PASS on 2026-05-30; built `personal-ledger:local-smoke`, healthcheck `healthy`, temporary localhost port `62159`, JWT guard PASS, persistent `ledger.db` / `uploads` / `backups` verified |
+| Strict final release gate | FAIL expected on 2026-05-30; missing real signed APK/AAB/IPA or TestFlight/archive evidence, GHCR digest/multi-arch manifest, USB iPhone physical QA, manual VoiceOver/TalkBack evidence, final release notes/runbook values, and artifact files |
 
 ## Command
 
@@ -52,6 +57,12 @@ Run from the repository root:
 
 ```bash
 RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh
+```
+
+For the current local final acceptance scope, run:
+
+```bash
+LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 ```
 
 ## Pass Criteria
