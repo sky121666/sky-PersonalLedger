@@ -37,7 +37,7 @@ DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z ./scripts/check-docker-release
 For strict release evidence, the image reference is required:
 
 ```bash
-DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z STRICT_DOCKER_RELEASE_EVIDENCE=1 ./scripts/check-docker-release-evidence.sh
+DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z STRICT_DOCKER_RELEASE_EVIDENCE=1 RUN_DOCKER_RELEASE_SMOKE=1 ./scripts/check-docker-release-evidence.sh
 ```
 
 Optionally run an isolated local smoke test:

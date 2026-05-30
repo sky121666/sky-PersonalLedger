@@ -122,7 +122,7 @@ if [[ "${STRICT_FINAL_RELEASE:-0}" == "1" ]]; then
     require_no_pending "docs/quality/docker-release-evidence-2026-05-27.md" || strict_failures=1
 
   run_strict_check "docker release evidence values" \
-    env STRICT_DOCKER_RELEASE_EVIDENCE=1 "$ROOT_DIR/scripts/check-docker-release-evidence.sh" || strict_failures=1
+    env STRICT_DOCKER_RELEASE_EVIDENCE=1 RUN_DOCKER_RELEASE_SMOKE=1 "$ROOT_DIR/scripts/check-docker-release-evidence.sh" || strict_failures=1
 
   run_strict_check "release notes final values" \
     env STRICT_RELEASE_NOTES=1 "$ROOT_DIR/scripts/check-release-notes-candidate.sh" || strict_failures=1

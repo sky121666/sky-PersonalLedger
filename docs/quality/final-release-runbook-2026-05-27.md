@@ -162,7 +162,7 @@ STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 ```
 
 This strict gate also requires a clean `git status --short` so final release evidence is tied to committed source.
-Set `DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z` when running the strict gate so the published image manifest is verified live.
+Set `DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z` when running the strict gate so the published image manifest and release-image compose smoke are verified live.
 
 The release can be called fully complete only when the strict final gate passes.
 
