@@ -135,6 +135,24 @@ jobs:
           mv mobile/build/app/outputs/bundle/release/app-release.aab \
              mobile/build/app/outputs/bundle/release/personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab
 
+      - name: Verify Android release signatures
+        if: inputs.version != ''
+        run: |
+          APK_PATH="mobile/build/app/outputs/flutter-apk/personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk"
+          AAB_PATH="mobile/build/app/outputs/bundle/release/personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$SDK_ROOT" ]; then
+            echo "::error title=Missing Android SDK::ANDROID_HOME or ANDROID_SDK_ROOT is required to locate apksigner"
+            exit 1
+          fi
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error title=Missing apksigner::Android build-tools apksigner was not found"
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs "$APK_PATH"
+          jarsigner -verify -strict -certs "$AAB_PATH"
+
       - name: Generate Android checksums
         if: inputs.version != ''
         run: |

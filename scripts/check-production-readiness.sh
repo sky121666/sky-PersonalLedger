@@ -166,6 +166,9 @@ require_text "scripts/check-release-artifact-files.sh" 'check_artifact_structure
 require_text "scripts/check-release-artifact-files.sh" '\^AndroidManifest\\.xml\$'
 require_text "scripts/check-release-artifact-files.sh" '\^BundleConfig\\.pb\$'
 require_text "scripts/check-release-artifact-files.sh" '\^Payload/\[\^/\]\+\\.app/Info\\.plist\$'
+require_text ".github/workflows/android.yml" "Verify Android release signatures"
+require_text ".github/workflows/android.yml" "APKSIGNER.*verify --verbose --print-certs"
+require_text ".github/workflows/android.yml" "jarsigner -verify -strict -certs"
 require_text "scripts/check-docker-release-evidence.sh" 'pick_port'
 require_text "scripts/check-docker-release-evidence.sh" 'Image healthcheck: healthy'
 require_text "scripts/check-docker-release-evidence.sh" 'Persistent paths: ledger\.db, uploads, backups'
