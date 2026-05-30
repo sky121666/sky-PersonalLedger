@@ -13,6 +13,11 @@ final aiReportsProvider = FutureProvider.autoDispose<List<AIReportSummary>>((
   return ref.watch(aiReportRepositoryProvider).listReports();
 });
 
+final aiReportScheduleProvider =
+    FutureProvider.autoDispose<AIReportScheduleSettings>((ref) {
+      return ref.watch(aiReportRepositoryProvider).getScheduleSettings();
+    });
+
 class AIReportRepository {
   const AIReportRepository(this._apiClient);
 
@@ -45,6 +50,44 @@ class AIReportRepository {
       throw StateError('AI 报告响应为空');
     }
     return report;
+  }
+
+  Future<AIReportScheduleSettings> getScheduleSettings() async {
+    final settings = await _apiClient.get<AIReportScheduleSettings>(
+      '/ai/schedule/settings',
+      fromJsonT: (json) => AIReportScheduleSettings.fromJson(
+        json as Map<String, dynamic>? ?? const {},
+      ),
+    );
+    return settings ?? const AIReportScheduleSettings();
+  }
+
+  Future<AIReportScheduleSettings> updateScheduleSettings(
+    AIReportScheduleSettings settings,
+  ) async {
+    final saved = await _apiClient.put<AIReportScheduleSettings>(
+      '/ai/schedule/settings',
+      data: settings.toJson(),
+      fromJsonT: (json) => AIReportScheduleSettings.fromJson(
+        json as Map<String, dynamic>? ?? const {},
+      ),
+    );
+    return saved ?? settings;
+  }
+
+  Future<List<AIReportScheduleRunResult>> triggerSchedule() async {
+    final results = await _apiClient.post<List<AIReportScheduleRunResult>>(
+      '/ai/schedule/trigger',
+      fromJsonT: (json) {
+        final payload = json as Map<String, dynamic>? ?? const {};
+        final list = payload['results'] as List? ?? const [];
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map(AIReportScheduleRunResult.fromJson)
+            .toList();
+      },
+    );
+    return results ?? const [];
   }
 }
 
@@ -106,6 +149,96 @@ class AIReportSummary {
       model: json['model'] as String? ?? '',
       contentJson: json['content_json'] as String? ?? '',
       errorMessage: json['error_message'] as String? ?? '',
+    );
+  }
+}
+
+class AIReportScheduleSettings {
+  const AIReportScheduleSettings({
+    this.enabled = false,
+    this.weeklyEnabled = true,
+    this.monthlyEnabled = true,
+    this.hour = 8,
+    this.lastWeeklyRun = '',
+    this.lastMonthlyRun = '',
+  });
+
+  final bool enabled;
+  final bool weeklyEnabled;
+  final bool monthlyEnabled;
+  final int hour;
+  final String lastWeeklyRun;
+  final String lastMonthlyRun;
+
+  AIReportScheduleSettings copyWith({
+    bool? enabled,
+    bool? weeklyEnabled,
+    bool? monthlyEnabled,
+    int? hour,
+    String? lastWeeklyRun,
+    String? lastMonthlyRun,
+  }) {
+    return AIReportScheduleSettings(
+      enabled: enabled ?? this.enabled,
+      weeklyEnabled: weeklyEnabled ?? this.weeklyEnabled,
+      monthlyEnabled: monthlyEnabled ?? this.monthlyEnabled,
+      hour: hour ?? this.hour,
+      lastWeeklyRun: lastWeeklyRun ?? this.lastWeeklyRun,
+      lastMonthlyRun: lastMonthlyRun ?? this.lastMonthlyRun,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'enabled': enabled,
+      'weekly_enabled': weeklyEnabled,
+      'monthly_enabled': monthlyEnabled,
+      'hour': hour,
+      if (lastWeeklyRun.isNotEmpty) 'last_weekly_run': lastWeeklyRun,
+      if (lastMonthlyRun.isNotEmpty) 'last_monthly_run': lastMonthlyRun,
+    };
+  }
+
+  factory AIReportScheduleSettings.fromJson(Map<String, dynamic> json) {
+    return AIReportScheduleSettings(
+      enabled: json['enabled'] as bool? ?? false,
+      weeklyEnabled: json['weekly_enabled'] as bool? ?? true,
+      monthlyEnabled: json['monthly_enabled'] as bool? ?? true,
+      hour: json['hour'] as int? ?? 8,
+      lastWeeklyRun: json['last_weekly_run'] as String? ?? '',
+      lastMonthlyRun: json['last_monthly_run'] as String? ?? '',
+    );
+  }
+}
+
+class AIReportScheduleRunResult {
+  const AIReportScheduleRunResult({
+    required this.reportType,
+    required this.periodStart,
+    required this.periodEnd,
+    this.attempted = 0,
+    this.succeeded = 0,
+    this.skipped = 0,
+    this.failed = 0,
+  });
+
+  final String reportType;
+  final String periodStart;
+  final String periodEnd;
+  final int attempted;
+  final int succeeded;
+  final int skipped;
+  final int failed;
+
+  factory AIReportScheduleRunResult.fromJson(Map<String, dynamic> json) {
+    return AIReportScheduleRunResult(
+      reportType: json['report_type'] as String? ?? '',
+      periodStart: json['period_start'] as String? ?? '',
+      periodEnd: json['period_end'] as String? ?? '',
+      attempted: json['attempted'] as int? ?? 0,
+      succeeded: json['succeeded'] as int? ?? 0,
+      skipped: json['skipped'] as int? ?? 0,
+      failed: json['failed'] as int? ?? 0,
     );
   }
 }

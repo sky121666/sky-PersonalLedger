@@ -146,7 +146,7 @@ Reports should be stored as structured JSON rather than only Markdown:
 
 The UI can render this contract as cards, timeline blocks, and short paragraphs.
 
-The Web AI page exposes provider setup, manual report generation, report history, and automatic weekly/monthly report schedule controls. The schedule UI keeps automation explicit: users can enable or disable it, choose weekly/monthly scopes, set the run hour, inspect last run dates, and trigger due reports manually.
+The Web AI page exposes provider setup, manual report generation, report history, and automatic weekly/monthly report schedule controls. The mobile AI page exposes the same schedule controls for native iOS/Android use. The schedule UI keeps automation explicit: users can enable or disable it, choose weekly/monthly scopes, set the run hour, inspect last run dates, and trigger due reports manually.
 
 ## API Surface
 

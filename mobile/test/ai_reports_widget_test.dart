@@ -25,6 +25,9 @@ void main() {
               ),
             ];
           }),
+          aiReportScheduleProvider.overrideWith(
+            (ref) async => const AIReportScheduleSettings(),
+          ),
         ],
         child: const MaterialApp(home: AIReportsPage()),
       ),
@@ -32,12 +35,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('AI 财务报告'), findsOneWidget);
-    expect(find.text('每周总结'), findsOneWidget);
+    expect(find.text('每周总结'), findsWidgets);
     expect(find.text('已完成'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsWidgets);
     expect(find.text('DeepSeek / deepseek-chat'), findsOneWidget);
 
-    await tester.tap(find.text('每周总结'));
+    await tester.tap(find.text('DeepSeek / deepseek-chat'));
     await tester.pumpAndSettle();
 
     expect(find.text('支出可控'), findsWidgets);
@@ -49,7 +52,12 @@ void main() {
   testWidgets('AIReportsPage 空态可见', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [aiReportsProvider.overrideWith((ref) async => const [])],
+        overrides: [
+          aiReportsProvider.overrideWith((ref) async => const []),
+          aiReportScheduleProvider.overrideWith(
+            (ref) async => const AIReportScheduleSettings(),
+          ),
+        ],
         child: const MaterialApp(home: AIReportsPage()),
       ),
     );
@@ -77,6 +85,9 @@ void main() {
               ),
             ];
           }),
+          aiReportScheduleProvider.overrideWith(
+            (ref) async => const AIReportScheduleSettings(),
+          ),
         ],
         child: const MaterialApp(home: AIReportsPage()),
       ),
@@ -85,7 +96,7 @@ void main() {
 
     expect(find.text('失败'), findsOneWidget);
 
-    await tester.tap(find.text('每周总结'));
+    await tester.tap(find.text('DeepSeek / deepseek-chat'));
     await tester.pumpAndSettle();
 
     expect(find.text('enabled ai provider not found'), findsWidgets);
@@ -108,10 +119,37 @@ void main() {
     expect(repository.generateCalls.single.reportType, 'weekly');
     expect(find.text('AI 报告已生成'), findsOneWidget);
   });
+
+  testWidgets('AIReportsPage 可管理自动报告设置', (tester) async {
+    final repository = _FakeAIReportRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [aiReportRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: AIReportsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('自动报告'), findsOneWidget);
+    expect(find.text('默认关闭'), findsOneWidget);
+
+    await tester.tap(find.text('启用自动生成'));
+    await tester.pumpAndSettle();
+
+    expect(repository.savedSchedule.enabled, isTrue);
+    expect(find.text('自动报告设置已保存'), findsOneWidget);
+
+    await tester.tap(find.text('立即触发应生成报告'));
+    await tester.pump();
+
+    expect(repository.triggerCalls, 1);
+  });
 }
 
 class _FakeAIReportRepository implements AIReportRepository {
   final List<GenerateAIReportRequest> generateCalls = [];
+  var triggerCalls = 0;
+  var savedSchedule = const AIReportScheduleSettings();
   final reports = <AIReportSummary>[];
 
   @override
@@ -135,5 +173,32 @@ class _FakeAIReportRepository implements AIReportRepository {
   @override
   Future<List<AIReportSummary>> listReports() async {
     return reports;
+  }
+
+  @override
+  Future<AIReportScheduleSettings> getScheduleSettings() async {
+    return savedSchedule;
+  }
+
+  @override
+  Future<AIReportScheduleSettings> updateScheduleSettings(
+    AIReportScheduleSettings settings,
+  ) async {
+    savedSchedule = settings;
+    return savedSchedule;
+  }
+
+  @override
+  Future<List<AIReportScheduleRunResult>> triggerSchedule() async {
+    triggerCalls++;
+    return const [
+      AIReportScheduleRunResult(
+        reportType: 'weekly',
+        periodStart: '2026-05-18',
+        periodEnd: '2026-05-24',
+        attempted: 1,
+        succeeded: 1,
+      ),
+    ];
   }
 }

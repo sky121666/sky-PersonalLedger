@@ -19,10 +19,13 @@ class AIReportsPage extends ConsumerStatefulWidget {
 
 class _AIReportsPageState extends ConsumerState<AIReportsPage> {
   var _generating = false;
+  var _savingSchedule = false;
+  var _triggeringSchedule = false;
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(aiReportsProvider);
+    final scheduleState = ref.watch(aiReportScheduleProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('AI 财务报告'),
@@ -47,20 +50,36 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
             onRetry: () => ref.invalidate(aiReportsProvider),
           ),
           data: (reports) {
+            final scheduleSurface = _AIReportScheduleSurface(
+              state: scheduleState,
+              saving: _savingSchedule,
+              triggering: _triggeringSchedule,
+              onChanged: _saveSchedule,
+              onTrigger: _triggerSchedule,
+            );
             if (reports.isEmpty) {
-              return _AIReportsEmptyState(
-                generating: _generating,
-                onGenerate: _generating ? null : _generateWeeklyReport,
+              return ListView(
+                children: [
+                  scheduleSurface,
+                  const SizedBox(height: 12),
+                  _AIReportsEmptyState(
+                    generating: _generating,
+                    onGenerate: _generating ? null : _generateWeeklyReport,
+                  ),
+                ],
               );
             }
             return ListView.separated(
-              itemCount: reports.length + (_generating ? 1 : 0),
+              itemCount: reports.length + (_generating ? 1 : 0) + 1,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                if (_generating && index == 0) {
+                if (index == 0) {
+                  return scheduleSurface;
+                }
+                if (_generating && index == 1) {
                   return const _AIReportGeneratingSurface();
                 }
-                final reportIndex = index - (_generating ? 1 : 0);
+                final reportIndex = index - 1 - (_generating ? 1 : 0);
                 final report = reports[reportIndex];
                 return StaggeredEntrance(
                   index: index,
@@ -118,6 +137,64 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
     }
   }
 
+  Future<void> _saveSchedule(AIReportScheduleSettings settings) async {
+    setState(() => _savingSchedule = true);
+    try {
+      await ref
+          .read(aiReportRepositoryProvider)
+          .updateScheduleSettings(settings);
+      ref.invalidate(aiReportScheduleProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('自动报告设置已保存')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存自动报告失败：$error')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingSchedule = false);
+      }
+    }
+  }
+
+  Future<void> _triggerSchedule() async {
+    setState(() => _triggeringSchedule = true);
+    try {
+      final results = await ref
+          .read(aiReportRepositoryProvider)
+          .triggerSchedule();
+      ref
+        ..invalidate(aiReportsProvider)
+        ..invalidate(aiReportScheduleProvider);
+      final succeeded = results.fold<int>(
+        0,
+        (sum, result) => sum + result.succeeded,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(succeeded > 0 ? '已生成 $succeeded 份自动报告' : '自动报告检查完成'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('触发自动报告失败：$error')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _triggeringSchedule = false);
+      }
+    }
+  }
+
   String _formatRequestDate(DateTime value) {
     final month = value.month.toString().padLeft(2, '0');
     final day = value.day.toString().padLeft(2, '0');
@@ -148,6 +225,182 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       return value.substring(0, 10);
     }
     return value;
+  }
+}
+
+class _AIReportScheduleSurface extends StatelessWidget {
+  const _AIReportScheduleSurface({
+    required this.state,
+    required this.saving,
+    required this.triggering,
+    required this.onChanged,
+    required this.onTrigger,
+  });
+
+  final AsyncValue<AIReportScheduleSettings> state;
+  final bool saving;
+  final bool triggering;
+  final ValueChanged<AIReportScheduleSettings> onChanged;
+  final VoidCallback onTrigger;
+
+  @override
+  Widget build(BuildContext context) {
+    return state.when(
+      loading: () => const PremiumSurface(
+        child: ListTile(
+          leading: SizedBox.square(
+            dimension: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          title: Text('正在加载自动报告设置'),
+        ),
+      ),
+      error: (error, stackTrace) => PremiumSurface(
+        accentColor: Theme.of(context).colorScheme.error,
+        child: Text('自动报告设置加载失败：$error'),
+      ),
+      data: (settings) => _AIReportScheduleForm(
+        settings: settings,
+        saving: saving,
+        triggering: triggering,
+        onChanged: onChanged,
+        onTrigger: onTrigger,
+      ),
+    );
+  }
+}
+
+class _AIReportScheduleForm extends StatelessWidget {
+  const _AIReportScheduleForm({
+    required this.settings,
+    required this.saving,
+    required this.triggering,
+    required this.onChanged,
+    required this.onTrigger,
+  });
+
+  final AIReportScheduleSettings settings;
+  final bool saving;
+  final bool triggering;
+  final ValueChanged<AIReportScheduleSettings> onChanged;
+  final VoidCallback onTrigger;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.event_repeat_outlined, color: colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '自动报告',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _AIReportStatusChip(
+                status: settings.enabled ? 'completed' : 'pending',
+                label: settings.enabled ? '已开启' : '默认关闭',
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: settings.enabled,
+            title: const Text('启用自动生成'),
+            subtitle: const Text('只发送聚合快照，不包含交易备注和附件。'),
+            onChanged: saving
+                ? null
+                : (value) => onChanged(settings.copyWith(enabled: value)),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                selected: settings.weeklyEnabled,
+                label: const Text('每周总结'),
+                onSelected: saving
+                    ? null
+                    : (value) =>
+                          onChanged(settings.copyWith(weeklyEnabled: value)),
+              ),
+              FilterChip(
+                selected: settings.monthlyEnabled,
+                label: const Text('月度总结'),
+                onSelected: saving
+                    ? null
+                    : (value) =>
+                          onChanged(settings.copyWith(monthlyEnabled: value)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text('运行小时'),
+              const SizedBox(width: 12),
+              DropdownButton<int>(
+                value: _normalizedHour(settings.hour),
+                items: [
+                  for (var hour = 0; hour < 24; hour++)
+                    DropdownMenuItem(value: hour, child: Text('$hour:00')),
+                ],
+                onChanged: saving
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          onChanged(settings.copyWith(hour: value));
+                        }
+                      },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '周报上次检查：${settings.lastWeeklyRun.isEmpty ? '无' : settings.lastWeeklyRun}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+          ),
+          Text(
+            '月报上次检查：${settings.lastMonthlyRun.isEmpty ? '无' : settings.lastMonthlyRun}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: triggering ? null : onTrigger,
+              icon: triggering
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.bolt_outlined),
+              label: const Text('立即触发应生成报告'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _normalizedHour(int hour) {
+    if (hour < 0) return 0;
+    if (hour > 23) return 23;
+    return hour;
   }
 }
 
