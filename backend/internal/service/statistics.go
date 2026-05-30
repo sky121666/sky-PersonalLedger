@@ -53,7 +53,10 @@ func (s *StatisticsService) GetOverview(userID uint, month string) (*OverviewRes
 	// Previous month for comparison
 	prevStart := startDate.AddDate(0, -1, 0)
 	prevEnd := startDate.Add(-time.Second)
-	prevSum, _ := s.txRepo.SumByDateRange(userID, prevStart, prevEnd)
+	prevSum, err := s.txRepo.SumByDateRange(userID, prevStart, prevEnd)
+	if err != nil {
+		return nil, err
+	}
 
 	response := &OverviewResponse{
 		Income:           currentSum.Income,
@@ -151,7 +154,10 @@ func (s *StatisticsService) GetTrend(userID uint, month string) (*TrendResponse,
 func (s *StatisticsService) GetCategoryStats(userID uint, month, txType string) (*CategoryStatResponse, error) {
 	var startDate, endDate time.Time
 	if month != "" {
-		t, _ := time.Parse("2006-01", month)
+		t, err := time.Parse("2006-01", month)
+		if err != nil {
+			return nil, err
+		}
 		startDate = t
 		endDate = t.AddDate(0, 1, 0).Add(-time.Second)
 	} else {
@@ -169,7 +175,10 @@ func (s *StatisticsService) GetCategoryStats(userID uint, month, txType string) 
 		return nil, err
 	}
 
-	categories, _ := s.categoryRepo.GetByUserID(userID, txType)
+	categories, err := s.categoryRepo.GetByUserID(userID, txType)
+	if err != nil {
+		return nil, err
+	}
 	categoryMap := make(map[string]*struct {
 		Name  string
 		Icon  string
@@ -273,8 +282,7 @@ func (s *StatisticsService) GetAssetTrend(userID uint, months int) (*AssetTrendR
 
 		monthSum, err := s.txRepo.SumByDateRange(userID, monthStart, monthEnd)
 		if err != nil {
-			monthsData[i] = monthData{month: monthStart.Format("2006-01")}
-			continue
+			return nil, err
 		}
 
 		hasData := monthSum.Income > 0 || monthSum.Expense > 0

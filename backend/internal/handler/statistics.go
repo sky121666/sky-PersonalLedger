@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"errors"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/middleware"
@@ -23,7 +25,10 @@ func (h *StatisticsHandler) Overview(c *gin.Context) {
 
 	result, err := h.service.GetOverview(userID, month)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if handleStatisticsRequestError(c, err) {
+			return
+		}
+		internalServerError(c, err, "failed to load statistics overview")
 		return
 	}
 
@@ -37,7 +42,10 @@ func (h *StatisticsHandler) Categories(c *gin.Context) {
 
 	result, err := h.service.GetCategoryStats(userID, month, txType)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if handleStatisticsRequestError(c, err) {
+			return
+		}
+		internalServerError(c, err, "failed to load category statistics")
 		return
 	}
 
@@ -50,7 +58,10 @@ func (h *StatisticsHandler) Trend(c *gin.Context) {
 
 	result, err := h.service.GetTrend(userID, month)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if handleStatisticsRequestError(c, err) {
+			return
+		}
+		internalServerError(c, err, "failed to load trend statistics")
 		return
 	}
 
@@ -68,9 +79,18 @@ func (h *StatisticsHandler) AssetTrend(c *gin.Context) {
 
 	result, err := h.service.GetAssetTrend(userID, months)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load asset trend statistics")
 		return
 	}
 
 	response.Success(c, result)
+}
+
+func handleStatisticsRequestError(c *gin.Context, err error) bool {
+	var parseErr *time.ParseError
+	if errors.As(err, &parseErr) {
+		response.BadRequest(c, "invalid month")
+		return true
+	}
+	return false
 }

@@ -217,6 +217,8 @@ backend/internal/handler/error_response.go
 backend/internal/handler/export.go
 backend/internal/handler/lending.go
 backend/internal/handler/lending_test.go
+backend/internal/handler/statistics.go
+backend/internal/handler/statistics_test.go
 backend/internal/handler/transaction.go
 backend/internal/handler/transaction_test.go
 backend/internal/handler/upload.go
@@ -239,6 +241,7 @@ backend/internal/service/lending.go
 backend/internal/service/lending_test.go
 backend/internal/service/notification.go
 backend/internal/service/notification_test.go
+backend/internal/service/statistics.go
 backend/internal/service/upload.go
 backend/internal/service/upload_test.go
 backend/pkg/jwt/jwt.go
