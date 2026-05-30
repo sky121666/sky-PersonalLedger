@@ -56,14 +56,14 @@ RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-preflight.sh
 
 | Area | Required Result | Status | Evidence |
 | --- | --- | --- | --- |
-| Install/launch | App installs and launches on physical iPhone without signing/runtime error | PENDING | Device ID, iOS version, build number |
+| Install/launch | App installs and launches on USB iPhone and Android device/emulator without signing/runtime error | PENDING | Device ID, OS version, build number |
 | Login/setup | Server address, first password, login, and token persistence work | PENDING | Short notes or screenshot |
 | Home | Premium dashboard, family summary, and budget surfaces render without overflow | PENDING | Light/dark screenshots |
 | Quick transaction | Keyboard does not cover save action; amount/category/member/account fields work | PENDING | Test transaction ID or screenshot |
 | Family Hub | Member list, default member, disabled member, and summary totals are readable | PENDING | Screenshot |
 | AI Reports | Empty, generating, completed, failed, and expanded states are readable; no raw API key appears | PENDING | Screenshot or notes |
-| Safe area | Notch, dynamic island/status bar, bottom home indicator, and landscape/rotation behavior are acceptable | PENDING | Screenshot |
-| Performance | Opening quick transaction and expanding AI reports feel smooth; no continuous decorative animation stutter | PENDING | Device/version notes |
+| Safe area | Notch, dynamic island/status bar, Android status/navigation bars, bottom home indicator, and landscape/rotation behavior are acceptable | PENDING | Screenshot |
+| Performance | Opening quick transaction and expanding AI reports feel smooth on iOS and Android; no continuous decorative animation stutter | PENDING | Device/version notes |
 | Reduced motion | With platform reduced motion enabled, animations do not become distracting | PENDING | PASS/FAIL notes |
 
 ## Assistive Technology Checklist
