@@ -212,6 +212,8 @@ backend/internal/handler/upload.go
 backend/internal/handler/upload_test.go
 backend/internal/middleware/middleware.go
 backend/internal/middleware/middleware_test.go
+backend/internal/middleware/rate_limiter.go
+backend/internal/middleware/rate_limiter_test.go
 backend/internal/repository/category.go
 backend/internal/repository/api_token.go
 backend/internal/repository/refresh_token.go

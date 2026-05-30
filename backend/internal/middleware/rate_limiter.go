@@ -303,9 +303,9 @@ func (grl *GlobalRateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
-		// 跳过静态资源和公共端点的限速
+		// 跳过静态资源和公共端点的限速；私有上传文件仍受全局限速保护。
 		if strings.HasPrefix(path, "/assets/") ||
-			strings.HasPrefix(path, "/uploads/") ||
+			isPublicUploadPath(path) ||
 			strings.HasPrefix(path, "/.well-known/") ||
 			path == "/favicon.svg" ||
 			path == "/favicon.ico" ||
@@ -328,4 +328,9 @@ func (grl *GlobalRateLimiter) Middleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func isPublicUploadPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	return len(parts) >= 4 && parts[0] == "uploads" && parts[2] == "avatars"
 }

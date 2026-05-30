@@ -72,6 +72,8 @@ require_absent "web/package-lock.json"
 require_absent "web/yarn.lock"
 require_absent "web/bun.lockb"
 require_absent_text "backend/internal/handler/upload.go" 'func \(h \*UploadHandler\) Serve(Static)?\('
+require_absent_text "backend/internal/middleware/rate_limiter.go" 'strings\.HasPrefix\(path, "/uploads/"\)[[:space:]]*\|\|'
+require_text "backend/internal/middleware/rate_limiter.go" 'isPublicUploadPath'
 require_absent_text "web/src/views/SettingsView.vue" '至少6位|至少6 位|至少 6 位'
 require_absent_text "web/src/views/SettingsView.vue" 'v-model="notificationForm\.(dingtalk_secret|smtp_password|webhook_secret)"[^>]*type="text"'
 require_absent_text "web/src/views/SettingsView.vue" 'notificationApi\.updateSettings\(notificationForm\.value\)'
