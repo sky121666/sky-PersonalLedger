@@ -17,7 +17,7 @@ import (
 )
 
 func TestAIProviderHandlerDoesNotReturnRawAPIKey(t *testing.T) {
-	handler, userID := newAIProviderTestHandler(t)
+	handler, _, userID := newAIProviderTestHandler(t)
 
 	response := performAIProviderRequest(handler, userID, http.MethodPost, "/ai/providers", map[string]any{
 		"name":     "DeepSeek",
@@ -42,7 +42,31 @@ func TestAIProviderHandlerDoesNotReturnRawAPIKey(t *testing.T) {
 	}
 }
 
-func newAIProviderTestHandler(t *testing.T) (*AIHandler, uint) {
+func TestAIProviderListDoesNotExposeDatabaseError(t *testing.T) {
+	handler, repos, userID := newAIProviderTestHandler(t)
+	sqlDB, err := repos.AIProvider.DB().DB()
+	if err != nil {
+		t.Fatalf("get sql db: %v", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		t.Fatalf("close sql db: %v", err)
+	}
+
+	response := performAIProviderRequest(handler, userID, http.MethodGet, "/ai/providers", nil)
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("list status = %d, want 500; body = %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "failed to list AI providers") {
+		t.Fatalf("body = %s, want generic AI provider list error", response.Body.String())
+	}
+	if strings.Contains(strings.ToLower(response.Body.String()), "database") ||
+		strings.Contains(strings.ToLower(response.Body.String()), "sql") {
+		t.Fatalf("response exposed database error: %s", response.Body.String())
+	}
+}
+
+func newAIProviderTestHandler(t *testing.T) (*AIHandler, *repository.Repositories, uint) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 
@@ -56,7 +80,7 @@ func newAIProviderTestHandler(t *testing.T) (*AIHandler, uint) {
 		t.Fatalf("create user: %v", err)
 	}
 	providerService := service.NewAIProviderService(repos.AIProvider, service.NewOpenAICompatibleClient(nil))
-	return NewAIHandler(providerService, nil, nil), user.ID
+	return NewAIHandler(providerService, nil, nil), repos, user.ID
 }
 
 func performAIProviderRequest(handler *AIHandler, userID uint, method string, path string, payload any) *httptest.ResponseRecorder {

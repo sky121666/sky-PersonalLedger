@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/service"
@@ -23,7 +22,7 @@ func (h *AIHandler) ListProviders(c *gin.Context) {
 	userID := c.GetUint("userID")
 	providers, err := h.providerService.List(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list AI providers")
 		return
 	}
 	response.Success(c, providers)
@@ -85,7 +84,7 @@ func (h *AIHandler) ListReports(c *gin.Context) {
 	userID := c.GetUint("userID")
 	reports, err := h.reportService.List(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list AI reports")
 		return
 	}
 	response.Success(c, reports)
@@ -128,7 +127,7 @@ func (h *AIHandler) DeleteReport(c *gin.Context) {
 func (h *AIHandler) GetReportScheduleSettings(c *gin.Context) {
 	settings, err := h.reportScheduler.GetSettings()
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load AI report schedule settings")
 		return
 	}
 	response.Success(c, settings)
@@ -150,7 +149,7 @@ func (h *AIHandler) UpdateReportScheduleSettings(c *gin.Context) {
 
 	current, err := h.reportScheduler.GetSettings()
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load AI report schedule settings")
 		return
 	}
 	current.Enabled = req.Enabled
@@ -159,7 +158,7 @@ func (h *AIHandler) UpdateReportScheduleSettings(c *gin.Context) {
 	current.Hour = req.Hour
 
 	if err := h.reportScheduler.SaveSettings(current); err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to save AI report schedule settings")
 		return
 	}
 	response.Success(c, current)
@@ -168,7 +167,7 @@ func (h *AIHandler) UpdateReportScheduleSettings(c *gin.Context) {
 func (h *AIHandler) TriggerReportSchedule(c *gin.Context) {
 	results, err := h.reportScheduler.TriggerDueReports()
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to trigger AI report schedule")
 		return
 	}
 	response.Success(c, gin.H{"results": results})
@@ -185,7 +184,7 @@ func writeAIProviderError(c *gin.Context, err error) {
 		errors.Is(err, service.ErrAIProviderTypeUnsupported):
 		response.BadRequest(c, err.Error())
 	default:
-		response.Error(c, http.StatusInternalServerError, 50001, err.Error())
+		internalServerError(c, err, "failed to process AI provider request")
 	}
 }
 
@@ -199,6 +198,6 @@ func writeAIReportError(c *gin.Context, err error) {
 		errors.Is(err, service.ErrAIReportPeriodInvalid):
 		response.BadRequest(c, err.Error())
 	default:
-		response.Error(c, http.StatusInternalServerError, 50001, err.Error())
+		internalServerError(c, err, "failed to process AI report request")
 	}
 }
