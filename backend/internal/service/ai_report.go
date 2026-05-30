@@ -28,6 +28,7 @@ type AIReportService struct {
 	providers  *repository.AIProviderRepository
 	txs        *repository.TransactionRepository
 	budgets    *repository.BudgetRepository
+	accounts   *repository.AccountRepository
 	categories *repository.CategoryRepository
 	members    *repository.FamilyMemberRepository
 	client     *OpenAICompatibleClient
@@ -55,6 +56,7 @@ func NewAIReportService(
 		providers:  providers,
 		txs:        txs,
 		budgets:    nil,
+		accounts:   nil,
 		categories: categories,
 		members:    members,
 		client:     client,
@@ -64,6 +66,11 @@ func NewAIReportService(
 
 func (s *AIReportService) WithBudgetRepository(budgetRepo *repository.BudgetRepository) *AIReportService {
 	s.budgets = budgetRepo
+	return s
+}
+
+func (s *AIReportService) WithAccountRepository(accountRepo *repository.AccountRepository) *AIReportService {
+	s.accounts = accountRepo
 	return s
 }
 
@@ -106,7 +113,7 @@ type aiReportSnapshot struct {
 	Budget               aiReportBudgetSnapshot     `json:"budget"`
 	TopExpenseCategories []aiReportCategorySnapshot `json:"top_expense_categories"`
 	FamilyMembers        []aiReportMemberSnapshot   `json:"family_members"`
-	AccountChanges       []any                      `json:"account_changes"`
+	AccountChanges       []aiReportAccountSnapshot  `json:"account_changes"`
 }
 
 type aiReportBudgetSnapshot struct {
@@ -144,6 +151,11 @@ type aiReportMemberSnapshot struct {
 	DisplayName  string  `json:"display_name"`
 	ExpenseTotal float64 `json:"expense_total"`
 	Count        int     `json:"count"`
+}
+
+type aiReportAccountSnapshot struct {
+	AccountName  string  `json:"account_name"`
+	BalanceDelta float64 `json:"balance_delta"`
 }
 
 func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*AIReportResponse, error) {
@@ -293,7 +305,7 @@ func (s *AIReportService) buildSnapshotJSON(userID uint, start time.Time, end ti
 		ExpenseTotal:   sum.Expense,
 		NetCashflow:    sum.Income - sum.Expense,
 		Budget:         aiReportBudgetSnapshot{OverBudgetCategories: []aiReportBudgetLimitSnapshot{}, MemberBudgets: []aiReportMemberBudgetSnapshot{}},
-		AccountChanges: []any{},
+		AccountChanges: []aiReportAccountSnapshot{},
 	}
 	snapshot.Period.Start = start.Format("2006-01-02")
 	snapshot.Period.End = end.Format("2006-01-02")
@@ -303,6 +315,9 @@ func (s *AIReportService) buildSnapshotJSON(userID uint, start time.Time, end ti
 		return "", err
 	}
 	if err := s.appendMemberSnapshot(userID, start, end, maskNames, &snapshot); err != nil {
+		return "", err
+	}
+	if err := s.appendAccountSnapshot(userID, start, end, maskNames, &snapshot); err != nil {
 		return "", err
 	}
 	if err := s.appendBudgetSnapshot(userID, start, end, maskNames, &snapshot); err != nil {
@@ -406,6 +421,38 @@ func (s *AIReportService) appendBudgetSnapshot(userID uint, start time.Time, end
 	return nil
 }
 
+func (s *AIReportService) appendAccountSnapshot(userID uint, start time.Time, end time.Time, maskNames bool, snapshot *aiReportSnapshot) error {
+	if s.accounts == nil {
+		return nil
+	}
+	sums, err := s.txs.SumBalanceDeltaByAccount(userID, start, end)
+	if err != nil {
+		return err
+	}
+	accounts, err := s.accounts.GetByUserID(userID, true)
+	if err != nil {
+		return err
+	}
+	accountNames := make(map[string]string, len(accounts))
+	for _, account := range accounts {
+		accountNames[account.ID] = account.Name
+	}
+	for _, sum := range sums {
+		name := accountNames[sum.AccountID]
+		if name == "" {
+			name = "账户"
+		}
+		if maskNames {
+			name = anonymizedAccountLabel(len(snapshot.AccountChanges) + 1)
+		}
+		snapshot.AccountChanges = append(snapshot.AccountChanges, aiReportAccountSnapshot{
+			AccountName:  name,
+			BalanceDelta: sum.BalanceDelta,
+		})
+	}
+	return nil
+}
+
 func (s *AIReportService) appendCategorySnapshot(userID uint, start time.Time, end time.Time, snapshot *aiReportSnapshot) error {
 	sums, err := s.txs.SumByCategory(userID, start, end, "expense")
 	if err != nil {
@@ -468,6 +515,10 @@ func (s *AIReportService) appendMemberSnapshot(userID uint, start time.Time, end
 
 func anonymizedMemberLabel(index int) string {
 	return fmt.Sprintf("成员%d", index)
+}
+
+func anonymizedAccountLabel(index int) string {
+	return fmt.Sprintf("账户%d", index)
 }
 
 func (s *AIReportService) getOwnedReport(id string, userID uint) (*model.AIReport, error) {

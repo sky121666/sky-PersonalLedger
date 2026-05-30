@@ -32,7 +32,9 @@ func TestAIReportSchedulerGeneratesPreviousWeekOncePerDay(t *testing.T) {
 		t.Fatalf("create user: %v", err)
 	}
 	providerSvc := NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil))
-	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil)).WithBudgetRepository(repos.Budget)
+	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil)).
+		WithBudgetRepository(repos.Budget).
+		WithAccountRepository(repos.Account)
 	seedAIReportFacts(t, providerSvc, user.ID, server.URL)
 
 	scheduler := NewAIReportScheduler(reportSvc, repos.System, repos.User)
@@ -96,7 +98,9 @@ func TestAIReportSchedulerSkipsUsersWithoutEnabledProvider(t *testing.T) {
 	if err := repos.User.Create(user); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil)).WithBudgetRepository(repos.Budget)
+	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil)).
+		WithBudgetRepository(repos.Budget).
+		WithAccountRepository(repos.Account)
 	scheduler := NewAIReportScheduler(reportSvc, repos.System, repos.User)
 	scheduler.now = func() time.Time {
 		return time.Date(2026, 5, 30, 8, 0, 0, 0, time.Local)

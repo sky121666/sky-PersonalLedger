@@ -35,7 +35,9 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 	jwtManager := jwt.NewManager(cfg.JWT.Secret, cfg.JWT.AccessExpire, cfg.JWT.RefreshExpire)
 	accountLogService := NewAccountLogService(repos.AccountLog, repos.Account)
 
-	aiReportService := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil), cfg.JWT.Secret).WithBudgetRepository(repos.Budget)
+	aiReportService := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil), cfg.JWT.Secret).
+		WithBudgetRepository(repos.Budget).
+		WithAccountRepository(repos.Account)
 
 	return &Services{
 		Auth:             NewAuthService(repos.User, repos.RefreshToken, repos.Category, repos.Account, jwtManager),

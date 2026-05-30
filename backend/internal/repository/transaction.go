@@ -130,6 +130,11 @@ type MemberCategoryExpenseSum struct {
 	Count      int     `json:"count"`
 }
 
+type AccountBalanceDeltaSum struct {
+	AccountID    string  `json:"account_id"`
+	BalanceDelta float64 `json:"balance_delta"`
+}
+
 func (r *TransactionRepository) SumExpenseByMember(userID uint, startDate, endDate time.Time) ([]MemberExpenseSum, error) {
 	var results []MemberExpenseSum
 	err := r.db.Model(&model.Transaction{}).
@@ -139,6 +144,35 @@ func (r *TransactionRepository) SumExpenseByMember(userID uint, startDate, endDa
 		Group("COALESCE(member_id, '')").
 		Order("total DESC").
 		Find(&results).Error
+	return results, err
+}
+
+func (r *TransactionRepository) SumBalanceDeltaByAccount(userID uint, startDate, endDate time.Time) ([]AccountBalanceDeltaSum, error) {
+	var results []AccountBalanceDeltaSum
+	err := r.db.Raw(`
+		SELECT account_id, SUM(balance_delta) AS balance_delta
+		FROM (
+			SELECT
+				account_id,
+				CASE
+					WHEN type = 'income' THEN amount
+					WHEN type = 'expense' THEN -amount
+					WHEN type = 'transfer' THEN -amount
+					ELSE 0
+				END AS balance_delta
+			FROM transactions
+			WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND deleted_at IS NULL
+			UNION ALL
+			SELECT to_account_id AS account_id, amount AS balance_delta
+			FROM transactions
+			WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND type = 'transfer' AND to_account_id IS NOT NULL AND to_account_id <> '' AND deleted_at IS NULL
+		) account_deltas
+		WHERE account_id IS NOT NULL AND account_id <> ''
+		GROUP BY account_id
+		HAVING SUM(balance_delta) <> 0
+		ORDER BY ABS(SUM(balance_delta)) DESC, account_id ASC
+		LIMIT 10
+	`, userID, startDate, endDate, userID, startDate, endDate).Scan(&results).Error
 	return results, err
 }
 

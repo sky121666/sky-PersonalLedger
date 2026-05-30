@@ -77,6 +77,17 @@ func TestAIReportGenerateStoresAggregatedSnapshotAndContent(t *testing.T) {
 	if len(memberBudgets) != 1 {
 		t.Fatalf("member_budgets len = %d, want 1", len(memberBudgets))
 	}
+	accountChanges := snapshot["account_changes"].([]any)
+	if len(accountChanges) != 1 {
+		t.Fatalf("account_changes len = %d, want 1", len(accountChanges))
+	}
+	accountChange := accountChanges[0].(map[string]any)
+	if accountChange["account_name"] != "账户1" {
+		t.Fatalf("account_name = %v, want masked account label", accountChange["account_name"])
+	}
+	if accountChange["balance_delta"].(float64) != 380 {
+		t.Fatalf("balance_delta = %v, want 380", accountChange["balance_delta"])
+	}
 
 	messages := requestPayload["messages"].([]any)
 	userMessage := messages[1].(map[string]any)["content"].(string)
@@ -158,6 +169,12 @@ func TestAIReportGenerateMasksNamesAndUsesSeparateCache(t *testing.T) {
 	if !strings.Contains(masked.SnapshotJSON, "成员1") {
 		t.Fatalf("masked snapshot missing anonymized member label: %s", masked.SnapshotJSON)
 	}
+	if strings.Contains(masked.SnapshotJSON, "现金") {
+		t.Fatalf("masked snapshot leaked account name: %s", masked.SnapshotJSON)
+	}
+	if !strings.Contains(masked.SnapshotJSON, "账户1") {
+		t.Fatalf("masked snapshot missing anonymized account label: %s", masked.SnapshotJSON)
+	}
 	if requestCount != 2 {
 		t.Fatalf("ai request count = %d, want separate unmasked and masked requests", requestCount)
 	}
@@ -188,6 +205,84 @@ func TestAIReportGenerateMasksNamesByDefault(t *testing.T) {
 	}
 }
 
+func TestAIReportGenerateAggregatesTransferAccountChanges(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"summary\":\"transfer report\"}"}}]}`))
+	}))
+	defer server.Close()
+
+	svc, providerSvc, userID := newAIReportTestServices(t)
+	db := providerSvc.repo.DB()
+	source := model.Account{
+		ID:             uuid.NewString(),
+		UserID:         userID,
+		Name:           "现金",
+		Type:           "cash",
+		CurrentBalance: 1000,
+	}
+	target := model.Account{
+		ID:             uuid.NewString(),
+		UserID:         userID,
+		Name:           "储蓄卡",
+		Type:           "bank",
+		CurrentBalance: 2000,
+	}
+	if err := db.Create(&[]model.Account{source, target}).Error; err != nil {
+		t.Fatalf("create accounts: %v", err)
+	}
+	if err := db.Create(&model.Transaction{
+		ID:              uuid.NewString(),
+		UserID:          userID,
+		AccountID:       source.ID,
+		ToAccountID:     &target.ID,
+		Type:            "transfer",
+		Amount:          200,
+		TransactionDate: time.Date(2026, 5, 22, 12, 0, 0, 0, time.Local),
+	}).Error; err != nil {
+		t.Fatalf("create transfer: %v", err)
+	}
+	if _, err := providerSvc.Create(userID, SaveAIProviderRequest{
+		Name:    "Fake AI",
+		BaseURL: server.URL,
+		APIKey:  "sk-test",
+		Model:   "deepseek-chat",
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	report, err := svc.Generate(userID, GenerateAIReportRequest{
+		ReportType:  "weekly",
+		PeriodStart: "2026-05-18",
+		PeriodEnd:   "2026-05-24",
+		MaskNames:   boolPtr(false),
+	})
+	if err != nil {
+		t.Fatalf("generate report: %v", err)
+	}
+
+	var snapshot struct {
+		AccountChanges []struct {
+			AccountName  string  `json:"account_name"`
+			BalanceDelta float64 `json:"balance_delta"`
+		} `json:"account_changes"`
+	}
+	if err := json.Unmarshal([]byte(report.SnapshotJSON), &snapshot); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+	changes := make(map[string]float64, len(snapshot.AccountChanges))
+	for _, change := range snapshot.AccountChanges {
+		changes[change.AccountName] = change.BalanceDelta
+	}
+	if changes["现金"] != -200 {
+		t.Fatalf("source balance delta = %v, want -200", changes["现金"])
+	}
+	if changes["储蓄卡"] != 200 {
+		t.Fatalf("target balance delta = %v, want 200", changes["储蓄卡"])
+	}
+}
+
 func TestAIReportGenerateRejectsUnsupportedType(t *testing.T) {
 	svc, _, userID := newAIReportTestServices(t)
 
@@ -213,7 +308,9 @@ func newAIReportTestServices(t *testing.T) (*AIReportService, *AIProviderService
 		t.Fatalf("create user: %v", err)
 	}
 	providerSvc := NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil))
-	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil)).WithBudgetRepository(repos.Budget)
+	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil)).
+		WithBudgetRepository(repos.Budget).
+		WithAccountRepository(repos.Account)
 	return reportSvc, providerSvc, user.ID
 }
 
