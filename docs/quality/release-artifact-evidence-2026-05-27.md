@@ -67,6 +67,7 @@ Copy the verifier output into the release note or PR description:
 ```text
 Release artifact evidence:
 <sha256>    <size> bytes    <path>
+<platform> signature checks passed.
 Release artifact file checks passed.
 ```
 

@@ -53,6 +53,7 @@ check_zip_artifact() {
   check_artifact_structure "$label" "$structure" "$entries"
   if [[ "$VERIFY_SIGNATURES" == "1" ]]; then
     verify_artifact_signature "$label" "$path" "$structure"
+    echo "$label signature checks passed."
   fi
 
   if [[ "$REQUIRE_CHECKSUMS" == "1" && ! -f "$sidecar" ]]; then
