@@ -56,18 +56,35 @@ fi
 
 if [[ -n "$IMAGE" ]]; then
   require_tool docker
+  require_tool python3
   manifest_file="$(mktemp /tmp/personal-ledger-docker-manifest.XXXXXX.json)"
   if ! docker manifest inspect "$IMAGE" >"$manifest_file"; then
     rm -f "$manifest_file"
     fail "Docker manifest inspect failed: $IMAGE"
   fi
-  if ! grep -q '"architecture": "amd64"' "$manifest_file"; then
+  if ! python3 - "$manifest_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    manifest = json.load(handle)
+
+platforms = set()
+for item in manifest.get("manifests", []):
+    platform = item.get("platform") or {}
+    os_name = platform.get("os")
+    architecture = platform.get("architecture")
+    if os_name and architecture:
+        platforms.add(f"{os_name}/{architecture}")
+
+missing = sorted({"linux/amd64", "linux/arm64"} - platforms)
+if missing:
+    print("Missing platforms: " + ", ".join(missing), file=sys.stderr)
+    sys.exit(1)
+PY
+  then
     rm -f "$manifest_file"
-    fail "Docker manifest missing linux/amd64: $IMAGE"
-  fi
-  if ! grep -q '"architecture": "arm64"' "$manifest_file"; then
-    rm -f "$manifest_file"
-    fail "Docker manifest missing linux/arm64: $IMAGE"
+    fail "Docker manifest missing required linux platforms: $IMAGE"
   fi
   rm -f "$manifest_file"
   echo "Docker manifest checks passed for $IMAGE."
