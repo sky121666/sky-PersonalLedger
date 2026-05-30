@@ -72,7 +72,7 @@ type GenerateAIReportRequest struct {
 	ProviderID  string `json:"provider_id"`
 	PeriodStart string `json:"period_start" binding:"required"`
 	PeriodEnd   string `json:"period_end" binding:"required"`
-	MaskNames   bool   `json:"mask_names"`
+	MaskNames   *bool  `json:"mask_names"`
 }
 
 type AIReportResponse struct {
@@ -162,12 +162,13 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 	if err != nil {
 		return nil, err
 	}
+	maskNames := shouldMaskAIReportNames(req)
 	promptVersion := aiReportPromptVersionForRequest(req)
 	if cached, err := s.repo.GetReusableCompleted(userID, reportType, start, end, provider.ID, provider.Model, promptVersion); err == nil {
 		return aiReportResponse(cached), nil
 	}
 
-	snapshotJSON, err := s.buildSnapshotJSON(userID, start, end, req.MaskNames)
+	snapshotJSON, err := s.buildSnapshotJSON(userID, start, end, maskNames)
 	if err != nil {
 		return nil, err
 	}
@@ -214,10 +215,14 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 }
 
 func aiReportPromptVersionForRequest(req GenerateAIReportRequest) string {
-	if req.MaskNames {
+	if shouldMaskAIReportNames(req) {
 		return aiReportMaskedPromptVersion
 	}
 	return aiReportPromptVersion
+}
+
+func shouldMaskAIReportNames(req GenerateAIReportRequest) bool {
+	return req.MaskNames == nil || *req.MaskNames
 }
 
 func isSupportedAIReportType(reportType string) bool {

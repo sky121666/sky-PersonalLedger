@@ -133,6 +133,7 @@ func TestAIReportGenerateMasksNamesAndUsesSeparateCache(t *testing.T) {
 		ReportType:  "weekly",
 		PeriodStart: "2026-05-18",
 		PeriodEnd:   "2026-05-24",
+		MaskNames:   boolPtr(false),
 	}
 
 	unmasked, err := svc.Generate(userID, req)
@@ -143,7 +144,7 @@ func TestAIReportGenerateMasksNamesAndUsesSeparateCache(t *testing.T) {
 		ReportType:  "weekly",
 		PeriodStart: "2026-05-18",
 		PeriodEnd:   "2026-05-24",
-		MaskNames:   true,
+		MaskNames:   boolPtr(true),
 	})
 	if err != nil {
 		t.Fatalf("generate masked report: %v", err)
@@ -159,6 +160,31 @@ func TestAIReportGenerateMasksNamesAndUsesSeparateCache(t *testing.T) {
 	}
 	if requestCount != 2 {
 		t.Fatalf("ai request count = %d, want separate unmasked and masked requests", requestCount)
+	}
+}
+
+func TestAIReportGenerateMasksNamesByDefault(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"summary\":\"default masked report\"}"}}]}`))
+	}))
+	defer server.Close()
+
+	svc, providerSvc, userID := newAIReportTestServices(t)
+	seedAIReportFacts(t, providerSvc, userID, server.URL)
+	report, err := svc.Generate(userID, GenerateAIReportRequest{
+		ReportType:  "weekly",
+		PeriodStart: "2026-05-18",
+		PeriodEnd:   "2026-05-24",
+	})
+	if err != nil {
+		t.Fatalf("generate default report: %v", err)
+	}
+	if report.PromptVersion != aiReportMaskedPromptVersion {
+		t.Fatalf("prompt version = %q, want masked prompt version", report.PromptVersion)
+	}
+	if strings.Contains(report.SnapshotJSON, "成员A") {
+		t.Fatalf("default snapshot leaked member name: %s", report.SnapshotJSON)
 	}
 }
 
