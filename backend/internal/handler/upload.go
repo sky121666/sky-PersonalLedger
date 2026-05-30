@@ -89,7 +89,7 @@ func (h *UploadHandler) Delete(c *gin.Context) {
 			response.Forbidden(c, "file path does not belong to current user")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to delete uploaded file")
 		return
 	}
 
@@ -112,7 +112,7 @@ func (h *UploadHandler) List(c *gin.Context) {
 			response.BadRequest(c, "invalid upload scope")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list uploaded files")
 		return
 	}
 
@@ -165,7 +165,7 @@ func (h *UploadHandler) Download(c *gin.Context) {
 			response.Forbidden(c, "file path does not belong to current user")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to resolve uploaded file")
 		return
 	}
 	filename := filepath.Base(filePath)

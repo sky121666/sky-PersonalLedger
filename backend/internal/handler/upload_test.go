@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -115,6 +117,39 @@ func TestUploadListRejectsTraversalScope(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestUploadListDoesNotExposeStoragePathOnInternalError(t *testing.T) {
+	uploadRootFile := filepath.Join(t.TempDir(), "uploads-file")
+	if err := os.WriteFile(uploadRootFile, []byte("not a directory"), 0600); err != nil {
+		t.Fatalf("write upload root file: %v", err)
+	}
+	uploadService := service.NewUploadService(&config.StorageConfig{
+		UploadPath:   uploadRootFile,
+		MaxFileSize:  10,
+		AllowedTypes: "txt",
+	})
+	jwtManager := jwt.NewManager("test-secret", 15, 60)
+	authService := service.NewAuthService(nil, nil, nil, nil, jwtManager)
+	handler := NewUploadHandler(uploadService, nil, authService)
+
+	w := performUploadListRequest(handler, 1, "transactions", "t")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500; body=%s", w.Code, w.Body.String())
+	}
+	var body struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if body.Message != "failed to list uploaded files" {
+		t.Fatalf("message = %q, want generic upload list error", body.Message)
+	}
+	if strings.Contains(w.Body.String(), uploadRootFile) {
+		t.Fatalf("response exposed storage path: %s", w.Body.String())
 	}
 }
 

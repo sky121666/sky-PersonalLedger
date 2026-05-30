@@ -209,6 +209,7 @@ backend/cmd/server/main_test.go
 backend/internal/config/config.go
 backend/internal/handler/attachment.go
 backend/internal/handler/attachment_test.go
+backend/internal/handler/error_response.go
 backend/internal/handler/export.go
 backend/internal/handler/transaction.go
 backend/internal/handler/upload.go
