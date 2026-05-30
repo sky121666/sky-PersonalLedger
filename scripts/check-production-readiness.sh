@@ -152,6 +152,8 @@ require_absent_text "web/src/views/SettingsView.vue" 'notificationApi\.updateSet
 require_absent_text "mobile/lib/features/notifications/data/notification_repository.dart" "^[[:space:]]*'(dingtalk_secret|webhook_secret)': (dingtalkSecret|webhookSecret),"
 require_absent_text "mobile/lib/features/ai/data/ai_report_repository.dart" "^[[:space:]]*'api_key': apiKey,"
 require_absent_text "web/src/views/AIView.vue" 'api_key: providerForm\.api_key\.trim\(\)'
+require_absent_text "mobile/lib/core/network/api_client.dart" 'message: error\.message'
+require_text "mobile/lib/core/network/api_client.dart" "message: error\\.response == null \\? '网络连接失败' : '请求失败'"
 require_text "mobile/lib/core/config/server_config_service.dart" '远程服务器必须使用 HTTPS'
 require_absent_text "backend/internal/service/auth.go" 'password must be at least 6 characters'
 

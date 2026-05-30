@@ -178,14 +178,14 @@ class ApiClient {
       return ApiException(
         code: responseData['code'] as int?,
         statusCode: error.response?.statusCode,
-        message: responseData['message'] as String? ?? error.message ?? '请求失败',
+        message: responseData['message'] as String? ?? '请求失败',
         originalError: error,
       );
     }
 
     return ApiException(
       statusCode: error.response?.statusCode,
-      message: error.message ?? '网络连接失败',
+      message: error.response == null ? '网络连接失败' : '请求失败',
       originalError: error,
     );
   }

@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/core/config/server_config_service.dart';
+import 'package:personal_ledger/core/network/api_client.dart';
 import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/network/api_response.dart';
 import 'package:personal_ledger/core/storage/secure_storage_service.dart';
@@ -57,6 +61,40 @@ void main() {
           isA<ApiException>()
               .having((error) => error.code, 'code', 40001)
               .having((error) => error.message, 'message', '参数错误'),
+        ),
+      );
+    });
+  });
+
+  group('ApiClient', () {
+    test('网络异常不会向 UI 暴露底层地址或连接细节', () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://ledger.example.com/api/v1'))
+        ..httpClientAdapter = _FailingNetworkAdapter();
+      final client = ApiClient(
+        serverConfigService: ServerConfigService(SecureStorageService()),
+        dio: dio,
+      );
+
+      await expectLater(
+        client.get<void>('/health'),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.message, 'message', '网络连接失败')
+              .having(
+                (error) => error.message,
+                'message',
+                isNot(contains('ledger.example.com')),
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                isNot(contains('token=')),
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                isNot(contains('Connection refused')),
+              ),
         ),
       );
     });
@@ -558,4 +596,23 @@ void main() {
       expect(result.message, '发送成功');
     });
   });
+}
+
+class _FailingNetworkAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    throw DioException(
+      requestOptions: options,
+      type: DioExceptionType.connectionError,
+      message:
+          'Connection refused for https://ledger.example.com/api/v1/health?token=secret',
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
