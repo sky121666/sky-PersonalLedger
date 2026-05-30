@@ -60,9 +60,13 @@ require_file "scripts/check-mobile-device-qa-preflight.sh"
 require_file "scripts/check-docker-local-smoke.sh"
 require_file "scripts/check-docker-compose-local-smoke.sh"
 require_file "scripts/check-runtime-health-contract.sh"
+require_file "scripts/check-ai-privacy-contract.sh"
 
 run_strict_check "runtime health contract" \
   "$ROOT_DIR/scripts/check-runtime-health-contract.sh"
+
+run_strict_check "AI privacy contract" \
+  "$ROOT_DIR/scripts/check-ai-privacy-contract.sh"
 
 "$ROOT_DIR/scripts/check-production-readiness.sh"
 
