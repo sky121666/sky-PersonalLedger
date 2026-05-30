@@ -33,6 +33,7 @@ require_text 'Docker image'
 require_text 'AI provider'
 require_text 'backup'
 require_text 'VoiceOver/TalkBack'
+require_text 'iOS and Android device validation'
 require_text 'STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh'
 
 if [[ "${STRICT_RELEASE_NOTES:-0}" == "1" ]]; then

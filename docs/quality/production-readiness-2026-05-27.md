@@ -30,7 +30,7 @@ This document defines the remaining gates for a 100/100 release. The current sta
 | Premium screen smoke | Home, Quick Transaction, AI Reports, Family Hub render in light/dark | PASS | `cd mobile && flutter test integration_test/premium_screens_smoke_test.dart` |
 | Android release | Signed release APK/AAB built from CI or local secrets | PREPARED, NOT PROVEN | `.github/workflows/android.yml`, `docs/android-release-signing.md`, then Android release workflow evidence |
 | iOS release | Archive, TestFlight build, or signed IPA from configured signing identity | PREPARED, NOT PROVEN | `.github/workflows/ios.yml`, `docs/ios-release-signing.md`, then `flutter build ipa --release` evidence |
-| Physical iPhone | USB-connected device runs smoke or install/manual checklist | MISSING | `flutter test -d <physical-id> integration_test/app_smoke_test.dart` |
+| Mobile device QA | USB-connected iPhone and Android device/emulator run smoke or install/manual checklist | MISSING | `REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_DEVICE=1 ./scripts/check-mobile-device-qa-preflight.sh` |
 | Backup rehearsal | Export, restore into isolated database, verify family member, member-linked transaction, and AI report history | PASS automated | `./scripts/check-backup-restore-rehearsal.sh` |
 | Backup operator drill | Real app/API export and restore workflow has release-candidate evidence | PASS local isolated API drill | `./scripts/check-backup-operator-drill-local.sh`; `STRICT_BACKUP_OPERATOR_DRILL=1 ./scripts/check-backup-operator-drill.sh` |
 | Runtime health endpoint | Public health route checks database, schema version, and storage directories without exposing secrets | PASS contract; release runtime smoke still required | `./scripts/check-runtime-health-contract.sh`; `curl -fsS http://127.0.0.1:8080/api/v1/health` |
@@ -72,7 +72,7 @@ Use `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` for the local sour
 
 | Priority | Gap | Impact | Required Action |
 | --- | --- | --- | --- |
-| P0 | Physical iPhone is wireless-only in current evidence | Cannot prove real iOS install, safe area, keyboard, haptics, and performance | Connect by USB and run app smoke plus premium manual checklist |
+| P0 | Physical iPhone is wireless-only and Android release-device evidence is not recorded in current evidence | Cannot prove real iOS install, Android install, safe area, keyboard, haptics, and performance | Connect iPhone by USB, connect Android or start an emulator, then run app smoke plus premium manual checklist |
 | P0 | Signed mobile artifacts are prepared but unproven | Cannot claim formal mobile distribution until signed APK/IPA artifacts exist | Run `CHECK_SIGNING_SECRETS=1 ./scripts/check-release-artifacts-preflight.sh`, then run Android/iOS release workflows or local signed builds |
 | P0 | Real artifact hash and signature evidence is not recorded yet | Release reviewers cannot independently verify which binary was shipped | Download CI artifacts or collect local signed outputs, then run `RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh` and record SHA-256/signature values in `docs/quality/release-artifact-evidence-2026-05-27.md` |
 | P0 | Docker image publication and deployment smoke evidence is not recorded yet | Cannot prove the primary one-place deployment path works from the published image | Run tag release, verify GHCR digest/multi-arch manifest, deploy with docker compose, and record results in `docs/quality/docker-release-evidence-2026-05-27.md` |
@@ -106,7 +106,7 @@ Use `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` for the local sour
 - AI provider keys are not returned by API responses or normal backups
 
 ### Known limitations
-- Physical iPhone validation: <PASS/BLOCKED with device and date>
+- iOS/Android device validation: <PASS/BLOCKED with device and date>
 - Screen-reader manual pass: <PASS/PENDING>
 - Device-native marketing screenshots: <PASS/PENDING>
 

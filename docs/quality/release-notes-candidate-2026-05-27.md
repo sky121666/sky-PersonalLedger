@@ -40,7 +40,7 @@
 | --- | --- | --- |
 | Android signed artifacts | PENDING | Requires real signing secrets or local release keystore evidence |
 | iOS signed artifact | PENDING | Requires Apple certificate, provisioning profile, and IPA/TestFlight/archive evidence |
-| Physical iPhone validation | PENDING | Requires USB-connected iPhone E2E or signed-install manual checklist |
+| iOS/Android device validation | PENDING | Requires USB-connected iPhone evidence and Android device/emulator E2E or signed-install manual checklist |
 | VoiceOver/TalkBack | PENDING | Requires manual assistive-technology pass on release candidate |
 | Family features | PHASE 1+ | Member-level budgets are supported; roles and deeper permissions are reserved for later |
 
@@ -75,6 +75,6 @@ Do not publish this release candidate as fully complete until:
 
 - Android signed APK/AAB and checksums are recorded.
 - iOS signed IPA, TestFlight build, or archive evidence is recorded if iOS distribution is in scope.
-- Physical iPhone validation is recorded.
+- iOS and Android device validation is recorded.
 - VoiceOver/TalkBack evidence is recorded or explicitly scoped out.
 - This file has no unresolved `PENDING` rows for in-scope release gates.
