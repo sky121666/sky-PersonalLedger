@@ -22,7 +22,7 @@ var (
 	ErrInvalidPassword  = errors.New("invalid password")
 	ErrUserLocked       = errors.New("user account is locked")
 	ErrInvalidToken     = errors.New("invalid refresh token")
-	ErrPasswordTooShort = errors.New("password must be at least 6 characters")
+	ErrPasswordTooShort = errors.New("password must be at least 8 characters")
 )
 
 var authInitMu sync.Mutex
