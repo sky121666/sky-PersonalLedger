@@ -20,6 +20,15 @@ require_text() {
   fi
 }
 
+require_absent_text() {
+  local path="$1"
+  local pattern="$2"
+  if grep -qE "$pattern" "$ROOT_DIR/$path"; then
+    echo "Forbidden pattern still present in $path: $pattern" >&2
+    exit 1
+  fi
+}
+
 require_env() {
   local name="$1"
   if [[ -z "${!name:-}" ]]; then
@@ -54,6 +63,7 @@ require_text ".github/workflows/android.yml" "Verify Android release signatures"
 require_text ".github/workflows/android.yml" "APKSIGNER.*verify --verbose --print-certs"
 require_text ".github/workflows/android.yml" "jarsigner -verify -strict -certs"
 require_text ".github/workflows/android.yml" "/usr/local/lib/android/sdk"
+require_absent_text ".github/workflows/android.yml" 'sort -V'
 require_text ".github/workflows/ios.yml" "IOS_CERTIFICATE_BASE64"
 require_text ".github/workflows/ios.yml" "workflow_call"
 require_text ".github/workflows/ios.yml" "personal-ledger-.*-ios\\.ipa"
