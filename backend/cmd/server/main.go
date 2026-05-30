@@ -64,6 +64,7 @@ func main() {
 	// Initialize backup scheduler
 	backupScheduler := service.NewBackupScheduler(services.Backup, repos.System, repos.User, cfg.Storage.BackupPath)
 	backupScheduler.Start()
+	services.AIReportSchedule.Start()
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter()

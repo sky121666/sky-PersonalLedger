@@ -56,7 +56,7 @@ func newAIProviderTestHandler(t *testing.T) (*AIHandler, uint) {
 		t.Fatalf("create user: %v", err)
 	}
 	providerService := service.NewAIProviderService(repos.AIProvider, service.NewOpenAICompatibleClient(nil))
-	return NewAIHandler(providerService, nil), user.ID
+	return NewAIHandler(providerService, nil, nil), user.ID
 }
 
 func performAIProviderRequest(handler *AIHandler, userID uint, method string, path string, payload any) *httptest.ResponseRecorder {
@@ -84,4 +84,3 @@ func performAIProviderRequest(handler *AIHandler, userID uint, method string, pa
 	router.ServeHTTP(response, request)
 	return response
 }
-

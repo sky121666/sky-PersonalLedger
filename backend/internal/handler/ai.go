@@ -12,10 +12,11 @@ import (
 type AIHandler struct {
 	providerService *service.AIProviderService
 	reportService   *service.AIReportService
+	reportScheduler *service.AIReportScheduler
 }
 
-func NewAIHandler(providerService *service.AIProviderService, reportService *service.AIReportService) *AIHandler {
-	return &AIHandler{providerService: providerService, reportService: reportService}
+func NewAIHandler(providerService *service.AIProviderService, reportService *service.AIReportService, reportScheduler *service.AIReportScheduler) *AIHandler {
+	return &AIHandler{providerService: providerService, reportService: reportService, reportScheduler: reportScheduler}
 }
 
 func (h *AIHandler) ListProviders(c *gin.Context) {
@@ -122,6 +123,55 @@ func (h *AIHandler) DeleteReport(c *gin.Context) {
 		return
 	}
 	response.Success(c, nil)
+}
+
+func (h *AIHandler) GetReportScheduleSettings(c *gin.Context) {
+	settings, err := h.reportScheduler.GetSettings()
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, settings)
+}
+
+type UpdateAIReportScheduleRequest struct {
+	Enabled        bool `json:"enabled"`
+	WeeklyEnabled  bool `json:"weekly_enabled"`
+	MonthlyEnabled bool `json:"monthly_enabled"`
+	Hour           int  `json:"hour"`
+}
+
+func (h *AIHandler) UpdateReportScheduleSettings(c *gin.Context) {
+	var req UpdateAIReportScheduleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	current, err := h.reportScheduler.GetSettings()
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	current.Enabled = req.Enabled
+	current.WeeklyEnabled = req.WeeklyEnabled
+	current.MonthlyEnabled = req.MonthlyEnabled
+	current.Hour = req.Hour
+
+	if err := h.reportScheduler.SaveSettings(current); err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, current)
+}
+
+func (h *AIHandler) TriggerReportSchedule(c *gin.Context) {
+	results, err := h.reportScheduler.TriggerDueReports()
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"results": results})
 }
 
 func writeAIProviderError(c *gin.Context, err error) {

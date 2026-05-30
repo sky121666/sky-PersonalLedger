@@ -52,7 +52,7 @@ func NewHandlers(services *service.Services, backupScheduler *service.BackupSche
 		APIToken:     NewAPITokenHandler(services.APIToken),
 		Setup:        NewSetupHandler(services.Auth, cfg.Database, cfg.Setup),
 		Family:       NewFamilyHandler(services.FamilyMember),
-		AI:           NewAIHandler(services.AIProvider, services.AIReport),
+		AI:           NewAIHandler(services.AIProvider, services.AIReport, services.AIReportSchedule),
 	}
 }
 
@@ -263,6 +263,10 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		// AI providers and reports
 		ai := protected.Group("/ai")
 		{
+			ai.GET("/schedule/settings", h.AI.GetReportScheduleSettings)
+			ai.PUT("/schedule/settings", h.AI.UpdateReportScheduleSettings)
+			ai.POST("/schedule/trigger", h.AI.TriggerReportSchedule)
+
 			ai.GET("/reports", h.AI.ListReports)
 			ai.POST("/reports/generate", h.AI.GenerateReport)
 			ai.GET("/reports/:id", h.AI.GetReport)

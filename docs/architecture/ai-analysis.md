@@ -160,11 +160,15 @@ The UI can render this contract as cards, timeline blocks, and short paragraphs.
 | `/api/v1/ai/reports/generate` | POST | Generate report for type and period |
 | `/api/v1/ai/reports/:id` | GET | Read report |
 | `/api/v1/ai/reports/:id` | DELETE | Delete report |
+| `/api/v1/ai/schedule/settings` | GET | Read automatic weekly/monthly report settings |
+| `/api/v1/ai/schedule/settings` | PUT | Enable or disable automatic weekly/monthly report generation and set the run hour |
+| `/api/v1/ai/schedule/trigger` | POST | Manually trigger due automatic weekly/monthly reports |
 
 ## Privacy Rules
 
 - Default off.
 - Explicit enablement required.
+- Automatic weekly/monthly reports remain disabled by default and only run after the user enables schedule settings.
 - Show which aggregated fields will be sent.
 - Do not send raw transaction lists by default.
 - Do not send file attachments.
@@ -182,5 +186,7 @@ The UI can render this contract as cards, timeline blocks, and short paragraphs.
 - Handler tests proving API keys are not returned.
 - Report generation test using a fake OpenAI-compatible server.
 - Cache test proving repeated generation for the same completed scope returns the existing report without another provider request.
+- Scheduler test proving automatic weekly reports use the previous complete week and do not run again on the same day.
+- Scheduler test proving users without an enabled provider are skipped rather than failing the whole run.
 - Snapshot tests proving raw remarks are excluded by default.
 - UI tests for disabled state, connection test, and generated report rendering.
