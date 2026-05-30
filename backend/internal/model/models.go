@@ -184,7 +184,7 @@ type NotificationSetting struct {
 	// 钉钉
 	DingtalkEnabled bool   `gorm:"default:false" json:"dingtalk_enabled"`
 	DingtalkWebhook string `gorm:"size:500" json:"dingtalk_webhook"`
-	DingtalkSecret  string `gorm:"size:100" json:"dingtalk_secret"`
+	DingtalkSecret  string `gorm:"size:100" json:"-"`
 
 	// 邮箱
 	EmailEnabled bool   `gorm:"default:false" json:"email_enabled"`
@@ -198,7 +198,7 @@ type NotificationSetting struct {
 	// 自定义Webhook
 	WebhookEnabled bool   `gorm:"default:false" json:"webhook_enabled"`
 	WebhookURL     string `gorm:"size:500" json:"webhook_url"`
-	WebhookSecret  string `gorm:"size:100" json:"webhook_secret"`
+	WebhookSecret  string `gorm:"size:100" json:"-"`
 
 	// 通知选项
 	NotifyPaymentDue   bool `gorm:"default:true" json:"notify_payment_due"`

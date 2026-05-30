@@ -78,6 +78,7 @@ func (s *NotificationService) Get(userID uint) (*model.NotificationSetting, erro
 }
 
 func (s *NotificationService) Update(userID uint, req NotificationSettingRequest) (*model.NotificationSetting, error) {
+	existing, _ := s.repo.GetByUserID(userID)
 	setting := &model.NotificationSetting{
 		UserID:             userID,
 		Enabled:            req.Enabled,
@@ -85,7 +86,6 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 		WecomWebhook:       req.WecomWebhook,
 		DingtalkEnabled:    req.DingtalkEnabled,
 		DingtalkWebhook:    req.DingtalkWebhook,
-		DingtalkSecret:     req.DingtalkSecret,
 		EmailEnabled:       req.EmailEnabled,
 		SmtpHost:           req.SmtpHost,
 		SmtpPort:           req.SmtpPort,
@@ -94,7 +94,6 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 		EmailTo:            req.EmailTo,
 		WebhookEnabled:     req.WebhookEnabled,
 		WebhookURL:         req.WebhookURL,
-		WebhookSecret:      req.WebhookSecret,
 		NotifyPaymentDue:   req.NotifyPaymentDue,
 		NotifyBudgetAlert:  req.NotifyBudgetAlert,
 		NotifyLendingDue:   req.NotifyLendingDue,
@@ -102,14 +101,23 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 		AdvanceDays:        req.AdvanceDays,
 	}
 
+	if req.DingtalkSecret != "" {
+		setting.DingtalkSecret = req.DingtalkSecret
+	} else if existing != nil {
+		setting.DingtalkSecret = existing.DingtalkSecret
+	}
+
 	// Only update password if provided
 	if req.SmtpPassword != "" {
 		setting.SmtpPassword = req.SmtpPassword
-	} else {
-		existing, _ := s.repo.GetByUserID(userID)
-		if existing != nil {
-			setting.SmtpPassword = existing.SmtpPassword
-		}
+	} else if existing != nil {
+		setting.SmtpPassword = existing.SmtpPassword
+	}
+
+	if req.WebhookSecret != "" {
+		setting.WebhookSecret = req.WebhookSecret
+	} else if existing != nil {
+		setting.WebhookSecret = existing.WebhookSecret
 	}
 
 	if err := s.repo.Upsert(setting); err != nil {

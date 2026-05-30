@@ -214,6 +214,8 @@ backend/internal/service/api_token.go
 backend/internal/service/api_token_test.go
 backend/internal/service/auth.go
 backend/internal/service/auth_test.go
+backend/internal/service/notification.go
+backend/internal/service/notification_test.go
 backend/internal/service/upload.go
 backend/internal/service/upload_test.go
 config.example.yaml
