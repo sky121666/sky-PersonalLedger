@@ -363,6 +363,48 @@ func TestAIReportGenerateRejectsUnsupportedType(t *testing.T) {
 	}
 }
 
+func TestAIReportFailureMessageDoesNotExposeProviderEndpointDetails(t *testing.T) {
+	svc, providerSvc, userID := newAIReportTestServices(t)
+	if _, err := providerSvc.Create(userID, SaveAIProviderRequest{
+		Name:    "Local Gateway",
+		BaseURL: "http://127.0.0.1:1/private-ai-gateway",
+		APIKey:  "sk-provider-secret",
+		Model:   "deepseek-chat",
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	report, err := svc.Generate(userID, GenerateAIReportRequest{
+		ReportType:  "weekly",
+		PeriodStart: "2026-05-18",
+		PeriodEnd:   "2026-05-24",
+	})
+	if err == nil {
+		t.Fatal("expected ai provider request failure")
+	}
+	if report == nil {
+		t.Fatal("failed report response should be returned")
+	}
+	if report.Status != "failed" {
+		t.Fatalf("status = %q, want failed", report.Status)
+	}
+	for _, leaked := range []string{
+		"127.0.0.1",
+		"private-ai-gateway",
+		"sk-provider-secret",
+		"connect",
+		"dial",
+	} {
+		if strings.Contains(strings.ToLower(report.ErrorMessage), strings.ToLower(leaked)) {
+			t.Fatalf("ai report error message leaked %q: %s", leaked, report.ErrorMessage)
+		}
+	}
+	if !strings.Contains(report.ErrorMessage, "AI provider request failed") {
+		t.Fatalf("error message = %q, want generic provider request failure", report.ErrorMessage)
+	}
+}
+
 func TestSanitizeAIErrorRedactsCredentialLikeValues(t *testing.T) {
 	err := errors.New("request failed Authorization: Bearer sk-secret-token-123 api_key=sk-query-secret&access_token=plain-token token=other-token")
 

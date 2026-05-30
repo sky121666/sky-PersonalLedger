@@ -585,6 +585,15 @@ func normalizeAIReportContent(content string) string {
 
 func sanitizeAIError(err error) string {
 	message := strings.TrimSpace(err.Error())
+	lowerMessage := strings.ToLower(message)
+	if strings.Contains(message, "://") ||
+		strings.Contains(lowerMessage, "dial tcp") ||
+		strings.Contains(lowerMessage, "connect:") ||
+		strings.Contains(lowerMessage, "connection refused") ||
+		strings.Contains(lowerMessage, "no such host") ||
+		strings.Contains(lowerMessage, "lookup ") {
+		return "AI provider request failed; check provider configuration or network"
+	}
 	for _, pattern := range aiErrorSecretPatterns {
 		message = pattern.ReplaceAllString(message, "${1}[redacted]")
 	}

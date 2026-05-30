@@ -99,6 +99,7 @@ require_absent_text "backend/internal/service/transaction.go" 't, _ := time\.Par
 require_absent_text "backend/internal/handler/ai.go" 'response\.InternalError\(c, err\.Error\(\)\)'
 require_absent_text "backend/internal/handler/ai.go" 'response\.Error\(c, .*err\.Error\(\)\)'
 require_text "backend/internal/handler/ai.go" 'failed to process AI provider request'
+require_text "backend/internal/service/ai_report.go" 'AI provider request failed; check provider configuration or network'
 require_absent_text "backend/internal/handler/account.go" 'response\.InternalError\(c, err\.Error\(\)\)'
 require_text "backend/internal/handler/account.go" 'failed to summarize accounts'
 require_absent_text "backend/internal/handler/lending.go" 'response\.InternalError\(c, err\.Error\(\)\)'
