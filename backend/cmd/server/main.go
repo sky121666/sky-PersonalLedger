@@ -30,11 +30,8 @@ func main() {
 	if err := validateJWTSecret(cfg.JWT.Secret); err != nil {
 		log.Fatal(err)
 	}
-
-	// Warn about CORS in production
-	if cfg.Server.Mode == "release" && cfg.CORS.AllowedOrigins == "*" {
-		log.Println("WARNING: CORS is set to allow all origins (*) in production mode. This is insecure!")
-		log.Println("WARNING: Please set LEDGER_CORS_ALLOWED_ORIGINS to your specific domain.")
+	if err := validateProductionCORS(cfg.Server.Mode, cfg.CORS.AllowedOrigins); err != nil {
+		log.Fatal(err)
 	}
 
 	// Initialize logger
@@ -64,6 +61,7 @@ func main() {
 	// Initialize backup scheduler
 	backupScheduler := service.NewBackupScheduler(services.Backup, repos.System, repos.User, cfg.Storage.BackupPath)
 	backupScheduler.Start()
+	services.AIReportSchedule.Start()
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter()
@@ -142,6 +140,13 @@ func validateJWTSecret(secret string) error {
 	return nil
 }
 
+func validateProductionCORS(serverMode string, allowedOrigins string) error {
+	if strings.EqualFold(strings.TrimSpace(serverMode), "release") && strings.TrimSpace(allowedOrigins) == "*" {
+		return fmt.Errorf("FATAL: LEDGER_CORS_ALLOWED_ORIGINS cannot be * in release mode; leave it empty for same-site deployment or set explicit origins")
+	}
+	return nil
+}
+
 func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.AuthService, systemService *service.SystemService) {
 	// Create upload directory if not exists
 	if err := os.MkdirAll(uploadPath, 0755); err != nil {
@@ -196,9 +201,26 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 		fullPath := filepath.Join(uploadPath, cleanPath)
 
 		// Security check: ensure path is within upload directory
-		absUploadPath, _ := filepath.Abs(uploadPath)
-		absFullPath, _ := filepath.Abs(fullPath)
+		absUploadPath, err := filepath.Abs(uploadPath)
+		if err != nil {
+			c.JSON(403, gin.H{"error": "forbidden"})
+			return
+		}
+		absFullPath, err := filepath.Abs(fullPath)
+		if err != nil {
+			c.JSON(403, gin.H{"error": "forbidden"})
+			return
+		}
 		if absFullPath != absUploadPath && !strings.HasPrefix(absFullPath, absUploadPath+string(os.PathSeparator)) {
+			c.JSON(403, gin.H{"error": "forbidden"})
+			return
+		}
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			c.JSON(404, gin.H{"error": "not found"})
+			return
+		}
+		if info.IsDir() {
 			c.JSON(403, gin.H{"error": "forbidden"})
 			return
 		}
@@ -258,7 +280,7 @@ func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.Syst
 		if !checkEntryAccess(c) {
 			return
 		}
-		c.File(filepath.Join(webPath, "assets", c.Param("filepath")))
+		serveStaticFile(c, filepath.Join(webPath, "assets"), c.Param("filepath"))
 	})
 
 	// Serve static files in root (favicon.svg, manifest.json, etc.)
@@ -291,4 +313,43 @@ func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.Syst
 		// For SPA, serve index.html
 		c.File(filepath.Join(webPath, "index.html"))
 	})
+}
+
+func serveStaticFile(c *gin.Context, rootPath string, requestPath string) {
+	cleanPath := filepath.Clean(strings.TrimPrefix(requestPath, "/"))
+	if cleanPath == "." ||
+		cleanPath == ".." ||
+		filepath.IsAbs(cleanPath) ||
+		strings.HasPrefix(cleanPath, ".."+string(os.PathSeparator)) {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+
+	fullPath := filepath.Join(rootPath, cleanPath)
+	absRootPath, err := filepath.Abs(rootPath)
+	if err != nil {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+	absFullPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+	if absFullPath != absRootPath && !strings.HasPrefix(absFullPath, absRootPath+string(os.PathSeparator)) {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		c.JSON(404, gin.H{"error": "not found"})
+		return
+	}
+	if info.IsDir() {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+
+	c.File(fullPath)
 }

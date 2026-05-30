@@ -511,11 +511,6 @@ class _FakeAttachmentRepository implements AttachmentRepository {
   }
 
   @override
-  Uri previewUri(String path) {
-    return Uri.parse('https://example.test/uploads/$path');
-  }
-
-  @override
   Future<LedgerAttachment> upload({
     required PendingAttachmentFile file,
     required String category,

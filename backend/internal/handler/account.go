@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/response"
@@ -22,11 +24,15 @@ func (h *AccountHandler) List(c *gin.Context) {
 
 	accounts, err := h.service.List(userID, includeArchived)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list accounts")
 		return
 	}
 
-	summary, _ := h.service.GetSummary(userID)
+	summary, err := h.service.GetSummary(userID)
+	if err != nil {
+		internalServerError(c, err, "failed to summarize accounts")
+		return
+	}
 
 	response.Success(c, gin.H{
 		"list":              accounts,
@@ -41,13 +47,13 @@ func (h *AccountHandler) Create(c *gin.Context) {
 
 	var req service.CreateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	account, err := h.service.Create(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to create account")
 		return
 	}
 
@@ -73,17 +79,17 @@ func (h *AccountHandler) Update(c *gin.Context) {
 
 	var req service.UpdateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	account, err := h.service.Update(id, userID, req)
 	if err != nil {
-		if err == service.ErrAccountNotFound {
+		if errors.Is(err, service.ErrAccountNotFound) {
 			response.NotFound(c, "account not found")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to update account")
 		return
 	}
 
@@ -95,15 +101,15 @@ func (h *AccountHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.service.Delete(id, userID); err != nil {
-		if err == service.ErrAccountNotFound {
+		if errors.Is(err, service.ErrAccountNotFound) {
 			response.NotFound(c, "account not found")
 			return
 		}
-		if err == service.ErrAccountHasBalance {
+		if errors.Is(err, service.ErrAccountHasBalance) {
 			response.BadRequest(c, "cannot delete account with non-zero balance")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to delete account")
 		return
 	}
 
@@ -120,12 +126,16 @@ func (h *AccountHandler) Archive(c *gin.Context) {
 
 	var req ArchiveRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	if err := h.service.Archive(id, userID, req.IsArchived); err != nil {
-		response.NotFound(c, "account not found")
+		if errors.Is(err, service.ErrAccountNotFound) {
+			response.NotFound(c, "account not found")
+			return
+		}
+		internalServerError(c, err, "failed to update account archive state")
 		return
 	}
 
@@ -141,12 +151,16 @@ func (h *AccountHandler) UpdateSortOrder(c *gin.Context) {
 
 	var req SortRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	if err := h.service.UpdateSortOrder(userID, req.IDs); err != nil {
-		response.InternalError(c, err.Error())
+		if errors.Is(err, service.ErrAccountNotFound) {
+			response.BadRequest(c, "account not found")
+			return
+		}
+		internalServerError(c, err, "failed to update account sort order")
 		return
 	}
 

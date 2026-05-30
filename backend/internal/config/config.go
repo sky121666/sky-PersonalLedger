@@ -136,7 +136,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("storage.backup_path", "./data/backups")
 	viper.SetDefault("storage.max_file_size", 10) // 10MB
 	viper.SetDefault("storage.allowed_types", "jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt")
-	viper.SetDefault("cors.allowed_origins", "*")     // 默认允许所有，生产环境应配置
+	viper.SetDefault("cors.allowed_origins", "")      // 默认仅允许同站/无 Origin 请求
 	viper.SetDefault("rate_limit.max_requests", 1000) // 每窗口1000次请求
 	viper.SetDefault("rate_limit.window_secs", 60)    // 60秒窗口
 	viper.SetDefault("setup.config_path", "./data/config.yaml")

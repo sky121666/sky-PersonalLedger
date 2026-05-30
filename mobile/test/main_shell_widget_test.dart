@@ -15,18 +15,16 @@ void main() {
       initialLocation: AppRoutePaths.home,
       routes: [
         StatefulShellRoute.indexedStack(
-          builder: (context, state, navigationShell) =>
-              MainShellPage(navigationShell: navigationShell),
+          builder: (context, state, navigationShell) => MainShellPage(
+            navigationShell: navigationShell,
+            quickTransactionBuilder: (_) => const _RouteMarker('quick-content'),
+          ),
           branches: [
             _branch(AppRoutePaths.home, 'home-content'),
             _branch(AppRoutePaths.transactions, 'transactions-content'),
             _branch(AppRoutePaths.statistics, 'statistics-content'),
             _branch(AppRoutePaths.profile, 'profile-content'),
           ],
-        ),
-        GoRoute(
-          path: AppRoutePaths.quickTransaction,
-          builder: (context, state) => const _RouteMarker('quick-content'),
         ),
       ],
     );

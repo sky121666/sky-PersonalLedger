@@ -29,6 +29,8 @@ local.properties
 *.pem
 *.key
 *.crt
+*.mobileprovision
+ExportOptions.plist
 google-services.json
 GoogleService-Info.plist
 
@@ -63,6 +65,8 @@ Desktop.ini
 # ===== 临时文件 =====
 tmp/
 temp/
+.codex-go-cache/
+.playwright-mcp/
 *.tmp
 *.temp
 

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -53,6 +54,17 @@ func CORS(allowedOrigins string) gin.HandlerFunc {
 			}
 		}
 
+		if len(origins) == 0 && isSameHostOrigin(c.Request, origin) {
+			c.Header("Access-Control-Allow-Origin", origin)
+			setCORSCommonHeaders(c)
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			c.Next()
+			return
+		}
+
 		c.AbortWithStatus(http.StatusForbidden)
 	}
 }
@@ -74,6 +86,14 @@ func setCORSCommonHeaders(c *gin.Context) {
 	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
 	c.Header("Access-Control-Allow-Credentials", "true")
 	c.Header("Access-Control-Max-Age", "86400")
+}
+
+func isSameHostOrigin(r *http.Request, origin string) bool {
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed == nil || parsed.Host == "" {
+		return false
+	}
+	return strings.EqualFold(parsed.Host, r.Host)
 }
 
 // SecurityHeaders adds security-related HTTP headers
@@ -213,7 +233,7 @@ func APITokenAuth(validator APITokenValidator) gin.HandlerFunc {
 
 		userID, err := validator.ValidateToken(parts[1])
 		if err != nil {
-			response.Unauthorized(c, err.Error())
+			response.Unauthorized(c, "invalid token")
 			c.Abort()
 			return
 		}

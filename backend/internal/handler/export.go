@@ -32,13 +32,13 @@ func (h *ExportHandler) ExportCSV(c *gin.Context) {
 
 	data, err := h.service.ExportTransactionsCSV(userID, filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalServerError(c, err, "failed to export transactions")
 		return
 	}
 
 	filename := fmt.Sprintf("transactions_%s.csv", time.Now().Format("20060102"))
 	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	setAttachmentHeader(c, filename)
 	c.Data(http.StatusOK, "text/csv; charset=utf-8", data)
 }
 
@@ -56,7 +56,7 @@ func (h *ExportHandler) GetYearlyReport(c *gin.Context) {
 
 	report, err := h.service.GetYearlyReport(userID, year)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load yearly report")
 		return
 	}
 
@@ -69,7 +69,7 @@ func (h *ExportHandler) GetAvailableYears(c *gin.Context) {
 
 	years, err := h.service.GetAvailableYears(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load available years")
 		return
 	}
 

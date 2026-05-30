@@ -19,11 +19,12 @@ var (
 )
 
 type TransactionService struct {
-	txRepo        *repository.TransactionRepository
-	accountRepo   *repository.AccountRepository
-	reminderRepo  *repository.ReminderRepository
-	lendingRepo   *repository.LendingRepository
-	accountLogSvc *AccountLogService
+	txRepo           *repository.TransactionRepository
+	accountRepo      *repository.AccountRepository
+	reminderRepo     *repository.ReminderRepository
+	lendingRepo      *repository.LendingRepository
+	familyMemberRepo *repository.FamilyMemberRepository
+	accountLogSvc    *AccountLogService
 }
 
 func NewTransactionService(
@@ -31,14 +32,16 @@ func NewTransactionService(
 	accountRepo *repository.AccountRepository,
 	reminderRepo *repository.ReminderRepository,
 	lendingRepo *repository.LendingRepository,
+	familyMemberRepo *repository.FamilyMemberRepository,
 	accountLogSvc *AccountLogService,
 ) *TransactionService {
 	return &TransactionService{
-		txRepo:        txRepo,
-		accountRepo:   accountRepo,
-		reminderRepo:  reminderRepo,
-		lendingRepo:   lendingRepo,
-		accountLogSvc: accountLogSvc,
+		txRepo:           txRepo,
+		accountRepo:      accountRepo,
+		reminderRepo:     reminderRepo,
+		lendingRepo:      lendingRepo,
+		familyMemberRepo: familyMemberRepo,
+		accountLogSvc:    accountLogSvc,
 	}
 }
 
@@ -52,6 +55,8 @@ type CreateTransactionRequest struct {
 	Remark          string  `json:"remark"`
 	Images          string  `json:"images"`
 	Tags            string  `json:"tags"`
+	MemberID        *string `json:"member_id"`
+	PaidByMemberID  *string `json:"paid_by_member_id"`
 }
 
 func (s *TransactionService) Create(userID uint, req CreateTransactionRequest) (*model.Transaction, error) {
@@ -76,6 +81,8 @@ func (s *TransactionService) Create(userID uint, req CreateTransactionRequest) (
 		Images:          req.Images,
 		Tags:            req.Tags,
 		ToAccountID:     req.ToAccountID,
+		MemberID:        req.MemberID,
+		PaidByMemberID:  req.PaidByMemberID,
 		Source:          "manual",
 	}
 
@@ -102,6 +109,29 @@ func (s *TransactionService) validateTransactionAccounts(userID uint, req Create
 	}
 	if req.Type == "transfer" {
 		return s.ensureAccountBelongsToUser(*req.ToAccountID, userID)
+	}
+	return s.validateTransactionMembers(userID, req)
+}
+
+func (s *TransactionService) validateTransactionMembers(userID uint, req CreateTransactionRequest) error {
+	if req.MemberID != nil && *req.MemberID != "" {
+		if err := s.ensureFamilyMemberBelongsToUser(*req.MemberID, userID); err != nil {
+			return err
+		}
+	}
+	if req.PaidByMemberID != nil && *req.PaidByMemberID != "" {
+		return s.ensureFamilyMemberBelongsToUser(*req.PaidByMemberID, userID)
+	}
+	return nil
+}
+
+func (s *TransactionService) ensureFamilyMemberBelongsToUser(memberID string, userID uint) error {
+	if s.familyMemberRepo == nil {
+		return ErrFamilyMemberNotFound
+	}
+	member, err := s.familyMemberRepo.GetByID(memberID)
+	if err != nil || member.UserID != userID {
+		return ErrFamilyMemberNotFound
 	}
 	return nil
 }
@@ -185,11 +215,17 @@ func (s *TransactionService) List(userID uint, req ListTransactionRequest) (*Lis
 	}
 
 	if req.StartDate != "" {
-		t, _ := time.Parse("2006-01-02", req.StartDate)
+		t, err := time.Parse("2006-01-02", req.StartDate)
+		if err != nil {
+			return nil, err
+		}
 		filter.StartDate = &t
 	}
 	if req.EndDate != "" {
-		t, _ := time.Parse("2006-01-02", req.EndDate)
+		t, err := time.Parse("2006-01-02", req.EndDate)
+		if err != nil {
+			return nil, err
+		}
 		// Set to end of day (23:59:59)
 		endOfDay := t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 		filter.EndDate = &endOfDay
@@ -240,6 +276,8 @@ func (s *TransactionService) Update(id string, userID uint, req CreateTransactio
 		Images:          req.Images,
 		Tags:            req.Tags,
 		ToAccountID:     req.ToAccountID,
+		MemberID:        req.MemberID,
+		PaidByMemberID:  req.PaidByMemberID,
 		Source:          current.Source,
 	}
 
@@ -250,15 +288,17 @@ func (s *TransactionService) Update(id string, userID uint, req CreateTransactio
 		result := txdb.Model(&model.Transaction{}).
 			Where("id = ? AND user_id = ?", id, userID).
 			Updates(map[string]any{
-				"account_id":       req.AccountID,
-				"category_id":      req.CategoryID,
-				"type":             req.Type,
-				"amount":           req.Amount,
-				"transaction_date": txDate,
-				"remark":           req.Remark,
-				"images":           req.Images,
-				"tags":             req.Tags,
-				"to_account_id":    req.ToAccountID,
+				"account_id":        req.AccountID,
+				"category_id":       req.CategoryID,
+				"type":              req.Type,
+				"amount":            req.Amount,
+				"transaction_date":  txDate,
+				"remark":            req.Remark,
+				"images":            req.Images,
+				"tags":              req.Tags,
+				"to_account_id":     req.ToAccountID,
+				"member_id":         req.MemberID,
+				"paid_by_member_id": req.PaidByMemberID,
 			})
 		if result.Error != nil {
 			return result.Error

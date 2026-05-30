@@ -15,6 +15,7 @@ import (
 
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
+	"gorm.io/gorm"
 )
 
 var (
@@ -62,7 +63,9 @@ type NotificationSettingRequest struct {
 func (s *NotificationService) Get(userID uint) (*model.NotificationSetting, error) {
 	setting, err := s.repo.GetByUserID(userID)
 	if err != nil {
-		// Return default settings if not found
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
 		return &model.NotificationSetting{
 			UserID:             userID,
 			SmtpPort:           587,
@@ -78,6 +81,10 @@ func (s *NotificationService) Get(userID uint) (*model.NotificationSetting, erro
 }
 
 func (s *NotificationService) Update(userID uint, req NotificationSettingRequest) (*model.NotificationSetting, error) {
+	existing, err := s.repo.GetByUserID(userID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
 	setting := &model.NotificationSetting{
 		UserID:             userID,
 		Enabled:            req.Enabled,
@@ -85,7 +92,6 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 		WecomWebhook:       req.WecomWebhook,
 		DingtalkEnabled:    req.DingtalkEnabled,
 		DingtalkWebhook:    req.DingtalkWebhook,
-		DingtalkSecret:     req.DingtalkSecret,
 		EmailEnabled:       req.EmailEnabled,
 		SmtpHost:           req.SmtpHost,
 		SmtpPort:           req.SmtpPort,
@@ -94,7 +100,6 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 		EmailTo:            req.EmailTo,
 		WebhookEnabled:     req.WebhookEnabled,
 		WebhookURL:         req.WebhookURL,
-		WebhookSecret:      req.WebhookSecret,
 		NotifyPaymentDue:   req.NotifyPaymentDue,
 		NotifyBudgetAlert:  req.NotifyBudgetAlert,
 		NotifyLendingDue:   req.NotifyLendingDue,
@@ -102,14 +107,23 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 		AdvanceDays:        req.AdvanceDays,
 	}
 
+	if req.DingtalkSecret != "" {
+		setting.DingtalkSecret = req.DingtalkSecret
+	} else if existing != nil {
+		setting.DingtalkSecret = existing.DingtalkSecret
+	}
+
 	// Only update password if provided
 	if req.SmtpPassword != "" {
 		setting.SmtpPassword = req.SmtpPassword
-	} else {
-		existing, _ := s.repo.GetByUserID(userID)
-		if existing != nil {
-			setting.SmtpPassword = existing.SmtpPassword
-		}
+	} else if existing != nil {
+		setting.SmtpPassword = existing.SmtpPassword
+	}
+
+	if req.WebhookSecret != "" {
+		setting.WebhookSecret = req.WebhookSecret
+	} else if existing != nil {
+		setting.WebhookSecret = existing.WebhookSecret
 	}
 
 	if err := s.repo.Upsert(setting); err != nil {
@@ -158,7 +172,7 @@ func (s *NotificationService) TestEmail(setting *model.NotificationSetting, user
 
 	err := s.sendEmail(setting, userID, subject, body)
 	if err != nil {
-		return &TestResult{Success: false, Message: err.Error()}
+		return &TestResult{Success: false, Message: sanitizeNotificationEmailError(err)}
 	}
 	return &TestResult{Success: true, Message: "邮件发送成功"}
 }
@@ -184,14 +198,14 @@ func (s *NotificationService) sendWebhook(url string, payload interface{}) *Test
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
 	if err != nil {
-		return &TestResult{Success: false, Message: err.Error()}
+		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或网络"}
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return &TestResult{Success: false, Message: err.Error()}
+		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或网络"}
 	}
 	defer resp.Body.Close()
 
@@ -275,7 +289,7 @@ func (s *NotificationService) SendNotification(userID uint, title, content strin
 	if setting.EmailEnabled {
 		err := s.sendEmail(setting, userID, title, content)
 		if err != nil {
-			errs = append(errs, "邮箱: "+err.Error())
+			errs = append(errs, "邮箱: "+sanitizeNotificationEmailError(err))
 		}
 	}
 
@@ -295,6 +309,18 @@ func (s *NotificationService) SendNotification(userID uint, title, content strin
 		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+func sanitizeNotificationEmailError(err error) string {
+	if err == nil {
+		return ""
+	}
+	switch err.Error() {
+	case "邮箱配置不完整", "用户邮箱未设置，请在个人信息中设置邮箱地址":
+		return err.Error()
+	default:
+		return "邮件发送失败，请检查邮箱配置或网络"
+	}
 }
 
 // SendLendingDueNotification sends notification for lending due dates

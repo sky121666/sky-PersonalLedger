@@ -1,13 +1,19 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/core/config/server_config_service.dart';
+import 'package:personal_ledger/core/network/api_client.dart';
 import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/network/api_response.dart';
+import 'package:personal_ledger/core/storage/secure_storage_service.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
 import 'package:personal_ledger/features/api_tokens/data/api_token_repository.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
+import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/profile/data/profile_repository.dart';
@@ -60,11 +66,76 @@ void main() {
     });
   });
 
+  group('ApiClient', () {
+    test('网络异常不会向 UI 暴露底层地址或连接细节', () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://ledger.example.com/api/v1'))
+        ..httpClientAdapter = _FailingNetworkAdapter();
+      final client = ApiClient(
+        serverConfigService: ServerConfigService(SecureStorageService()),
+        dio: dio,
+      );
+
+      await expectLater(
+        client.get<void>('/health'),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.message, 'message', '网络连接失败')
+              .having(
+                (error) => error.message,
+                'message',
+                isNot(contains('ledger.example.com')),
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                isNot(contains('token=')),
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                isNot(contains('Connection refused')),
+              ),
+        ),
+      );
+    });
+  });
+
   group('核心模型解析', () {
     test('ServerConfig 生成 API 基础地址', () {
       const config = ServerConfig(baseUrl: 'https://ledger.example.com');
 
       expect(config.apiBaseUrl, 'https://ledger.example.com/api/v1');
+    });
+
+    test('ServerConfigService 远程地址必须使用 HTTPS', () {
+      final service = ServerConfigService(SecureStorageService());
+
+      expect(
+        () => service.normalizeServerUrl('ledger.example.com'),
+        returnsNormally,
+      );
+      expect(
+        () => service.normalizeServerUrl('http://ledger.example.com'),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('远程服务器必须使用 HTTPS'),
+          ),
+        ),
+      );
+      expect(
+        service.normalizeServerUrl('http://localhost:8080'),
+        'http://localhost:8080',
+      );
+      expect(
+        service.normalizeServerUrl('http://127.0.0.1:8080'),
+        'http://127.0.0.1:8080',
+      );
+      expect(
+        service.normalizeServerUrl('http://192.168.1.10:8080'),
+        'http://192.168.1.10:8080',
+      );
     });
 
     test('AuthTokenPair 解析 token 并校验完整性', () {
@@ -225,12 +296,59 @@ void main() {
             'alert_threshold': 80,
           },
         ],
+        'member_budgets': [
+          {
+            'id': 'member-budget-1',
+            'member_id': 'member-1',
+            'member_name': '家人',
+            'category_id': null,
+            'amount': 1000,
+            'spent': 420,
+            'remaining': 580,
+            'percentage': 42,
+            'alert_threshold': 80,
+          },
+        ],
       });
 
       expect(result.totalBudget?.amount, 3000);
       expect(result.categoryBudgets.single.categoryName, '餐饮');
       expect(result.categoryBudgets.single.percentage, 87);
       expect(result.categoryBudgets.single.isNearLimit, isTrue);
+      expect(result.memberBudgets.single.memberName, '家人');
+      expect(result.memberBudgets.single.remaining, 580);
+    });
+
+    test('家庭统计模型解析成员分类拆分', () {
+      final result = FamilyStatistics.fromJson({
+        'month': '2026-05',
+        'total_expense': '320',
+        'members': [
+          {
+            'member_id': 'member-1',
+            'name': '家人',
+            'relationship': 'spouse',
+            'color': '#2563EB',
+            'expense_total': 200,
+            'count': 3,
+            'categories': [
+              {
+                'category_id': 'category-food',
+                'name': '餐饮',
+                'color': '#F97316',
+                'amount': '160',
+                'count': 2,
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result.month, '2026-05');
+      expect(result.totalExpense, 320);
+      expect(result.members.single.name, '家人');
+      expect(result.members.single.categories.single.name, '餐饮');
+      expect(result.members.single.categories.single.amount, 160);
     });
 
     test('负债提醒模型解析摘要和还款进度', () {
@@ -478,4 +596,23 @@ void main() {
       expect(result.message, '发送成功');
     });
   });
+}
+
+class _FailingNetworkAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    throw DioException(
+      requestOptions: options,
+      type: DioExceptionType.connectionError,
+      message:
+          'Connection refused for https://ledger.example.com/api/v1/health?token=secret',
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

@@ -21,7 +21,7 @@ func (h *NotificationHandler) Get(c *gin.Context) {
 
 	setting, err := h.service.Get(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load notification settings")
 		return
 	}
 
@@ -33,13 +33,13 @@ func (h *NotificationHandler) Update(c *gin.Context) {
 
 	var req service.NotificationSettingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	setting, err := h.service.Update(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to update notification settings")
 		return
 	}
 
@@ -53,7 +53,7 @@ type TestWecomRequest struct {
 func (h *NotificationHandler) TestWecom(c *gin.Context) {
 	var req TestWecomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -69,7 +69,7 @@ type TestDingtalkRequest struct {
 func (h *NotificationHandler) TestDingtalk(c *gin.Context) {
 	var req TestDingtalkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -91,14 +91,18 @@ func (h *NotificationHandler) TestEmail(c *gin.Context) {
 
 	var req TestEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	// Get existing password if not provided
 	password := req.SmtpPassword
 	if password == "" {
-		existing, _ := h.service.Get(userID)
+		existing, err := h.service.Get(userID)
+		if err != nil {
+			internalServerError(c, err, "failed to load notification settings")
+			return
+		}
 		if existing != nil {
 			password = existing.SmtpPassword
 		}
@@ -128,7 +132,7 @@ type TestWebhookRequest struct {
 func (h *NotificationHandler) TestWebhook(c *gin.Context) {
 	var req TestWebhookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

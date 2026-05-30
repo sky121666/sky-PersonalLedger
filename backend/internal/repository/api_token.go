@@ -40,3 +40,11 @@ func (r *APITokenRepository) Delete(id uint, userID uint) error {
 func (r *APITokenRepository) UpdateLastUsed(id uint) error {
 	return r.db.Model(&model.APIToken{}).Where("id = ?", id).Update("last_used_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
 }
+
+func (r *APITokenRepository) UpdateToken(id uint, tokenHash string) error {
+	return r.db.Model(&model.APIToken{}).Where("id = ?", id).Update("token", tokenHash).Error
+}
+
+func (r *APITokenRepository) DB() *gorm.DB {
+	return r.db
+}

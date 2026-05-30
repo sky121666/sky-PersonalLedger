@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_picker_service.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_repository.dart';
+import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/quick_transaction_page.dart';
@@ -231,6 +233,51 @@ void main() {
         'transactions/transaction-1/receipt.jpg',
       ]);
     });
+
+    testWidgets('存在家庭成员时显示成员选择器并提交成员字段', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        familyMembers: const [
+          FamilyMember(
+            id: 'member-1',
+            name: '成员A',
+            relationship: '家人',
+            color: '#2563EB',
+            isDefault: true,
+            isEnabled: true,
+          ),
+        ],
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '88',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _selectDropdownItem(tester, fieldLabel: '成员', itemText: '成员A');
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(repository.createCalls.single.memberId, 'member-1');
+      expect(repository.createCalls.single.paidByMemberId, 'member-1');
+    });
+
+    testWidgets('嵌入式快速记账使用高级表单结构', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        embedded: true,
+      );
+
+      expect(find.text('记一笔'), findsOneWidget);
+      expect(find.byKey(const ValueKey('transaction-amount')), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '保存'), findsOneWidget);
+      expect(find.byType(PremiumSurface), findsWidgets);
+    });
   });
 }
 
@@ -240,6 +287,8 @@ Future<void> _pumpTransactionPage(
   TransactionItem? editingTransaction,
   _FakeAttachmentRepository? attachmentRepository,
   AttachmentPickerService? attachmentPickerService,
+  List<FamilyMember> familyMembers = const [],
+  bool embedded = false,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -256,9 +305,13 @@ Future<void> _pumpTransactionPage(
           attachmentPickerServiceProvider.overrideWithValue(
             attachmentPickerService,
           ),
+        familyMembersProvider.overrideWith((ref) async => familyMembers),
       ],
       child: MaterialApp(
-        home: QuickTransactionPage(editingTransaction: editingTransaction),
+        home: QuickTransactionPage(
+          editingTransaction: editingTransaction,
+          embedded: embedded,
+        ),
       ),
     ),
   );
@@ -419,11 +472,6 @@ class _FakeAttachmentRepository implements AttachmentRepository {
   @override
   Uri downloadUri(String path) {
     return Uri.parse('https://example.test/download?path=$path');
-  }
-
-  @override
-  Uri previewUri(String path) {
-    return Uri.parse('https://example.test/uploads/$path');
   }
 
   @override

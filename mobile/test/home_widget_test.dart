@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
 
 void main() {
   group('HomePage', () {
     testWidgets('首页数据加载失败时展示错误并可重试', (tester) async {
-      final repository = _FakeHomeRepository()
-        ..summaryErrors = 1;
+      final repository = _FakeHomeRepository()..summaryErrors = 1;
       await _pumpPage(tester, repository);
 
       expect(find.text('出错了'), findsOneWidget);
@@ -53,6 +53,22 @@ void main() {
       expect(find.text('现金'), findsNothing);
       expect(find.text('储蓄卡'), findsOneWidget);
       expect(find.text('¥2600.00'), findsWidgets);
+    });
+
+    testWidgets('首页展示现金流、预算、快捷入口和家庭摘要', (tester) async {
+      final repository = _FakeHomeRepository(
+        summaries: [_summary(familyExpense: 320)],
+      );
+      await _pumpPage(tester, repository);
+
+      expect(find.text('本月收支'), findsOneWidget);
+      expect(find.text('预算摘要'), findsOneWidget);
+      expect(find.text('快速记账'), findsOneWidget);
+      expect(find.text('家庭支出'), findsOneWidget);
+      expect(find.text('成员A'), findsOneWidget);
+      expect(find.text('¥320.00'), findsWidgets);
+      expect(find.byType(PremiumSurface), findsWidgets);
+      expect(find.byKey(const Key('family-home-summary-card')), findsOneWidget);
     });
   });
 }
@@ -100,6 +116,7 @@ HomeSummary _summary({
   double netAssets = 1280,
   List<Account>? accounts,
   bool emptyBudget = false,
+  double familyExpense = 0,
 }) {
   final accountList =
       accounts ??
@@ -134,6 +151,20 @@ HomeSummary _summary({
       dailyAvailable: emptyBudget ? 0 : 90,
       daysRemaining: emptyBudget ? 0 : 20,
       overBudgetCategories: const [],
+    ),
+    familySummary: FamilyHomeSummary(
+      month: '2026-05',
+      totalExpense: familyExpense,
+      members: familyExpense > 0
+          ? [
+              FamilyHomeMemberSummary(
+                memberID: 'member-1',
+                name: '成员A',
+                expenseTotal: familyExpense,
+                count: 2,
+              ),
+            ]
+          : const [],
     ),
   );
 }

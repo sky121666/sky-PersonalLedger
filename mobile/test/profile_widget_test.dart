@@ -19,10 +19,7 @@ void main() {
           builder: (context, state) => const ProfilePage(),
         ),
         for (final path in _targetPaths)
-          GoRoute(
-            path: path,
-            builder: (context, state) => _TargetPage(path),
-          ),
+          GoRoute(path: path, builder: (context, state) => _TargetPage(path)),
       ],
     );
 
@@ -48,15 +45,12 @@ void main() {
       expect(find.text(label), findsOneWidget);
     }
 
-    await tester.scrollUntilVisible(
-      find.text('API Token'),
-      160,
-      scrollable: find.byType(Scrollable),
-    );
-    await tester.tap(find.text('API Token'));
+    await tester.drag(find.byType(ListView), const Offset(0, 3000));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('个人资料'));
     await tester.pumpAndSettle();
 
-    expect(find.text(AppRoutePaths.apiTokens), findsOneWidget);
+    expect(find.text(AppRoutePaths.profileSettings), findsOneWidget);
   });
 }
 
@@ -74,6 +68,8 @@ const _entryLabels = [
   '账号安全',
   'API Token',
   '数据管理',
+  '家庭成员',
+  'AI 财务报告',
   '年度报告',
   '更换服务器',
 ];
@@ -92,6 +88,8 @@ const _targetPaths = [
   AppRoutePaths.securitySettings,
   AppRoutePaths.apiTokens,
   AppRoutePaths.dataManagement,
+  AppRoutePaths.family,
+  AppRoutePaths.aiReports,
   AppRoutePaths.yearlyReport,
 ];
 

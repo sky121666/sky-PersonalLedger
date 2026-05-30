@@ -21,17 +21,17 @@ func (h *TagHandler) Create(c *gin.Context) {
 
 	var req service.CreateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	tag, err := h.svc.Create(userID, req)
 	if err != nil {
 		if err == service.ErrTagExists {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			response.Error(c, http.StatusConflict, 40901, err.Error())
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalServerError(c, err, "failed to create tag")
 		return
 	}
 
@@ -43,7 +43,7 @@ func (h *TagHandler) List(c *gin.Context) {
 
 	tags, err := h.svc.List(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalServerError(c, err, "failed to list tags")
 		return
 	}
 
@@ -56,7 +56,7 @@ func (h *TagHandler) GetByID(c *gin.Context) {
 
 	tag, err := h.svc.GetByID(id, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		response.NotFound(c, "tag not found")
 		return
 	}
 
@@ -69,21 +69,21 @@ func (h *TagHandler) Update(c *gin.Context) {
 
 	var req service.CreateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	tag, err := h.svc.Update(id, userID, req)
 	if err != nil {
 		if err == service.ErrTagNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			response.NotFound(c, "tag not found")
 			return
 		}
 		if err == service.ErrTagExists {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			response.Error(c, http.StatusConflict, 40901, err.Error())
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalServerError(c, err, "failed to update tag")
 		return
 	}
 
@@ -96,10 +96,10 @@ func (h *TagHandler) Delete(c *gin.Context) {
 
 	if err := h.svc.Delete(id, userID); err != nil {
 		if err == service.ErrTagNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			response.NotFound(c, "tag not found")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		internalServerError(c, err, "failed to delete tag")
 		return
 	}
 

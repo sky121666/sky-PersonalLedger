@@ -6,6 +6,7 @@ import 'package:personal_ledger/features/budgets/presentation/budget_page.dart';
 import 'package:personal_ledger/features/categories/application/category_controller.dart';
 import 'package:personal_ledger/features/categories/data/category.dart';
 import 'package:personal_ledger/features/categories/data/category_repository.dart';
+import 'package:personal_ledger/features/family/data/family_repository.dart';
 
 void main() {
   group('BudgetPage', () {
@@ -17,6 +18,8 @@ void main() {
       expect(find.text('¥1800.00'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('87%'), findsOneWidget);
+      expect(find.text('家庭成员预算'), findsOneWidget);
+      expect(find.text('家人'), findsOneWidget);
     });
 
     testWidgets('保存总预算时提交金额和提醒阈值', (tester) async {
@@ -38,7 +41,7 @@ void main() {
       final budgetRepository = _FakeBudgetRepository();
       await _pumpPage(tester, budgetRepository);
 
-      await tester.tap(find.text('添加'));
+      await tester.tap(find.text('添加').at(0));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), '500');
       await tester.tap(find.widgetWithText(FilledButton, '保存'));
@@ -50,6 +53,22 @@ void main() {
         'cat-traffic',
       );
       expect(budgetRepository.setCategoryCalls.single.amount, 500);
+    });
+
+    testWidgets('添加成员预算时提交成员范围', (tester) async {
+      final budgetRepository = _FakeBudgetRepository();
+      await _pumpPage(tester, budgetRepository);
+
+      await tester.scrollUntilVisible(find.text('家庭成员预算'), 300);
+      await tester.tap(find.text('添加').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), '900');
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(budgetRepository.setTotalCalls, hasLength(1));
+      expect(budgetRepository.setTotalCalls.single.amount, 900);
+      expect(budgetRepository.setTotalCalls.single.memberId, 'member-family');
     });
 
     testWidgets('删除分类预算前需要确认', (tester) async {
@@ -126,6 +145,18 @@ Future<void> _pumpPage(
       overrides: [
         budgetRepositoryProvider.overrideWithValue(budgetRepository),
         categoryRepositoryProvider.overrideWithValue(_FakeCategoryRepository()),
+        familyMembersProvider.overrideWith((ref) async {
+          return const [
+            FamilyMember(
+              id: 'member-family',
+              name: '家人',
+              relationship: '家人',
+              color: '#2563EB',
+              isDefault: true,
+              isEnabled: true,
+            ),
+          ];
+        }),
       ],
       child: const MaterialApp(home: BudgetPage()),
     ),
@@ -157,6 +188,20 @@ class _FakeBudgetRepository implements BudgetRepository {
         alertThreshold: 80,
       ),
     ],
+    memberBudgets: [
+      BudgetItem(
+        id: 'member-budget-family',
+        categoryId: null,
+        categoryName: '',
+        memberId: 'member-family',
+        memberName: '家人',
+        amount: 1200,
+        spent: 420,
+        remaining: 780,
+        percentage: 35,
+        alertThreshold: 80,
+      ),
+    ],
   );
 
   var getListCalls = 0;
@@ -175,6 +220,7 @@ class _FakeBudgetRepository implements BudgetRepository {
       categoryBudgets: budgetList.categoryBudgets
           .where((budget) => budget.id != id)
           .toList(),
+      memberBudgets: budgetList.memberBudgets,
     );
   }
 
@@ -193,12 +239,14 @@ class _FakeBudgetRepository implements BudgetRepository {
     required String categoryId,
     required double amount,
     required int alertThreshold,
+    String? memberId,
   }) async {
     setCategoryCalls.add(
       _SetCategoryCall(
         categoryId: categoryId,
         amount: amount,
         alertThreshold: alertThreshold,
+        memberId: memberId,
       ),
     );
     final item = BudgetItem(
@@ -214,6 +262,7 @@ class _FakeBudgetRepository implements BudgetRepository {
     budgetList = BudgetListResponse(
       totalBudget: budgetList.totalBudget,
       categoryBudgets: [...budgetList.categoryBudgets, item],
+      memberBudgets: budgetList.memberBudgets,
     );
     return item;
   }
@@ -222,9 +271,14 @@ class _FakeBudgetRepository implements BudgetRepository {
   Future<BudgetItem?> setTotalBudget({
     required double amount,
     required int alertThreshold,
+    String? memberId,
   }) async {
     setTotalCalls.add(
-      _SetTotalCall(amount: amount, alertThreshold: alertThreshold),
+      _SetTotalCall(
+        amount: amount,
+        alertThreshold: alertThreshold,
+        memberId: memberId,
+      ),
     );
     final error = setTotalError;
     if (error != null) {
@@ -243,6 +297,7 @@ class _FakeBudgetRepository implements BudgetRepository {
     budgetList = BudgetListResponse(
       totalBudget: item,
       categoryBudgets: budgetList.categoryBudgets,
+      memberBudgets: budgetList.memberBudgets,
     );
     return item;
   }
@@ -292,10 +347,15 @@ class _FakeCategoryRepository implements CategoryRepository {
 }
 
 class _SetTotalCall {
-  const _SetTotalCall({required this.amount, required this.alertThreshold});
+  const _SetTotalCall({
+    required this.amount,
+    required this.alertThreshold,
+    this.memberId,
+  });
 
   final double amount;
   final int alertThreshold;
+  final String? memberId;
 }
 
 class _SetCategoryCall {
@@ -303,9 +363,11 @@ class _SetCategoryCall {
     required this.categoryId,
     required this.amount,
     required this.alertThreshold,
+    this.memberId,
   });
 
   final String categoryId;
   final double amount;
   final int alertThreshold;
+  final String? memberId;
 }

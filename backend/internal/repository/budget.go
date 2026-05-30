@@ -28,14 +28,33 @@ func (r *BudgetRepository) GetByID(id string) (*model.Budget, error) {
 
 func (r *BudgetRepository) GetByUserID(userID uint) ([]model.Budget, error) {
 	var budgets []model.Budget
-	err := r.db.Preload("Category").Where("user_id = ?", userID).Find(&budgets).Error
+	err := r.db.Preload("Category").Preload("Member").Where("user_id = ?", userID).Find(&budgets).Error
 	return budgets, err
 }
 
 func (r *BudgetRepository) GetTotalBudget(userID uint) (*model.Budget, error) {
 	var budget model.Budget
-	err := r.db.Where("user_id = ? AND category_id IS NULL", userID).First(&budget).Error
+	err := r.db.Where("user_id = ? AND category_id IS NULL AND member_id IS NULL", userID).First(&budget).Error
 	if err != nil {
+		return nil, err
+	}
+	return &budget, nil
+}
+
+func (r *BudgetRepository) GetByScope(userID uint, categoryID, memberID *string) (*model.Budget, error) {
+	var budget model.Budget
+	query := r.db.Where("user_id = ?", userID)
+	if categoryID == nil {
+		query = query.Where("category_id IS NULL")
+	} else {
+		query = query.Where("category_id = ?", *categoryID)
+	}
+	if memberID == nil {
+		query = query.Where("member_id IS NULL")
+	} else {
+		query = query.Where("member_id = ?", *memberID)
+	}
+	if err := query.First(&budget).Error; err != nil {
 		return nil, err
 	}
 	return &budget, nil

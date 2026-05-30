@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 var (
@@ -51,6 +52,7 @@ func (m *Manager) GenerateRefreshToken(userID uint) (string, time.Time, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        uuid.New().String(),
 		},
 	}
 

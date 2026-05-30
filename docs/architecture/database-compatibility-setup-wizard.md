@@ -95,9 +95,9 @@ For Docker installs, `LEDGER_SETUP_CONFIG_PATH` should point at a mounted path s
 
 ## Migration Strategy
 
-Phase 1 keeps GORM `AutoMigrate`, but the database layer now records a schema version in `schema_migrations` and refuses to open a database whose recorded version is newer than the running application. This does not replace real migration files, but it prevents old binaries from silently mutating a newer schema.
+The database layer now runs a versioned migration list. Each migration has a numeric version, a stable name, and an apply function, and successful runs are recorded in `schema_migrations`. The application refuses to open a database whose recorded version is newer than the running binary supports.
 
-Phase 2 should introduce versioned migrations before production PostgreSQL/MySQL support is marked stable. This avoids hidden schema drift between database engines.
+Migration v1 still uses GORM `AutoMigrate` to create the initial ledger schema across SQLite, PostgreSQL, and MySQL/MariaDB. Future schema changes should be added as new migration entries instead of editing the historical v1 migration. This keeps upgrade order auditable and avoids hidden schema drift between database engines.
 
 ## Compatibility Notes
 
@@ -136,3 +136,4 @@ GitHub runs `.github/workflows/backend-database.yml` for backend/database change
 5. Done: add user-friendly structured database form before login while preserving advanced DSN mode.
 6. Keep `/api/v1/auth/init` for the first access password until a true no-database bootstrap mode is introduced.
 7. Done: add schema version guard plus PostgreSQL/MySQL database matrix verification script and GitHub workflow.
+8. Done: replace one-shot startup migration with an ordered versioned migration list and migration-name records.

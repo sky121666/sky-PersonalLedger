@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/service"
@@ -20,13 +22,16 @@ func (h *LendingHandler) Create(c *gin.Context) {
 
 	var req service.CreateLendingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	lending, err := h.service.Create(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if handleLendingRequestError(c, err) {
+			return
+		}
+		internalServerError(c, err, "failed to create lending")
 		return
 	}
 
@@ -39,7 +44,7 @@ func (h *LendingHandler) List(c *gin.Context) {
 
 	lendings, err := h.service.List(userID, includeSettled)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list lendings")
 		return
 	}
 
@@ -52,11 +57,11 @@ func (h *LendingHandler) GetByID(c *gin.Context) {
 
 	lending, err := h.service.GetByID(id, userID)
 	if err != nil {
-		if err == service.ErrLendingNotFound {
+		if errors.Is(err, service.ErrLendingNotFound) {
 			response.NotFound(c, "lending not found")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load lending")
 		return
 	}
 
@@ -69,17 +74,20 @@ func (h *LendingHandler) Update(c *gin.Context) {
 
 	var req service.UpdateLendingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	lending, err := h.service.Update(id, userID, req)
 	if err != nil {
-		if err == service.ErrLendingNotFound {
+		if handleLendingRequestError(c, err) {
+			return
+		}
+		if errors.Is(err, service.ErrLendingNotFound) {
 			response.NotFound(c, "lending not found")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to update lending")
 		return
 	}
 
@@ -91,11 +99,11 @@ func (h *LendingHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.service.Delete(id, userID); err != nil {
-		if err == service.ErrLendingNotFound {
+		if errors.Is(err, service.ErrLendingNotFound) {
 			response.NotFound(c, "lending not found")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to delete lending")
 		return
 	}
 
@@ -108,25 +116,20 @@ func (h *LendingHandler) RecordRepayment(c *gin.Context) {
 
 	var req service.RecordRepaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	lending, err := h.service.RecordRepayment(id, userID, req)
 	if err != nil {
-		if err == service.ErrLendingNotFound {
+		if errors.Is(err, service.ErrLendingNotFound) {
 			response.NotFound(c, "lending not found")
 			return
 		}
-		if err == service.ErrAlreadySettled {
-			response.BadRequest(c, "lending already settled")
+		if handleLendingRequestError(c, err) {
 			return
 		}
-		if err == service.ErrInvalidAmount {
-			response.BadRequest(c, "invalid amount")
-			return
-		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to record lending repayment")
 		return
 	}
 
@@ -139,11 +142,11 @@ func (h *LendingHandler) GetRecords(c *gin.Context) {
 
 	records, err := h.service.GetRecords(id, userID)
 	if err != nil {
-		if err == service.ErrLendingNotFound {
+		if errors.Is(err, service.ErrLendingNotFound) {
 			response.NotFound(c, "lending not found")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list lending records")
 		return
 	}
 
@@ -155,9 +158,25 @@ func (h *LendingHandler) GetSummary(c *gin.Context) {
 
 	summary, err := h.service.GetSummary(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to summarize lendings")
 		return
 	}
 
 	response.Success(c, summary)
+}
+
+func handleLendingRequestError(c *gin.Context, err error) bool {
+	switch {
+	case errors.Is(err, service.ErrAccountNotFound):
+		response.BadRequest(c, "account not found")
+	case errors.Is(err, service.ErrInvalidDateTime):
+		response.BadRequest(c, "invalid date time format")
+	case errors.Is(err, service.ErrAlreadySettled):
+		response.BadRequest(c, "lending already settled")
+	case errors.Is(err, service.ErrInvalidAmount):
+		response.BadRequest(c, "invalid amount")
+	default:
+		return false
+	}
+	return true
 }

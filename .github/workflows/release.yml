@@ -42,14 +42,100 @@ jobs:
       build_number: ${{ needs.prepare.outputs.build_number }}
     secrets: inherit
 
+  verify-android-artifact:
+    name: Verify Android Artifact
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: [prepare, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Android signature tools
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$SDK_ROOT" ] || [ ! -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            echo "::error title=Missing Android SDK manager::sdkmanager is required before verifying Android signatures"
+            exit 1
+          fi
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0"
+
+      - name: Download Android artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-release
+          path: artifacts/android-release
+
+      - name: Verify Android artifact signatures
+        run: |
+          RELEASE_ARTIFACT_DIR=artifacts \
+          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
+          REQUIRE_IOS_ARTIFACT=0 \
+          VERIFY_ARTIFACT_SIGNATURES=1 \
+          ./scripts/check-release-artifact-files.sh
+
+  # 调用 iOS 构建
+  ios:
+    name: iOS
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: prepare
+    uses: ./.github/workflows/ios.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      build_number: ${{ needs.prepare.outputs.build_number }}
+    secrets: inherit
+
+  verify-ios-artifact:
+    name: Verify iOS Artifact
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: [prepare, ios]
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download iOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-ipa
+          path: artifacts/ios-ipa
+
+      - name: Verify iOS artifact signature
+        run: |
+          RELEASE_ARTIFACT_DIR=artifacts \
+          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
+          REQUIRE_ANDROID_ARTIFACTS=0 \
+          REQUIRE_IOS_ARTIFACT=1 \
+          VERIFY_ARTIFACT_SIGNATURES=1 \
+          ./scripts/check-release-artifact-files.sh
+
   # 创建 GitHub Release
   release:
     name: Create Release
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: [prepare, docker, android]
+    needs: [prepare, docker, android, verify-android-artifact, ios, verify-ios-artifact]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     
     steps:
       - name: Checkout
@@ -63,6 +149,21 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f
 
+      - name: Verify Android release artifact checksums
+        run: |
+          RELEASE_ARTIFACT_DIR=artifacts \
+          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
+          REQUIRE_IOS_ARTIFACT=0 \
+          ./scripts/check-release-artifact-files.sh
+
+      - name: Verify iOS release artifact checksums
+        run: |
+          RELEASE_ARTIFACT_DIR=artifacts \
+          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
+          REQUIRE_ANDROID_ARTIFACTS=0 \
+          REQUIRE_IOS_ARTIFACT=1 \
+          ./scripts/check-release-artifact-files.sh
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -71,17 +172,25 @@ jobs:
           prerelease: false
           generate_release_notes: true
           files: |
-            artifacts/android-apk/*.apk
+            artifacts/android-release/*.apk
+            artifacts/android-release/*.apk.sha256
+            artifacts/android-release/*.aab
+            artifacts/android-release/*.aab.sha256
+            artifacts/ios-ipa/*.ipa
+            artifacts/ios-ipa/*.ipa.sha256
           body: |
             ## 📦 版本 v${{ needs.prepare.outputs.version }}
             
             ### Docker 部署 (推荐)
             ```bash
             docker pull ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
+            # Immutable digest: ghcr.io/${{ github.repository }}@${{ needs.docker.outputs.image_digest }}
             
-            # 或使用 docker-compose
-            wget https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
-            docker-compose up -d
+            # 或使用当前 tag 的 compose 文件固定版本部署
+            curl -fsSLO https://raw.githubusercontent.com/${{ github.repository }}/refs/tags/v${{ needs.prepare.outputs.version }}/docker-compose.yml
+            export LEDGER_IMAGE=ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
+            export LEDGER_SERVER_MODE=release
+            docker compose up -d
             ```
             
             ### 客户端下载
@@ -89,5 +198,9 @@ jobs:
             | 平台 | 文件 | 说明 |
             |------|------|------|
             | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.apk` | 已使用 release keystore 签名 |
+            | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.aab` | 已使用 release keystore 签名，适合正式商店分发 |
+            | iOS | `personal-ledger-${{ needs.prepare.outputs.version }}-ios.ipa` | 已使用 Apple 签名材料导出 |
+            | Docker digest | `ghcr.io/${{ github.repository }}@${{ needs.docker.outputs.image_digest }}` | 不可变镜像引用 |
+            | 校验文件 | `*.sha256` | 用于核对下载产物的 SHA-256 |
 
             macOS 和 Windows 客户端仍在平台回归阶段，暂不随本次 GitHub Release 发布。

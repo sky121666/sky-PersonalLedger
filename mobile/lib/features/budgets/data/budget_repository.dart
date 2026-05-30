@@ -19,7 +19,11 @@ final budgetDashboardProvider = FutureProvider.autoDispose<BudgetDashboard>((
 
   final budgetList =
       results[0] as BudgetListResponse? ??
-      const BudgetListResponse(totalBudget: null, categoryBudgets: []);
+      const BudgetListResponse(
+        totalBudget: null,
+        categoryBudgets: [],
+        memberBudgets: [],
+      );
   final categoryList =
       results[1] as CategoryListResult? ??
       const CategoryListResult(categories: []);
@@ -28,6 +32,13 @@ final budgetDashboardProvider = FutureProvider.autoDispose<BudgetDashboard>((
     budgetList: budgetList,
     expenseCategories: categoryList.categories,
   );
+});
+
+final memberBudgetsProvider = FutureProvider.autoDispose<List<BudgetItem>>((
+  ref,
+) async {
+  final budgetList = await ref.watch(budgetRepositoryProvider).getList();
+  return budgetList?.memberBudgets ?? const [];
 });
 
 class BudgetRepository {
@@ -46,10 +57,15 @@ class BudgetRepository {
   Future<BudgetItem?> setTotalBudget({
     required double amount,
     required int alertThreshold,
+    String? memberId,
   }) {
     return _apiClient.post<BudgetItem>(
       '/budgets/total',
-      data: {'amount': amount, 'alert_threshold': alertThreshold},
+      data: {
+        'amount': amount,
+        'alert_threshold': alertThreshold,
+        if (memberId != null && memberId.isNotEmpty) 'member_id': memberId,
+      },
       fromJsonT: BudgetItem.fromJson,
     );
   }
@@ -58,6 +74,7 @@ class BudgetRepository {
     required String categoryId,
     required double amount,
     required int alertThreshold,
+    String? memberId,
   }) {
     return _apiClient.post<BudgetItem>(
       '/budgets/category',
@@ -65,6 +82,7 @@ class BudgetRepository {
         'category_id': categoryId,
         'amount': amount,
         'alert_threshold': alertThreshold,
+        if (memberId != null && memberId.isNotEmpty) 'member_id': memberId,
       },
       fromJsonT: BudgetItem.fromJson,
     );
@@ -99,10 +117,12 @@ class BudgetListResponse {
   const BudgetListResponse({
     required this.totalBudget,
     required this.categoryBudgets,
+    this.memberBudgets = const [],
   });
 
   final BudgetItem? totalBudget;
   final List<BudgetItem> categoryBudgets;
+  final List<BudgetItem> memberBudgets;
 
   factory BudgetListResponse.fromJson(Object? json) {
     if (json is! Map<String, dynamic>) {
@@ -110,12 +130,16 @@ class BudgetListResponse {
     }
 
     final rawCategoryBudgets = json['category_budgets'];
+    final rawMemberBudgets = json['member_budgets'];
     return BudgetListResponse(
       totalBudget: json['total_budget'] == null
           ? null
           : BudgetItem.fromJson(json['total_budget']),
       categoryBudgets: rawCategoryBudgets is List
           ? rawCategoryBudgets.map(BudgetItem.fromJson).toList()
+          : const [],
+      memberBudgets: rawMemberBudgets is List
+          ? rawMemberBudgets.map(BudgetItem.fromJson).toList()
           : const [],
     );
   }
@@ -126,6 +150,8 @@ class BudgetItem {
     required this.id,
     required this.categoryId,
     required this.categoryName,
+    this.memberId,
+    this.memberName = '',
     required this.amount,
     required this.spent,
     required this.remaining,
@@ -136,6 +162,8 @@ class BudgetItem {
   final String id;
   final String? categoryId;
   final String categoryName;
+  final String? memberId;
+  final String memberName;
   final double amount;
   final double spent;
   final double remaining;
@@ -155,6 +183,8 @@ class BudgetItem {
       id: json['id'] as String? ?? '',
       categoryId: json['category_id'] as String?,
       categoryName: json['category_name'] as String? ?? '',
+      memberId: json['member_id'] as String?,
+      memberName: json['member_name'] as String? ?? '',
       amount: _toDouble(json['amount']),
       spent: _toDouble(json['spent']),
       remaining: _toDouble(json['remaining']),

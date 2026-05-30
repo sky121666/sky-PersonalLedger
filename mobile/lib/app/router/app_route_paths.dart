@@ -21,5 +21,7 @@ class AppRoutePaths {
   static const String notifications = '/notifications';
   static const String dataManagement = '/data-management';
   static const String yearlyReport = '/yearly-report';
+  static const String family = '/family';
+  static const String aiReports = '/ai-reports';
   static const String quickTransaction = '/quick-transaction';
 }

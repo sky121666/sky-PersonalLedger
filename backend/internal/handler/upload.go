@@ -89,7 +89,7 @@ func (h *UploadHandler) Delete(c *gin.Context) {
 			response.Forbidden(c, "file path does not belong to current user")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to delete uploaded file")
 		return
 	}
 
@@ -108,25 +108,15 @@ func (h *UploadHandler) List(c *gin.Context) {
 
 	files, err := h.uploadService.ListFiles(userID, category, refID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if errors.Is(err, service.ErrUploadScopeInvalid) {
+			response.BadRequest(c, "invalid upload scope")
+			return
+		}
+		internalServerError(c, err, "failed to list uploaded files")
 		return
 	}
 
 	response.Success(c, gin.H{"files": files})
-}
-
-func (h *UploadHandler) Serve(c *gin.Context) {
-	// Get the file path from URL parameter
-	filePath := c.Param("filepath")
-	if filePath == "" {
-		response.BadRequest(c, "file path is required")
-		return
-	}
-
-	fullPath := h.uploadService.GetFilePath(filePath)
-
-	// Check if file exists
-	c.File(fullPath)
 }
 
 func (h *UploadHandler) Download(c *gin.Context) {
@@ -175,20 +165,12 @@ func (h *UploadHandler) Download(c *gin.Context) {
 			response.Forbidden(c, "file path does not belong to current user")
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to resolve uploaded file")
 		return
 	}
 	filename := filepath.Base(filePath)
 
-	c.Header("Content-Disposition", "attachment; filename="+filename)
+	setAttachmentHeader(c, filename)
 	c.Header("Content-Type", "application/octet-stream")
 	c.File(fullPath)
-}
-
-func (h *UploadHandler) ServeStatic(uploadPath string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		filePath := c.Param("filepath")
-		fullPath := filepath.Join(uploadPath, filePath)
-		c.File(fullPath)
-	}
 }

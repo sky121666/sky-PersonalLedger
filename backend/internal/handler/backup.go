@@ -25,13 +25,13 @@ func (h *BackupHandler) Create(c *gin.Context) {
 
 	backup, err := h.backupService.CreateBackup(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to create backup")
 		return
 	}
 
 	filename := fmt.Sprintf("backup_%s.json", time.Now().Format("20060102_150405"))
 	c.Header("Content-Type", "application/json; charset=utf-8")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	setAttachmentHeader(c, filename)
 	c.JSON(200, backup)
 }
 
@@ -48,18 +48,22 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 	if h.backupScheduler != nil {
 		preRestoreBackup, err = h.backupScheduler.CreatePreRestoreBackup(userID)
 		if err != nil {
-			response.InternalError(c, "failed to create pre-restore backup: "+err.Error())
+			internalServerError(c, err, "failed to create pre-restore backup")
 			return
 		}
 	}
 
 	err = h.backupService.RestoreBackup(userID, file)
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidBackupData) || errors.Is(err, service.ErrInvalidBackupFormat) {
-			response.BadRequest(c, err.Error())
+		if errors.Is(err, service.ErrInvalidBackupFormat) {
+			response.BadRequest(c, service.ErrInvalidBackupFormat.Error())
 			return
 		}
-		response.InternalError(c, err.Error())
+		if errors.Is(err, service.ErrInvalidBackupData) {
+			response.BadRequest(c, service.ErrInvalidBackupData.Error())
+			return
+		}
+		internalServerError(c, err, "failed to restore backup")
 		return
 	}
 
@@ -73,7 +77,7 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 func (h *BackupHandler) GetAutoBackupSettings(c *gin.Context) {
 	settings, err := h.backupScheduler.GetSettings()
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load backup settings")
 		return
 	}
 	response.Success(c, settings)
@@ -89,7 +93,7 @@ type UpdateAutoBackupRequest struct {
 func (h *BackupHandler) UpdateAutoBackupSettings(c *gin.Context) {
 	var req UpdateAutoBackupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -101,7 +105,11 @@ func (h *BackupHandler) UpdateAutoBackupSettings(c *gin.Context) {
 	}
 
 	if err := h.backupScheduler.SaveSettings(settings); err != nil {
-		response.InternalError(c, err.Error())
+		if errors.Is(err, service.ErrAutoBackupSettingsInvalid) {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		internalServerError(c, err, "failed to save backup settings")
 		return
 	}
 
@@ -110,7 +118,7 @@ func (h *BackupHandler) UpdateAutoBackupSettings(c *gin.Context) {
 
 func (h *BackupHandler) TriggerAutoBackup(c *gin.Context) {
 	if err := h.backupScheduler.TriggerBackup(); err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to trigger backup")
 		return
 	}
 	response.Success(c, gin.H{"message": "backup triggered"})
@@ -119,7 +127,7 @@ func (h *BackupHandler) TriggerAutoBackup(c *gin.Context) {
 func (h *BackupHandler) ListAutoBackups(c *gin.Context) {
 	files, err := h.backupScheduler.ListBackups()
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list backups")
 		return
 	}
 	response.Success(c, gin.H{"files": files})

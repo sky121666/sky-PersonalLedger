@@ -55,6 +55,83 @@ func TestInitWithConfigRecordsSchemaVersion(t *testing.T) {
 	if version != currentSchemaVersion {
 		t.Fatalf("schema version = %d, want %d", version, currentSchemaVersion)
 	}
+
+	var migration schemaMigration
+	if err := db.First(&migration, "version = ?", currentSchemaVersion).Error; err != nil {
+		t.Fatalf("read current migration record: %v", err)
+	}
+	if migration.Name == "" {
+		t.Fatal("schema migration name should be recorded")
+	}
+}
+
+func TestApplySchemaMigrationsRunsOnlyPendingVersions(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "ledger.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&schemaMigration{}); err != nil {
+		t.Fatalf("migrate schema migrations: %v", err)
+	}
+	if err := db.Create(&schemaMigration{
+		Version:   1,
+		Name:      "already_applied",
+		AppliedAt: time.Now().UTC(),
+	}).Error; err != nil {
+		t.Fatalf("seed schema migration: %v", err)
+	}
+
+	originalMigrations := schemaMigrations
+	originalVersion := currentSchemaVersion
+	defer func() {
+		schemaMigrations = originalMigrations
+		currentSchemaVersion = originalVersion
+	}()
+
+	applied := 0
+	schemaMigrations = []versionedMigration{
+		{
+			Version: 1,
+			Name:    "already_applied",
+			Apply: func(tx *gorm.DB) error {
+				t.Fatal("already applied migration should not run")
+				return nil
+			},
+		},
+		{
+			Version: 2,
+			Name:    "add_system_settings",
+			Apply: func(tx *gorm.DB) error {
+				applied++
+				return tx.AutoMigrate(&model.SystemSetting{})
+			},
+		},
+	}
+	currentSchemaVersion = latestKnownSchemaVersion()
+
+	if err := applySchemaMigrations(db); err != nil {
+		t.Fatalf("apply schema migrations: %v", err)
+	}
+	if applied != 1 {
+		t.Fatalf("pending migration applied %d times, want 1", applied)
+	}
+	if !db.Migrator().HasTable(&model.SystemSetting{}) {
+		t.Fatal("pending migration did not create system settings table")
+	}
+	version, err := latestSchemaVersion(db)
+	if err != nil {
+		t.Fatalf("read schema version: %v", err)
+	}
+	if version != 2 {
+		t.Fatalf("schema version = %d, want 2", version)
+	}
+
+	if err := applySchemaMigrations(db); err != nil {
+		t.Fatalf("reapply schema migrations: %v", err)
+	}
+	if applied != 1 {
+		t.Fatalf("pending migration reapplied, count = %d", applied)
+	}
 }
 
 func TestInitWithConfigRejectsNewerSchemaVersion(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 
 var ErrUploadPathForbidden = errors.New("file path does not belong to current user")
 var ErrUploadPathInvalid = errors.New("invalid file path")
+var ErrUploadScopeInvalid = errors.New("invalid upload scope")
 
 type UploadService struct {
 	cfg *config.StorageConfig
@@ -37,6 +38,11 @@ type UploadResult struct {
 // category: transactions, lendings, reminders
 // refID: the ID of the related entity
 func (s *UploadService) Upload(userID uint, category string, refID string, file *multipart.FileHeader) (*UploadResult, error) {
+	category, refID, err := normalizeUploadScope(category, refID)
+	if err != nil {
+		return nil, err
+	}
+
 	// Validate file extension
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	if ext == "" {
@@ -92,7 +98,7 @@ func (s *UploadService) Upload(userID uint, category string, refID string, file 
 	}
 	defer src.Close()
 
-	dst, err := os.Create(fullPath)
+	dst, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create destination file: %w", err)
 	}
@@ -146,8 +152,14 @@ func (s *UploadService) GetUserFilePath(userID uint, relativePath string) (strin
 	fullPath := filepath.Join(s.cfg.UploadPath, cleanPath)
 
 	// Security check: ensure path is within upload directory
-	absUploadPath, _ := filepath.Abs(s.cfg.UploadPath)
-	absFullPath, _ := filepath.Abs(fullPath)
+	absUploadPath, err := filepath.Abs(s.cfg.UploadPath)
+	if err != nil {
+		return "", ErrUploadPathInvalid
+	}
+	absFullPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		return "", ErrUploadPathInvalid
+	}
 	if absFullPath != absUploadPath && !strings.HasPrefix(absFullPath, absUploadPath+string(os.PathSeparator)) {
 		return "", ErrUploadPathInvalid
 	}
@@ -162,6 +174,11 @@ func (s *UploadService) GetFilePath(relativePath string) string {
 
 // ListFiles returns all files for a specific entity
 func (s *UploadService) ListFiles(userID uint, category string, refID string) ([]string, error) {
+	category, refID, err := normalizeUploadScope(category, refID)
+	if err != nil {
+		return nil, err
+	}
+
 	dirPath := filepath.Join(s.cfg.UploadPath, fmt.Sprintf("%d", userID), category, refID)
 
 	entries, err := os.ReadDir(dirPath)
@@ -181,4 +198,24 @@ func (s *UploadService) ListFiles(userID uint, category string, refID string) ([
 	}
 
 	return files, nil
+}
+
+func normalizeUploadScope(category string, refID string) (string, string, error) {
+	category = strings.TrimSpace(category)
+	refID = strings.TrimSpace(refID)
+	if !isSafeUploadPathSegment(category) || !isSafeUploadPathSegment(refID) {
+		return "", "", ErrUploadScopeInvalid
+	}
+	return category, refID, nil
+}
+
+func isSafeUploadPathSegment(value string) bool {
+	if value == "" ||
+		value == "." ||
+		value == ".." ||
+		filepath.IsAbs(value) ||
+		strings.ContainsAny(value, `/\`) {
+		return false
+	}
+	return filepath.Clean(value) == value
 }

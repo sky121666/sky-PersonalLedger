@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -85,6 +84,53 @@ func TestSetupTestDatabaseDisabledAfterInitialization(t *testing.T) {
 	}
 }
 
+func TestSetupTestDatabaseDoesNotExposeConnectionDetails(t *testing.T) {
+	handler, _ := newSetupTestHandler(t, config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")})
+	payload := map[string]any{
+		"driver":   "mysql",
+		"host":     "127.0.0.1",
+		"port":     1,
+		"database": "ledger",
+		"username": "ledger_user",
+		"password": "setup-secret-password",
+	}
+
+	response := performSetupRequest(handler, http.MethodPost, "/setup/test-database", payload)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", response.Code, response.Body.String())
+	}
+	assertSetupResponseDoesNotExpose(t, response.Body.String(), []string{
+		"127.0.0.1",
+		"setup-secret-password",
+		"ledger_user",
+		"dial",
+		"connect",
+	})
+	if !strings.Contains(response.Body.String(), "database test failed") {
+		t.Fatalf("body = %s, want generic database test failure", response.Body.String())
+	}
+}
+
+func TestSetupTestDatabaseMalformedJSONDoesNotExposeParserDetails(t *testing.T) {
+	handler, _ := newSetupTestHandler(t, config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")})
+
+	response := performSetupRawRequest(handler, http.MethodPost, "/setup/test-database", `{"driver":`)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", response.Code, response.Body.String())
+	}
+	body := strings.ToLower(response.Body.String())
+	if !strings.Contains(body, "invalid request") {
+		t.Fatalf("body = %s, want invalid request", response.Body.String())
+	}
+	for _, forbidden := range []string{"unexpected", "eof", "json", "driver"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("response exposed parser detail %q: %s", forbidden, response.Body.String())
+		}
+	}
+}
+
 func TestSetupApplyWritesLocalConfigBeforeInitialization(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	databasePath := filepath.Join(t.TempDir(), "applied.db")
@@ -137,6 +183,59 @@ func TestSetupApplyWritesLocalConfigBeforeInitialization(t *testing.T) {
 	}
 	if saved.Database.MaxIdleConns != 2 {
 		t.Fatalf("saved max idle conns = %d, want 2", saved.Database.MaxIdleConns)
+	}
+}
+
+func TestSetupApplyDoesNotExposeConnectionDetails(t *testing.T) {
+	handler, _ := newSetupTestHandlerWithConfig(t,
+		config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")},
+		config.SetupConfig{ConfigPath: filepath.Join(t.TempDir(), "config.yaml")},
+	)
+	payload := map[string]any{
+		"driver":   "mysql",
+		"host":     "127.0.0.1",
+		"port":     1,
+		"database": "ledger",
+		"username": "ledger_user",
+		"password": "setup-secret-password",
+	}
+
+	response := performSetupRequest(handler, http.MethodPost, "/setup/apply", payload)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", response.Code, response.Body.String())
+	}
+	assertSetupResponseDoesNotExpose(t, response.Body.String(), []string{
+		"127.0.0.1",
+		"setup-secret-password",
+		"ledger_user",
+		"dial",
+		"connect",
+	})
+	if !strings.Contains(response.Body.String(), "database test failed") {
+		t.Fatalf("body = %s, want generic database test failure", response.Body.String())
+	}
+}
+
+func TestSetupApplyMalformedJSONDoesNotExposeParserDetails(t *testing.T) {
+	handler, _ := newSetupTestHandlerWithConfig(t,
+		config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")},
+		config.SetupConfig{ConfigPath: filepath.Join(t.TempDir(), "config.yaml")},
+	)
+
+	response := performSetupRawRequest(handler, http.MethodPost, "/setup/apply", `{"driver":`)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", response.Code, response.Body.String())
+	}
+	body := strings.ToLower(response.Body.String())
+	if !strings.Contains(body, "invalid request") {
+		t.Fatalf("body = %s, want invalid request", response.Body.String())
+	}
+	for _, forbidden := range []string{"unexpected", "eof", "json", "driver"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("response exposed parser detail %q: %s", forbidden, response.Body.String())
+		}
 	}
 }
 
@@ -366,6 +465,31 @@ func TestSetupApplyDisabledAfterInitialization(t *testing.T) {
 	}
 }
 
+func TestSetupApplyDoesNotExposeConfigWriteError(t *testing.T) {
+	configPath := t.TempDir()
+	handler, _ := newSetupTestHandlerWithConfig(t,
+		config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")},
+		config.SetupConfig{ConfigPath: configPath},
+	)
+	payload := map[string]any{
+		"driver": "sqlite",
+		"path":   filepath.Join(t.TempDir(), "candidate.db"),
+	}
+
+	response := performSetupRequest(handler, http.MethodPost, "/setup/apply", payload)
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500; body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, "failed to write setup config") {
+		t.Fatalf("body = %s, want generic setup config error", body)
+	}
+	if strings.Contains(body, configPath) || strings.Contains(strings.ToLower(body), "is a directory") {
+		t.Fatalf("response exposed config write detail: %s", body)
+	}
+}
+
 func newSetupTestHandler(t *testing.T, dbConfig config.DatabaseConfig) (*SetupHandler, *repository.Repositories) {
 	return newSetupTestHandlerWithConfig(t, dbConfig, config.SetupConfig{
 		ConfigPath: filepath.Join(t.TempDir(), "config.yaml"),
@@ -392,19 +516,23 @@ func newSetupTestHandlerWithConfig(t *testing.T, dbConfig config.DatabaseConfig,
 }
 
 func performSetupRequest(handler *SetupHandler, method string, path string, payload any) *httptest.ResponseRecorder {
+	var body string
+	if payload == nil {
+		body = ""
+	} else {
+		data, _ := json.Marshal(payload)
+		body = string(data)
+	}
+	return performSetupRawRequest(handler, method, path, body)
+}
+
+func performSetupRawRequest(handler *SetupHandler, method string, path string, payload string) *httptest.ResponseRecorder {
 	router := gin.New()
 	router.GET("/setup/status", handler.Status)
 	router.POST("/setup/test-database", handler.TestDatabase)
 	router.POST("/setup/apply", handler.Apply)
 
-	var body *bytes.Reader
-	if payload == nil {
-		body = bytes.NewReader(nil)
-	} else {
-		data, _ := json.Marshal(payload)
-		body = bytes.NewReader(data)
-	}
-	request := httptest.NewRequest(method, path, body)
+	request := httptest.NewRequest(method, path, strings.NewReader(payload))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
@@ -421,6 +549,17 @@ func decodeSetupResponse(t *testing.T, data []byte) map[string]any {
 		t.Fatalf("decode response: %v; body=%s", err, string(data))
 	}
 	return response.Data
+}
+
+func assertSetupResponseDoesNotExpose(t *testing.T, body string, forbidden []string) {
+	t.Helper()
+
+	lowerBody := strings.ToLower(body)
+	for _, value := range forbidden {
+		if strings.Contains(lowerBody, strings.ToLower(value)) {
+			t.Fatalf("setup response exposed %q: %s", value, body)
+		}
+	}
 }
 
 func setupIntPtr(value int) *int {

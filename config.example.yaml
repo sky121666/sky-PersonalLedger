@@ -53,8 +53,9 @@ security:
   # 环境变量: LEDGER_SECURITY_API_TOKEN
 
 cors:
-  # 留空仅允许同源/无 Origin 请求；开发前端可设为 http://localhost:5173
+  # 留空仅允许同站 Host/无 Origin 请求；开发前端可设为 http://localhost:5173
   # 多个来源用逗号分隔，如: https://ledger.example.com,https://admin.example.com
+  # release 模式禁止使用 *。
   allowed_origins: ""
   # 环境变量: LEDGER_CORS_ALLOWED_ORIGINS
 

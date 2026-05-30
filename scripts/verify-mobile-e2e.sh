@@ -85,6 +85,68 @@ wait_for_backend() {
   return 1
 }
 
+terminate_process_tree() {
+  local pid="$1"
+  local child
+
+  for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+    terminate_process_tree "$child"
+  done
+
+  kill "$pid" 2>/dev/null || true
+}
+
+dump_android_diagnostics() {
+  echo "Android diagnostics:" >&2
+  if command -v adb >/dev/null 2>&1; then
+    adb devices >&2 || true
+  fi
+
+  ps ax -o pid,ppid,etime,%cpu,%mem,stat,command \
+    | grep -E 'flutter|gradle|GradleDaemon|kotlin|adb|emulator' \
+    | grep -v grep >&2 || true
+
+  if [[ -n "${GRADLE_USER_HOME:-}" && -d "$GRADLE_USER_HOME" ]]; then
+    local log_file
+    while IFS= read -r log_file; do
+      echo "Gradle daemon log tail: $log_file" >&2
+      tail -120 "$log_file" >&2 || true
+    done < <(find "$GRADLE_USER_HOME" -path '*/daemon/*/*.out.log' -type f 2>/dev/null | sort | tail -3)
+  fi
+
+  if [[ -n "$android_emulator_pid" && -f "$tmp_dir/android-emulator.log" ]]; then
+    echo "Android emulator log tail:" >&2
+    tail -120 "$tmp_dir/android-emulator.log" >&2 || true
+  fi
+}
+
+run_with_timeout() {
+  local timeout_seconds="$1"
+  shift
+
+  "$@" &
+  local command_pid="$!"
+  local started_at now elapsed
+  started_at="$(date +%s)"
+
+  while kill -0 "$command_pid" 2>/dev/null; do
+    now="$(date +%s)"
+    elapsed=$((now - started_at))
+    if (( elapsed >= timeout_seconds )); then
+      echo "Command timed out after ${timeout_seconds}s: $*" >&2
+      if [[ "${RUN_ANDROID_E2E:-0}" == "1" ]]; then
+        dump_android_diagnostics
+      fi
+      terminate_process_tree "$command_pid"
+      wait "$command_pid" 2>/dev/null || true
+      return 124
+    fi
+    sleep 2
+  done
+
+  wait "$command_pid"
+}
+
 run_flutter_e2e() {
   local device_id="$1"
   local server_url="$2"
@@ -92,7 +154,8 @@ run_flutter_e2e() {
 
   (
     cd "$repo_root/mobile"
-    flutter test \
+    run_with_timeout "$LEDGER_MOBILE_E2E_TIMEOUT_SECONDS" \
+      flutter test \
       -d "$device_id" \
       --dart-define="LEDGER_E2E_SERVER_URL=$server_url" \
       --dart-define="LEDGER_E2E_PASSWORD=$LEDGER_E2E_PASSWORD" \
@@ -133,12 +196,15 @@ configure_android_environment() {
   export ANDROID_HOME="$sdk_root"
   export ANDROID_USER_HOME="${ANDROID_E2E_USER_HOME:-$tmp_dir/android-user-home}"
   export ANDROID_AVD_HOME="${ANDROID_E2E_AVD_HOME:-$ANDROID_USER_HOME/avd}"
-  local default_gradle_home="/tmp/sky-ledger-gradle-home"
-  if [[ -d /private/tmp ]]; then
-    default_gradle_home="/private/tmp/sky-ledger-gradle-home"
-  fi
+  local default_gradle_home="$repo_root/mobile/.gradle"
   export GRADLE_USER_HOME="${GRADLE_E2E_USER_HOME:-$default_gradle_home}"
   mkdir -p "$ANDROID_USER_HOME" "$ANDROID_AVD_HOME" "$GRADLE_USER_HOME"
+  cat >"$GRADLE_USER_HOME/gradle.properties" <<'EOF'
+org.gradle.daemon=false
+org.gradle.caching=false
+org.gradle.parallel=false
+kotlin.compiler.execution.strategy=in-process
+EOF
 
   export PATH="$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
   AVDMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager"
@@ -282,6 +348,7 @@ if candidates:
 }
 
 LEDGER_E2E_PASSWORD="${LEDGER_E2E_PASSWORD:-LedgerE2ePass123!}"
+LEDGER_MOBILE_E2E_TIMEOUT_SECONDS="${LEDGER_MOBILE_E2E_TIMEOUT_SECONDS:-900}"
 RUN_FLUTTER_TESTER_E2E="${RUN_FLUTTER_TESTER_E2E:-1}"
 RUN_ANDROID_E2E="${RUN_ANDROID_E2E:-0}"
 RUN_IOS_E2E="${RUN_IOS_E2E:-0}"

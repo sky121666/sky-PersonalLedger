@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { X, ChevronDown, Calendar, FileText, CreditCard, Paperclip } from 'lucide-vue-next'
+import { X, ChevronDown, Calendar, FileText, CreditCard, Paperclip, Users } from 'lucide-vue-next'
 import FileUpload from '@/components/FileUpload.vue'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 import { transactionApi, type CreateTransactionParams } from '@/api/transaction'
 import { categoryApi, type Category } from '@/api/category'
 import { accountApi, type Account } from '@/api/account'
+import { familyApi, type FamilyMember } from '@/api/family'
 import { toast } from '@/composables/useToast'
 import { deleteRemovedAttachments } from '@/utils/attachmentCleanup'
 import { getCategoryEmoji } from '@/utils/constants'
@@ -24,6 +25,7 @@ const emit = defineEmits<{
 const loading = ref(false)
 const categories = ref<Category[]>([])
 const accounts = ref<Account[]>([])
+const familyMembers = ref<FamilyMember[]>([])
 
 const form = ref({
   type: 'expense' as 'income' | 'expense' | 'transfer',
@@ -31,6 +33,7 @@ const form = ref({
   account_id: '',
   to_account_id: '',
   category_id: '',
+  member_id: '',
   transaction_date: dayjs().format('YYYY-MM-DDTHH:mm'),
   remark: '',
   images: ''
@@ -79,12 +82,14 @@ watch(() => form.value.type, () => {
 
 async function loadData() {
   try {
-    const [catList, accData] = await Promise.all([
+    const [catList, accData, members] = await Promise.all([
       categoryApi.getList(),
-      accountApi.getList()
+      accountApi.getList(),
+      familyApi.listMembers()
     ])
     categories.value = catList
     accounts.value = accData.list
+    familyMembers.value = members.filter(member => member.is_enabled)
     
     if (accounts.value.length > 0 && !form.value.account_id) {
       form.value.account_id = accounts.value[0].id
@@ -104,6 +109,7 @@ async function loadTransaction() {
       account_id: tx.account_id,
       to_account_id: tx.to_account_id || '',
       category_id: tx.category_id || '',
+      member_id: tx.member_id || tx.paid_by_member_id || '',
       transaction_date: dayjs(tx.transaction_date).format('YYYY-MM-DDTHH:mm'),
       remark: tx.remark || '',
       images: tx.images || ''
@@ -122,6 +128,7 @@ function resetForm() {
     account_id: accounts.value[0]?.id || '',
     to_account_id: '',
     category_id: '',
+    member_id: '',
     transaction_date: dayjs().format('YYYY-MM-DDTHH:mm'),
     remark: '',
     images: ''
@@ -149,6 +156,11 @@ async function submit() {
       transaction_date: txDate,
       remark: form.value.remark || undefined,
       images: form.value.images || undefined
+    }
+
+    if (form.value.member_id) {
+      params.member_id = form.value.member_id
+      params.paid_by_member_id = form.value.member_id
     }
     
     if (form.value.type === 'transfer') {
@@ -307,6 +319,26 @@ async function submit() {
                 </select>
                 <ChevronDown class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" :size="18" />
               </div>
+            </div>
+          </div>
+
+          <!-- Family Member -->
+          <div v-if="familyMembers.length > 0">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">家庭成员</label>
+            <div class="relative">
+              <div class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <Users :size="18" />
+              </div>
+              <select
+                v-model="form.member_id"
+                class="w-full h-12 pl-11 pr-10 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none appearance-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
+              >
+                <option value="">不指定成员</option>
+                <option v-for="member in familyMembers" :key="member.id" :value="member.id">
+                  {{ member.name }}{{ member.relationship ? ` · ${member.relationship}` : '' }}
+                </option>
+              </select>
+              <ChevronDown class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" :size="18" />
             </div>
           </div>
           

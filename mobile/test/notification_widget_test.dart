@@ -122,6 +122,57 @@ void main() {
       expect(repository.wecomTestCalls, isEmpty);
       expect(find.text('请填写企业微信 Webhook 地址'), findsOneWidget);
     });
+
+    testWidgets('通知通道密钥输入框默认遮罩显示', (tester) async {
+      final repository = _FakeNotificationRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('钉钉'));
+      await tester.pumpAndSettle();
+      final dingtalkSecret = tester.widget<TextField>(
+        find.byKey(const ValueKey('notification-dingtalk-secret')),
+      );
+      expect(dingtalkSecret.obscureText, isTrue);
+
+      await tester.tap(find.text('Webhook'));
+      await tester.pumpAndSettle();
+      final webhookSecret = tester.widget<TextField>(
+        find.byKey(const ValueKey('notification-webhook-secret')),
+      );
+      expect(webhookSecret.obscureText, isTrue);
+    });
+
+    test('空通知密钥不会进入更新请求 JSON', () {
+      const request = NotificationSettingRequest(
+        enabled: true,
+        wecomEnabled: false,
+        wecomWebhook: '',
+        dingtalkEnabled: true,
+        dingtalkWebhook: 'https://oapi.example.com/send',
+        dingtalkSecret: '',
+        emailEnabled: true,
+        smtpHost: 'smtp.example.com',
+        smtpPort: 587,
+        smtpUser: 'user@example.com',
+        smtpPassword: '',
+        smtpFrom: '',
+        emailTo: '',
+        webhookEnabled: true,
+        webhookUrl: 'https://example.com/webhook',
+        webhookSecret: '',
+        notifyPaymentDue: true,
+        notifyBudgetAlert: true,
+        notifyLendingDue: true,
+        notifyAnnualReport: true,
+        advanceDays: 3,
+      );
+
+      final payload = request.toJson();
+
+      expect(payload, isNot(contains('dingtalk_secret')));
+      expect(payload, isNot(contains('smtp_password')));
+      expect(payload, isNot(contains('webhook_secret')));
+    });
   });
 }
 

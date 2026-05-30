@@ -1,0 +1,120 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../app/router/app_route_paths.dart';
+import '../../../../app/theme/app_theme.dart';
+import '../../../../app/widgets/premium_surface.dart';
+import '../../data/home_repository.dart';
+
+class QuickHomeActionCard extends StatelessWidget {
+  const QuickHomeActionCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumSurface(
+      accentColor: Theme.of(context).colorScheme.primary,
+      onTap: () => context.push(AppRoutePaths.quickTransaction),
+      semanticLabel: '快速记账',
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '快速记账',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '记录一笔新的收入、支出或转账',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.add,
+              color: Theme.of(context).colorScheme.onPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FamilyHomeSummaryCard extends StatelessWidget {
+  const FamilyHomeSummaryCard({required this.summary, super.key});
+
+  final FamilyHomeSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final topMembers = summary.members.take(3).toList();
+    return PremiumSurface(
+      key: const Key('family-home-summary-card'),
+      accentColor: AppTheme.incomeColor,
+      onTap: () => context.push(AppRoutePaths.family),
+      semanticLabel: '查看家庭支出详情',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '家庭支出',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                _formatCurrency(summary.totalExpense),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (topMembers.isEmpty)
+            Text(
+              '暂无家庭成员支出',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            )
+          else
+            ...topMembers.map(
+              (member) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(member.name)),
+                    Text(_formatCurrency(member.expenseTotal)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatCurrency(double value) {
+  return '¥${value.toStringAsFixed(2)}';
+}

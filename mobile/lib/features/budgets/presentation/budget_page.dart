@@ -7,6 +7,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../categories/data/category.dart';
+import '../../family/data/family_repository.dart';
 import '../data/budget_repository.dart';
 
 class BudgetPage extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(budgetDashboardProvider);
+    final familyMembersState = ref.watch(familyMembersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -52,7 +54,13 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
           onEditTotal: () =>
               _openTotalBudgetDialog(dashboard.budgetList.totalBudget),
           onAddCategory: () => _openCategoryBudgetDialog(dashboard),
+          onAddMember: () => _openMemberBudgetDialog(
+            dashboard,
+            familyMembersState.valueOrNull ?? const [],
+          ),
           onDeleteCategory: _deleteCategoryBudget,
+          onDeleteMember: _deleteMemberBudget,
+          familyMembers: familyMembersState.valueOrNull ?? const [],
         ),
       ),
     );
@@ -119,6 +127,54 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
     );
   }
 
+  Future<void> _openMemberBudgetDialog(
+    BudgetDashboard dashboard,
+    List<FamilyMember> members,
+  ) async {
+    final enabledMembers = members.where((member) => member.isEnabled).toList();
+    if (enabledMembers.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先添加启用的家庭成员')));
+      return;
+    }
+
+    final result = await _showBudgetFormDialog(
+      context: context,
+      title: '添加成员预算',
+      categories: dashboard.expenseCategories,
+      members: enabledMembers,
+      selectedCategoryId: '',
+      selectedMemberId: enabledMembers.first.id,
+      allowTotalScope: true,
+      alertThreshold: 80,
+    );
+    if (result == null || result.memberId == null || !mounted) {
+      return;
+    }
+
+    await _runAction(
+      action: 'member',
+      successMessage: '成员预算已添加',
+      request: () {
+        final categoryId = result.categoryId;
+        if (categoryId == null || categoryId.isEmpty) {
+          return ref.read(budgetRepositoryProvider).setTotalBudget(
+                amount: result.amount,
+                alertThreshold: result.alertThreshold,
+                memberId: result.memberId,
+              );
+        }
+        return ref.read(budgetRepositoryProvider).setCategoryBudget(
+              categoryId: categoryId,
+              amount: result.amount,
+              alertThreshold: result.alertThreshold,
+              memberId: result.memberId,
+            );
+      },
+    );
+  }
+
   Future<void> _deleteCategoryBudget(BudgetItem budget) async {
     final confirmed = await showAppConfirmDialog(
       context: context,
@@ -134,6 +190,26 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
     await _runAction(
       action: 'delete-${budget.id}',
       successMessage: '分类预算已删除',
+      request: () => ref.read(budgetRepositoryProvider).deleteBudget(budget.id),
+    );
+  }
+
+  Future<void> _deleteMemberBudget(BudgetItem budget) async {
+    final memberName = budget.memberName.isEmpty ? '家庭成员' : budget.memberName;
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '删除成员预算',
+      message: '删除后将不再监控“$memberName”的该项预算。',
+      confirmText: '删除',
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    await _runAction(
+      action: 'delete-${budget.id}',
+      successMessage: '成员预算已删除',
       request: () => ref.read(budgetRepositoryProvider).deleteBudget(budget.id),
     );
   }
@@ -178,7 +254,10 @@ class _BudgetContent extends StatelessWidget {
     required this.onRefresh,
     required this.onEditTotal,
     required this.onAddCategory,
+    required this.onAddMember,
     required this.onDeleteCategory,
+    required this.onDeleteMember,
+    required this.familyMembers,
   });
 
   final BudgetDashboard dashboard;
@@ -187,7 +266,10 @@ class _BudgetContent extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final VoidCallback onEditTotal;
   final VoidCallback onAddCategory;
+  final VoidCallback onAddMember;
   final ValueChanged<BudgetItem> onDeleteCategory;
+  final ValueChanged<BudgetItem> onDeleteMember;
+  final List<FamilyMember> familyMembers;
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +310,36 @@ class _BudgetContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
+            if (budgetList.memberBudgets.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _MemberBudgetHeader(
+                count: budgetList.memberBudgets.length,
+                availableMemberCount: familyMembers
+                    .where((member) => member.isEnabled)
+                    .length,
+                onAdd: busyAction == null ? onAddMember : null,
+              ),
+              const SizedBox(height: 8),
+            ] else ...[
+              const SizedBox(height: 16),
+              _MemberBudgetHeader(
+                count: 0,
+                availableMemberCount: familyMembers
+                    .where((member) => member.isEnabled)
+                    .length,
+                onAdd: busyAction == null ? onAddMember : null,
+              ),
+              const SizedBox(height: 8),
+              const _EmptyMemberBudgetCard(),
+            ],
+            for (final budget in budgetList.memberBudgets) ...[
+              _MemberBudgetCard(
+                budget: budget,
+                busy: busyAction == 'delete-${budget.id}',
+                onDelete: () => onDeleteMember(budget),
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
         ),
       ),
@@ -569,6 +681,155 @@ class _CategoryBudgetCard extends StatelessWidget {
   }
 }
 
+class _MemberBudgetHeader extends StatelessWidget {
+  const _MemberBudgetHeader({
+    required this.count,
+    required this.availableMemberCount,
+    required this.onAdd,
+  });
+
+  final int count;
+  final int availableMemberCount;
+  final VoidCallback? onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _SectionTitle(
+            icon: Icons.family_restroom_outlined,
+            title: '家庭成员预算',
+            subtitle: '$count 个成员预算正在跟踪，$availableMemberCount 个成员可选择',
+          ),
+        ),
+        FilledButton.tonalIcon(
+          onPressed: availableMemberCount == 0 ? null : onAdd,
+          icon: const Icon(Icons.add),
+          label: const Text('添加'),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyMemberBudgetCard extends StatelessWidget {
+  const _EmptyMemberBudgetCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+        child: AppEmptyView(
+          title: '暂无成员预算',
+          message: '为家庭成员设置独立预算后，Family Hub 会展示成员额度进度。',
+          icon: Icons.family_restroom_outlined,
+        ),
+      ),
+    );
+  }
+}
+
+class _MemberBudgetCard extends StatelessWidget {
+  const _MemberBudgetCard({
+    required this.budget,
+    required this.busy,
+    required this.onDelete,
+  });
+
+  final BudgetItem budget;
+  final bool busy;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final memberName = budget.memberName.isEmpty ? '家庭成员' : budget.memberName;
+    final title = budget.categoryName.isEmpty
+        ? memberName
+        : '$memberName · ${budget.categoryName}';
+    final statusText = budget.isOverBudget
+        ? '已超出预算'
+        : budget.isNearLimit
+        ? '接近预算上限'
+        : '控制良好';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: colorScheme.secondaryContainer,
+                  foregroundColor: colorScheme.onSecondaryContainer,
+                  child: Text(memberName.substring(0, 1)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '预算 ${_formatMoney(budget.amount)}，已用 ${_formatMoney(budget.spent)}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: busy ? null : onDelete,
+                  icon: busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_outline),
+                  color: colorScheme.error,
+                  tooltip: '删除成员预算',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _BudgetProgressBar(percentage: budget.percentage),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  '${budget.percentage.toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    color: _budgetStatusColor(context, budget.percentage),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    color: _budgetStatusColor(context, budget.percentage),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BudgetMetricsGrid extends StatelessWidget {
   const _BudgetMetricsGrid({required this.budget});
 
@@ -692,6 +953,9 @@ Future<_BudgetFormResult?> _showBudgetFormDialog({
   int alertThreshold = 80,
   List<Category> categories = const [],
   String? selectedCategoryId,
+  List<FamilyMember> members = const [],
+  String? selectedMemberId,
+  bool allowTotalScope = false,
 }) {
   return showDialog<_BudgetFormResult>(
     context: context,
@@ -701,6 +965,9 @@ Future<_BudgetFormResult?> _showBudgetFormDialog({
       alertThreshold: alertThreshold,
       categories: categories,
       selectedCategoryId: selectedCategoryId,
+      members: members,
+      selectedMemberId: selectedMemberId,
+      allowTotalScope: allowTotalScope,
     ),
   );
 }
@@ -710,15 +977,21 @@ class _BudgetFormDialog extends StatefulWidget {
     required this.title,
     required this.alertThreshold,
     required this.categories,
+    required this.members,
+    required this.allowTotalScope,
     this.amount,
     this.selectedCategoryId,
+    this.selectedMemberId,
   });
 
   final String title;
   final double? amount;
   final int alertThreshold;
   final List<Category> categories;
+  final List<FamilyMember> members;
+  final bool allowTotalScope;
   final String? selectedCategoryId;
+  final String? selectedMemberId;
 
   @override
   State<_BudgetFormDialog> createState() => _BudgetFormDialogState();
@@ -729,6 +1002,7 @@ class _BudgetFormDialogState extends State<_BudgetFormDialog> {
   late final TextEditingController _amountController;
   late int _selectedThreshold;
   String? _selectedCategory;
+  String? _selectedMember;
 
   @override
   void initState() {
@@ -739,6 +1013,7 @@ class _BudgetFormDialogState extends State<_BudgetFormDialog> {
     );
     _selectedThreshold = widget.alertThreshold;
     _selectedCategory = widget.selectedCategoryId;
+    _selectedMember = widget.selectedMemberId;
   }
 
   @override
@@ -756,6 +1031,29 @@ class _BudgetFormDialogState extends State<_BudgetFormDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.members.isNotEmpty) ...[
+              DropdownButtonFormField<String>(
+                initialValue: _selectedMember,
+                decoration: const InputDecoration(
+                  labelText: '家庭成员',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final member in widget.members)
+                    DropdownMenuItem(value: member.id, child: Text(member.name)),
+                ],
+                onChanged: (value) {
+                  setState(() => _selectedMember = value);
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return '请选择家庭成员';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             if (widget.categories.isNotEmpty) ...[
               DropdownButtonFormField<String>(
                 initialValue: _selectedCategory,
@@ -764,6 +1062,8 @@ class _BudgetFormDialogState extends State<_BudgetFormDialog> {
                   border: OutlineInputBorder(),
                 ),
                 items: [
+                  if (widget.allowTotalScope)
+                    const DropdownMenuItem(value: '', child: Text('成员总预算')),
                   for (final category in widget.categories)
                     DropdownMenuItem(
                       value: category.id,
@@ -778,6 +1078,9 @@ class _BudgetFormDialogState extends State<_BudgetFormDialog> {
                   setState(() => _selectedCategory = value);
                 },
                 validator: (value) {
+                  if (widget.allowTotalScope && value == '') {
+                    return null;
+                  }
                   if (value == null || value.isEmpty) {
                     return '请选择支出分类';
                   }
@@ -847,6 +1150,7 @@ class _BudgetFormDialogState extends State<_BudgetFormDialog> {
         amount: double.parse(_amountController.text.trim()),
         alertThreshold: _selectedThreshold,
         categoryId: _selectedCategory,
+        memberId: _selectedMember,
       ),
     );
   }
@@ -857,11 +1161,13 @@ class _BudgetFormResult {
     required this.amount,
     required this.alertThreshold,
     this.categoryId,
+    this.memberId,
   });
 
   final double amount;
   final int alertThreshold;
   final String? categoryId;
+  final String? memberId;
 }
 
 String _formatMoney(double value) {

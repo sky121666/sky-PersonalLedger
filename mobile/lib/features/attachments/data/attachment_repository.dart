@@ -56,11 +56,6 @@ class AttachmentRepository {
     return response.data ?? const <int>[];
   }
 
-  Uri previewUri(String path) {
-    final baseUrl = _apiClient.dio.options.baseUrl.replaceFirst('/api/v1', '');
-    return Uri.parse('$baseUrl/uploads/$path');
-  }
-
   Uri downloadUri(String path) {
     final baseUrl = _apiClient.dio.options.baseUrl;
     return Uri.parse(

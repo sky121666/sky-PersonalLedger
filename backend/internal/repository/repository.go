@@ -19,6 +19,9 @@ type Repositories struct {
 	AccountLog   *AccountLogRepository
 	Tag          *TagRepository
 	APIToken     *APITokenRepository
+	FamilyMember *FamilyMemberRepository
+	AIProvider   *AIProviderRepository
+	AIReport     *AIReportRepository
 }
 
 func NewRepositories(db *gorm.DB) *Repositories {
@@ -37,5 +40,8 @@ func NewRepositories(db *gorm.DB) *Repositories {
 		AccountLog:   NewAccountLogRepository(db),
 		Tag:          NewTagRepository(db),
 		APIToken:     NewAPITokenRepository(db),
+		FamilyMember: NewFamilyMemberRepository(db),
+		AIProvider:   NewAIProviderRepository(db),
+		AIReport:     NewAIReportRepository(db),
 	}
 }

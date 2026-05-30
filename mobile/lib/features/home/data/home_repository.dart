@@ -176,11 +176,75 @@ class HomeSummary {
     required this.accounts,
     required this.overview,
     required this.budgetSummary,
+    this.familySummary = const FamilyHomeSummary.empty(),
   });
 
   final AccountListResponse accounts;
   final StatisticsOverview overview;
   final BudgetSummary budgetSummary;
+  final FamilyHomeSummary familySummary;
+}
+
+class FamilyHomeSummary {
+  const FamilyHomeSummary({
+    required this.month,
+    required this.totalExpense,
+    required this.members,
+  });
+
+  const FamilyHomeSummary.empty()
+    : month = '',
+      totalExpense = 0,
+      members = const [];
+
+  final String month;
+  final double totalExpense;
+  final List<FamilyHomeMemberSummary> members;
+
+  factory FamilyHomeSummary.fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      return const FamilyHomeSummary.empty();
+    }
+    final rawMembers = json['members'];
+    return FamilyHomeSummary(
+      month: json['month'] as String? ?? '',
+      totalExpense: _toDouble(json['total_expense']),
+      members: rawMembers is List
+          ? rawMembers.map(FamilyHomeMemberSummary.fromJson).toList()
+          : const [],
+    );
+  }
+}
+
+class FamilyHomeMemberSummary {
+  const FamilyHomeMemberSummary({
+    required this.memberID,
+    required this.name,
+    required this.expenseTotal,
+    required this.count,
+  });
+
+  final String memberID;
+  final String name;
+  final double expenseTotal;
+  final int count;
+
+  factory FamilyHomeMemberSummary.fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      return const FamilyHomeMemberSummary(
+        memberID: '',
+        name: '成员',
+        expenseTotal: 0,
+        count: 0,
+      );
+    }
+    return FamilyHomeMemberSummary(
+      memberID: json['member_id'] as String? ?? '',
+      name: json['name'] as String? ?? '成员',
+      expenseTotal: _toDouble(json['expense_total']),
+      count: json['count'] as int? ?? 0,
+    );
+  }
 }
 
 class HomeRepository {
@@ -203,6 +267,10 @@ class HomeRepository {
       _apiClient.get<BudgetSummary>(
         '/budgets/summary',
         fromJsonT: BudgetSummary.fromJson,
+      ),
+      _apiClient.get<FamilyHomeSummary>(
+        '/family/summary',
+        fromJsonT: FamilyHomeSummary.fromJson,
       ),
     ]);
 
@@ -233,6 +301,8 @@ class HomeRepository {
             daysRemaining: 0,
             overBudgetCategories: [],
           ),
+      familySummary:
+          results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
     );
   }
 }

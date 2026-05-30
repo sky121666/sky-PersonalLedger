@@ -12,6 +12,8 @@ import '../../features/bootstrap/presentation/bootstrap_page.dart';
 import '../../features/budgets/presentation/budget_page.dart';
 import '../../features/categories/presentation/categories_page.dart';
 import '../../features/data_management/presentation/data_management_page.dart';
+import '../../features/ai/presentation/ai_reports_page.dart';
+import '../../features/family/presentation/family_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/lendings/presentation/lending_page.dart';
 import '../../features/main/presentation/main_shell_page.dart';
@@ -184,6 +186,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.yearlyReport,
         builder: (context, state) => const YearlyReportPage(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.family,
+        builder: (context, state) => const FamilyPage(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.aiReports,
+        builder: (context, state) => const AIReportsPage(),
       ),
     ],
   );

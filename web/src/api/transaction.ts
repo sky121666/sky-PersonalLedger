@@ -11,6 +11,8 @@ export interface Transaction {
   images: string
   tags: string
   to_account_id: string | null
+  member_id?: string | null
+  paid_by_member_id?: string | null
   recurring_id: string | null
   // Nested objects from backend
   account?: {
@@ -64,6 +66,8 @@ export interface CreateTransactionParams {
   transaction_date: string
   remark?: string
   images?: string
+  member_id?: string
+  paid_by_member_id?: string
 }
 
 export const transactionApi = {

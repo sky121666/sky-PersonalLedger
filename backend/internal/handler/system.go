@@ -18,7 +18,7 @@ func NewSystemHandler(s *service.SystemService) *SystemHandler {
 func (h *SystemHandler) GetEntryPath(c *gin.Context) {
 	path, err := h.service.GetEntryPath()
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load entry path")
 		return
 	}
 	response.Success(c, gin.H{
@@ -40,11 +40,15 @@ func (h *SystemHandler) SetEntryPath(c *gin.Context) {
 	}
 
 	if err := h.service.SetEntryPath(req.EntryPath); err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to update entry path")
 		return
 	}
 
-	path, _ := h.service.GetEntryPath()
+	path, err := h.service.GetEntryPath()
+	if err != nil {
+		internalServerError(c, err, "failed to load entry path")
+		return
+	}
 	response.Success(c, gin.H{
 		"entry_path": path,
 		"enabled":    path != "",
@@ -56,7 +60,7 @@ func (h *SystemHandler) SetEntryPath(c *gin.Context) {
 func (h *SystemHandler) GenerateEntryPath(c *gin.Context) {
 	path, err := h.service.GenerateRandomPath()
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to generate entry path")
 		return
 	}
 	response.Success(c, gin.H{
@@ -69,7 +73,7 @@ func (h *SystemHandler) GenerateEntryPath(c *gin.Context) {
 // DisableEntryPath disables the security entry path
 func (h *SystemHandler) DisableEntryPath(c *gin.Context) {
 	if err := h.service.DisableEntryPath(); err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to disable entry path")
 		return
 	}
 	response.Success(c, gin.H{

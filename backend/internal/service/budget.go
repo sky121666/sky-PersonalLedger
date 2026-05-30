@@ -14,14 +14,20 @@ var (
 )
 
 type BudgetService struct {
-	budgetRepo *repository.BudgetRepository
-	txRepo     *repository.TransactionRepository
+	budgetRepo       *repository.BudgetRepository
+	txRepo           *repository.TransactionRepository
+	familyMemberRepo *repository.FamilyMemberRepository
 }
 
-func NewBudgetService(budgetRepo *repository.BudgetRepository, txRepo *repository.TransactionRepository) *BudgetService {
+func NewBudgetService(budgetRepo *repository.BudgetRepository, txRepo *repository.TransactionRepository, familyMemberRepos ...*repository.FamilyMemberRepository) *BudgetService {
+	var familyMemberRepo *repository.FamilyMemberRepository
+	if len(familyMemberRepos) > 0 {
+		familyMemberRepo = familyMemberRepos[0]
+	}
 	return &BudgetService{
-		budgetRepo: budgetRepo,
-		txRepo:     txRepo,
+		budgetRepo:       budgetRepo,
+		txRepo:           txRepo,
+		familyMemberRepo: familyMemberRepo,
 	}
 }
 
@@ -29,6 +35,8 @@ type BudgetItem struct {
 	ID             string  `json:"id"`
 	CategoryID     *string `json:"category_id"`
 	CategoryName   string  `json:"category_name,omitempty"`
+	MemberID       *string `json:"member_id,omitempty"`
+	MemberName     string  `json:"member_name,omitempty"`
 	Amount         float64 `json:"amount"`
 	Spent          float64 `json:"spent"`
 	Remaining      float64 `json:"remaining"`
@@ -39,6 +47,7 @@ type BudgetItem struct {
 type BudgetListResponse struct {
 	TotalBudget     *BudgetItem  `json:"total_budget"`
 	CategoryBudgets []BudgetItem `json:"category_budgets"`
+	MemberBudgets   []BudgetItem `json:"member_budgets"`
 }
 
 func (s *BudgetService) List(userID uint, month string) (*BudgetListResponse, error) {
@@ -74,20 +83,49 @@ func (s *BudgetService) List(userID uint, month string) (*BudgetListResponse, er
 		spentMap[cs.CategoryID] = cs.Total
 		totalSpent += cs.Total
 	}
+	memberCategorySums, err := s.txRepo.SumExpenseByMemberAndCategory(userID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	memberSpentMap := make(map[string]float64)
+	memberCategorySpentMap := make(map[string]float64)
+	for _, ms := range memberCategorySums {
+		memberSpentMap[ms.MemberID] += ms.Total
+		memberCategorySpentMap[budgetScopeKey(ms.MemberID, ms.CategoryID)] = ms.Total
+	}
 
 	response := &BudgetListResponse{
 		CategoryBudgets: []BudgetItem{},
+		MemberBudgets:   []BudgetItem{},
 	}
 
 	for _, b := range budgets {
 		item := BudgetItem{
 			ID:             b.ID,
 			CategoryID:     b.CategoryID,
+			MemberID:       b.MemberID,
 			Amount:         b.Amount,
 			AlertThreshold: b.AlertThreshold,
 		}
+		if b.Member != nil {
+			item.MemberName = b.Member.Name
+		}
 
-		if b.CategoryID == nil {
+		if b.MemberID != nil {
+			if b.CategoryID == nil {
+				item.Spent = memberSpentMap[*b.MemberID]
+			} else {
+				item.Spent = memberCategorySpentMap[budgetScopeKey(*b.MemberID, *b.CategoryID)]
+				if b.Category != nil {
+					item.CategoryName = b.Category.Name
+				}
+			}
+			item.Remaining = b.Amount - item.Spent
+			if b.Amount > 0 {
+				item.Percentage = int(item.Spent / b.Amount * 100)
+			}
+			response.MemberBudgets = append(response.MemberBudgets, item)
+		} else if b.CategoryID == nil {
 			// Total budget
 			item.Spent = totalSpent
 			item.Remaining = b.Amount - totalSpent
@@ -187,12 +225,17 @@ func (s *BudgetService) GetSummary(userID uint) (*BudgetSummary, error) {
 
 type SetBudgetRequest struct {
 	CategoryID     *string `json:"category_id"`
+	MemberID       *string `json:"member_id"`
 	Amount         float64 `json:"amount" binding:"required,gt=0"`
 	AlertThreshold int     `json:"alert_threshold"`
 }
 
 func (s *BudgetService) SetTotalBudget(userID uint, req SetBudgetRequest) (*model.Budget, error) {
-	existing, err := s.budgetRepo.GetTotalBudget(userID)
+	if err := s.ensureFamilyMemberBelongsToUser(req.MemberID, userID); err != nil {
+		return nil, err
+	}
+
+	existing, err := s.budgetRepo.GetByScope(userID, nil, req.MemberID)
 	if err == nil {
 		existing.Amount = req.Amount
 		if req.AlertThreshold > 0 {
@@ -205,6 +248,7 @@ func (s *BudgetService) SetTotalBudget(userID uint, req SetBudgetRequest) (*mode
 		ID:             uuid.New().String(),
 		UserID:         userID,
 		CategoryID:     nil,
+		MemberID:       req.MemberID,
 		Amount:         req.Amount,
 		AlertThreshold: req.AlertThreshold,
 	}
@@ -219,11 +263,24 @@ func (s *BudgetService) SetCategoryBudget(userID uint, req SetBudgetRequest) (*m
 	if req.CategoryID == nil {
 		return s.SetTotalBudget(userID, req)
 	}
+	if err := s.ensureFamilyMemberBelongsToUser(req.MemberID, userID); err != nil {
+		return nil, err
+	}
+
+	existing, err := s.budgetRepo.GetByScope(userID, req.CategoryID, req.MemberID)
+	if err == nil {
+		existing.Amount = req.Amount
+		if req.AlertThreshold > 0 {
+			existing.AlertThreshold = req.AlertThreshold
+		}
+		return existing, s.budgetRepo.Update(existing)
+	}
 
 	budget := &model.Budget{
 		ID:             uuid.New().String(),
 		UserID:         userID,
 		CategoryID:     req.CategoryID,
+		MemberID:       req.MemberID,
 		Amount:         req.Amount,
 		AlertThreshold: req.AlertThreshold,
 	}
@@ -243,4 +300,22 @@ func (s *BudgetService) Delete(id string, userID uint) error {
 		return ErrBudgetNotFound
 	}
 	return s.budgetRepo.Delete(id)
+}
+
+func (s *BudgetService) ensureFamilyMemberBelongsToUser(memberID *string, userID uint) error {
+	if memberID == nil || *memberID == "" {
+		return nil
+	}
+	if s.familyMemberRepo == nil {
+		return ErrFamilyMemberNotFound
+	}
+	member, err := s.familyMemberRepo.GetByID(*memberID)
+	if err != nil || member.UserID != userID {
+		return ErrFamilyMemberNotFound
+	}
+	return nil
+}
+
+func budgetScopeKey(memberID, categoryID string) string {
+	return memberID + "\x00" + categoryID
 }

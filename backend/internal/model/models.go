@@ -75,6 +75,8 @@ type Transaction struct {
 	Images          string    `gorm:"type:text" json:"images"` // JSON array
 	Tags            string    `gorm:"type:text" json:"tags"`   // JSON array of tag names
 	ToAccountID     *string   `gorm:"size:36" json:"to_account_id"`
+	MemberID        *string   `gorm:"size:36;index" json:"member_id,omitempty"`
+	PaidByMemberID  *string   `gorm:"size:36;index" json:"paid_by_member_id,omitempty"`
 	Source          string    `gorm:"size:50;default:manual" json:"source"`
 	ReminderID      *string   `gorm:"size:36;index" json:"reminder_id,omitempty"`
 	LendingID       *string   `gorm:"size:36;index" json:"lending_id,omitempty"`
@@ -93,6 +95,7 @@ type Budget struct {
 	ID             string         `gorm:"primaryKey;size:36" json:"id"`
 	UserID         uint           `gorm:"not null;index" json:"user_id"`
 	CategoryID     *string        `gorm:"size:36;index" json:"category_id"` // nil = total budget
+	MemberID       *string        `gorm:"size:36;index" json:"member_id,omitempty"`
 	Amount         float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
 	Period         string         `gorm:"size:20;default:monthly" json:"period"`
 	AlertThreshold int            `gorm:"default:80" json:"alert_threshold"`
@@ -101,7 +104,8 @@ type Budget struct {
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 
-	Category *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
+	Category *Category     `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
+	Member   *FamilyMember `gorm:"foreignKey:MemberID" json:"member,omitempty"`
 }
 
 type Reminder struct {
@@ -180,7 +184,7 @@ type NotificationSetting struct {
 	// 钉钉
 	DingtalkEnabled bool   `gorm:"default:false" json:"dingtalk_enabled"`
 	DingtalkWebhook string `gorm:"size:500" json:"dingtalk_webhook"`
-	DingtalkSecret  string `gorm:"size:100" json:"dingtalk_secret"`
+	DingtalkSecret  string `gorm:"size:100" json:"-"`
 
 	// 邮箱
 	EmailEnabled bool   `gorm:"default:false" json:"email_enabled"`
@@ -194,7 +198,7 @@ type NotificationSetting struct {
 	// 自定义Webhook
 	WebhookEnabled bool   `gorm:"default:false" json:"webhook_enabled"`
 	WebhookURL     string `gorm:"size:500" json:"webhook_url"`
-	WebhookSecret  string `gorm:"size:100" json:"webhook_secret"`
+	WebhookSecret  string `gorm:"size:100" json:"-"`
 
 	// 通知选项
 	NotifyPaymentDue   bool `gorm:"default:true" json:"notify_payment_due"`

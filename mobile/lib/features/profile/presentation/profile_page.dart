@@ -141,6 +141,22 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const Divider(height: 1),
                   ListTile(
+                    leading: const Icon(Icons.diversity_3_outlined),
+                    title: const Text('家庭成员'),
+                    subtitle: const Text('管理家庭记账成员和支出归属'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutePaths.family),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.auto_awesome_outlined),
+                    title: const Text('AI 财务报告'),
+                    subtitle: const Text('查看每周总结和智能分析'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutePaths.aiReports),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     leading: const Icon(Icons.summarize_outlined),
                     title: const Text('年度报告'),
                     subtitle: const Text('查看年度收支、结余和分类排行'),

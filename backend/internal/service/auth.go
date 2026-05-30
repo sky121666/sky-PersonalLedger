@@ -1,7 +1,11 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,8 +22,10 @@ var (
 	ErrInvalidPassword  = errors.New("invalid password")
 	ErrUserLocked       = errors.New("user account is locked")
 	ErrInvalidToken     = errors.New("invalid refresh token")
-	ErrPasswordTooShort = errors.New("password must be at least 6 characters")
+	ErrPasswordTooShort = errors.New("password must be at least 8 characters")
 )
+
+var authInitMu sync.Mutex
 
 type AuthService struct {
 	userRepo         *repository.UserRepository
@@ -69,25 +75,44 @@ func (s *AuthService) Init(password string) (*AuthResponse, error) {
 		return nil, err
 	}
 
-	user := &model.User{
-		Username:     "admin",
-		PasswordHash: string(hash),
-	}
-	if err := s.userRepo.Create(user); err != nil {
+	authInitMu.Lock()
+	defer authInitMu.Unlock()
+
+	var userID uint
+	if err := s.userRepo.DB().Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&model.User{}).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return ErrUserExists
+		}
+
+		user := &model.User{
+			Username:     "admin",
+			PasswordHash: string(hash),
+		}
+		if err := tx.Create(user).Error; err != nil {
+			if isUniqueUserConstraintError(err) {
+				return ErrUserExists
+			}
+			return err
+		}
+
+		if err := s.createDefaultCategoriesTx(tx, user.ID); err != nil {
+			return err
+		}
+		if err := s.createDefaultAccountsTx(tx, user.ID); err != nil {
+			return err
+		}
+
+		userID = user.ID
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
-	// Create default categories
-	if err := s.createDefaultCategories(user.ID); err != nil {
-		return nil, err
-	}
-
-	// Create default accounts
-	if err := s.createDefaultAccounts(user.ID); err != nil {
-		return nil, err
-	}
-
-	return s.generateTokens(user.ID)
+	return s.generateTokens(userID)
 }
 
 func (s *AuthService) Login(password string) (*AuthResponse, error) {
@@ -123,9 +148,19 @@ func (s *AuthService) Login(password string) (*AuthResponse, error) {
 }
 
 func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
-	rt, err := s.refreshTokenRepo.GetByToken(refreshToken)
-	if err != nil {
+	normalizedToken := strings.TrimSpace(refreshToken)
+	if normalizedToken == "" {
 		return nil, ErrInvalidToken
+	}
+
+	tokenHash := hashRefreshToken(normalizedToken)
+	rt, err := s.refreshTokenRepo.GetByToken(tokenHash)
+	if err != nil {
+		rt, err = s.refreshTokenRepo.GetByToken(normalizedToken)
+		if err != nil {
+			return nil, ErrInvalidToken
+		}
+		_ = s.refreshTokenRepo.UpdateToken(rt.ID, tokenHash)
 	}
 
 	if rt.ExpiresAt.Before(time.Now()) {
@@ -197,7 +232,7 @@ func (s *AuthService) generateTokens(userID uint) (*AuthResponse, error) {
 	rt := &model.RefreshToken{
 		ID:        uuid.New().String(),
 		UserID:    userID,
-		Token:     refreshToken,
+		Token:     hashRefreshToken(refreshToken),
 		ExpiresAt: expiresAt,
 	}
 	if err := s.refreshTokenRepo.Create(rt); err != nil {
@@ -211,7 +246,16 @@ func (s *AuthService) generateTokens(userID uint) (*AuthResponse, error) {
 	}, nil
 }
 
+func hashRefreshToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
 func (s *AuthService) createDefaultCategories(userID uint) error {
+	return s.createDefaultCategoriesTx(s.categoryRepo.DB(), userID)
+}
+
+func (s *AuthService) createDefaultCategoriesTx(tx *gorm.DB, userID uint) error {
 	type categoryDef struct {
 		Name  string
 		Icon  string
@@ -264,10 +308,14 @@ func (s *AuthService) createDefaultCategories(userID uint) error {
 		})
 	}
 
-	return s.categoryRepo.CreateBatch(categories)
+	return tx.Create(&categories).Error
 }
 
 func (s *AuthService) createDefaultAccounts(userID uint) error {
+	return s.createDefaultAccountsTx(s.accountRepo.DB(), userID)
+}
+
+func (s *AuthService) createDefaultAccountsTx(tx *gorm.DB, userID uint) error {
 	type accountDef struct {
 		Name  string
 		Type  string
@@ -295,7 +343,18 @@ func (s *AuthService) createDefaultAccounts(userID uint) error {
 		})
 	}
 
-	return s.accountRepo.CreateBatch(accounts)
+	return tx.Create(&accounts).Error
+}
+
+func isUniqueUserConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "unique") && strings.Contains(message, "user")
 }
 
 func (s *AuthService) GetUserByID(userID uint) (*model.User, error) {

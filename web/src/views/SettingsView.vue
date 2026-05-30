@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import type { AxiosResponse } from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { authApi } from '@/api/auth'
@@ -10,11 +11,12 @@ import { toast } from '@/composables/useToast'
 import {
   Lock, Upload, Download, Info, ChevronRight,
   User, Shield, Database, X, Check, LogOut, Wallet, Moon, HardDrive, Bell,
-  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone
+  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone, Sparkles
 } from 'lucide-vue-next'
-import { notificationApi } from '@/api/notification'
+import { notificationApi, type UpdateNotificationParams } from '@/api/notification'
 import { systemApi } from '@/api/system'
 import { apiTokenApi, type APIToken } from '@/api/apiToken'
+import { get, post, put } from '@/utils/request'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -35,6 +37,8 @@ const services = [
   { icon: Target, label: '预算设置', route: 'budgets', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
   { icon: Bell, label: '负债管理', route: 'reminders', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' },
   { icon: Users, label: '借贷往来', route: 'lendings', color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20' },
+  { icon: Users, label: '家庭成员', route: 'family', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+  { icon: Sparkles, label: 'AI 分析', route: 'ai', color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-900/20' },
   { icon: FileText, label: '年度报告', route: 'report', color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' }
 ]
 
@@ -80,6 +84,21 @@ const autoBackupForm = ref({
 })
 const autoBackupLoading = ref(false)
 const autoBackupFiles = ref<{filename: string, size: number, created_at: string}[]>([])
+
+interface UploadResult {
+  url: string
+}
+
+interface AutoBackupSettings {
+  enabled: boolean
+  frequency: string
+  hour: number
+  max_backups: number
+}
+
+interface AutoBackupListResponse {
+  files: {filename: string, size: number, created_at: string}[]
+}
 
 // Profile form
 const profileForm = ref({
@@ -227,17 +246,11 @@ async function handleAvatarUpload(e: Event) {
   try {
     const formData = new FormData()
     formData.append('file', file)
-    
-    const response = await fetch('/api/v1/upload/avatar', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
-      body: formData
+
+    const result = await post<UploadResult>('/upload/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
-    
-    if (!response.ok) throw new Error('上传失败')
-    
-    const result = await response.json()
-    profileForm.value.avatar = result.data.url
+    profileForm.value.avatar = result.url
     toast.success('头像上传成功')
   } catch (e: any) {
     toast.error(e.message || '上传失败')
@@ -381,7 +394,9 @@ async function openNotificationModal() {
   try {
     const settings = await notificationApi.getSettings()
     Object.assign(notificationForm.value, settings)
+    notificationForm.value.dingtalk_secret = ''
     notificationForm.value.smtp_password = ''
+    notificationForm.value.webhook_secret = ''
   } catch (e) {
     console.error('Load notification settings failed:', e)
   } finally {
@@ -389,10 +404,33 @@ async function openNotificationModal() {
   }
 }
 
+function clearNotificationSecrets() {
+  notificationForm.value.dingtalk_secret = ''
+  notificationForm.value.smtp_password = ''
+  notificationForm.value.webhook_secret = ''
+}
+
+function buildNotificationUpdateParams(): UpdateNotificationParams {
+  const {
+    dingtalk_secret: dingtalkSecret,
+    smtp_password: smtpPassword,
+    webhook_secret: webhookSecret,
+    ...params
+  } = notificationForm.value
+
+  return {
+    ...params,
+    ...(dingtalkSecret.trim() ? { dingtalk_secret: dingtalkSecret.trim() } : {}),
+    ...(smtpPassword.trim() ? { smtp_password: smtpPassword.trim() } : {}),
+    ...(webhookSecret.trim() ? { webhook_secret: webhookSecret.trim() } : {})
+  }
+}
+
 async function saveNotificationSettings() {
   notificationLoading.value = true
   try {
-    await notificationApi.updateSettings(notificationForm.value)
+    await notificationApi.updateSettings(buildNotificationUpdateParams())
+    clearNotificationSecrets()
     toast.success('保存成功')
     showNotificationModal.value = false
   } catch (e: any) {
@@ -465,8 +503,8 @@ function openPasswordModal() {
 async function handleChangePassword() {
   passwordError.value = ''
   
-  if (passwordForm.value.newPassword.length < 6) {
-    passwordError.value = '新密码至少6位'
+  if (passwordForm.value.newPassword.length < 8) {
+    passwordError.value = '新密码至少8位'
     return
   }
   if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
@@ -504,13 +542,10 @@ async function handleBackup() {
   backupLoading.value = true
   toast.info('正在创建备份...')
   try {
-    const response = await fetch('/api/v1/backup', {
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
+    const response = await get<AxiosResponse<Blob>>('/backup', {
+      responseType: 'blob'
     })
-    
-    if (!response.ok) throw new Error('备份失败')
-    
-    const blob = await response.blob()
+    const blob = response.data
     const filename = `backup_${dayjs().format('YYYYMMDD_HHmmss')}.json`
     downloadBlob(blob, filename)
     toast.success('备份成功')
@@ -540,15 +575,9 @@ async function handleRestore() {
     const formData = new FormData()
     formData.append('file', restoreFile.value)
 
-    const response = await fetch('/api/v1/restore', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
-      body: formData
+    await post('/restore', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
-
-    if (!response.ok) throw new Error('恢复失败')
-
-    await response.json()
     showRestoreModal.value = false
     restoreFile.value = null
     toast.success(`恢复成功`)
@@ -567,20 +596,16 @@ async function openAutoBackupModal() {
   autoBackupLoading.value = true
   try {
     const [settings, files] = await Promise.all([
-      fetch('/api/v1/backup/auto/settings', {
-        headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
-      }).then(r => r.json()),
-      fetch('/api/v1/backup/auto/list', {
-        headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
-      }).then(r => r.json())
+      get<AutoBackupSettings>('/backup/auto/settings'),
+      get<AutoBackupListResponse>('/backup/auto/list')
     ])
     autoBackupForm.value = {
-      enabled: settings.data?.enabled || false,
-      frequency: settings.data?.frequency || 'daily',
-      hour: settings.data?.hour ?? 3,
-      max_backups: settings.data?.max_backups || 10
+      enabled: settings.enabled || false,
+      frequency: settings.frequency || 'daily',
+      hour: settings.hour ?? 3,
+      max_backups: settings.max_backups || 10
     }
-    autoBackupFiles.value = files.data?.files || []
+    autoBackupFiles.value = files.files || []
   } catch (e) {
     console.error('Load auto backup settings failed:', e)
   } finally {
@@ -591,14 +616,7 @@ async function openAutoBackupModal() {
 async function saveAutoBackupSettings() {
   autoBackupLoading.value = true
   try {
-    await fetch('/api/v1/backup/auto/settings', {
-      method: 'PUT',
-      headers: { 
-        'Authorization': `Bearer ${authStore.accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(autoBackupForm.value)
-    })
+    await put('/backup/auto/settings', autoBackupForm.value)
     toast.success('自动备份设置已保存')
     showAutoBackupModal.value = false
   } catch (e: any) {
@@ -611,16 +629,11 @@ async function saveAutoBackupSettings() {
 async function triggerAutoBackup() {
   autoBackupLoading.value = true
   try {
-    await fetch('/api/v1/backup/auto/trigger', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
-    })
+    await post('/backup/auto/trigger')
     toast.success('备份已触发')
     // Reload file list
-    const files = await fetch('/api/v1/backup/auto/list', {
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` }
-    }).then(r => r.json())
-    autoBackupFiles.value = files.data?.files || []
+    const files = await get<AutoBackupListResponse>('/backup/auto/list')
+    autoBackupFiles.value = files.files || []
   } catch (e: any) {
     toast.error(e.message || '备份失败')
   } finally {
@@ -850,7 +863,7 @@ function formatFileSize(bytes: number) {
               <input
                 v-model="passwordForm.newPassword"
                 type="password"
-                placeholder="至少6位"
+                placeholder="至少8位"
                 class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
               />
             </div>
@@ -1030,7 +1043,7 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">加签密钥（可选）</label>
-                <input v-model="notificationForm.dingtalk_secret" type="text" placeholder="SEC..." class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input v-model="notificationForm.dingtalk_secret" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'dingtalk'" @click="testNotification('dingtalk')">
                 {{ testingChannel === 'dingtalk' ? '测试中...' : '发送测试消息' }}
@@ -1065,7 +1078,7 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">密码/授权码</label>
-                <input v-model="notificationForm.smtp_password" type="password" placeholder="留空则使用已保存的密码" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input v-model="notificationForm.smtp_password" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密码" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                 <p class="text-xs text-blue-600 dark:text-blue-400">
@@ -1095,7 +1108,7 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">密钥（可选）</label>
-                <input v-model="notificationForm.webhook_secret" type="text" placeholder="用于签名验证" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input v-model="notificationForm.webhook_secret" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'webhook'" @click="testNotification('webhook')">
                 {{ testingChannel === 'webhook' ? '测试中...' : '发送测试请求' }}

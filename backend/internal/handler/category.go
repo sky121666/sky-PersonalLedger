@@ -22,7 +22,7 @@ func (h *CategoryHandler) List(c *gin.Context) {
 
 	categories, err := h.service.List(userID, categoryType)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list categories")
 		return
 	}
 
@@ -34,13 +34,13 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 
 	var req service.CreateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	category, err := h.service.Create(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to create category")
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 
 	var req service.UpdateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

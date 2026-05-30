@@ -21,7 +21,7 @@ func (h *TemplateHandler) List(c *gin.Context) {
 
 	templates, err := h.service.List(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list templates")
 		return
 	}
 
@@ -33,13 +33,13 @@ func (h *TemplateHandler) Create(c *gin.Context) {
 
 	var req service.CreateTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
 	template, err := h.service.Create(userID, req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to create template")
 		return
 	}
 
@@ -64,7 +64,7 @@ func (h *TemplateHandler) Apply(c *gin.Context) {
 
 	var req service.ApplyTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 

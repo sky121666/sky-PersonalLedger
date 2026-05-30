@@ -31,7 +31,7 @@ on:
 
 jobs:
   android:
-    name: Build Android APK
+    name: Build Android APK and AAB
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     
@@ -118,16 +118,99 @@ jobs:
         working-directory: mobile
         run: flutter build apk --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
 
+      - name: Build App Bundle
+        if: inputs.version != ''
+        working-directory: mobile
+        run: flutter build appbundle --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
+
       - name: Rename APK
         if: inputs.version != ''
         run: |
           mv mobile/build/app/outputs/flutter-apk/app-release.apk \
              mobile/build/app/outputs/flutter-apk/personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk
 
-      - name: Upload APK
+      - name: Rename App Bundle
+        if: inputs.version != ''
+        run: |
+          mv mobile/build/app/outputs/bundle/release/app-release.aab \
+             mobile/build/app/outputs/bundle/release/personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab
+
+      - name: Verify Android release signatures
+        if: inputs.version != ''
+        run: |
+          APK_PATH="mobile/build/app/outputs/flutter-apk/personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk"
+          AAB_PATH="mobile/build/app/outputs/bundle/release/personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab"
+          SDK_ROOTS=()
+          if [ -n "${ANDROID_HOME:-}" ]; then
+            SDK_ROOTS+=("$ANDROID_HOME")
+          fi
+          if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ "${ANDROID_SDK_ROOT:-}" != "${ANDROID_HOME:-}" ]; then
+            SDK_ROOTS+=("$ANDROID_SDK_ROOT")
+          fi
+          SDK_ROOTS+=(
+            "$HOME/Library/Android/sdk"
+            "/usr/local/lib/android/sdk"
+            "/opt/android-sdk"
+          )
+          APKSIGNER=""
+          for SDK_ROOT in "${SDK_ROOTS[@]}"; do
+            if [ -d "$SDK_ROOT/build-tools" ]; then
+              APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner -print |
+                awk '
+                  function version_key(path, parts, count, key, i) {
+                    count = split(path, parts, "/")
+                    key = parts[count - 1]
+                    gsub(/[^0-9.]/, ".", key)
+                    count = split(key, parts, ".")
+                    key = ""
+                    for (i = 1; i <= 4; i++) {
+                      key = key sprintf("%08d", parts[i] + 0)
+                    }
+                    return key
+                  }
+                  {
+                    key = version_key($0)
+                    if (key >= best_key) {
+                      best_key = key
+                      best_path = $0
+                    }
+                  }
+                  END {
+                    if (best_path != "") print best_path
+                  }
+                ')"
+              if [ -n "$APKSIGNER" ]; then
+                break
+              fi
+            fi
+          done
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error title=Missing apksigner::Android build-tools apksigner was not found"
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs "$APK_PATH"
+          jarsigner -verify -strict -certs "$AAB_PATH"
+
+      - name: Generate Android checksums
+        if: inputs.version != ''
+        run: |
+          (
+            cd mobile/build/app/outputs/flutter-apk
+            shasum -a 256 personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk > personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk.sha256
+          )
+          (
+            cd mobile/build/app/outputs/bundle/release
+            shasum -a 256 personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab > personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab.sha256
+          )
+
+      - name: Upload Android artifacts
         if: inputs.version != ''
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: mobile/build/app/outputs/flutter-apk/personal-ledger-*.apk
+          name: android-release
+          path: |
+            mobile/build/app/outputs/flutter-apk/personal-ledger-*.apk
+            mobile/build/app/outputs/flutter-apk/personal-ledger-*.apk.sha256
+            mobile/build/app/outputs/bundle/release/personal-ledger-*.aab
+            mobile/build/app/outputs/bundle/release/personal-ledger-*.aab.sha256
           retention-days: ${{ inputs.version != '' && 90 || 7 }}

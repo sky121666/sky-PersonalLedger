@@ -10,7 +10,7 @@ export interface NotificationSetting {
 
   dingtalk_enabled: boolean
   dingtalk_webhook: string
-  dingtalk_secret: string
+  dingtalk_secret?: string
 
   email_enabled: boolean
   smtp_host: string
@@ -21,7 +21,7 @@ export interface NotificationSetting {
 
   webhook_enabled: boolean
   webhook_url: string
-  webhook_secret: string
+  webhook_secret?: string
 
   notify_payment_due: boolean
   notify_budget_alert: boolean
@@ -38,7 +38,7 @@ export interface UpdateNotificationParams {
 
   dingtalk_enabled: boolean
   dingtalk_webhook: string
-  dingtalk_secret: string
+  dingtalk_secret?: string
 
   email_enabled: boolean
   smtp_host: string
@@ -50,7 +50,7 @@ export interface UpdateNotificationParams {
 
   webhook_enabled: boolean
   webhook_url: string
-  webhook_secret: string
+  webhook_secret?: string
 
   notify_payment_due: boolean
   notify_budget_alert: boolean

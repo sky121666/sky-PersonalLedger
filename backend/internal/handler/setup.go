@@ -75,7 +75,7 @@ func (h *SetupHandler) TestDatabase(c *gin.Context) {
 
 	var req TestDatabaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request: "+err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -86,7 +86,7 @@ func (h *SetupHandler) TestDatabase(c *gin.Context) {
 	}
 
 	if err := database.TestConnection(dbConfig); err != nil {
-		response.BadRequest(c, "database test failed: "+err.Error())
+		response.BadRequest(c, "database test failed")
 		return
 	}
 
@@ -106,7 +106,7 @@ func (h *SetupHandler) Apply(c *gin.Context) {
 
 	var req TestDatabaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request: "+err.Error())
+		response.BadRequest(c, "invalid request")
 		return
 	}
 
@@ -116,12 +116,12 @@ func (h *SetupHandler) Apply(c *gin.Context) {
 		return
 	}
 	if err := database.TestConnection(dbConfig); err != nil {
-		response.BadRequest(c, "database test failed: "+err.Error())
+		response.BadRequest(c, "database test failed")
 		return
 	}
 
 	if err := writeSetupDatabaseConfig(h.setup.ConfigPath, dbConfig); err != nil {
-		response.InternalError(c, "failed to write setup config: "+err.Error())
+		internalServerError(c, err, "failed to write setup config")
 		return
 	}
 

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ChevronLeft, Plus, Trash2, Edit2, X, Target, AlertCircle, ChevronDown } from 'lucide-vue-next'
 import { budgetApi, type Budget } from '@/api/budget'
 import { categoryApi, type Category } from '@/api/category'
+import { familyApi, type FamilyMember } from '@/api/family'
 import { toast } from '@/composables/useToast'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 
@@ -12,15 +13,18 @@ const router = useRouter()
 const loading = ref(false)
 const totalBudget = ref<Budget | null>(null)
 const categoryBudgets = ref<Budget[]>([])
+const memberBudgets = ref<Budget[]>([])
 const categories = ref<Category[]>([])
+const familyMembers = ref<FamilyMember[]>([])
 
 // Dialog state
 const showDialog = ref(false)
 const editingBudget = ref<Budget | null>(null)
-const isEditingTotal = ref(false)
+const budgetMode = ref<'total' | 'category' | 'member'>('category')
 const form = ref({
   amount: '',
-  categoryId: ''
+  categoryId: '',
+  memberId: ''
 })
 
 // Delete confirm
@@ -34,6 +38,8 @@ const availableCategories = computed(() => {
   }
   return categories.value.filter(c => c.type === 'expense' && !usedIds.has(c.id))
 })
+const enabledFamilyMembers = computed(() => familyMembers.value.filter(member => member.is_enabled))
+const expenseCategories = computed(() => categories.value.filter(c => c.type === 'expense'))
 
 // Computed for potential future use
 const _totalSpent = computed(() => {
@@ -54,7 +60,13 @@ async function loadData() {
     ])
     totalBudget.value = bData.total_budget
     categoryBudgets.value = bData.category_budgets || []
+    memberBudgets.value = bData.member_budgets || []
     categories.value = cData
+    try {
+      familyMembers.value = await familyApi.listMembers()
+    } catch {
+      familyMembers.value = []
+    }
   } catch (e: any) {
     toast.error('加载数据失败')
   } finally {
@@ -67,21 +79,34 @@ function goBack() {
 }
 
 function openTotalForm() {
-  isEditingTotal.value = true
+  budgetMode.value = 'total'
   editingBudget.value = null
   form.value = {
     amount: totalBudget.value?.amount.toString() || '',
-    categoryId: ''
+    categoryId: '',
+    memberId: ''
   }
   showDialog.value = true
 }
 
 function openCategoryForm(budget?: Budget) {
-  isEditingTotal.value = false
+  budgetMode.value = 'category'
   editingBudget.value = budget || null
   form.value = {
     amount: budget?.amount.toString() || '',
-    categoryId: budget?.category_id || (availableCategories.value[0]?.id || '')
+    categoryId: budget?.category_id || (availableCategories.value[0]?.id || ''),
+    memberId: ''
+  }
+  showDialog.value = true
+}
+
+function openMemberForm(budget?: Budget) {
+  budgetMode.value = 'member'
+  editingBudget.value = budget || null
+  form.value = {
+    amount: budget?.amount.toString() || '',
+    categoryId: budget?.category_id || '',
+    memberId: budget?.member_id || (enabledFamilyMembers.value[0]?.id || '')
   }
   showDialog.value = true
 }
@@ -89,7 +114,7 @@ function openCategoryForm(budget?: Budget) {
 function closeDialog() {
   showDialog.value = false
   editingBudget.value = null
-  isEditingTotal.value = false
+  budgetMode.value = 'category'
 }
 
 async function submitForm() {
@@ -100,9 +125,20 @@ async function submitForm() {
   }
 
   try {
-    if (isEditingTotal.value) {
+    if (budgetMode.value === 'total') {
       await budgetApi.setTotal(amount)
       toast.success('总预算已保存')
+    } else if (budgetMode.value === 'member') {
+      if (!form.value.memberId) {
+        toast.warning('请选择家庭成员')
+        return
+      }
+      if (form.value.categoryId) {
+        await budgetApi.setCategory(form.value.categoryId, amount, undefined, form.value.memberId)
+      } else {
+        await budgetApi.setTotal(amount, undefined, form.value.memberId)
+      }
+      toast.success('成员预算已保存')
     } else {
       if (!form.value.categoryId) {
         toast.warning('请选择分类')
@@ -157,6 +193,12 @@ function getCategoryIcon(catId: string | null | undefined) {
   const cat = categories.value.find(c => c.id === catId)
   return cat?.icon || '📦'
 }
+
+function getDialogTitle() {
+  if (budgetMode.value === 'total') return '设置总预算'
+  if (budgetMode.value === 'member') return editingBudget.value ? '编辑成员预算' : '添加成员预算'
+  return editingBudget.value ? '编辑分类预算' : '添加分类预算'
+}
 </script>
 
 <template>
@@ -173,7 +215,7 @@ function getCategoryIcon(catId: string | null | undefined) {
           </div>
           <div>
             <h1 class="text-xl font-bold text-gray-900 dark:text-white">预算管理</h1>
-            <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ categoryBudgets.length }} 个分类预算</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ categoryBudgets.length }} 个分类预算 · {{ memberBudgets.length }} 个成员预算</div>
           </div>
         </div>
         <button
@@ -184,6 +226,70 @@ function getCategoryIcon(catId: string | null | undefined) {
         >
           <Plus :size="20" />
         </button>
+      </div>
+
+      <!-- Member Budgets -->
+      <div>
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white">家庭成员预算</h2>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">按成员控制家庭支出额度，可选绑定到具体分类</p>
+          </div>
+          <button
+            class="px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-xl text-sm font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="enabledFamilyMembers.length === 0"
+            @click="openMemberForm()"
+          >
+            添加成员预算
+          </button>
+        </div>
+
+        <div v-if="memberBudgets.length === 0" class="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 text-center text-sm text-gray-500">
+          {{ enabledFamilyMembers.length === 0 ? '先在家庭成员页创建成员，再设置成员预算。' : '暂无成员预算，可为家庭成员设置月度支出额度。' }}
+        </div>
+        <div v-else class="space-y-3">
+          <div
+            v-for="budget in memberBudgets"
+            :key="budget.id"
+            class="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm group"
+          >
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <div class="font-semibold text-gray-900 dark:text-white">{{ budget.member_name || '家庭成员' }}</div>
+                <div class="text-xs text-gray-400">{{ budget.category_name || '总预算' }} · 预算 ¥{{ formatMoney(budget.amount) }}</div>
+              </div>
+              <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                  @click="openMemberForm(budget)"
+                >
+                  <Edit2 :size="14" />
+                </button>
+                <button
+                  class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"
+                  @click="confirmDelete(budget.id)"
+                >
+                  <Trash2 :size="14" />
+                </button>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <div class="flex justify-between text-xs">
+                <span class="text-gray-400">已用 ¥{{ formatMoney(budget.spent || 0) }}</span>
+                <span class="font-bold" :class="getPercentTextColor(budget.percentage || 0)">
+                  {{ (budget.percentage || 0).toFixed(0) }}%
+                </span>
+              </div>
+              <div class="h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all duration-500"
+                  :class="getPercentColor(budget.percentage || 0)"
+                  :style="{ width: `${Math.min(budget.percentage || 0, 100)}%` }"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -338,7 +444,7 @@ function getCategoryIcon(catId: string | null | undefined) {
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeDialog"></div>
         <div class="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-3xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-gray-700/50">
           <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-gray-700/50 bg-transparent">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ isEditingTotal ? '设置总预算' : (editingBudget ? '编辑分类预算' : '添加分类预算') }}</h3>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ getDialogTitle() }}</h3>
             <button class="p-2 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 rounded-xl transition" @click="closeDialog">
               <X :size="20" class="text-gray-500" />
             </button>
@@ -346,7 +452,23 @@ function getCategoryIcon(catId: string | null | undefined) {
           
           <div class="p-6 space-y-5">
             <!-- Category Selection (for category budget only) -->
-            <div v-if="!isEditingTotal">
+            <div v-if="budgetMode === 'member'">
+              <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">选择成员</label>
+              <div class="relative">
+                <select
+                  v-model="form.memberId"
+                  class="w-full h-12 px-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border-0 outline-none appearance-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white"
+                  :disabled="!!editingBudget"
+                >
+                  <option v-for="member in enabledFamilyMembers" :key="member.id" :value="member.id">
+                    {{ member.name }}
+                  </option>
+                </select>
+                <ChevronDown class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" :size="20" />
+              </div>
+            </div>
+
+            <div v-if="budgetMode === 'category' || budgetMode === 'member'">
               <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">选择分类</label>
               <div class="relative">
                 <select
@@ -354,7 +476,8 @@ function getCategoryIcon(catId: string | null | undefined) {
                   class="w-full h-12 px-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border-0 outline-none appearance-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white"
                   :disabled="!!editingBudget"
                 >
-                  <option v-for="cat in availableCategories" :key="cat.id" :value="cat.id">
+                  <option v-if="budgetMode === 'member'" value="">总预算</option>
+                  <option v-for="cat in (budgetMode === 'member' ? expenseCategories : availableCategories)" :key="cat.id" :value="cat.id">
                     {{ cat.icon }} {{ cat.name }}
                   </option>
                 </select>

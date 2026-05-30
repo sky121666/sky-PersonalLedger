@@ -62,7 +62,6 @@ ENV LEDGER_SERVER_PORT=8080 \
     LEDGER_LOG_FORMAT=json \
     # 安全配置
     LEDGER_SECURITY_BASE_PATH="" \
-    LEDGER_SECURITY_API_TOKEN="" \
     # 存储配置
     LEDGER_STORAGE_UPLOAD_PATH=/data/uploads \
     LEDGER_STORAGE_BACKUP_PATH=/data/backups \
@@ -77,6 +76,6 @@ EXPOSE 8080
 VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:8080/ || exit 1
+    CMD wget --quiet --tries=1 --output-document=/dev/null http://localhost:8080/api/v1/health || exit 1
 
 CMD ["/app/server"]
