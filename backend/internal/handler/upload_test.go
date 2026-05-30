@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -106,6 +107,32 @@ func TestUploadDeleteRejectsUserRootPath(t *testing.T) {
 	}
 }
 
+func TestUploadListRejectsTraversalScope(t *testing.T) {
+	handler, uploadPath, _ := newUploadDownloadTestHandler(t)
+	writeUploadFixture(t, uploadPath, "2/transactions/t/b.txt", "other user attachment")
+
+	w := performUploadListRequest(handler, 1, "..", "2")
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestUploadServiceRejectsTraversalRefID(t *testing.T) {
+	_, uploadPath, _ := newUploadDownloadTestHandler(t)
+	uploadService := service.NewUploadService(&config.StorageConfig{
+		UploadPath:   uploadPath,
+		MaxFileSize:  10,
+		AllowedTypes: "txt",
+	})
+
+	_, err := uploadService.ListFiles(1, "transactions", "../../../2")
+
+	if !errors.Is(err, service.ErrUploadScopeInvalid) {
+		t.Fatalf("err = %v, want ErrUploadScopeInvalid", err)
+	}
+}
+
 func newUploadDownloadTestHandler(t *testing.T) (*UploadHandler, string, *jwt.Manager) {
 	t.Helper()
 
@@ -151,6 +178,25 @@ func performUploadDeleteRequest(handler *UploadHandler, userID uint, path string
 	req := httptest.NewRequest(
 		http.MethodDelete,
 		"/upload?path="+url.QueryEscape(path),
+		nil,
+	)
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
+func performUploadListRequest(handler *UploadHandler, userID uint, category string, refID string) *httptest.ResponseRecorder {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/upload/list", func(c *gin.Context) {
+		c.Set("userID", userID)
+		handler.List(c)
+	})
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/upload/list?category="+url.QueryEscape(category)+"&ref_id="+url.QueryEscape(refID),
 		nil,
 	)
 

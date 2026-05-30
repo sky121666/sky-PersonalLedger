@@ -108,6 +108,10 @@ func (h *UploadHandler) List(c *gin.Context) {
 
 	files, err := h.uploadService.ListFiles(userID, category, refID)
 	if err != nil {
+		if errors.Is(err, service.ErrUploadScopeInvalid) {
+			response.BadRequest(c, "invalid upload scope")
+			return
+		}
 		response.InternalError(c, err.Error())
 		return
 	}
