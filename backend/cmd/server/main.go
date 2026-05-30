@@ -272,7 +272,7 @@ func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.Syst
 		if !checkEntryAccess(c) {
 			return
 		}
-		c.File(filepath.Join(webPath, "assets", c.Param("filepath")))
+		serveStaticFile(c, filepath.Join(webPath, "assets"), c.Param("filepath"))
 	})
 
 	// Serve static files in root (favicon.svg, manifest.json, etc.)
@@ -305,4 +305,35 @@ func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.Syst
 		// For SPA, serve index.html
 		c.File(filepath.Join(webPath, "index.html"))
 	})
+}
+
+func serveStaticFile(c *gin.Context, rootPath string, requestPath string) {
+	cleanPath := filepath.Clean(strings.TrimPrefix(requestPath, "/"))
+	if cleanPath == "." ||
+		cleanPath == ".." ||
+		filepath.IsAbs(cleanPath) ||
+		strings.HasPrefix(cleanPath, ".."+string(os.PathSeparator)) {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+
+	fullPath := filepath.Join(rootPath, cleanPath)
+	absRootPath, _ := filepath.Abs(rootPath)
+	absFullPath, _ := filepath.Abs(fullPath)
+	if absFullPath != absRootPath && !strings.HasPrefix(absFullPath, absRootPath+string(os.PathSeparator)) {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		c.JSON(404, gin.H{"error": "not found"})
+		return
+	}
+	if info.IsDir() {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+
+	c.File(fullPath)
 }

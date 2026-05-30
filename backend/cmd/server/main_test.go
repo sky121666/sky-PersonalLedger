@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sky/personal-ledger/internal/database"
+	"github.com/sky/personal-ledger/internal/repository"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/jwt"
 )
@@ -111,6 +113,24 @@ func TestSetupUploadFilesRejectsDirectoryRequests(t *testing.T) {
 	}
 }
 
+func TestSetupStaticFilesRejectsAssetsDirectoryRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	webPath := t.TempDir()
+	writeServerWebFixture(t, webPath, "assets/app.js", "console.log('ok')")
+	writeServerWebFixture(t, webPath, "index.html", "<div id=\"app\"></div>")
+
+	router := gin.New()
+	setupStaticFiles(router, webPath, newServerSystemService(t))
+
+	request := httptest.NewRequest(http.MethodGet, "/assets/", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403; body=%s", response.Code, response.Body.String())
+	}
+}
+
 func writeServerUploadFixture(t *testing.T, uploadPath string, relativePath string, content string) {
 	t.Helper()
 
@@ -121,4 +141,26 @@ func writeServerUploadFixture(t *testing.T, uploadPath string, relativePath stri
 	if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
 		t.Fatalf("write fixture: %v", err)
 	}
+}
+
+func writeServerWebFixture(t *testing.T, webPath string, relativePath string, content string) {
+	t.Helper()
+
+	fullPath := filepath.Join(webPath, relativePath)
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+		t.Fatalf("create web fixture directory: %v", err)
+	}
+	if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
+		t.Fatalf("write web fixture: %v", err)
+	}
+}
+
+func newServerSystemService(t *testing.T) *service.SystemService {
+	t.Helper()
+
+	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))
+	if err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	return service.NewSystemService(repository.NewRepositories(db).System)
 }
