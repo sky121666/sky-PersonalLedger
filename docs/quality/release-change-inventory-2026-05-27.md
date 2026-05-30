@@ -207,6 +207,8 @@ README.md
 backend/cmd/server/main.go
 backend/cmd/server/main_test.go
 backend/internal/config/config.go
+backend/internal/handler/auth.go
+backend/internal/handler/auth_test.go
 backend/internal/handler/attachment.go
 backend/internal/handler/attachment_test.go
 backend/internal/handler/error_response.go

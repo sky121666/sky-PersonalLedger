@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/sky/personal-ledger/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type AuthHandler struct {
@@ -48,7 +50,11 @@ func (h *AuthHandler) Init(c *gin.Context) {
 			response.BadRequest(c, "already initialized")
 			return
 		}
-		response.InternalError(c, err.Error())
+		if errors.Is(err, service.ErrPasswordTooShort) {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		internalServerError(c, err, "failed to initialize authentication")
 		return
 	}
 
@@ -119,7 +125,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 func (h *AuthHandler) Logout(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	if err := h.service.Logout(userID); err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to logout")
 		return
 	}
 	response.Success(c, nil)
@@ -144,7 +150,11 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 			response.BadRequest(c, "wrong old password")
 			return
 		}
-		response.InternalError(c, err.Error())
+		if errors.Is(err, service.ErrPasswordTooShort) {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		internalServerError(c, err, "failed to change password")
 		return
 	}
 
@@ -155,7 +165,11 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	profile, err := h.service.GetProfile(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.NotFound(c, "profile not found")
+			return
+		}
+		internalServerError(c, err, "failed to load profile")
 		return
 	}
 	response.Success(c, profile)
@@ -179,7 +193,11 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 	profile, err := h.service.UpdateProfile(userID, req.Nickname, req.Email, req.Avatar, req.Bio)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.NotFound(c, "profile not found")
+			return
+		}
+		internalServerError(c, err, "failed to update profile")
 		return
 	}
 	response.Success(c, profile)
@@ -202,14 +220,18 @@ func (h *AuthHandler) VerifyAPIToken(c *gin.Context) {
 
 	userID, err := h.apiToken.ValidateToken(parts[1])
 	if err != nil {
-		response.Unauthorized(c, err.Error())
+		response.Unauthorized(c, "invalid token")
 		return
 	}
 
 	// 获取用户信息
 	profile, err := h.service.GetProfile(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.NotFound(c, "profile not found")
+			return
+		}
+		internalServerError(c, err, "failed to load profile")
 		return
 	}
 
