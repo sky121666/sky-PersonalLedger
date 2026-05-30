@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -214,6 +215,73 @@ func TestRestoreRejectsMalformedBackupPayload(t *testing.T) {
 
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("restore status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestRestorePreRestoreFailureDoesNotExposeBackupPath(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))
+	if err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	repos := repository.NewRepositories(db)
+	backupSvc := service.NewBackupService(
+		db,
+		repos.Account,
+		repos.Category,
+		repos.Transaction,
+		repos.Budget,
+		repos.Reminder,
+		repos.Lending,
+		repos.Template,
+		repos.Notification,
+		repos.Tag,
+		repos.User,
+		repos.FamilyMember,
+		repos.AIReport,
+	)
+	backupPathFile := filepath.Join(t.TempDir(), "backup-path-file")
+	if err := os.WriteFile(backupPathFile, []byte("not a directory"), 0600); err != nil {
+		t.Fatalf("write backup path file: %v", err)
+	}
+	backupHandler := NewBackupHandler(
+		backupSvc,
+		service.NewBackupScheduler(backupSvc, repos.System, repos.User, backupPathFile),
+	)
+
+	user := &model.User{Username: "admin", PasswordHash: "hash"}
+	if err := repos.User.Create(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	restoreBackup := &service.FullBackupData{
+		Version:    "2.1",
+		ExportedAt: time.Now(),
+		Accounts: []model.Account{{
+			ID:             uuid.NewString(),
+			UserID:         user.ID,
+			Name:           "Imported Cash",
+			Type:           "cash",
+			CurrentBalance: 12,
+		}},
+	}
+	request := newRestoreRequest(t, restoreBackup)
+	response := httptest.NewRecorder()
+	router := gin.New()
+	router.POST("/restore", func(c *gin.Context) {
+		c.Set("userID", user.ID)
+		backupHandler.Restore(c)
+	})
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("restore status = %d, want 500; body = %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "failed to create pre-restore backup") {
+		t.Fatalf("response body = %s, want generic pre-restore failure", response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), backupPathFile) {
+		t.Fatalf("response exposed backup path: %s", response.Body.String())
 	}
 }
 

@@ -25,7 +25,7 @@ func (h *BackupHandler) Create(c *gin.Context) {
 
 	backup, err := h.backupService.CreateBackup(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to create backup")
 		return
 	}
 
@@ -48,7 +48,7 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 	if h.backupScheduler != nil {
 		preRestoreBackup, err = h.backupScheduler.CreatePreRestoreBackup(userID)
 		if err != nil {
-			response.InternalError(c, "failed to create pre-restore backup: "+err.Error())
+			internalServerError(c, err, "failed to create pre-restore backup")
 			return
 		}
 	}
@@ -59,7 +59,7 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 			response.BadRequest(c, err.Error())
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to restore backup")
 		return
 	}
 
@@ -73,7 +73,7 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 func (h *BackupHandler) GetAutoBackupSettings(c *gin.Context) {
 	settings, err := h.backupScheduler.GetSettings()
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to load backup settings")
 		return
 	}
 	response.Success(c, settings)
@@ -105,7 +105,7 @@ func (h *BackupHandler) UpdateAutoBackupSettings(c *gin.Context) {
 			response.BadRequest(c, err.Error())
 			return
 		}
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to save backup settings")
 		return
 	}
 
@@ -114,7 +114,7 @@ func (h *BackupHandler) UpdateAutoBackupSettings(c *gin.Context) {
 
 func (h *BackupHandler) TriggerAutoBackup(c *gin.Context) {
 	if err := h.backupScheduler.TriggerBackup(); err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to trigger backup")
 		return
 	}
 	response.Success(c, gin.H{"message": "backup triggered"})
@@ -123,7 +123,7 @@ func (h *BackupHandler) TriggerAutoBackup(c *gin.Context) {
 func (h *BackupHandler) ListAutoBackups(c *gin.Context) {
 	files, err := h.backupScheduler.ListBackups()
 	if err != nil {
-		response.InternalError(c, err.Error())
+		internalServerError(c, err, "failed to list backups")
 		return
 	}
 	response.Success(c, gin.H{"files": files})
