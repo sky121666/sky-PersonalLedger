@@ -45,7 +45,7 @@ DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z RUN_DOCKER_RELEASE_SMOKE=1 ./s
 | Item | Required Evidence | Status | Evidence |
 | --- | --- | --- | --- |
 | Local Docker build smoke | Current worktree builds and serves HTTP from a temporary container | PASS | `./scripts/check-docker-local-smoke.sh`, image `personal-ledger:local-smoke`, HTTP served on temporary localhost port |
-| Local compose smoke | Current worktree image starts through Docker Compose with a persistent `/data` mount and JWT secret guard | PASS | `./scripts/check-docker-compose-local-smoke.sh`, image `personal-ledger:local-smoke`, HTTP served on temporary localhost port, `ledger.db`, `uploads`, and `backups` created |
+| Local compose smoke | Current worktree image starts through Docker Compose with a persistent `/data` mount, image healthcheck, and JWT secret guard | PASS | `./scripts/check-docker-compose-local-smoke.sh`, image `personal-ledger:local-smoke`, HTTP served on temporary localhost port, container healthcheck became healthy, `ledger.db`, `uploads`, and `backups` created |
 | GHCR version tag | `ghcr.io/<owner>/<repo>:X.Y.Z` exists after tag release | PENDING |  |
 | Multi-arch manifest | Image includes `linux/amd64` and `linux/arm64` | PENDING |  |
 | Latest tag policy | `latest` is published only by intended release workflow | PENDING |  |

@@ -38,7 +38,7 @@ Latest local run on 2026-05-27: **PASS**.
 | Release change inventory | PASS |
 | Final release runbook | PASS |
 | Local Docker smoke | PASS, built `personal-ledger:local-smoke` and served HTTP on a temporary localhost port |
-| Local Docker Compose smoke | PASS, built `personal-ledger:local-smoke`, served HTTP on a temporary localhost port, verified JWT guard and persistent `ledger.db` / `uploads` / `backups` |
+| Local Docker Compose smoke | PASS, built `personal-ledger:local-smoke`, served HTTP on a temporary localhost port, verified image healthcheck, JWT guard, and persistent `ledger.db` / `uploads` / `backups` |
 | Backend `go test ./...` | PASS |
 | Web `pnpm install --frozen-lockfile && pnpm run build` | PASS |
 | Flutter analyze | PASS |

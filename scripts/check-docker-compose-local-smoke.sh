@@ -92,6 +92,23 @@ if ! curl -fsS "$health_url" >/dev/null 2>&1; then
   exit 1
 fi
 
+container_id="$(cd "$SMOKE_DIR" && docker compose ps -q personal-ledger)"
+health_status=""
+for _ in $(seq 1 10); do
+  health_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$container_id")"
+  if [[ "$health_status" == "healthy" ]]; then
+    break
+  fi
+  sleep 3
+done
+
+if [[ "$health_status" != "healthy" ]]; then
+  docker inspect --format '{{json .State.Health}}' "$container_id" >&2 || true
+  docker compose -f "$SMOKE_DIR/docker-compose.yml" logs >&2 || true
+  echo "Docker compose image HEALTHCHECK did not become healthy; status=${health_status:-unknown}." >&2
+  exit 1
+fi
+
 for required_path in "$SMOKE_DIR/data/ledger.db" "$SMOKE_DIR/data/uploads" "$SMOKE_DIR/data/backups"; do
   if [[ ! -e "$required_path" ]]; then
     echo "Expected persistent path missing: $required_path" >&2
@@ -101,4 +118,5 @@ done
 
 echo "Docker compose local smoke checks passed for $IMAGE on 127.0.0.1:$PORT."
 echo "JWT guard: PASS"
+echo "Image healthcheck: healthy"
 echo "Persistent paths: ledger.db, uploads, backups"

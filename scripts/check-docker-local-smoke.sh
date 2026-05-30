@@ -18,6 +18,7 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 docker version >/dev/null
+mkdir -p "$DATA_DIR/uploads" "$DATA_DIR/backups"
 
 if [[ "${SKIP_DOCKER_BUILD:-0}" != "1" ]]; then
   docker build \
@@ -57,12 +58,40 @@ host_port="${port_line##*:}"
 health_url="http://127.0.0.1:$host_port/api/v1/health"
 for _ in $(seq 1 30); do
   if curl -fsS "$health_url" >/dev/null 2>&1; then
-    echo "Docker local smoke checks passed for $IMAGE on 127.0.0.1:$host_port."
-    exit 0
+    break
   fi
   sleep 2
 done
 
-docker logs "$CONTAINER" >&2 || true
-echo "Docker local smoke did not become healthy for $IMAGE." >&2
-exit 1
+if ! curl -fsS "$health_url" >/dev/null 2>&1; then
+  docker logs "$CONTAINER" >&2 || true
+  echo "Docker local smoke did not become healthy for $IMAGE." >&2
+  exit 1
+fi
+
+health_status=""
+for _ in $(seq 1 10); do
+  health_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$CONTAINER")"
+  if [[ "$health_status" == "healthy" ]]; then
+    break
+  fi
+  sleep 3
+done
+
+if [[ "$health_status" != "healthy" ]]; then
+  docker inspect --format '{{json .State.Health}}' "$CONTAINER" >&2 || true
+  docker logs "$CONTAINER" >&2 || true
+  echo "Docker image HEALTHCHECK did not become healthy; status=${health_status:-unknown}." >&2
+  exit 1
+fi
+
+for required_path in "$DATA_DIR/ledger.db" "$DATA_DIR/uploads" "$DATA_DIR/backups"; do
+  if [[ ! -e "$required_path" ]]; then
+    echo "Expected persistent path missing: $required_path" >&2
+    exit 1
+  fi
+done
+
+echo "Docker local smoke checks passed for $IMAGE on 127.0.0.1:$host_port."
+echo "Image healthcheck: healthy"
+echo "Persistent paths: ledger.db, uploads, backups"
