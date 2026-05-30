@@ -59,6 +59,10 @@ require_file "scripts/check-final-release-runbook.sh"
 require_file "scripts/check-mobile-device-qa-preflight.sh"
 require_file "scripts/check-docker-local-smoke.sh"
 require_file "scripts/check-docker-compose-local-smoke.sh"
+require_file "scripts/check-runtime-health-contract.sh"
+
+run_strict_check "runtime health contract" \
+  "$ROOT_DIR/scripts/check-runtime-health-contract.sh"
 
 "$ROOT_DIR/scripts/check-production-readiness.sh"
 
