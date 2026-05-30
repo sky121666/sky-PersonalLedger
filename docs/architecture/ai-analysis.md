@@ -27,6 +27,25 @@ The API key must not be logged, exported in diagnostics, returned in API respons
 
 Provider setup exposes non-secret OpenAI-compatible presets for DeepSeek, OpenAI, SiliconFlow, and custom gateways. Presets only fill display name, base URL, provider type, and model choices. Users must still provide their own API key, and no preset performs an external request until the user saves and tests a provider.
 
+### DeepSeek Setup
+
+DeepSeek should be configured as a normal OpenAI-compatible provider from the Web AI page, not through `.env` or committed config files:
+
+| Field | Value |
+| --- | --- |
+| Provider preset | `DeepSeek` |
+| Base URL | `https://api.deepseek.com` |
+| Chat model | `deepseek-chat` |
+| Reasoning model | `deepseek-reasoner` |
+| Provider type | `openai_compatible` |
+
+Operational rules:
+
+- Paste the API key only into the AI provider form. The saved key is never returned by provider list/detail responses.
+- Use `/api/v1/ai/providers/:id/test` before generating reports. The test sends a non-financial prompt only.
+- If a key is pasted into chat, logs, Git, screenshots, or documentation, treat it as compromised: rotate it in the provider console, delete the old provider key from the app by re-saving the provider with the new key, and rerun `./scripts/check-public-git-safety.sh`.
+- Never add DeepSeek keys to `.env`, Docker Compose files, release notes, issue text, or backup files.
+
 ## Report Model
 
 ### New Table: `ai_reports`
