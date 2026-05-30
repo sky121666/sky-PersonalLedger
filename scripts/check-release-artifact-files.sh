@@ -127,10 +127,32 @@ find_apksigner() {
   local sdk_root
   for sdk_root in "${sdk_roots[@]}"; do
     if [[ -d "$sdk_root/build-tools" ]]; then
-      find "$sdk_root/build-tools" -type f -name apksigner | sort -V | tail -n 1
-      return
+      find "$sdk_root/build-tools" -type f -name apksigner -print
     fi
-  done
+  done |
+    awk '
+      function version_key(path, parts, count, key, i) {
+        count = split(path, parts, "/")
+        key = parts[count - 1]
+        gsub(/[^0-9.]/, ".", key)
+        count = split(key, parts, ".")
+        key = ""
+        for (i = 1; i <= 4; i++) {
+          key = key sprintf("%08d", parts[i] + 0)
+        }
+        return key
+      }
+      {
+        key = version_key($0)
+        if (key >= best_key) {
+          best_key = key
+          best_path = $0
+        }
+      }
+      END {
+        if (best_path != "") print best_path
+      }
+    '
 }
 
 verify_ios_ipa_signature() {
