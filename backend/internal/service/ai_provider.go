@@ -237,6 +237,9 @@ func isValidAIProviderBaseURL(baseURL string) bool {
 	if parsed.Host == "" {
 		return false
 	}
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return false
+	}
 	if parsed.Scheme == "https" {
 		return true
 	}

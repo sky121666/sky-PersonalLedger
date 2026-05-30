@@ -119,14 +119,21 @@ func TestAIProviderRejectsInvalidBaseURL(t *testing.T) {
 func TestAIProviderAllowsOnlyHTTPSOrLoopbackHTTPBaseURL(t *testing.T) {
 	svc, _, userID := newAIProviderTestService(t)
 
-	_, err := svc.Create(userID, SaveAIProviderRequest{
-		Name:    "Remote HTTP",
-		BaseURL: "http://api.deepseek.com",
-		APIKey:  "sk-test",
-		Model:   "deepseek-v4-flash",
-	})
-	if !errors.Is(err, ErrAIProviderBaseURLInvalid) {
-		t.Fatalf("remote http err = %v, want ErrAIProviderBaseURLInvalid", err)
+	for _, baseURL := range []string{
+		"http://api.deepseek.com",
+		"https://token@api.deepseek.com",
+		"https://api.deepseek.com?api_key=sk-test",
+		"https://api.deepseek.com#sk-test",
+	} {
+		_, err := svc.Create(userID, SaveAIProviderRequest{
+			Name:    "Invalid",
+			BaseURL: baseURL,
+			APIKey:  "sk-test",
+			Model:   "deepseek-v4-flash",
+		})
+		if !errors.Is(err, ErrAIProviderBaseURLInvalid) {
+			t.Fatalf("base url %q err = %v, want ErrAIProviderBaseURLInvalid", baseURL, err)
+		}
 	}
 
 	for _, baseURL := range []string{"https://api.deepseek.com", "http://localhost:11434", "http://127.0.0.1:8080", "http://[::1]:8080"} {
