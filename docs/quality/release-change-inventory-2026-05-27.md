@@ -170,8 +170,11 @@ web/src/views/SettingsView.vue
 Backup scope, restore tests, and AI/family backup coverage:
 
 ```text
+backend/internal/handler/backup.go
 backend/internal/handler/backup_restore_test.go
 backend/internal/service/backup.go
+backend/internal/service/backup_scheduler.go
+backend/internal/service/backup_scheduler_test.go
 backend/internal/service/backup_scope_test.go
 backend/internal/service/backup_test.go
 docs/architecture/backup-scope.md

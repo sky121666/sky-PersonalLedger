@@ -217,6 +217,50 @@ func TestRestoreRejectsMalformedBackupPayload(t *testing.T) {
 	}
 }
 
+func TestUpdateAutoBackupSettingsRejectsInvalidValues(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))
+	if err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	repos := repository.NewRepositories(db)
+	backupSvc := service.NewBackupService(
+		db,
+		repos.Account,
+		repos.Category,
+		repos.Transaction,
+		repos.Budget,
+		repos.Reminder,
+		repos.Lending,
+		repos.Template,
+		repos.Notification,
+		repos.Tag,
+		repos.User,
+		repos.FamilyMember,
+		repos.AIReport,
+	)
+	backupHandler := NewBackupHandler(
+		backupSvc,
+		service.NewBackupScheduler(backupSvc, repos.System, repos.User, t.TempDir()),
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/backup/auto/settings",
+		bytes.NewBufferString(`{"enabled":true,"frequency":"hourly","hour":25,"max_backups":999}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router := gin.New()
+	router.PUT("/backup/auto/settings", backupHandler.UpdateAutoBackupSettings)
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("update status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
 func newRestoreRequest(t *testing.T, backup *service.FullBackupData) *http.Request {
 	t.Helper()
 	data, err := json.Marshal(backup)

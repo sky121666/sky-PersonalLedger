@@ -2,13 +2,24 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/sky/personal-ledger/internal/repository"
+)
+
+var ErrAutoBackupSettingsInvalid = errors.New("invalid auto backup settings")
+
+const (
+	defaultAutoBackupFrequency = "daily"
+	defaultAutoBackupHour      = 3
+	defaultAutoBackupMaxFiles  = 10
+	maxAutoBackupFiles         = 365
 )
 
 type BackupScheduler struct {
@@ -202,28 +213,24 @@ func (s *BackupScheduler) cleanupOldBackups(userID uint, maxBackups int) {
 func (s *BackupScheduler) GetSettings() (*AutoBackupSettings, error) {
 	value, err := s.systemRepo.Get("auto_backup")
 	if err != nil || value == "" {
-		return &AutoBackupSettings{
-			Enabled:    false,
-			Frequency:  "daily",
-			Hour:       3,
-			MaxBackups: 10,
-		}, nil
+		return defaultAutoBackupSettings(), nil
 	}
 
 	var settings AutoBackupSettings
 	if err := json.Unmarshal([]byte(value), &settings); err != nil {
-		return &AutoBackupSettings{
-			Enabled:    false,
-			Frequency:  "daily",
-			Hour:       3,
-			MaxBackups: 10,
-		}, nil
+		return defaultAutoBackupSettings(), nil
+	}
+	if err := normalizeAutoBackupSettings(&settings, true); err != nil {
+		return defaultAutoBackupSettings(), nil
 	}
 
 	return &settings, nil
 }
 
 func (s *BackupScheduler) SaveSettings(settings *AutoBackupSettings) error {
+	if err := normalizeAutoBackupSettings(settings, false); err != nil {
+		return err
+	}
 	data, err := json.Marshal(settings)
 	if err != nil {
 		return err
@@ -235,7 +242,7 @@ func (s *BackupScheduler) SaveSettings(settings *AutoBackupSettings) error {
 func (s *BackupScheduler) TriggerBackup() error {
 	settings, err := s.GetSettings()
 	if err != nil {
-		settings = &AutoBackupSettings{MaxBackups: 10}
+		settings = defaultAutoBackupSettings()
 	}
 	s.performBackup(settings)
 	return nil
@@ -299,4 +306,41 @@ type BackupFileInfo struct {
 	Filename  string `json:"filename"`
 	Size      int64  `json:"size"`
 	CreatedAt string `json:"created_at"`
+}
+
+func defaultAutoBackupSettings() *AutoBackupSettings {
+	return &AutoBackupSettings{
+		Enabled:    false,
+		Frequency:  defaultAutoBackupFrequency,
+		Hour:       defaultAutoBackupHour,
+		MaxBackups: defaultAutoBackupMaxFiles,
+	}
+}
+
+func normalizeAutoBackupSettings(settings *AutoBackupSettings, allowDefaults bool) error {
+	if settings == nil {
+		return ErrAutoBackupSettingsInvalid
+	}
+	settings.Frequency = strings.TrimSpace(settings.Frequency)
+	if settings.Frequency == "" && allowDefaults {
+		settings.Frequency = defaultAutoBackupFrequency
+	}
+	switch settings.Frequency {
+	case "daily", "weekly", "monthly":
+	default:
+		return ErrAutoBackupSettingsInvalid
+	}
+
+	if settings.Hour < 0 || settings.Hour > 23 {
+		return ErrAutoBackupSettingsInvalid
+	}
+
+	if settings.MaxBackups <= 0 && allowDefaults {
+		settings.MaxBackups = defaultAutoBackupMaxFiles
+	}
+	if settings.MaxBackups < 1 || settings.MaxBackups > maxAutoBackupFiles {
+		return ErrAutoBackupSettingsInvalid
+	}
+	settings.LastBackup = strings.TrimSpace(settings.LastBackup)
+	return nil
 }

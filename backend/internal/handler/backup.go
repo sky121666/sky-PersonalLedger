@@ -101,6 +101,10 @@ func (h *BackupHandler) UpdateAutoBackupSettings(c *gin.Context) {
 	}
 
 	if err := h.backupScheduler.SaveSettings(settings); err != nil {
+		if errors.Is(err, service.ErrAutoBackupSettingsInvalid) {
+			response.BadRequest(c, err.Error())
+			return
+		}
 		response.InternalError(c, err.Error())
 		return
 	}
