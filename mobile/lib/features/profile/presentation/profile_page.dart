@@ -646,6 +646,8 @@ class _AppearancePanel extends StatelessWidget {
           const SizedBox(height: 12),
           _AppliedThemeStrip(palette: settings.palette),
           const SizedBox(height: 12),
+          _ThemeConstellation(palette: settings.palette),
+          const SizedBox(height: 12),
           _ThemeCapabilityMatrix(settings: settings),
           const SizedBox(height: 12),
           _ThemeCurationRail(
@@ -983,6 +985,203 @@ class _AppliedThemeStrip extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           _PaletteSignaturePill(palette: palette),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeConstellation extends StatelessWidget {
+  const _ThemeConstellation({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AnimatedContainer(
+      key: const ValueKey('profile-theme-constellation'),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          palette.seedColor.withValues(alpha: isDark ? 0.16 : 0.07),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.seedColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.hub_outlined, color: palette.seedColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '主题星图',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _ThemeCurationPill(
+                label: '${AppThemePalette.values.length} 套模板',
+                color: palette.seedColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final dotSize = constraints.maxWidth >= 520 ? 34.0 : 28.0;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final option in AppThemePalette.values)
+                    _ThemeConstellationDot(
+                      palette: option,
+                      selected: option == palette,
+                      size: dotSize,
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _ThemeConstellationRole(
+                  label: '当前',
+                  value: palette.platformCue,
+                  color: palette.seedColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ThemeConstellationRole(
+                  label: '语义',
+                  value: '收入 / 资产 / 支出',
+                  color: palette.assetColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeConstellationDot extends StatelessWidget {
+  const _ThemeConstellationDot({
+    required this.palette,
+    required this.selected,
+    required this.size,
+  });
+
+  final AppThemePalette palette;
+  final bool selected;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      selected: selected,
+      label: '主题模板 ${palette.label}',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(selected ? 3 : 4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: colorScheme.surface,
+          border: Border.all(
+            color: selected ? palette.seedColor : colorScheme.outlineVariant,
+            width: selected ? 2 : 1,
+          ),
+          boxShadow: [
+            if (selected)
+              BoxShadow(
+                color: palette.seedColor.withValues(alpha: 0.20),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+          ],
+        ),
+        child: ClipOval(
+          child: Row(
+            children: [
+              Expanded(child: ColoredBox(color: palette.seedColor)),
+              Expanded(child: ColoredBox(color: palette.assetColor)),
+              Expanded(child: ColoredBox(color: palette.incomeColor)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeConstellationRole extends StatelessWidget {
+  const _ThemeConstellationRole({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
         ],
       ),
     );

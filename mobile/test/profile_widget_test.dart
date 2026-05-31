@@ -154,9 +154,16 @@ void main() {
     expect(find.text('前卫清透'), findsAtLeastNWidgets(1));
     expect(find.text('当前已应用：极光青'), findsOneWidget);
     expect(find.text('模板矩阵'), findsOneWidget);
-    expect(find.text('12 套'), findsOneWidget);
+    expect(find.text('16 套'), findsOneWidget);
     expect(find.text('当前模板'), findsOneWidget);
     expect(find.text('体验定位'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile-theme-constellation')),
+      findsOneWidget,
+    );
+    expect(find.text('主题星图'), findsOneWidget);
+    expect(find.text('16 套模板'), findsOneWidget);
+    expect(find.text('收入 / 资产 / 支出'), findsOneWidget);
     expect(find.text('模式控制'), findsOneWidget);
     expect(find.text('财务语义'), findsOneWidget);
     expect(find.text('4 色'), findsOneWidget);
