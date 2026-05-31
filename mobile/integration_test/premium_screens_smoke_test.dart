@@ -21,6 +21,8 @@ import 'package:personal_ledger/features/accounts/data/account_repository.dart';
 import 'package:personal_ledger/features/accounts/presentation/accounts_page.dart';
 import 'package:personal_ledger/features/ai/data/ai_report_repository.dart';
 import 'package:personal_ledger/features/ai/presentation/ai_reports_page.dart';
+import 'package:personal_ledger/features/api_tokens/data/api_token_repository.dart';
+import 'package:personal_ledger/features/api_tokens/presentation/api_token_page.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/budgets/presentation/budget_page.dart';
 import 'package:personal_ledger/features/categories/application/category_controller.dart';
@@ -421,6 +423,42 @@ void main() {
           binding,
           tester,
           'data-management-vault-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium API token control (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              apiTokenRepositoryProvider.overrideWithValue(
+                _FakeApiTokenRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const ApiTokenPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('API Token'), findsOneWidget);
+        expect(find.text('API 安全访问'), findsOneWidget);
+        expect(find.text('创建新令牌'), findsOneWidget);
+        expect(find.text('已创建的令牌'), findsOneWidget);
+        expect(find.text('我的手机'), findsOneWidget);
+        expect(find.text('abcd1234... · 未使用 · 永不过期'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'api-token-control-${variant.name}',
         );
       });
 
@@ -1315,6 +1353,34 @@ class _FakeDataManagementRepository implements DataManagementRepository {
 
   @override
   Future<void> triggerAutoBackup() async {}
+}
+
+class _FakeApiTokenRepository implements ApiTokenRepository {
+  @override
+  Future<ApiTokenCreateResult> create(ApiTokenCreateRequest request) async {
+    return ApiTokenCreateResult(
+      id: 2,
+      name: request.name,
+      token: 'full-token-value',
+      tokenPrefix: 'ffff0000',
+      createdAt: DateTime(2026, 5, 2, 9),
+    );
+  }
+
+  @override
+  Future<void> delete(int id) async {}
+
+  @override
+  Future<List<ApiTokenItem>> list() async {
+    return [
+      ApiTokenItem(
+        id: 1,
+        name: '我的手机',
+        tokenPrefix: 'abcd1234',
+        createdAt: DateTime(2026, 5, 1, 9),
+      ),
+    ];
+  }
 }
 
 class _FakeHomeRepository implements HomeRepository {

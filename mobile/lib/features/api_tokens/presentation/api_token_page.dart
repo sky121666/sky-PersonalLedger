@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../data/api_token_repository.dart';
 
 const _expiryOptions = [
@@ -190,8 +192,6 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          _InfoCard(),
-          const SizedBox(height: 16),
           _CreateTokenCard(
             nameController: _nameController,
             expiryDays: _expiryDays,
@@ -200,21 +200,32 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
                 setState(() => _expiryDays = value ?? _expiryDays),
             onCreate: _createToken,
           ),
+          const SizedBox(height: 12),
+          _InfoCard(tokenCount: _tokens.length, createdToken: _createdToken),
           if (_createdToken != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _CreatedTokenCard(token: _createdToken!, onCopy: _copyCreatedToken),
           ],
-          const SizedBox(height: 16),
-          Text('已创建的令牌', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          Text(
+            '已创建的令牌',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 8),
           if (_tokens.isEmpty)
-            const AppEmptyView(
-              title: '暂无令牌',
-              message: '创建令牌后可用于 App 或 API 访问。',
-              icon: Icons.vpn_key_outlined,
+            const PremiumSurface(
+              padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+              child: AppEmptyView(
+                title: '暂无令牌',
+                message: '创建令牌后可用于 App 或 API 访问。',
+                icon: Icons.vpn_key_outlined,
+              ),
             )
           else
-            Card(
+            PremiumSurface(
+              padding: const EdgeInsets.all(10),
               child: Column(
                 children: [
                   for (var index = 0; index < _tokens.length; index++) ...[
@@ -223,8 +234,7 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
                       deleting: _submitting,
                       onDelete: () => _deleteToken(_tokens[index]),
                     ),
-                    if (index != _tokens.length - 1)
-                      const Divider(height: 1, indent: 72),
+                    if (index != _tokens.length - 1) const SizedBox(height: 8),
                   ],
                 ],
               ),
@@ -236,30 +246,161 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
 }
 
 class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.tokenCount, required this.createdToken});
+
+  final int tokenCount;
+  final String? createdToken;
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.vpn_key_outlined,
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'API Token 可用于 App 或外部 API 访问。完整令牌只会在创建成功后显示一次。',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.vpn_key_outlined,
+                color: colorScheme.primary,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'API 安全访问',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '完整令牌只会在创建成功后显示一次，请立即保存。',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              MetricPill(
+                label: '令牌数量',
+                value: '$tokenCount 个',
+                icon: Icons.key_outlined,
+                color: colorScheme.primary,
+              ),
+              MetricPill(
+                label: '完整令牌',
+                value: createdToken == null ? '隐藏' : '待保存',
+                icon: Icons.visibility_off_outlined,
+                color: createdToken == null
+                    ? colorScheme.outline
+                    : colorScheme.tertiary,
+              ),
+              MetricPill(
+                label: '访问范围',
+                value: 'API / App',
+                icon: Icons.devices_outlined,
+                color: colorScheme.secondary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PanelHeader extends StatelessWidget {
+  const _PanelHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        IconBadge(icon: icon, color: color, size: 42, iconSize: 21),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
         ),
+      ],
+    );
+  }
+}
+
+class _TokenMetaPill extends StatelessWidget {
+  const _TokenMetaPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -282,48 +423,58 @@ class _CreateTokenCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('创建新令牌', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('api-token-name'),
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: '令牌名称',
-                hintText: '例如：我的手机',
-                border: OutlineInputBorder(),
-              ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.secondary,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PanelHeader(
+            icon: Icons.add_moderator_outlined,
+            title: '创建新令牌',
+            subtitle: '为移动端、自动化脚本或外部 API 创建独立访问凭证。',
+            color: colorScheme.secondary,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const ValueKey('api-token-name'),
+            controller: nameController,
+            decoration: const InputDecoration(
+              labelText: '令牌名称',
+              hintText: '例如：我的手机',
+              border: OutlineInputBorder(),
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: expiryDays,
-              decoration: const InputDecoration(
-                labelText: '有效期',
-                border: OutlineInputBorder(),
-              ),
-              items: _expiryOptions
-                  .map(
-                    (option) => DropdownMenuItem(
-                      value: option.days,
-                      child: Text(option.label),
-                    ),
-                  )
-                  .toList(),
-              onChanged: submitting ? null : onExpiryChanged,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '有效期',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: submitting ? null : onCreate,
-              icon: const Icon(Icons.add),
-              label: Text(submitting ? '处理中...' : '创建令牌'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final option in _expiryOptions)
+                ChoiceChip(
+                  label: Text(option.label),
+                  selected: expiryDays == option.days,
+                  onSelected: submitting
+                      ? null
+                      : (_) => onExpiryChanged(option.days),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: submitting ? null : onCreate,
+            icon: const Icon(Icons.add),
+            label: Text(submitting ? '处理中...' : '创建令牌'),
+          ),
+        ],
       ),
     );
   }
@@ -337,39 +488,43 @@ class _CreatedTokenCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.green.withValues(alpha: 0.12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.check_circle_outline, color: Colors.green.shade700),
-                const SizedBox(width: 8),
-                Text('令牌创建成功', style: Theme.of(context).textTheme.titleMedium),
-              ],
+    final colorScheme = Theme.of(context).colorScheme;
+    final successColor = Colors.green.shade700;
+    return PremiumSurface(
+      accentColor: successColor,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PanelHeader(
+            icon: Icons.check_circle_outline,
+            title: '令牌创建成功',
+            subtitle: '请立即复制并保存，此令牌只显示一次。',
+            color: successColor,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.55,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: colorScheme.outlineVariant),
             ),
-            const SizedBox(height: 8),
-            Text(
-              '请立即复制并保存，此令牌只显示一次。',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            SelectableText(
+            child: SelectableText(
               token,
               key: const ValueKey('api-token-created-value'),
               style: const TextStyle(fontFamily: 'monospace'),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: onCopy,
-              icon: const Icon(Icons.copy),
-              label: const Text('复制令牌'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onCopy,
+            icon: const Icon(Icons.copy),
+            label: const Text('复制令牌'),
+          ),
+        ],
       ),
     );
   }
@@ -388,14 +543,72 @@ class _TokenTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: const CircleAvatar(child: Icon(Icons.smartphone_outlined)),
-      title: Text(token.name),
-      subtitle: Text(_tokenSubtitle(token)),
-      trailing: IconButton(
-        onPressed: deleting ? null : onDelete,
-        icon: const Icon(Icons.delete_outline),
-        tooltip: '删除令牌',
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: Icons.smartphone_outlined,
+            color: colorScheme.primary,
+            size: 40,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  token.name,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _tokenSubtitle(token),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _TokenMetaPill(
+                      icon: Icons.fingerprint_outlined,
+                      label: '前缀已隐藏',
+                    ),
+                    _TokenMetaPill(
+                      icon: Icons.history_outlined,
+                      label: token.lastUsedAt == null
+                          ? '未使用'
+                          : '最后使用 ${_formatDateTime(token.lastUsedAt!)}',
+                    ),
+                    _TokenMetaPill(
+                      icon: Icons.event_outlined,
+                      label: token.expiresAt == null
+                          ? '永不过期'
+                          : '${_formatDate(token.expiresAt!)} 过期',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton.filledTonal(
+            onPressed: deleting ? null : onDelete,
+            icon: const Icon(Icons.delete_outline),
+            tooltip: '删除令牌',
+          ),
+        ],
       ),
     );
   }
