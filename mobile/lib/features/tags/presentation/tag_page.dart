@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -483,8 +484,14 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
                     ChoiceChip(
                       label: const SizedBox(width: 16, height: 16),
                       selected: _color == color,
-                      backgroundColor: _parseColor(color, Colors.blue),
-                      selectedColor: _parseColor(color, Colors.blue),
+                      backgroundColor: _parseColor(
+                        color,
+                        AppTheme.financeColors(context).asset,
+                      ),
+                      selectedColor: _parseColor(
+                        color,
+                        AppTheme.financeColors(context).asset,
+                      ),
                       onSelected: (_) => setState(() => _color = color),
                     ),
                 ],

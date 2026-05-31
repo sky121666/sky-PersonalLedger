@@ -820,8 +820,14 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                     ChoiceChip(
                       label: const SizedBox(width: 16, height: 16),
                       selected: _color == color,
-                      backgroundColor: _parseColor(color, Colors.blue),
-                      selectedColor: _parseColor(color, Colors.blue),
+                      backgroundColor: _parseColor(
+                        color,
+                        AppTheme.financeColors(context).asset,
+                      ),
+                      selectedColor: _parseColor(
+                        color,
+                        AppTheme.financeColors(context).asset,
+                      ),
                       onSelected: (_) => setState(() => _color = color),
                     ),
                 ],
