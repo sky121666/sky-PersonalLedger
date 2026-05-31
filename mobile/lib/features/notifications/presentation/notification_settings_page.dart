@@ -168,6 +168,7 @@ class _NotificationSettingsFormState
                 color: enabledAccent,
                 title: '启用通知',
                 subtitle: '开启后按下方通道和提醒选项发送消息。',
+                statusLabel: _enabled ? '推送中' : '已暂停',
                 value: _enabled,
                 switchKey: const ValueKey('notification-enabled'),
                 onChanged: _isBusy
@@ -798,6 +799,7 @@ class _ChannelCard extends StatelessWidget {
             color: accentColor,
             title: title,
             subtitle: enabledLabel,
+            statusLabel: enabled ? '可测试' : '已停用',
             value: enabled,
             onChanged: onEnabledChanged,
           ),
@@ -874,6 +876,7 @@ class _OptionsCard extends StatelessWidget {
             icon: Icons.credit_card_outlined,
             color: financeColors.warning,
             title: '还款日提醒',
+            statusLabel: paymentDue ? '启用' : '关闭',
             value: paymentDue,
             onChanged: enabled ? onPaymentDueChanged : null,
           ),
@@ -882,6 +885,7 @@ class _OptionsCard extends StatelessWidget {
             icon: Icons.savings_outlined,
             color: financeColors.expense,
             title: '预算超支提醒',
+            statusLabel: budgetAlert ? '启用' : '关闭',
             value: budgetAlert,
             switchKey: const ValueKey('notification-budget-alert'),
             onChanged: enabled ? onBudgetAlertChanged : null,
@@ -891,6 +895,7 @@ class _OptionsCard extends StatelessWidget {
             icon: Icons.handshake_outlined,
             color: financeColors.asset,
             title: '借款到期提醒',
+            statusLabel: lendingDue ? '启用' : '关闭',
             value: lendingDue,
             onChanged: enabled ? onLendingDueChanged : null,
           ),
@@ -899,6 +904,7 @@ class _OptionsCard extends StatelessWidget {
             icon: Icons.summarize_outlined,
             color: financeColors.income,
             title: '年度报告通知',
+            statusLabel: annualReport ? '启用' : '关闭',
             value: annualReport,
             onChanged: enabled ? onAnnualReportChanged : null,
           ),
@@ -966,6 +972,7 @@ class _NotificationSwitchRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.subtitle,
+    this.statusLabel,
     this.switchKey,
   });
 
@@ -973,6 +980,7 @@ class _NotificationSwitchRow extends StatelessWidget {
   final Color color;
   final String title;
   final String? subtitle;
+  final String? statusLabel;
   final bool value;
   final ValueChanged<bool>? onChanged;
   final Key? switchKey;
@@ -1017,8 +1025,56 @@ class _NotificationSwitchRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+          if (statusLabel != null) ...[
+            _NotificationStatePill(
+              label: statusLabel!,
+              color: color,
+              active: value,
+            ),
+            const SizedBox(width: 10),
+          ],
           Switch(key: switchKey, value: value, onChanged: onChanged),
         ],
+      ),
+    );
+  }
+}
+
+class _NotificationStatePill extends StatelessWidget {
+  const _NotificationStatePill({
+    required this.label,
+    required this.color,
+    required this.active,
+  });
+
+  final String label;
+  final Color color;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = active ? color : colorScheme.outline;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          foreground.withValues(alpha: active ? 0.14 : 0.08),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: foreground.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
