@@ -37,6 +37,7 @@ import 'package:personal_ledger/features/tags/presentation/tag_page.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/quick_transaction_page.dart';
+import 'package:personal_ledger/features/transactions/presentation/transaction_details_page.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -169,6 +170,45 @@ void main() {
           );
         },
       );
+
+      testWidgets('renders premium transaction details (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              transactionRepositoryProvider.overrideWithValue(
+                _FakeTransactionRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const TransactionDetailsPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('明细'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('transaction-search')),
+          findsOneWidget,
+        );
+        expect(find.text('全部类型'), findsOneWidget);
+        expect(find.text('餐饮'), findsOneWidget);
+        expect(find.text('-¥32.50'), findsOneWidget);
+        expect(find.text('午餐'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'transaction-details-${variant.name}',
+        );
+      });
 
       testWidgets('renders premium accounts control room (${variant.name})', (
         tester,
@@ -720,9 +760,50 @@ class _FakeTransactionRepository implements TransactionRepository {
 
   @override
   Future<TransactionListResult> list(TransactionListQuery query) async {
-    return const TransactionListResult(
-      list: [],
-      total: 0,
+    return TransactionListResult(
+      list: [
+        TransactionItem(
+          id: 'transaction-1',
+          type: TransactionType.expense,
+          amount: 32.5,
+          accountId: 'account-1',
+          categoryId: 'category-expense',
+          transactionDate: DateTime(2026, 5, 14, 12, 30),
+          remark: '午餐',
+          tags: const ['日常'],
+          account: const LedgerAccount(
+            id: 'account-1',
+            name: '现金',
+            type: 'cash',
+          ),
+          category: const LedgerCategory(
+            id: 'category-expense',
+            name: '餐饮',
+            type: 'expense',
+          ),
+        ),
+        TransactionItem(
+          id: 'transaction-2',
+          type: TransactionType.income,
+          amount: 8600,
+          accountId: 'account-2',
+          categoryId: 'category-income',
+          transactionDate: DateTime(2026, 5, 13, 9),
+          remark: '五月工资',
+          tags: const ['工资'],
+          account: const LedgerAccount(
+            id: 'account-2',
+            name: '储蓄卡',
+            type: 'bank_card',
+          ),
+          category: const LedgerCategory(
+            id: 'category-income',
+            name: '工资',
+            type: 'income',
+          ),
+        ),
+      ],
+      total: 2,
       page: 1,
       pageSize: 20,
     );

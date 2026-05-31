@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_route_paths.dart';
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../application/ledger_refresh.dart';
 import '../application/transaction_list_controller.dart';
 import '../data/transaction_models.dart';
@@ -93,7 +96,7 @@ class _TransactionDetailsPageState
                 controller.updateKeyword('');
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             _TransactionFilterBar(
               state: state,
               onChanged: controller.updateFilters,
@@ -102,7 +105,7 @@ class _TransactionDetailsPageState
                 controller.clearFilters();
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Expanded(child: _buildBody(state, controller)),
           ],
         ),
@@ -139,13 +142,11 @@ class _TransactionDetailsPageState
 
     return RefreshIndicator(
       onRefresh: controller.refresh,
-      child: ListView.separated(
+      child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 18),
         itemCount: state.items.length + 1,
-        separatorBuilder: (_, index) => index >= state.items.length - 1
-            ? const SizedBox.shrink()
-            : const Divider(height: 1),
         itemBuilder: (context, index) {
           if (index == state.items.length) {
             return _LoadMoreIndicator(state: state);
@@ -256,7 +257,7 @@ class _TransactionDetailsPageState
       return;
     }
     final position = _scrollController.position;
-    if (position.pixels >= position.maxScrollExtent - 160) {
+    if (position.pixels >= position.maxScrollExtent - 420) {
       ref.read(transactionListControllerProvider.notifier).loadMore();
     }
   }
@@ -276,22 +277,26 @@ class _TransactionSearchBar extends StatelessWidget {
   /// 构建交易搜索输入框。
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      key: const ValueKey('transaction-search'),
-      controller: controller,
-      decoration: InputDecoration(
-        hintText: '搜索备注',
-        prefixIcon: const Icon(Icons.search),
-        suffixIcon: controller.text.isEmpty
-            ? null
-            : IconButton(
-                onPressed: onClear,
-                icon: const Icon(Icons.close),
-                tooltip: '清空搜索',
-              ),
-        border: const OutlineInputBorder(),
+    return PremiumSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      accentColor: Theme.of(context).colorScheme.primary,
+      child: TextField(
+        key: const ValueKey('transaction-search'),
+        controller: controller,
+        decoration: InputDecoration(
+          hintText: '搜索备注',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: controller.text.isEmpty
+              ? null
+              : IconButton(
+                  onPressed: onClear,
+                  icon: const Icon(Icons.close),
+                  tooltip: '清空搜索',
+                ),
+          border: InputBorder.none,
+        ),
+        onChanged: onChanged,
       ),
-      onChanged: onChanged,
     );
   }
 }
@@ -399,7 +404,7 @@ class _TransactionListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final amountColor = switch (item.type) {
-      TransactionType.income => Colors.green,
+      TransactionType.income => AppTheme.incomeColor,
       TransactionType.expense => colorScheme.error,
       TransactionType.transfer => colorScheme.primary,
     };
@@ -409,59 +414,121 @@ class _TransactionListTile extends StatelessWidget {
       TransactionType.transfer => '',
     };
 
-    return ListTile(
+    return Padding(
       key: ValueKey('transaction-item-${item.id}'),
-      onTap: selectionMode ? onSelectionToggle : onTap,
-      onLongPress: onSelectionToggle,
-      leading: selectionMode
-          ? Checkbox(
-              key: ValueKey('transaction-select-${item.id}'),
-              value: selected,
-              onChanged: (_) => onSelectionToggle(),
-            )
-          : CircleAvatar(
-              backgroundColor: amountColor.withValues(alpha: 0.12),
-              foregroundColor: amountColor,
-              child: Icon(_typeIcon(item.type)),
-            ),
-      title: Text(item.displayTitle),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_formatDateTime(item.transactionDate)),
-          if (item.remark.isNotEmpty) Text(item.remark),
-          if (item.tags.isNotEmpty)
-            Wrap(
-              spacing: 6,
-              children: item.tags.map((tag) => Chip(label: Text(tag))).toList(),
-            ),
-        ],
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '$prefix¥${item.amount.toStringAsFixed(2)}',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: amountColor,
-              fontWeight: FontWeight.w700,
+      padding: const EdgeInsets.only(bottom: 10),
+      child: PremiumSurface(
+        accentColor: selected ? colorScheme.primary : amountColor,
+        padding: EdgeInsets.zero,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTheme.surfaceRadius),
+            onTap: selectionMode ? onSelectionToggle : onTap,
+            onLongPress: onSelectionToggle,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (selectionMode)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Checkbox(
+                        key: ValueKey('transaction-select-${item.id}'),
+                        value: selected,
+                        onChanged: (_) => onSelectionToggle(),
+                      ),
+                    )
+                  else
+                    IconBadge(
+                      icon: _typeIcon(item.type),
+                      color: amountColor,
+                      size: 42,
+                      iconSize: 22,
+                    ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.displayTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '$prefix¥${item.amount.toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: amountColor,
+                                    fontWeight: FontWeight.w800,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          _formatDateTime(item.transactionDate),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.outline),
+                        ),
+                        if (item.remark.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            item.remark,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                        if (item.tags.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: item.tags
+                                .map(
+                                  (tag) => _TransactionTagChip(
+                                    label: tag,
+                                    color: amountColor,
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (!selectionMode)
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          onTap();
+                        } else if (value == 'delete') {
+                          onDelete();
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'edit', child: Text('编辑')),
+                        PopupMenuItem(value: 'delete', child: Text('删除')),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
-          if (!selectionMode)
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'edit') {
-                  onTap();
-                } else if (value == 'delete') {
-                  onDelete();
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: Text('编辑')),
-                PopupMenuItem(value: 'delete', child: Text('删除')),
-              ],
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -472,6 +539,31 @@ class _TransactionListTile extends StatelessWidget {
       TransactionType.expense => Icons.north_east,
       TransactionType.transfer => Icons.swap_horiz,
     };
+  }
+}
+
+class _TransactionTagChip extends StatelessWidget {
+  const _TransactionTagChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
   }
 }
 
