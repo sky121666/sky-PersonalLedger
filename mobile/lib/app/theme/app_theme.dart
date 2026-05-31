@@ -183,6 +183,7 @@ class AppTheme {
       extensions: [AppFinanceColors.fromPalette(palette)],
       useMaterial3: true,
       inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
+      snackBarTheme: _snackBarTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -223,6 +224,7 @@ class AppTheme {
       extensions: [AppFinanceColors.fromPalette(palette)],
       useMaterial3: true,
       inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
+      snackBarTheme: _snackBarTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -323,6 +325,37 @@ class AppTheme {
       errorStyle: TextStyle(color: colorScheme.error),
       prefixIconColor: colorScheme.onSurfaceVariant,
       suffixIconColor: colorScheme.onSurfaceVariant,
+    );
+  }
+
+  static SnackBarThemeData _snackBarTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final backgroundColor = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.08),
+      isDark ? colorScheme.surfaceContainerHigh : colorScheme.inverseSurface,
+    );
+    final foregroundColor = isDark
+        ? colorScheme.onSurface
+        : colorScheme.onInverseSurface;
+
+    return SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      elevation: 0,
+      showCloseIcon: true,
+      backgroundColor: backgroundColor,
+      closeIconColor: foregroundColor.withValues(alpha: 0.82),
+      actionTextColor: palette.seedColor,
+      disabledActionTextColor: foregroundColor.withValues(alpha: 0.45),
+      contentTextStyle: TextStyle(
+        color: foregroundColor,
+        fontWeight: FontWeight.w700,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+      actionOverflowThreshold: 0.42,
     );
   }
 }

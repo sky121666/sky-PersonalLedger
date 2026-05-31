@@ -71,6 +71,21 @@ void main() {
       expect(dark.inputDecorationTheme.filled, isTrue);
     });
 
+    test('反馈浮层使用主题化高端样式', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.rose);
+      final snackBarTheme = theme.snackBarTheme;
+
+      expect(snackBarTheme.behavior, SnackBarBehavior.floating);
+      expect(snackBarTheme.showCloseIcon, isTrue);
+      expect(snackBarTheme.elevation, 0);
+      expect(snackBarTheme.actionTextColor, AppThemePalette.rose.seedColor);
+      expect(snackBarTheme.shape, isA<RoundedRectangleBorder>());
+      expect(
+        snackBarTheme.insetPadding,
+        const EdgeInsets.fromLTRB(16, 0, 16, 18),
+      );
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);
