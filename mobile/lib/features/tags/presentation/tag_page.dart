@@ -318,6 +318,14 @@ class _TagHeader extends StatelessWidget {
             usedCount: usedCount,
             topTag: mostUsed.isEmpty ? null : mostUsed.first,
           ),
+          const SizedBox(height: 14),
+          _TagOrchestrationPanel(
+            tags: tags,
+            systemCount: systemCount,
+            customCount: customCount,
+            usedCount: usedCount,
+            topTag: mostUsed.isEmpty ? null : mostUsed.first,
+          ),
         ],
       ),
     );
@@ -554,6 +562,201 @@ class _TagGovernanceRadar extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagOrchestrationPanel extends StatelessWidget {
+  const _TagOrchestrationPanel({
+    required this.tags,
+    required this.systemCount,
+    required this.customCount,
+    required this.usedCount,
+    this.topTag,
+  });
+
+  final List<TagItem> tags;
+  final int systemCount;
+  final int customCount;
+  final int usedCount;
+  final TagItem? topTag;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final activeCount = tags.where((tag) => tag.usedCount > 0).length;
+    final activeRatio = tags.isEmpty
+        ? 0
+        : ((activeCount / tags.length) * 100).round();
+    final topShare = usedCount == 0 || topTag == null
+        ? 0
+        : ((topTag!.usedCount / usedCount) * 100).round();
+    final stageLabel = customCount > systemCount
+        ? '个性化主导'
+        : activeRatio >= 60
+        ? '使用稳定'
+        : '待激活';
+
+    return AnimatedContainer(
+      key: const ValueKey('tag-orchestration-panel'),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          financeColors.asset.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: financeColors.asset.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.account_tree_outlined,
+                size: 19,
+                color: financeColors.asset,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '标签编排动线',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _TagMetaChip(label: stageLabel, color: financeColors.asset),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _TagFlowStep(
+                  icon: Icons.verified_outlined,
+                  label: '系统底座',
+                  value: '$systemCount',
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TagFlowStep(
+                  icon: Icons.tune_outlined,
+                  label: '自定义',
+                  value: '$customCount',
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TagFlowStep(
+                  icon: Icons.touch_app_outlined,
+                  label: '活跃率',
+                  value: '$activeRatio%',
+                  color: financeColors.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 8,
+              value: (topShare / 100).clamp(0.0, 1.0),
+              color: financeColors.asset,
+              backgroundColor: colorScheme.outlineVariant.withValues(
+                alpha: 0.42,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            topTag == null
+                ? '暂无高频标签，可先保留系统标签作为基础入口'
+                : '${topTag!.name} 占全部使用 $topShare%，适合作为快捷筛选入口',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagFlowStep extends StatelessWidget {
+  const _TagFlowStep({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

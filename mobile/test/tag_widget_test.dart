@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/tags/data/tag_repository.dart';
 import 'package:personal_ledger/features/tags/presentation/tag_page.dart';
@@ -51,6 +53,29 @@ void main() {
       expect(find.text('自定义率'), findsOneWidget);
       expect(find.text('使用集中'), findsOneWidget);
       expect(find.text('高频标签 · 工资收入 · 8 次'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('tag-orchestration-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('标签编排动线'), findsOneWidget);
+      expect(find.text('使用稳定'), findsOneWidget);
+      expect(find.text('系统底座'), findsOneWidget);
+      expect(find.text('自定义'), findsOneWidget);
+      expect(find.text('活跃率'), findsOneWidget);
+      expect(find.text('工资收入 占全部使用 80%，适合作为快捷筛选入口'), findsOneWidget);
+    });
+
+    testWidgets('标签头部跟随主题色模板', (tester) async {
+      final repository = _FakeTagRepository();
+      await _pumpPage(tester, repository, palette: AppThemePalette.plasma);
+
+      final surface = tester.widget<PremiumSurface>(
+        find.byType(PremiumSurface).first,
+      );
+      expect(
+        surface.accentColor,
+        AppTheme.lightTheme(AppThemePalette.plasma).colorScheme.primary,
+      );
     });
 
     testWidgets('新增标签时提交表单字段并刷新列表', (tester) async {
@@ -178,8 +203,9 @@ void main() {
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeTagRepository repository,
-) async {
+  _FakeTagRepository repository, {
+  AppThemePalette palette = AppThemePalette.teal,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -188,7 +214,11 @@ Future<void> _pumpPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [tagRepositoryProvider.overrideWithValue(repository)],
-      child: const MaterialApp(home: TagPage()),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        home: const TagPage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();
