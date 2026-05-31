@@ -6,6 +6,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
@@ -57,40 +58,51 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                   _ErrorBanner(message: _errorMessage!),
                   const SizedBox(height: 12),
                 ],
-                _SummarySection(summary: dashboard.summary),
-                const SizedBox(height: 16),
-                _QuickActions(
-                  busy: _isBusy,
-                  onCreate: (type) => _openCreateForm(type, dashboard.accounts),
+                StaggeredEntrance(
+                  index: 0,
+                  child: _SummarySection(summary: dashboard.summary),
                 ),
                 const SizedBox(height: 16),
-                SegmentedButton<_LendingTab>(
-                  segments: const [
-                    ButtonSegment(
-                      value: _LendingTab.lendOut,
-                      icon: Icon(Icons.north_east),
-                      label: Text('借出'),
-                    ),
-                    ButtonSegment(
-                      value: _LendingTab.borrowIn,
-                      icon: Icon(Icons.south_west),
-                      label: Text('借入'),
-                    ),
-                    ButtonSegment(
-                      value: _LendingTab.settled,
-                      icon: Icon(Icons.check_circle_outline),
-                      label: Text('结清'),
-                    ),
-                  ],
-                  selected: {_tab},
-                  onSelectionChanged: _isBusy
-                      ? null
-                      : (value) => setState(() => _tab = value.single),
+                StaggeredEntrance(
+                  index: 1,
+                  child: _QuickActions(
+                    busy: _isBusy,
+                    onCreate: (type) =>
+                        _openCreateForm(type, dashboard.accounts),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                StaggeredEntrance(
+                  index: 2,
+                  child: SegmentedButton<_LendingTab>(
+                    segments: const [
+                      ButtonSegment(
+                        value: _LendingTab.lendOut,
+                        icon: Icon(Icons.north_east),
+                        label: Text('借出'),
+                      ),
+                      ButtonSegment(
+                        value: _LendingTab.borrowIn,
+                        icon: Icon(Icons.south_west),
+                        label: Text('借入'),
+                      ),
+                      ButtonSegment(
+                        value: _LendingTab.settled,
+                        icon: Icon(Icons.check_circle_outline),
+                        label: Text('结清'),
+                      ),
+                    ],
+                    selected: {_tab},
+                    onSelectionChanged: _isBusy
+                        ? null
+                        : (value) => setState(() => _tab = value.single),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _LendingList(
                   lendings: _itemsForTab(dashboard),
                   tab: _tab,
+                  startIndex: 3,
                   busyAction: _busyAction,
                   onEdit: (item) => _openEditForm(item, dashboard.accounts),
                   onDelete: _deleteLending,
@@ -531,6 +543,7 @@ class _LendingList extends StatelessWidget {
   const _LendingList({
     required this.lendings,
     required this.tab,
+    required this.startIndex,
     required this.busyAction,
     required this.onEdit,
     required this.onDelete,
@@ -540,6 +553,7 @@ class _LendingList extends StatelessWidget {
 
   final List<LendingItem> lendings;
   final _LendingTab tab;
+  final int startIndex;
   final String? busyAction;
   final ValueChanged<LendingItem> onEdit;
   final ValueChanged<LendingItem> onDelete;
@@ -549,30 +563,36 @@ class _LendingList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (lendings.isEmpty) {
-      return PremiumSurface(
-        padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
-        child: AppEmptyView(
-          title: switch (tab) {
-            _LendingTab.lendOut => '暂无借出记录',
-            _LendingTab.borrowIn => '暂无借入记录',
-            _LendingTab.settled => '暂无已结清记录',
-          },
-          message: '可以先从上方按钮新增一笔借贷往来。',
-          icon: Icons.handshake_outlined,
+      return StaggeredEntrance(
+        index: startIndex,
+        child: PremiumSurface(
+          padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+          child: AppEmptyView(
+            title: switch (tab) {
+              _LendingTab.lendOut => '暂无借出记录',
+              _LendingTab.borrowIn => '暂无借入记录',
+              _LendingTab.settled => '暂无已结清记录',
+            },
+            message: '可以先从上方按钮新增一笔借贷往来。',
+            icon: Icons.handshake_outlined,
+          ),
         ),
       );
     }
 
     return Column(
       children: [
-        for (final item in lendings) ...[
-          _LendingCard(
-            item: item,
-            busy: busyAction?.endsWith(item.id) ?? false,
-            onEdit: () => onEdit(item),
-            onDelete: () => onDelete(item),
-            onRepay: () => onRepay(item),
-            onRecords: () => onRecords(item),
+        for (final entry in lendings.indexed) ...[
+          StaggeredEntrance(
+            index: startIndex + entry.$1,
+            child: _LendingCard(
+              item: entry.$2,
+              busy: busyAction?.endsWith(entry.$2.id) ?? false,
+              onEdit: () => onEdit(entry.$2),
+              onDelete: () => onDelete(entry.$2),
+              onRepay: () => onRepay(entry.$2),
+              onRecords: () => onRecords(entry.$2),
+            ),
           ),
           const SizedBox(height: 12),
         ],
