@@ -3,9 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../../categories/data/category.dart';
 import '../../family/data/family_repository.dart';
 import '../data/budget_repository.dart';
@@ -159,13 +162,17 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
       request: () {
         final categoryId = result.categoryId;
         if (categoryId == null || categoryId.isEmpty) {
-          return ref.read(budgetRepositoryProvider).setTotalBudget(
+          return ref
+              .read(budgetRepositoryProvider)
+              .setTotalBudget(
                 amount: result.amount,
                 alertThreshold: result.alertThreshold,
                 memberId: result.memberId,
               );
         }
-        return ref.read(budgetRepositoryProvider).setCategoryBudget(
+        return ref
+            .read(budgetRepositoryProvider)
+            .setCategoryBudget(
               categoryId: categoryId,
               amount: result.amount,
               alertThreshold: result.alertThreshold,
@@ -426,62 +433,117 @@ class _BudgetSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final totalBudget = budget;
     final used = totalBudget?.spent ?? 0;
     final amount = totalBudget?.amount ?? 0;
     final remaining = totalBudget?.remaining ?? 0;
     final percentage = totalBudget?.percentage ?? 0;
+    final statusColor = totalBudget == null
+        ? Theme.of(context).colorScheme.primary
+        : _budgetStatusColor(context, percentage);
 
-    return Card(
-      color: colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.savings_outlined, color: colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  '本月预算总览',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+    return PremiumSurface(
+      accentColor: statusColor,
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(icon: Icons.savings_outlined, color: statusColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '本月预算总览',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      totalBudget == null
+                          ? '预算尚未启动'
+                          : _budgetStatusText(totalBudget),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (totalBudget != null)
+                ProgressRing(
+                  value: percentage / 100,
+                  color: statusColor,
+                  size: 78,
+                  center: Text(
+                    '${percentage.toStringAsFixed(0)}%',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (totalBudget == null)
+            Text(
+              '还没有设置总预算',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+            )
+          else ...[
+            Text(
+              _formatMoney(remaining),
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: remaining >= 0
+                    ? Theme.of(context).colorScheme.onSurface
+                    : Theme.of(context).colorScheme.error,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '剩余预算，已用 ${_formatMoney(used)} / ${_formatMoney(amount)}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                MetricPill(
+                  label: '预算金额',
+                  value: _formatMoney(amount),
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: AppTheme.assetColor,
+                ),
+                MetricPill(
+                  label: '已用',
+                  value: _formatMoney(used),
+                  icon: Icons.local_fire_department_outlined,
+                  color: AppTheme.expenseColor,
+                ),
+                MetricPill(
+                  label: '提醒线',
+                  value: '${totalBudget.alertThreshold}%',
+                  icon: Icons.notifications_active_outlined,
+                  color: statusColor,
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            if (totalBudget == null)
-              Text(
-                '还没有设置总预算',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              )
-            else ...[
-              Text(
-                _formatMoney(remaining),
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: remaining >= 0
-                      ? colorScheme.onPrimaryContainer
-                      : colorScheme.error,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '剩余预算，已用 ${_formatMoney(used)} / ${_formatMoney(amount)}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onPrimaryContainer.withValues(alpha: 0.72),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _BudgetProgressBar(percentage: percentage),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -501,9 +563,10 @@ class _TotalBudgetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalBudget = budget;
-    return Card(
+    return PremiumSurface(
+      accentColor: AppTheme.assetColor,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -583,9 +646,9 @@ class _EmptyCategoryBudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Card(
+    return const PremiumSurface(
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+        padding: EdgeInsets.symmetric(vertical: 18),
         child: AppEmptyView(
           title: '暂无分类预算',
           message: '给高频支出分类设置独立预算后，可以更早发现超支风险。',
@@ -610,25 +673,61 @@ class _CategoryBudgetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final statusText = budget.isOverBudget
-        ? '已超出预算'
-        : budget.isNearLimit
-        ? '接近预算上限'
-        : '控制良好';
+    final statusColor = _budgetStatusColor(context, budget.percentage);
 
-    return Card(
+    return PremiumSurface(
+      accentColor: statusColor,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
+                IconBadge(
+                  icon: Icons.donut_small_outlined,
+                  color: statusColor,
+                  size: 38,
+                  iconSize: 20,
+                ),
+                const SizedBox(width: 12),
                 Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        budget.categoryName.isEmpty
+                            ? '未命名分类'
+                            : budget.categoryName,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _budgetStatusText(budget),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                   child: Text(
-                    budget.categoryName.isEmpty ? '未命名分类' : budget.categoryName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    '${budget.percentage.toStringAsFixed(0)}%',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                 ),
@@ -646,33 +745,33 @@ class _CategoryBudgetCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              '预算 ${_formatMoney(budget.amount)}，已用 ${_formatMoney(budget.spent)}',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
-            ),
-            const SizedBox(height: 12),
-            _BudgetProgressBar(percentage: budget.percentage),
-            const SizedBox(height: 8),
-            Row(
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Text(
-                  '${budget.percentage.toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    color: _budgetStatusColor(context, budget.percentage),
-                    fontWeight: FontWeight.w700,
-                  ),
+                _CompactBudgetMetric(
+                  label: '预算',
+                  value: _formatMoney(budget.amount),
                 ),
-                const Spacer(),
-                Text(
-                  statusText,
-                  style: TextStyle(
-                    color: _budgetStatusColor(context, budget.percentage),
-                  ),
+                _CompactBudgetMetric(
+                  label: '已用',
+                  value: _formatMoney(budget.spent),
+                ),
+                _CompactBudgetMetric(
+                  label: '剩余',
+                  value: _formatMoney(budget.remaining),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            _BudgetProgressBar(percentage: budget.percentage),
+            const SizedBox(height: 8),
+            Text(
+              '提醒线 ${budget.alertThreshold}%',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
             ),
           ],
         ),
@@ -718,9 +817,9 @@ class _EmptyMemberBudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Card(
+    return const PremiumSurface(
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+        padding: EdgeInsets.symmetric(vertical: 18),
         child: AppEmptyView(
           title: '暂无成员预算',
           message: '为家庭成员设置独立预算后，Family Hub 会展示成员额度进度。',
@@ -749,24 +848,22 @@ class _MemberBudgetCard extends StatelessWidget {
     final title = budget.categoryName.isEmpty
         ? memberName
         : '$memberName · ${budget.categoryName}';
-    final statusText = budget.isOverBudget
-        ? '已超出预算'
-        : budget.isNearLimit
-        ? '接近预算上限'
-        : '控制良好';
+    final statusColor = _budgetStatusColor(context, budget.percentage);
 
-    return Card(
+    return PremiumSurface(
+      accentColor: statusColor,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: colorScheme.secondaryContainer,
-                  foregroundColor: colorScheme.onSecondaryContainer,
-                  child: Text(memberName.substring(0, 1)),
+                IconBadge(
+                  icon: Icons.person_outline,
+                  color: statusColor,
+                  size: 38,
+                  iconSize: 20,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -776,16 +873,35 @@ class _MemberBudgetCard extends StatelessWidget {
                       Text(
                         title,
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '预算 ${_formatMoney(budget.amount)}，已用 ${_formatMoney(budget.spent)}',
+                        _budgetStatusText(budget),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.outline,
+                          color: statusColor,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${budget.percentage.toStringAsFixed(0)}%',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
                 IconButton(
@@ -802,26 +918,33 @@ class _MemberBudgetCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            _BudgetProgressBar(percentage: budget.percentage),
-            const SizedBox(height: 8),
-            Row(
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Text(
-                  '${budget.percentage.toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    color: _budgetStatusColor(context, budget.percentage),
-                    fontWeight: FontWeight.w700,
-                  ),
+                _CompactBudgetMetric(
+                  label: '预算',
+                  value: _formatMoney(budget.amount),
                 ),
-                const Spacer(),
-                Text(
-                  statusText,
-                  style: TextStyle(
-                    color: _budgetStatusColor(context, budget.percentage),
-                  ),
+                _CompactBudgetMetric(
+                  label: '已用',
+                  value: _formatMoney(budget.spent),
+                ),
+                _CompactBudgetMetric(
+                  label: '剩余',
+                  value: _formatMoney(budget.remaining),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            _BudgetProgressBar(percentage: budget.percentage),
+            const SizedBox(height: 8),
+            Text(
+              '提醒线 ${budget.alertThreshold}%',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
             ),
           ],
         ),
@@ -879,6 +1002,45 @@ class _MetricItem extends StatelessWidget {
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+}
+
+class _CompactBudgetMetric extends StatelessWidget {
+  const _CompactBudgetMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.54),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: colorScheme.outline),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1040,7 +1202,10 @@ class _BudgetFormDialogState extends State<_BudgetFormDialog> {
                 ),
                 items: [
                   for (final member in widget.members)
-                    DropdownMenuItem(value: member.id, child: Text(member.name)),
+                    DropdownMenuItem(
+                      value: member.id,
+                      child: Text(member.name),
+                    ),
                 ],
                 onChanged: (value) {
                   setState(() => _selectedMember = value);
@@ -1180,7 +1345,17 @@ Color _budgetStatusColor(BuildContext context, double percentage) {
     return Theme.of(context).colorScheme.error;
   }
   if (percentage >= 80) {
-    return Colors.orange;
+    return AppTheme.warningColor;
   }
-  return Colors.green;
+  return AppTheme.incomeColor;
+}
+
+String _budgetStatusText(BudgetItem budget) {
+  if (budget.isOverBudget) {
+    return '已超出预算';
+  }
+  if (budget.isNearLimit) {
+    return '接近预算上限';
+  }
+  return '控制良好';
 }

@@ -11,6 +11,11 @@ import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/ai/data/ai_report_repository.dart';
 import 'package:personal_ledger/features/ai/presentation/ai_reports_page.dart';
+import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
+import 'package:personal_ledger/features/budgets/presentation/budget_page.dart';
+import 'package:personal_ledger/features/categories/application/category_controller.dart';
+import 'package:personal_ledger/features/categories/data/category.dart';
+import 'package:personal_ledger/features/categories/data/category_repository.dart';
 import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/family/presentation/family_page.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
@@ -160,6 +165,51 @@ void main() {
           binding,
           tester,
           'statistics-dashboard-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium budget control room (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              budgetRepositoryProvider.overrideWithValue(
+                _FakeBudgetRepository(),
+              ),
+              categoryRepositoryProvider.overrideWithValue(
+                _FakeCategoryRepository(),
+              ),
+              familyMembersProvider.overrideWith((ref) async => _familyMembers),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const BudgetPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('预算管理'), findsOneWidget);
+        expect(find.text('本月预算总览'), findsOneWidget);
+        expect(find.text('月度总预算'), findsOneWidget);
+        expect(find.text('分类预算'), findsOneWidget);
+        expect(find.text('餐饮'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+
+        await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+        await tester.pumpAndSettle();
+        expect(find.text('家庭成员预算'), findsOneWidget);
+        expect(find.text('成员A'), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'budget-control-room-${variant.name}',
         );
       });
 
@@ -530,6 +580,134 @@ class _FakeTransactionRepository implements TransactionRepository {
     );
   }
 }
+
+class _FakeBudgetRepository implements BudgetRepository {
+  @override
+  Future<void> deleteBudget(String id) async {}
+
+  @override
+  Future<BudgetListResponse?> getList({String? month}) async {
+    return _budgetList;
+  }
+
+  @override
+  Future<BudgetItem?> setCategoryBudget({
+    required String categoryId,
+    required double amount,
+    required int alertThreshold,
+    String? memberId,
+  }) async {
+    return null;
+  }
+
+  @override
+  Future<BudgetItem?> setTotalBudget({
+    required double amount,
+    required int alertThreshold,
+    String? memberId,
+  }) async {
+    return null;
+  }
+}
+
+class _FakeCategoryRepository implements CategoryRepository {
+  @override
+  Future<Category> create(CreateCategoryRequest request) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+
+  @override
+  Future<CategoryListResult> list(CategoryType type) async {
+    return const CategoryListResult(categories: _expenseCategories);
+  }
+
+  @override
+  Future<Category> update(String id, UpdateCategoryRequest request) {
+    throw UnimplementedError();
+  }
+}
+
+const _budgetList = BudgetListResponse(
+  totalBudget: BudgetItem(
+    id: 'budget-total',
+    categoryId: null,
+    categoryName: '',
+    amount: 3000,
+    spent: 1200,
+    remaining: 1800,
+    percentage: 40,
+    alertThreshold: 80,
+  ),
+  categoryBudgets: [
+    BudgetItem(
+      id: 'budget-food',
+      categoryId: 'cat-food',
+      categoryName: '餐饮',
+      amount: 800,
+      spent: 700,
+      remaining: 100,
+      percentage: 87,
+      alertThreshold: 80,
+    ),
+    BudgetItem(
+      id: 'budget-traffic',
+      categoryId: 'cat-traffic',
+      categoryName: '交通',
+      amount: 600,
+      spent: 210,
+      remaining: 390,
+      percentage: 35,
+      alertThreshold: 80,
+    ),
+  ],
+  memberBudgets: [
+    BudgetItem(
+      id: 'budget-member-a',
+      categoryId: null,
+      categoryName: '',
+      memberId: 'member-1',
+      memberName: '成员A',
+      amount: 1200,
+      spent: 420,
+      remaining: 780,
+      percentage: 35,
+      alertThreshold: 80,
+    ),
+  ],
+);
+
+const _expenseCategories = [
+  Category(
+    id: 'cat-food',
+    name: '餐饮',
+    type: CategoryType.expense,
+    icon: 'food',
+    color: '#EF4444',
+    isSystem: true,
+    sortOrder: 1,
+  ),
+  Category(
+    id: 'cat-traffic',
+    name: '交通',
+    type: CategoryType.expense,
+    icon: 'transport',
+    color: '#2563EB',
+    isSystem: true,
+    sortOrder: 2,
+  ),
+  Category(
+    id: 'cat-home',
+    name: '家庭',
+    type: CategoryType.expense,
+    icon: 'home',
+    color: '#8B5CF6',
+    isSystem: true,
+    sortOrder: 3,
+  ),
+];
 
 class _FakeStatisticsRepository implements StatisticsRepository {
   @override
