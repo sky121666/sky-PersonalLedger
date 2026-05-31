@@ -1573,6 +1573,8 @@ class _AIReportCard extends StatelessWidget {
             label: statusText,
           ),
           children: [
+            _AIReportInsightMeter(data: parsed),
+            const SizedBox(height: 12),
             _AIReportContent(data: parsed),
             if (snapshot.accountChanges.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -1589,6 +1591,159 @@ class _AIReportCard extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AIReportInsightMeter extends StatelessWidget {
+  const _AIReportInsightMeter({required this.data});
+
+  final AIReportContentData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final segments = [
+      _AIReportInsightSegment(
+        label: '重点',
+        count: data.highlights.length,
+        icon: Icons.trending_up_outlined,
+        color: financeColors.income,
+      ),
+      _AIReportInsightSegment(
+        label: '风险',
+        count: data.risks.length,
+        icon: Icons.warning_amber_outlined,
+        color: financeColors.warning,
+      ),
+      _AIReportInsightSegment(
+        label: '建议',
+        count: data.suggestions.length,
+        icon: Icons.lightbulb_outline,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+    ];
+    final total = segments.fold<int>(0, (sum, segment) => sum + segment.count);
+    if (total == 0) {
+      return const SizedBox.shrink();
+    }
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.stacked_line_chart_outlined,
+                  size: 16,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '洞察构成',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const Spacer(),
+                Text(
+                  '$total 条',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: SizedBox(
+                height: 9,
+                child: Row(
+                  children: [
+                    for (final segment in segments)
+                      if (segment.count > 0)
+                        Expanded(
+                          flex: segment.count,
+                          child: ColoredBox(color: segment.color),
+                        ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final segment in segments)
+                  _AIReportInsightToken(segment: segment),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AIReportInsightSegment {
+  const _AIReportInsightSegment({
+    required this.label,
+    required this.count,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final int count;
+  final IconData icon;
+  final Color color;
+}
+
+class _AIReportInsightToken extends StatelessWidget {
+  const _AIReportInsightToken({required this.segment});
+
+  final _AIReportInsightSegment segment;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final active = segment.count > 0;
+    final color = active ? segment.color : colorScheme.outline;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: active ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(segment.icon, size: 14, color: color),
+            const SizedBox(width: 5),
+            Text(
+              '${segment.label} ${segment.count}',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ],
         ),
       ),

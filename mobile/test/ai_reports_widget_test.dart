@@ -57,6 +57,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('支出可控'), findsWidgets);
+    expect(find.text('洞察构成'), findsOneWidget);
+    expect(find.text('3 条'), findsOneWidget);
+    expect(find.text('重点 1'), findsOneWidget);
+    expect(find.text('风险 1'), findsOneWidget);
+    expect(find.text('建议 1'), findsOneWidget);
     expect(find.text('• 净现金流为正'), findsOneWidget);
     expect(find.text('• 预算偏高'), findsOneWidget);
     expect(find.text('• 继续记录'), findsOneWidget);
