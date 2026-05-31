@@ -1019,10 +1019,14 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('借贷往来'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('lending-relationship-hub')),
+          findsOneWidget,
+        );
+        expect(find.text('往来关系中枢'), findsOneWidget);
+        expect(find.textContaining('静谧墨绿'), findsOneWidget);
         expect(find.text('借贷往来总览'), findsOneWidget);
-        expect(find.text('应收'), findsOneWidget);
-        expect(find.text('张三'), findsOneWidget);
-        expect(find.text('剩余 ¥800.00'), findsOneWidget);
+        expect(find.text('应收'), findsAtLeastNWidgets(1));
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -1030,6 +1034,12 @@ void main() {
           tester,
           'lending-dashboard-${variant.name}',
         );
+
+        await tester.scrollUntilVisible(find.text('张三'), 280);
+        await tester.pumpAndSettle();
+        expect(find.text('张三'), findsOneWidget);
+        expect(find.text('剩余 ¥800.00'), findsOneWidget);
+        _expectStableVisualFrame(tester);
       });
 
       testWidgets(
