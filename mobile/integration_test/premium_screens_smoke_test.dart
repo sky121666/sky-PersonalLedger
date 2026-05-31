@@ -801,8 +801,13 @@ void main() {
         expect(find.text('交通'), findsOneWidget);
         expect(find.text('系统分类'), findsWidgets);
         expect(find.text('分类颜色系统'), findsOneWidget);
+        expect(find.text('分类治理雷达'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('category-spectrum-panel')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('category-library-radar')),
           findsOneWidget,
         );
         expect(find.byType(PremiumSurface), findsWidgets);

@@ -33,11 +33,17 @@ void main() {
       final repository = _FakeCategoryRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('分类总数'), findsOneWidget);
-      expect(find.text('系统'), findsOneWidget);
-      expect(find.text('自定义'), findsOneWidget);
       expect(find.text('分类颜色系统'), findsOneWidget);
       expect(find.text('自定义占比 50%'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('category-library-radar')),
+        findsOneWidget,
+      );
+      expect(find.text('分类治理雷达'), findsOneWidget);
+      expect(find.text('颜色覆盖'), findsOneWidget);
+      expect(find.text('图标覆盖'), findsOneWidget);
+      expect(find.text('自定义率'), findsOneWidget);
+      expect(find.text('重点自定义 · 交通'), findsOneWidget);
       expect(find.text('支出模式'), findsOneWidget);
       expect(find.text('系统 1'), findsOneWidget);
       expect(find.text('自定义 1'), findsOneWidget);
@@ -45,8 +51,6 @@ void main() {
         find.byKey(const ValueKey('category-spectrum-panel')),
         findsOneWidget,
       );
-      expect(find.text('2'), findsOneWidget);
-      expect(find.text('1'), findsNWidgets(2));
     });
 
     testWidgets('新增分类时提交表单字段并刷新列表', (tester) async {

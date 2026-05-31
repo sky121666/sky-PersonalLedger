@@ -90,31 +90,40 @@ class CategoriesPage extends ConsumerWidget {
         label: const Text('新增分类'),
       ),
       body: AdaptivePageContainer(
-        child: Column(
-          children: [
-            StaggeredEntrance(
-              index: 0,
-              child: _CategoryHeader(
+        child: state.when(
+          data: (data) => _CategoryLibraryView(state: data),
+          loading: () => Column(
+            children: [
+              _CategoryHeader(
                 selectedType: selectedType,
                 categories: state.valueOrNull?.categories ?? const [],
                 onTypeChanged: (type) => ref
                     .read(categoryListControllerProvider.notifier)
                     .setType(type),
               ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: state.when(
-                data: (data) => _CategoryContent(state: data),
-                loading: () => const AppLoadingView(message: '分类加载中...'),
-                error: (error, _) => AppErrorView(
+              const SizedBox(height: 16),
+              const Expanded(child: AppLoadingView(message: '分类加载中...')),
+            ],
+          ),
+          error: (error, _) => Column(
+            children: [
+              _CategoryHeader(
+                selectedType: selectedType,
+                categories: state.valueOrNull?.categories ?? const [],
+                onTypeChanged: (type) => ref
+                    .read(categoryListControllerProvider.notifier)
+                    .setType(type),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: AppErrorView(
                   message: error.toString(),
                   onRetry: () =>
                       ref.read(categoryListControllerProvider.notifier).load(),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -134,47 +143,67 @@ class CategoriesPage extends ConsumerWidget {
   }
 }
 
-class _CategoryContent extends ConsumerWidget {
-  const _CategoryContent({required this.state});
+class _CategoryLibraryView extends ConsumerWidget {
+  const _CategoryLibraryView({required this.state});
 
   final CategoryListState state;
 
   /// 构建分类列表内容。
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (state.categories.isEmpty) {
-      return StaggeredEntrance(
-        index: 1,
-        child: AppEmptyView(
-          title: '暂无${state.type.label}分类',
-          message: '添加分类后，记账时可以快速归类。',
-          icon: Icons.category_outlined,
-          action: FilledButton.icon(
-            onPressed: () => _openCategoryForm(context, state.type),
-            icon: const Icon(Icons.add),
-            label: const Text('新增分类'),
-          ),
-        ),
-      );
-    }
-
     return RefreshIndicator(
       onRefresh: () => ref.read(categoryListControllerProvider.notifier).load(),
-      child: GridView.builder(
-        padding: const EdgeInsets.only(bottom: 96),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 190,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.1,
-        ),
-        itemCount: state.categories.length,
-        itemBuilder: (context, index) {
-          return StaggeredEntrance(
-            index: index + 1,
-            child: _CategoryCard(category: state.categories[index]),
-          );
-        },
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: StaggeredEntrance(
+              index: 0,
+              child: _CategoryHeader(
+                selectedType: state.type,
+                categories: state.categories,
+                onTypeChanged: (type) => ref
+                    .read(categoryListControllerProvider.notifier)
+                    .setType(type),
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          if (state.categories.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: StaggeredEntrance(
+                index: 1,
+                child: AppEmptyView(
+                  title: '暂无${state.type.label}分类',
+                  message: '添加分类后，记账时可以快速归类。',
+                  icon: Icons.category_outlined,
+                  action: FilledButton.icon(
+                    onPressed: () => _openCategoryForm(context, state.type),
+                    icon: const Icon(Icons.add),
+                    label: const Text('新增分类'),
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.only(bottom: 96),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.86,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  return StaggeredEntrance(
+                    index: index + 1,
+                    child: _CategoryCard(category: state.categories[index]),
+                  );
+                }, childCount: state.categories.length),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -263,35 +292,12 @@ class _CategoryHeader extends StatelessWidget {
             accentColor: accentColor,
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _CategorySignalTile(
-                  icon: Icons.dashboard_customize_outlined,
-                  label: '分类总数',
-                  value: '${categories.length}',
-                  color: accentColor,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _CategorySignalTile(
-                  icon: Icons.verified_outlined,
-                  label: '系统',
-                  value: '$systemCount',
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _CategorySignalTile(
-                  icon: Icons.tune_outlined,
-                  label: '自定义',
-                  value: '$customCount',
-                  color: financeColors.asset,
-                ),
-              ),
-            ],
+          _CategoryLibraryRadar(
+            selectedType: selectedType,
+            categories: categories,
+            accentColor: accentColor,
+            systemCount: systemCount,
+            customCount: customCount,
           ),
           const SizedBox(height: 16),
           SegmentedButton<CategoryType>(
@@ -421,8 +427,134 @@ class _CategorySpectrumPanel extends StatelessWidget {
   }
 }
 
-class _CategorySignalTile extends StatelessWidget {
-  const _CategorySignalTile({
+class _CategoryLibraryRadar extends StatelessWidget {
+  const _CategoryLibraryRadar({
+    required this.selectedType,
+    required this.categories,
+    required this.accentColor,
+    required this.systemCount,
+    required this.customCount,
+  });
+
+  final CategoryType selectedType;
+  final List<Category> categories;
+  final Color accentColor;
+  final int systemCount;
+  final int customCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final colorCount = categories
+        .map((category) => category.color.trim().toLowerCase())
+        .where((color) => color.isNotEmpty)
+        .toSet()
+        .length;
+    final iconCount = categories
+        .map((category) => _normalizeCategoryIcon(category.icon))
+        .where((icon) => icon.isNotEmpty)
+        .toSet()
+        .length;
+    final total = categories.isEmpty ? 1 : categories.length;
+    final customRatio = ((customCount / total) * 100).round();
+    final featuredCustom = categories
+        .where((category) => !category.isSystem)
+        .cast<Category?>()
+        .firstWhere((category) => category != null, orElse: () => null);
+    final radarLabel = categories.isEmpty
+        ? '等待配置'
+        : customRatio >= 50
+        ? '高自定义'
+        : '标准库';
+
+    return Container(
+      key: const ValueKey('category-library-radar'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accentColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accentColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.radar_outlined, size: 19, color: accentColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '分类治理雷达',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _CategoryMetaChip(label: radarLabel, color: accentColor),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _CategoryRadarMetric(
+                icon: Icons.palette_outlined,
+                label: '颜色覆盖',
+                value: '$colorCount 色',
+                color: accentColor,
+              ),
+              _CategoryRadarMetric(
+                icon: Icons.auto_awesome_mosaic_outlined,
+                label: '图标覆盖',
+                value: '$iconCount 枚',
+                color: colorScheme.primary,
+              ),
+              _CategoryRadarMetric(
+                icon: Icons.tune_outlined,
+                label: '自定义率',
+                value: '$customRatio%',
+                color: customCount > systemCount
+                    ? financeColors.income
+                    : financeColors.asset,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.account_tree_outlined, size: 18, color: accentColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  featuredCustom == null
+                      ? '${selectedType.label}库暂无自定义分类'
+                      : '重点自定义 · ${featuredCustom.name}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryRadarMetric extends StatelessWidget {
+  const _CategoryRadarMetric({
     required this.icon,
     required this.label,
     required this.value,
@@ -440,8 +572,7 @@ class _CategorySignalTile extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           color.withValues(
@@ -451,33 +582,36 @@ class _CategorySignalTile extends StatelessWidget {
           ),
           colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.16)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 7),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
           ),
         ],
       ),
