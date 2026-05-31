@@ -25,19 +25,43 @@ const _categoryColors = [
   '#71717A',
 ];
 
-const _categoryEmojis = [
-  '🍽️',
-  '🚗',
-  '🛒',
-  '🏠',
-  '🎮',
-  '💊',
-  '📞',
-  '💳',
-  '💰',
-  '📈',
-  '💵',
-  '📝',
+const _categoryIconOptions = [
+  _CategoryIconOption(
+    value: 'restaurant',
+    label: '餐饮图标',
+    icon: Icons.restaurant_outlined,
+  ),
+  _CategoryIconOption(
+    value: 'transport',
+    label: '通勤图标',
+    icon: Icons.directions_car_outlined,
+  ),
+  _CategoryIconOption(
+    value: 'shopping',
+    label: '购物图标',
+    icon: Icons.shopping_bag_outlined,
+  ),
+  _CategoryIconOption(value: 'home', label: '居家图标', icon: Icons.home_outlined),
+  _CategoryIconOption(
+    value: 'medical',
+    label: '健康图标',
+    icon: Icons.medical_services_outlined,
+  ),
+  _CategoryIconOption(
+    value: 'card',
+    label: '卡片图标',
+    icon: Icons.credit_card_outlined,
+  ),
+  _CategoryIconOption(
+    value: 'income',
+    label: '收入图标',
+    icon: Icons.payments_outlined,
+  ),
+  _CategoryIconOption(
+    value: 'investment',
+    label: '投资图标',
+    icon: Icons.show_chart_outlined,
+  ),
 ];
 
 class CategoriesPage extends ConsumerWidget {
@@ -395,7 +419,7 @@ class _CategoryFormSheet extends ConsumerStatefulWidget {
 class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  late String _icon;
+  late final TextEditingController _iconController;
   late String _color;
   bool _submitting = false;
 
@@ -405,8 +429,11 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
     super.initState();
     final category = widget.category;
     _nameController = TextEditingController(text: category?.name ?? '');
-    _icon =
-        category?.icon ?? (widget.type == CategoryType.expense ? '🍽️' : '💰');
+    _iconController = TextEditingController(
+      text:
+          category?.icon ??
+          (widget.type == CategoryType.expense ? 'restaurant' : 'income'),
+    );
     _color = category?.color ?? _categoryColors.first;
   }
 
@@ -414,6 +441,7 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
   @override
   void dispose() {
     _nameController.dispose();
+    _iconController.dispose();
     super.dispose();
   }
 
@@ -421,6 +449,10 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.category != null;
+    final previewColor = _parseColor(
+      _color,
+      AppTheme.financeColors(context).asset,
+    );
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -435,11 +467,22 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                isEditing ? '编辑分类' : '新增${widget.type.label}分类',
-                style: Theme.of(context).textTheme.titleLarge,
+              _CategoryFormPreview(
+                title: isEditing ? '编辑分类' : '新增${widget.type.label}分类',
+                name: _nameController.text.trim().isEmpty
+                    ? '未命名分类'
+                    : _nameController.text.trim(),
+                icon: _categoryIconData(_iconController.text),
+                color: previewColor,
               ),
               const SizedBox(height: 16),
+              Text(
+                '基础信息',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
               TextFormField(
                 key: const ValueKey('category-name'),
                 controller: _nameController,
@@ -447,29 +490,35 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
                   labelText: '分类名称',
                   border: OutlineInputBorder(),
                 ),
+                onChanged: (_) => setState(() {}),
                 validator: (value) =>
                     value == null || value.trim().isEmpty ? '请输入分类名称' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 key: const ValueKey('category-icon'),
-                initialValue: _icon,
+                controller: _iconController,
                 decoration: const InputDecoration(
-                  labelText: '图标',
+                  labelText: '图标标识',
+                  hintText: 'restaurant / income / shopping',
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (value) => _icon = value.trim(),
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final emoji in _categoryEmojis)
-                    ChoiceChip(
-                      label: Text(emoji),
-                      selected: _icon == emoji,
-                      onSelected: (_) => setState(() => _icon = emoji),
+                  for (final option in _categoryIconOptions)
+                    _CategoryIconChoice(
+                      option: option,
+                      selected:
+                          _normalizeCategoryIcon(_iconController.text) ==
+                          option.value,
+                      onSelected: () {
+                        setState(() => _iconController.text = option.value);
+                      },
                     ),
                 ],
               ),
@@ -511,6 +560,7 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    final icon = _iconController.text.trim();
     setState(() => _submitting = true);
     try {
       final controller = ref.read(categoryListControllerProvider.notifier);
@@ -520,7 +570,7 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
           CreateCategoryRequest(
             name: _nameController.text.trim(),
             type: widget.type,
-            icon: _icon.isEmpty ? '📝' : _icon,
+            icon: icon.isEmpty ? 'category' : icon,
             color: _color,
           ),
         );
@@ -529,7 +579,7 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
           category.id,
           UpdateCategoryRequest(
             name: _nameController.text.trim(),
-            icon: _icon.isEmpty ? '📝' : _icon,
+            icon: icon.isEmpty ? 'category' : icon,
             color: _color,
           ),
         );
@@ -556,20 +606,129 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
 
 enum _CategoryAction { edit, delete }
 
+class _CategoryIconOption {
+  const _CategoryIconOption({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+}
+
+class _CategoryFormPreview extends StatelessWidget {
+  const _CategoryFormPreview({
+    required this.title,
+    required this.name,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final String name;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: color,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          IconBadge(icon: icon, color: color, size: 46, iconSize: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '当前名称：$name',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryIconChoice extends StatelessWidget {
+  const _CategoryIconChoice({
+    required this.option,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final _CategoryIconOption option;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = selected ? colorScheme.primary : colorScheme.outline;
+    return ChoiceChip(
+      avatar: Icon(option.icon, size: 18, color: accentColor),
+      label: Text(option.label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      labelStyle: TextStyle(
+        color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
 IconData _categoryIconData(String value) {
+  final normalized = _normalizeCategoryIcon(value);
+  return switch (normalized) {
+    'restaurant' => Icons.restaurant_outlined,
+    'transport' => Icons.directions_car_outlined,
+    'shopping' => Icons.shopping_bag_outlined,
+    'home' => Icons.home_outlined,
+    'game' => Icons.sports_esports_outlined,
+    'medical' => Icons.medical_services_outlined,
+    'phone' => Icons.phone_iphone_outlined,
+    'card' => Icons.credit_card_outlined,
+    'income' => Icons.payments_outlined,
+    'investment' => Icons.show_chart_outlined,
+    _ => Icons.category_outlined,
+  };
+}
+
+String _normalizeCategoryIcon(String value) {
   final normalized = value.trim().toLowerCase();
   return switch (normalized) {
-    'food' || 'restaurant' || '🍽️' => Icons.restaurant_outlined,
-    'transport' || 'car' || '🚗' => Icons.directions_car_outlined,
-    'shopping' || 'cart' || '🛒' => Icons.shopping_bag_outlined,
-    'home' || 'house' || '🏠' => Icons.home_outlined,
-    'game' || '🎮' => Icons.sports_esports_outlined,
-    'medical' || 'health' || '💊' => Icons.medical_services_outlined,
-    'phone' || '📞' => Icons.phone_iphone_outlined,
-    'card' || 'credit-card' || '💳' => Icons.credit_card_outlined,
-    'salary' || 'income' || '💰' || '💵' => Icons.payments_outlined,
-    'investment' || '📈' => Icons.show_chart_outlined,
-    _ => Icons.category_outlined,
+    'food' || 'restaurant' || '🍽️' => 'restaurant',
+    'transport' || 'car' || '🚗' => 'transport',
+    'shopping' || 'cart' || '🛒' => 'shopping',
+    'home' || 'house' || '🏠' => 'home',
+    'game' || '🎮' => 'game',
+    'medical' || 'health' || '💊' => 'medical',
+    'phone' || '📞' => 'phone',
+    'card' || 'credit-card' || '💳' => 'card',
+    'salary' || 'income' || '💰' || '💵' => 'income',
+    'investment' || '📈' => 'investment',
+    _ => normalized,
   };
 }
 
