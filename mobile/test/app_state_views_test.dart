@@ -61,6 +61,51 @@ void main() {
 
     expect(retryCount, 1);
   });
+
+  testWidgets('AppConfirmDialog 展示风险信号并返回确认结果', (tester) async {
+    bool? lastConfirmed;
+    await _pump(
+      tester,
+      Builder(
+        builder: (context) {
+          return FilledButton(
+            onPressed: () async {
+              final confirmed = await showAppConfirmDialog(
+                context: context,
+                title: '删除交易',
+                message: '删除后账户余额会同步回滚。',
+                confirmText: '删除',
+                isDanger: true,
+              );
+              lastConfirmed = confirmed;
+            },
+            child: const Text('打开确认'),
+          );
+        },
+      ),
+    );
+
+    await tester.tap(find.text('打开确认'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除交易'), findsOneWidget);
+    expect(find.text('删除后账户余额会同步回滚。'), findsOneWidget);
+    expect(find.textContaining('高风险'), findsOneWidget);
+    expect(find.textContaining('需手动确认'), findsOneWidget);
+    expect(find.byType(PremiumSurface), findsWidgets);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '取消'));
+    await tester.pumpAndSettle();
+
+    expect(lastConfirmed, isFalse);
+
+    await tester.tap(find.text('打开确认'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(lastConfirmed, isTrue);
+  });
 }
 
 Future<void> _pump(WidgetTester tester, Widget child) async {
