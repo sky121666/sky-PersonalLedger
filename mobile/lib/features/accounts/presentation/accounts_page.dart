@@ -177,19 +177,27 @@ class _AccountContent extends ConsumerWidget {
               themePalette: themeSettings.palette,
             ),
           ),
+          const SizedBox(height: 12),
+          StaggeredEntrance(
+            index: 2,
+            child: _AccountPortfolioMatrixPanel(
+              result: result,
+              themePalette: themeSettings.palette,
+            ),
+          ),
           const SizedBox(height: 16),
           _AccountSection(
             title: '正常账户',
             accounts: activeAccounts,
             sortable: true,
-            startIndex: 2,
+            startIndex: 3,
           ),
           if (archivedAccounts.isNotEmpty) ...[
             const SizedBox(height: 16),
             _AccountSection(
               title: '已归档账户',
               accounts: archivedAccounts,
-              startIndex: activeAccounts.length + 2,
+              startIndex: activeAccounts.length + 3,
             ),
           ],
         ],
@@ -709,6 +717,313 @@ class _AccountControlMetric extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountPortfolioMatrixPanel extends StatelessWidget {
+  const _AccountPortfolioMatrixPanel({
+    required this.result,
+    required this.themePalette,
+  });
+
+  final AccountListResult result;
+  final AppThemePalette themePalette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final activeAccounts = result.accounts
+        .where((account) => !account.isArchived)
+        .toList();
+    final assetAccounts = activeAccounts
+        .where((account) => !_isDebtAccount(account.type))
+        .toList();
+    final debtAccounts = activeAccounts
+        .where((account) => _isDebtAccount(account.type))
+        .toList();
+    final primaryAsset = assetAccounts.isEmpty
+        ? null
+        : assetAccounts.reduce(
+            (a, b) => a.currentBalance >= b.currentBalance ? a : b,
+          );
+    final primaryDebt = debtAccounts.isEmpty
+        ? null
+        : debtAccounts.reduce(
+            (a, b) => a.currentBalance.abs() >= b.currentBalance.abs() ? a : b,
+          );
+    final totalExposure =
+        result.totalAssets.abs() + result.totalLiabilities.abs();
+    final assetShare = totalExposure <= 0
+        ? 0.0
+        : result.totalAssets.abs() / totalExposure;
+    final debtShare = totalExposure <= 0
+        ? 0.0
+        : result.totalLiabilities.abs() / totalExposure;
+    final liquidityLabel = assetAccounts.length >= debtAccounts.length
+        ? '流动优先'
+        : '负债优先';
+    final matrixColor = result.netAssets >= 0
+        ? themePalette.assetColor
+        : financeColors.expense;
+
+    return PremiumSurface(
+      key: const ValueKey('account-portfolio-matrix-panel'),
+      accentColor: matrixColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.grid_view_outlined,
+                color: matrixColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '账户资产矩阵',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      primaryAsset == null
+                          ? '等待创建可用于记账的流动账户'
+                          : '${primaryAsset.name} 是当前主要流动账户',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _AccountControlPill(
+                icon: Icons.account_tree_outlined,
+                label: liquidityLabel,
+                color: matrixColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _AccountExposureBar(
+            assetShare: assetShare,
+            debtShare: debtShare,
+            assetColor: financeColors.income,
+            debtColor: financeColors.expense,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth >= 420
+                  ? (constraints.maxWidth - 8) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _AccountMatrixTile(
+                    width: itemWidth,
+                    icon: Icons.savings_outlined,
+                    label: '主资产账户',
+                    value: primaryAsset?.name ?? '未建立',
+                    meta: primaryAsset == null
+                        ? '0 份'
+                        : _formatMoney(primaryAsset.currentBalance),
+                    color: financeColors.income,
+                  ),
+                  _AccountMatrixTile(
+                    width: itemWidth,
+                    icon: Icons.request_quote_outlined,
+                    label: '主要负债',
+                    value: primaryDebt?.name ?? '无负债',
+                    meta: primaryDebt == null
+                        ? '0 份'
+                        : _formatMoney(primaryDebt.currentBalance),
+                    color: primaryDebt == null
+                        ? colorScheme.outline
+                        : financeColors.expense,
+                  ),
+                  _AccountMatrixTile(
+                    width: itemWidth,
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: '账户覆盖',
+                    value: '${activeAccounts.length} 个活跃',
+                    meta:
+                        '${assetAccounts.length} 资产 / ${debtAccounts.length} 负债',
+                    color: themePalette.assetColor,
+                  ),
+                  _AccountMatrixTile(
+                    width: itemWidth,
+                    icon: Icons.auto_graph_outlined,
+                    label: '结构比例',
+                    value:
+                        '${(assetShare * 100).toStringAsFixed(0)}% / ${(debtShare * 100).toStringAsFixed(0)}%',
+                    meta: '资产 / 负债',
+                    color: themePalette.warningColor,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountExposureBar extends StatelessWidget {
+  const _AccountExposureBar({
+    required this.assetShare,
+    required this.debtShare,
+    required this.assetColor,
+    required this.debtColor,
+  });
+
+  final double assetShare;
+  final double debtShare;
+  final Color assetColor;
+  final Color debtColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _AssetMixLegend(label: '资产池', color: assetColor),
+            const SizedBox(width: 12),
+            _AssetMixLegend(label: '负债池', color: debtColor),
+            const Spacer(),
+            Text(
+              '矩阵占比',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: SizedBox(
+            height: 12,
+            child: Row(
+              children: [
+                Expanded(
+                  flex: math.max(1, (assetShare * 100).round()),
+                  child: ColoredBox(color: assetColor),
+                ),
+                Expanded(
+                  flex: math.max(1, (debtShare * 100).round()),
+                  child: ColoredBox(color: debtColor),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountMatrixTile extends StatelessWidget {
+  const _AccountMatrixTile({
+    required this.width,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.meta,
+    required this.color,
+  });
+
+  final double width;
+  final IconData icon;
+  final String label;
+  final String value;
+  final String meta;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      width: width,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      constraints: const BoxConstraints(minHeight: 92),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 21, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),

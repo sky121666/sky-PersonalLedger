@@ -481,6 +481,22 @@ void main() {
         );
 
         await tester.scrollUntilVisible(
+          find.text('账户资产矩阵'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(
+          find.byKey(const ValueKey('account-portfolio-matrix-panel')),
+          findsOneWidget,
+        );
+        expect(find.text('账户资产矩阵'), findsOneWidget);
+        expect(find.text('流动优先'), findsOneWidget);
+        expect(find.text('主资产账户'), findsOneWidget);
+        expect(find.text('主要负债'), findsOneWidget);
+        expect(find.text('结构比例'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+
+        await tester.scrollUntilVisible(
           find.text('正常账户'),
           300,
           scrollable: find.byType(Scrollable).first,
@@ -488,7 +504,7 @@ void main() {
         expect(find.text('正常账户'), findsOneWidget);
         expect(find.text('支持排序'), findsOneWidget);
         expect(find.text('资产类'), findsAtLeastNWidgets(1));
-        expect(find.text('招商银行'), findsOneWidget);
+        expect(find.text('招商银行'), findsWidgets);
         _expectStableVisualFrame(tester);
         await tester.scrollUntilVisible(
           find.text('已归档账户'),
