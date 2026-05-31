@@ -6,6 +6,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../application/category_controller.dart';
 import '../data/category.dart';
 
@@ -67,12 +68,15 @@ class CategoriesPage extends ConsumerWidget {
       body: AdaptivePageContainer(
         child: Column(
           children: [
-            _CategoryHeader(
-              selectedType: selectedType,
-              count: state.valueOrNull?.categories.length ?? 0,
-              onTypeChanged: (type) => ref
-                  .read(categoryListControllerProvider.notifier)
-                  .setType(type),
+            StaggeredEntrance(
+              index: 0,
+              child: _CategoryHeader(
+                selectedType: selectedType,
+                count: state.valueOrNull?.categories.length ?? 0,
+                onTypeChanged: (type) => ref
+                    .read(categoryListControllerProvider.notifier)
+                    .setType(type),
+              ),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -115,14 +119,17 @@ class _CategoryContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.categories.isEmpty) {
-      return AppEmptyView(
-        title: '暂无${state.type.label}分类',
-        message: '添加分类后，记账时可以快速归类。',
-        icon: Icons.category_outlined,
-        action: FilledButton.icon(
-          onPressed: () => _openCategoryForm(context, state.type),
-          icon: const Icon(Icons.add),
-          label: const Text('新增分类'),
+      return StaggeredEntrance(
+        index: 1,
+        child: AppEmptyView(
+          title: '暂无${state.type.label}分类',
+          message: '添加分类后，记账时可以快速归类。',
+          icon: Icons.category_outlined,
+          action: FilledButton.icon(
+            onPressed: () => _openCategoryForm(context, state.type),
+            icon: const Icon(Icons.add),
+            label: const Text('新增分类'),
+          ),
         ),
       );
     }
@@ -139,7 +146,10 @@ class _CategoryContent extends ConsumerWidget {
         ),
         itemCount: state.categories.length,
         itemBuilder: (context, index) {
-          return _CategoryCard(category: state.categories[index]);
+          return StaggeredEntrance(
+            index: index + 1,
+            child: _CategoryCard(category: state.categories[index]),
+          );
         },
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/categories/application/category_controller.dart';
 import 'package:personal_ledger/features/categories/data/category.dart';
 import 'package:personal_ledger/features/categories/data/category_repository.dart';
@@ -19,6 +20,13 @@ void main() {
       expect(find.text('系统分类'), findsOneWidget);
       expect(find.text('交通'), findsOneWidget);
       expect(find.text('自定义分类'), findsOneWidget);
+    });
+
+    testWidgets('分类头部和卡片使用分段入场动效', (tester) async {
+      final repository = _FakeCategoryRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
     testWidgets('新增分类时提交表单字段并刷新列表', (tester) async {
