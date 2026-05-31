@@ -607,6 +607,8 @@ class _NotificationOverviewCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     final accent = enabled ? financeColors.income : financeColors.warning;
+    final coverageRatio = enabledChannels / 4;
+    final coveragePercent = (coverageRatio.clamp(0, 1) * 100).round();
     return PremiumSurface(
       accentColor: accent,
       child: Column(
@@ -672,10 +674,11 @@ class _NotificationOverviewCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _NotificationMetric(
-                  icon: Icons.hub_outlined,
-                  label: '启用通道',
-                  value: '$enabledChannels 个',
+                  icon: Icons.radar_outlined,
+                  label: '通道覆盖率',
+                  value: '$coveragePercent%',
                   color: financeColors.asset,
+                  progress: coverageRatio,
                 ),
               ),
               const SizedBox(width: 10),
@@ -710,12 +713,14 @@ class _NotificationMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.progress,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final Color color;
+  final double? progress;
 
   @override
   Widget build(BuildContext context) {
@@ -758,6 +763,18 @@ class _NotificationMetric extends StatelessWidget {
               context,
             ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
           ),
+          if (progress != null) ...[
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progress!.clamp(0, 1),
+                minHeight: 5,
+                color: color,
+                backgroundColor: color.withValues(alpha: 0.12),
+              ),
+            ),
+          ],
         ],
       ),
     );

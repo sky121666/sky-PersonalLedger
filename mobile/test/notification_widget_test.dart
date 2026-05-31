@@ -17,6 +17,8 @@ void main() {
       expect(find.text('通知控制台'), findsOneWidget);
       expect(find.text('Active'), findsOneWidget);
       expect(find.text('推送中'), findsOneWidget);
+      expect(find.text('通道覆盖率'), findsOneWidget);
+      expect(find.text('25%'), findsOneWidget);
       expect(find.text('可测试'), findsOneWidget);
       expect(find.text('启用通知'), findsOneWidget);
       expect(find.text('企业微信'), findsWidgets);
