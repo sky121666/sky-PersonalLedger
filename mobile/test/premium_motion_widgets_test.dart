@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/app/widgets/pressable_scale.dart';
@@ -44,6 +45,36 @@ void main() {
     expect(find.text('按压反馈'), findsOneWidget);
 
     await tester.tap(find.text('按压反馈'));
+    await tester.pumpAndSettle();
+
+    expect(tapped, isTrue);
+  });
+
+  testWidgets('PressableScale supports keyboard activation', (tester) async {
+    var tapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: PressableScale(
+              onTap: () => tapped = true,
+              child: const SizedBox(
+                width: 120,
+                height: 48,
+                child: Center(child: Text('键盘反馈')),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('键盘反馈'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
 
     expect(tapped, isTrue);

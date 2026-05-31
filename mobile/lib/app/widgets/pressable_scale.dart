@@ -25,10 +25,22 @@ class PressableScale extends StatefulWidget {
 
 class _PressableScaleState extends State<PressableScale> {
   var _pressed = false;
+  var _hovered = false;
+  var _focused = false;
 
   void _setPressed(bool value) {
     if (_pressed == value) return;
     setState(() => _pressed = value);
+  }
+
+  void _setHovered(bool value) {
+    if (_hovered == value) return;
+    setState(() => _hovered = value);
+  }
+
+  void _setFocused(bool value) {
+    if (_focused == value) return;
+    setState(() => _focused = value);
   }
 
   Future<void> _handleTap() async {
@@ -40,12 +52,25 @@ class _PressableScaleState extends State<PressableScale> {
 
   @override
   Widget build(BuildContext context) {
+    final interactive = widget.onTap != null;
+    final scale = _pressed
+        ? widget.scale
+        : _hovered
+        ? 1.01
+        : _focused
+        ? 1.005
+        : 1.0;
+    final opacity = _pressed
+        ? 0.92
+        : (_hovered || _focused)
+        ? 0.98
+        : 1.0;
     final child = AnimatedScale(
-      scale: _pressed ? widget.scale : 1,
+      scale: scale,
       duration: MotionTokens.instant,
       curve: MotionTokens.curveStandard,
       child: AnimatedOpacity(
-        opacity: _pressed ? 0.92 : 1,
+        opacity: opacity,
         duration: MotionTokens.instant,
         curve: MotionTokens.curveStandard,
         child: widget.child,
@@ -53,15 +78,39 @@ class _PressableScaleState extends State<PressableScale> {
     );
 
     return Semantics(
-      button: widget.onTap != null,
+      button: interactive,
       label: widget.semanticLabel,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap == null ? null : _handleTap,
-        onTapDown: widget.onTap == null ? null : (_) => _setPressed(true),
-        onTapUp: widget.onTap == null ? null : (_) => _setPressed(false),
-        onTapCancel: widget.onTap == null ? null : () => _setPressed(false),
-        child: child,
+      child: FocusableActionDetector(
+        enabled: interactive,
+        mouseCursor: interactive
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        onShowHoverHighlight: _setHovered,
+        onShowFocusHighlight: _setFocused,
+        shortcuts: interactive
+            ? const <ShortcutActivator, Intent>{
+                SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+                SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+              }
+            : const <ShortcutActivator, Intent>{},
+        actions: interactive
+            ? <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    _handleTap();
+                    return null;
+                  },
+                ),
+              }
+            : const <Type, Action<Intent>>{},
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: interactive ? _handleTap : null,
+          onTapDown: interactive ? (_) => _setPressed(true) : null,
+          onTapUp: interactive ? (_) => _setPressed(false) : null,
+          onTapCancel: interactive ? () => _setPressed(false) : null,
+          child: child,
+        ),
       ),
     );
   }
