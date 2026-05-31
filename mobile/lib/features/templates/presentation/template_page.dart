@@ -364,6 +364,192 @@ class _TemplateHero extends StatelessWidget {
             totalUsedCount: totalUsedCount,
             accountCount: accountCount,
           ),
+          const SizedBox(height: 14),
+          _TemplateOrchestrationPanel(
+            templateCount: templateCount,
+            totalUsedCount: totalUsedCount,
+            accountCount: accountCount,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateOrchestrationPanel extends StatelessWidget {
+  const _TemplateOrchestrationPanel({
+    required this.templateCount,
+    required this.totalUsedCount,
+    required this.accountCount,
+  });
+
+  final int templateCount;
+  final int totalUsedCount;
+  final int accountCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final averageReuse = templateCount == 0
+        ? 0
+        : (totalUsedCount / templateCount).round();
+    final ready = templateCount > 0 && accountCount > 0;
+    final stageLabel = !ready
+        ? '待编排'
+        : averageReuse >= 3
+        ? '高频自动化'
+        : '可继续沉淀';
+    final stageColor = !ready
+        ? colorScheme.outline
+        : averageReuse >= 3
+        ? financeColors.income
+        : financeColors.asset;
+
+    return AnimatedContainer(
+      key: const ValueKey('template-orchestration-panel'),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          stageColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: stageColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.account_tree_outlined, size: 19, color: stageColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '模板编排面板',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _TemplateStatusPill(label: stageLabel, color: stageColor),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _TemplateFlowMetric(
+                  icon: Icons.dashboard_customize_outlined,
+                  label: '模板池',
+                  value: '$templateCount',
+                  color: colorScheme.tertiary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TemplateFlowMetric(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: '账户通道',
+                  value: '$accountCount',
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TemplateFlowMetric(
+                  icon: Icons.bolt_outlined,
+                  label: '复用强度',
+                  value: '$averageReuse',
+                  color: averageReuse >= 3
+                      ? financeColors.income
+                      : financeColors.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 8,
+              value: (averageReuse / 6).clamp(0.0, 1.0),
+              color: stageColor,
+              backgroundColor: colorScheme.outlineVariant.withValues(
+                alpha: 0.42,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateFlowMetric extends StatelessWidget {
+  const _TemplateFlowMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );

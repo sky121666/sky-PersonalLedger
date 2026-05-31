@@ -55,6 +55,15 @@ void main() {
         find.byKey(const ValueKey('template-automation-strip')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('template-orchestration-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('模板编排面板'), findsOneWidget);
+      expect(find.text('高频自动化'), findsOneWidget);
+      expect(find.text('模板池'), findsOneWidget);
+      expect(find.text('账户通道'), findsOneWidget);
+      expect(find.text('复用强度'), findsOneWidget);
     });
 
     testWidgets('新增模板时提交表单字段并刷新列表', (tester) async {
