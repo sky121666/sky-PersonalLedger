@@ -463,7 +463,6 @@ class _BudgetSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
     final totalBudget = budget;
     final used = totalBudget?.spent ?? 0;
     final amount = totalBudget?.amount ?? 0;
@@ -555,34 +554,141 @@ class _BudgetSummaryCard extends StatelessWidget {
                 color: Theme.of(context).colorScheme.outline,
               ),
             ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                MetricPill(
-                  label: '预算金额',
-                  value: _formatMoney(amount),
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: financeColors.asset,
-                ),
-                MetricPill(
-                  label: '已用',
-                  value: _formatMoney(used),
-                  icon: Icons.local_fire_department_outlined,
-                  color: financeColors.expense,
-                ),
-                MetricPill(
-                  label: '提醒线',
-                  value: '${totalBudget.alertThreshold}%',
-                  icon: Icons.notifications_active_outlined,
-                  color: statusColor,
-                ),
-              ],
-            ),
+            const SizedBox(height: 14),
+            _BudgetBurnStrip(budget: totalBudget),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _BudgetBurnStrip extends StatelessWidget {
+  const _BudgetBurnStrip({required this.budget});
+
+  final BudgetItem budget;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final usedRatio = (budget.percentage / 100).clamp(0.0, 1.0);
+    final remainingRatio = (1 - usedRatio).clamp(0.0, 1.0);
+    final statusColor = _budgetStatusColor(context, budget.percentage);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          statusColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: statusColor.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.local_fire_department_outlined,
+                color: statusColor,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _budgetBurnLabel(budget.percentage, budget.alertThreshold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '提醒线 ${budget.alertThreshold}%',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 10,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: math.max(1, (usedRatio * 100).round()),
+                    child: ColoredBox(color: statusColor),
+                  ),
+                  Expanded(
+                    flex: math.max(1, (remainingRatio * 100).round()),
+                    child: ColoredBox(color: financeColors.income),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _BudgetBurnLegend(label: '已用', color: statusColor),
+              const SizedBox(width: 12),
+              _BudgetBurnLegend(label: '剩余', color: financeColors.income),
+              const Spacer(),
+              Text(
+                '${budget.percentage.toStringAsFixed(0)}% 已使用',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetBurnLegend extends StatelessWidget {
+  const _BudgetBurnLegend({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1451,4 +1557,14 @@ String _budgetRhythmLabel(double percentage) {
     return '接近提醒线';
   }
   return '节奏健康';
+}
+
+String _budgetBurnLabel(double percentage, int alertThreshold) {
+  if (percentage >= 100) {
+    return '预算已突破上限';
+  }
+  if (percentage >= alertThreshold) {
+    return '预算燃烧接近提醒线';
+  }
+  return '预算燃烧节奏正常';
 }

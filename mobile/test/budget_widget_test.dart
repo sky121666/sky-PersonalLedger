@@ -19,6 +19,9 @@ void main() {
 
       expect(find.text('预算管理'), findsOneWidget);
       expect(find.text('节奏健康'), findsOneWidget);
+      expect(find.text('预算燃烧节奏正常'), findsOneWidget);
+      expect(find.text('提醒线 80%'), findsWidgets);
+      expect(find.text('40% 已使用'), findsOneWidget);
       expect(find.text('¥1800.00'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('87%'), findsOneWidget);
