@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../../transactions/application/ledger_refresh.dart';
 import '../../transactions/data/transaction_models.dart';
 import '../data/template_repository.dart';
@@ -219,29 +221,57 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
       return AppErrorView(message: error.toString(), onRetry: _loadData);
     }
     if (_templates.isEmpty) {
-      return AppEmptyView(
-        title: '暂无快捷模板',
-        message: '保存常用收支后，可以一键按模板记账。',
-        icon: Icons.bolt_outlined,
-        action: FilledButton.icon(
-          onPressed: _submitting || _accounts.isEmpty || _categories.isEmpty
-              ? null
-              : _openTemplateForm,
-          icon: const Icon(Icons.add),
-          label: const Text('新增模板'),
-        ),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 96),
+        children: [
+          _TemplateHero(
+            templateCount: 0,
+            totalUsedCount: 0,
+            accountCount: _accounts.length,
+          ),
+          const SizedBox(height: 12),
+          PremiumSurface(
+            padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+            child: AppEmptyView(
+              title: '暂无快捷模板',
+              message: '保存常用收支后，可以一键按模板记账。',
+              icon: Icons.bolt_outlined,
+              action: FilledButton.icon(
+                onPressed:
+                    _submitting || _accounts.isEmpty || _categories.isEmpty
+                    ? null
+                    : _openTemplateForm,
+                icon: const Icon(Icons.add),
+                label: const Text('新增模板'),
+              ),
+            ),
+          ),
+        ],
       );
     }
+
+    final totalUsedCount = _templates.fold<int>(
+      0,
+      (total, template) => total + template.usedCount,
+    );
 
     return RefreshIndicator(
       onRefresh: _loadData,
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 96),
-        itemCount: _templates.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 8),
+        itemCount: _templates.length + 1,
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
-          final template = _templates[index];
+          if (index == 0) {
+            return _TemplateHero(
+              templateCount: _templates.length,
+              totalUsedCount: totalUsedCount,
+              accountCount: _accounts.length,
+            );
+          }
+          final template = _templates[index - 1];
           return _TemplateCard(
             template: template,
             accountName: _accountName(template.accountId),
@@ -251,6 +281,122 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
             onDelete: () => _deleteTemplate(template),
           );
         },
+      ),
+    );
+  }
+}
+
+class _TemplateHero extends StatelessWidget {
+  const _TemplateHero({
+    required this.templateCount,
+    required this.totalUsedCount,
+    required this.accountCount,
+  });
+
+  final int templateCount;
+  final int totalUsedCount;
+  final int accountCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.tertiary,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.bolt_outlined,
+                color: colorScheme.tertiary,
+                size: 48,
+                iconSize: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '快捷模板库',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '把高频收支做成可复用模板，减少重复录入。',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              MetricPill(
+                label: '模板数',
+                value: '$templateCount 个',
+                icon: Icons.dashboard_customize_outlined,
+                color: colorScheme.tertiary,
+              ),
+              MetricPill(
+                label: '累计使用',
+                value: '$totalUsedCount 次',
+                icon: Icons.play_circle_outline,
+                color: colorScheme.primary,
+              ),
+              MetricPill(
+                label: '可用账户',
+                value: '$accountCount 个',
+                icon: Icons.account_balance_wallet_outlined,
+                color: colorScheme.secondary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateMetaPill extends StatelessWidget {
+  const _TemplateMetaPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -278,73 +424,84 @@ class _TemplateCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isIncome = template.type == TransactionType.income;
     final amountColor = isIncome ? Colors.green.shade700 : colorScheme.error;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: amountColor.withValues(alpha: 0.12),
-                  foregroundColor: amountColor,
-                  child: Icon(
-                    isIncome
-                        ? Icons.trending_up_outlined
-                        : Icons.trending_down_outlined,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        template.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium,
+    return PremiumSurface(
+      accentColor: amountColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: isIncome
+                    ? Icons.trending_up_outlined
+                    : Icons.trending_down_outlined,
+                color: amountColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      template.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${template.typeLabel} · $accountName · $categoryName',
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${template.typeLabel} · $accountName · $categoryName',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                Text(
-                  '${isIncome ? '+' : '-'}¥${template.amount.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: amountColor,
-                    fontWeight: FontWeight.w700,
-                  ),
+              ),
+              Text(
+                '${isIncome ? '+' : '-'}¥${template.amount.toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: amountColor,
+                  fontWeight: FontWeight.w900,
                 ),
-              ],
-            ),
-            if (template.remark.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(template.remark),
+              ),
             ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Text('已用 ${template.usedCount} 次'),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: busy ? null : onApply,
-                  icon: const Icon(Icons.play_arrow_outlined),
-                  label: const Text('套用'),
-                ),
-                IconButton(
-                  onPressed: busy ? null : onDelete,
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: '删除模板',
-                ),
-              ],
+          ),
+          if (template.remark.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              template.remark,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
-        ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _TemplateMetaPill(
+                icon: Icons.repeat_outlined,
+                label: '已用 ${template.usedCount} 次',
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: busy ? null : onApply,
+                icon: const Icon(Icons.play_arrow_outlined),
+                label: const Text('套用'),
+              ),
+              IconButton.filledTonal(
+                onPressed: busy ? null : onDelete,
+                icon: const Icon(Icons.delete_outline),
+                tooltip: '删除模板',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

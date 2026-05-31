@@ -51,6 +51,8 @@ import 'package:personal_ledger/features/statistics/data/statistics_repository.d
 import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
 import 'package:personal_ledger/features/tags/data/tag_repository.dart';
 import 'package:personal_ledger/features/tags/presentation/tag_page.dart';
+import 'package:personal_ledger/features/templates/data/template_repository.dart';
+import 'package:personal_ledger/features/templates/presentation/template_page.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/quick_transaction_page.dart';
@@ -524,6 +526,41 @@ void main() {
           binding,
           tester,
           'tag-library-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium quick templates (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              templateRepositoryProvider.overrideWithValue(
+                _FakeTemplateRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const TemplatePage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('快捷模板'), findsOneWidget);
+        expect(find.text('快捷模板库'), findsOneWidget);
+        expect(find.text('午餐'), findsOneWidget);
+        expect(find.text('支出 · 现金 · 餐饮'), findsOneWidget);
+        expect(find.text('已用 3 次'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'quick-templates-${variant.name}',
         );
       });
 
@@ -1771,6 +1808,69 @@ class _FakeTagRepository implements TagRepository {
   @override
   Future<TagItem> update(String id, TagRequest request) async {
     return _tags.firstWhere((tag) => tag.id == id);
+  }
+}
+
+class _FakeTemplateRepository implements TemplateRepository {
+  @override
+  Future<TransactionItem> apply(String id, ApplyTemplateRequest request) async {
+    return TransactionItem(
+      id: 'tx-1',
+      type: TransactionType.expense,
+      amount: 32,
+      accountId: 'account-1',
+      categoryId: 'category-expense',
+      transactionDate: request.transactionDate ?? DateTime(2026, 5, 18),
+      remark: '工作日午餐',
+    );
+  }
+
+  @override
+  Future<QuickTemplateItem> create(QuickTemplateRequest request) async {
+    return QuickTemplateItem(
+      id: 'tpl-2',
+      name: request.name,
+      type: request.type,
+      amount: request.amount,
+      accountId: request.accountId,
+      categoryId: request.categoryId,
+      remark: request.remark,
+    );
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+
+  @override
+  Future<List<LedgerAccount>> listAccounts() async {
+    return const [
+      LedgerAccount(id: 'account-1', name: '现金', type: 'cash'),
+      LedgerAccount(id: 'account-2', name: '储蓄卡', type: 'bank_card'),
+    ];
+  }
+
+  @override
+  Future<List<LedgerCategory>> listCategories() async {
+    return const [
+      LedgerCategory(id: 'category-expense', name: '餐饮', type: 'expense'),
+      LedgerCategory(id: 'category-income', name: '工资', type: 'income'),
+    ];
+  }
+
+  @override
+  Future<List<QuickTemplateItem>> list() async {
+    return const [
+      QuickTemplateItem(
+        id: 'tpl-1',
+        name: '午餐',
+        type: TransactionType.expense,
+        amount: 32,
+        accountId: 'account-1',
+        categoryId: 'category-expense',
+        remark: '工作日午餐',
+        usedCount: 3,
+      ),
+    ];
   }
 }
 
