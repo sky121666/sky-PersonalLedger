@@ -34,11 +34,21 @@ void main() {
       expect(find.text('主题仪表盘'), findsOneWidget);
       expect(find.text('当前主题'), findsOneWidget);
       expect(find.text('静谧墨绿'), findsOneWidget);
-      expect(find.text('私人模式'), findsOneWidget);
+      expect(find.text('私人模式'), findsWidgets);
+      expect(find.text('行动编排层'), findsOneWidget);
+      expect(find.text('首笔记录'), findsOneWidget);
+      expect(find.text('预算待设置'), findsAtLeastNWidgets(1));
+      expect(find.text('AI 周报'), findsOneWidget);
+      expect(find.text('现金流稳定'), findsOneWidget);
       expect(find.text('暂无账户，请先创建账户'), findsOneWidget);
       expect(find.text('本月已记 0 笔'), findsOneWidget);
       expect(find.text('暂无现金流'), findsAtLeastNWidgets(1));
       expect(find.text('等待首笔记录'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('本月暂未设置预算'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('本月暂未设置预算'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
     });
@@ -74,13 +84,27 @@ void main() {
       expect(find.text('当前模板同步首页、家庭账本、AI 报告和财务语义色。'), findsOneWidget);
       expect(find.text('当前主题'), findsOneWidget);
       expect(find.text('静谧墨绿'), findsOneWidget);
-      expect(find.text('预算已接入'), findsOneWidget);
+      expect(find.text('预算已接入'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('home-action-orchestration-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('行动编排层'), findsOneWidget);
+      expect(find.text('把记账、预算、家庭和 AI 周报串成一个可执行的首页工作流。'), findsOneWidget);
+      expect(find.text('快速记账'), findsWidgets);
+      expect(find.text('5 笔'), findsOneWidget);
+      expect(find.text('预算守护'), findsOneWidget);
+      expect(find.text('40%'), findsOneWidget);
+      expect(find.text('家庭协同'), findsOneWidget);
+      expect(find.text('1 人'), findsOneWidget);
+      expect(find.text('AI 周报'), findsOneWidget);
+      expect(find.text('可分析'), findsOneWidget);
+      expect(find.text('家庭数据在线'), findsOneWidget);
       expect(find.text('本月现金流'), findsOneWidget);
       expect(find.text('现金流充沛'), findsAtLeastNWidgets(1));
       expect(find.text('结余率 60%'), findsOneWidget);
       expect(find.text('本月趋势已同步'), findsOneWidget);
-      expect(find.text('预算摘要'), findsOneWidget);
-      expect(find.text('快速记账'), findsOneWidget);
+      expect(find.text('快速记账'), findsWidgets);
       expect(find.text('家庭支出'), findsOneWidget);
       expect(find.text('家庭协同中'), findsOneWidget);
       expect(find.text('成员A'), findsOneWidget);
@@ -91,6 +115,12 @@ void main() {
         find.byKey(const ValueKey('home-theme-signal-panel')),
         findsOneWidget,
       );
+      await tester.scrollUntilVisible(
+        find.text('预算摘要'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('预算摘要'), findsOneWidget);
     });
 
     testWidgets('首页核心财务卡跟随主题色模板', (tester) async {

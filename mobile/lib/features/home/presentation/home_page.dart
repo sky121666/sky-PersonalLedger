@@ -88,23 +88,31 @@ class _HomeContent extends StatelessWidget {
               _HomeThemeSignalPanel(summary: summary, settings: themeSettings),
             ),
             const SizedBox(height: 16),
-            _entry(2, _NetAssetsCard(accounts: summary.accounts)),
+            _entry(
+              2,
+              _HomeActionOrchestrationPanel(
+                summary: summary,
+                settings: themeSettings,
+              ),
+            ),
             const SizedBox(height: 16),
-            _entry(3, const QuickHomeActionCard()),
+            _entry(3, _NetAssetsCard(accounts: summary.accounts)),
             const SizedBox(height: 16),
-            _entry(4, _MonthlyOverviewCard(overview: summary.overview)),
+            _entry(4, const QuickHomeActionCard()),
             const SizedBox(height: 16),
-            _entry(5, FamilyHomeSummaryCard(summary: summary.familySummary)),
+            _entry(5, _MonthlyOverviewCard(overview: summary.overview)),
+            const SizedBox(height: 16),
+            _entry(6, FamilyHomeSummaryCard(summary: summary.familySummary)),
             const SizedBox(height: 16),
             _entry(
-              6,
+              7,
               _AccountOverviewCard(
                 accounts: visibleAccounts,
                 totalCount: accounts.length,
               ),
             ),
             const SizedBox(height: 16),
-            _entry(7, _BudgetSummaryCard(summary: summary.budgetSummary)),
+            _entry(8, _BudgetSummaryCard(summary: summary.budgetSummary)),
           ],
         ),
       ),
@@ -255,6 +263,279 @@ class _HomeThemeSignalPanel extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeActionOrchestrationPanel extends StatelessWidget {
+  const _HomeActionOrchestrationPanel({
+    required this.summary,
+    required this.settings,
+  });
+
+  final HomeSummary summary;
+  final AppThemeSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = settings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final budgetActive = summary.budgetSummary.totalAmount > 0;
+    final familyActive = summary.familySummary.members.isNotEmpty;
+    final cashFlowHealthy = summary.overview.balance >= 0;
+    final transactionActive = summary.overview.transactionCount > 0;
+    return PremiumSurface(
+      key: const ValueKey('home-action-orchestration-panel'),
+      accentColor: palette.assetColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.hub_outlined,
+                color: palette.assetColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '行动编排层',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '把记账、预算、家庭和 AI 周报串成一个可执行的首页工作流。',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _HomeActionStatusPill(
+                label: transactionActive ? '已启动' : '待记录',
+                icon: transactionActive
+                    ? Icons.bolt_outlined
+                    : Icons.pending_actions_outlined,
+                color: transactionActive
+                    ? palette.seedColor
+                    : colorScheme.outline,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _HomeActionNode(
+                  icon: Icons.add_card_outlined,
+                  label: '快速记账',
+                  value: transactionActive
+                      ? '${summary.overview.transactionCount} 笔'
+                      : '首笔记录',
+                  color: palette.seedColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HomeActionNode(
+                  icon: Icons.savings_outlined,
+                  label: '预算守护',
+                  value: budgetActive
+                      ? '${summary.budgetSummary.percentage.toStringAsFixed(0)}%'
+                      : '待设置',
+                  color: budgetActive
+                      ? financeColors.warning
+                      : colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _HomeActionNode(
+                  icon: Icons.diversity_3_outlined,
+                  label: '家庭协同',
+                  value: familyActive
+                      ? '${summary.familySummary.members.length} 人'
+                      : '私人模式',
+                  color: familyActive
+                      ? colorScheme.tertiary
+                      : palette.assetColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HomeActionNode(
+                  icon: Icons.auto_awesome_outlined,
+                  label: 'AI 周报',
+                  value: cashFlowHealthy ? '可分析' : '需关注',
+                  color: cashFlowHealthy
+                      ? financeColors.income
+                      : financeColors.expense,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _HomeActionStatusPill(
+                label: cashFlowHealthy ? '现金流稳定' : '现金流预警',
+                icon: Icons.monitor_heart_outlined,
+                color: cashFlowHealthy
+                    ? financeColors.income
+                    : financeColors.expense,
+              ),
+              _HomeActionStatusPill(
+                label: budgetActive ? '预算已接入' : '预算待设置',
+                icon: Icons.rule_outlined,
+                color: budgetActive
+                    ? financeColors.warning
+                    : colorScheme.outline,
+              ),
+              _HomeActionStatusPill(
+                label: familyActive ? '家庭数据在线' : '私人账本',
+                icon: Icons.home_work_outlined,
+                color: familyActive ? colorScheme.tertiary : palette.assetColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeActionNode extends StatelessWidget {
+  const _HomeActionNode({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeActionStatusPill extends StatelessWidget {
+  const _HomeActionStatusPill({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 32, maxWidth: 156),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.09),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
         ],
       ),

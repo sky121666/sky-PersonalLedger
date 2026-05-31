@@ -267,18 +267,25 @@ void main() {
           expect(find.text('财务控制台'), findsOneWidget);
           expect(find.text('主题仪表盘'), findsOneWidget);
           expect(find.text('当前主题'), findsOneWidget);
-          expect(find.text('预算已接入'), findsOneWidget);
+          expect(find.text('预算已接入'), findsWidgets);
           expect(
             find.byKey(const ValueKey('home-theme-signal-panel')),
             findsOneWidget,
           );
-          expect(find.text('净资产'), findsOneWidget);
+          expect(find.text('行动编排层'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('home-action-orchestration-panel')),
+            findsOneWidget,
+          );
+          expect(find.text('AI 周报'), findsOneWidget);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
             'home-dashboard-top-${variant.name}',
           );
+          await tester.scrollUntilVisible(find.text('净资产'), 220);
+          expect(find.text('净资产'), findsOneWidget);
 
           await tester.scrollUntilVisible(find.text('快速记账'), 260);
           expect(find.text('快速记账'), findsOneWidget);
