@@ -63,6 +63,16 @@ void main() {
       expect(find.text('语义色板'), findsOneWidget);
       expect(find.text('跨端预览'), findsOneWidget);
       expect(
+        find.byKey(const ValueKey('profile-settings-theme-template-matrix')),
+        findsOneWidget,
+      );
+      expect(find.text('模板适配矩阵'), findsOneWidget);
+      expect(find.text('多场景'), findsOneWidget);
+      expect(find.text('日常记账'), findsOneWidget);
+      expect(find.text('家庭账本'), findsOneWidget);
+      expect(find.text('AI 分析'), findsOneWidget);
+      expect(find.text('夜间高频'), findsOneWidget);
+      expect(
         find.byKey(const ValueKey('profile-settings-theme-semantic-preview')),
         findsOneWidget,
       );

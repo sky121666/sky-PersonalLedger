@@ -721,6 +721,8 @@ class _ProfileThemePanel extends StatelessWidget {
           const SizedBox(height: 12),
           _ProfileThemeStudioRail(settings: settings),
           const SizedBox(height: 14),
+          _ProfileThemeTemplateMatrix(palette: palette),
+          const SizedBox(height: 14),
           _ProfileThemeCurationRail(
             selectedPalette: settings.palette,
             onPaletteChanged: onPaletteChanged,
@@ -1244,6 +1246,177 @@ class _ProfileThemeStudioTile extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileThemeTemplateMatrix extends StatelessWidget {
+  const _ProfileThemeTemplateMatrix({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final items = [
+      _ThemeTemplateSignal(
+        icon: Icons.account_balance_wallet_outlined,
+        label: '日常记账',
+        value: AppThemePalette.teal.label,
+        color: palette.incomeColor,
+      ),
+      _ThemeTemplateSignal(
+        icon: Icons.family_restroom_outlined,
+        label: '家庭账本',
+        value: AppThemePalette.emerald.label,
+        color: palette.assetColor,
+      ),
+      _ThemeTemplateSignal(
+        icon: Icons.auto_awesome_outlined,
+        label: 'AI 分析',
+        value: AppThemePalette.indigo.label,
+        color: palette.seedColor,
+      ),
+      _ThemeTemplateSignal(
+        icon: Icons.dark_mode_outlined,
+        label: '夜间高频',
+        value: AppThemePalette.obsidian.label,
+        color: palette.warningColor,
+      ),
+    ];
+    return AnimatedContainer(
+      key: const ValueKey('profile-settings-theme-template-matrix'),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          palette.seedColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.06,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.seedColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.grid_view_rounded, color: palette.seedColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '模板适配矩阵',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _ProfileSemanticPill(label: '多场景', color: palette.assetColor),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumn = constraints.maxWidth >= 430;
+              final gap = twoColumn ? 10.0 : 8.0;
+              final width = twoColumn
+                  ? (constraints.maxWidth - gap) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final item in items)
+                    SizedBox(
+                      width: width,
+                      child: _ProfileThemeTemplateTile(item: item),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeTemplateSignal {
+  const _ThemeTemplateSignal({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+}
+
+class _ProfileThemeTemplateTile extends StatelessWidget {
+  const _ProfileThemeTemplateTile({required this.item});
+
+  final _ThemeTemplateSignal item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          item.color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: item.color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          IconBadge(icon: item.icon, color: item.color, size: 38, iconSize: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  item.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
           ),
         ],
       ),
