@@ -19,6 +19,10 @@ void main() {
       expect(find.text('午餐'), findsOneWidget);
       expect(find.text('支出 · 现金 · 餐饮'), findsOneWidget);
       expect(find.text('已用 3 次'), findsOneWidget);
+      expect(find.text('账户'), findsOneWidget);
+      expect(find.text('分类'), findsOneWidget);
+      expect(find.text('复用'), findsAtLeastNWidgets(1));
+      expect(find.text('高频'), findsOneWidget);
     });
 
     testWidgets('快捷模板列表使用分段入场动效', (tester) async {

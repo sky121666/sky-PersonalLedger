@@ -706,33 +706,157 @@ class _TemplateRadarMetric extends StatelessWidget {
 }
 
 class _TemplateMetaPill extends StatelessWidget {
-  const _TemplateMetaPill({required this.icon, required this.label});
+  const _TemplateMetaPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 
   final IconData icon;
   final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colorScheme.outlineVariant),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
+          Icon(icon, size: 15, color: color),
           const SizedBox(width: 6),
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TemplateExecutionStrip extends StatelessWidget {
+  const _TemplateExecutionStrip({
+    required this.accountName,
+    required this.categoryName,
+    required this.usedCount,
+    required this.color,
+  });
+
+  final String accountName;
+  final String categoryName;
+  final int usedCount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Row(
+      children: [
+        _TemplateExecutionTile(
+          icon: Icons.account_balance_wallet_outlined,
+          label: '账户',
+          value: accountName,
+          color: financeColors.asset,
+        ),
+        const SizedBox(width: 8),
+        _TemplateExecutionTile(
+          icon: Icons.category_outlined,
+          label: '分类',
+          value: categoryName,
+          color: color,
+        ),
+        const SizedBox(width: 8),
+        _TemplateExecutionTile(
+          icon: Icons.auto_mode_outlined,
+          label: '复用',
+          value: usedCount >= 3 ? '高频' : '待验证',
+          color: usedCount >= 3 ? financeColors.income : colorScheme.outline,
+        ),
+      ],
+    );
+  }
+}
+
+class _TemplateExecutionTile extends StatelessWidget {
+  const _TemplateExecutionTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        constraints: const BoxConstraints(minHeight: 66),
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            color.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.16
+                  : 0.08,
+            ),
+            colorScheme.surface,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.16)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -812,7 +936,7 @@ class _TemplateCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -820,6 +944,7 @@ class _TemplateCard extends StatelessWidget {
                       '${template.typeLabel} · $accountName · $categoryName',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -833,6 +958,13 @@ class _TemplateCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          _TemplateExecutionStrip(
+            accountName: accountName,
+            categoryName: categoryName,
+            usedCount: template.usedCount,
+            color: amountColor,
           ),
           if (template.remark.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -849,6 +981,7 @@ class _TemplateCard extends StatelessWidget {
               _TemplateMetaPill(
                 icon: Icons.repeat_outlined,
                 label: '已用 ${template.usedCount} 次',
+                color: amountColor,
               ),
               const Spacer(),
               TextButton.icon(
