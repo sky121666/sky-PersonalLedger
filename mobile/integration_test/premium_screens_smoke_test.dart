@@ -30,6 +30,9 @@ import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
 import 'package:personal_ledger/features/main/presentation/main_shell_page.dart';
 import 'package:personal_ledger/features/profile/presentation/profile_page.dart';
+import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
+import 'package:personal_ledger/features/reports/data/yearly_report_repository.dart';
+import 'package:personal_ledger/features/reports/presentation/yearly_report_page.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
 import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
@@ -484,6 +487,56 @@ void main() {
         },
       );
 
+      testWidgets('renders premium yearly report (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              yearlyReportRepositoryProvider.overrideWithValue(
+                _FakeYearlyReportRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const YearlyReportPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('年度报告'), findsWidgets);
+        expect(find.text('2026 年账本汇总'), findsOneWidget);
+        expect(find.text('净结余'), findsOneWidget);
+        expect(find.text('年度摘要'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+
+        await tester.scrollUntilVisible(
+          find.text('月度收支'),
+          320,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('月度收支'), findsOneWidget);
+
+        await tester.scrollUntilVisible(
+          find.text('年度收入 Top'),
+          360,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('餐饮'), findsOneWidget);
+        expect(find.text('工资'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'yearly-report-${variant.name}',
+        );
+      });
+
       testWidgets(
         'renders premium profile settings and theme templates (${variant.name})',
         (tester) async {
@@ -722,6 +775,99 @@ const _aiReports = [
         '{"summary":"支出结构稳定","highlights":["净现金流为正"],"risks":["餐饮预算接近上限"],"suggestions":["下周继续保持每日记录"]}',
   ),
 ];
+
+class _FakeYearlyReportRepository implements YearlyReportRepository {
+  @override
+  Future<List<int>?> getAvailableYears() async {
+    return const [2026, 2025];
+  }
+
+  @override
+  Future<YearlyReportDashboard> getDashboard(int year) async {
+    return YearlyReportDashboard(
+      years: const [2026, 2025],
+      report: await getYearlyReport(year) ?? _yearlyReport,
+    );
+  }
+
+  @override
+  Future<YearlyReport?> getYearlyReport(int year) async {
+    return YearlyReport(
+      year: year,
+      totalIncome: _yearlyReport.totalIncome,
+      totalExpense: _yearlyReport.totalExpense,
+      netSavings: _yearlyReport.netSavings,
+      savingsRate: _yearlyReport.savingsRate,
+      monthlyData: _yearlyReport.monthlyData,
+      topExpenses: _yearlyReport.topExpenses,
+      topIncomes: _yearlyReport.topIncomes,
+      transactionCount: _yearlyReport.transactionCount,
+      averageExpense: _yearlyReport.averageExpense,
+      averageIncome: _yearlyReport.averageIncome,
+      maxExpenseMonth: _yearlyReport.maxExpenseMonth,
+      minExpenseMonth: _yearlyReport.minExpenseMonth,
+      bestSavingsMonth: _yearlyReport.bestSavingsMonth,
+      maxSingleExpense: _yearlyReport.maxSingleExpense,
+      maxExpenseRemark: _yearlyReport.maxExpenseRemark,
+      activeDays: _yearlyReport.activeDays,
+      dailyAvgExpense: _yearlyReport.dailyAvgExpense,
+    );
+  }
+}
+
+const _yearlyReport = YearlyReport(
+  year: 2026,
+  totalIncome: 168000,
+  totalExpense: 92800,
+  netSavings: 75200,
+  savingsRate: 44.8,
+  monthlyData: [
+    MonthlyReportData(month: '1月', income: 12000, expense: 7600, balance: 4400),
+    MonthlyReportData(month: '2月', income: 13800, expense: 8200, balance: 5600),
+    MonthlyReportData(month: '3月', income: 14200, expense: 7800, balance: 6400),
+    MonthlyReportData(month: '4月', income: 15000, expense: 8300, balance: 6700),
+    MonthlyReportData(month: '5月', income: 15600, expense: 7900, balance: 7700),
+    MonthlyReportData(month: '6月', income: 14800, expense: 8600, balance: 6200),
+  ],
+  topExpenses: [
+    ReportCategoryStat(
+      categoryId: 'expense-food',
+      categoryName: '餐饮',
+      categoryIcon: 'food',
+      amount: 18600,
+      percentage: 20,
+      count: 128,
+    ),
+    ReportCategoryStat(
+      categoryId: 'expense-home',
+      categoryName: '居家',
+      categoryIcon: 'home',
+      amount: 14200,
+      percentage: 15.3,
+      count: 42,
+    ),
+  ],
+  topIncomes: [
+    ReportCategoryStat(
+      categoryId: 'income-salary',
+      categoryName: '工资',
+      categoryIcon: 'wallet',
+      amount: 150000,
+      percentage: 89.3,
+      count: 12,
+    ),
+  ],
+  transactionCount: 520,
+  averageExpense: 7733.33,
+  averageIncome: 14000,
+  maxExpenseMonth: '6月',
+  minExpenseMonth: '1月',
+  bestSavingsMonth: '5月',
+  maxSingleExpense: 6800,
+  maxExpenseRemark: '年度保险',
+  activeDays: 218,
+  dailyAvgExpense: 254.25,
+);
 
 class _FakeHomeRepository implements HomeRepository {
   @override
