@@ -28,6 +28,13 @@ void main() {
       expect(find.text('全量视图 · 1 笔记录'), findsOneWidget);
       expect(find.text('支出 1'), findsOneWidget);
       expect(find.text('标签 1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('transaction-insight-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('交易洞察轨道'), findsOneWidget);
+      expect(find.text('最大金额'), findsOneWidget);
+      expect(find.text('标签覆盖'), findsOneWidget);
       expect(find.text('交易筛选工作台'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('transaction-filter-workbench')),
@@ -36,7 +43,7 @@ void main() {
       expect(find.text('快速定位备注、类型和账户流水'), findsOneWidget);
       expect(find.text('均笔'), findsOneWidget);
       expect(find.text('¥32.50'), findsWidgets);
-      expect(find.text('餐饮'), findsOneWidget);
+      expect(find.text('餐饮'), findsAtLeastNWidgets(1));
       expect(
         find.byKey(const ValueKey('transaction-amount-transaction-1')),
         findsOneWidget,
@@ -203,7 +210,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
 
-      expect(find.text('餐饮'), findsOneWidget);
+      expect(find.text('餐饮'), findsAtLeastNWidgets(1));
       expect(repository.listQueries.length, 2);
     });
 

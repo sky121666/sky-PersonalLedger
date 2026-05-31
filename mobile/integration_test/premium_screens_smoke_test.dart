@@ -425,11 +425,21 @@ void main() {
           find.byKey(const ValueKey('transaction-ledger-signal-strip')),
           findsOneWidget,
         );
+        expect(
+          find.byKey(const ValueKey('transaction-insight-rail')),
+          findsOneWidget,
+        );
         expect(find.text('流水信号带'), findsOneWidget);
+        expect(find.text('交易洞察轨道'), findsOneWidget);
         expect(find.text('静谧墨绿'), findsOneWidget);
         expect(find.text('交易筛选工作台'), findsOneWidget);
         expect(find.text('全部类型'), findsOneWidget);
-        expect(find.text('餐饮'), findsOneWidget);
+        expect(find.text('餐饮'), findsAtLeastNWidgets(1));
+        await tester.scrollUntilVisible(
+          find.text('-¥32.50'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('-¥32.50'), findsOneWidget);
         expect(find.text('午餐'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);

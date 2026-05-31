@@ -141,7 +141,7 @@ class _TransactionDetailsPageState
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 18),
-        itemCount: state.items.length + 4,
+        itemCount: state.items.length + 5,
         itemBuilder: (context, index) {
           if (index == 0) {
             return StaggeredEntrance(
@@ -163,9 +163,18 @@ class _TransactionDetailsPageState
           }
           if (index == 2) {
             return Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              padding: const EdgeInsets.only(top: 8),
               child: StaggeredEntrance(
                 index: 2,
+                child: _TransactionInsightRail(state: state, palette: palette),
+              ),
+            );
+          }
+          if (index == 3) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: StaggeredEntrance(
+                index: 3,
                 child: _TransactionFilterWorkbench(
                   state: state,
                   controller: _searchController,
@@ -179,10 +188,10 @@ class _TransactionDetailsPageState
               ),
             );
           }
-          if (index == state.items.length + 3) {
+          if (index == state.items.length + 4) {
             return _LoadMoreIndicator(state: state);
           }
-          final itemIndex = index - 3;
+          final itemIndex = index - 4;
           final item = state.items[itemIndex];
           return StaggeredEntrance(
             index: itemIndex.clamp(0, 5),
@@ -220,6 +229,11 @@ class _TransactionDetailsPageState
       const SizedBox(height: 8),
       StaggeredEntrance(
         index: 2,
+        child: _TransactionInsightRail(state: state, palette: palette),
+      ),
+      const SizedBox(height: 8),
+      StaggeredEntrance(
+        index: 3,
         child: _TransactionFilterWorkbench(
           state: state,
           controller: _searchController,
@@ -669,6 +683,228 @@ class _TransactionLedgerSignalStrip extends StatelessWidget {
                 color: palette.warningColor,
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionInsightRail extends StatelessWidget {
+  const _TransactionInsightRail({required this.state, required this.palette});
+
+  final TransactionListState state;
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final largest = state.items.fold<TransactionItem?>(
+      null,
+      (current, item) =>
+          current == null || item.amount > current.amount ? item : current,
+    );
+    final latest = state.items.fold<TransactionItem?>(
+      null,
+      (current, item) =>
+          current == null ||
+              item.transactionDate.isAfter(current.transactionDate)
+          ? item
+          : current,
+    );
+    final tagged = state.items.where((item) => item.tags.isNotEmpty).length;
+    final transfer = state.items
+        .where((item) => item.type == TransactionType.transfer)
+        .length;
+    final income = state.items
+        .where((item) => item.type == TransactionType.income)
+        .fold<double>(0, (sum, item) => sum + item.amount);
+    final expense = state.items
+        .where((item) => item.type == TransactionType.expense)
+        .fold<double>(0, (sum, item) => sum + item.amount);
+    final net = income - expense;
+    final dominantColor = net >= 0
+        ? financeColors.income
+        : financeColors.expense;
+    final coverage = state.items.isEmpty
+        ? 0
+        : ((tagged / state.items.length) * 100).round();
+    final title = state.hasActiveFilter ? '筛选洞察轨道' : '交易洞察轨道';
+    final subtitle = state.hasActiveFilter
+        ? '当前条件下的金额、标签和最近交易'
+        : '从全量列表提炼高频判断信号';
+
+    return PremiumSurface(
+      key: const ValueKey('transaction-insight-rail'),
+      accentColor: dominantColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.route_outlined,
+                color: dominantColor,
+                size: 42,
+                iconSize: 21,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _TransactionSignalPill(
+                icon: net >= 0 ? Icons.trending_up : Icons.trending_down,
+                label: net >= 0 ? '净流入' : '净流出',
+                color: dominantColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 1.8,
+            children: [
+              _InsightRailTile(
+                icon: Icons.bolt_outlined,
+                label: '最大金额',
+                value: largest == null
+                    ? '¥0.00'
+                    : '¥${largest.amount.toStringAsFixed(2)}',
+                caption: largest?.displayTitle ?? '暂无记录',
+                color: largest == null
+                    ? colorScheme.outline
+                    : _typeColor(context, largest.type),
+              ),
+              _InsightRailTile(
+                icon: Icons.schedule_outlined,
+                label: '最近一笔',
+                value: latest == null ? '--' : latest.displayTitle,
+                caption: latest == null
+                    ? '等待同步'
+                    : _formatDateTime(latest.transactionDate),
+                color: palette.assetColor,
+              ),
+              _InsightRailTile(
+                icon: Icons.sell_outlined,
+                label: '标签覆盖',
+                value: '$coverage%',
+                caption: '$tagged/${state.items.length} 笔已标记',
+                color: colorScheme.secondary,
+              ),
+              _InsightRailTile(
+                icon: Icons.swap_calls_outlined,
+                label: '转账轨迹',
+                value: '$transfer 笔',
+                caption: transfer > 0 ? '需要留意账户联动' : '暂无账户迁移',
+                color: palette.warningColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightRailTile extends StatelessWidget {
+  const _InsightRailTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.caption,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String caption;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 19, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                ),
+              ],
+            ),
           ),
         ],
       ),
