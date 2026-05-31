@@ -182,6 +182,7 @@ class AppTheme {
       scaffoldBackgroundColor: _scaffoldBackgroundColor(colorScheme, palette),
       extensions: [AppFinanceColors.fromPalette(palette)],
       useMaterial3: true,
+      inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -221,6 +222,7 @@ class AppTheme {
       scaffoldBackgroundColor: _scaffoldBackgroundColor(colorScheme, palette),
       extensions: [AppFinanceColors.fromPalette(palette)],
       useMaterial3: true,
+      inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -265,6 +267,62 @@ class AppTheme {
     return Color.alphaBlend(
       palette.seedColor.withValues(alpha: tintAlpha),
       baseColor,
+    );
+  }
+
+  static InputDecorationThemeData _inputDecorationTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final fillAlpha = isDark ? 0.12 : 0.055;
+    final borderAlpha = isDark ? 0.28 : 0.16;
+    final fillColor = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: fillAlpha),
+      colorScheme.surfaceContainerHighest,
+    );
+    final enabledColor = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: borderAlpha),
+      colorScheme.outlineVariant,
+    );
+    final baseBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: enabledColor),
+    );
+
+    return InputDecorationThemeData(
+      filled: true,
+      fillColor: fillColor,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: baseBorder,
+      enabledBorder: baseBorder,
+      disabledBorder: baseBorder.copyWith(
+        borderSide: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      focusedBorder: baseBorder.copyWith(
+        borderSide: BorderSide(color: palette.seedColor, width: 1.6),
+      ),
+      errorBorder: baseBorder.copyWith(
+        borderSide: BorderSide(color: colorScheme.error),
+      ),
+      focusedErrorBorder: baseBorder.copyWith(
+        borderSide: BorderSide(color: colorScheme.error, width: 1.6),
+      ),
+      labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+      floatingLabelStyle: TextStyle(
+        color: palette.seedColor,
+        fontWeight: FontWeight.w600,
+      ),
+      hintStyle: TextStyle(
+        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+      ),
+      helperStyle: TextStyle(
+        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.78),
+      ),
+      errorStyle: TextStyle(color: colorScheme.error),
+      prefixIconColor: colorScheme.onSurfaceVariant,
+      suffixIconColor: colorScheme.onSurfaceVariant,
     );
   }
 }

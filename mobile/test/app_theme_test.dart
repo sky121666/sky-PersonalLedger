@@ -48,6 +48,29 @@ void main() {
       expect(financeColors?.warning, AppThemePalette.graphite.warningColor);
     });
 
+    test('输入框视觉跟随主题模板', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.plasma);
+      final inputTheme = theme.inputDecorationTheme;
+      final focusedBorder = inputTheme.focusedBorder as OutlineInputBorder;
+
+      expect(inputTheme.filled, isTrue);
+      expect(inputTheme.fillColor, isNotNull);
+      expect(focusedBorder.borderRadius, BorderRadius.circular(16));
+      expect(focusedBorder.borderSide.color, AppThemePalette.plasma.seedColor);
+      expect(focusedBorder.borderSide.width, 1.6);
+    });
+
+    test('深色输入框填充与浅色区分', () {
+      final light = AppTheme.lightTheme(AppThemePalette.aurora);
+      final dark = AppTheme.darkTheme(AppThemePalette.aurora);
+
+      expect(
+        light.inputDecorationTheme.fillColor,
+        isNot(dark.inputDecorationTheme.fillColor),
+      );
+      expect(dark.inputDecorationTheme.filled, isTrue);
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);
