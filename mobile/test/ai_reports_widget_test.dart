@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/ai/data/ai_report_repository.dart';
 import 'package:personal_ledger/features/ai/presentation/ai_reports_page.dart';
@@ -35,6 +36,9 @@ void main() {
             (ref) async =>
                 const AIProviderSetupData(presets: [], providers: []),
           ),
+          themeControllerProvider.overrideWith(
+            (ref) => _FixedThemeController(AppThemePalette.teal),
+          ),
         ],
         child: const MaterialApp(home: AIReportsPage()),
       ),
@@ -46,12 +50,21 @@ void main() {
       find.byKey(const ValueKey('ai-report-command-center')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('ai-provider-orchestration-panel')),
+      findsOneWidget,
+    );
     expect(find.text('AI 分析控制台'), findsOneWidget);
+    expect(find.text('AI 模型编排'), findsOneWidget);
+    expect(find.text('待接入'), findsOneWidget);
+    expect(find.text('静谧墨绿'), findsOneWidget);
+    expect(find.text('周报未启用'), findsOneWidget);
+    expect(find.text('Key 不回显'), findsOneWidget);
     expect(find.text('分析就绪'), findsOneWidget);
     expect(find.text('报告总数'), findsOneWidget);
     expect(find.text('0 个启用'), findsOneWidget);
     expect(find.text('Key 已保护'), findsOneWidget);
-    await _scrollIntoTapArea(tester, find.text('每周总结').last);
+    await _scrollIntoTapArea(tester, find.text('每周总结'));
     expect(find.text('每周总结'), findsWidgets);
     expect(find.text('已完成'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsWidgets);
@@ -102,6 +115,9 @@ void main() {
             (ref) async =>
                 const AIProviderSetupData(presets: [], providers: []),
           ),
+          themeControllerProvider.overrideWith(
+            (ref) => _FixedThemeController(AppThemePalette.graphite),
+          ),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme(AppThemePalette.graphite),
@@ -112,8 +128,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _scrollIntoTapArea(tester, find.text('每周总结').last);
-
+    expect(find.text('石墨蓝'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('每周总结'));
     final surfaces = tester.widgetList<PremiumSurface>(
       find.byType(PremiumSurface),
     );
@@ -158,6 +174,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('AI 分析控制台'), findsOneWidget);
+    expect(find.text('AI 模型编排'), findsOneWidget);
     expect(find.text('等待生成'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('暂无 AI 报告'), 300);
     expect(find.text('暂无 AI 报告'), findsOneWidget);
@@ -195,7 +212,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _scrollIntoTapArea(tester, find.text('每周总结').last);
+    await _scrollIntoTapArea(tester, find.text('每周总结'));
     expect(find.text('失败'), findsOneWidget);
 
     await tester.tap(find.text('每周总结').last);
@@ -277,6 +294,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('自动报告'), findsAtLeastNWidgets(1));
+    await _scrollIntoTapArea(tester, find.text('默认关闭'));
     expect(find.text('默认关闭'), findsOneWidget);
     expect(find.text('运行时间'), findsOneWidget);
     expect(find.text('聚合快照'), findsOneWidget);
@@ -313,7 +331,8 @@ void main() {
     expect(find.text('0 个启用'), findsOneWidget);
     expect(find.text('Key 已保护'), findsOneWidget);
 
-    await tester.tap(find.text('添加 Provider'));
+    await _scrollIntoTapArea(tester, find.text('添加 Provider'));
+    await tester.tap(find.text('添加 Provider').last);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('ai-provider-api-key')),
@@ -391,7 +410,8 @@ void main() {
 Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
   await tester.scrollUntilVisible(finder, 300);
   await tester.pumpAndSettle();
-  final center = tester.getCenter(finder);
+  final target = finder.evaluate().length > 1 ? finder.last : finder;
+  final center = tester.getCenter(target);
   if (center.dy > 500) {
     await tester.drag(find.byType(ListView), Offset(0, -(center.dy - 420)));
     await tester.pumpAndSettle();
@@ -399,6 +419,20 @@ Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
   if (center.dy < 88) {
     await tester.drag(find.byType(ListView), Offset(0, 112 - center.dy));
     await tester.pumpAndSettle();
+  }
+}
+
+class _FixedThemeController extends ThemeController {
+  _FixedThemeController(AppThemePalette palette) {
+    state = AppThemeSettings(palette: palette);
+  }
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> setPalette(AppThemePalette palette) async {
+    state = state.copyWith(palette: palette);
   }
 }
 

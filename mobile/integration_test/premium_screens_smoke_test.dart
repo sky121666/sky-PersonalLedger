@@ -1011,11 +1011,15 @@ void main() {
             find.byKey(const ValueKey('ai-report-command-center')),
             findsOneWidget,
           );
+          expect(
+            find.byKey(const ValueKey('ai-provider-orchestration-panel')),
+            findsOneWidget,
+          );
           expect(find.text('AI 分析控制台'), findsOneWidget);
+          expect(find.text('AI 模型编排'), findsOneWidget);
+          expect(find.text('OpenAI-compatible'), findsOneWidget);
           expect(find.text('分析就绪'), findsOneWidget);
           expect(find.text('报告总数'), findsOneWidget);
-          expect(find.text('每周总结'), findsOneWidget);
-          expect(find.text('已完成'), findsOneWidget);
           expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
@@ -1024,7 +1028,7 @@ void main() {
             'ai-report-command-center-${variant.name}',
           );
 
-          await _scrollIntoTapArea(tester, find.text('每周总结').last);
+          await _scrollIntoTapArea(tester, find.text('每周总结'));
           await tester.tap(find.text('每周总结').last);
           await tester.pumpAndSettle();
 
@@ -1370,7 +1374,8 @@ void _expectStableVisualFrame(WidgetTester tester) {
 Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
   await tester.scrollUntilVisible(finder, 300);
   await tester.pumpAndSettle();
-  final center = tester.getCenter(finder);
+  final target = finder.evaluate().length > 1 ? finder.last : finder;
+  final center = tester.getCenter(target);
   if (center.dy > 760) {
     await tester.drag(
       find.byType(Scrollable).first,
