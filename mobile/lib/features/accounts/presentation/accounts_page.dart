@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_route_paths.dart';
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/ledger_icon.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../../account_logs/presentation/account_log_page.dart';
 import '../application/account_controller.dart';
 import '../data/account.dart';
@@ -178,40 +180,40 @@ class _AccountSummaryCard extends StatelessWidget {
   /// 构建账户资产汇总卡片。
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('资产概览', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 16),
-            Text(
-              _formatMoney(result.netAssets),
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryItem(
-                    label: '总资产',
-                    value: _formatMoney(result.totalAssets),
-                  ),
-                ),
-                Expanded(
-                  child: _SummaryItem(
-                    label: '总负债',
-                    value: _formatMoney(result.totalLiabilities),
-                  ),
-                ),
-              ],
-            ),
-          ],
+    final activeCount = result.accounts
+        .where((item) => !item.isArchived)
+        .length;
+    return FinanceHeroCard(
+      label: '资产概览',
+      amount: result.netAssets,
+      accentColor: AppTheme.assetColor,
+      semanticLabel: '净资产 ${_formatMoney(result.netAssets)}',
+      metrics: [
+        FinanceMetricData(
+          label: '总资产',
+          value: _formatMoney(result.totalAssets),
+          icon: Icons.trending_up,
+          color: AppTheme.incomeColor,
         ),
-      ),
+        FinanceMetricData(
+          label: '总负债',
+          value: _formatMoney(result.totalLiabilities),
+          icon: Icons.trending_down,
+          color: AppTheme.expenseColor,
+        ),
+        FinanceMetricData(
+          label: '活跃账户',
+          value: '$activeCount 个',
+          icon: Icons.account_balance_wallet_outlined,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        FinanceMetricData(
+          label: '全部账户',
+          value: '${result.accounts.length} 个',
+          icon: Icons.grid_view_outlined,
+          color: Theme.of(context).colorScheme.outline,
+        ),
+      ],
     );
   }
 }
@@ -237,24 +239,23 @@ class _AccountSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+        _SectionHeader(
+          title: title,
+          subtitle: '${accounts.length} 个账户',
+          icon: title == '已归档账户'
+              ? Icons.archive_outlined
+              : Icons.account_balance_wallet_outlined,
         ),
         const SizedBox(height: 8),
-        Card(
-          child: Column(
-            children: [
-              for (final entry in accounts.indexed)
-                _AccountListTile(
-                  account: entry.$2,
-                  sectionAccountIds: accountIds,
-                  accountIndex: entry.$1,
-                  canSort: sortable,
-                ),
-            ],
+        for (final entry in accounts.indexed) ...[
+          _AccountListTile(
+            account: entry.$2,
+            sectionAccountIds: accountIds,
+            accountIndex: entry.$1,
+            canSort: sortable,
           ),
-        ),
+          const SizedBox(height: 10),
+        ],
       ],
     );
   }
@@ -280,62 +281,143 @@ class _AccountListTile extends ConsumerWidget {
       account.color,
       Theme.of(context).colorScheme.primary,
     );
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.14),
-        child: LedgerIcon(
-          icon: account.icon.isEmpty ? account.type : account.icon,
-        ),
-      ),
-      title: Row(
-        children: [
-          Expanded(child: Text(account.name)),
-          if (account.isArchived)
-            const Chip(
-              label: Text('已归档'),
-              visualDensity: VisualDensity.compact,
-            ),
-        ],
-      ),
-      subtitle: Text(_accountTypeLabel(account.type)),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(_formatMoney(account.currentBalance)),
-          PopupMenuButton<_AccountAction>(
-            onSelected: (action) => _handleAction(context, ref, action),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: _AccountAction.logs,
-                child: Text('查看流水'),
-              ),
-              const PopupMenuItem(
-                value: _AccountAction.edit,
-                child: Text('编辑'),
-              ),
-              if (canSort) ...[
-                PopupMenuItem(
-                  value: _AccountAction.moveUp,
-                  enabled: accountIndex > 0,
-                  child: const Text('上移'),
+    final isDebt = _isDebtAccount(account.type);
+    final balanceColor = isDebt
+        ? AppTheme.expenseColor
+        : account.currentBalance >= 0
+        ? AppTheme.incomeColor
+        : Theme.of(context).colorScheme.error;
+    return PremiumSurface(
+      accentColor: color,
+      padding: EdgeInsets.zero,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _handleAction(context, ref, _AccountAction.logs),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    IconBadge(
+                      icon: _accountIconData(account),
+                      color: color,
+                      size: 42,
+                      iconSize: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  account.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                              if (account.isArchived) ...[
+                                const SizedBox(width: 8),
+                                const Chip(
+                                  label: Text('已归档'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _accountTypeLabel(account.type),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _formatMoney(account.currentBalance),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: balanceColor,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    PopupMenuButton<_AccountAction>(
+                      onSelected: (action) =>
+                          _handleAction(context, ref, action),
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: _AccountAction.logs,
+                          child: Text('查看流水'),
+                        ),
+                        const PopupMenuItem(
+                          value: _AccountAction.edit,
+                          child: Text('编辑'),
+                        ),
+                        if (canSort) ...[
+                          PopupMenuItem(
+                            value: _AccountAction.moveUp,
+                            enabled: accountIndex > 0,
+                            child: const Text('上移'),
+                          ),
+                          PopupMenuItem(
+                            value: _AccountAction.moveDown,
+                            enabled:
+                                accountIndex < sectionAccountIds.length - 1,
+                            child: const Text('下移'),
+                          ),
+                        ],
+                        PopupMenuItem(
+                          value: _AccountAction.archive,
+                          child: Text(account.isArchived ? '恢复' : '归档'),
+                        ),
+                        const PopupMenuItem(
+                          value: _AccountAction.delete,
+                          child: Text('删除'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                PopupMenuItem(
-                  value: _AccountAction.moveDown,
-                  enabled: accountIndex < sectionAccountIds.length - 1,
-                  child: const Text('下移'),
-                ),
+                if (isDebt || account.remark.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (isDebt && account.paymentDay != null)
+                        _AccountInfoChip(
+                          icon: Icons.event_available_outlined,
+                          label: '还款日 ${account.paymentDay} 日',
+                        ),
+                      if (isDebt && account.interestRate != null)
+                        _AccountInfoChip(
+                          icon: Icons.percent_outlined,
+                          label: '年利率 ${account.interestRate}%',
+                        ),
+                      if (account.remark.isNotEmpty)
+                        _AccountInfoChip(
+                          icon: Icons.notes_outlined,
+                          label: account.remark,
+                        ),
+                    ],
+                  ),
+                ],
               ],
-              PopupMenuItem(
-                value: _AccountAction.archive,
-                child: Text(account.isArchived ? '恢复' : '归档'),
-              ),
-              const PopupMenuItem(
-                value: _AccountAction.delete,
-                child: Text('删除'),
-              ),
-            ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -840,22 +922,82 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   }
 }
 
-class _SummaryItem extends StatelessWidget {
-  const _SummaryItem({required this.label, required this.value});
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
 
-  final String label;
-  final String value;
+  final String title;
+  final String subtitle;
+  final IconData icon;
 
-  /// 构建汇总字段。
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 4),
-        Text(value, style: Theme.of(context).textTheme.titleMedium),
+        IconBadge(
+          icon: icon,
+          color: Theme.of(context).colorScheme.primary,
+          size: 34,
+          iconSize: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _AccountInfoChip extends StatelessWidget {
+  const _AccountInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: colorScheme.outline),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: colorScheme.outline),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -887,6 +1029,37 @@ String _accountTypeLabel(String type) {
 /// 判断账户类型是否需要负债扩展字段。
 bool _isDebtAccount(String type) {
   return _debtAccountTypes.contains(type);
+}
+
+IconData _accountIconData(Account account) {
+  final normalized = (account.icon.isEmpty ? account.type : account.icon)
+      .trim()
+      .toLowerCase();
+  return switch (normalized) {
+    'cash' || '现金' || '💰' => Icons.payments_outlined,
+    'bank_card' ||
+    'savings' ||
+    '银行卡' ||
+    '储蓄卡' ||
+    '💳' => Icons.credit_card_outlined,
+    'alipay' ||
+    'wechat' ||
+    'qq_pay' ||
+    'jd_pay' ||
+    'apple_pay' ||
+    '📱' => Icons.account_balance_wallet_outlined,
+    'credit' => Icons.credit_score_outlined,
+    'loan' ||
+    'mortgage' ||
+    'car_loan' ||
+    'consumer_loan' ||
+    'huabei' ||
+    'baitiao' ||
+    '🏠' => Icons.request_quote_outlined,
+    'investment' || 'fund' || 'stock' || 'crypto' => Icons.show_chart_outlined,
+    'prepaid' => Icons.card_giftcard_outlined,
+    _ => Icons.account_balance_wallet_outlined,
+  };
 }
 
 /// 格式化可选数字，避免输入框出现多余的 0。

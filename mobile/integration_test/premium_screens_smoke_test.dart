@@ -9,6 +9,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/features/accounts/application/account_controller.dart';
+import 'package:personal_ledger/features/accounts/data/account.dart'
+    as ledger_account;
+import 'package:personal_ledger/features/accounts/data/account_repository.dart';
+import 'package:personal_ledger/features/accounts/presentation/accounts_page.dart';
 import 'package:personal_ledger/features/ai/data/ai_report_repository.dart';
 import 'package:personal_ledger/features/ai/presentation/ai_reports_page.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
@@ -127,6 +132,46 @@ void main() {
           );
         },
       );
+
+      testWidgets('renders premium accounts control room (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              accountRepositoryProvider.overrideWithValue(
+                _FakeAccountRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const AccountsPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('账户'), findsOneWidget);
+        expect(find.text('资产概览'), findsOneWidget);
+        expect(find.text('正常账户'), findsOneWidget);
+        expect(find.text('招商银行'), findsOneWidget);
+        expect(find.text('住房贷款'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+
+        await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+        await tester.pumpAndSettle();
+        expect(find.text('已归档账户'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'accounts-control-room-${variant.name}',
+        );
+      });
 
       testWidgets('renders premium statistics dashboard (${variant.name})', (
         tester,
@@ -580,6 +625,92 @@ class _FakeTransactionRepository implements TransactionRepository {
     );
   }
 }
+
+class _FakeAccountRepository implements AccountRepository {
+  @override
+  Future<void> archive(String id, bool isArchived) async {}
+
+  @override
+  Future<ledger_account.Account> create(
+    ledger_account.CreateAccountRequest request,
+  ) async {
+    return _accounts.first;
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+
+  @override
+  Future<ledger_account.Account> getById(String id) async {
+    return _accounts.firstWhere((account) => account.id == id);
+  }
+
+  @override
+  Future<ledger_account.AccountListResult> list({
+    bool includeArchived = true,
+  }) async {
+    return const ledger_account.AccountListResult(
+      accounts: _accounts,
+      totalAssets: 1500,
+      totalLiabilities: 480000,
+      netAssets: -478500,
+    );
+  }
+
+  @override
+  Future<ledger_account.Account> update(
+    String id,
+    ledger_account.UpdateAccountRequest request,
+  ) async {
+    return _accounts.firstWhere((account) => account.id == id);
+  }
+
+  @override
+  Future<void> updateSort(List<String> ids) async {}
+}
+
+const _accounts = [
+  ledger_account.Account(
+    id: 'bank-card',
+    name: '招商银行',
+    type: 'bank_card',
+    icon: 'card',
+    color: '#2563EB',
+    initialBalance: 1000,
+    currentBalance: 1200,
+    isArchived: false,
+    sortOrder: 1,
+  ),
+  ledger_account.Account(
+    id: 'mortgage',
+    name: '住房贷款',
+    type: 'mortgage',
+    icon: 'home',
+    color: '#EF4444',
+    initialBalance: 500000,
+    currentBalance: 480000,
+    paymentDay: 20,
+    billingDay: 1,
+    creditLimit: 800000,
+    interestRate: 3.25,
+    startDate: '2026-01-01',
+    targetDate: '2056-01-01',
+    remark: '首套房商贷',
+    isArchived: false,
+    sortOrder: 2,
+  ),
+  ledger_account.Account(
+    id: 'wallet',
+    name: '旧钱包',
+    type: 'cash',
+    icon: 'cash',
+    color: '#64748B',
+    initialBalance: 0,
+    currentBalance: 300,
+    isArchived: true,
+    sortOrder: 3,
+  ),
+];
 
 class _FakeBudgetRepository implements BudgetRepository {
   @override
