@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
@@ -205,6 +208,42 @@ void main() {
       expect(find.text('¥0.00'), findsWidgets);
     });
 
+    testWidgets('借贷汇总跟随主题色模板', (tester) async {
+      final lendingRepository = _FakeLendingRepository();
+      await _pumpPage(
+        tester,
+        lendingRepository,
+        palette: AppThemePalette.graphite,
+      );
+
+      final overviewSurface = tester.widget<PremiumSurface>(
+        find
+            .ancestor(
+              of: find.text('借贷往来总览'),
+              matching: find.byType(PremiumSurface),
+            )
+            .first,
+      );
+      final metrics = tester.widgetList<MetricPill>(find.byType(MetricPill));
+      expect(overviewSurface.accentColor, AppThemePalette.graphite.incomeColor);
+      expect(
+        metrics.any(
+          (metric) =>
+              metric.label == '借出中' &&
+              metric.color == AppThemePalette.graphite.incomeColor,
+        ),
+        isTrue,
+      );
+      expect(
+        metrics.any(
+          (metric) =>
+              metric.label == '借入中' &&
+              metric.color == AppThemePalette.graphite.assetColor,
+        ),
+        isTrue,
+      );
+    });
+
     testWidgets('新增借出失败时展示错误且保留列表', (tester) async {
       final lendingRepository = _FakeLendingRepository()
         ..createError = '新增借出失败';
@@ -256,6 +295,7 @@ Future<void> _pumpPage(
   _FakeLendingRepository lendingRepository, {
   _FakeAttachmentRepository? attachmentRepository,
   _FakeAttachmentPickerService? attachmentPickerService,
+  AppThemePalette palette = AppThemePalette.teal,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -274,7 +314,11 @@ Future<void> _pumpPage(
             attachmentPickerService,
           ),
       ],
-      child: const MaterialApp(home: LendingPage()),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        home: const LendingPage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -328,8 +329,9 @@ class _SummarySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     final netColor = summary.netLending >= 0
-        ? Colors.teal.shade700
+        ? financeColors.income
         : colorScheme.error;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,13 +390,13 @@ class _SummarySection extends StatelessWidget {
                     label: '借出中',
                     value: '${summary.activeLendOut} 笔',
                     icon: Icons.north_east,
-                    color: Colors.teal.shade700,
+                    color: financeColors.income,
                   ),
                   MetricPill(
                     label: '借入中',
                     value: '${summary.activeBorrowIn} 笔',
                     icon: Icons.south_west,
-                    color: Colors.indigo.shade600,
+                    color: financeColors.asset,
                   ),
                   MetricPill(
                     label: '已结清',
@@ -599,9 +601,10 @@ class _LendingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     final accent = item.type == LendingType.lendOut
-        ? Colors.teal.shade700
-        : Colors.indigo.shade600;
+        ? financeColors.income
+        : financeColors.asset;
     return PremiumSurface(
       accentColor: accent,
       padding: const EdgeInsets.all(16),
