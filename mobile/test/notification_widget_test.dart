@@ -23,6 +23,18 @@ void main() {
       expect(find.text('通道类型'), findsOneWidget);
       expect(find.text('密钥策略'), findsOneWidget);
       expect(find.text('测试状态'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('notification-channel-route-matrix')),
+        findsOneWidget,
+      );
+      expect(find.text('通道路由矩阵'), findsOneWidget);
+      expect(find.text('1/4 已启用'), findsOneWidget);
+      expect(find.text('企业群机器人'), findsOneWidget);
+      expect(find.text('签名机器人'), findsOneWidget);
+      expect(find.text('SMTP 邮件'), findsOneWidget);
+      expect(find.text('自定义回调'), findsOneWidget);
+      expect(find.text('在线'), findsOneWidget);
+      expect(find.text('待配'), findsWidgets);
       expect(find.text('Webhook'), findsAtLeastNWidgets(1));
       expect(find.text('可发送'), findsOneWidget);
       expect(find.text('启用通知'), findsOneWidget);
@@ -142,19 +154,44 @@ void main() {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('钉钉'));
+      await tester.tap(
+        find.byKey(const ValueKey('notification-channel-route-dingtalk')),
+      );
       await tester.pumpAndSettle();
       final dingtalkSecret = tester.widget<TextField>(
         find.byKey(const ValueKey('notification-dingtalk-secret')),
       );
       expect(dingtalkSecret.obscureText, isTrue);
 
-      await tester.tap(find.text('Webhook'));
+      await tester.tap(
+        find.byKey(const ValueKey('notification-channel-route-webhook')),
+      );
       await tester.pumpAndSettle();
       final webhookSecret = tester.widget<TextField>(
         find.byKey(const ValueKey('notification-webhook-secret')),
       );
       expect(webhookSecret.obscureText, isTrue);
+    });
+
+    testWidgets('通知通道路由矩阵可切换当前通道', (tester) async {
+      final repository = _FakeNotificationRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(
+        find.byKey(const ValueKey('notification-channel-route-email')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('启用邮箱'), findsOneWidget);
+      expect(find.text('SMTP 服务器'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('notification-channel-route-webhook')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('启用 Webhook'), findsOneWidget);
+      expect(find.text('Webhook URL'), findsOneWidget);
     });
 
     testWidgets('通知设置页跟随主题色模板', (tester) async {

@@ -180,6 +180,22 @@ class _NotificationSettingsFormState
           const SizedBox(height: 16),
           StaggeredEntrance(
             index: 3,
+            child: _ChannelRouteMatrix(
+              selectedChannel: _channel,
+              enabledChannels: {
+                _NotificationChannel.wecom: _wecomEnabled,
+                _NotificationChannel.dingtalk: _dingtalkEnabled,
+                _NotificationChannel.email: _emailEnabled,
+                _NotificationChannel.webhook: _webhookEnabled,
+              },
+              onChannelSelected: _isBusy
+                  ? null
+                  : (channel) => setState(() => _channel = channel),
+            ),
+          ),
+          const SizedBox(height: 12),
+          StaggeredEntrance(
+            index: 4,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SegmentedButton<_NotificationChannel>(
@@ -213,10 +229,10 @@ class _NotificationSettingsFormState
             ),
           ),
           const SizedBox(height: 12),
-          StaggeredEntrance(index: 4, child: _buildChannelCard()),
+          StaggeredEntrance(index: 5, child: _buildChannelCard()),
           const SizedBox(height: 16),
           StaggeredEntrance(
-            index: 5,
+            index: 6,
             child: _OptionsCard(
               paymentDue: _notifyPaymentDue,
               budgetAlert: _notifyBudgetAlert,
@@ -238,7 +254,7 @@ class _NotificationSettingsFormState
           ),
           const SizedBox(height: 16),
           StaggeredEntrance(
-            index: 6,
+            index: 7,
             child: FilledButton.icon(
               onPressed: _isBusy ? null : _save,
               icon: _busyAction == 'save'
@@ -588,6 +604,258 @@ class _NotificationSettingsFormState
 }
 
 enum _NotificationChannel { wecom, dingtalk, email, webhook }
+
+class _ChannelRouteMatrix extends StatelessWidget {
+  const _ChannelRouteMatrix({
+    required this.selectedChannel,
+    required this.enabledChannels,
+    required this.onChannelSelected,
+  });
+
+  final _NotificationChannel selectedChannel;
+  final Map<_NotificationChannel, bool> enabledChannels;
+  final ValueChanged<_NotificationChannel>? onChannelSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      key: const ValueKey('notification-channel-route-matrix'),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.route_outlined,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '通道路由矩阵',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _ChannelRoutePill(
+                label:
+                    '${enabledChannels.values.where((value) => value).length}/4 已启用',
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumn = constraints.maxWidth >= 460;
+              final gap = twoColumn ? 10.0 : 8.0;
+              final width = twoColumn
+                  ? (constraints.maxWidth - gap) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final channel in _NotificationChannel.values)
+                    SizedBox(
+                      width: width,
+                      child: _ChannelRouteTile(
+                        channel: channel,
+                        selected: selectedChannel == channel,
+                        enabled: enabledChannels[channel] ?? false,
+                        onTap: onChannelSelected == null
+                            ? null
+                            : () => onChannelSelected!(channel),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChannelRouteTile extends StatelessWidget {
+  const _ChannelRouteTile({
+    required this.channel,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final _NotificationChannel channel;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final accent = selected
+        ? colorScheme.primary
+        : enabled
+        ? financeColors.income
+        : colorScheme.outline;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${_channelLabel(channel)} 通道路由，${enabled ? '已启用' : '未启用'}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey('notification-channel-route-${channel.name}'),
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            constraints: const BoxConstraints(minHeight: 80),
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                accent.withValues(
+                  alpha: selected
+                      ? (Theme.of(context).brightness == Brightness.dark
+                            ? 0.20
+                            : 0.11)
+                      : (Theme.of(context).brightness == Brightness.dark
+                            ? 0.13
+                            : 0.06),
+                ),
+                colorScheme.surface,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: selected
+                    ? colorScheme.primary
+                    : accent.withValues(alpha: 0.16),
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                IconBadge(
+                  icon: _channelRouteIcon(channel),
+                  color: accent,
+                  size: 38,
+                  iconSize: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _channelLabel(channel),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _channelRouteCaption(channel),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _ChannelRoutePill(label: enabled ? '在线' : '待配', color: accent),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _channelRouteIcon(_NotificationChannel channel) {
+    return switch (channel) {
+      _NotificationChannel.wecom => Icons.chat_outlined,
+      _NotificationChannel.dingtalk => Icons.forum_outlined,
+      _NotificationChannel.email => Icons.mail_outline,
+      _NotificationChannel.webhook => Icons.webhook_outlined,
+    };
+  }
+
+  String _channelRouteCaption(_NotificationChannel channel) {
+    return switch (channel) {
+      _NotificationChannel.wecom => '企业群机器人',
+      _NotificationChannel.dingtalk => '签名机器人',
+      _NotificationChannel.email => 'SMTP 邮件',
+      _NotificationChannel.webhook => '自定义回调',
+    };
+  }
+}
+
+class _ChannelRoutePill extends StatelessWidget {
+  const _ChannelRoutePill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28, maxWidth: 118),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+String _channelLabel(_NotificationChannel channel) {
+  return switch (channel) {
+    _NotificationChannel.wecom => '企业微信',
+    _NotificationChannel.dingtalk => '钉钉',
+    _NotificationChannel.email => '邮箱',
+    _NotificationChannel.webhook => 'Webhook',
+  };
+}
 
 class _NotificationOverviewCard extends StatelessWidget {
   const _NotificationOverviewCard({
