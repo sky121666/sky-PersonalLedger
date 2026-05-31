@@ -385,6 +385,9 @@ void main() {
               transactionRepositoryProvider.overrideWithValue(
                 _FakeTransactionRepository(),
               ),
+              themeControllerProvider.overrideWith(
+                (ref) => _FixedThemeController(AppThemePalette.teal),
+              ),
             ],
             child: _screenshotHost(
               _premiumApp(
@@ -405,6 +408,12 @@ void main() {
           find.byKey(const ValueKey('transaction-filter-workbench')),
           findsOneWidget,
         );
+        expect(
+          find.byKey(const ValueKey('transaction-ledger-signal-strip')),
+          findsOneWidget,
+        );
+        expect(find.text('流水信号带'), findsOneWidget);
+        expect(find.text('静谧墨绿'), findsOneWidget);
         expect(find.text('交易筛选工作台'), findsOneWidget);
         expect(find.text('全部类型'), findsOneWidget);
         expect(find.text('餐饮'), findsOneWidget);

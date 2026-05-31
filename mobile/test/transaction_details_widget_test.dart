@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
@@ -18,6 +19,15 @@ void main() {
       expect(find.text('明细'), findsOneWidget);
       expect(find.text('交易明细总览'), findsOneWidget);
       expect(find.text('当前列表 1 笔 · 共 1 笔'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('transaction-ledger-signal-strip')),
+        findsOneWidget,
+      );
+      expect(find.text('流水信号带'), findsOneWidget);
+      expect(find.text('静谧墨绿'), findsOneWidget);
+      expect(find.text('全量视图 · 1 笔记录'), findsOneWidget);
+      expect(find.text('支出 1'), findsOneWidget);
+      expect(find.text('标签 1'), findsOneWidget);
       expect(find.text('交易筛选工作台'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('transaction-filter-workbench')),
@@ -106,6 +116,7 @@ void main() {
 
       expect(repository.listQueries.last.type, TransactionType.expense);
       expect(find.text('已启用 2 项条件 · 命中 1/1 笔'), findsOneWidget);
+      expect(find.text('筛选视图 · 2 项条件'), findsOneWidget);
     });
 
     testWidgets('清空筛选会重置搜索和类型条件', (tester) async {
@@ -257,7 +268,12 @@ Future<void> _pumpPage(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [transactionRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        transactionRepositoryProvider.overrideWithValue(repository),
+        themeControllerProvider.overrideWith(
+          (ref) => _FixedThemeController(palette),
+        ),
+      ],
       child: MaterialApp.router(
         theme: AppTheme.lightTheme(palette),
         darkTheme: AppTheme.darkTheme(palette),
@@ -266,6 +282,20 @@ Future<void> _pumpPage(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _FixedThemeController extends ThemeController {
+  _FixedThemeController(AppThemePalette palette) {
+    state = AppThemeSettings(palette: palette);
+  }
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> setPalette(AppThemePalette palette) async {
+    state = state.copyWith(palette: palette);
+  }
 }
 
 class _FakeTransactionRepository implements TransactionRepository {

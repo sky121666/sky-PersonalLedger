@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_route_paths.dart';
 import '../../../app/theme/app_theme.dart';
+import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -50,6 +51,7 @@ class _TransactionDetailsPageState
   Widget build(BuildContext context) {
     final state = ref.watch(transactionListControllerProvider);
     final controller = ref.read(transactionListControllerProvider.notifier);
+    final themeSettings = ref.watch(themeControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -87,38 +89,20 @@ class _TransactionDetailsPageState
               ],
       ),
       body: AdaptivePageContainer(
-        child: Column(
-          children: [
-            StaggeredEntrance(
-              index: 0,
-              child: _TransactionOverviewCard(state: state),
-            ),
-            const SizedBox(height: 8),
-            StaggeredEntrance(
-              index: 1,
-              child: _TransactionFilterWorkbench(
-                state: state,
-                controller: _searchController,
-                onChanged: controller.updateKeyword,
-                onClear: () {
-                  _searchController.clear();
-                  controller.clearFilters();
-                },
-                onFilterChanged: controller.updateFilters,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(child: _buildBody(state, controller)),
-          ],
+        child: _buildContent(
+          state: state,
+          controller: controller,
+          palette: themeSettings.palette,
         ),
       ),
     );
   }
 
-  Widget _buildBody(
-    TransactionListState state,
-    TransactionListController controller,
-  ) {
+  Widget _buildContent({
+    required TransactionListState state,
+    required TransactionListController controller,
+    required AppThemePalette palette,
+  }) {
     if (state.isLoading && state.items.isEmpty) {
       return const AppLoadingView(message: '加载交易中...');
     }
@@ -131,14 +115,23 @@ class _TransactionDetailsPageState
     }
 
     if (state.items.isEmpty) {
-      return AppEmptyView(
-        title: state.hasActiveFilter ? '没有匹配的交易' : '暂无交易明细',
-        message: state.hasActiveFilter ? '调整筛选条件后再试。' : '点击“记一笔”添加第一条收支记录。',
-        icon: Icons.receipt_long_outlined,
-        action: FilledButton.tonal(
-          onPressed: () => context.push(AppRoutePaths.quickTransaction),
-          child: const Text('去记一笔'),
-        ),
+      return ListView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 18),
+        children: [
+          ..._buildHeaderWidgets(state, controller, palette),
+          const SizedBox(height: 8),
+          AppEmptyView(
+            title: state.hasActiveFilter ? '没有匹配的交易' : '暂无交易明细',
+            message: state.hasActiveFilter ? '调整筛选条件后再试。' : '点击“记一笔”添加第一条收支记录。',
+            icon: Icons.receipt_long_outlined,
+            action: FilledButton.tonal(
+              onPressed: () => context.push(AppRoutePaths.quickTransaction),
+              child: const Text('去记一笔'),
+            ),
+          ),
+        ],
       );
     }
 
@@ -148,14 +141,51 @@ class _TransactionDetailsPageState
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 18),
-        itemCount: state.items.length + 1,
+        itemCount: state.items.length + 4,
         itemBuilder: (context, index) {
-          if (index == state.items.length) {
+          if (index == 0) {
+            return StaggeredEntrance(
+              index: 0,
+              child: _TransactionOverviewCard(state: state),
+            );
+          }
+          if (index == 1) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: StaggeredEntrance(
+                index: 1,
+                child: _TransactionLedgerSignalStrip(
+                  state: state,
+                  palette: palette,
+                ),
+              ),
+            );
+          }
+          if (index == 2) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: StaggeredEntrance(
+                index: 2,
+                child: _TransactionFilterWorkbench(
+                  state: state,
+                  controller: _searchController,
+                  onChanged: controller.updateKeyword,
+                  onClear: () {
+                    _searchController.clear();
+                    controller.clearFilters();
+                  },
+                  onFilterChanged: controller.updateFilters,
+                ),
+              ),
+            );
+          }
+          if (index == state.items.length + 3) {
             return _LoadMoreIndicator(state: state);
           }
-          final item = state.items[index];
+          final itemIndex = index - 3;
+          final item = state.items[itemIndex];
           return StaggeredEntrance(
-            index: index.clamp(0, 5),
+            index: itemIndex.clamp(0, 5),
             offset: const Offset(0, 8),
             child: _TransactionListTile(
               item: item,
@@ -170,6 +200,38 @@ class _TransactionDetailsPageState
         },
       ),
     );
+  }
+
+  List<Widget> _buildHeaderWidgets(
+    TransactionListState state,
+    TransactionListController controller,
+    AppThemePalette palette,
+  ) {
+    return [
+      StaggeredEntrance(
+        index: 0,
+        child: _TransactionOverviewCard(state: state),
+      ),
+      const SizedBox(height: 8),
+      StaggeredEntrance(
+        index: 1,
+        child: _TransactionLedgerSignalStrip(state: state, palette: palette),
+      ),
+      const SizedBox(height: 8),
+      StaggeredEntrance(
+        index: 2,
+        child: _TransactionFilterWorkbench(
+          state: state,
+          controller: _searchController,
+          onChanged: controller.updateKeyword,
+          onClear: () {
+            _searchController.clear();
+            controller.clearFilters();
+          },
+          onFilterChanged: controller.updateFilters,
+        ),
+      ),
+    ];
   }
 
   Future<void> _confirmDelete(TransactionItem item) async {
@@ -475,6 +537,190 @@ class _OverviewMetricShell extends StatelessWidget {
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w900,
               fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionLedgerSignalStrip extends StatelessWidget {
+  const _TransactionLedgerSignalStrip({
+    required this.state,
+    required this.palette,
+  });
+
+  final TransactionListState state;
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final incomeCount = state.items
+        .where((item) => item.type == TransactionType.income)
+        .length;
+    final expenseCount = state.items
+        .where((item) => item.type == TransactionType.expense)
+        .length;
+    final transferCount = state.items
+        .where((item) => item.type == TransactionType.transfer)
+        .length;
+    final taggedCount = state.items
+        .where((item) => item.tags.isNotEmpty)
+        .length;
+    final activeFilterCount = [
+      state.keyword.trim().isNotEmpty,
+      state.type != null,
+      state.accountId != null && state.accountId!.isNotEmpty,
+      state.categoryId != null && state.categoryId!.isNotEmpty,
+    ].where((active) => active).length;
+    final signalColor = state.hasActiveFilter
+        ? palette.assetColor
+        : expenseCount > incomeCount
+        ? financeColors.expense
+        : financeColors.income;
+    final densityLabel = state.items.isEmpty
+        ? '等待记录'
+        : state.items.length >= 20
+        ? '高频'
+        : '轻量';
+
+    return PremiumSurface(
+      key: const ValueKey('transaction-ledger-signal-strip'),
+      accentColor: signalColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.analytics_outlined,
+                color: signalColor,
+                size: 42,
+                iconSize: 21,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '流水信号带',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      state.hasActiveFilter
+                          ? '筛选视图 · $activeFilterCount 项条件'
+                          : '全量视图 · ${state.total} 笔记录',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _TransactionSignalPill(
+                icon: Icons.palette_outlined,
+                label: palette.label,
+                color: palette.seedColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TransactionSignalPill(
+                icon: Icons.south_west,
+                label: '收入 $incomeCount',
+                color: financeColors.income,
+              ),
+              _TransactionSignalPill(
+                icon: Icons.north_east,
+                label: '支出 $expenseCount',
+                color: financeColors.expense,
+              ),
+              _TransactionSignalPill(
+                icon: Icons.swap_horiz,
+                label: '转账 $transferCount',
+                color: palette.assetColor,
+              ),
+              _TransactionSignalPill(
+                icon: taggedCount > 0
+                    ? Icons.label_important_outline
+                    : Icons.label_outline,
+                label: taggedCount > 0 ? '标签 $taggedCount' : '无标签',
+                color: colorScheme.secondary,
+              ),
+              _TransactionSignalPill(
+                icon: Icons.speed_outlined,
+                label: densityLabel,
+                color: palette.warningColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionSignalPill extends StatelessWidget {
+  const _TransactionSignalPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 34, maxWidth: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],
