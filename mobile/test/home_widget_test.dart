@@ -82,6 +82,36 @@ void main() {
       );
       expect(hero.accentColor, AppThemePalette.graphite.assetColor);
     });
+
+    testWidgets('首页家庭摘要跟随主题色模板', (tester) async {
+      final repository = _FakeHomeRepository(
+        summaries: [_summary(familyExpense: 320)],
+      );
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final familyCard = tester.widget<PremiumSurface>(
+        find.byKey(const Key('family-home-summary-card')),
+      );
+      expect(familyCard.accentColor, AppThemePalette.graphite.incomeColor);
+    });
+
+    testWidgets('FinanceHeroCard 默认跟随主题资产色', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme(AppThemePalette.graphite),
+          home: const Scaffold(
+            body: FinanceHeroCard(label: '默认资产', amount: 1280, metrics: []),
+          ),
+        ),
+      );
+
+      final surface = tester.widget<PremiumSurface>(
+        find.byType(PremiumSurface).first,
+      );
+      final badge = tester.widget<IconBadge>(find.byType(IconBadge).first);
+      expect(surface.accentColor, AppThemePalette.graphite.assetColor);
+      expect(badge.color, AppThemePalette.graphite.assetColor);
+    });
   });
 }
 

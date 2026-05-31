@@ -11,7 +11,7 @@ class FinanceHeroCard extends StatelessWidget {
     required this.label,
     required this.amount,
     required this.metrics,
-    this.accentColor = AppTheme.assetColor,
+    this.accentColor,
     this.semanticLabel,
     super.key,
   });
@@ -19,16 +19,18 @@ class FinanceHeroCard extends StatelessWidget {
   final String label;
   final double amount;
   final List<FinanceMetricData> metrics;
-  final Color accentColor;
+  final Color? accentColor;
   final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final effectiveAccentColor =
+        accentColor ?? AppTheme.financeColors(context).asset;
     return Semantics(
       label: semanticLabel,
       child: PremiumSurface(
-        accentColor: accentColor,
+        accentColor: effectiveAccentColor,
         padding: const EdgeInsets.all(22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,7 +39,7 @@ class FinanceHeroCard extends StatelessWidget {
               children: [
                 IconBadge(
                   icon: Icons.account_balance_wallet_outlined,
-                  color: accentColor,
+                  color: effectiveAccentColor,
                 ),
                 const SizedBox(width: 10),
                 Expanded(

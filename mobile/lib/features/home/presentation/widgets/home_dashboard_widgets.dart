@@ -63,9 +63,10 @@ class FamilyHomeSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topMembers = summary.members.take(3).toList();
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       key: const Key('family-home-summary-card'),
-      accentColor: AppTheme.incomeColor,
+      accentColor: financeColors.income,
       onTap: () => context.push(AppRoutePaths.family),
       semanticLabel: '查看家庭支出详情',
       child: Column(
