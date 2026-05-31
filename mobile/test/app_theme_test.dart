@@ -241,6 +241,49 @@ void main() {
       expect(bottomSheetTheme.clipBehavior, Clip.antiAlias);
     });
 
+    test('日期和时间选择器使用主题化数据录入样式', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.cyan);
+      final datePickerTheme = theme.datePickerTheme;
+      final timePickerTheme = theme.timePickerTheme;
+
+      expect(datePickerTheme.backgroundColor, isNotNull);
+      expect(datePickerTheme.elevation, 0);
+      expect(datePickerTheme.surfaceTintColor, Colors.transparent);
+      expect(
+        datePickerTheme.headerBackgroundColor,
+        AppThemePalette.cyan.seedColor,
+      );
+      expect(datePickerTheme.headerHeadlineStyle?.fontWeight, FontWeight.w900);
+      expect(
+        datePickerTheme.dayShape?.resolve({}),
+        isA<RoundedRectangleBorder>(),
+      );
+      expect(
+        datePickerTheme.dayBackgroundColor?.resolve({WidgetState.selected}),
+        AppThemePalette.cyan.seedColor,
+      );
+      expect(
+        datePickerTheme.todayForegroundColor?.resolve({}),
+        AppThemePalette.cyan.seedColor,
+      );
+      expect(datePickerTheme.confirmButtonStyle, isNotNull);
+
+      expect(timePickerTheme.backgroundColor, isNotNull);
+      expect(timePickerTheme.elevation, 0);
+      expect(timePickerTheme.shape, isA<RoundedRectangleBorder>());
+      expect(
+        timePickerTheme.entryModeIconColor,
+        AppThemePalette.cyan.seedColor,
+      );
+      expect(
+        timePickerTheme.hourMinuteTextColor,
+        AppThemePalette.cyan.seedColor,
+      );
+      expect(timePickerTheme.dialHandColor, AppThemePalette.cyan.seedColor);
+      expect(timePickerTheme.dayPeriodShape, isA<RoundedRectangleBorder>());
+      expect(timePickerTheme.confirmButtonStyle, isNotNull);
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);

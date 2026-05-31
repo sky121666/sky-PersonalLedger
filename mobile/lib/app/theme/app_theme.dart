@@ -199,6 +199,8 @@ class AppTheme {
       dividerTheme: _dividerTheme(colorScheme, palette),
       dialogTheme: _dialogTheme(colorScheme, palette),
       bottomSheetTheme: _bottomSheetTheme(colorScheme, palette),
+      datePickerTheme: _datePickerTheme(colorScheme, palette),
+      timePickerTheme: _timePickerTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -249,6 +251,8 @@ class AppTheme {
       dividerTheme: _dividerTheme(colorScheme, palette),
       dialogTheme: _dialogTheme(colorScheme, palette),
       bottomSheetTheme: _bottomSheetTheme(colorScheme, palette),
+      datePickerTheme: _datePickerTheme(colorScheme, palette),
+      timePickerTheme: _timePickerTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -1026,6 +1030,155 @@ class AppTheme {
       ),
       dragHandleSize: const Size(44, 5),
       clipBehavior: Clip.antiAlias,
+    );
+  }
+
+  static DatePickerThemeData _datePickerTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final surface = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.12 : 0.04),
+      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
+    );
+    final selectedForeground = colorScheme.onPrimary;
+    final stateOverlay = WidgetStatePropertyAll(
+      palette.seedColor.withValues(alpha: isDark ? 0.16 : 0.10),
+    );
+
+    return DatePickerThemeData(
+      backgroundColor: surface,
+      elevation: 0,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.42 : 0.14),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      headerBackgroundColor: palette.seedColor,
+      headerForegroundColor: selectedForeground,
+      headerHeadlineStyle: const TextStyle(
+        fontSize: 28,
+        fontWeight: FontWeight.w900,
+      ),
+      headerHelpStyle: const TextStyle(fontWeight: FontWeight.w800),
+      weekdayStyle: TextStyle(
+        color: colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w900,
+      ),
+      dayStyle: const TextStyle(fontWeight: FontWeight.w800),
+      dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return colorScheme.onSurface.withValues(alpha: 0.32);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return selectedForeground;
+        }
+        return colorScheme.onSurface;
+      }),
+      dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return palette.seedColor;
+        }
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused)) {
+          return palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.10);
+        }
+        return Colors.transparent;
+      }),
+      dayOverlayColor: stateOverlay,
+      dayShape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      todayForegroundColor: WidgetStatePropertyAll(palette.seedColor),
+      todayBackgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+      todayBorder: BorderSide(color: palette.seedColor, width: 1.4),
+      yearStyle: const TextStyle(fontWeight: FontWeight.w800),
+      yearForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return selectedForeground;
+        }
+        return colorScheme.onSurface;
+      }),
+      yearBackgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return palette.seedColor;
+        }
+        return Colors.transparent;
+      }),
+      yearOverlayColor: stateOverlay,
+      yearShape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      dividerColor: palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.10),
+      toggleButtonTextStyle: TextStyle(
+        color: palette.seedColor,
+        fontWeight: FontWeight.w900,
+      ),
+      subHeaderForegroundColor: colorScheme.onSurfaceVariant,
+      cancelButtonStyle: _textButtonTheme(colorScheme, palette).style,
+      confirmButtonStyle: _filledButtonTheme(colorScheme, palette).style,
+    );
+  }
+
+  static TimePickerThemeData _timePickerTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final surface = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.12 : 0.04),
+      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
+    );
+    final controlFill = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.22 : 0.10),
+      surface,
+    );
+
+    return TimePickerThemeData(
+      backgroundColor: surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      entryModeIconColor: palette.seedColor,
+      helpTextStyle: TextStyle(
+        color: colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w900,
+      ),
+      hourMinuteColor: controlFill,
+      hourMinuteTextColor: palette.seedColor,
+      hourMinuteTextStyle: const TextStyle(
+        fontSize: 48,
+        fontWeight: FontWeight.w900,
+      ),
+      hourMinuteShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      timeSelectorSeparatorColor: WidgetStatePropertyAll(
+        colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+      ),
+      timeSelectorSeparatorTextStyle: WidgetStatePropertyAll(
+        TextStyle(
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      dayPeriodColor: controlFill,
+      dayPeriodTextColor: palette.seedColor,
+      dayPeriodTextStyle: const TextStyle(fontWeight: FontWeight.w900),
+      dayPeriodBorderSide: BorderSide(
+        color: palette.seedColor.withValues(alpha: isDark ? 0.32 : 0.20),
+      ),
+      dayPeriodShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      dialBackgroundColor: Color.alphaBlend(
+        palette.seedColor.withValues(alpha: isDark ? 0.16 : 0.075),
+        colorScheme.surfaceContainerHighest,
+      ),
+      dialHandColor: palette.seedColor,
+      dialTextColor: colorScheme.onSurface,
+      dialTextStyle: const TextStyle(fontWeight: FontWeight.w800),
+      cancelButtonStyle: _textButtonTheme(colorScheme, palette).style,
+      confirmButtonStyle: _filledButtonTheme(colorScheme, palette).style,
     );
   }
 }
