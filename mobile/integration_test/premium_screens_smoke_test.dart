@@ -897,6 +897,23 @@ void main() {
             tester,
             'profile-theme-templates-${variant.name}',
           );
+
+          await tester.scrollUntilVisible(
+            find.text('跨端体验预览'),
+            360,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(find.text('跨端体验预览'), findsOneWidget);
+          expect(find.text('iOS 原生感'), findsOneWidget);
+          expect(find.text('Android 动效'), findsOneWidget);
+          expect(find.text('数据看板'), findsAtLeastNWidgets(1));
+          expect(find.text('AI 报告'), findsAtLeastNWidgets(1));
+          _expectStableVisualFrame(tester);
+          await _capturePremiumScreenshot(
+            binding,
+            tester,
+            'profile-cross-platform-theme-preview-${variant.name}',
+          );
         },
       );
     }

@@ -625,7 +625,7 @@ class _ThemeExperienceDeck extends StatelessWidget {
       _ThemeExperienceCardData(
         icon: Icons.android_outlined,
         title: 'Android 动效',
-        subtitle: '状态层 / Ripple / Material',
+        subtitle: '状态层 / Ripple',
         accent: financeColors.asset,
         bars: [0.52, 0.82, 0.64],
       ),
@@ -655,16 +655,25 @@ class _ThemeExperienceDeck extends StatelessWidget {
           ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final entry in cards.indexed) ...[
-                _ThemeExperienceCard(data: entry.$2),
-                if (entry.$1 != cards.length - 1) const SizedBox(width: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const gap = 10.0;
+            final twoColumn = constraints.maxWidth >= 360;
+            final cardWidth = twoColumn
+                ? (constraints.maxWidth - gap) / 2
+                : constraints.maxWidth;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final card in cards)
+                  SizedBox(
+                    width: cardWidth,
+                    child: _ThemeExperienceCard(data: card),
+                  ),
               ],
-            ],
-          ),
+            );
+          },
         ),
       ],
     );
@@ -699,7 +708,6 @@ class _ThemeExperienceCard extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
-      width: 184,
       constraints: const BoxConstraints(minHeight: 132),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
