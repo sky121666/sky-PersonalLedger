@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/notifications/presentation/notification_settings_page.dart';
 
@@ -142,6 +144,22 @@ void main() {
       expect(webhookSecret.obscureText, isTrue);
     });
 
+    testWidgets('通知设置页跟随主题色模板', (tester) async {
+      final repository = _FakeNotificationRepository();
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final surfaces = tester.widgetList<PremiumSurface>(
+        find.byType(PremiumSurface),
+      );
+      expect(
+        surfaces.any(
+          (surface) =>
+              surface.accentColor == AppThemePalette.graphite.warningColor,
+        ),
+        isTrue,
+      );
+    });
+
     test('空通知密钥不会进入更新请求 JSON', () {
       const request = NotificationSettingRequest(
         enabled: true,
@@ -178,8 +196,9 @@ void main() {
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeNotificationRepository repository,
-) async {
+  _FakeNotificationRepository repository, {
+  AppThemePalette palette = AppThemePalette.teal,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -188,7 +207,11 @@ Future<void> _pumpPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [notificationRepositoryProvider.overrideWithValue(repository)],
-      child: const MaterialApp(home: NotificationSettingsPage()),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        home: const NotificationSettingsPage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

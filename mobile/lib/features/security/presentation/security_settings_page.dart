@@ -270,14 +270,15 @@ class _PasswordCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
-      accentColor: AppTheme.expenseColor,
+      accentColor: financeColors.expense,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SecuritySectionHeader(
             icon: Icons.lock_outline,
-            color: AppTheme.expenseColor,
+            color: financeColors.expense,
             title: '修改密码',
             subtitle: '修改后会退出当前登录态',
           ),
@@ -400,8 +401,9 @@ class _EntryPathCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     final stateColor = entryPath.enabled
-        ? AppTheme.incomeColor
+        ? financeColors.asset
         : colorScheme.outline;
     return PremiumSurface(
       accentColor: stateColor,

@@ -133,6 +133,10 @@ class _NotificationSettingsFormState
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final enabledAccent = _enabled
+        ? financeColors.income
+        : financeColors.warning;
     return AdaptivePageContainer(
       child: ListView(
         padding: const EdgeInsets.only(bottom: 32),
@@ -142,12 +146,10 @@ class _NotificationSettingsFormState
             const SizedBox(height: 12),
           ],
           PremiumSurface(
-            accentColor: _enabled
-                ? AppTheme.incomeColor
-                : AppTheme.warningColor,
+            accentColor: enabledAccent,
             child: _NotificationSwitchRow(
               icon: Icons.notifications_active_outlined,
-              color: _enabled ? AppTheme.incomeColor : AppTheme.warningColor,
+              color: enabledAccent,
               title: '启用通知',
               subtitle: '开启后按下方通道和提醒选项发送消息。',
               value: _enabled,
@@ -562,7 +564,8 @@ class _ChannelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = enabled ? AppTheme.incomeColor : AppTheme.assetColor;
+    final financeColors = AppTheme.financeColors(context);
+    final accentColor = enabled ? financeColors.income : financeColors.asset;
     return PremiumSurface(
       accentColor: accentColor,
       child: Column(
@@ -633,20 +636,21 @@ class _OptionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
-      accentColor: AppTheme.warningColor,
+      accentColor: financeColors.warning,
       child: Column(
         children: [
-          const _NotificationPanelHeader(
+          _NotificationPanelHeader(
             icon: Icons.tune_outlined,
-            color: AppTheme.warningColor,
+            color: financeColors.warning,
             title: '通知选项',
             subtitle: '选择要主动推送的财务事件和提前提醒天数',
           ),
           const SizedBox(height: 10),
           _NotificationSwitchRow(
             icon: Icons.credit_card_outlined,
-            color: AppTheme.warningColor,
+            color: financeColors.warning,
             title: '还款日提醒',
             value: paymentDue,
             onChanged: enabled ? onPaymentDueChanged : null,
@@ -654,7 +658,7 @@ class _OptionsCard extends StatelessWidget {
           const SizedBox(height: 8),
           _NotificationSwitchRow(
             icon: Icons.savings_outlined,
-            color: AppTheme.expenseColor,
+            color: financeColors.expense,
             title: '预算超支提醒',
             value: budgetAlert,
             switchKey: const ValueKey('notification-budget-alert'),
@@ -663,7 +667,7 @@ class _OptionsCard extends StatelessWidget {
           const SizedBox(height: 8),
           _NotificationSwitchRow(
             icon: Icons.handshake_outlined,
-            color: AppTheme.assetColor,
+            color: financeColors.asset,
             title: '借款到期提醒',
             value: lendingDue,
             onChanged: enabled ? onLendingDueChanged : null,
@@ -671,7 +675,7 @@ class _OptionsCard extends StatelessWidget {
           const SizedBox(height: 8),
           _NotificationSwitchRow(
             icon: Icons.summarize_outlined,
-            color: AppTheme.incomeColor,
+            color: financeColors.income,
             title: '年度报告通知',
             value: annualReport,
             onChanged: enabled ? onAnnualReportChanged : null,
@@ -812,6 +816,7 @@ class _NotificationAdvanceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -820,9 +825,9 @@ class _NotificationAdvanceRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const IconBadge(
+          IconBadge(
             icon: Icons.event_available_outlined,
-            color: AppTheme.assetColor,
+            color: financeColors.asset,
             size: 38,
             iconSize: 20,
           ),

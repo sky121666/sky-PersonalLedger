@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -96,8 +98,7 @@ void main() {
     });
 
     testWidgets('保存入口失败时展示错误且保留输入', (tester) async {
-      final repository = _FakeSecurityRepository()
-        ..setEntryPathError = '保存失败';
+      final repository = _FakeSecurityRepository()..setEntryPathError = '保存失败';
       await _pumpPage(tester, repository);
 
       await tester.enterText(
@@ -169,6 +170,22 @@ void main() {
       expect(find.textContaining('密码错误'), findsOneWidget);
       expect(find.text('old-password'), findsOneWidget);
     });
+
+    testWidgets('账号安全页跟随主题色模板', (tester) async {
+      final repository = _FakeSecurityRepository();
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final surfaces = tester.widgetList<PremiumSurface>(
+        find.byType(PremiumSurface),
+      );
+      expect(
+        surfaces.any(
+          (surface) =>
+              surface.accentColor == AppThemePalette.graphite.assetColor,
+        ),
+        isTrue,
+      );
+    });
   });
 }
 
@@ -176,6 +193,7 @@ Future<_TestAuthController> _pumpPage(
   WidgetTester tester,
   _FakeSecurityRepository repository, {
   _FakeAuthRepository? authRepository,
+  AppThemePalette palette = AppThemePalette.teal,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -198,7 +216,11 @@ Future<_TestAuthController> _pumpPage(
       child: Consumer(
         builder: (context, ref, _) {
           ref.watch(authControllerProvider);
-          return const MaterialApp(home: SecuritySettingsPage());
+          return MaterialApp(
+            theme: AppTheme.lightTheme(palette),
+            darkTheme: AppTheme.darkTheme(palette),
+            home: const SecuritySettingsPage(),
+          );
         },
       ),
     ),
