@@ -1,11 +1,11 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/ledger_icon.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../data/statistics_models.dart';
 import '../data/statistics_repository.dart';
 
@@ -230,119 +230,39 @@ class _OverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final balanceColor = overview.balance >= 0
-        ? Colors.green
+        ? AppTheme.incomeColor
         : Theme.of(context).colorScheme.error;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '本月概览',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _formatCurrency(overview.expense),
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '本月总支出',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: _OverviewMetric(
-                    label: '收入',
-                    value: _formatCurrency(overview.income),
-                    supporting: _formatChange(overview.incomeChange),
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _OverviewMetric(
-                    label: '结余',
-                    value: _formatCurrency(overview.balance),
-                    supporting:
-                        '日均支出 ${_formatCurrency(overview.dailyAverage)}',
-                    color: balanceColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '本月已记 ${overview.transactionCount} 笔',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-            ),
-          ],
+    return FinanceHeroCard(
+      label: '本月总支出',
+      amount: overview.expense,
+      accentColor: AppTheme.expenseColor,
+      semanticLabel: '本月总支出 ${_formatCurrency(overview.expense)}',
+      metrics: [
+        FinanceMetricData(
+          label: '收入',
+          value: _formatCurrency(overview.income),
+          icon: Icons.south_west,
+          color: AppTheme.incomeColor,
         ),
-      ),
-    );
-  }
-}
-
-class _OverviewMetric extends StatelessWidget {
-  const _OverviewMetric({
-    required this.label,
-    required this.value,
-    required this.supporting,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final String supporting;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            supporting,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-          ),
-        ],
-      ),
+        FinanceMetricData(
+          label: '结余',
+          value: _formatCurrency(overview.balance),
+          icon: Icons.trending_up,
+          color: balanceColor,
+        ),
+        FinanceMetricData(
+          label: '日均支出',
+          value: _formatCurrency(overview.dailyAverage),
+          icon: Icons.calendar_today_outlined,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        FinanceMetricData(
+          label: '交易笔数',
+          value: '${overview.transactionCount} 笔',
+          icon: Icons.receipt_long_outlined,
+          color: Theme.of(context).colorScheme.outline,
+        ),
+      ],
     );
   }
 }
@@ -357,137 +277,56 @@ class _TrendCard extends StatelessWidget {
     final items = trend.items;
     final maxAmount = items.fold<double>(
       0,
-      (maxValue, item) =>
-          math.max(maxValue, math.max(item.income.abs(), item.expense.abs())),
+      (maxValue, item) => [
+        maxValue,
+        item.income.abs(),
+        item.expense.abs(),
+      ].reduce((a, b) => a > b ? a : b),
     );
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '收支趋势',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+    return PremiumSurface(
+      accentColor: Theme.of(context).colorScheme.primary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.stacked_bar_chart_outlined,
+                color: Theme.of(context).colorScheme.primary,
+                size: 36,
+                iconSize: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '收支趋势',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const _TrendLegend(),
+              ),
+              const _TrendLegend(),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (items.isEmpty)
+            const _EmptyLine(text: '本月暂无趋势数据')
+          else
+            RoundedBarChart(
+              maxValue: maxAmount,
+              items: [
+                for (final item in items)
+                  RoundedBarChartItem(
+                    label: _dayLabel(item.date),
+                    primaryValue: item.income,
+                    secondaryValue: item.expense,
+                    primaryColor: AppTheme.incomeColor,
+                    secondaryColor: Theme.of(context).colorScheme.error,
+                  ),
               ],
             ),
-            const SizedBox(height: 16),
-            if (items.isEmpty)
-              const _EmptyLine(text: '本月暂无趋势数据')
-            else
-              SizedBox(
-                height: 178,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      for (final item in items)
-                        _TrendBarPair(item: item, maxAmount: maxAmount),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TrendBarPair extends StatelessWidget {
-  const _TrendBarPair({required this.item, required this.maxAmount});
-
-  final TrendItem item;
-  final double maxAmount;
-
-  @override
-  Widget build(BuildContext context) {
-    final incomeHeight = _barHeight(item.income);
-    final expenseHeight = _barHeight(item.expense);
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: SizedBox(
-        width: 28,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            SizedBox(
-              height: 128,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: _TrendBar(
-                      height: incomeHeight,
-                      color: Colors.green,
-                      isEmpty: item.income <= 0,
-                    ),
-                  ),
-                  const SizedBox(width: 3),
-                  Expanded(
-                    child: _TrendBar(
-                      height: expenseHeight,
-                      color: Theme.of(context).colorScheme.error,
-                      isEmpty: item.expense <= 0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _dayLabel(item.date),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  double _barHeight(double amount) {
-    if (maxAmount <= 0 || amount <= 0) {
-      return 4;
-    }
-    return math.max(amount / maxAmount * 124, 6);
-  }
-}
-
-class _TrendBar extends StatelessWidget {
-  const _TrendBar({
-    required this.height,
-    required this.color,
-    required this.isEmpty,
-  });
-
-  final double height;
-  final Color color;
-  final bool isEmpty;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: isEmpty
-              ? Theme.of(context).colorScheme.surfaceContainerHighest
-              : color,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-        ),
+        ],
       ),
     );
   }
@@ -501,7 +340,7 @@ class _TrendLegend extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _LegendDot(label: '收入', color: Colors.green),
+        _LegendDot(label: '收入', color: AppTheme.incomeColor),
         const SizedBox(width: 10),
         _LegendDot(label: '支出', color: Theme.of(context).colorScheme.error),
       ],
@@ -545,121 +384,70 @@ class _CategoryRankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '分类排行',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'expense', label: Text('支出')),
-                    ButtonSegment(value: 'income', label: Text('收入')),
-                  ],
-                  selected: {categoryType},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (values) {
-                    onCategoryTypeChanged(values.first);
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (response.items.isEmpty)
-              const _EmptyLine(text: '本月暂无分类数据')
-            else ...[
-              Text(
-                '总计 ${_formatCurrency(response.total)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
-              const SizedBox(height: 12),
-              for (final item in response.items) _CategoryRankItem(item: item),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryRankItem extends StatelessWidget {
-  const _CategoryRankItem({required this.item});
-
-  final CategoryStatItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _parseColor(
-      item.color,
-      Theme.of(context).colorScheme.primary,
-    );
-    final progress = (item.percentage / 100).clamp(0.0, 1.0);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+    return PremiumSurface(
+      accentColor: categoryType == 'expense'
+          ? AppTheme.expenseColor
+          : AppTheme.incomeColor,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: color.withValues(alpha: 0.14),
-                child: LedgerIcon(
-                  icon: item.icon,
-                  fallback: Icons.category_outlined,
-                ),
+              IconBadge(
+                icon: Icons.donut_large_outlined,
+                color: categoryType == 'expense'
+                    ? AppTheme.expenseColor
+                    : AppTheme.incomeColor,
+                size: 36,
+                iconSize: 18,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.categoryName.isEmpty ? '未分类' : item.categoryName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${item.count} 笔 · ${item.percentage.toStringAsFixed(1)}%',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  '分类排行',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                _formatCurrency(item.amount),
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress,
-            minHeight: 6,
-            borderRadius: BorderRadius.circular(999),
-            color: color,
+          const SizedBox(height: 14),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'expense', label: Text('支出')),
+              ButtonSegment(value: 'income', label: Text('收入')),
+            ],
+            selected: {categoryType},
+            showSelectedIcon: false,
+            onSelectionChanged: (values) {
+              onCategoryTypeChanged(values.first);
+            },
           ),
+          const SizedBox(height: 16),
+          if (response.items.isEmpty)
+            const _EmptyLine(text: '本月暂无分类数据')
+          else ...[
+            Text(
+              '总计 ${_formatCurrency(response.total)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (final item in response.items)
+              CategoryRankTile(
+                name: item.categoryName,
+                icon: item.icon,
+                amount: _formatCurrency(item.amount),
+                percentage: item.percentage,
+                count: item.count,
+                color: _parseColor(
+                  item.color,
+                  Theme.of(context).colorScheme.primary,
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -687,14 +475,6 @@ class _EmptyLine extends StatelessWidget {
 
 String _formatCurrency(double value) {
   return '¥${value.toStringAsFixed(2)}';
-}
-
-String _formatChange(double value) {
-  if (value == 0) {
-    return '较上月持平';
-  }
-  final prefix = value > 0 ? '+' : '';
-  return '较上月 $prefix${value.toStringAsFixed(1)}%';
 }
 
 String _formatMonth(DateTime date) {

@@ -15,6 +15,9 @@ import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/family/presentation/family_page.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
+import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
+import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
+import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/quick_transaction_page.dart';
@@ -119,6 +122,46 @@ void main() {
           );
         },
       );
+
+      testWidgets('renders premium statistics dashboard (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              statisticsRepositoryProvider.overrideWithValue(
+                _FakeStatisticsRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const MobileStatisticsPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('统计分析'), findsOneWidget);
+        expect(find.text('本月总支出'), findsOneWidget);
+        expect(find.text('收支趋势'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+
+        await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+        await tester.pumpAndSettle();
+        expect(find.text('分类排行'), findsOneWidget);
+        expect(find.text('餐饮'), findsOneWidget);
+        expect(find.text('交通'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'statistics-dashboard-${variant.name}',
+        );
+      });
 
       testWidgets(
         'renders premium AI report content and expansion (${variant.name})',
@@ -487,3 +530,84 @@ class _FakeTransactionRepository implements TransactionRepository {
     );
   }
 }
+
+class _FakeStatisticsRepository implements StatisticsRepository {
+  @override
+  Future<StatisticsDashboard> getDashboard(
+    StatisticsDashboardQuery query,
+  ) async {
+    return _statisticsDashboard;
+  }
+
+  @override
+  Future<CategoryStatResponse?> getCategoryStats({
+    required String month,
+    required String type,
+  }) async {
+    return _statisticsDashboard.categories;
+  }
+
+  @override
+  Future<StatisticsOverviewData?> getOverview(String month) async {
+    return _statisticsDashboard.overview;
+  }
+
+  @override
+  Future<TrendResponse?> getTrend(String month) async {
+    return _statisticsDashboard.trend;
+  }
+}
+
+const _statisticsDashboard = StatisticsDashboard(
+  overview: StatisticsOverviewData(
+    income: 12800,
+    expense: 4680,
+    balance: 8120,
+    incomeChange: 8,
+    expenseChange: -4,
+    dailyAverage: 156,
+    transactionCount: 36,
+  ),
+  trend: TrendResponse(
+    totalIncome: 12800,
+    totalExpense: 4680,
+    items: [
+      TrendItem(date: '2026-05-01', income: 3200, expense: 900, balance: 2300),
+      TrendItem(date: '2026-05-08', income: 2800, expense: 1100, balance: 1700),
+      TrendItem(date: '2026-05-15', income: 3400, expense: 1320, balance: 2080),
+      TrendItem(date: '2026-05-22', income: 3400, expense: 1360, balance: 2040),
+    ],
+  ),
+  categories: CategoryStatResponse(
+    total: 4680,
+    items: [
+      CategoryStatItem(
+        categoryId: 'cat-food',
+        categoryName: '餐饮',
+        icon: 'food',
+        color: '#EF4444',
+        amount: 1680,
+        percentage: 35.9,
+        count: 14,
+      ),
+      CategoryStatItem(
+        categoryId: 'cat-transport',
+        categoryName: '交通',
+        icon: 'transport',
+        color: '#2563EB',
+        amount: 920,
+        percentage: 19.7,
+        count: 8,
+      ),
+      CategoryStatItem(
+        categoryId: 'cat-family',
+        categoryName: '家庭',
+        icon: 'family',
+        color: '#8B5CF6',
+        amount: 760,
+        percentage: 16.2,
+        count: 6,
+      ),
+    ],
+  ),
+);

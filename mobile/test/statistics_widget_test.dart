@@ -28,7 +28,8 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      expect(find.text('本月已记 0 笔'), findsOneWidget);
+      expect(find.text('交易笔数'), findsOneWidget);
+      expect(find.text('0 笔'), findsOneWidget);
       expect(find.text('本月暂无趋势数据'), findsOneWidget);
       expect(find.text('本月暂无分类数据'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
