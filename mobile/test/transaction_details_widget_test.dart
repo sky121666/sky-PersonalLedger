@@ -18,6 +18,8 @@ void main() {
       expect(find.text('明细'), findsOneWidget);
       expect(find.text('交易明细总览'), findsOneWidget);
       expect(find.text('当前列表 1 笔 · 共 1 笔'), findsOneWidget);
+      expect(find.text('均笔'), findsOneWidget);
+      expect(find.text('¥32.50'), findsWidgets);
       expect(find.text('餐饮'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('transaction-amount-transaction-1')),

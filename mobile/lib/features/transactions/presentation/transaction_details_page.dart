@@ -290,11 +290,12 @@ class _TransactionOverviewCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final income = _sumByType(TransactionType.income);
     final expense = _sumByType(TransactionType.expense);
-    final transferCount = state.items
-        .where((item) => item.type == TransactionType.transfer)
-        .length;
     final net = income - expense;
     final accent = net >= 0 ? financeColors.income : financeColors.expense;
+    final averageAmount = state.items.isEmpty
+        ? 0.0
+        : state.items.fold<double>(0, (sum, item) => sum + item.amount) /
+              state.items.length;
 
     return PremiumSurface(
       accentColor: accent,
@@ -356,11 +357,11 @@ class _TransactionOverviewCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _OverviewCountMetric(
-                  label: '划转',
-                  value: transferCount,
+                child: _OverviewMetric(
+                  label: '均笔',
+                  value: averageAmount,
                   color: colorScheme.primary,
-                  icon: Icons.swap_horiz,
+                  icon: Icons.analytics_outlined,
                 ),
               ),
             ],
@@ -423,30 +424,6 @@ class _OverviewMetric extends StatelessWidget {
     return _OverviewMetricShell(
       label: label,
       value: '¥${value.toStringAsFixed(2)}',
-      color: color,
-      icon: icon,
-    );
-  }
-}
-
-class _OverviewCountMetric extends StatelessWidget {
-  const _OverviewCountMetric({
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.icon,
-  });
-
-  final String label;
-  final int value;
-  final Color color;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return _OverviewMetricShell(
-      label: label,
-      value: '$value 笔',
       color: color,
       icon: icon,
     );
