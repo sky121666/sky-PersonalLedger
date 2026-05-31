@@ -204,6 +204,8 @@ class AppTheme {
       dropdownMenuTheme: _dropdownMenuTheme(colorScheme, palette),
       menuTheme: _menuTheme(colorScheme, palette),
       menuButtonTheme: _menuButtonTheme(colorScheme, palette),
+      textSelectionTheme: _textSelectionTheme(colorScheme, palette),
+      scrollbarTheme: _scrollbarTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -259,6 +261,8 @@ class AppTheme {
       dropdownMenuTheme: _dropdownMenuTheme(colorScheme, palette),
       menuTheme: _menuTheme(colorScheme, palette),
       menuButtonTheme: _menuButtonTheme(colorScheme, palette),
+      textSelectionTheme: _textSelectionTheme(colorScheme, palette),
+      scrollbarTheme: _scrollbarTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -1286,6 +1290,53 @@ class AppTheme {
             ? SystemMouseCursors.basic
             : SystemMouseCursors.click;
       }),
+    );
+  }
+
+  static TextSelectionThemeData _textSelectionTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    return TextSelectionThemeData(
+      cursorColor: palette.seedColor,
+      selectionColor: palette.seedColor.withValues(alpha: isDark ? 0.34 : 0.22),
+      selectionHandleColor: palette.seedColor,
+    );
+  }
+
+  static ScrollbarThemeData _scrollbarTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    return ScrollbarThemeData(
+      radius: const Radius.circular(999),
+      interactive: true,
+      crossAxisMargin: 3,
+      mainAxisMargin: 8,
+      minThumbLength: 48,
+      thumbVisibility: const WidgetStatePropertyAll(false),
+      trackVisibility: const WidgetStatePropertyAll(false),
+      thickness: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.dragged) ||
+            states.contains(WidgetState.hovered)) {
+          return 7;
+        }
+        return 4;
+      }),
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        final active =
+            states.contains(WidgetState.dragged) ||
+            states.contains(WidgetState.hovered);
+        return palette.seedColor.withValues(
+          alpha: active ? (isDark ? 0.66 : 0.46) : (isDark ? 0.38 : 0.24),
+        );
+      }),
+      trackColor: WidgetStatePropertyAll(
+        palette.seedColor.withValues(alpha: isDark ? 0.10 : 0.06),
+      ),
+      trackBorderColor: const WidgetStatePropertyAll(Colors.transparent),
     );
   }
 }

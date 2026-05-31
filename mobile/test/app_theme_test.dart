@@ -311,6 +311,27 @@ void main() {
       expect(buttonStyle?.enableFeedback, isTrue);
     });
 
+    test('文本选择和滚动条使用主题化细节', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.rose);
+      final textSelectionTheme = theme.textSelectionTheme;
+      final scrollbarTheme = theme.scrollbarTheme;
+
+      expect(textSelectionTheme.cursorColor, AppThemePalette.rose.seedColor);
+      expect(
+        textSelectionTheme.selectionHandleColor,
+        AppThemePalette.rose.seedColor,
+      );
+      expect(textSelectionTheme.selectionColor, isNotNull);
+
+      expect(scrollbarTheme.radius, const Radius.circular(999));
+      expect(scrollbarTheme.interactive, isTrue);
+      expect(scrollbarTheme.thickness?.resolve({}), 4);
+      expect(scrollbarTheme.thickness?.resolve({WidgetState.hovered}), 7);
+      expect(scrollbarTheme.thumbColor?.resolve({}), isNotNull);
+      expect(scrollbarTheme.trackVisibility?.resolve({}), isFalse);
+      expect(scrollbarTheme.minThumbLength, 48);
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);
