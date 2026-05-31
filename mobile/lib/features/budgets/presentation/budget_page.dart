@@ -283,7 +283,7 @@ class _BudgetContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final budgetList = dashboard.budgetList;
     final categoryCount = budgetList.categoryBudgets.length;
-    final memberHeaderIndex = categoryCount + 5;
+    final memberHeaderIndex = categoryCount + 6;
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
@@ -302,11 +302,19 @@ class _BudgetContent extends StatelessWidget {
             const SizedBox(height: 12),
             StaggeredEntrance(
               index: 1,
-              child: _BudgetSummaryCard(budget: budgetList.totalBudget),
+              child: _BudgetRiskRadar(
+                dashboard: dashboard,
+                familyMembers: familyMembers,
+              ),
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
               index: 2,
+              child: _BudgetSummaryCard(budget: budgetList.totalBudget),
+            ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 3,
               child: _TotalBudgetCard(
                 budget: budgetList.totalBudget,
                 busy: busyAction == 'total',
@@ -315,7 +323,7 @@ class _BudgetContent extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 3,
+              index: 4,
               child: _CategoryBudgetHeader(
                 count: budgetList.categoryBudgets.length,
                 availableCount: dashboard.availableExpenseCategories.length,
@@ -325,13 +333,13 @@ class _BudgetContent extends StatelessWidget {
             const SizedBox(height: 8),
             if (budgetList.categoryBudgets.isEmpty)
               const StaggeredEntrance(
-                index: 4,
+                index: 5,
                 child: _EmptyCategoryBudgetCard(),
               )
             else
               for (final entry in budgetList.categoryBudgets.indexed) ...[
                 StaggeredEntrance(
-                  index: entry.$1 + 4,
+                  index: entry.$1 + 5,
                   child: _CategoryBudgetCard(
                     budget: entry.$2,
                     busy: busyAction == 'delete-${entry.$2.id}',
@@ -664,6 +672,335 @@ class _BudgetCommandMetric extends StatelessWidget {
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w900,
               fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetRiskRadar extends StatelessWidget {
+  const _BudgetRiskRadar({
+    required this.dashboard,
+    required this.familyMembers,
+  });
+
+  final BudgetDashboard dashboard;
+  final List<FamilyMember> familyMembers;
+
+  @override
+  Widget build(BuildContext context) {
+    final budgetList = dashboard.budgetList;
+    final totalBudget = budgetList.totalBudget;
+    final allBudgets = [
+      if (totalBudget != null) totalBudget,
+      ...budgetList.categoryBudgets,
+      ...budgetList.memberBudgets,
+    ];
+    final riskBudgets = allBudgets.where((budget) => budget.isNearLimit);
+    final overBudgets = allBudgets.where((budget) => budget.isOverBudget);
+    final enabledMemberCount = familyMembers
+        .where((member) => member.isEnabled)
+        .length;
+    final coverageTotal =
+        budgetList.categoryBudgets.length +
+        dashboard.availableExpenseCategories.length;
+    final coverageRatio = coverageTotal == 0
+        ? 0.0
+        : budgetList.categoryBudgets.length / coverageTotal;
+    final primaryRisk = allBudgets.isEmpty
+        ? null
+        : allBudgets.reduce((a, b) => a.percentage >= b.percentage ? a : b);
+    final remaining = totalBudget?.remaining ?? 0;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final radarColor = overBudgets.isNotEmpty
+        ? colorScheme.error
+        : riskBudgets.isNotEmpty
+        ? financeColors.warning
+        : financeColors.income;
+    final radarLabel = overBudgets.isNotEmpty
+        ? '${overBudgets.length} 项超支'
+        : riskBudgets.isNotEmpty
+        ? '${riskBudgets.length} 项预警'
+        : '预算稳态';
+
+    return PremiumSurface(
+      key: const ValueKey('budget-risk-radar'),
+      accentColor: radarColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.radar_outlined,
+                color: radarColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '预算风险雷达',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      primaryRisk == null
+                          ? '等待总预算、分类预算和家庭预算接入'
+                          : '${_budgetScopeLabel(primaryRisk)} · ${primaryRisk.percentage.toStringAsFixed(0)}%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _BudgetSignalPill(
+                icon: riskBudgets.isEmpty
+                    ? Icons.verified_outlined
+                    : Icons.warning_amber_rounded,
+                label: radarLabel,
+                color: radarColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _BudgetRiskBar(
+            stableCount: allBudgets.length - riskBudgets.length,
+            riskCount: riskBudgets.length,
+            stableColor: financeColors.income,
+            riskColor: radarColor,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth >= 420
+                  ? (constraints.maxWidth - 8) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _BudgetRadarTile(
+                    width: itemWidth,
+                    icon: Icons.warning_amber_outlined,
+                    label: '风险项',
+                    value: '${riskBudgets.length} 项',
+                    meta: overBudgets.isEmpty
+                        ? '无超支'
+                        : '${overBudgets.length} 超支',
+                    color: radarColor,
+                  ),
+                  _BudgetRadarTile(
+                    width: itemWidth,
+                    icon: Icons.pie_chart_outline,
+                    label: '分类覆盖',
+                    value: '${(coverageRatio * 100).toStringAsFixed(0)}%',
+                    meta: '${budgetList.categoryBudgets.length} 项已监控',
+                    color: colorScheme.primary,
+                  ),
+                  _BudgetRadarTile(
+                    width: itemWidth,
+                    icon: Icons.family_restroom_outlined,
+                    label: '家庭规则',
+                    value: '${budgetList.memberBudgets.length} 项',
+                    meta: '$enabledMemberCount 个成员可选',
+                    color: financeColors.asset,
+                  ),
+                  _BudgetRadarTile(
+                    width: itemWidth,
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: '剩余额度',
+                    value: totalBudget == null
+                        ? '未设置'
+                        : _formatMoney(remaining),
+                    meta: totalBudget == null
+                        ? '等待总预算'
+                        : _budgetRhythmLabel(totalBudget.percentage),
+                    color: remaining < 0
+                        ? colorScheme.error
+                        : financeColors.income,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetRiskBar extends StatelessWidget {
+  const _BudgetRiskBar({
+    required this.stableCount,
+    required this.riskCount,
+    required this.stableColor,
+    required this.riskColor,
+  });
+
+  final int stableCount;
+  final int riskCount;
+  final Color stableColor;
+  final Color riskColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final total = stableCount + riskCount;
+    final stableFlex = total == 0 ? 1 : math.max(1, stableCount);
+    final riskFlex = total == 0 ? 1 : math.max(1, riskCount);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          riskColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: riskColor.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _BudgetBurnLegend(label: '稳定项', color: stableColor),
+              const SizedBox(width: 12),
+              _BudgetBurnLegend(label: '预警项', color: riskColor),
+              const Spacer(),
+              Text(
+                total == 0 ? '待接入' : '$riskCount / $total',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: stableFlex,
+                    child: ColoredBox(color: stableColor),
+                  ),
+                  Expanded(
+                    flex: riskFlex,
+                    child: ColoredBox(color: riskColor),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetRadarTile extends StatelessWidget {
+  const _BudgetRadarTile({
+    required this.width,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.meta,
+    required this.color,
+  });
+
+  final double width;
+  final IconData icon;
+  final String label;
+  final String value;
+  final String meta;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      width: width,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 88),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 21),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1773,6 +2110,19 @@ String _budgetRhythmLabel(double percentage) {
     return '接近提醒线';
   }
   return '节奏健康';
+}
+
+String _budgetScopeLabel(BudgetItem budget) {
+  if (budget.memberName.isNotEmpty && budget.categoryName.isNotEmpty) {
+    return '${budget.memberName} · ${budget.categoryName}';
+  }
+  if (budget.memberName.isNotEmpty) {
+    return '${budget.memberName}预算';
+  }
+  if (budget.categoryName.isNotEmpty) {
+    return budget.categoryName;
+  }
+  return '总预算';
 }
 
 String _budgetBurnLabel(double percentage, int alertThreshold) {

@@ -22,11 +22,21 @@ void main() {
         find.byKey(const ValueKey('budget-command-center')),
         findsOneWidget,
       );
+      expect(find.byKey(const ValueKey('budget-risk-radar')), findsOneWidget);
       expect(find.text('预算控制台'), findsOneWidget);
-      expect(find.text('1 项预警'), findsOneWidget);
-      expect(find.text('分类覆盖'), findsOneWidget);
+      expect(find.text('1 项预警'), findsWidgets);
+      expect(find.text('分类覆盖'), findsWidgets);
       expect(find.text('家庭额度'), findsOneWidget);
-      expect(find.text('节奏健康'), findsOneWidget);
+      expect(find.text('预算风险雷达'), findsOneWidget);
+      expect(find.text('稳定项'), findsOneWidget);
+      expect(find.text('预警项'), findsOneWidget);
+      expect(find.text('风险项'), findsOneWidget);
+      expect(find.text('家庭规则'), findsOneWidget);
+      expect(find.text('剩余额度'), findsOneWidget);
+      expect(find.text('50%'), findsOneWidget);
+      expect(find.text('1 项已监控'), findsOneWidget);
+      expect(find.text('1 个成员可选'), findsOneWidget);
+      expect(find.text('节奏健康'), findsWidgets);
       expect(find.text('预算燃烧节奏正常'), findsOneWidget);
       expect(find.text('提醒线 80%'), findsWidgets);
       expect(find.text('40% 已使用'), findsOneWidget);
@@ -128,6 +138,9 @@ void main() {
         );
       await _pumpPage(tester, budgetRepository);
 
+      expect(find.text('预算风险雷达'), findsOneWidget);
+      expect(find.text('预算稳态'), findsOneWidget);
+      expect(find.text('等待总预算、分类预算和家庭预算接入'), findsOneWidget);
       expect(find.text('还没有设置总预算'), findsOneWidget);
       expect(find.text('暂无分类预算'), findsOneWidget);
       expect(find.text('给高频支出分类设置独立预算后，可以更早发现超支风险。'), findsOneWidget);

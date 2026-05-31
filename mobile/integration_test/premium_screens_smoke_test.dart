@@ -1008,9 +1008,28 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('预算控制台'), findsOneWidget);
-        expect(find.text('1 项预警'), findsOneWidget);
+        expect(find.text('1 项预警'), findsWidgets);
+        await tester.scrollUntilVisible(
+          find.text('预算风险雷达'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.byKey(const ValueKey('budget-risk-radar')), findsOneWidget);
+        expect(find.text('预算风险雷达'), findsOneWidget);
+        expect(find.text('稳定项'), findsOneWidget);
+        expect(find.text('预警项'), findsOneWidget);
+        expect(find.text('风险项'), findsOneWidget);
+        expect(find.text('家庭规则'), findsOneWidget);
+        expect(find.text('剩余额度'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('本月预算总览'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('本月预算总览'), findsOneWidget);
+        await _scrollIntoTapArea(tester, find.text('月度总预算'));
         expect(find.text('月度总预算'), findsOneWidget);
+        await _scrollIntoTapArea(tester, find.text('分类预算'));
         expect(find.text('分类预算'), findsOneWidget);
         expect(find.text('餐饮'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
