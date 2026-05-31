@@ -186,6 +186,22 @@ void main() {
       );
     });
 
+    test('列表和弹出菜单使用主题化信息层级', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.rose);
+      final listTileTheme = theme.listTileTheme;
+      final popupMenuTheme = theme.popupMenuTheme;
+
+      expect(listTileTheme.selectedColor, AppThemePalette.rose.seedColor);
+      expect(listTileTheme.minTileHeight, 56);
+      expect(listTileTheme.shape, isA<RoundedRectangleBorder>());
+      expect(listTileTheme.tileColor, isNull);
+      expect(listTileTheme.selectedTileColor, isNull);
+      expect(popupMenuTheme.iconColor, AppThemePalette.rose.seedColor);
+      expect(popupMenuTheme.position, PopupMenuPosition.under);
+      expect(popupMenuTheme.surfaceTintColor, Colors.transparent);
+      expect(popupMenuTheme.shape, isA<RoundedRectangleBorder>());
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);

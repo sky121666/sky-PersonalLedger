@@ -193,6 +193,8 @@ class AppTheme {
         colorScheme,
         palette,
       ),
+      listTileTheme: _listTileTheme(colorScheme, palette),
+      popupMenuTheme: _popupMenuTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -237,6 +239,8 @@ class AppTheme {
         colorScheme,
         palette,
       ),
+      listTileTheme: _listTileTheme(colorScheme, palette),
+      popupMenuTheme: _popupMenuTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -820,6 +824,88 @@ class AppTheme {
       extendedIconLabelSpacing: 10,
       extendedPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       extendedTextStyle: const TextStyle(fontWeight: FontWeight.w900),
+      mouseCursor: WidgetStateProperty.resolveWith((states) {
+        return states.contains(WidgetState.disabled)
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click;
+      }),
+    );
+  }
+
+  static ListTileThemeData _listTileTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return ListTileThemeData(
+      dense: false,
+      style: ListTileStyle.list,
+      selectedColor: palette.seedColor,
+      iconColor: colorScheme.onSurfaceVariant,
+      textColor: colorScheme.onSurface,
+      titleTextStyle: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: 15,
+        fontWeight: FontWeight.w800,
+      ),
+      subtitleTextStyle: TextStyle(
+        color: colorScheme.onSurfaceVariant,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
+      leadingAndTrailingTextStyle: TextStyle(
+        color: colorScheme.onSurfaceVariant,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      horizontalTitleGap: 12,
+      minVerticalPadding: 8,
+      minLeadingWidth: 32,
+      minTileHeight: 56,
+      enableFeedback: true,
+      visualDensity: VisualDensity.standard,
+      mouseCursor: WidgetStateProperty.resolveWith((states) {
+        return states.contains(WidgetState.disabled)
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click;
+      }),
+    );
+  }
+
+  static PopupMenuThemeData _popupMenuTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    return PopupMenuThemeData(
+      color: Color.alphaBlend(
+        palette.seedColor.withValues(alpha: isDark ? 0.10 : 0.035),
+        colorScheme.surface,
+      ),
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.32 : 0.12),
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      menuPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      textStyle: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+      ),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final disabled = states.contains(WidgetState.disabled);
+        return TextStyle(
+          color: disabled
+              ? colorScheme.onSurface.withValues(alpha: 0.38)
+              : colorScheme.onSurface,
+          fontWeight: FontWeight.w800,
+        );
+      }),
+      iconColor: palette.seedColor,
+      iconSize: 20,
+      enableFeedback: true,
+      position: PopupMenuPosition.under,
       mouseCursor: WidgetStateProperty.resolveWith((states) {
         return states.contains(WidgetState.disabled)
             ? SystemMouseCursors.basic
