@@ -29,6 +29,29 @@ class AppLoadingView extends StatelessWidget {
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
+            _StateDiagnosticDeck(
+              items: [
+                _StateDiagnosticItem(
+                  icon: Icons.storage_outlined,
+                  label: '本地缓存',
+                  value: '预热中',
+                  color: AppTheme.financeColors(context).asset,
+                ),
+                _StateDiagnosticItem(
+                  icon: Icons.wifi_tethering_outlined,
+                  label: '接口连通',
+                  value: '探测中',
+                  color: colorScheme.primary,
+                ),
+                _StateDiagnosticItem(
+                  icon: Icons.auto_awesome_outlined,
+                  label: '主题渲染',
+                  value: '同步中',
+                  color: AppTheme.financeColors(context).income,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             _StateSignalStrip(
               items: [
                 _StateSignalItem(label: '连接', value: '检查中'),
@@ -98,6 +121,23 @@ class AppEmptyView extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 14),
+            _StateDiagnosticDeck(
+              items: [
+                _StateDiagnosticItem(
+                  icon: Icons.search_off_outlined,
+                  label: '内容状态',
+                  value: '空',
+                  color: accentColor,
+                ),
+                _StateDiagnosticItem(
+                  icon: Icons.add_circle_outline,
+                  label: '下一步',
+                  value: action == null ? '等待' : '创建',
+                  color: AppTheme.financeColors(context).income,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             _StateSignalStrip(
               items: [
                 _StateSignalItem(label: '状态', value: '暂无内容'),
@@ -162,6 +202,23 @@ class AppErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
+            _StateDiagnosticDeck(
+              items: [
+                _StateDiagnosticItem(
+                  icon: Icons.report_gmailerrorred_outlined,
+                  label: '异常状态',
+                  value: '已捕获',
+                  color: colorScheme.error,
+                ),
+                _StateDiagnosticItem(
+                  icon: Icons.restart_alt_outlined,
+                  label: '恢复动作',
+                  value: onRetry == null ? '待处理' : '可重试',
+                  color: AppTheme.financeColors(context).warning,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             _StateSignalStrip(
               items: [
                 _StateSignalItem(label: '状态', value: '异常'),
@@ -206,6 +263,114 @@ class _StateViewFrame extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: PremiumSurface(accentColor: accentColor, child: child),
+      ),
+    );
+  }
+}
+
+class _StateDiagnosticItem {
+  const _StateDiagnosticItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+}
+
+class _StateDiagnosticDeck extends StatelessWidget {
+  const _StateDiagnosticDeck({required this.items});
+
+  final List<_StateDiagnosticItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = 8.0;
+        final columns = constraints.maxWidth >= 390 && items.length >= 3
+            ? 3
+            : constraints.maxWidth >= 330 && items.length >= 2
+            ? 2
+            : 1;
+        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        return Wrap(
+          alignment: WrapAlignment.center,
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: width,
+                child: _StateDiagnosticTile(item: item),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StateDiagnosticTile extends StatelessWidget {
+  const _StateDiagnosticTile({required this.item});
+
+  final _StateDiagnosticItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          item.color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.075,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: item.color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          IconBadge(icon: item.icon, color: item.color, size: 34, iconSize: 18),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  item.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

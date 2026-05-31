@@ -10,8 +10,12 @@ void main() {
     await _pump(tester, const AppLoadingView(message: '正在加载数据...'));
 
     expect(find.text('正在加载数据...'), findsOneWidget);
+    expect(find.text('本地缓存'), findsOneWidget);
+    expect(find.text('接口连通'), findsOneWidget);
+    expect(find.text('主题渲染'), findsOneWidget);
+    expect(find.text('预热中'), findsOneWidget);
     expect(find.textContaining('连接'), findsOneWidget);
-    expect(find.textContaining('同步'), findsOneWidget);
+    expect(find.textContaining('同步'), findsWidgets);
     expect(find.textContaining('界面'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -31,10 +35,12 @@ void main() {
 
     expect(find.text('暂无数据'), findsOneWidget);
     expect(find.text('稍后再来查看。'), findsOneWidget);
+    expect(find.text('内容状态'), findsOneWidget);
+    expect(find.text('下一步'), findsOneWidget);
+    expect(find.text('创建'), findsWidgets);
     expect(find.textContaining('暂无内容'), findsOneWidget);
     expect(find.textContaining('可创建'), findsOneWidget);
-    expect(find.text('创建'), findsOneWidget);
-    expect(find.byType(IconBadge), findsOneWidget);
+    expect(find.byType(IconBadge), findsWidgets);
     expect(find.byType(PremiumSurface), findsOneWidget);
   });
 
@@ -52,8 +58,11 @@ void main() {
 
     expect(find.text('出错了'), findsOneWidget);
     expect(find.text('加载失败'), findsOneWidget);
-    expect(find.textContaining('异常'), findsOneWidget);
-    expect(find.textContaining('可重试'), findsOneWidget);
+    expect(find.text('异常状态'), findsOneWidget);
+    expect(find.text('恢复动作'), findsOneWidget);
+    expect(find.text('已捕获'), findsOneWidget);
+    expect(find.textContaining('异常'), findsWidgets);
+    expect(find.textContaining('可重试'), findsWidgets);
     expect(find.byIcon(Icons.refresh), findsOneWidget);
 
     await tester.tap(find.text('重试'));
