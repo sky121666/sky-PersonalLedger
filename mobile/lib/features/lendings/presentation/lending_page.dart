@@ -70,11 +70,19 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                 const SizedBox(height: 12),
                 StaggeredEntrance(
                   index: 1,
-                  child: _SummarySection(summary: dashboard.summary),
+                  child: _LendingRiskRadar(
+                    dashboard: dashboard,
+                    palette: themeSettings.palette,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 StaggeredEntrance(
                   index: 2,
+                  child: _SummarySection(summary: dashboard.summary),
+                ),
+                const SizedBox(height: 12),
+                StaggeredEntrance(
+                  index: 3,
                   child: _QuickActions(
                     busy: _isBusy,
                     onCreate: (type) =>
@@ -83,7 +91,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                 ),
                 const SizedBox(height: 10),
                 StaggeredEntrance(
-                  index: 3,
+                  index: 4,
                   child: SegmentedButton<_LendingTab>(
                     segments: const [
                       ButtonSegment(
@@ -112,7 +120,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                 _LendingList(
                   lendings: _itemsForTab(dashboard),
                   tab: _tab,
-                  startIndex: 4,
+                  startIndex: 5,
                   busyAction: _busyAction,
                   onEdit: (item) => _openEditForm(item, dashboard.accounts),
                   onDelete: _deleteLending,
@@ -477,6 +485,267 @@ class _LendingRelationshipHub extends StatelessWidget {
                 color: palette.seedColor,
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LendingRiskRadar extends StatelessWidget {
+  const _LendingRiskRadar({required this.dashboard, required this.palette});
+
+  final LendingDashboard dashboard;
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final active = dashboard.lendings.where((item) => !item.isSettled).toList();
+    final now = DateTime.now();
+    final dueSoon = active.where((item) {
+      final due = item.dueDate;
+      if (due == null) {
+        return false;
+      }
+      final days = due.difference(now).inDays;
+      return days >= 0 && days <= 7;
+    }).length;
+    final overdue = active.where((item) => item.isOverdue).length;
+    final withEvidence = active
+        .where((item) => item.evidence.trim().isNotEmpty)
+        .length;
+    final evidenceCoverage = active.isEmpty
+        ? 0
+        : ((withEvidence / active.length) * 100).round();
+    final averageProgress = active.isEmpty
+        ? 0
+        : (active.fold<double>(0, (sum, item) => sum + item.progress) /
+                  active.length)
+              .round();
+    final largest = active.fold<LendingItem?>(
+      null,
+      (current, item) =>
+          current == null ||
+              item.currentBalance.abs() > current.currentBalance.abs()
+          ? item
+          : current,
+    );
+    final accent = overdue > 0
+        ? financeColors.expense
+        : dueSoon > 0
+        ? financeColors.warning
+        : palette.assetColor;
+    final statusLabel = overdue > 0
+        ? '逾期 $overdue'
+        : dueSoon > 0
+        ? '临近 $dueSoon'
+        : '节奏稳定';
+
+    return PremiumSurface(
+      key: const ValueKey('lending-risk-radar'),
+      accentColor: accent,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.radar_outlined,
+                color: accent,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '回款风险雷达',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '把到期、凭证、进度和最大敞口集中在一屏判断',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _LendingHubPill(
+                icon: overdue > 0 || dueSoon > 0
+                    ? Icons.notification_important_outlined
+                    : Icons.verified_outlined,
+                label: statusLabel,
+                color: accent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _RiskRadarMetric(
+                  icon: Icons.event_available_outlined,
+                  label: '7日到期',
+                  value: '$dueSoon 笔',
+                  color: dueSoon > 0
+                      ? financeColors.warning
+                      : palette.assetColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _RiskRadarMetric(
+                  icon: Icons.verified_user_outlined,
+                  label: '凭证覆盖',
+                  value: '$evidenceCoverage%',
+                  color: evidenceCoverage >= 80
+                      ? financeColors.income
+                      : colorScheme.tertiary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _RiskRadarMetric(
+                  icon: Icons.stacked_line_chart_outlined,
+                  label: '均进度',
+                  value: '$averageProgress%',
+                  color: averageProgress >= 60
+                      ? financeColors.income
+                      : palette.warningColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                accent.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.18
+                      : 0.08,
+                ),
+                colorScheme.surface,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: accent.withValues(alpha: 0.16)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.account_tree_outlined, size: 19, color: accent),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '最大敞口',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        largest == null
+                            ? '暂无活跃往来'
+                            : '${largest.contactName} · ${_formatMoney(largest.currentBalance)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _LendingHubPill(
+                  icon: Icons.sync_alt_outlined,
+                  label: '活跃 ${active.length}',
+                  color: accent,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RiskRadarMetric extends StatelessWidget {
+  const _RiskRadarMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),

@@ -29,8 +29,14 @@ void main() {
       expect(find.text('往来关系中枢'), findsOneWidget);
       expect(find.textContaining('静谧墨绿'), findsOneWidget);
       expect(find.text('关系稳定'), findsOneWidget);
-      expect(find.text('活跃 2'), findsOneWidget);
+      expect(find.text('活跃 2'), findsAtLeastNWidgets(1));
       expect(find.text('凭证 1'), findsOneWidget);
+      expect(find.byKey(const ValueKey('lending-risk-radar')), findsOneWidget);
+      expect(find.text('回款风险雷达'), findsOneWidget);
+      expect(find.text('凭证覆盖'), findsOneWidget);
+      expect(find.text('50%'), findsOneWidget);
+      expect(find.text('最大敞口'), findsOneWidget);
+      expect(find.text('张三 · ¥800.00'), findsOneWidget);
       expect(find.text('应收'), findsAtLeastNWidgets(1));
       expect(find.text('¥1,200.00'), findsAtLeastNWidgets(1));
       expect(find.text('结清率'), findsOneWidget);

@@ -1131,7 +1131,12 @@ void main() {
           find.byKey(const ValueKey('lending-relationship-hub')),
           findsOneWidget,
         );
+        expect(
+          find.byKey(const ValueKey('lending-risk-radar')),
+          findsOneWidget,
+        );
         expect(find.text('往来关系中枢'), findsOneWidget);
+        expect(find.text('回款风险雷达'), findsOneWidget);
         expect(find.textContaining('静谧墨绿'), findsOneWidget);
         expect(find.text('借贷往来总览'), findsOneWidget);
         expect(find.text('应收'), findsAtLeastNWidgets(1));
