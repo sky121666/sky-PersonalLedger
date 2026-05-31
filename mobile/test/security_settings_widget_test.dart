@@ -22,6 +22,7 @@ void main() {
       expect(find.text('安全态势'), findsOneWidget);
       expect(find.textContaining('已隔离'), findsOneWidget);
       expect(find.textContaining('改密退出'), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
       expect(find.text('安全入口'), findsOneWidget);
       expect(find.text('/ledger'), findsWidgets);
       expect(find.text('当前入口：/ledger'), findsOneWidget);

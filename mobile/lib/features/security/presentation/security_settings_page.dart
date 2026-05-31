@@ -276,6 +276,7 @@ class _SecurityOverviewCard extends StatelessWidget {
     final accent = entryPath.enabled
         ? financeColors.asset
         : financeColors.warning;
+    final securityPosture = entryPath.enabled ? 1.0 : 0.5;
     return PremiumSurface(
       accentColor: accent,
       child: Column(
@@ -361,6 +362,7 @@ class _SecurityOverviewCard extends StatelessWidget {
                   label: '安全态势',
                   value: entryPath.enabled ? '已隔离 · 改密退出' : '待启用 · 改密退出',
                   color: colorScheme.tertiary,
+                  progress: securityPosture,
                 ),
               ),
             ],
@@ -377,12 +379,14 @@ class _SecurityMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.progress,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final Color color;
+  final double? progress;
 
   @override
   Widget build(BuildContext context) {
@@ -425,6 +429,18 @@ class _SecurityMetric extends StatelessWidget {
               context,
             ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
           ),
+          if (progress != null) ...[
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progress!.clamp(0, 1),
+                minHeight: 5,
+                color: color,
+                backgroundColor: color.withValues(alpha: 0.12),
+              ),
+            ),
+          ],
         ],
       ),
     );
