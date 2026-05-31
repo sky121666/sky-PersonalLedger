@@ -184,6 +184,7 @@ class AppTheme {
       useMaterial3: true,
       inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
       snackBarTheme: _snackBarTheme(colorScheme, palette),
+      segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -225,6 +226,7 @@ class AppTheme {
       useMaterial3: true,
       inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
       snackBarTheme: _snackBarTheme(colorScheme, palette),
+      segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -356,6 +358,78 @@ class AppTheme {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
       actionOverflowThreshold: 0.42,
+    );
+  }
+
+  static SegmentedButtonThemeData _segmentedButtonTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final selectedFill = Color.alphaBlend(
+      palette.seedColor.withValues(
+        alpha: colorScheme.brightness == Brightness.dark ? 0.24 : 0.12,
+      ),
+      colorScheme.surface,
+    );
+    final hoveredFill = Color.alphaBlend(
+      palette.seedColor.withValues(
+        alpha: colorScheme.brightness == Brightness.dark ? 0.14 : 0.07,
+      ),
+      colorScheme.surface,
+    );
+
+    return SegmentedButtonThemeData(
+      selectedIcon: const Icon(Icons.check_rounded, size: 18),
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 44)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.w800),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        side: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          final focused = states.contains(WidgetState.focused);
+          return BorderSide(
+            color: selected || focused
+                ? palette.seedColor
+                : colorScheme.outlineVariant,
+            width: selected || focused ? 1.4 : 1,
+          );
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return colorScheme.onSurface.withValues(alpha: 0.38);
+          }
+          if (states.contains(WidgetState.selected)) {
+            return palette.seedColor;
+          }
+          return colorScheme.onSurfaceVariant;
+        }),
+        iconColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return palette.seedColor;
+          }
+          return colorScheme.onSurfaceVariant;
+        }),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return selectedFill;
+          }
+          if (states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return hoveredFill;
+          }
+          return colorScheme.surface;
+        }),
+        overlayColor: WidgetStatePropertyAll(
+          palette.seedColor.withValues(alpha: 0.08),
+        ),
+      ),
     );
   }
 }

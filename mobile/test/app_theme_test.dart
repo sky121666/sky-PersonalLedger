@@ -86,6 +86,23 @@ void main() {
       );
     });
 
+    test('分段控件跟随主题模板并保留触控尺寸', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.cyan);
+      final segmentedTheme = theme.segmentedButtonTheme;
+      final selectedColor = segmentedTheme.style?.foregroundColor?.resolve({
+        WidgetState.selected,
+      });
+      final minimumSize = segmentedTheme.style?.minimumSize?.resolve({});
+
+      expect(selectedColor, AppThemePalette.cyan.seedColor);
+      expect(minimumSize, const Size(48, 44));
+      expect(segmentedTheme.selectedIcon, isA<Icon>());
+      expect(
+        segmentedTheme.style?.shape?.resolve({}),
+        isA<RoundedRectangleBorder>(),
+      );
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);
