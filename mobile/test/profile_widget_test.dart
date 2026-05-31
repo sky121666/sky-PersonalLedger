@@ -115,13 +115,17 @@ void main() {
     await tester.tap(find.text('深色模式'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('极光青'),
+      find.byKey(const ValueKey('profile-featured-theme-aurora')),
       220,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.ensureVisible(find.text('极光青'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('profile-featured-theme-aurora')),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('极光青'));
+    await tester.tap(
+      find.byKey(const ValueKey('profile-featured-theme-aurora')),
+    );
     await tester.pumpAndSettle();
 
     final preferences = await SharedPreferences.getInstance();
@@ -139,6 +143,15 @@ void main() {
     expect(find.text('模式控制'), findsOneWidget);
     expect(find.text('财务语义'), findsOneWidget);
     expect(find.text('4 色'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile-theme-curation-rail')),
+      findsOneWidget,
+    );
+    expect(find.text('推荐主题策展'), findsOneWidget);
+    expect(find.text('快速切换'), findsOneWidget);
+    expect(find.text('旗舰夜间使用'), findsOneWidget);
+    expect(find.text('前卫数据流'), findsOneWidget);
+    expect(find.text('动效先锋界面'), findsOneWidget);
     expect(find.text('跨端体验预览'), findsOneWidget);
     expect(find.text('iOS 原生感'), findsAtLeastNWidgets(1));
     expect(find.text('Android 动效'), findsAtLeastNWidgets(1));

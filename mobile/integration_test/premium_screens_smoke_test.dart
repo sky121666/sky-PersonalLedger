@@ -1308,6 +1308,14 @@ void main() {
           expect(find.text('主题色模板'), findsWidgets);
           expect(find.text('外观模式'), findsOneWidget);
           expect(find.text('石墨蓝'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('profile-theme-curation-rail')),
+            findsOneWidget,
+          );
+          expect(find.text('推荐主题策展'), findsOneWidget);
+          expect(find.text('快速切换'), findsOneWidget);
+          expect(find.text('旗舰夜间使用'), findsOneWidget);
+          expect(find.text('动效先锋界面'), findsOneWidget);
           expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(

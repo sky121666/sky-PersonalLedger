@@ -605,6 +605,11 @@ class _AppearancePanel extends StatelessWidget {
           _AppliedThemeStrip(palette: settings.palette),
           const SizedBox(height: 12),
           _ThemeCapabilityMatrix(settings: settings),
+          const SizedBox(height: 12),
+          _ThemeCurationRail(
+            selectedPalette: settings.palette,
+            onPaletteChanged: onPaletteChanged,
+          ),
           const SizedBox(height: 18),
           _ThemeExperienceDeck(palette: settings.palette),
           const SizedBox(height: 18),
@@ -989,6 +994,302 @@ class _ThemeCapabilityMatrix extends StatelessWidget {
       AppThemeMode.light => '浅色',
       AppThemeMode.dark => '深色',
     };
+  }
+}
+
+const _profilePageFeaturedPalettes = [
+  AppThemePalette.obsidian,
+  AppThemePalette.aurora,
+  AppThemePalette.plasma,
+];
+
+class _ThemeCurationRail extends StatelessWidget {
+  const _ThemeCurationRail({
+    required this.selectedPalette,
+    required this.onPaletteChanged,
+  });
+
+  final AppThemePalette selectedPalette;
+  final ValueChanged<AppThemePalette?> onPaletteChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      key: const ValueKey('profile-theme-curation-rail'),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_awesome_mosaic_outlined,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '推荐主题策展',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _ThemeCurationPill(label: '快速切换', color: colorScheme.primary),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final palette in _profilePageFeaturedPalettes) ...[
+                  _ThemeFeaturedOption(
+                    palette: palette,
+                    selected: selectedPalette == palette,
+                    onTap: () => onPaletteChanged(palette),
+                  ),
+                  if (palette != _profilePageFeaturedPalettes.last)
+                    const SizedBox(width: 10),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeFeaturedOption extends StatelessWidget {
+  const _ThemeFeaturedOption({
+    required this.palette,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppThemePalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 214,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            scale: selected ? 1 : 0.985,
+            child: AnimatedContainer(
+              key: ValueKey('profile-featured-theme-${palette.id}'),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              constraints: const BoxConstraints(minHeight: 112),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.alphaBlend(
+                      palette.seedColor.withValues(
+                        alpha: selected ? 0.22 : 0.11,
+                      ),
+                      colorScheme.surface,
+                    ),
+                    Color.alphaBlend(
+                      palette.assetColor.withValues(
+                        alpha: selected ? 0.18 : 0.08,
+                      ),
+                      colorScheme.surface,
+                    ),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: selected
+                      ? palette.seedColor
+                      : colorScheme.outlineVariant,
+                  width: selected ? 1.6 : 1,
+                ),
+                boxShadow: [
+                  if (selected)
+                    BoxShadow(
+                      color: palette.seedColor.withValues(alpha: 0.18),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _ThemeFeaturedSwatches(palette: palette),
+                      const Spacer(),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 160),
+                        child: Icon(
+                          selected
+                              ? Icons.check_circle
+                              : Icons.add_circle_outline,
+                          key: ValueKey(selected),
+                          color: selected
+                              ? palette.seedColor
+                              : colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    palette.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    palette.sceneLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _ThemeCurationPill(
+                        label: palette.platformCue,
+                        color: palette.seedColor,
+                      ),
+                      _ThemeCurationPill(
+                        label: palette.signature,
+                        color: palette.assetColor,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeFeaturedSwatches extends StatelessWidget {
+  const _ThemeFeaturedSwatches({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      height: 26,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            child: _ThemeFeaturedDot(color: palette.seedColor),
+          ),
+          Positioned(
+            left: 16,
+            child: _ThemeFeaturedDot(color: palette.assetColor),
+          ),
+          Positioned(
+            left: 32,
+            child: _ThemeFeaturedDot(color: palette.incomeColor),
+          ),
+          Positioned(
+            left: 48,
+            child: _ThemeFeaturedDot(color: palette.expenseColor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeFeaturedDot extends StatelessWidget {
+  const _ThemeFeaturedDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          width: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeCurationPill extends StatelessWidget {
+  const _ThemeCurationPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28, maxWidth: 118),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
   }
 }
 
