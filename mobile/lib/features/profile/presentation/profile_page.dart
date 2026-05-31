@@ -434,6 +434,8 @@ class _AppearancePanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _AppliedThemeStrip(palette: settings.palette),
+          const SizedBox(height: 12),
+          _ThemeCapabilityMatrix(settings: settings),
           const SizedBox(height: 18),
           Text(
             '外观模式',
@@ -546,6 +548,120 @@ class _AppliedThemeStrip extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           _PaletteSignaturePill(palette: palette),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeCapabilityMatrix extends StatelessWidget {
+  const _ThemeCapabilityMatrix({required this.settings});
+
+  final AppThemeSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Row(
+      children: [
+        Expanded(
+          child: _ThemeCapabilityTile(
+            icon: Icons.grid_view_outlined,
+            label: '模板矩阵',
+            value: '${AppThemePalette.values.length} 套',
+            color: settings.palette.seedColor,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _ThemeCapabilityTile(
+            icon: Icons.contrast_outlined,
+            label: '模式控制',
+            value: _themeModeLabel(settings.mode),
+            color: colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _ThemeCapabilityTile(
+            icon: Icons.auto_graph_outlined,
+            label: '财务语义',
+            value: '4 色',
+            color: financeColors.asset,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _themeModeLabel(AppThemeMode mode) {
+    return switch (mode) {
+      AppThemeMode.system => '系统',
+      AppThemeMode.light => '浅色',
+      AppThemeMode.dark => '深色',
+    };
+  }
+}
+
+class _ThemeCapabilityTile extends StatelessWidget {
+  const _ThemeCapabilityTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 82),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );

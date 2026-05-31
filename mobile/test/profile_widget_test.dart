@@ -111,6 +111,11 @@ void main() {
     expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
     expect(preferences.getString('app_theme_palette'), 'aurora');
     expect(find.text('当前已应用：极光青'), findsOneWidget);
+    expect(find.text('模板矩阵'), findsOneWidget);
+    expect(find.text('12 套'), findsOneWidget);
+    expect(find.text('模式控制'), findsOneWidget);
+    expect(find.text('财务语义'), findsOneWidget);
+    expect(find.text('4 色'), findsOneWidget);
   });
 
   testWidgets('ProfilePage 设置入口跟随主题色模板', (tester) async {
@@ -191,6 +196,9 @@ const _entryLabels = [
   '更换服务器',
   '外观模式',
   '主题色模板',
+  '模板矩阵',
+  '模式控制',
+  '财务语义',
   '静谧墨绿',
   '石墨蓝',
   '冰川青',
