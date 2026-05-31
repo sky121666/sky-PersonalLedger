@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_picker_service.dart';
 import 'package:personal_ledger/features/attachments/presentation/attachment_picker_field.dart';
@@ -14,6 +15,9 @@ void main() {
       expect(find.text('已上传'), findsOneWidget);
       expect(find.text('receipt.jpg'), findsOneWidget);
       expect(find.text('待上传'), findsOneWidget);
+      expect(find.text('附件工作台'), findsOneWidget);
+      expect(find.text('已关联 2 个附件'), findsOneWidget);
+      expect(find.byType(PremiumSurface), findsOneWidget);
       expect(find.text('2/5'), findsOneWidget);
 
       await tester.tap(find.byTooltip('移除').first);
