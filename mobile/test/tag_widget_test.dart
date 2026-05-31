@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/tags/data/tag_repository.dart';
 import 'package:personal_ledger/features/tags/presentation/tag_page.dart';
 
@@ -15,6 +16,13 @@ void main() {
       expect(find.text('系统标签 · 使用 8 次'), findsOneWidget);
       expect(find.text('旅行'), findsOneWidget);
       expect(find.text('自定义标签 · 使用 2 次'), findsOneWidget);
+    });
+
+    testWidgets('标签头部和卡片使用分段入场动效', (tester) async {
+      final repository = _FakeTagRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
     testWidgets('新增标签时提交表单字段并刷新列表', (tester) async {

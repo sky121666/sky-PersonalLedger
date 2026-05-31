@@ -6,6 +6,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../data/tag_repository.dart';
 
 const _tagColors = [
@@ -193,14 +194,17 @@ class _TagPageState extends ConsumerState<TagPage> {
       return AppErrorView(message: error.toString(), onRetry: _loadTags);
     }
     if (_tags.isEmpty) {
-      return AppEmptyView(
-        title: '暂无标签',
-        message: '添加标签后，记账时可以快速标记交易来源或用途。',
-        icon: Icons.label_outline,
-        action: FilledButton.icon(
-          onPressed: _submitting ? null : () => _openTagForm(),
-          icon: const Icon(Icons.add),
-          label: const Text('新增标签'),
+      return StaggeredEntrance(
+        index: 0,
+        child: AppEmptyView(
+          title: '暂无标签',
+          message: '添加标签后，记账时可以快速标记交易来源或用途。',
+          icon: Icons.label_outline,
+          action: FilledButton.icon(
+            onPressed: _submitting ? null : () => _openTagForm(),
+            icon: const Icon(Icons.add),
+            label: const Text('新增标签'),
+          ),
         ),
       );
     }
@@ -211,14 +215,17 @@ class _TagPageState extends ConsumerState<TagPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 96),
         children: [
-          _TagHeader(tags: _tags),
+          StaggeredEntrance(index: 0, child: _TagHeader(tags: _tags)),
           const SizedBox(height: 12),
-          for (final tag in _tags) ...[
-            _TagCard(
-              tag: tag,
-              busy: _submitting,
-              onEdit: () => _openTagForm(tag),
-              onDelete: () => _deleteTag(tag),
+          for (final entry in _tags.indexed) ...[
+            StaggeredEntrance(
+              index: entry.$1 + 1,
+              child: _TagCard(
+                tag: entry.$2,
+                busy: _submitting,
+                onEdit: () => _openTagForm(entry.$2),
+                onDelete: () => _deleteTag(entry.$2),
+              ),
             ),
             const SizedBox(height: 10),
           ],
