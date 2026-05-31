@@ -7,6 +7,7 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../../accounts/data/account.dart';
 import '../data/account_log_repository.dart';
 
@@ -146,10 +147,13 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           children: const [
             SizedBox(height: 96),
-            AppEmptyView(
-              title: '暂无流水记录',
-              message: '交易、还款或余额调整后会自动生成账户流水。',
-              icon: Icons.receipt_long_outlined,
+            StaggeredEntrance(
+              index: 0,
+              child: AppEmptyView(
+                title: '暂无流水记录',
+                message: '交易、还款或余额调整后会自动生成账户流水。',
+                icon: Icons.receipt_long_outlined,
+              ),
             ),
           ],
         ),
@@ -164,33 +168,45 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           if (account != null) ...[
-            _AccountSummaryCard(account: account),
+            StaggeredEntrance(
+              index: 0,
+              child: _AccountSummaryCard(account: account),
+            ),
             const SizedBox(height: 12),
           ],
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              '共 $_total 条流水记录',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
+          StaggeredEntrance(
+            index: account == null ? 0 : 1,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                '共 $_total 条流水记录',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 12),
-          for (final group in groups) ...[
-            _DateHeader(date: group.date),
+          for (final entry in groups.indexed) ...[
+            StaggeredEntrance(
+              index: (account == null ? 1 : 2) + entry.$1 * 2,
+              child: _DateHeader(date: entry.$2.date),
+            ),
             const SizedBox(height: 8),
-            PremiumSurface(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                children: [
-                  for (var index = 0; index < group.logs.length; index++)
-                    _AccountLogTile(
-                      log: group.logs[index],
-                      showAccount: account == null,
-                      isLast: index == group.logs.length - 1,
-                    ),
-                ],
+            StaggeredEntrance(
+              index: (account == null ? 2 : 3) + entry.$1 * 2,
+              child: PremiumSurface(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  children: [
+                    for (var index = 0; index < entry.$2.logs.length; index++)
+                      _AccountLogTile(
+                        log: entry.$2.logs[index],
+                        showAccount: account == null,
+                        isLast: index == entry.$2.logs.length - 1,
+                      ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),

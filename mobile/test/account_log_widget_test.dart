@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
 import 'package:personal_ledger/features/account_logs/presentation/account_log_page.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
@@ -23,6 +24,18 @@ void main() {
       expect(find.text('收入'), findsOneWidget);
       expect(find.text('+¥500.00'), findsOneWidget);
       expect(find.text('工资入账'), findsOneWidget);
+    });
+
+    testWidgets('账户摘要和流水分组使用分段入场动效', (tester) async {
+      final repository = _FakeAccountLogRepository();
+      await _pumpPage(
+        tester,
+        repository,
+        accountId: 'account-cash',
+        account: _account(),
+      );
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
     });
 
     testWidgets('全量流水展示账户名称并支持加载更多', (tester) async {
