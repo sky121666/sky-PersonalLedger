@@ -41,6 +41,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey('profile-command-center')),
+      findsOneWidget,
+    );
+    expect(find.text('个人控制中枢 · 静谧墨绿'), findsOneWidget);
+    expect(find.text('主题模板'), findsAtLeastNWidgets(1));
+    expect(find.text('默认稳健'), findsAtLeastNWidgets(1));
+    expect(find.text('显示模式'), findsOneWidget);
+    expect(find.text('能力入口'), findsOneWidget);
+    expect(find.text('家庭账本'), findsOneWidget);
+    expect(find.text('AI 周报'), findsOneWidget);
+    expect(find.text('安全中心'), findsOneWidget);
+    expect(find.text('数据资产'), findsOneWidget);
+
     for (final label in _entryLabels) {
       final labelFinder = find.text(label);
       if (labelFinder.evaluate().isEmpty) {
@@ -113,6 +127,10 @@ void main() {
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
     expect(preferences.getString('app_theme_palette'), 'aurora');
+    await tester.drag(find.byType(ListView), const Offset(0, 3000));
+    await tester.pumpAndSettle();
+    expect(find.text('个人控制中枢 · 极光青'), findsOneWidget);
+    expect(find.text('前卫清透'), findsAtLeastNWidgets(1));
     expect(find.text('当前已应用：极光青'), findsOneWidget);
     expect(find.text('模板矩阵'), findsOneWidget);
     expect(find.text('12 套'), findsOneWidget);

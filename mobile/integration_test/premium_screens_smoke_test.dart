@@ -1238,8 +1238,20 @@ void main() {
 
           expect(find.text('我的'), findsOneWidget);
           expect(find.text('个人记账'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('profile-command-center')),
+            findsOneWidget,
+          );
+          expect(find.textContaining('个人控制中枢'), findsOneWidget);
+          expect(find.text('家庭账本'), findsOneWidget);
+          expect(find.text('AI 周报'), findsOneWidget);
           expect(find.text('资产配置'), findsOneWidget);
           _expectStableVisualFrame(tester);
+          await _capturePremiumScreenshot(
+            binding,
+            tester,
+            'profile-command-center-${variant.name}',
+          );
 
           await tester.scrollUntilVisible(
             find.byKey(const ValueKey('profile-appearance-panel')),

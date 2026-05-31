@@ -28,7 +28,10 @@ class ProfilePage extends ConsumerWidget {
           children: [
             StaggeredEntrance(
               index: 0,
-              child: _ProfileHero(onLogout: () => _confirmLogout(context, ref)),
+              child: _ProfileHero(
+                settings: themeSettings,
+                onLogout: () => _confirmLogout(context, ref),
+              ),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
@@ -239,53 +242,248 @@ class ProfilePage extends ConsumerWidget {
 }
 
 class _ProfileHero extends StatelessWidget {
-  const _ProfileHero({required this.onLogout});
+  const _ProfileHero({required this.settings, required this.onLogout});
 
+  final AppThemeSettings settings;
   final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
+    final palette = settings.palette;
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
-      accentColor: colorScheme.primary,
-      child: Row(
+      key: const ValueKey('profile-command-center'),
+      accentColor: palette.seedColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconBadge(
-            icon: Icons.person_outline,
-            color: colorScheme.primary,
-            size: 54,
-            iconSize: 28,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '个人记账',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.space_dashboard_outlined,
+                color: palette.seedColor,
+                size: 48,
+                iconSize: 25,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '个人记账',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '个人控制中枢 · ${palette.label}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Flutter 原生移动端',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              IconButton.filledTonal(
+                onPressed: onLogout,
+                icon: const Icon(Icons.logout),
+                tooltip: '退出登录',
+              ),
+            ],
           ),
-          IconButton.filledTonal(
-            onPressed: onLogout,
-            icon: const Icon(Icons.logout),
-            tooltip: '退出登录',
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileCommandMetric(
+                  icon: Icons.palette_outlined,
+                  label: '主题模板',
+                  value: palette.signature,
+                  color: palette.seedColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProfileCommandMetric(
+                  icon: Icons.contrast_outlined,
+                  label: '显示模式',
+                  value: _themeModeShortLabel(settings.mode),
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProfileCommandMetric(
+                  icon: Icons.hub_outlined,
+                  label: '能力入口',
+                  value: '16 项',
+                  color: financeColors.asset,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ProfileCommandPill(
+                icon: Icons.diversity_3_outlined,
+                label: '家庭账本',
+                color: colorScheme.tertiary,
+              ),
+              _ProfileCommandPill(
+                icon: Icons.auto_awesome_outlined,
+                label: 'AI 周报',
+                color: palette.seedColor,
+              ),
+              _ProfileCommandPill(
+                icon: Icons.security_outlined,
+                label: '安全中心',
+                color: financeColors.expense,
+              ),
+              _ProfileCommandPill(
+                icon: Icons.storage_outlined,
+                label: '数据资产',
+                color: financeColors.asset,
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+class _ProfileCommandMetric extends StatelessWidget {
+  const _ProfileCommandMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 66),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileCommandPill extends StatelessWidget {
+  const _ProfileCommandPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 34, maxWidth: 160),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _themeModeShortLabel(AppThemeMode mode) {
+  return switch (mode) {
+    AppThemeMode.system => '系统',
+    AppThemeMode.light => '浅色',
+    AppThemeMode.dark => '深色',
+  };
 }
 
 class _SettingsSection extends StatelessWidget {
