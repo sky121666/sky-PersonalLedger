@@ -865,9 +865,26 @@ void main() {
 
         expect(find.text('年度报告'), findsWidgets);
         expect(find.text('2026 年账本汇总'), findsOneWidget);
-        expect(find.text('净结余'), findsOneWidget);
-        expect(find.text('年度摘要'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('yearly-insight-deck')),
+          findsOneWidget,
+        );
+        expect(find.text('年度洞察台'), findsOneWidget);
+        expect(find.text('年度正结余'), findsOneWidget);
+        expect(find.text('净结余'), findsAtLeastNWidgets(1));
         _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'yearly-insight-deck-${variant.name}',
+        );
+
+        await tester.scrollUntilVisible(
+          find.text('年度摘要'),
+          260,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('年度摘要'), findsOneWidget);
 
         await tester.scrollUntilVisible(
           find.text('月度收支'),

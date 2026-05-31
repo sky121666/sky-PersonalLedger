@@ -127,21 +127,26 @@ class _ReportContent extends StatelessWidget {
                 onYearChanged: onYearChanged,
               ),
             ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 1,
+              child: _YearlyInsightDeck(report: report),
+            ),
             const SizedBox(height: 16),
-            StaggeredEntrance(index: 1, child: _SummaryCard(report: report)),
+            StaggeredEntrance(index: 2, child: _SummaryCard(report: report)),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 2,
+              index: 3,
               child: _AnnualHighlightsCard(report: report),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 3,
+              index: 4,
               child: _MonthlyTrendCard(items: report.monthlyData),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 4,
+              index: 5,
               child: _CategoryRankCard(
                 title: '年度支出 Top',
                 items: report.topExpenses,
@@ -150,7 +155,7 @@ class _ReportContent extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 5,
+              index: 6,
               child: _CategoryRankCard(
                 title: '年度收入 Top',
                 items: report.topIncomes,
@@ -223,6 +228,229 @@ class _YearSelector extends StatelessWidget {
                 onYearChanged(value);
               }
             },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearlyInsightDeck extends StatelessWidget {
+  const _YearlyInsightDeck({required this.report});
+
+  final YearlyReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final savingsColor = report.netSavings >= 0
+        ? financeColors.income
+        : colorScheme.error;
+    final categoryCount = report.topExpenses.length + report.topIncomes.length;
+
+    return PremiumSurface(
+      key: const ValueKey('yearly-insight-deck'),
+      accentColor: savingsColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.auto_awesome_motion_outlined,
+                color: savingsColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '年度洞察台',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_yearlySignalLabel(report.netSavings)} · 储蓄率 ${report.savingsRate.toStringAsFixed(1)}%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _YearlyInsightBadge(
+                label: report.netSavings >= 0 ? '年度正结余' : '年度承压',
+                color: savingsColor,
+                positive: report.netSavings >= 0,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _YearlyDeckMetric(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: '净结余',
+                  value: _formatCurrency(report.netSavings),
+                  color: savingsColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _YearlyDeckMetric(
+                  icon: Icons.savings_outlined,
+                  label: '储蓄率',
+                  value: '${report.savingsRate.toStringAsFixed(1)}%',
+                  color: savingsColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _YearlyDeckMetric(
+                  icon: Icons.receipt_long_outlined,
+                  label: '交易活跃',
+                  value: '${report.transactionCount} 笔',
+                  color: colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _YearlyDeckMetric(
+                  icon: Icons.calendar_month_outlined,
+                  label: '月度样本',
+                  value: '${report.monthlyData.length} 月',
+                  color: colorScheme.secondary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _YearlyDeckMetric(
+                  icon: Icons.donut_large_outlined,
+                  label: '分类样本',
+                  value: '$categoryCount 类',
+                  color: financeColors.asset,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearlyInsightBadge extends StatelessWidget {
+  const _YearlyInsightBadge({
+    required this.label,
+    required this.color,
+    required this.positive,
+  });
+
+  final String label;
+  final Color color;
+  final bool positive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            positive ? Icons.verified_outlined : Icons.priority_high_outlined,
+            color: color,
+            size: 16,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearlyDeckMetric extends StatelessWidget {
+  const _YearlyDeckMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),

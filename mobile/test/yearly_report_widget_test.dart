@@ -14,6 +14,10 @@ void main() {
 
       expect(find.text('年度报告'), findsWidgets);
       expect(find.text('2026 年账本汇总'), findsOneWidget);
+      expect(find.byKey(const ValueKey('yearly-insight-deck')), findsOneWidget);
+      expect(find.text('年度洞察台'), findsOneWidget);
+      expect(find.text('年度正结余'), findsOneWidget);
+      expect(find.text('交易活跃'), findsOneWidget);
       expect(find.text('年度现金流稳健'), findsOneWidget);
       expect(find.text('¥600.00'), findsWidgets);
       expect(find.text('交易笔数'), findsOneWidget);
@@ -63,6 +67,9 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('2026 年账本汇总'), findsOneWidget);
+      expect(find.text('年度洞察台'), findsOneWidget);
+      expect(find.text('月度样本'), findsOneWidget);
+      expect(find.text('分类样本'), findsOneWidget);
       expect(find.text('暂无月度数据'), findsOneWidget);
       expect(find.text('本年暂无支出分类数据'), findsOneWidget);
       expect(find.text('本年暂无收入分类数据'), findsOneWidget);
