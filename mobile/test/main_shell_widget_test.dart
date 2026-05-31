@@ -41,20 +41,33 @@ void main() {
 
     expect(find.text('home-content'), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
+    expect(
+      find.byKey(const ValueKey('main-shell-quick-transaction')),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey('main-shell-tab-home')),
+        matching: find.byType(Semantics),
+      ),
+      findsWidgets,
+    );
 
-    await tester.tap(find.text('明细'));
+    await tester.tap(find.byKey(const ValueKey('main-shell-tab-transactions')));
     await tester.pumpAndSettle();
     expect(find.text('transactions-content'), findsOneWidget);
 
-    await tester.tap(find.text('统计'));
+    await tester.tap(find.byKey(const ValueKey('main-shell-tab-statistics')));
     await tester.pumpAndSettle();
     expect(find.text('statistics-content'), findsOneWidget);
 
-    await tester.tap(find.text('我的'));
+    await tester.tap(find.byKey(const ValueKey('main-shell-tab-profile')));
     await tester.pumpAndSettle();
     expect(find.text('profile-content'), findsOneWidget);
 
-    await tester.tap(find.text('记一笔'));
+    await tester.tap(
+      find.byKey(const ValueKey('main-shell-quick-transaction')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('quick-content'), findsOneWidget);
   });
@@ -95,7 +108,7 @@ void main() {
     );
     expect(selectedHomeIcon.color, AppThemePalette.graphite.assetColor);
 
-    await tester.tap(find.text('统计'));
+    await tester.tap(find.byKey(const ValueKey('main-shell-tab-statistics')));
     await tester.pumpAndSettle();
 
     final selectedStatsIcon = tester.widget<Icon>(

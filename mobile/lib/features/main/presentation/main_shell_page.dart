@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/app_theme.dart';
@@ -30,14 +31,21 @@ class MainShellPage extends StatelessWidget {
           Expanded(child: navigationShell),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openQuickTransaction(context),
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-        elevation: 8,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('记一笔'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      floatingActionButton: Semantics(
+        button: true,
+        label: '快速记一笔',
+        child: FloatingActionButton.extended(
+          key: const ValueKey('main-shell-quick-transaction'),
+          onPressed: () => _openQuickTransaction(context),
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          elevation: 8,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('记一笔'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
       ),
       floatingActionButtonLocation: isWideLayout
           ? FloatingActionButtonLocation.endFloat
@@ -53,6 +61,7 @@ class MainShellPage extends StatelessWidget {
 
   /// 切换底部导航标签页。
   void _selectTab(int index) {
+    HapticFeedback.selectionClick();
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -60,6 +69,7 @@ class MainShellPage extends StatelessWidget {
   }
 
   void _openQuickTransaction(BuildContext context) {
+    HapticFeedback.lightImpact();
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet<void>(
       context: context,
@@ -126,24 +136,28 @@ class _PremiumBottomNavigation extends StatelessWidget {
         icon: Icons.home_outlined,
         selectedIcon: Icons.home_rounded,
         label: '首页',
+        keyValue: 'home',
         color: financeColors.asset,
       ),
       _ShellDestination(
         icon: Icons.receipt_long_outlined,
         selectedIcon: Icons.receipt_long_rounded,
         label: '明细',
+        keyValue: 'transactions',
         color: financeColors.income,
       ),
       _ShellDestination(
         icon: Icons.bar_chart_outlined,
         selectedIcon: Icons.bar_chart_rounded,
         label: '统计',
+        keyValue: 'statistics',
         color: financeColors.warning,
       ),
       _ShellDestination(
         icon: Icons.person_outline,
         selectedIcon: Icons.person_rounded,
         label: '我的',
+        keyValue: 'profile',
         color: colorScheme.primary,
       ),
     ];
@@ -205,12 +219,14 @@ class _ShellDestination {
     required this.icon,
     required this.selectedIcon,
     required this.label,
+    required this.keyValue,
     required this.color,
   });
 
   final IconData icon;
   final IconData selectedIcon;
   final String label;
+  final String keyValue;
   final Color color;
 }
 
@@ -237,6 +253,7 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
+          key: ValueKey('main-shell-tab-${destination.keyValue}'),
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: AnimatedContainer(
