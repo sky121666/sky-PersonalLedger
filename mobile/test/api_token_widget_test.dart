@@ -41,8 +41,9 @@ void main() {
       expect(find.text('完整密钥不落入列表，建议定期清理永久凭证'), findsOneWidget);
       expect(find.text('1 个访问凭证正在管理中'), findsOneWidget);
       expect(find.text('我的手机'), findsOneWidget);
-      expect(find.textContaining('abcd1234...'), findsOneWidget);
+      expect(find.text('前缀 abcd1234...'), findsOneWidget);
       expect(find.text('abcd1234... · 未使用 · 永不过期'), findsOneWidget);
+      expect(find.text('需巡检'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('创建令牌后显示完整 token 且刷新列表', (tester) async {

@@ -927,30 +927,47 @@ class _PanelHeader extends StatelessWidget {
 }
 
 class _TokenMetaPill extends StatelessWidget {
-  const _TokenMetaPill({required this.icon, required this.label});
+  const _TokenMetaPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 
   final IconData icon;
   final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colorScheme.outlineVariant),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
+          Icon(icon, size: 15, color: color),
           const SizedBox(width: 6),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -1056,23 +1073,83 @@ class _CreatedTokenCard extends StatelessWidget {
             color: successColor,
           ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.55,
+          Semantics(
+            label: '一次性完整令牌，请复制保存',
+            textField: true,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  successColor.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark
+                        ? 0.16
+                        : 0.08,
+                  ),
+                  colorScheme.surface,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: successColor.withValues(alpha: 0.18)),
               ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: colorScheme.outlineVariant),
-            ),
-            child: SelectableText(
-              token,
-              key: const ValueKey('api-token-created-value'),
-              style: const TextStyle(fontFamily: 'monospace'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.visibility_outlined,
+                        size: 17,
+                        color: successColor,
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          '一次性密钥保险箱',
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: successColor,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                      ),
+                      _TokenChannelStatusPill(
+                        label: '仅本次可见',
+                        color: successColor,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    key: const ValueKey('api-token-created-value'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
+                    ),
+                    child: SelectableText(
+                      token,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
+          FilledButton.icon(
             onPressed: onCopy,
             icon: const Icon(Icons.copy),
             label: const Text('复制令牌'),
@@ -1097,71 +1174,115 @@ class _TokenTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          IconBadge(
-            icon: Icons.smartphone_outlined,
-            color: colorScheme.primary,
-            size: 40,
-            iconSize: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  token.name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  _tokenSubtitle(token),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    _TokenMetaPill(
-                      icon: Icons.fingerprint_outlined,
-                      label: '前缀已隐藏',
-                    ),
-                    _TokenMetaPill(
-                      icon: Icons.history_outlined,
-                      label: token.lastUsedAt == null
-                          ? '未使用'
-                          : '最后使用 ${_formatDateTime(token.lastUsedAt!)}',
-                    ),
-                    _TokenMetaPill(
-                      icon: Icons.event_outlined,
-                      label: token.expiresAt == null
-                          ? '永不过期'
-                          : '${_formatDate(token.expiresAt!)} 过期',
-                    ),
-                  ],
-                ),
-              ],
+    final financeColors = AppTheme.financeColors(context);
+    final statusColor = token.lastUsedAt == null
+        ? financeColors.asset
+        : financeColors.income;
+    final expiryColor = token.expiresAt == null
+        ? financeColors.warning
+        : colorScheme.tertiary;
+    return Semantics(
+      label: '${token.name}，${_tokenSubtitle(token)}',
+      button: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            colorScheme.primary.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.10
+                  : 0.05,
             ),
+            colorScheme.surface,
           ),
-          IconButton.filledTonal(
-            onPressed: deleting ? null : onDelete,
-            icon: const Icon(Icons.delete_outline),
-            tooltip: '删除令牌',
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: colorScheme.primary.withValues(alpha: 0.12),
           ),
-        ],
+        ),
+        child: Row(
+          children: [
+            IconBadge(
+              icon: Icons.smartphone_outlined,
+              color: colorScheme.primary,
+              size: 42,
+              iconSize: 21,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          token.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                      _TokenChannelStatusPill(
+                        label: token.neverExpires ? '需巡检' : '限期',
+                        color: expiryColor,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _tokenSubtitle(token),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _TokenMetaPill(
+                        icon: Icons.fingerprint_outlined,
+                        label: '前缀 ${token.tokenPrefix}...',
+                        color: colorScheme.primary,
+                      ),
+                      _TokenMetaPill(
+                        icon: Icons.history_outlined,
+                        label: token.lastUsedAt == null
+                            ? '未使用'
+                            : '最后使用 ${_formatDateTime(token.lastUsedAt!)}',
+                        color: statusColor,
+                      ),
+                      _TokenMetaPill(
+                        icon: Icons.event_outlined,
+                        label: token.expiresAt == null
+                            ? '永不过期'
+                            : '${_formatDate(token.expiresAt!)} 过期',
+                        color: expiryColor,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              onPressed: deleting ? null : onDelete,
+              icon: const Icon(Icons.delete_outline),
+              tooltip: deleting ? '正在处理' : '删除令牌',
+              style: IconButton.styleFrom(
+                foregroundColor: financeColors.expense,
+                backgroundColor: financeColors.expense.withValues(alpha: 0.10),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
