@@ -304,7 +304,7 @@ class _ReminderContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeCount = dashboard.activeReminders.length;
-    final inactiveStartIndex = activeCount + 2;
+    final inactiveStartIndex = activeCount + 3;
     final paidOffStartIndex =
         inactiveStartIndex + dashboard.inactiveReminders.length + 1;
     return RefreshIndicator(
@@ -322,14 +322,19 @@ class _ReminderContent extends StatelessWidget {
               index: 0,
               child: _DebtSummaryCard(summary: dashboard.summary),
             ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 1,
+              child: _ReminderStatusGrid(dashboard: dashboard),
+            ),
             const SizedBox(height: 16),
             if (dashboard.reminders.isEmpty)
-              const StaggeredEntrance(index: 1, child: _EmptyReminderCard())
+              const StaggeredEntrance(index: 2, child: _EmptyReminderCard())
             else ...[
               _ReminderSection(
                 title: '进行中',
                 reminders: dashboard.activeReminders,
-                startIndex: 1,
+                startIndex: 2,
                 busyAction: busyAction,
                 onToggle: onToggle,
                 onEdit: onEdit,
@@ -420,6 +425,97 @@ class _MessagePanel extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ReminderStatusGrid extends StatelessWidget {
+  const _ReminderStatusGrid({required this.dashboard});
+
+  final ReminderDashboard dashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Row(
+      children: [
+        Expanded(
+          child: _ReminderStatusTile(
+            label: '进行中',
+            value: '${dashboard.activeReminders.length}',
+            icon: Icons.play_circle_outline,
+            color: financeColors.warning,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ReminderStatusTile(
+            label: '已暂停',
+            value: '${dashboard.inactiveReminders.length}',
+            icon: Icons.pause_circle_outline,
+            color: colorScheme.outline,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ReminderStatusTile(
+            label: '已还清',
+            value: '${dashboard.paidOffReminders.length}',
+            icon: Icons.verified_outlined,
+            color: financeColors.income,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReminderStatusTile extends StatelessWidget {
+  const _ReminderStatusTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: color,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.outline,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -581,12 +677,10 @@ class _ReminderSection extends StatelessWidget {
           index: startIndex,
           child: Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 8),
-            child: Text(
-              '$title (${reminders.length})',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-                fontWeight: FontWeight.bold,
-              ),
+            child: _ReminderSectionLabel(
+              title: title,
+              count: reminders.length,
+              readOnly: readOnly,
             ),
           ),
         ),
@@ -606,6 +700,65 @@ class _ReminderSection extends StatelessWidget {
           const SizedBox(height: 8),
         ],
       ],
+    );
+  }
+}
+
+class _ReminderSectionLabel extends StatelessWidget {
+  const _ReminderSectionLabel({
+    required this.title,
+    required this.count,
+    required this.readOnly,
+  });
+
+  final String title;
+  final int count;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final accentColor = readOnly ? financeColors.income : colorScheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: accentColor.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              readOnly ? Icons.verified_outlined : Icons.layers_outlined,
+              size: 15,
+              color: accentColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$count',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: accentColor,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

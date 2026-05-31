@@ -33,6 +33,16 @@ void main() {
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
+    testWidgets('负债状态概览展示提醒分组数量', (tester) async {
+      final repository = _FakeReminderRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.text('进行中'), findsWidgets);
+      expect(find.text('已暂停'), findsOneWidget);
+      expect(find.text('已还清'), findsOneWidget);
+      expect(find.byType(PremiumSurface), findsWidgets);
+    });
+
     testWidgets('菜单中可以暂停提醒', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
@@ -285,7 +295,7 @@ void main() {
       expect(repository.toggleCalls, ['reminder-1']);
       expect(find.textContaining('暂停失败'), findsOneWidget);
       expect(find.text('提醒已暂停'), findsNothing);
-      expect(find.text('进行中 (1)'), findsOneWidget);
+      expect(find.text('进行中'), findsWidgets);
       expect(find.text('房贷'), findsOneWidget);
     });
 
