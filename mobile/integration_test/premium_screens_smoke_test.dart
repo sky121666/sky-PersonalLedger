@@ -1088,9 +1088,19 @@ void main() {
 
         expect(find.text('负债管理'), findsOneWidget);
         expect(find.text('上岸进度'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('repayment-rhythm-radar')),
+          findsOneWidget,
+        );
+        expect(find.text('还款节奏雷达'), findsOneWidget);
         expect(find.text('进行中'), findsWidgets);
         expect(find.text('已暂停'), findsOneWidget);
         expect(find.text('已还清'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('房贷'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('房贷'), findsOneWidget);
         expect(find.text('待还 ¥80000.00'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);

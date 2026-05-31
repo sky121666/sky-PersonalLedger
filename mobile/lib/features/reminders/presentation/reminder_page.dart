@@ -304,7 +304,7 @@ class _ReminderContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeCount = dashboard.activeReminders.length;
-    final inactiveStartIndex = activeCount + 3;
+    final inactiveStartIndex = activeCount + 4;
     final paidOffStartIndex =
         inactiveStartIndex + dashboard.inactiveReminders.length + 1;
     return RefreshIndicator(
@@ -325,16 +325,21 @@ class _ReminderContent extends StatelessWidget {
             const SizedBox(height: 12),
             StaggeredEntrance(
               index: 1,
+              child: _RepaymentRhythmRadar(dashboard: dashboard),
+            ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 2,
               child: _ReminderStatusGrid(dashboard: dashboard),
             ),
             const SizedBox(height: 16),
             if (dashboard.reminders.isEmpty)
-              const StaggeredEntrance(index: 2, child: _EmptyReminderCard())
+              const StaggeredEntrance(index: 3, child: _EmptyReminderCard())
             else ...[
               _ReminderSection(
                 title: '进行中',
                 reminders: dashboard.activeReminders,
-                startIndex: 2,
+                startIndex: 3,
                 busyAction: busyAction,
                 onToggle: onToggle,
                 onEdit: onEdit,
@@ -653,6 +658,306 @@ class _DebtSignalPill extends StatelessWidget {
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: color,
               fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RepaymentRhythmRadar extends StatelessWidget {
+  const _RepaymentRhythmRadar({required this.dashboard});
+
+  final ReminderDashboard dashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = dashboard.activeReminders;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final now = DateTime.now();
+    final dueSoon = active
+        .where((item) => item.daysUntilPayment(now) <= item.advanceDays)
+        .length;
+    final evidenceCount = active
+        .where((item) => item.evidence.trim().isNotEmpty)
+        .length;
+    final evidenceCoverage = active.isEmpty
+        ? 0
+        : ((evidenceCount / active.length) * 100).round();
+    final averageProgress = active.isEmpty
+        ? 0
+        : (active.fold<double>(0, (sum, item) => sum + item.progress) /
+                  active.length)
+              .round();
+    final largest = active.fold<ReminderItem?>(null, (current, item) {
+      final balance = item.currentBalance ?? 0;
+      final currentBalance = current?.currentBalance ?? -1;
+      return current == null || balance > currentBalance ? item : current;
+    });
+    final accent = dueSoon > 0
+        ? financeColors.warning
+        : dashboard.summary.progress >= 80
+        ? financeColors.income
+        : colorScheme.primary;
+    final statusLabel = dueSoon > 0 ? '临近 $dueSoon' : '节奏稳定';
+
+    return PremiumSurface(
+      key: const ValueKey('repayment-rhythm-radar'),
+      accentColor: accent,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.radar_outlined,
+                color: accent,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '还款节奏雷达',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '集中判断临近还款、凭证覆盖和最大待还压力',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _DebtRadarPill(
+                icon: dueSoon > 0
+                    ? Icons.notification_important_outlined
+                    : Icons.verified_outlined,
+                label: statusLabel,
+                color: accent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _DebtRadarMetric(
+                  icon: Icons.event_available_outlined,
+                  label: '临近还款',
+                  value: '$dueSoon 笔',
+                  color: dueSoon > 0
+                      ? financeColors.warning
+                      : colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebtRadarMetric(
+                  icon: Icons.verified_user_outlined,
+                  label: '凭证覆盖',
+                  value: '$evidenceCoverage%',
+                  color: evidenceCoverage >= 80
+                      ? financeColors.income
+                      : colorScheme.tertiary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebtRadarMetric(
+                  icon: Icons.stacked_line_chart_outlined,
+                  label: '均进度',
+                  value: '$averageProgress%',
+                  color: averageProgress >= 60
+                      ? financeColors.income
+                      : financeColors.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                accent.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.18
+                      : 0.08,
+                ),
+                colorScheme.surface,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: accent.withValues(alpha: 0.16)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.account_tree_outlined, size: 19, color: accent),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '最大待还',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        largest == null
+                            ? '暂无进行中的负债'
+                            : '${largest.displayName} · ${_formatMoney(largest.currentBalance ?? 0)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _DebtRadarPill(
+                  icon: Icons.layers_outlined,
+                  label: '进行中 ${active.length}',
+                  color: accent,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebtRadarMetric extends StatelessWidget {
+  const _DebtRadarMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebtRadarPill extends StatelessWidget {
+  const _DebtRadarPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 34, maxWidth: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],

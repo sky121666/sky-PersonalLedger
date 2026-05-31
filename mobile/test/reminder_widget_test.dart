@@ -23,6 +23,15 @@ void main() {
       expect(find.text('负债管理'), findsOneWidget);
       expect(find.text('上岸进度'), findsOneWidget);
       expect(find.text('稳步推进'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('repayment-rhythm-radar')),
+        findsOneWidget,
+      );
+      expect(find.text('还款节奏雷达'), findsOneWidget);
+      expect(find.text('凭证覆盖'), findsOneWidget);
+      expect(find.text('100%'), findsAtLeastNWidgets(1));
+      expect(find.text('最大待还'), findsOneWidget);
+      expect(find.text('房贷 · ¥80000.00'), findsOneWidget);
       expect(find.text('房贷'), findsOneWidget);
       expect(find.text('待还 ¥80000.00'), findsOneWidget);
     });
