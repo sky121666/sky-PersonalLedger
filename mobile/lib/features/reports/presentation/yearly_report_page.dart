@@ -9,6 +9,7 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../data/yearly_report_models.dart';
 import '../data/yearly_report_repository.dart';
 
@@ -118,28 +119,43 @@ class _ReportContent extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 96),
           children: [
-            _YearSelector(
-              years: dashboard.years,
-              selectedYear: selectedYear,
-              onYearChanged: onYearChanged,
+            StaggeredEntrance(
+              index: 0,
+              child: _YearSelector(
+                years: dashboard.years,
+                selectedYear: selectedYear,
+                onYearChanged: onYearChanged,
+              ),
             ),
             const SizedBox(height: 16),
-            _SummaryCard(report: report),
+            StaggeredEntrance(index: 1, child: _SummaryCard(report: report)),
             const SizedBox(height: 16),
-            _AnnualHighlightsCard(report: report),
+            StaggeredEntrance(
+              index: 2,
+              child: _AnnualHighlightsCard(report: report),
+            ),
             const SizedBox(height: 16),
-            _MonthlyTrendCard(items: report.monthlyData),
+            StaggeredEntrance(
+              index: 3,
+              child: _MonthlyTrendCard(items: report.monthlyData),
+            ),
             const SizedBox(height: 16),
-            _CategoryRankCard(
-              title: '年度支出 Top',
-              items: report.topExpenses,
-              emptyText: '本年暂无支出分类数据',
+            StaggeredEntrance(
+              index: 4,
+              child: _CategoryRankCard(
+                title: '年度支出 Top',
+                items: report.topExpenses,
+                emptyText: '本年暂无支出分类数据',
+              ),
             ),
             const SizedBox(height: 12),
-            _CategoryRankCard(
-              title: '年度收入 Top',
-              items: report.topIncomes,
-              emptyText: '本年暂无收入分类数据',
+            StaggeredEntrance(
+              index: 5,
+              child: _CategoryRankCard(
+                title: '年度收入 Top',
+                items: report.topIncomes,
+                emptyText: '本年暂无收入分类数据',
+              ),
             ),
           ],
         ),

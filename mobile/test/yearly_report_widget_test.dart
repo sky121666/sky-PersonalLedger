@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_repository.dart';
 import 'package:personal_ledger/features/reports/presentation/yearly_report_page.dart';
@@ -16,6 +17,13 @@ void main() {
       expect(find.text('¥600.00'), findsWidgets);
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('工资'), findsOneWidget);
+    });
+
+    testWidgets('年度报告核心区块使用分段入场动效', (tester) async {
+      final repository = _FakeYearlyReportRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(6));
     });
 
     testWidgets('切换年份时重新加载报告', (tester) async {
@@ -74,7 +82,10 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
 
-      expect(repository.requestedYears.where((year) => year == 2025), hasLength(2));
+      expect(
+        repository.requestedYears.where((year) => year == 2025),
+        hasLength(2),
+      );
       expect(find.text('2025 年账本汇总'), findsOneWidget);
     });
   });
