@@ -1152,6 +1152,13 @@ class _TemplateCard extends StatelessWidget {
             usedCount: template.usedCount,
             color: amountColor,
           ),
+          const SizedBox(height: 12),
+          _TemplateExecutionMatrix(
+            template: template,
+            accountName: accountName,
+            categoryName: categoryName,
+            color: amountColor,
+          ),
           if (template.remark.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
@@ -1184,6 +1191,191 @@ class _TemplateCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TemplateExecutionMatrix extends StatelessWidget {
+  const _TemplateExecutionMatrix({
+    required this.template,
+    required this.accountName,
+    required this.categoryName,
+    required this.color,
+  });
+
+  final QuickTemplateItem template;
+  final String accountName;
+  final String categoryName;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final isIncome = template.type == TransactionType.income;
+    final reuseLabel = template.usedCount >= 3 ? '高频' : '沉淀中';
+    return Container(
+      key: ValueKey('template-execution-matrix-${template.id}'),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.13
+                : 0.06,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.route_outlined, color: color, size: 17),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '模板执行矩阵',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _TemplateMatrixPill(label: reuseLabel, color: color),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _TemplateMatrixTile(
+                  icon: isIncome
+                      ? Icons.trending_up_outlined
+                      : Icons.trending_down_outlined,
+                  label: '交易方向',
+                  value: template.typeLabel,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TemplateMatrixTile(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: '账户通道',
+                  value: accountName,
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TemplateMatrixTile(
+                  icon: Icons.category_outlined,
+                  label: '分类节点',
+                  value: categoryName,
+                  color: colorScheme.tertiary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateMatrixTile extends StatelessWidget {
+  const _TemplateMatrixTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 66),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.15
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateMatrixPill extends StatelessWidget {
+  const _TemplateMatrixPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.11),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

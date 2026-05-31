@@ -22,7 +22,15 @@ void main() {
       expect(find.text('账户'), findsOneWidget);
       expect(find.text('分类'), findsOneWidget);
       expect(find.text('复用'), findsAtLeastNWidgets(1));
-      expect(find.text('高频'), findsOneWidget);
+      expect(find.text('高频'), findsAtLeastNWidgets(1));
+      expect(
+        find.byKey(const ValueKey('template-execution-matrix-tpl-1')),
+        findsOneWidget,
+      );
+      expect(find.text('模板执行矩阵'), findsOneWidget);
+      expect(find.text('交易方向'), findsOneWidget);
+      expect(find.text('账户通道'), findsAtLeastNWidgets(1));
+      expect(find.text('分类节点'), findsOneWidget);
     });
 
     testWidgets('快捷模板列表使用分段入场动效', (tester) async {
@@ -62,7 +70,7 @@ void main() {
       expect(find.text('模板编排面板'), findsOneWidget);
       expect(find.text('高频自动化'), findsOneWidget);
       expect(find.text('模板池'), findsOneWidget);
-      expect(find.text('账户通道'), findsOneWidget);
+      expect(find.text('账户通道'), findsAtLeastNWidgets(1));
       expect(find.text('复用强度'), findsOneWidget);
     });
 
