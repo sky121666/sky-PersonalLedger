@@ -61,6 +61,17 @@ const _accountColors = [
   '#64748B',
 ];
 
+const _accountIconOptions = [
+  _AccountIconOption('cash', '现金', Icons.payments_outlined),
+  _AccountIconOption('bank_card', '卡片', Icons.credit_card_outlined),
+  _AccountIconOption('apple_pay', '钱包', Icons.account_balance_wallet_outlined),
+  _AccountIconOption('credit', '信用', Icons.credit_score_outlined),
+  _AccountIconOption('mortgage', '贷款', Icons.request_quote_outlined),
+  _AccountIconOption('investment', '投资', Icons.show_chart_outlined),
+  _AccountIconOption('prepaid', '储值', Icons.card_giftcard_outlined),
+  _AccountIconOption('other', '其他', Icons.grid_view_outlined),
+];
+
 class AccountsPage extends ConsumerWidget {
   const AccountsPage({super.key});
 
@@ -109,6 +120,7 @@ class AccountsPage extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => _AccountFormSheet(account: account),
     );
   }
@@ -179,6 +191,7 @@ class _AccountContent extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => const _AccountFormSheet(),
     );
   }
@@ -461,6 +474,7 @@ class _AccountListTile extends ConsumerWidget {
           context: context,
           isScrollControlled: true,
           useSafeArea: true,
+          backgroundColor: Colors.transparent,
           builder: (context) => _AccountFormSheet(account: account),
         );
       case _AccountAction.moveUp:
@@ -615,254 +629,255 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.account != null;
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = _parseColor(
+      _color,
+      AppTheme.financeColors(context).asset,
+    );
     return Padding(
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+        left: 12,
+        right: 12,
+        top: 8,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 12,
       ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                isEditing ? '编辑账户' : '新增账户',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                key: const ValueKey('account-name'),
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: '账户名称',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) =>
-                    value == null || value.trim().isEmpty ? '请输入账户名称' : null,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: const ValueKey('account-type'),
-                initialValue: _type,
-                decoration: const InputDecoration(
-                  labelText: '账户类型',
-                  border: OutlineInputBorder(),
-                ),
-                items: _accountTypes
-                    .map(
-                      (item) => DropdownMenuItem(
-                        value: item.value,
-                        child: Text(item.label),
-                      ),
-                    )
-                    .toList(),
-                onChanged: isEditing
-                    ? null
-                    : (value) => setState(() => _type = value ?? _type),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                key: const ValueKey('account-initial-balance'),
-                controller: _balanceController,
-                enabled: !isEditing,
-                decoration: const InputDecoration(
-                  labelText: '初始余额',
-                  prefixText: '¥ ',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                  signed: true,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                    RegExp(r'^-?\d*\.?\d{0,2}'),
-                  ),
-                ],
-              ),
-              if (_isDebtAccount(_type)) ...[
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '负债信息',
-                    style: Theme.of(context).textTheme.titleSmall,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+        ),
+        child: PremiumSurface(
+          accentColor: accentColor,
+          padding: EdgeInsets.zero,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        key: const ValueKey('account-payment-day'),
-                        controller: _paymentDayController,
-                        decoration: const InputDecoration(
-                          labelText: '还款日',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        validator: _validateOptionalDay,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                  child: Row(
+                    children: [
+                      IconBadge(
+                        icon: _selectedFormIcon(),
+                        color: accentColor,
+                        size: 46,
+                        iconSize: 23,
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        key: const ValueKey('account-billing-day'),
-                        controller: _billingDayController,
-                        decoration: const InputDecoration(
-                          labelText: '账单日',
-                          border: OutlineInputBorder(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isEditing ? '编辑账户' : '新增账户',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              isEditing ? '更新账户展示、提醒和扩展信息' : '创建可用于记账和资产统计的账户',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
                         ),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        validator: _validateOptionalDay,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        key: const ValueKey('account-credit-limit'),
-                        controller: _creditLimitController,
-                        decoration: const InputDecoration(
-                          labelText: '授信/本金',
-                          prefixText: '¥ ',
-                          border: OutlineInputBorder(),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _AccountFormSection(
+                          title: '基础信息',
+                          icon: Icons.account_balance_wallet_outlined,
+                          accentColor: accentColor,
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                key: const ValueKey('account-name'),
+                                controller: _nameController,
+                                decoration: const InputDecoration(
+                                  labelText: '账户名称',
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (value) =>
+                                    value == null || value.trim().isEmpty
+                                    ? '请输入账户名称'
+                                    : null,
+                              ),
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<String>(
+                                key: const ValueKey('account-type'),
+                                initialValue: _type,
+                                decoration: const InputDecoration(
+                                  labelText: '账户类型',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: _accountTypes
+                                    .map(
+                                      (item) => DropdownMenuItem(
+                                        value: item.value,
+                                        child: Text(item.label),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: isEditing
+                                    ? null
+                                    : (value) => setState(
+                                        () => _type = value ?? _type,
+                                      ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                key: const ValueKey('account-initial-balance'),
+                                controller: _balanceController,
+                                enabled: !isEditing,
+                                decoration: const InputDecoration(
+                                  labelText: '初始余额',
+                                  prefixText: '¥ ',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                      signed: true,
+                                    ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'^-?\d*\.?\d{0,2}'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                        const SizedBox(height: 12),
+                        _AccountFormSection(
+                          title: '视觉标识',
+                          icon: Icons.auto_awesome_outlined,
+                          accentColor: accentColor,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final option in _accountIconOptions)
+                                    _AccountIconChoice(
+                                      option: option,
+                                      selected: _icon == option.value,
+                                      color: accentColor,
+                                      onSelected: () =>
+                                          setState(() => _icon = option.value),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  for (final color in _accountColors)
+                                    _AccountColorChoice(
+                                      color: _parseColor(
+                                        color,
+                                        AppTheme.financeColors(context).asset,
+                                      ),
+                                      selected: _color == color,
+                                      onSelected: () =>
+                                          setState(() => _color = color),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'\d*\.?\d{0,2}'),
+                        if (_isDebtAccount(_type)) ...[
+                          const SizedBox(height: 12),
+                          _AccountDebtFields(
+                            paymentDayController: _paymentDayController,
+                            billingDayController: _billingDayController,
+                            creditLimitController: _creditLimitController,
+                            interestRateController: _interestRateController,
+                            startDateController: _startDateController,
+                            targetDateController: _targetDateController,
+                            remarkController: _remarkController,
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        key: const ValueKey('account-interest-rate'),
-                        controller: _interestRateController,
-                        decoration: const InputDecoration(
-                          labelText: '年利率',
-                          suffixText: '%',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'\d*\.?\d{0,4}'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        key: const ValueKey('account-start-date'),
-                        controller: _startDateController,
-                        decoration: const InputDecoration(
-                          labelText: '开始日期',
-                          hintText: 'YYYY-MM-DD',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.datetime,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
-                        ],
-                        validator: _validateOptionalDate,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        key: const ValueKey('account-target-date'),
-                        controller: _targetDateController,
-                        decoration: const InputDecoration(
-                          labelText: '目标结清日',
-                          hintText: 'YYYY-MM-DD',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.datetime,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
-                        ],
-                        validator: _validateOptionalDate,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: const ValueKey('account-remark'),
-                  controller: _remarkController,
-                  decoration: const InputDecoration(
-                    labelText: '备注',
-                    border: OutlineInputBorder(),
                   ),
-                  minLines: 2,
-                  maxLines: 3,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                  child: FilledButton(
+                    key: const ValueKey('account-save'),
+                    onPressed: _submitting ? null : _submit,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_submitting ? Icons.hourglass_top : Icons.check),
+                        const SizedBox(width: 8),
+                        Text(_submitting ? '保存中...' : '保存'),
+                      ],
+                    ),
+                  ),
                 ),
               ],
-              const SizedBox(height: 12),
-              TextFormField(
-                initialValue: _icon,
-                decoration: const InputDecoration(
-                  labelText: '图标',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) => _icon = value.trim(),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final color in _accountColors)
-                    ChoiceChip(
-                      label: const SizedBox(width: 16, height: 16),
-                      selected: _color == color,
-                      backgroundColor: _parseColor(
-                        color,
-                        AppTheme.financeColors(context).asset,
-                      ),
-                      selectedColor: _parseColor(
-                        color,
-                        AppTheme.financeColors(context).asset,
-                      ),
-                      onSelected: (_) => setState(() => _color = color),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                key: const ValueKey('account-save'),
-                onPressed: _submitting ? null : _submit,
-                child: Text(_submitting ? '保存中...' : '保存'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  IconData _selectedFormIcon() {
+    final normalized = (_icon.isEmpty ? _type : _icon).trim().toLowerCase();
+    return switch (normalized) {
+      'cash' || '现金' || '💰' => Icons.payments_outlined,
+      'bank_card' ||
+      'savings' ||
+      '银行卡' ||
+      '储蓄卡' ||
+      '💳' => Icons.credit_card_outlined,
+      'alipay' ||
+      'wechat' ||
+      'qq_pay' ||
+      'jd_pay' ||
+      'apple_pay' ||
+      '📱' => Icons.account_balance_wallet_outlined,
+      'credit' => Icons.credit_score_outlined,
+      'loan' ||
+      'mortgage' ||
+      'car_loan' ||
+      'consumer_loan' ||
+      'huabei' ||
+      'baitiao' ||
+      '🏠' => Icons.request_quote_outlined,
+      'investment' ||
+      'fund' ||
+      'stock' ||
+      'crypto' => Icons.show_chart_outlined,
+      'prepaid' => Icons.card_giftcard_outlined,
+      _ => Icons.grid_view_outlined,
+    };
   }
 
   /// 提交账户表单。
@@ -947,6 +962,276 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
     }
     final value = controller.text.trim();
     return value.isEmpty ? null : value;
+  }
+}
+
+class _AccountFormSection extends StatelessWidget {
+  const _AccountFormSection({
+    required this.title,
+    required this.icon,
+    required this.accentColor,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color accentColor;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumSurface(
+      accentColor: accentColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: accentColor),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountDebtFields extends StatelessWidget {
+  const _AccountDebtFields({
+    required this.paymentDayController,
+    required this.billingDayController,
+    required this.creditLimitController,
+    required this.interestRateController,
+    required this.startDateController,
+    required this.targetDateController,
+    required this.remarkController,
+  });
+
+  final TextEditingController paymentDayController;
+  final TextEditingController billingDayController;
+  final TextEditingController creditLimitController;
+  final TextEditingController interestRateController;
+  final TextEditingController startDateController;
+  final TextEditingController targetDateController;
+  final TextEditingController remarkController;
+
+  @override
+  Widget build(BuildContext context) {
+    return _AccountFormSection(
+      title: '负债信息',
+      icon: Icons.request_quote_outlined,
+      accentColor: AppTheme.financeColors(context).expense,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  key: const ValueKey('account-payment-day'),
+                  controller: paymentDayController,
+                  decoration: const InputDecoration(
+                    labelText: '还款日',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: _validateOptionalDay,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  key: const ValueKey('account-billing-day'),
+                  controller: billingDayController,
+                  decoration: const InputDecoration(
+                    labelText: '账单日',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: _validateOptionalDay,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  key: const ValueKey('account-credit-limit'),
+                  controller: creditLimitController,
+                  decoration: const InputDecoration(
+                    labelText: '授信/本金',
+                    prefixText: '¥ ',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'\d*\.?\d{0,2}')),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  key: const ValueKey('account-interest-rate'),
+                  controller: interestRateController,
+                  decoration: const InputDecoration(
+                    labelText: '年利率',
+                    suffixText: '%',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'\d*\.?\d{0,4}')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  key: const ValueKey('account-start-date'),
+                  controller: startDateController,
+                  decoration: const InputDecoration(
+                    labelText: '开始日期',
+                    hintText: 'YYYY-MM-DD',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.datetime,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
+                  ],
+                  validator: _validateOptionalDate,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  key: const ValueKey('account-target-date'),
+                  controller: targetDateController,
+                  decoration: const InputDecoration(
+                    labelText: '目标结清日',
+                    hintText: 'YYYY-MM-DD',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.datetime,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
+                  ],
+                  validator: _validateOptionalDate,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            key: const ValueKey('account-remark'),
+            controller: remarkController,
+            decoration: const InputDecoration(
+              labelText: '备注',
+              border: OutlineInputBorder(),
+            ),
+            minLines: 2,
+            maxLines: 3,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountIconChoice extends StatelessWidget {
+  const _AccountIconChoice({
+    required this.option,
+    required this.selected,
+    required this.color,
+    required this.onSelected,
+  });
+
+  final _AccountIconOption option;
+  final bool selected;
+  final Color color;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ChoiceChip(
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      avatar: Icon(option.icon, size: 17, color: selected ? color : null),
+      label: Text(option.label),
+      labelStyle: TextStyle(
+        color: selected ? color : colorScheme.onSurfaceVariant,
+        fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+      ),
+      side: BorderSide(
+        color: selected ? color.withValues(alpha: 0.42) : colorScheme.outline,
+      ),
+    );
+  }
+}
+
+class _AccountColorChoice extends StatelessWidget {
+  const _AccountColorChoice({
+    required this.color,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Color color;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      onTap: onSelected,
+      radius: 24,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          border: Border.all(
+            color: selected ? Theme.of(context).colorScheme.onSurface : color,
+            width: selected ? 3 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: selected ? 0.36 : 0.16),
+              blurRadius: selected ? 16 : 8,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: selected
+            ? const Icon(Icons.check, size: 18, color: Colors.white)
+            : null,
+      ),
+    );
   }
 }
 
@@ -1037,6 +1322,14 @@ class _AccountTypeOption {
 
   final String value;
   final String label;
+}
+
+class _AccountIconOption {
+  const _AccountIconOption(this.value, this.label, this.icon);
+
+  final String value;
+  final String label;
+  final IconData icon;
 }
 
 /// 格式化金额展示。

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
@@ -54,6 +56,21 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
+    });
+
+    testWidgets('账户表单使用高级分区和可视化标识选择', (tester) async {
+      final repository = _FakeAccountRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('新增账户'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('创建可用于记账和资产统计的账户'), findsOneWidget);
+      expect(find.text('基础信息'), findsOneWidget);
+      expect(find.text('视觉标识'), findsOneWidget);
+      expect(find.text('卡片'), findsOneWidget);
+      expect(find.byType(IconBadge), findsWidgets);
+      expect(find.byType(PremiumSurface), findsWidgets);
     });
 
     testWidgets('新增负债账户时提交负债字段', (tester) async {
