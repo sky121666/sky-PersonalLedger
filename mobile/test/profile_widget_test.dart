@@ -65,11 +65,28 @@ void main() {
         );
       }
       expect(labelFinder, findsAtLeastNWidgets(1));
+      if (label == '家庭成员') {
+        expect(
+          find.byKey(const ValueKey('profile-entry-家庭成员')),
+          findsOneWidget,
+        );
+        expect(
+          find.ancestor(
+            of: find.byKey(const ValueKey('profile-entry-家庭成员')),
+            matching: find.byType(Semantics),
+          ),
+          findsWidgets,
+        );
+      }
     }
 
-    await tester.drag(find.byType(ListView), const Offset(0, 3000));
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('profile-entry-个人资料')),
+      -220,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('个人资料'));
+    await tester.tap(find.byKey(const ValueKey('profile-entry-个人资料')));
     await tester.pumpAndSettle();
 
     expect(find.text(AppRoutePaths.profileSettings), findsOneWidget);
