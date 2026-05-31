@@ -25,14 +25,34 @@ const _tagColors = [
 ];
 
 const _tagIconOptions = [
-  'label',
-  'credit-card',
-  'banknote',
-  'repeat',
-  'wallet',
-  'receipt',
-  'calendar',
-  'star',
+  _TagIconOption(value: 'label', label: '标签图标', icon: Icons.label_outline),
+  _TagIconOption(
+    value: 'credit-card',
+    label: '卡片图标',
+    icon: Icons.credit_card_outlined,
+  ),
+  _TagIconOption(
+    value: 'banknote',
+    label: '现金图标',
+    icon: Icons.payments_outlined,
+  ),
+  _TagIconOption(value: 'repeat', label: '周期图标', icon: Icons.repeat_outlined),
+  _TagIconOption(
+    value: 'wallet',
+    label: '钱包图标',
+    icon: Icons.account_balance_wallet_outlined,
+  ),
+  _TagIconOption(
+    value: 'receipt',
+    label: '票据图标',
+    icon: Icons.receipt_long_outlined,
+  ),
+  _TagIconOption(
+    value: 'calendar',
+    label: '日期图标',
+    icon: Icons.calendar_month_outlined,
+  ),
+  _TagIconOption(value: 'star', label: '星标图标', icon: Icons.star_outline),
 ];
 
 class TagPage extends ConsumerStatefulWidget {
@@ -428,6 +448,10 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.tag != null;
+    final previewColor = _parseColor(
+      _color,
+      AppTheme.financeColors(context).asset,
+    );
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -442,11 +466,22 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                isEditing ? '编辑标签' : '新增标签',
-                style: Theme.of(context).textTheme.titleLarge,
+              _TagFormPreview(
+                title: isEditing ? '编辑标签' : '新增标签',
+                name: _nameController.text.trim().isEmpty
+                    ? '未命名标签'
+                    : _nameController.text.trim(),
+                icon: _tagIconData(_iconController.text),
+                color: previewColor,
               ),
               const SizedBox(height: 16),
+              Text(
+                '基础信息',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
               TextFormField(
                 key: const ValueKey('tag-name'),
                 controller: _nameController,
@@ -454,6 +489,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
                   labelText: '标签名称',
                   border: OutlineInputBorder(),
                 ),
+                onChanged: (_) => setState(() {}),
                 validator: (value) =>
                     value == null || value.trim().isEmpty ? '请输入标签名称' : null,
               ),
@@ -466,18 +502,21 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
                   hintText: 'label / wallet / repeat',
                   border: OutlineInputBorder(),
                 ),
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final icon in _tagIconOptions)
-                    ChoiceChip(
-                      label: Text(_tagIconLabel(icon)),
-                      selected: _iconController.text == icon,
-                      onSelected: (_) {
-                        setState(() => _iconController.text = icon);
+                  for (final option in _tagIconOptions)
+                    _TagIconChoice(
+                      option: option,
+                      selected:
+                          _iconController.text.trim().toLowerCase() ==
+                          option.value,
+                      onSelected: () {
+                        setState(() => _iconController.text = option.value);
                       },
                     ),
                 ],
@@ -569,17 +608,96 @@ class _TagMetaChip extends StatelessWidget {
   }
 }
 
-String _tagIconLabel(String icon) {
-  return switch (icon) {
-    'credit-card' => '卡',
-    'banknote' => '现金',
-    'repeat' => '周期',
-    'wallet' => '钱包',
-    'receipt' => '票据',
-    'calendar' => '日期',
-    'star' => '星标',
-    _ => '标签',
-  };
+class _TagIconOption {
+  const _TagIconOption({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+}
+
+class _TagFormPreview extends StatelessWidget {
+  const _TagFormPreview({
+    required this.title,
+    required this.name,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final String name;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: color,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          IconBadge(icon: icon, color: color, size: 46, iconSize: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '当前名称：$name',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagIconChoice extends StatelessWidget {
+  const _TagIconChoice({
+    required this.option,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final _TagIconOption option;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = selected ? colorScheme.primary : colorScheme.outline;
+    return ChoiceChip(
+      avatar: Icon(option.icon, size: 18, color: accentColor),
+      label: Text(option.label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      labelStyle: TextStyle(
+        color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
 }
 
 IconData _tagIconData(String icon) {
