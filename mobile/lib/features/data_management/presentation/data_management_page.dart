@@ -97,6 +97,14 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             const SizedBox(height: 10),
             StaggeredEntrance(
               index: 3,
+              child: _DataOperationRail(
+                backupCount: _autoBackupFiles.length,
+                autoBackupEnabled: _autoBackupSettings.enabled,
+              ),
+            ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 4,
               child: _ActionCard(
                 icon: Icons.backup_outlined,
                 accentColor: financeColors.asset,
@@ -111,7 +119,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 4,
+              index: 5,
               child: _ActionCard(
                 icon: Icons.table_view_outlined,
                 accentColor: financeColors.income,
@@ -126,7 +134,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 5,
+              index: 6,
               child: _ActionCard(
                 icon: Icons.restore_outlined,
                 accentColor: colorScheme.error,
@@ -142,7 +150,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 6,
+              index: 7,
               child: _AutoBackupCard(
                 settings: _autoBackupSettings,
                 files: _autoBackupFiles,
@@ -379,6 +387,168 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         setState(() => _busyAction = null);
       }
     }
+  }
+}
+
+class _DataOperationRail extends StatelessWidget {
+  const _DataOperationRail({
+    required this.backupCount,
+    required this.autoBackupEnabled,
+  });
+
+  final int backupCount;
+  final bool autoBackupEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Container(
+      key: const ValueKey('data-operation-rail'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.schema_outlined,
+                color: colorScheme.primary,
+                size: 38,
+                iconSize: 19,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '数据操作链路',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              Text(
+                autoBackupEnabled ? '自动保护中' : '手动保护',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: autoBackupEnabled
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _DataOperationNode(
+                  icon: Icons.archive_outlined,
+                  label: '封存',
+                  value: backupCount == 0 ? '无服务器备份' : '$backupCount 个备份',
+                  color: financeColors.asset,
+                ),
+              ),
+              _DataOperationArrow(color: colorScheme.outline),
+              Expanded(
+                child: _DataOperationNode(
+                  icon: Icons.table_chart_outlined,
+                  label: '分析',
+                  value: 'CSV 明细',
+                  color: financeColors.income,
+                ),
+              ),
+              _DataOperationArrow(color: colorScheme.outline),
+              Expanded(
+                child: _DataOperationNode(
+                  icon: Icons.restore_page_outlined,
+                  label: '恢复',
+                  value: '覆盖确认',
+                  color: colorScheme.error,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataOperationNode extends StatelessWidget {
+  const _DataOperationNode({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              color.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.18
+                    : 0.1,
+              ),
+              colorScheme.surface,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.18)),
+          ),
+          child: Icon(icon, color: color, size: 21),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+        ),
+      ],
+    );
+  }
+}
+
+class _DataOperationArrow extends StatelessWidget {
+  const _DataOperationArrow({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 34),
+      child: Icon(Icons.chevron_right_rounded, color: color, size: 22),
+    );
   }
 }
 

@@ -560,10 +560,27 @@ void main() {
         expect(find.text('数据管理'), findsOneWidget);
         expect(find.text('数据保险库'), findsOneWidget);
         expect(find.text('数据出口'), findsOneWidget);
+        expect(find.text('数据操作链路'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('data-operation-rail')),
+          findsOneWidget,
+        );
         expect(find.text('下载备份'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'data-management-operations-${variant.name}',
+        );
+
+        await tester.scrollUntilVisible(
+          find.text('导出 CSV'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('导出 CSV'), findsOneWidget);
         expect(find.text('自动备份'), findsWidgets);
-        expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
 
         await tester.scrollUntilVisible(
