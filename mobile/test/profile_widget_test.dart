@@ -158,6 +158,18 @@ void main() {
       ),
       findsWidgets,
     );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('profile-theme-option-aurora')),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey('profile-theme-option-aurora')),
+        matching: find.byType(Semantics),
+      ),
+      findsWidgets,
+    );
     expect(find.text('动效先锋界面'), findsOneWidget);
     expect(find.text('跨端体验预览'), findsOneWidget);
     expect(find.text('iOS 原生感'), findsAtLeastNWidgets(1));

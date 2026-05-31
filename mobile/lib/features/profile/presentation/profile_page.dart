@@ -1813,149 +1813,156 @@ class _ThemePaletteOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          scale: selected ? 1 : 0.985,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '主题模板：${palette.label}，${palette.signature}',
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          key: ValueKey('profile-theme-option-${palette.id}'),
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
-            constraints: const BoxConstraints(minHeight: 154),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color.alphaBlend(
-                    palette.seedColor.withValues(alpha: selected ? 0.18 : 0.08),
-                    colorScheme.surface,
-                  ),
-                  Color.alphaBlend(
-                    palette.assetColor.withValues(
-                      alpha: selected ? 0.14 : 0.06,
+            scale: selected ? 1 : 0.985,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              constraints: const BoxConstraints(minHeight: 154),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.alphaBlend(
+                      palette.seedColor.withValues(
+                        alpha: selected ? 0.18 : 0.08,
+                      ),
+                      colorScheme.surface,
                     ),
-                    colorScheme.surface,
+                    Color.alphaBlend(
+                      palette.assetColor.withValues(
+                        alpha: selected ? 0.14 : 0.06,
+                      ),
+                      colorScheme.surface,
+                    ),
+                  ],
+                ),
+                border: Border.all(
+                  color: selected
+                      ? palette.seedColor
+                      : colorScheme.outlineVariant.withValues(alpha: 0.72),
+                  width: selected ? 1.6 : 1,
+                ),
+                boxShadow: [
+                  if (selected)
+                    BoxShadow(
+                      color: palette.seedColor.withValues(alpha: 0.18),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _ThemePalettePreview(palette: palette),
+                      const Spacer(),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: selected
+                            ? Icon(
+                                Icons.check_circle,
+                                key: const ValueKey('selected'),
+                                color: palette.seedColor,
+                              )
+                            : Icon(
+                                Icons.radio_button_unchecked,
+                                key: const ValueKey('unselected'),
+                                color: colorScheme.outline,
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          palette.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _PaletteSignaturePill(palette: palette),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    palette.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _PaletteSignalBar(
+                          color: palette.incomeColor,
+                          height: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _PaletteSignalBar(
+                          color: palette.assetColor,
+                          height: 30,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _PaletteSignalBar(
+                          color: palette.expenseColor,
+                          height: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _PaletteSignalBar(
+                          color: palette.warningColor,
+                          height: 26,
+                        ),
+                      ),
+                    ],
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: selected
+                        ? Padding(
+                            key: const ValueKey('selected-palette-roles'),
+                            padding: const EdgeInsets.only(top: 12),
+                            child: _PaletteRoleLegend(palette: palette),
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey('unselected-palette-roles'),
+                          ),
                   ),
                 ],
               ),
-              border: Border.all(
-                color: selected
-                    ? palette.seedColor
-                    : colorScheme.outlineVariant.withValues(alpha: 0.72),
-                width: selected ? 1.6 : 1,
-              ),
-              boxShadow: [
-                if (selected)
-                  BoxShadow(
-                    color: palette.seedColor.withValues(alpha: 0.18),
-                    blurRadius: 24,
-                    offset: const Offset(0, 12),
-                  ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _ThemePalettePreview(palette: palette),
-                    const Spacer(),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      child: selected
-                          ? Icon(
-                              Icons.check_circle,
-                              key: const ValueKey('selected'),
-                              color: palette.seedColor,
-                            )
-                          : Icon(
-                              Icons.radio_button_unchecked,
-                              key: const ValueKey('unselected'),
-                              color: colorScheme.outline,
-                            ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        palette.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _PaletteSignaturePill(palette: palette),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  palette.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _PaletteSignalBar(
-                        color: palette.incomeColor,
-                        height: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _PaletteSignalBar(
-                        color: palette.assetColor,
-                        height: 30,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _PaletteSignalBar(
-                        color: palette.expenseColor,
-                        height: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _PaletteSignalBar(
-                        color: palette.warningColor,
-                        height: 26,
-                      ),
-                    ),
-                  ],
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: selected
-                      ? Padding(
-                          key: const ValueKey('selected-palette-roles'),
-                          padding: const EdgeInsets.only(top: 12),
-                          child: _PaletteRoleLegend(palette: palette),
-                        )
-                      : const SizedBox.shrink(
-                          key: ValueKey('unselected-palette-roles'),
-                        ),
-                ),
-              ],
             ),
           ),
         ),
