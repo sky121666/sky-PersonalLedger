@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/ledger_icon.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../data/tag_repository.dart';
 
 const _tagColors = [
@@ -205,20 +206,111 @@ class _TagPageState extends ConsumerState<TagPage> {
 
     return RefreshIndicator(
       onRefresh: _loadTags,
-      child: ListView.separated(
+      child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 96),
-        itemCount: _tags.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          final tag = _tags[index];
-          return _TagCard(
-            tag: tag,
-            busy: _submitting,
-            onEdit: () => _openTagForm(tag),
-            onDelete: () => _deleteTag(tag),
-          );
-        },
+        children: [
+          _TagHeader(tags: _tags),
+          const SizedBox(height: 12),
+          for (final tag in _tags) ...[
+            _TagCard(
+              tag: tag,
+              busy: _submitting,
+              onEdit: () => _openTagForm(tag),
+              onDelete: () => _deleteTag(tag),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TagHeader extends StatelessWidget {
+  const _TagHeader({required this.tags});
+
+  final List<TagItem> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    final systemCount = tags.where((tag) => tag.isSystem).length;
+    final customCount = tags.length - systemCount;
+    final usedCount = tags.fold<int>(0, (sum, tag) => sum + tag.usedCount);
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.local_offer_outlined,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '标签库',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${tags.length} 个标签，累计使用 $usedCount 次',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TagSummaryChip(label: '系统标签', value: '$systemCount 个'),
+              _TagSummaryChip(label: '自定义标签', value: '$customCount 个'),
+              _TagSummaryChip(label: '使用次数', value: '$usedCount 次'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagSummaryChip extends StatelessWidget {
+  const _TagSummaryChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Text(
+        '$label $value',
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -240,12 +332,14 @@ class _TagCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _parseColor(tag.color, Theme.of(context).colorScheme.primary);
-    return Card(
+    return PremiumSurface(
+      accentColor: color,
+      padding: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            _TagIconBadge(icon: tag.icon, color: color),
+            IconBadge(icon: _tagIconData(tag.icon), color: color),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -255,10 +349,21 @@ class _TagCard extends StatelessWidget {
                     tag.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text('${tag.sourceLabel} · 使用 ${tag.usedCount} 次'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _TagMetaChip(
+                        label: '${tag.sourceLabel} · 使用 ${tag.usedCount} 次',
+                        color: color,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -425,18 +530,27 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
   }
 }
 
-class _TagIconBadge extends StatelessWidget {
-  const _TagIconBadge({required this.icon, required this.color});
+class _TagMetaChip extends StatelessWidget {
+  const _TagMetaChip({required this.label, required this.color});
 
-  final String icon;
+  final String label;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      backgroundColor: color.withValues(alpha: 0.14),
-      foregroundColor: color,
-      child: LedgerIcon(icon: icon, size: 22, fallback: Icons.label_outline),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
@@ -451,6 +565,19 @@ String _tagIconLabel(String icon) {
     'calendar' => '日期',
     'star' => '星标',
     _ => '标签',
+  };
+}
+
+IconData _tagIconData(String icon) {
+  return switch (icon.trim().toLowerCase()) {
+    'credit-card' => Icons.credit_card_outlined,
+    'banknote' => Icons.payments_outlined,
+    'repeat' => Icons.repeat_outlined,
+    'wallet' => Icons.account_balance_wallet_outlined,
+    'receipt' => Icons.receipt_long_outlined,
+    'calendar' => Icons.calendar_month_outlined,
+    'star' => Icons.star_outline,
+    _ => Icons.label_outline,
   };
 }
 

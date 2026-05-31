@@ -29,6 +29,8 @@ import 'package:personal_ledger/features/home/presentation/home_page.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
 import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
+import 'package:personal_ledger/features/tags/data/tag_repository.dart';
+import 'package:personal_ledger/features/tags/presentation/tag_page.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/quick_transaction_page.dart';
@@ -206,6 +208,36 @@ void main() {
           binding,
           tester,
           'category-library-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium tag library (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              tagRepositoryProvider.overrideWithValue(_FakeTagRepository()),
+            ],
+            child: _screenshotHost(
+              _premiumApp(themeMode: variant.themeMode, home: const TagPage()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('标签管理'), findsOneWidget);
+        expect(find.text('标签库'), findsOneWidget);
+        expect(find.text('工资收入'), findsOneWidget);
+        expect(find.text('旅行'), findsOneWidget);
+        expect(find.text('系统标签 · 使用 8 次'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'tag-library-${variant.name}',
         );
       });
 
@@ -776,6 +808,46 @@ class _FakeBudgetRepository implements BudgetRepository {
     return null;
   }
 }
+
+class _FakeTagRepository implements TagRepository {
+  @override
+  Future<TagItem> create(TagRequest request) async {
+    return _tags.first;
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+
+  @override
+  Future<List<TagItem>> list() async {
+    return _tags;
+  }
+
+  @override
+  Future<TagItem> update(String id, TagRequest request) async {
+    return _tags.firstWhere((tag) => tag.id == id);
+  }
+}
+
+const _tags = [
+  TagItem(
+    id: 'tag-system',
+    userId: 1,
+    name: '工资收入',
+    color: '#22C55E',
+    icon: 'wallet',
+    isSystem: true,
+    usedCount: 8,
+  ),
+  TagItem(
+    id: 'tag-travel',
+    userId: 1,
+    name: '旅行',
+    color: '#3B82F6',
+    icon: 'star',
+    usedCount: 2,
+  ),
+];
 
 class _FakeCategoryRepository implements CategoryRepository {
   @override
