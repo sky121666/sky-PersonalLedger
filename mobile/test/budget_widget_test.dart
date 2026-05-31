@@ -54,16 +54,31 @@ void main() {
       expect(find.text('1 个成员可选'), findsOneWidget);
       expect(find.text('节奏健康'), findsWidgets);
       expect(find.text('预算燃烧节奏正常'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('budget-guardrail-matrix-budget-food')),
+        findsOneWidget,
+      );
+      expect(find.text('预算守卫矩阵'), findsAtLeastNWidgets(1));
+      expect(find.text('燃烧率'), findsAtLeastNWidgets(1));
+      expect(find.text('剩余缓冲'), findsAtLeastNWidgets(1));
+      expect(find.text('分类范围'), findsOneWidget);
       expect(find.text('提醒线 80%'), findsWidgets);
       expect(find.text('40% 已使用'), findsOneWidget);
       expect(find.text('¥1800.00'), findsAtLeastNWidgets(1));
       expect(find.text('餐饮'), findsOneWidget);
-      expect(find.text('87%'), findsOneWidget);
+      expect(find.text('87%'), findsAtLeastNWidgets(1));
 
       await tester.scrollUntilVisible(find.text('家庭成员预算'), 300);
       await tester.pumpAndSettle();
       expect(find.text('家庭成员预算'), findsOneWidget);
       expect(find.text('家人'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('budget-guardrail-matrix-member-budget-family'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('成员范围'), findsOneWidget);
     });
 
     testWidgets('预算总览和预算卡片使用分段入场动效', (tester) async {

@@ -1841,6 +1841,12 @@ class _CategoryBudgetCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
+            _BudgetGuardrailMatrix(
+              budget: budget,
+              scopeLabel: '分类范围',
+              accentIcon: Icons.pie_chart_outline,
+            ),
+            const SizedBox(height: 14),
             _BudgetProgressBar(percentage: budget.percentage),
             const SizedBox(height: 8),
             Text(
@@ -2014,6 +2020,12 @@ class _MemberBudgetCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
+            _BudgetGuardrailMatrix(
+              budget: budget,
+              scopeLabel: '成员范围',
+              accentIcon: Icons.family_restroom_outlined,
+            ),
+            const SizedBox(height: 14),
             _BudgetProgressBar(percentage: budget.percentage),
             const SizedBox(height: 8),
             Text(
@@ -2024,6 +2036,242 @@ class _MemberBudgetCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BudgetGuardrailMatrix extends StatelessWidget {
+  const _BudgetGuardrailMatrix({
+    required this.budget,
+    required this.scopeLabel,
+    required this.accentIcon,
+  });
+
+  final BudgetItem budget;
+  final String scopeLabel;
+  final IconData accentIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final statusColor = _budgetStatusColor(context, budget.percentage);
+    final remainingColor = budget.remaining < 0
+        ? colorScheme.error
+        : financeColors.income;
+    return Container(
+      key: ValueKey('budget-guardrail-matrix-${budget.id}'),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          statusColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.13
+                : 0.06,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: statusColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(accentIcon, color: statusColor, size: 17),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '预算守卫矩阵',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _BudgetGuardrailPill(
+                label: _budgetRhythmLabel(budget.percentage),
+                color: statusColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _BudgetGuardrailTile(
+                  icon: Icons.speed_outlined,
+                  label: '燃烧率',
+                  value: '${budget.percentage.toStringAsFixed(0)}%',
+                  color: statusColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _BudgetGuardrailTile(
+                  icon: Icons.notifications_active_outlined,
+                  label: '提醒线',
+                  value: '${budget.alertThreshold}%',
+                  color: financeColors.warning,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _BudgetGuardrailTile(
+                  icon: budget.remaining < 0
+                      ? Icons.warning_amber_rounded
+                      : Icons.shield_outlined,
+                  label: '剩余缓冲',
+                  value: _formatMoney(budget.remaining),
+                  color: remainingColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _BudgetGuardrailScope(scopeLabel: scopeLabel, color: statusColor),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetGuardrailTile extends StatelessWidget {
+  const _BudgetGuardrailTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 66),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.15
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetGuardrailPill extends StatelessWidget {
+  const _BudgetGuardrailPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.11),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _BudgetGuardrailScope extends StatelessWidget {
+  const _BudgetGuardrailScope({required this.scopeLabel, required this.color});
+
+  final String scopeLabel;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.10
+                : 0.045,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.route_outlined, color: color, size: 15),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              scopeLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
