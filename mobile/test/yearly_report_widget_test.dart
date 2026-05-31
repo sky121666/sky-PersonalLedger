@@ -31,6 +31,15 @@ void main() {
       expect(find.text('交易笔数'), findsOneWidget);
       expect(find.text('活跃天数'), findsOneWidget);
       await tester.scrollUntilVisible(
+        find.text('年度节奏'),
+        260,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('全年收入'), findsOneWidget);
+      expect(find.text('全年支出'), findsOneWidget);
+      expect(find.text('结余峰值'), findsOneWidget);
+      expect(find.text('1月 ¥600.00'), findsOneWidget);
+      await tester.scrollUntilVisible(
         find.text('餐饮'),
         260,
         scrollable: find.byType(Scrollable).first,

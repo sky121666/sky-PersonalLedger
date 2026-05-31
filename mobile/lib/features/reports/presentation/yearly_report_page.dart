@@ -1158,14 +1158,35 @@ class _MonthlyTrendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final maxAmount = items.fold<double>(
       0,
       (current, item) =>
           math.max(current, math.max(item.income.abs(), item.expense.abs())),
     );
+    final totalIncome = items.fold<double>(0, (sum, item) => sum + item.income);
+    final totalExpense = items.fold<double>(
+      0,
+      (sum, item) => sum + item.expense,
+    );
+    final bestMonth = items.fold<MonthlyReportData?>(
+      null,
+      (current, item) =>
+          current == null || item.balance > current.balance ? item : current,
+    );
+    final peakExpense = items.fold<MonthlyReportData?>(
+      null,
+      (current, item) =>
+          current == null || item.expense > current.expense ? item : current,
+    );
+    final netBalance = totalIncome - totalExpense;
+    final netColor = netBalance >= 0
+        ? financeColors.income
+        : financeColors.expense;
 
     return PremiumSurface(
       accentColor: financeColors.income,
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1182,14 +1203,96 @@ class _MonthlyTrendCard extends StatelessWidget {
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
+              const SizedBox(width: 8),
+              _TrendLegendPill(
+                icon: Icons.graphic_eq_outlined,
+                label: '年度节奏',
+                color: financeColors.income,
+              ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _MonthlyPulseTile(
+                  icon: Icons.south_west_rounded,
+                  label: '全年收入',
+                  value: _formatCurrency(totalIncome),
+                  caption: '${items.length} 月样本',
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _MonthlyPulseTile(
+                  icon: Icons.north_east_rounded,
+                  label: '全年支出',
+                  value: _formatCurrency(totalExpense),
+                  caption: peakExpense == null
+                      ? '暂无峰值'
+                      : '峰值 ${peakExpense.month}',
+                  color: financeColors.expense,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _MonthlyPulseTile(
+            icon: netBalance >= 0
+                ? Icons.savings_outlined
+                : Icons.warning_amber_rounded,
+            label: '结余峰值',
+            value: bestMonth == null
+                ? _formatCurrency(netBalance)
+                : '${bestMonth.month} ${_formatCurrency(bestMonth.balance)}',
+            caption: netBalance >= 0 ? '年度净结余为正' : '年度净结余承压',
+            color: netColor,
+            horizontal: true,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TrendLegendPill(
+                icon: Icons.arrow_downward_rounded,
+                label: '收入',
+                color: financeColors.income,
+              ),
+              _TrendLegendPill(
+                icon: Icons.arrow_upward_rounded,
+                label: '支出',
+                color: financeColors.expense,
+              ),
+              _TrendLegendPill(
+                icon: Icons.show_chart_rounded,
+                label: '结余轨迹',
+                color: colorScheme.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           if (items.isEmpty)
             const _EmptyLine(text: '暂无月度数据')
           else
-            SizedBox(
-              height: 174,
+            Container(
+              height: 186,
+              padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  colorScheme.primary.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark
+                        ? 0.08
+                        : 0.04,
+                  ),
+                  colorScheme.surface,
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                ),
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -1200,6 +1303,145 @@ class _MonthlyTrendCard extends StatelessWidget {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyPulseTile extends StatelessWidget {
+  const _MonthlyPulseTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.caption,
+    required this.color,
+    this.horizontal = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String caption;
+  final Color color;
+  final bool horizontal;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(height: 1),
+        Text(
+          caption,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+        ),
+      ],
+    );
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: BoxConstraints(minHeight: horizontal ? 64 : 86),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: horizontal
+          ? Row(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 9),
+                Expanded(child: textContent),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(height: 8),
+                textContent,
+              ],
+            ),
+    );
+  }
+}
+
+class _TrendLegendPill extends StatelessWidget {
+  const _TrendLegendPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ],
       ),
     );
@@ -1218,22 +1460,34 @@ class _MonthlyBar extends StatelessWidget {
     final incomeHeight = _barHeight(item.income);
     final expenseHeight = _barHeight(item.expense);
     final colorScheme = Theme.of(context).colorScheme;
+    final balanceColor = item.balance >= 0
+        ? financeColors.income
+        : financeColors.expense;
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         SizedBox(
-          height: 120,
+          height: 128,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               _Bar(height: incomeHeight, color: financeColors.income),
-              const SizedBox(width: 3),
+              const SizedBox(width: 4),
               _Bar(height: expenseHeight, color: financeColors.expense),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
+        Container(
+          width: 22,
+          height: 4,
+          decoration: BoxDecoration(
+            color: balanceColor.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        const SizedBox(height: 6),
         Text(
           item.month.replaceAll('月', ''),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
