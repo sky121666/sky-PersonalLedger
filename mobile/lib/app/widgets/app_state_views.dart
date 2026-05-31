@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+import 'finance_dashboard_widgets.dart';
+import 'premium_surface.dart';
+
 class AppLoadingView extends StatelessWidget {
   const AppLoadingView({this.message = '加载中...', super.key});
 
@@ -8,14 +12,32 @@ class AppLoadingView extends StatelessWidget {
   /// 构建统一加载态视图。
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 12),
-          Text(message, style: Theme.of(context).textTheme.bodyMedium),
-        ],
+      child: _StateViewFrame(
+        accentColor: colorScheme.primary,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _LoadingOrb(color: colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                minHeight: 4,
+                backgroundColor: colorScheme.primary.withValues(alpha: 0.10),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -39,30 +61,36 @@ class AppEmptyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = AppTheme.financeColors(context).asset;
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 56, color: colorScheme.outline),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          if (message != null) ...[
-            const SizedBox(height: 8),
+      child: _StateViewFrame(
+        accentColor: accentColor,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconBadge(icon: icon, color: accentColor, size: 58, iconSize: 28),
+            const SizedBox(height: 14),
             Text(
-              message!,
+              title,
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
             ),
+            if (message != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                message!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+            ],
+            if (action != null) ...[const SizedBox(height: 18), action!],
           ],
-          if (action != null) ...[const SizedBox(height: 16), action!],
-        ],
+        ),
       ),
     );
   }
@@ -85,28 +113,114 @@ class AppErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.error_outline, size: 56, color: colorScheme.error),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          if (onRetry != null) ...[
-            const SizedBox(height: 16),
-            FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
+      child: _StateViewFrame(
+        accentColor: colorScheme.error,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconBadge(
+              icon: Icons.error_outline,
+              color: colorScheme.error,
+              size: 58,
+              iconSize: 28,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 18),
+              FilledButton(
+                onPressed: onRetry,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh),
+                    SizedBox(width: 8),
+                    Text('重试'),
+                  ],
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StateViewFrame extends StatelessWidget {
+  const _StateViewFrame({required this.accentColor, required this.child});
+
+  final Color accentColor;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: PremiumSurface(accentColor: accentColor, child: child),
+      ),
+    );
+  }
+}
+
+class _LoadingOrb extends StatelessWidget {
+  const _LoadingOrb({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.72, end: 1),
+      duration: const Duration(milliseconds: 900),
+      curve: Curves.easeInOutCubic,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: Container(
+        width: 58,
+        height: 58,
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            color.withValues(alpha: 0.14),
+            colorScheme.surface,
+          ),
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withValues(alpha: 0.24)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.18),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(15),
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            color: color,
+            backgroundColor: color.withValues(alpha: 0.12),
+          ),
+        ),
       ),
     );
   }

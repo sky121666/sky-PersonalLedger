@@ -93,7 +93,7 @@ class _TransactionDetailsPageState
               index: 0,
               child: _TransactionOverviewCard(state: state),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             StaggeredEntrance(
               index: 1,
               child: _TransactionSearchBar(
@@ -105,7 +105,7 @@ class _TransactionDetailsPageState
                 },
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             StaggeredEntrance(
               index: 2,
               child: _TransactionFilterBar(
@@ -117,7 +117,7 @@ class _TransactionDetailsPageState
                 },
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Expanded(child: _buildBody(state, controller)),
           ],
         ),
@@ -298,6 +298,7 @@ class _TransactionOverviewCard extends StatelessWidget {
 
     return PremiumSurface(
       accentColor: accent,
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -333,7 +334,7 @@ class _TransactionOverviewCard extends StatelessWidget {
               _OverviewDeltaBadge(value: net, color: accent),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -471,8 +472,8 @@ class _OverviewMetricShell extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 86),
-      padding: const EdgeInsets.all(10),
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           color.withValues(
@@ -490,7 +491,7 @@ class _OverviewMetricShell extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 18, color: color),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           Text(
             label,
             maxLines: 1,
@@ -499,7 +500,7 @@ class _OverviewMetricShell extends StatelessWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Text(
             value,
             maxLines: 1,
@@ -530,7 +531,7 @@ class _TransactionSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PremiumSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       accentColor: Theme.of(context).colorScheme.primary,
       child: TextField(
         key: const ValueKey('transaction-search'),
