@@ -56,6 +56,9 @@ void main() {
       expect(repository.loginCalls, ['123456']);
       expect(controller.debugState.stage, AuthStage.authenticated);
       expect(find.text('安全登录'), findsOneWidget);
+      expect(find.text('私有部署'), findsOneWidget);
+      expect(find.text('设备会话'), findsOneWidget);
+      expect(find.text('财务数据'), findsOneWidget);
     });
   });
 
