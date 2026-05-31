@@ -25,6 +25,16 @@ void main() {
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
+    testWidgets('标签头部展示数量和使用信号', (tester) async {
+      final repository = _FakeTagRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.text('标签总数'), findsOneWidget);
+      expect(find.text('自定义'), findsOneWidget);
+      expect(find.text('累计使用'), findsOneWidget);
+      expect(find.text('10'), findsOneWidget);
+    });
+
     testWidgets('新增标签时提交表单字段并刷新列表', (tester) async {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);

@@ -266,6 +266,7 @@ class _TagHeader extends StatelessWidget {
     final customCount = tags.length - systemCount;
     final usedCount = tags.fold<int>(0, (sum, tag) => sum + tag.usedCount);
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: colorScheme.primary,
       padding: const EdgeInsets.all(18),
@@ -302,13 +303,34 @@ class _TagHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Row(
             children: [
-              _TagSummaryChip(label: '系统标签', value: '$systemCount 个'),
-              _TagSummaryChip(label: '自定义标签', value: '$customCount 个'),
-              _TagSummaryChip(label: '使用次数', value: '$usedCount 次'),
+              Expanded(
+                child: _TagSignalTile(
+                  icon: Icons.sell_outlined,
+                  label: '标签总数',
+                  value: '${tags.length}',
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _TagSignalTile(
+                  icon: Icons.tune_outlined,
+                  label: '自定义',
+                  value: '$customCount',
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _TagSignalTile(
+                  icon: Icons.trending_up_outlined,
+                  label: '累计使用',
+                  value: '$usedCount',
+                  color: financeColors.income,
+                ),
+              ),
             ],
           ),
         ],
@@ -317,28 +339,65 @@ class _TagHeader extends StatelessWidget {
   }
 }
 
-class _TagSummaryChip extends StatelessWidget {
-  const _TagSummaryChip({required this.label, required this.value});
+class _TagSignalTile extends StatelessWidget {
+  const _TagSignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
+  final IconData icon;
   final String label;
   final String value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Text(
-        '$label $value',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
         ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
