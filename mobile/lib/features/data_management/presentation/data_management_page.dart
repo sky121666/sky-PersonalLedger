@@ -64,10 +64,19 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                 maxBackups: _autoBackupSettings.maxBackups,
               ),
             ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 1,
+              child: _DataVaultHealthPanel(
+                settings: _autoBackupSettings,
+                files: _autoBackupFiles,
+                loading: _autoBackupLoading,
+              ),
+            ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               StaggeredEntrance(
-                index: 1,
+                index: 2,
                 child: _MessagePanel(
                   icon: Icons.error_outline,
                   message: _errorMessage!,
@@ -78,7 +87,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             if (_lastSavedPath != null) ...[
               const SizedBox(height: 12),
               StaggeredEntrance(
-                index: 1,
+                index: 2,
                 child: _MessagePanel(
                   icon: Icons.folder_outlined,
                   message: '文件已保存到 $_lastSavedPath',
@@ -87,7 +96,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ],
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 2,
+              index: 3,
               child: const _DataSectionHeader(
                 icon: Icons.output_outlined,
                 title: '数据出口',
@@ -96,7 +105,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 10),
             StaggeredEntrance(
-              index: 3,
+              index: 4,
               child: _DataOperationRail(
                 backupCount: _autoBackupFiles.length,
                 autoBackupEnabled: _autoBackupSettings.enabled,
@@ -104,7 +113,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 4,
+              index: 5,
               child: _ActionCard(
                 icon: Icons.backup_outlined,
                 accentColor: financeColors.asset,
@@ -119,7 +128,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 5,
+              index: 6,
               child: _ActionCard(
                 icon: Icons.table_view_outlined,
                 accentColor: financeColors.income,
@@ -134,7 +143,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 6,
+              index: 7,
               child: _ActionCard(
                 icon: Icons.restore_outlined,
                 accentColor: colorScheme.error,
@@ -150,7 +159,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 7,
+              index: 8,
               child: _AutoBackupCard(
                 settings: _autoBackupSettings,
                 files: _autoBackupFiles,
@@ -472,6 +481,200 @@ class _DataOperationRail extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataVaultHealthPanel extends StatelessWidget {
+  const _DataVaultHealthPanel({
+    required this.settings,
+    required this.files,
+    required this.loading,
+  });
+
+  final AutoBackupSettings settings;
+  final List<AutoBackupFile> files;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final latestFile = files.isEmpty ? null : files.first;
+    final retentionRatio = settings.maxBackups <= 0
+        ? 0.0
+        : (files.length / settings.maxBackups).clamp(0.0, 1.0).toDouble();
+    final healthColor = loading
+        ? colorScheme.secondary
+        : settings.enabled && files.isNotEmpty
+        ? financeColors.income
+        : financeColors.warning;
+    return PremiumSurface(
+      key: const ValueKey('data-vault-health-panel'),
+      accentColor: healthColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.health_and_safety_outlined,
+                color: healthColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '保险库健康层',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      loading
+                          ? '正在同步服务器备份状态'
+                          : latestFile == null
+                          ? '建议开启自动备份并生成第一份服务器备份'
+                          : '最近备份：${latestFile.createdAt}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _DataVaultHealthPill(
+                label: settings.enabled ? '自动保护' : '手动保护',
+                icon: settings.enabled
+                    ? Icons.verified_outlined
+                    : Icons.pan_tool_alt_outlined,
+                color: settings.enabled
+                    ? financeColors.income
+                    : colorScheme.outline,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _DataVaultHealthPill(
+                label: '服务器备份',
+                icon: Icons.cloud_done_outlined,
+                color: files.isEmpty
+                    ? colorScheme.outline
+                    : financeColors.asset,
+              ),
+              _DataVaultHealthPill(
+                label: '${files.length} 个',
+                icon: latestFile == null
+                    ? Icons.pending_actions_outlined
+                    : Icons.cloud_done_outlined,
+                color: files.isEmpty
+                    ? colorScheme.outline
+                    : financeColors.asset,
+              ),
+              _DataVaultHealthPill(
+                label: '留存水位',
+                icon: Icons.inventory_2_outlined,
+                color: retentionRatio >= 0.9
+                    ? financeColors.warning
+                    : financeColors.income,
+              ),
+              _DataVaultHealthPill(
+                label: '${(retentionRatio * 100).round()}%',
+                icon: Icons.speed_outlined,
+                color: retentionRatio >= 0.9
+                    ? financeColors.warning
+                    : financeColors.income,
+              ),
+              _DataVaultHealthPill(
+                label: 'JSON 全量',
+                icon: Icons.data_object_outlined,
+                color: financeColors.asset,
+              ),
+              _DataVaultHealthPill(
+                label: 'CSV 分析',
+                icon: Icons.table_chart_outlined,
+                color: financeColors.income,
+              ),
+              _DataVaultHealthPill(
+                label: '恢复二次确认',
+                icon: Icons.verified_user_outlined,
+                color: colorScheme.error,
+              ),
+              _DataVaultHealthPill(
+                label: '本机保存',
+                icon: Icons.devices_outlined,
+                color: colorScheme.tertiary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataVaultHealthPill extends StatelessWidget {
+  const _DataVaultHealthPill({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 32, maxWidth: 156),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
         ],
       ),

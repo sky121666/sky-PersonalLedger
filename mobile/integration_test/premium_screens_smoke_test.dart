@@ -629,12 +629,25 @@ void main() {
 
         expect(find.text('数据管理'), findsOneWidget);
         expect(find.text('数据保险库'), findsOneWidget);
+        expect(find.text('保险库健康层'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('data-vault-health-panel')),
+          findsOneWidget,
+        );
+        expect(find.text('留存水位'), findsOneWidget);
+        expect(find.text('恢复二次确认'), findsOneWidget);
         expect(find.text('数据出口'), findsOneWidget);
         expect(find.text('数据操作链路'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('data-operation-rail')),
           findsOneWidget,
         );
+        await tester.scrollUntilVisible(
+          find.text('下载备份'),
+          240,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         expect(find.text('下载备份'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);

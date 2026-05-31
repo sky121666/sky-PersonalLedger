@@ -17,8 +17,21 @@ void main() {
       expect(find.text('传输路径'), findsOneWidget);
       expect(find.text('覆盖确认'), findsWidgets);
       expect(find.text('备份留存'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('data-vault-health-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('保险库健康层'), findsOneWidget);
+      expect(find.text('手动保护'), findsWidgets);
+      expect(find.text('服务器备份'), findsWidgets);
+      expect(find.text('留存水位'), findsOneWidget);
+      expect(find.text('10%'), findsOneWidget);
+      expect(find.text('JSON 全量'), findsAtLeastNWidgets(1));
+      expect(find.text('CSV 分析'), findsOneWidget);
+      expect(find.text('恢复二次确认'), findsOneWidget);
+      expect(find.text('本机保存'), findsAtLeastNWidgets(1));
       expect(find.text('数据操作链路'), findsOneWidget);
-      expect(find.text('手动保护'), findsOneWidget);
+      expect(find.text('手动保护'), findsWidgets);
       expect(find.text('1 个备份'), findsOneWidget);
       expect(find.text('CSV 明细'), findsOneWidget);
       expect(find.byKey(const ValueKey('data-operation-rail')), findsOneWidget);
@@ -56,9 +69,21 @@ void main() {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('启用自动备份'));
+      await tester.scrollUntilVisible(
+        find.text('启用自动备份').last,
+        280,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存设置'));
+      await tester.tap(find.text('启用自动备份').last);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('保存设置').last,
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存设置').last);
       await tester.pumpAndSettle();
 
       expect(repository.saveAutoBackupCalls, hasLength(1));
@@ -69,8 +94,20 @@ void main() {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
+      await tester.scrollUntilVisible(
+        find.byType(TextField).first,
+        280,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '200');
-      await tester.tap(find.text('保存设置'));
+      await tester.scrollUntilVisible(
+        find.text('保存设置').last,
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存设置').last);
       await tester.pumpAndSettle();
 
       expect(repository.saveAutoBackupCalls, hasLength(1));
@@ -82,7 +119,13 @@ void main() {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('立即备份'));
+      await tester.scrollUntilVisible(
+        find.text('立即备份').last,
+        280,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('立即备份').last);
       await tester.pumpAndSettle();
 
       expect(repository.triggerAutoBackupCalls, 1);
@@ -95,7 +138,13 @@ void main() {
         ..triggerAutoBackupError = '磁盘空间不足';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('立即备份'));
+      await tester.scrollUntilVisible(
+        find.text('立即备份').last,
+        280,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('立即备份').last);
       await tester.pumpAndSettle();
 
       expect(repository.triggerAutoBackupCalls, 1);
@@ -121,7 +170,7 @@ void main() {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository, physicalSize: const Size(1200, 4000));
 
-      expect(find.text('JSON 全量'), findsOneWidget);
+      expect(find.text('JSON 全量'), findsAtLeastNWidgets(1));
       expect(find.text('表格分析'), findsOneWidget);
       expect(find.text('覆盖恢复'), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(5));
