@@ -362,27 +362,85 @@ class _InfoCard extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              MetricPill(
+              _TokenSecurityPill(
+                icon: Icons.key_outlined,
                 label: '令牌数量',
                 value: '$tokenCount 个',
-                icon: Icons.key_outlined,
                 color: colorScheme.primary,
               ),
-              MetricPill(
-                label: '完整令牌',
+              _TokenSecurityPill(
+                icon: Icons.lock_clock_outlined,
+                label: '显示策略',
                 value: createdToken == null ? '隐藏' : '待保存',
-                icon: Icons.visibility_off_outlined,
                 color: createdToken == null
                     ? colorScheme.outline
                     : colorScheme.tertiary,
               ),
-              MetricPill(
-                label: '访问范围',
-                value: 'API / App',
-                icon: Icons.devices_outlined,
+              _TokenSecurityPill(
+                icon: Icons.fingerprint_outlined,
+                label: '列表保护',
+                value: '仅前缀',
                 color: colorScheme.secondary,
               ),
+              _TokenSecurityPill(
+                icon: Icons.delete_sweep_outlined,
+                label: '失效控制',
+                value: '可撤销',
+                color: AppTheme.financeColors(context).expense,
+              ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TokenSecurityPill extends StatelessWidget {
+  const _TokenSecurityPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 6),
+          Text(
+            '$label · $value',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),

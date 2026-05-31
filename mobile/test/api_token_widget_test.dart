@@ -16,6 +16,9 @@ void main() {
 
       expect(find.text('API Token'), findsOneWidget);
       expect(find.text('API 安全访问'), findsOneWidget);
+      expect(find.text('显示策略 · 隐藏'), findsOneWidget);
+      expect(find.text('列表保护 · 仅前缀'), findsOneWidget);
+      expect(find.text('失效控制 · 可撤销'), findsOneWidget);
       expect(find.text('1 个访问凭证正在管理中'), findsOneWidget);
       expect(find.text('我的手机'), findsOneWidget);
       expect(find.textContaining('abcd1234...'), findsOneWidget);
