@@ -32,6 +32,12 @@ void main() {
       final repository = _FakeProfileRepository();
       await _pumpPage(tester, repository);
 
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('profile-settings-theme-panel')),
+        360,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('profile-settings-theme-panel')),
         findsOneWidget,
@@ -40,10 +46,34 @@ void main() {
       expect(find.text('当前模板'), findsOneWidget);
       expect(find.text('模板数量'), findsOneWidget);
       expect(find.text('12 套'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-settings-theme-studio')),
+        findsOneWidget,
+      );
+      expect(find.text('模式同步'), findsOneWidget);
+      expect(find.text('语义色板'), findsOneWidget);
+      expect(find.text('跨端预览'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-settings-theme-semantic-preview')),
+        findsOneWidget,
+      );
+      expect(find.text('财务语义预览'), findsOneWidget);
+      expect(find.text('周报高光'), findsOneWidget);
+      expect(find.text('预算状态'), findsOneWidget);
+      expect(find.text('收入色'), findsOneWidget);
+      expect(find.text('资产色'), findsOneWidget);
+      expect(find.text('支出色'), findsOneWidget);
+      expect(find.text('警示色'), findsOneWidget);
       expect(find.text('浅色模式'), findsOneWidget);
       expect(find.text('黑曜蓝'), findsOneWidget);
 
       await tester.tap(find.text('深色模式'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('profile-settings-theme-obsidian')),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('profile-settings-theme-obsidian')),

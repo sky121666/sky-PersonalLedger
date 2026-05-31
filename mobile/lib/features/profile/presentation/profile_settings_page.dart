@@ -163,15 +163,6 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
         const SizedBox(height: 16),
         StaggeredEntrance(
           index: 1,
-          child: _ProfileThemePanel(
-            settings: themeSettings,
-            onModeChanged: _setThemeMode,
-            onPaletteChanged: _setThemePalette,
-          ),
-        ),
-        const SizedBox(height: 16),
-        StaggeredEntrance(
-          index: 2,
           child: _ProfileFormCard(
             nicknameController: _nicknameController,
             emailController: _emailController,
@@ -179,6 +170,15 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
             bioController: _bioController,
             submitting: _submitting,
             onSubmit: _saveProfile,
+          ),
+        ),
+        const SizedBox(height: 16),
+        StaggeredEntrance(
+          index: 2,
+          child: _ProfileThemePanel(
+            settings: themeSettings,
+            onModeChanged: _setThemeMode,
+            onPaletteChanged: _setThemePalette,
           ),
         ),
       ],
@@ -718,6 +718,8 @@ class _ProfileThemePanel extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _ProfileThemePreview(palette: palette),
+          const SizedBox(height: 12),
+          _ProfileThemeStudioRail(settings: settings),
           const SizedBox(height: 14),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -744,6 +746,8 @@ class _ProfileThemePanel extends StatelessWidget {
                   onModeChanged(selection.firstOrNull),
             ),
           ),
+          const SizedBox(height: 14),
+          _ProfileThemeSemanticPreview(palette: palette),
           const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -828,6 +832,345 @@ class _ProfileThemePreview extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProfileThemeStudioRail extends StatelessWidget {
+  const _ProfileThemeStudioRail({required this.settings});
+
+  final AppThemeSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = settings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      key: const ValueKey('profile-settings-theme-studio'),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ProfileThemeStudioTile(
+              icon: Icons.sync_outlined,
+              label: '模式同步',
+              value: _profileSettingsThemeModeLabel(settings.mode),
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _ProfileThemeStudioTile(
+              icon: Icons.auto_graph_outlined,
+              label: '语义色板',
+              value: '4 色',
+              color: palette.assetColor,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _ProfileThemeStudioTile(
+              icon: Icons.devices_outlined,
+              label: '跨端预览',
+              value: '双端',
+              color: palette.incomeColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileThemeStudioTile extends StatelessWidget {
+  const _ProfileThemeStudioTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileThemeSemanticPreview extends StatelessWidget {
+  const _ProfileThemeSemanticPreview({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppFinanceColors.fromPalette(palette);
+    return AnimatedContainer(
+      key: const ValueKey('profile-settings-theme-semantic-preview'),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          palette.assetColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.assetColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.query_stats_outlined, color: palette.assetColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '财务语义预览',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _ProfileSemanticPill(
+                label: palette.signature,
+                color: palette.seedColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileSemanticScenario(
+                  icon: Icons.auto_awesome_outlined,
+                  title: '周报高光',
+                  value: '+18%',
+                  caption: '收入趋势',
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ProfileSemanticScenario(
+                  icon: Icons.savings_outlined,
+                  title: '预算状态',
+                  value: '72%',
+                  caption: '本月使用',
+                  color: financeColors.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ProfileSemanticPill(label: '收入色', color: financeColors.income),
+              _ProfileSemanticPill(label: '资产色', color: financeColors.asset),
+              _ProfileSemanticPill(label: '支出色', color: financeColors.expense),
+              _ProfileSemanticPill(label: '警示色', color: financeColors.warning),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSemanticScenario extends StatelessWidget {
+  const _ProfileSemanticScenario({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.caption,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String caption;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 88),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSemanticPill extends StatelessWidget {
+  const _ProfileSemanticPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 30, maxWidth: 132),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _profileSettingsThemeModeLabel(AppThemeMode mode) {
+  return switch (mode) {
+    AppThemeMode.system => '跟随系统',
+    AppThemeMode.light => '浅色',
+    AppThemeMode.dark => '深色',
+  };
 }
 
 class _ProfileThemeMetric extends StatelessWidget {
