@@ -58,6 +58,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
       children: [
         _LoginAssuranceRail(accentColor: accentColor),
+        const SizedBox(height: 14),
+        _LoginSessionSignalDeck(
+          controller: _passwordController,
+          accentColor: accentColor,
+        ),
         const SizedBox(height: 16),
         TextField(
           controller: _passwordController,
@@ -92,6 +97,177 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           label: const Text('登录'),
         ),
       ],
+    );
+  }
+}
+
+class _LoginSessionSignalDeck extends StatelessWidget {
+  const _LoginSessionSignalDeck({
+    required this.controller,
+    required this.accentColor,
+  });
+
+  final TextEditingController controller;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final length = controller.text.length;
+        final ready = length >= 6;
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              accentColor.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.14
+                    : 0.07,
+              ),
+              colorScheme.surface,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: accentColor.withValues(alpha: 0.14)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: Icons.key_outlined,
+                    color: ready ? financeColors.income : accentColor,
+                    size: 38,
+                    iconSize: 19,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '会话解锁信号',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          ready ? '密码长度就绪，可发起登录' : '输入 6 位以上密码后解锁',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _LoginSignalTile(
+                      icon: ready
+                          ? Icons.verified_outlined
+                          : Icons.lock_clock_outlined,
+                      label: '密码状态',
+                      value: ready ? '可登录' : '$length/6',
+                      color: ready ? financeColors.income : colorScheme.outline,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _LoginSignalTile(
+                      icon: Icons.visibility_off_outlined,
+                      label: '屏幕保护',
+                      value: '默认隐藏',
+                      color: accentColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _LoginSignalTile(
+                      icon: Icons.devices_other_outlined,
+                      label: '登录范围',
+                      value: '本设备',
+                      color: financeColors.asset,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LoginSignalTile extends StatelessWidget {
+  const _LoginSignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 62),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

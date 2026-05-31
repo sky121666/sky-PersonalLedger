@@ -135,6 +135,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('欢迎回来'), findsOneWidget);
+        expect(find.text('会话解锁信号'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('auth-experience-deck')),
           findsOneWidget,
@@ -179,6 +180,7 @@ void main() {
 
         expect(find.text('首次设置密码'), findsOneWidget);
         expect(find.text('初始化保护'), findsOneWidget);
+        expect(find.text('初始化密钥策略'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('auth-experience-deck')),
           findsOneWidget,

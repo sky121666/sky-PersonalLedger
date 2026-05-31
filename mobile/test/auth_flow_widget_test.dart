@@ -58,6 +58,10 @@ void main() {
       expect(repository.loginCalls, ['123456']);
       expect(controller.debugState.stage, AuthStage.authenticated);
       expect(find.text('安全登录'), findsOneWidget);
+      expect(find.text('会话解锁信号'), findsOneWidget);
+      expect(find.text('可登录'), findsOneWidget);
+      expect(find.text('默认隐藏'), findsOneWidget);
+      expect(find.text('本设备'), findsOneWidget);
       expect(find.text('私有部署'), findsOneWidget);
       expect(find.text('设备会话'), findsOneWidget);
       expect(find.text('财务数据'), findsOneWidget);
@@ -146,6 +150,10 @@ void main() {
       expect(repository.initCalls, ['12345678']);
       expect(controller.debugState.stage, AuthStage.authenticated);
       expect(find.text('初始化保护'), findsOneWidget);
+      expect(find.text('初始化密钥策略'), findsOneWidget);
+      expect(find.text('已达标'), findsOneWidget);
+      expect(find.text('一致'), findsOneWidget);
+      expect(find.text('一次性'), findsOneWidget);
       expect(find.text('只初始化一次'), findsOneWidget);
       expect(find.text('管理员保护'), findsOneWidget);
       expect(find.text('改密退出'), findsOneWidget);
