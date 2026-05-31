@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/api_tokens/data/api_token_repository.dart';
 import 'package:personal_ledger/features/api_tokens/presentation/api_token_page.dart';
 
@@ -14,6 +15,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('API Token'), findsOneWidget);
+      expect(find.text('API 安全访问'), findsOneWidget);
+      expect(find.text('1 个访问凭证正在管理中'), findsOneWidget);
       expect(find.text('我的手机'), findsOneWidget);
       expect(find.textContaining('abcd1234...'), findsOneWidget);
       expect(find.text('abcd1234... · 未使用 · 永不过期'), findsOneWidget);
@@ -112,6 +115,14 @@ void main() {
 
       expect(find.text('我的手机'), findsOneWidget);
       expect(repository.listCalls, 2);
+    });
+
+    testWidgets('API Token 页使用分段入场动效组织控制台区域', (tester) async {
+      final repository = _FakeApiTokenRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
     });
   });
 }

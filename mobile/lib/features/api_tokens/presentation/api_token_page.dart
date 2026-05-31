@@ -7,6 +7,7 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../data/api_token_repository.dart';
 
 const _expiryOptions = [
@@ -193,55 +194,117 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          _CreateTokenCard(
-            nameController: _nameController,
-            expiryDays: _expiryDays,
-            submitting: _submitting,
-            onExpiryChanged: (value) =>
-                setState(() => _expiryDays = value ?? _expiryDays),
-            onCreate: _createToken,
+          StaggeredEntrance(
+            index: 0,
+            child: _InfoCard(
+              tokenCount: _tokens.length,
+              createdToken: _createdToken,
+            ),
           ),
           const SizedBox(height: 12),
-          _InfoCard(tokenCount: _tokens.length, createdToken: _createdToken),
+          StaggeredEntrance(
+            index: 1,
+            child: _CreateTokenCard(
+              nameController: _nameController,
+              expiryDays: _expiryDays,
+              submitting: _submitting,
+              onExpiryChanged: (value) =>
+                  setState(() => _expiryDays = value ?? _expiryDays),
+              onCreate: _createToken,
+            ),
+          ),
           if (_createdToken != null) ...[
             const SizedBox(height: 12),
-            _CreatedTokenCard(token: _createdToken!, onCopy: _copyCreatedToken),
-          ],
-          const SizedBox(height: 12),
-          Text(
-            '已创建的令牌',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 8),
-          if (_tokens.isEmpty)
-            const PremiumSurface(
-              padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),
-              child: AppEmptyView(
-                title: '暂无令牌',
-                message: '创建令牌后可用于 App 或 API 访问。',
-                icon: Icons.vpn_key_outlined,
-              ),
-            )
-          else
-            PremiumSurface(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                children: [
-                  for (var index = 0; index < _tokens.length; index++) ...[
-                    _TokenTile(
-                      token: _tokens[index],
-                      deleting: _submitting,
-                      onDelete: () => _deleteToken(_tokens[index]),
-                    ),
-                    if (index != _tokens.length - 1) const SizedBox(height: 8),
-                  ],
-                ],
+            StaggeredEntrance(
+              index: 2,
+              child: _CreatedTokenCard(
+                token: _createdToken!,
+                onCopy: _copyCreatedToken,
               ),
             ),
+          ],
+          const SizedBox(height: 12),
+          StaggeredEntrance(
+            index: _createdToken == null ? 2 : 3,
+            child: _TokenListHeader(tokenCount: _tokens.length),
+          ),
+          const SizedBox(height: 8),
+          StaggeredEntrance(
+            index: _createdToken == null ? 3 : 4,
+            child: _tokens.isEmpty
+                ? const PremiumSurface(
+                    padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+                    child: AppEmptyView(
+                      title: '暂无令牌',
+                      message: '创建令牌后可用于 App 或 API 访问。',
+                      icon: Icons.vpn_key_outlined,
+                    ),
+                  )
+                : PremiumSurface(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      children: [
+                        for (
+                          var index = 0;
+                          index < _tokens.length;
+                          index++
+                        ) ...[
+                          _TokenTile(
+                            token: _tokens[index],
+                            deleting: _submitting,
+                            onDelete: () => _deleteToken(_tokens[index]),
+                          ),
+                          if (index != _tokens.length - 1)
+                            const SizedBox(height: 8),
+                        ],
+                      ],
+                    ),
+                  ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _TokenListHeader extends StatelessWidget {
+  const _TokenListHeader({required this.tokenCount});
+
+  final int tokenCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        IconBadge(
+          icon: Icons.key_outlined,
+          color: colorScheme.primary,
+          size: 34,
+          iconSize: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '已创建的令牌',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                tokenCount == 0 ? '当前没有可用访问凭证' : '$tokenCount 个访问凭证正在管理中',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
