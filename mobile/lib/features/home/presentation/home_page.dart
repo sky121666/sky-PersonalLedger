@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -21,6 +22,7 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryState = ref.watch(homeSummaryProvider);
+    final themeSettings = ref.watch(themeControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -47,6 +49,7 @@ class HomePage extends ConsumerWidget {
         ),
         data: (summary) => _HomeContent(
           summary: summary,
+          themeSettings: themeSettings,
           onRefresh: () => ref.refresh(homeSummaryProvider.future),
         ),
       ),
@@ -55,9 +58,14 @@ class HomePage extends ConsumerWidget {
 }
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent({required this.summary, required this.onRefresh});
+  const _HomeContent({
+    required this.summary,
+    required this.themeSettings,
+    required this.onRefresh,
+  });
 
   final HomeSummary summary;
+  final AppThemeSettings themeSettings;
   final Future<void> Function() onRefresh;
 
   /// 构建首页数据内容。
@@ -75,23 +83,28 @@ class _HomeContent extends StatelessWidget {
           children: [
             _entry(0, const _HomeDashboardHeader()),
             const SizedBox(height: 16),
-            _entry(1, _NetAssetsCard(accounts: summary.accounts)),
+            _entry(
+              1,
+              _HomeThemeSignalPanel(summary: summary, settings: themeSettings),
+            ),
             const SizedBox(height: 16),
-            _entry(2, const QuickHomeActionCard()),
+            _entry(2, _NetAssetsCard(accounts: summary.accounts)),
             const SizedBox(height: 16),
-            _entry(3, _MonthlyOverviewCard(overview: summary.overview)),
+            _entry(3, const QuickHomeActionCard()),
             const SizedBox(height: 16),
-            _entry(4, FamilyHomeSummaryCard(summary: summary.familySummary)),
+            _entry(4, _MonthlyOverviewCard(overview: summary.overview)),
+            const SizedBox(height: 16),
+            _entry(5, FamilyHomeSummaryCard(summary: summary.familySummary)),
             const SizedBox(height: 16),
             _entry(
-              5,
+              6,
               _AccountOverviewCard(
                 accounts: visibleAccounts,
                 totalCount: accounts.length,
               ),
             ),
             const SizedBox(height: 16),
-            _entry(6, _BudgetSummaryCard(summary: summary.budgetSummary)),
+            _entry(7, _BudgetSummaryCard(summary: summary.budgetSummary)),
           ],
         ),
       ),
@@ -136,6 +149,272 @@ class _HomeDashboardHeader extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary,
         ),
       ],
+    );
+  }
+}
+
+class _HomeThemeSignalPanel extends StatelessWidget {
+  const _HomeThemeSignalPanel({required this.summary, required this.settings});
+
+  final HomeSummary summary;
+  final AppThemeSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = settings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final familyActive = summary.familySummary.members.isNotEmpty;
+    final budgetActive = summary.budgetSummary.totalAmount > 0;
+    return PremiumSurface(
+      key: const ValueKey('home-theme-signal-panel'),
+      accentColor: palette.seedColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.dashboard_customize_outlined,
+                color: palette.seedColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '主题仪表盘',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '当前模板同步首页、家庭账本、AI 报告和财务语义色。',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _HomePaletteSwatches(palette: palette),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _HomeSignalTile(
+                  label: '当前主题',
+                  value: palette.label,
+                  icon: Icons.palette_outlined,
+                  color: palette.seedColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _HomeSignalTile(
+                  label: '现金流',
+                  value: _cashFlowSignalLabel(summary.overview),
+                  icon: Icons.monitor_heart_outlined,
+                  color: summary.overview.balance >= 0
+                      ? financeColors.income
+                      : financeColors.expense,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _HomeSignalChip(
+                  label: budgetActive ? '预算已接入' : '预算待设置',
+                  icon: Icons.savings_outlined,
+                  color: budgetActive
+                      ? financeColors.warning
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HomeSignalChip(
+                  label: familyActive ? '家庭协同中' : '私人模式',
+                  icon: Icons.diversity_3_outlined,
+                  color: familyActive
+                      ? colorScheme.tertiary
+                      : palette.assetColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeSignalTile extends StatelessWidget {
+  const _HomeSignalTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 74),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeSignalChip extends StatelessWidget {
+  const _HomeSignalChip({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 40),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.08),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomePaletteSwatches extends StatelessWidget {
+  const _HomePaletteSwatches({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      palette.seedColor,
+      palette.assetColor,
+      palette.incomeColor,
+      palette.expenseColor,
+    ];
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        children: [
+          for (var index = 0; index < colors.length; index += 1)
+            Positioned(
+              left: (index % 2) * 20,
+              top: (index ~/ 2) * 20,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: colors[index],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.surface,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

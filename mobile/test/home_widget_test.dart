@@ -6,6 +6,7 @@ import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('HomePage', () {
@@ -30,9 +31,13 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
+      expect(find.text('主题仪表盘'), findsOneWidget);
+      expect(find.text('当前主题'), findsOneWidget);
+      expect(find.text('静谧墨绿'), findsOneWidget);
+      expect(find.text('私人模式'), findsOneWidget);
       expect(find.text('暂无账户，请先创建账户'), findsOneWidget);
       expect(find.text('本月已记 0 笔'), findsOneWidget);
-      expect(find.text('暂无现金流'), findsOneWidget);
+      expect(find.text('暂无现金流'), findsAtLeastNWidgets(1));
       expect(find.text('等待首笔记录'), findsOneWidget);
       expect(find.text('本月暂未设置预算'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
@@ -65,17 +70,27 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
+      expect(find.text('主题仪表盘'), findsOneWidget);
+      expect(find.text('当前模板同步首页、家庭账本、AI 报告和财务语义色。'), findsOneWidget);
+      expect(find.text('当前主题'), findsOneWidget);
+      expect(find.text('静谧墨绿'), findsOneWidget);
+      expect(find.text('预算已接入'), findsOneWidget);
       expect(find.text('本月现金流'), findsOneWidget);
-      expect(find.text('现金流充沛'), findsOneWidget);
+      expect(find.text('现金流充沛'), findsAtLeastNWidgets(1));
       expect(find.text('结余率 60%'), findsOneWidget);
       expect(find.text('本月趋势已同步'), findsOneWidget);
       expect(find.text('预算摘要'), findsOneWidget);
       expect(find.text('快速记账'), findsOneWidget);
       expect(find.text('家庭支出'), findsOneWidget);
+      expect(find.text('家庭协同中'), findsOneWidget);
       expect(find.text('成员A'), findsOneWidget);
       expect(find.text('¥320.00'), findsWidgets);
       expect(find.byType(PremiumSurface), findsWidgets);
       expect(find.byKey(const Key('family-home-summary-card')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-theme-signal-panel')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('首页核心财务卡跟随主题色模板', (tester) async {
@@ -86,6 +101,7 @@ void main() {
         find.byType(FinanceHeroCard).first,
       );
       expect(hero.accentColor, AppThemePalette.graphite.assetColor);
+      expect(find.text('石墨蓝'), findsOneWidget);
     });
 
     testWidgets('首页家庭摘要跟随主题色模板', (tester) async {
@@ -125,6 +141,7 @@ Future<void> _pumpPage(
   _FakeHomeRepository repository, {
   AppThemePalette palette = AppThemePalette.teal,
 }) async {
+  SharedPreferences.setMockInitialValues({'app_theme_palette': palette.id});
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);

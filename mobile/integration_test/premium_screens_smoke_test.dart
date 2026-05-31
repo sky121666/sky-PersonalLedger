@@ -264,15 +264,25 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.text('财务控制台'), findsOneWidget);
+          expect(find.text('主题仪表盘'), findsOneWidget);
+          expect(find.text('当前主题'), findsOneWidget);
+          expect(find.text('预算已接入'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('home-theme-signal-panel')),
+            findsOneWidget,
+          );
           expect(find.text('净资产'), findsOneWidget);
-          expect(find.text('本月现金流'), findsOneWidget);
-          expect(find.text('快速记账'), findsOneWidget);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
             'home-dashboard-top-${variant.name}',
           );
+
+          await tester.scrollUntilVisible(find.text('快速记账'), 260);
+          expect(find.text('快速记账'), findsOneWidget);
+          await tester.scrollUntilVisible(find.text('本月现金流'), 260);
+          expect(find.text('本月现金流'), findsOneWidget);
 
           await tester.scrollUntilVisible(find.text('家庭支出'), 320);
           expect(find.text('家庭支出'), findsOneWidget);
