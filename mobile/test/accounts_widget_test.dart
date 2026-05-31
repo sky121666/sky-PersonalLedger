@@ -58,6 +58,9 @@ void main() {
       expect(find.text('负债承压'), findsOneWidget);
       expect(find.text('资产占比'), findsOneWidget);
       expect(find.text('负债占比'), findsOneWidget);
+      expect(find.text('资产账户'), findsOneWidget);
+      expect(find.text('负债账户'), findsOneWidget);
+      expect(find.text('2 个'), findsOneWidget);
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
     });
 

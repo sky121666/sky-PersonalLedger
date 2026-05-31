@@ -212,6 +212,10 @@ class _AccountSummaryCard extends StatelessWidget {
     final activeCount = result.accounts
         .where((item) => !item.isArchived)
         .length;
+    final activeDebtCount = result.accounts
+        .where((item) => !item.isArchived && _isDebtAccount(item.type))
+        .length;
+    final activeAssetCount = activeCount - activeDebtCount;
     return Semantics(
       label: '净资产 ${_formatMoney(result.netAssets)}',
       child: PremiumSurface(
@@ -267,16 +271,16 @@ class _AccountSummaryCard extends StatelessWidget {
                   color: financeColors.expense,
                 ),
                 MetricPill(
-                  label: '活跃账户',
-                  value: '$activeCount 个',
+                  label: '资产账户',
+                  value: '$activeAssetCount 个',
                   icon: Icons.account_balance_wallet_outlined,
                   color: colorScheme.primary,
                 ),
                 MetricPill(
-                  label: '全部账户',
-                  value: '${result.accounts.length} 个',
-                  icon: Icons.grid_view_outlined,
-                  color: colorScheme.outline,
+                  label: '负债账户',
+                  value: '$activeDebtCount 个',
+                  icon: Icons.request_quote_outlined,
+                  color: financeColors.expense,
                 ),
               ],
             ),
