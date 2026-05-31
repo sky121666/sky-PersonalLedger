@@ -2,6 +2,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/data_management/data/data_management_repository.dart';
 import 'package:personal_ledger/features/data_management/presentation/data_management_page.dart';
 
@@ -11,6 +13,8 @@ void main() {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
+      expect(find.text('数据保险库'), findsOneWidget);
+      expect(find.text('导出、恢复和迁移数据前先确认目标文件来源。'), findsOneWidget);
       await tester.tap(find.text('下载备份'));
       await tester.pumpAndSettle();
 
@@ -104,14 +108,23 @@ void main() {
       expect(find.textContaining('auto_backup_user1'), findsOneWidget);
       expect(repository.getAutoBackupOverviewCalls, 2);
     });
+
+    testWidgets('数据管理页使用高级表面和分段入场动效', (tester) async {
+      final repository = _FakeDataManagementRepository();
+      await _pumpPage(tester, repository, physicalSize: const Size(1200, 4000));
+
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(5));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(6));
+    });
   });
 }
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeDataManagementRepository repository,
-) async {
-  tester.view.physicalSize = const Size(1200, 1600);
+  _FakeDataManagementRepository repository, {
+  Size physicalSize = const Size(1200, 1600),
+}) async {
+  tester.view.physicalSize = physicalSize;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);

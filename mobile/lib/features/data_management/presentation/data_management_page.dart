@@ -6,6 +6,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../data/data_management_repository.dart';
 
 class DataManagementPage extends ConsumerStatefulWidget {
@@ -51,96 +52,119 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
-            _DataManagementHero(
-              isBusy: _isBusy,
-              autoBackupEnabled: _autoBackupSettings.enabled,
-              backupCount: _autoBackupFiles.length,
-              maxBackups: _autoBackupSettings.maxBackups,
+            StaggeredEntrance(
+              index: 0,
+              child: _DataManagementHero(
+                isBusy: _isBusy,
+                autoBackupEnabled: _autoBackupSettings.enabled,
+                backupCount: _autoBackupFiles.length,
+                maxBackups: _autoBackupSettings.maxBackups,
+              ),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
-              _MessagePanel(
-                icon: Icons.error_outline,
-                message: _errorMessage!,
-                isError: true,
+              StaggeredEntrance(
+                index: 1,
+                child: _MessagePanel(
+                  icon: Icons.error_outline,
+                  message: _errorMessage!,
+                  isError: true,
+                ),
               ),
             ],
             if (_lastSavedPath != null) ...[
               const SizedBox(height: 12),
-              _MessagePanel(
-                icon: Icons.folder_outlined,
-                message: '文件已保存到 $_lastSavedPath',
+              StaggeredEntrance(
+                index: 1,
+                child: _MessagePanel(
+                  icon: Icons.folder_outlined,
+                  message: '文件已保存到 $_lastSavedPath',
+                ),
               ),
             ],
             const SizedBox(height: 16),
-            Text(
-              '数据出口',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            StaggeredEntrance(
+              index: 2,
+              child: const _DataSectionHeader(
+                icon: Icons.output_outlined,
+                title: '数据出口',
+                subtitle: '导出、恢复和迁移数据前先确认目标文件来源。',
+              ),
             ),
             const SizedBox(height: 10),
-            _ActionCard(
-              icon: Icons.backup_outlined,
-              title: '完整备份',
-              subtitle: '导出账户、分类、交易、预算、提醒、借贷、标签和个人资料。',
-              buttonLabel: '下载备份',
-              busy: _busyAction == 'backup',
-              enabled: !_isBusy,
-              onPressed: _downloadBackup,
+            StaggeredEntrance(
+              index: 3,
+              child: _ActionCard(
+                icon: Icons.backup_outlined,
+                title: '完整备份',
+                subtitle: '导出账户、分类、交易、预算、提醒、借贷、标签和个人资料。',
+                buttonLabel: '下载备份',
+                busy: _busyAction == 'backup',
+                enabled: !_isBusy,
+                onPressed: _downloadBackup,
+              ),
             ),
             const SizedBox(height: 12),
-            _ActionCard(
-              icon: Icons.table_view_outlined,
-              title: '交易 CSV',
-              subtitle: '导出当前全部交易明细，方便用表格软件继续分析。',
-              buttonLabel: '导出 CSV',
-              busy: _busyAction == 'csv',
-              enabled: !_isBusy,
-              onPressed: _exportTransactionsCsv,
+            StaggeredEntrance(
+              index: 4,
+              child: _ActionCard(
+                icon: Icons.table_view_outlined,
+                title: '交易 CSV',
+                subtitle: '导出当前全部交易明细，方便用表格软件继续分析。',
+                buttonLabel: '导出 CSV',
+                busy: _busyAction == 'csv',
+                enabled: !_isBusy,
+                onPressed: _exportTransactionsCsv,
+              ),
             ),
             const SizedBox(height: 12),
-            _ActionCard(
-              icon: Icons.restore_outlined,
-              title: '恢复备份',
-              subtitle: '用备份 JSON 覆盖当前账户下的数据。恢复前建议先下载一份最新备份。',
-              buttonLabel: '选择备份恢复',
-              busy: _busyAction == 'restore',
-              enabled: !_isBusy,
-              isDanger: true,
-              onPressed: _pickAndRestoreBackup,
+            StaggeredEntrance(
+              index: 5,
+              child: _ActionCard(
+                icon: Icons.restore_outlined,
+                title: '恢复备份',
+                subtitle: '用备份 JSON 覆盖当前账户下的数据。恢复前建议先下载一份最新备份。',
+                buttonLabel: '选择备份恢复',
+                busy: _busyAction == 'restore',
+                enabled: !_isBusy,
+                isDanger: true,
+                onPressed: _pickAndRestoreBackup,
+              ),
             ),
             const SizedBox(height: 12),
-            _AutoBackupCard(
-              settings: _autoBackupSettings,
-              files: _autoBackupFiles,
-              maxBackupsController: _maxBackupsController,
-              loading: _autoBackupLoading || _busyAction == 'auto-backup',
-              enabled: !_isBusy,
-              onEnabledChanged: (value) {
-                setState(() {
-                  _autoBackupSettings = _autoBackupSettings.copyWith(
-                    enabled: value,
-                  );
-                });
-              },
-              onFrequencyChanged: (value) {
-                setState(() {
-                  _autoBackupSettings = _autoBackupSettings.copyWith(
-                    frequency: value,
-                  );
-                });
-              },
-              onHourChanged: (value) {
-                setState(() {
-                  _autoBackupSettings = _autoBackupSettings.copyWith(
-                    hour: value,
-                  );
-                });
-              },
-              onSave: _saveAutoBackupSettings,
-              onTrigger: _triggerAutoBackup,
-              onReload: _loadAutoBackup,
+            StaggeredEntrance(
+              index: 6,
+              child: _AutoBackupCard(
+                settings: _autoBackupSettings,
+                files: _autoBackupFiles,
+                maxBackupsController: _maxBackupsController,
+                loading: _autoBackupLoading || _busyAction == 'auto-backup',
+                enabled: !_isBusy,
+                onEnabledChanged: (value) {
+                  setState(() {
+                    _autoBackupSettings = _autoBackupSettings.copyWith(
+                      enabled: value,
+                    );
+                  });
+                },
+                onFrequencyChanged: (value) {
+                  setState(() {
+                    _autoBackupSettings = _autoBackupSettings.copyWith(
+                      frequency: value,
+                    );
+                  });
+                },
+                onHourChanged: (value) {
+                  setState(() {
+                    _autoBackupSettings = _autoBackupSettings.copyWith(
+                      hour: value,
+                    );
+                  });
+                },
+                onSave: _saveAutoBackupSettings,
+                onTrigger: _triggerAutoBackup,
+                onReload: _loadAutoBackup,
+              ),
             ),
           ],
         ),
@@ -346,6 +370,54 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         setState(() => _busyAction = null);
       }
     }
+  }
+}
+
+class _DataSectionHeader extends StatelessWidget {
+  const _DataSectionHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        IconBadge(
+          icon: icon,
+          color: colorScheme.primary,
+          size: 36,
+          iconSize: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
