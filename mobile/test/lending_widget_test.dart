@@ -37,6 +37,18 @@ void main() {
       expect(find.text('50%'), findsOneWidget);
       expect(find.text('最大敞口'), findsOneWidget);
       expect(find.text('张三 · ¥800.00'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('lending-recovery-flow-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('回款动线'), findsOneWidget);
+      expect(find.text('流转中'), findsOneWidget);
+      expect(find.text('建档'), findsOneWidget);
+      expect(find.text('凭证'), findsAtLeastNWidgets(1));
+      expect(find.text('还款'), findsOneWidget);
+      expect(find.text('结清'), findsAtLeastNWidgets(1));
+      expect(find.text('2 笔'), findsOneWidget);
+      expect(find.text('1 份'), findsOneWidget);
       expect(find.text('应收'), findsAtLeastNWidgets(1));
       expect(find.text('¥1,200.00'), findsAtLeastNWidgets(1));
       expect(find.text('结清率'), findsOneWidget);

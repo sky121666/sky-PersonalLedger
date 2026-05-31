@@ -78,11 +78,19 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                 const SizedBox(height: 12),
                 StaggeredEntrance(
                   index: 2,
-                  child: _SummarySection(summary: dashboard.summary),
+                  child: _LendingRecoveryFlowPanel(
+                    dashboard: dashboard,
+                    palette: themeSettings.palette,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 StaggeredEntrance(
                   index: 3,
+                  child: _SummarySection(summary: dashboard.summary),
+                ),
+                const SizedBox(height: 12),
+                StaggeredEntrance(
+                  index: 4,
                   child: _QuickActions(
                     busy: _isBusy,
                     onCreate: (type) =>
@@ -91,7 +99,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                 ),
                 const SizedBox(height: 10),
                 StaggeredEntrance(
-                  index: 4,
+                  index: 5,
                   child: SegmentedButton<_LendingTab>(
                     segments: const [
                       ButtonSegment(
@@ -120,7 +128,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                 _LendingList(
                   lendings: _itemsForTab(dashboard),
                   tab: _tab,
-                  startIndex: 5,
+                  startIndex: 6,
                   busyAction: _busyAction,
                   onEdit: (item) => _openEditForm(item, dashboard.accounts),
                   onDelete: _deleteLending,
@@ -745,6 +753,214 @@ class _RiskRadarMetric extends StatelessWidget {
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w900,
               fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LendingRecoveryFlowPanel extends StatelessWidget {
+  const _LendingRecoveryFlowPanel({
+    required this.dashboard,
+    required this.palette,
+  });
+
+  final LendingDashboard dashboard;
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final active = dashboard.lendings.where((item) => !item.isSettled).toList();
+    final settled = dashboard.lendings.where((item) => item.isSettled).length;
+    final withEvidence = dashboard.lendings
+        .where((item) => item.evidence.trim().isNotEmpty)
+        .length;
+    final averageProgress = active.isEmpty
+        ? 0
+        : (active.fold<double>(0, (sum, item) => sum + item.progress) /
+                  active.length)
+              .round();
+    final flowColor = active.any((item) => item.isOverdue)
+        ? financeColors.expense
+        : averageProgress >= 50
+        ? financeColors.income
+        : palette.assetColor;
+    final flowLabel = active.isEmpty
+        ? '已收口'
+        : active.any((item) => item.isOverdue)
+        ? '需跟进'
+        : '流转中';
+
+    return PremiumSurface(
+      key: const ValueKey('lending-recovery-flow-panel'),
+      accentColor: flowColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.route_outlined,
+                color: flowColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '回款动线',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '从建档、凭证、还款到结清保持同一条关系链',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _LendingHubPill(
+                icon: active.isEmpty
+                    ? Icons.check_circle_outline
+                    : Icons.sync_alt_outlined,
+                label: flowLabel,
+                color: flowColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _RecoveryFlowStep(
+                  icon: Icons.person_add_alt_outlined,
+                  label: '建档',
+                  value: '${dashboard.lendings.length} 笔',
+                  color: palette.seedColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _RecoveryFlowStep(
+                  icon: Icons.attach_file_outlined,
+                  label: '凭证',
+                  value: '$withEvidence 份',
+                  color: withEvidence > 0
+                      ? colorScheme.tertiary
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _RecoveryFlowStep(
+                  icon: Icons.payments_outlined,
+                  label: '还款',
+                  value: '$averageProgress%',
+                  color: averageProgress >= 50
+                      ? financeColors.income
+                      : financeColors.warning,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _RecoveryFlowStep(
+                  icon: Icons.verified_outlined,
+                  label: '结清',
+                  value: '$settled 笔',
+                  color: financeColors.income,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 8,
+              value: (averageProgress / 100).clamp(0.0, 1.0),
+              color: flowColor,
+              backgroundColor: colorScheme.outlineVariant.withValues(
+                alpha: 0.42,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecoveryFlowStep extends StatelessWidget {
+  const _RecoveryFlowStep({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
