@@ -27,6 +27,7 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), '123');
+      await _scrollIntoTapArea(tester, find.text('登录'));
       await tester.tap(find.text('登录'));
       await tester.pump();
 
@@ -50,6 +51,7 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), '123456');
+      await _scrollIntoTapArea(tester, find.text('登录'));
       await tester.tap(find.text('登录'));
       await tester.pump();
 
@@ -59,6 +61,15 @@ void main() {
       expect(find.text('私有部署'), findsOneWidget);
       expect(find.text('设备会话'), findsOneWidget);
       expect(find.text('财务数据'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('auth-experience-deck')),
+        findsOneWidget,
+      );
+      expect(find.text('跨端安全控制台'), findsOneWidget);
+      expect(find.text('iOS 动效'), findsOneWidget);
+      expect(find.text('Android 状态层'), findsOneWidget);
+      expect(find.text('主题色联动'), findsOneWidget);
+      expect(find.text('私有服务'), findsOneWidget);
     });
   });
 
@@ -79,6 +90,7 @@ void main() {
       final fields = find.byType(TextField);
       await tester.enterText(fields.at(0), '1234567');
       await tester.enterText(fields.at(1), '1234567');
+      await _scrollIntoTapArea(tester, find.text('完成设置'));
       await tester.tap(find.text('完成设置'));
       await tester.pump();
 
@@ -103,6 +115,7 @@ void main() {
       final fields = find.byType(TextField);
       await tester.enterText(fields.at(0), '12345678');
       await tester.enterText(fields.at(1), '87654321');
+      await _scrollIntoTapArea(tester, find.text('完成设置'));
       await tester.tap(find.text('完成设置'));
       await tester.pump();
 
@@ -126,6 +139,7 @@ void main() {
       final fields = find.byType(TextField);
       await tester.enterText(fields.at(0), '12345678');
       await tester.enterText(fields.at(1), '12345678');
+      await _scrollIntoTapArea(tester, find.text('完成设置'));
       await tester.tap(find.text('完成设置'));
       await tester.pump();
 
@@ -136,6 +150,14 @@ void main() {
       expect(find.text('管理员保护'), findsOneWidget);
       expect(find.text('改密退出'), findsOneWidget);
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(
+        find.byKey(const ValueKey('auth-experience-deck')),
+        findsOneWidget,
+      );
+      expect(find.text('跨端安全控制台'), findsOneWidget);
+      expect(find.text('iOS 动效'), findsOneWidget);
+      expect(find.text('Android 状态层'), findsOneWidget);
+      expect(find.text('主题色联动'), findsOneWidget);
     });
   });
 
@@ -231,6 +253,23 @@ Future<_TestAuthController> _pumpAuthPage(
   );
 
   return controller;
+}
+
+Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    220,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  final center = tester.getCenter(finder);
+  if (center.dy > 520) {
+    await tester.drag(
+      find.byType(Scrollable).first,
+      Offset(0, -(center.dy - 440)),
+    );
+    await tester.pumpAndSettle();
+  }
 }
 
 class _TestAuthController extends AuthController {

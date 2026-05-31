@@ -12,6 +12,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
 import 'package:personal_ledger/features/account_logs/presentation/account_log_page.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
@@ -19,6 +20,10 @@ import 'package:personal_ledger/features/accounts/data/account.dart'
     as ledger_account;
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
 import 'package:personal_ledger/features/accounts/presentation/accounts_page.dart';
+import 'package:personal_ledger/features/auth/application/auth_controller.dart';
+import 'package:personal_ledger/features/auth/data/auth_repository.dart';
+import 'package:personal_ledger/features/auth/presentation/login_page.dart';
+import 'package:personal_ledger/features/auth/presentation/setup_password_page.dart';
 import 'package:personal_ledger/features/ai/data/ai_report_repository.dart';
 import 'package:personal_ledger/features/ai/presentation/ai_reports_page.dart';
 import 'package:personal_ledger/features/api_tokens/data/api_token_repository.dart';
@@ -94,6 +99,93 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('shell-quick-entry'), findsOneWidget);
         _expectStableVisualFrame(tester);
+      });
+
+      testWidgets('renders premium auth entry screens (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+              authControllerProvider.overrideWith((ref) {
+                return _PreviewAuthController(
+                  ref,
+                  state: const AuthState(
+                    stage: AuthStage.loginRequired,
+                    serverUrl: 'https://ledger.example.com',
+                    initialized: true,
+                  ),
+                );
+              }),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const LoginPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('欢迎回来'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('auth-experience-deck')),
+          findsOneWidget,
+        );
+        expect(find.text('跨端安全控制台'), findsOneWidget);
+        expect(find.text('iOS 动效'), findsOneWidget);
+        expect(find.text('Android 状态层'), findsOneWidget);
+        expect(find.text('主题色联动'), findsOneWidget);
+        expect(find.text('私有服务'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'auth-login-entry-${variant.name}',
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+              authControllerProvider.overrideWith((ref) {
+                return _PreviewAuthController(
+                  ref,
+                  state: const AuthState(
+                    stage: AuthStage.setupRequired,
+                    serverUrl: 'https://ledger.example.com',
+                    initialized: false,
+                  ),
+                );
+              }),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const SetupPasswordPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('首次设置密码'), findsOneWidget);
+        expect(find.text('初始化保护'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('auth-experience-deck')),
+          findsOneWidget,
+        );
+        expect(find.text('只初始化一次'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'auth-setup-entry-${variant.name}',
+        );
       });
 
       testWidgets(
@@ -1164,6 +1256,56 @@ Future<List<int>> _takeRepaintBoundaryScreenshot() async {
     throw StateError('Screenshot byte data is empty');
   }
   return data.buffer.asUint8List();
+}
+
+class _PreviewAuthController extends AuthController {
+  _PreviewAuthController(super.ref, {required AuthState state}) {
+    this.state = state;
+  }
+
+  @override
+  Future<void> bootstrap() async {}
+
+  @override
+  Future<void> login(String password) async {
+    state = state.copyWith(stage: AuthStage.authenticated, clearError: true);
+  }
+
+  @override
+  Future<void> setupPassword(String password) async {
+    state = state.copyWith(stage: AuthStage.authenticated, clearError: true);
+  }
+
+  @override
+  Future<void> changeServer() async {
+    state = const AuthState(stage: AuthStage.serverRequired);
+  }
+}
+
+class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<AuthStatus> getStatus() async {
+    return const AuthStatus(initialized: true);
+  }
+
+  @override
+  Future<AuthTokenPair> init(String password) async {
+    return const AuthTokenPair(
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    );
+  }
+
+  @override
+  Future<AuthTokenPair> login(String password) async {
+    return const AuthTokenPair(
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    );
+  }
+
+  @override
+  Future<void> logout() async {}
 }
 
 const _familyMembers = [
