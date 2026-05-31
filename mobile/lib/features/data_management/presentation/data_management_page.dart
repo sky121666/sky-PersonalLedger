@@ -898,6 +898,8 @@ class _AutoBackupCard extends StatelessWidget {
             onChanged: onEnabledChanged,
           ),
           const SizedBox(height: 14),
+          _AutoBackupOrchestrationPanel(settings: settings, files: files),
+          const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: SegmentedButton<String>(
@@ -1025,6 +1027,218 @@ class _AutoBackupCard extends StatelessWidget {
             ],
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _AutoBackupOrchestrationPanel extends StatelessWidget {
+  const _AutoBackupOrchestrationPanel({
+    required this.settings,
+    required this.files,
+  });
+
+  final AutoBackupSettings settings;
+  final List<AutoBackupFile> files;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final retentionRatio = settings.maxBackups <= 0
+        ? 0.0
+        : (files.length / settings.maxBackups).clamp(0.0, 1.0).toDouble();
+    final accent = settings.enabled ? financeColors.asset : colorScheme.outline;
+    return AnimatedContainer(
+      key: const ValueKey('auto-backup-orchestration-panel'),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accent.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.075,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.account_tree_outlined, color: accent, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '自动备份编排',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _AutoBackupStatusPill(
+                label: settings.enabled ? '计划运行' : '待启用',
+                color: accent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _AutoBackupOrchestrationTile(
+                  icon: Icons.event_repeat_outlined,
+                  label: '频率',
+                  value: _frequencyLabel(settings.frequency),
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AutoBackupOrchestrationTile(
+                  icon: Icons.access_time_filled_outlined,
+                  label: '执行',
+                  value: '${settings.hour.toString().padLeft(2, '0')}:00',
+                  color: colorScheme.tertiary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AutoBackupOrchestrationTile(
+                  icon: Icons.inventory_2_outlined,
+                  label: '留存',
+                  value: '${files.length}/${settings.maxBackups}',
+                  color: retentionRatio >= 0.9
+                      ? financeColors.warning
+                      : financeColors.income,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 7,
+              value: retentionRatio,
+              color: retentionRatio >= 0.9
+                  ? financeColors.warning
+                  : financeColors.income,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _frequencyLabel(String frequency) {
+    return switch (frequency) {
+      'weekly' => '每周',
+      'monthly' => '每月',
+      _ => '每天',
+    };
+  }
+}
+
+class _AutoBackupOrchestrationTile extends StatelessWidget {
+  const _AutoBackupOrchestrationTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AutoBackupStatusPill extends StatelessWidget {
+  const _AutoBackupStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28, maxWidth: 118),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

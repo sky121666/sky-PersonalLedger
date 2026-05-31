@@ -179,6 +179,16 @@ void main() {
       expect(find.text('JSON 全量'), findsAtLeastNWidgets(1));
       expect(find.text('表格分析'), findsOneWidget);
       expect(find.text('覆盖恢复'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('auto-backup-orchestration-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('自动备份编排'), findsOneWidget);
+      expect(find.text('待启用'), findsAtLeastNWidgets(1));
+      expect(find.text('频率'), findsOneWidget);
+      expect(find.text('执行'), findsOneWidget);
+      expect(find.text('留存'), findsOneWidget);
+      expect(find.text('1/10'), findsOneWidget);
       expect(find.text('风险控制'), findsAtLeastNWidgets(1));
       expect(find.text('安全导出'), findsAtLeastNWidgets(1));
       expect(find.text('服务器留存'), findsOneWidget);
