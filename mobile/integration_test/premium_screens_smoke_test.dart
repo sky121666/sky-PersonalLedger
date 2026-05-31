@@ -45,7 +45,9 @@ import 'package:personal_ledger/features/lendings/presentation/lending_page.dart
 import 'package:personal_ledger/features/main/presentation/main_shell_page.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/notifications/presentation/notification_settings_page.dart';
+import 'package:personal_ledger/features/profile/data/profile_repository.dart';
 import 'package:personal_ledger/features/profile/presentation/profile_page.dart';
+import 'package:personal_ledger/features/profile/presentation/profile_settings_page.dart';
 import 'package:personal_ledger/features/reminders/data/reminder_repository.dart';
 import 'package:personal_ledger/features/reminders/presentation/reminder_page.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
@@ -1193,6 +1195,44 @@ void main() {
           );
         },
       );
+
+      testWidgets('renders premium profile identity rail (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              profileRepositoryProvider.overrideWithValue(
+                _FakeProfileRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const ProfileSettingsPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('个人资料'), findsOneWidget);
+        expect(find.text('身份状态轨道'), findsOneWidget);
+        expect(find.text('身份可识别'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('profile-identity-rail')),
+          findsOneWidget,
+        );
+        expect(find.text('资料完整度'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'profile-identity-rail-${variant.name}',
+        );
+      });
     }
   });
 }
@@ -2504,6 +2544,39 @@ class _FakeStatisticsRepository implements StatisticsRepository {
   @override
   Future<TrendResponse?> getTrend(String month) async {
     return _statisticsDashboard.trend;
+  }
+}
+
+class _FakeProfileRepository implements ProfileRepository {
+  UserProfile profile = const UserProfile(
+    id: 1,
+    username: 'admin',
+    nickname: 'Sky',
+    email: 'sky@example.com',
+    avatar: '',
+    bio: '记账中',
+    createdAt: '2026-05-01',
+    lastLoginAt: '2026-05-17 09:00:00',
+  );
+
+  @override
+  Future<UserProfile> getProfile() async {
+    return profile;
+  }
+
+  @override
+  Future<UserProfile> updateProfile(UpdateProfileRequest request) async {
+    profile = UserProfile(
+      id: profile.id,
+      username: profile.username,
+      nickname: request.nickname,
+      email: request.email,
+      avatar: request.avatar,
+      bio: request.bio,
+      createdAt: profile.createdAt,
+      lastLoginAt: profile.lastLoginAt,
+    );
+    return profile;
   }
 }
 

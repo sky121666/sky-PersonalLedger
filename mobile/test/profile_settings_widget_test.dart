@@ -33,9 +33,18 @@ void main() {
       expect(find.text('账号 ID'), findsOneWidget);
       expect(find.text('#1'), findsOneWidget);
       expect(find.text('联系方式'), findsOneWidget);
-      expect(find.text('已绑定'), findsOneWidget);
+      expect(find.text('已绑定'), findsWidgets);
       expect(find.text('登录状态'), findsOneWidget);
-      expect(find.text('有记录'), findsOneWidget);
+      expect(find.text('有记录'), findsWidgets);
+      expect(find.text('身份状态轨道'), findsOneWidget);
+      expect(find.text('身份可识别'), findsOneWidget);
+      expect(find.text('身份'), findsOneWidget);
+      expect(find.text('联系'), findsOneWidget);
+      expect(find.text('登录'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-identity-rail')),
+        findsOneWidget,
+      );
       expect(find.text('资料完整度'), findsOneWidget);
       expect(find.text('3/4'), findsOneWidget);
       expect(find.text('昵称'), findsAtLeastNWidgets(1));
@@ -50,6 +59,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('资料完整度'), findsOneWidget);
+      expect(find.text('资料待完善'), findsOneWidget);
       expect(find.text('0/4'), findsOneWidget);
     });
 

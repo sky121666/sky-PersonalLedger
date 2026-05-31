@@ -259,9 +259,164 @@ class _ProfileHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          _ProfileIdentityRail(profile: profile),
+          const SizedBox(height: 12),
           _ProfileCompletenessStrip(profile: profile),
         ],
       ),
+    );
+  }
+}
+
+class _ProfileIdentityRail extends StatelessWidget {
+  const _ProfileIdentityRail({required this.profile});
+
+  final UserProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Container(
+      key: const ValueKey('profile-identity-rail'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '身份状态轨道',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              Text(
+                profile.email.trim().isEmpty ? '资料待完善' : '身份可识别',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: profile.email.trim().isEmpty
+                      ? financeColors.warning
+                      : financeColors.income,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileIdentityNode(
+                  icon: Icons.person_pin_circle_outlined,
+                  label: '身份',
+                  value: profile.displayName,
+                  color: colorScheme.primary,
+                ),
+              ),
+              _ProfileIdentityArrow(color: colorScheme.outline),
+              Expanded(
+                child: _ProfileIdentityNode(
+                  icon: Icons.alternate_email_outlined,
+                  label: '联系',
+                  value: profile.email.trim().isEmpty ? '未绑定' : '已绑定',
+                  color: financeColors.asset,
+                ),
+              ),
+              _ProfileIdentityArrow(color: colorScheme.outline),
+              Expanded(
+                child: _ProfileIdentityNode(
+                  icon: Icons.history_toggle_off_outlined,
+                  label: '登录',
+                  value: (profile.lastLoginAt?.isNotEmpty ?? false)
+                      ? '有记录'
+                      : '待同步',
+                  color: financeColors.income,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileIdentityNode extends StatelessWidget {
+  const _ProfileIdentityNode({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              color.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.18
+                    : 0.10,
+              ),
+              colorScheme.surface,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.18)),
+          ),
+          child: Icon(icon, color: color, size: 21),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileIdentityArrow extends StatelessWidget {
+  const _ProfileIdentityArrow({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 34),
+      child: Icon(Icons.chevron_right_rounded, color: color, size: 22),
     );
   }
 }
