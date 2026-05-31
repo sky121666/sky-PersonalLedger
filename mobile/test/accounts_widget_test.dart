@@ -66,12 +66,16 @@ void main() {
         find.byKey(const ValueKey('account-portfolio-matrix-panel')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('account-health-score-panel')),
+        findsOneWidget,
+      );
       expect(find.text('资产控制中枢'), findsOneWidget);
       expect(find.text('静谧墨绿'), findsOneWidget);
       expect(find.text('活跃 3 个'), findsOneWidget);
       expect(find.text('无归档'), findsOneWidget);
       expect(find.text('流动账户'), findsOneWidget);
-      expect(find.text('负债暴露'), findsOneWidget);
+      expect(find.text('负债暴露'), findsAtLeastNWidgets(1));
       expect(find.text('资产路径'), findsOneWidget);
       expect(find.text('账户资产矩阵'), findsOneWidget);
       expect(find.text('流动优先'), findsOneWidget);
@@ -80,14 +84,21 @@ void main() {
       expect(find.text('主资产账户'), findsOneWidget);
       expect(find.text('手机钱包'), findsOneWidget);
       expect(find.text('主要负债'), findsOneWidget);
-      expect(find.text('账户覆盖'), findsOneWidget);
+      expect(find.text('账户覆盖'), findsAtLeastNWidgets(1));
       expect(find.text('3 个活跃'), findsOneWidget);
-      expect(find.text('2 资产 / 1 负债'), findsOneWidget);
+      expect(find.text('2 资产 / 1 负债'), findsAtLeastNWidgets(1));
       expect(find.text('结构比例'), findsOneWidget);
       expect(find.text('资产占比'), findsOneWidget);
       expect(find.text('负债占比'), findsOneWidget);
       expect(find.text('资产账户'), findsOneWidget);
       expect(find.text('负债账户'), findsOneWidget);
+      expect(find.text('资产健康评分'), findsOneWidget);
+      expect(find.text('承压'), findsOneWidget);
+      expect(find.text('风险分'), findsOneWidget);
+      expect(find.text('2 / 4'), findsOneWidget);
+      expect(find.text('资产安全垫'), findsAtLeastNWidgets(1));
+      expect(find.text('100% 占用'), findsOneWidget);
+      expect(find.text('3 个账户'), findsAtLeastNWidgets(1));
       expect(find.text('2 个'), findsAtLeastNWidgets(1));
       expect(
         find.byKey(const ValueKey('account-card-bank-card')),

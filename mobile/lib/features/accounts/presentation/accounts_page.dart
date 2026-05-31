@@ -185,19 +185,27 @@ class _AccountContent extends ConsumerWidget {
               themePalette: themeSettings.palette,
             ),
           ),
+          const SizedBox(height: 12),
+          StaggeredEntrance(
+            index: 3,
+            child: _AccountHealthScorePanel(
+              result: result,
+              themePalette: themeSettings.palette,
+            ),
+          ),
           const SizedBox(height: 16),
           _AccountSection(
             title: '正常账户',
             accounts: activeAccounts,
             sortable: true,
-            startIndex: 3,
+            startIndex: 4,
           ),
           if (archivedAccounts.isNotEmpty) ...[
             const SizedBox(height: 16),
             _AccountSection(
               title: '已归档账户',
               accounts: archivedAccounts,
-              startIndex: activeAccounts.length + 3,
+              startIndex: activeAccounts.length + 4,
             ),
           ],
         ],
@@ -1024,6 +1032,283 @@ class _AccountMatrixTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: color,
                     fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountHealthScorePanel extends StatelessWidget {
+  const _AccountHealthScorePanel({
+    required this.result,
+    required this.themePalette,
+  });
+
+  final AccountListResult result;
+  final AppThemePalette themePalette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final activeAccounts = result.accounts
+        .where((account) => !account.isArchived)
+        .toList();
+    final assetAccounts = activeAccounts
+        .where((account) => !_isDebtAccount(account.type))
+        .toList();
+    final debtAccounts = activeAccounts
+        .where((account) => _isDebtAccount(account.type))
+        .toList();
+    final exposureRatio = result.totalAssets.abs() <= 0
+        ? 1.0
+        : (result.totalLiabilities.abs() / result.totalAssets.abs()).clamp(
+            0.0,
+            1.0,
+          );
+    final positiveNet = result.netAssets >= 0;
+    final hasAssetBase = result.totalAssets > 0;
+    final controlledDebt =
+        result.totalAssets <= 0 ||
+        result.totalLiabilities.abs() <= result.totalAssets.abs();
+    final hasActiveAccounts = activeAccounts.isNotEmpty;
+    final score = [
+      positiveNet,
+      hasAssetBase,
+      controlledDebt,
+      hasActiveAccounts,
+    ].where((item) => item).length;
+    final scoreRatio = score / 4;
+    final scoreColor = score >= 3
+        ? financeColors.income
+        : score >= 2
+        ? themePalette.warningColor
+        : financeColors.expense;
+
+    return PremiumSurface(
+      key: const ValueKey('account-health-score-panel'),
+      accentColor: scoreColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.health_and_safety_outlined,
+                color: scoreColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '资产健康评分',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      positiveNet ? '净资产形成正向安全垫' : '优先压低负债暴露，恢复资产安全垫',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _AccountControlPill(
+                icon: positiveNet
+                    ? Icons.shield_outlined
+                    : Icons.priority_high_rounded,
+                label: positiveNet ? '安全垫' : '承压',
+                color: scoreColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                scoreColor.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.18
+                      : 0.10,
+                ),
+                colorScheme.surface,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: scoreColor.withValues(alpha: 0.16)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      '风险分',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '$score / 4',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: scoreColor,
+                        fontWeight: FontWeight.w900,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    minHeight: 10,
+                    value: scoreRatio,
+                    color: scoreColor,
+                    backgroundColor: colorScheme.outlineVariant.withValues(
+                      alpha: 0.34,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth >= 420
+                  ? (constraints.maxWidth - 8) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _AccountHealthMetric(
+                    width: itemWidth,
+                    icon: Icons.account_balance_outlined,
+                    label: '资产安全垫',
+                    value: _formatMoney(result.netAssets),
+                    color: positiveNet
+                        ? financeColors.income
+                        : financeColors.expense,
+                  ),
+                  _AccountHealthMetric(
+                    width: itemWidth,
+                    icon: Icons.radar_outlined,
+                    label: '负债暴露',
+                    value: '${(exposureRatio * 100).toStringAsFixed(0)}% 占用',
+                    color: debtAccounts.isEmpty
+                        ? colorScheme.outline
+                        : financeColors.expense,
+                  ),
+                  _AccountHealthMetric(
+                    width: itemWidth,
+                    icon: Icons.hub_outlined,
+                    label: '账户覆盖',
+                    value: '${activeAccounts.length} 个账户',
+                    color: themePalette.assetColor,
+                  ),
+                  _AccountHealthMetric(
+                    width: itemWidth,
+                    icon: Icons.account_tree_outlined,
+                    label: '资产结构',
+                    value:
+                        '${assetAccounts.length} 资产 / ${debtAccounts.length} 负债',
+                    color: themePalette.warningColor,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountHealthMetric extends StatelessWidget {
+  const _AccountHealthMetric({
+    required this.width,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final double width;
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      width: width,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 82),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.15
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 21, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
