@@ -151,6 +151,13 @@ void main() {
     expect(find.text('快速切换'), findsOneWidget);
     expect(find.text('旗舰夜间使用'), findsOneWidget);
     expect(find.text('前卫数据流'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey('profile-featured-theme-aurora')),
+        matching: find.byType(Semantics),
+      ),
+      findsWidgets,
+    );
     expect(find.text('动效先锋界面'), findsOneWidget);
     expect(find.text('跨端体验预览'), findsOneWidget);
     expect(find.text('iOS 原生感'), findsAtLeastNWidgets(1));
