@@ -42,12 +42,15 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final label in _entryLabels) {
-      await tester.scrollUntilVisible(
-        find.text(label),
-        160,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text(label), findsOneWidget);
+      final labelFinder = find.text(label);
+      if (labelFinder.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(
+          labelFinder,
+          160,
+          scrollable: find.byType(Scrollable).first,
+        );
+      }
+      expect(labelFinder, findsAtLeastNWidgets(1));
     }
 
     await tester.drag(find.byType(ListView), const Offset(0, 3000));
@@ -113,6 +116,8 @@ void main() {
     expect(find.text('当前已应用：极光青'), findsOneWidget);
     expect(find.text('模板矩阵'), findsOneWidget);
     expect(find.text('12 套'), findsOneWidget);
+    expect(find.text('当前模板'), findsOneWidget);
+    expect(find.text('体验定位'), findsOneWidget);
     expect(find.text('模式控制'), findsOneWidget);
     expect(find.text('财务语义'), findsOneWidget);
     expect(find.text('4 色'), findsOneWidget);

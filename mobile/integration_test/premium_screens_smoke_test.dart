@@ -884,10 +884,15 @@ void main() {
           _expectStableVisualFrame(tester);
 
           await tester.scrollUntilVisible(
-            find.text('主题色模板'),
+            find.byKey(const ValueKey('profile-appearance-panel')),
             420,
             scrollable: find.byType(Scrollable).first,
           );
+          expect(
+            find.byKey(const ValueKey('profile-appearance-panel')),
+            findsOneWidget,
+          );
+          expect(find.text('主题色模板'), findsWidgets);
           expect(find.text('外观模式'), findsOneWidget);
           expect(find.text('石墨蓝'), findsOneWidget);
           expect(find.byType(PremiumSurface), findsWidgets);
