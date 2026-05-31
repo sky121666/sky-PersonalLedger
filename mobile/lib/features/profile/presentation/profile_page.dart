@@ -973,10 +973,89 @@ class _ThemePaletteOption extends StatelessWidget {
                     ),
                   ],
                 ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: selected
+                      ? Padding(
+                          key: const ValueKey('selected-palette-roles'),
+                          padding: const EdgeInsets.only(top: 12),
+                          child: _PaletteRoleLegend(palette: palette),
+                        )
+                      : const SizedBox.shrink(
+                          key: ValueKey('unselected-palette-roles'),
+                        ),
+                ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PaletteRoleLegend extends StatelessWidget {
+  const _PaletteRoleLegend({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _PaletteRoleChip(label: '收入色', color: palette.incomeColor),
+        _PaletteRoleChip(label: '资产色', color: palette.assetColor),
+        _PaletteRoleChip(label: '支出色', color: palette.expenseColor),
+        _PaletteRoleChip(label: '警示色', color: palette.warningColor),
+      ],
+    );
+  }
+}
+
+class _PaletteRoleChip extends StatelessWidget {
+  const _PaletteRoleChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.20
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

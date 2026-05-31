@@ -116,6 +116,10 @@ void main() {
     expect(find.text('模式控制'), findsOneWidget);
     expect(find.text('财务语义'), findsOneWidget);
     expect(find.text('4 色'), findsOneWidget);
+    expect(find.text('收入色'), findsOneWidget);
+    expect(find.text('资产色'), findsOneWidget);
+    expect(find.text('支出色'), findsOneWidget);
+    expect(find.text('警示色'), findsOneWidget);
   });
 
   testWidgets('ProfilePage 设置入口跟随主题色模板', (tester) async {
