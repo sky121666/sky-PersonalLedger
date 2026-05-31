@@ -1572,6 +1572,13 @@ class _AccountListTile extends ConsumerWidget {
                     balanceColor: balanceColor,
                     deltaColor: deltaColor,
                   ),
+                  const SizedBox(height: 12),
+                  _AccountOperationsRail(
+                    account: account,
+                    canSort: canSort,
+                    isDebt: isDebt,
+                    accentColor: color,
+                  ),
                   if (isDebt || account.remark.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Wrap(
@@ -1697,6 +1704,197 @@ class _AccountListTile extends ConsumerWidget {
         ).showSnackBar(SnackBar(content: Text('排序失败：$error')));
       }
     }
+  }
+}
+
+class _AccountOperationsRail extends StatelessWidget {
+  const _AccountOperationsRail({
+    required this.account,
+    required this.canSort,
+    required this.isDebt,
+    required this.accentColor,
+  });
+
+  final Account account;
+  final bool canSort;
+  final bool isDebt;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final stateColor = account.isArchived
+        ? colorScheme.outline
+        : isDebt
+        ? financeColors.expense
+        : financeColors.income;
+    return Container(
+      key: ValueKey('account-operations-rail-${account.id}'),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.10
+                : 0.045,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.hub_outlined, size: 17, color: accentColor),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '账户操作轨道',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _AccountRailPill(
+                label: account.isArchived ? '归档态' : '可管理',
+                color: stateColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _AccountOperationTile(
+                  icon: Icons.receipt_long_outlined,
+                  label: '流水入口',
+                  value: '一键追踪',
+                  color: accentColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AccountOperationTile(
+                  icon: Icons.tune_outlined,
+                  label: '账户参数',
+                  value: '可编辑',
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AccountOperationTile(
+                  icon: canSort
+                      ? Icons.swap_vert_rounded
+                      : Icons.lock_outline_rounded,
+                  label: canSort ? '排序轨道' : '排序状态',
+                  value: canSort ? '支持排序' : '锁定',
+                  color: canSort ? financeColors.asset : colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountOperationTile extends StatelessWidget {
+  const _AccountOperationTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 66),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.15
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountRailPill extends StatelessWidget {
+  const _AccountRailPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.11),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
   }
 }
 

@@ -113,7 +113,18 @@ void main() {
       expect(find.text('资产轨道'), findsAtLeastNWidgets(1));
       expect(find.text('偿还进度'), findsOneWidget);
       expect(find.text('期初对比'), findsAtLeastNWidgets(1));
-      expect(find.text('支持排序'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('account-operations-rail-bank-card')),
+        findsOneWidget,
+      );
+      expect(find.text('账户操作轨道'), findsAtLeastNWidgets(1));
+      expect(find.text('流水入口'), findsAtLeastNWidgets(1));
+      expect(find.text('账户参数'), findsAtLeastNWidgets(1));
+      expect(find.text('排序轨道'), findsAtLeastNWidgets(1));
+      expect(find.text('一键追踪'), findsAtLeastNWidgets(1));
+      expect(find.text('可编辑'), findsAtLeastNWidgets(1));
+      expect(find.text('可管理'), findsAtLeastNWidgets(1));
+      expect(find.text('支持排序'), findsAtLeastNWidgets(1));
       expect(find.text('资产类'), findsAtLeastNWidgets(1));
       expect(find.text('负债类'), findsOneWidget);
       expect(find.text('正常'), findsAtLeastNWidgets(1));
