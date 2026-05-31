@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -206,38 +208,221 @@ class _AccountSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final activeCount = result.accounts
         .where((item) => !item.isArchived)
         .length;
-    return FinanceHeroCard(
-      label: '资产概览',
-      amount: result.netAssets,
-      accentColor: financeColors.asset,
-      semanticLabel: '净资产 ${_formatMoney(result.netAssets)}',
-      metrics: [
-        FinanceMetricData(
-          label: '总资产',
-          value: _formatMoney(result.totalAssets),
-          icon: Icons.trending_up,
-          color: financeColors.income,
+    return Semantics(
+      label: '净资产 ${_formatMoney(result.netAssets)}',
+      child: PremiumSurface(
+        accentColor: financeColors.asset,
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconBadge(
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: financeColors.asset,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '资产概览',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                _AssetHealthPill(result: result),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              _formatMoney(result.netAssets),
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _AssetMixStrip(result: result),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                MetricPill(
+                  label: '总资产',
+                  value: _formatMoney(result.totalAssets),
+                  icon: Icons.trending_up,
+                  color: financeColors.income,
+                ),
+                MetricPill(
+                  label: '总负债',
+                  value: _formatMoney(result.totalLiabilities),
+                  icon: Icons.trending_down,
+                  color: financeColors.expense,
+                ),
+                MetricPill(
+                  label: '活跃账户',
+                  value: '$activeCount 个',
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: colorScheme.primary,
+                ),
+                MetricPill(
+                  label: '全部账户',
+                  value: '${result.accounts.length} 个',
+                  icon: Icons.grid_view_outlined,
+                  color: colorScheme.outline,
+                ),
+              ],
+            ),
+          ],
         ),
-        FinanceMetricData(
-          label: '总负债',
-          value: _formatMoney(result.totalLiabilities),
-          icon: Icons.trending_down,
-          color: financeColors.expense,
+      ),
+    );
+  }
+}
+
+class _AssetHealthPill extends StatelessWidget {
+  const _AssetHealthPill({required this.result});
+
+  final AccountListResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = result.netAssets >= 0
+        ? financeColors.income
+        : financeColors.expense;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
         ),
-        FinanceMetricData(
-          label: '活跃账户',
-          value: '$activeCount 个',
-          icon: Icons.account_balance_wallet_outlined,
-          color: Theme.of(context).colorScheme.primary,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        result.netAssets >= 0 ? '资产安全垫' : '负债承压',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w900,
         ),
-        FinanceMetricData(
-          label: '全部账户',
-          value: '${result.accounts.length} 个',
-          icon: Icons.grid_view_outlined,
-          color: Theme.of(context).colorScheme.outline,
+      ),
+    );
+  }
+}
+
+class _AssetMixStrip extends StatelessWidget {
+  const _AssetMixStrip({required this.result});
+
+  final AccountListResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final total = result.totalAssets.abs() + result.totalLiabilities.abs();
+    final assetRatio = total > 0 ? result.totalAssets.abs() / total : 0.0;
+    final debtRatio = total > 0 ? result.totalLiabilities.abs() / total : 0.0;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          financeColors.asset.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: financeColors.asset.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _AssetMixLegend(label: '资产占比', color: financeColors.income),
+              const SizedBox(width: 12),
+              _AssetMixLegend(label: '负债占比', color: financeColors.expense),
+              const Spacer(),
+              Text(
+                total > 0
+                    ? '${(assetRatio * 100).toStringAsFixed(0)}% / ${(debtRatio * 100).toStringAsFixed(0)}%'
+                    : '-- / --',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 10,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: math.max(1, (assetRatio * 100).round()),
+                    child: ColoredBox(color: financeColors.income),
+                  ),
+                  Expanded(
+                    flex: math.max(1, (debtRatio * 100).round()),
+                    child: ColoredBox(color: financeColors.expense),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AssetMixLegend extends StatelessWidget {
+  const _AssetMixLegend({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     );

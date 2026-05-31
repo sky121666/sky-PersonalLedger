@@ -55,6 +55,9 @@ void main() {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
+      expect(find.text('负债承压'), findsOneWidget);
+      expect(find.text('资产占比'), findsOneWidget);
+      expect(find.text('负债占比'), findsOneWidget);
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
     });
 
