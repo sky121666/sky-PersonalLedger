@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -119,6 +120,7 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeSettings = ref.watch(themeControllerProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('个人资料'),
@@ -130,11 +132,11 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
           ),
         ],
       ),
-      body: AdaptivePageContainer(child: _buildBody()),
+      body: AdaptivePageContainer(child: _buildBody(themeSettings)),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(AppThemeSettings themeSettings) {
     if (_loading) {
       return const AppLoadingView(message: '个人资料加载中...');
     }
@@ -161,6 +163,15 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
         const SizedBox(height: 16),
         StaggeredEntrance(
           index: 1,
+          child: _ProfileThemePanel(
+            settings: themeSettings,
+            onModeChanged: _setThemeMode,
+            onPaletteChanged: _setThemePalette,
+          ),
+        ),
+        const SizedBox(height: 16),
+        StaggeredEntrance(
+          index: 2,
           child: _ProfileFormCard(
             nicknameController: _nicknameController,
             emailController: _emailController,
@@ -172,6 +183,20 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
         ),
       ],
     );
+  }
+
+  void _setThemeMode(AppThemeMode? mode) {
+    if (mode == null) {
+      return;
+    }
+    ref.read(themeControllerProvider.notifier).setThemeMode(mode);
+  }
+
+  void _setThemePalette(AppThemePalette? palette) {
+    if (palette == null) {
+      return;
+    }
+    ref.read(themeControllerProvider.notifier).setPalette(palette);
   }
 }
 
@@ -630,6 +655,347 @@ class _ProfileSignalTile extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileThemePanel extends StatelessWidget {
+  const _ProfileThemePanel({
+    required this.settings,
+    required this.onModeChanged,
+    required this.onPaletteChanged,
+  });
+
+  final AppThemeSettings settings;
+  final ValueChanged<AppThemeMode?> onModeChanged;
+  final ValueChanged<AppThemePalette?> onPaletteChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = settings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      key: const ValueKey('profile-settings-theme-panel'),
+      accentColor: palette.seedColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.auto_awesome_outlined,
+                color: palette.seedColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '设置主题中心',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '多套主题色模板可在设置内直接切换，并同步财务语义色。',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _ProfileThemePreview(palette: palette),
+          const SizedBox(height: 14),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<AppThemeMode>(
+              segments: const [
+                ButtonSegment(
+                  value: AppThemeMode.system,
+                  icon: Icon(Icons.brightness_auto_outlined),
+                  label: Text('跟随系统'),
+                ),
+                ButtonSegment(
+                  value: AppThemeMode.light,
+                  icon: Icon(Icons.light_mode_outlined),
+                  label: Text('浅色模式'),
+                ),
+                ButtonSegment(
+                  value: AppThemeMode.dark,
+                  icon: Icon(Icons.dark_mode_outlined),
+                  label: Text('深色模式'),
+                ),
+              ],
+              selected: {settings.mode},
+              onSelectionChanged: (selection) =>
+                  onModeChanged(selection.firstOrNull),
+            ),
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumn = constraints.maxWidth >= 520;
+              final gap = twoColumn ? 10.0 : 8.0;
+              final cardWidth = twoColumn
+                  ? (constraints.maxWidth - gap) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final option in AppThemePalette.values)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _ProfileThemeOption(
+                        palette: option,
+                        selected: option == settings.palette,
+                        onTap: () => onPaletteChanged(option),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileThemePreview extends StatelessWidget {
+  const _ProfileThemePreview({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          palette.seedColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.seedColor.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ProfileThemeMetric(
+              label: '当前模板',
+              value: palette.label,
+              color: palette.seedColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _ProfileThemeMetric(
+              label: '体验定位',
+              value: palette.signature,
+              color: palette.assetColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _ProfileThemeMetric(
+              label: '模板数量',
+              value: '${AppThemePalette.values.length} 套',
+              color: palette.incomeColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileThemeMetric extends StatelessWidget {
+  const _ProfileThemeMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileThemeOption extends StatelessWidget {
+  const _ProfileThemeOption({
+    required this.palette,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppThemePalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final background = Color.alphaBlend(
+      palette.seedColor.withValues(
+        alpha: selected
+            ? (Theme.of(context).brightness == Brightness.dark ? 0.22 : 0.12)
+            : (Theme.of(context).brightness == Brightness.dark ? 0.10 : 0.05),
+      ),
+      colorScheme.surface,
+    );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('profile-settings-theme-${palette.id}'),
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          constraints: const BoxConstraints(minHeight: 82),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected
+                  ? palette.seedColor
+                  : colorScheme.outlineVariant.withValues(alpha: 0.70),
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              _ProfileThemeSwatches(palette: palette),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      palette.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      palette.signature,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                size: 20,
+                color: selected ? palette.seedColor : colorScheme.outline,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileThemeSwatches extends StatelessWidget {
+  const _ProfileThemeSwatches({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      palette.seedColor,
+      palette.assetColor,
+      palette.incomeColor,
+      palette.expenseColor,
+    ];
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: Stack(
+        children: [
+          for (var index = 0; index < colors.length; index += 1)
+            Positioned(
+              left: (index % 2) * 17,
+              top: (index ~/ 2) * 17,
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: colors[index],
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.surface,
+                    width: 1.4,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

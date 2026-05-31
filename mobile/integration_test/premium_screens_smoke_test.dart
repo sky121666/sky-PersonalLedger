@@ -1232,6 +1232,26 @@ void main() {
           tester,
           'profile-identity-rail-${variant.name}',
         );
+
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('profile-settings-theme-panel')),
+          360,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(
+          find.byKey(const ValueKey('profile-settings-theme-panel')),
+          findsOneWidget,
+        );
+        expect(find.text('设置主题中心'), findsOneWidget);
+        expect(find.text('模板数量'), findsOneWidget);
+        expect(find.text('12 套'), findsOneWidget);
+        expect(find.text('黑曜蓝'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'profile-settings-theme-panel-${variant.name}',
+        );
       });
     }
   });

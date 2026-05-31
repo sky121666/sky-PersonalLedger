@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/profile/data/profile_repository.dart';
 import 'package:personal_ledger/features/profile/presentation/profile_settings_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('ProfileSettingsPage', () {
@@ -22,8 +24,38 @@ void main() {
       final repository = _FakeProfileRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+    });
+
+    testWidgets('个人资料设置页可直接切换主题模式和主题色模板', (tester) async {
+      final repository = _FakeProfileRepository();
+      await _pumpPage(tester, repository);
+
+      expect(
+        find.byKey(const ValueKey('profile-settings-theme-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('设置主题中心'), findsOneWidget);
+      expect(find.text('当前模板'), findsOneWidget);
+      expect(find.text('模板数量'), findsOneWidget);
+      expect(find.text('12 套'), findsOneWidget);
+      expect(find.text('浅色模式'), findsOneWidget);
+      expect(find.text('黑曜蓝'), findsOneWidget);
+
+      await tester.tap(find.text('深色模式'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('profile-settings-theme-obsidian')),
+      );
+      await tester.pumpAndSettle();
+
+      final preferences = await SharedPreferences.getInstance();
+      expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
+      expect(preferences.getString('app_theme_palette'), 'obsidian');
+      expect(find.text('当前模板'), findsOneWidget);
+      expect(find.text('黑曜蓝'), findsWidgets);
+      expect(find.text('旗舰暗色'), findsWidgets);
     });
 
     testWidgets('个人资料头部展示身份状态摘要', (tester) async {
@@ -80,6 +112,8 @@ void main() {
         'https://example.com/new.png',
       );
       await tester.enterText(find.byKey(const ValueKey('profile-bio')), '继续记账');
+      await tester.ensureVisible(find.byKey(const ValueKey('profile-save')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-save')));
       await tester.pumpAndSettle();
 
@@ -103,6 +137,8 @@ void main() {
         find.byKey(const ValueKey('profile-email')),
         'invalid-email',
       );
+      await tester.ensureVisible(find.byKey(const ValueKey('profile-save')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-save')));
       await tester.pumpAndSettle();
 
@@ -132,6 +168,8 @@ void main() {
         find.byKey(const ValueKey('profile-nickname')),
         'Sky Failed',
       );
+      await tester.ensureVisible(find.byKey(const ValueKey('profile-save')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-save')));
       await tester.pumpAndSettle();
 
@@ -167,6 +205,7 @@ Future<void> _pumpPage(
   WidgetTester tester,
   _FakeProfileRepository repository,
 ) async {
+  SharedPreferences.setMockInitialValues({});
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
