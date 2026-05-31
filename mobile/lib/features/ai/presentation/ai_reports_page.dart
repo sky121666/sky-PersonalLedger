@@ -495,6 +495,8 @@ class _AIProviderSetupSurface extends StatelessWidget {
                 ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
               const SizedBox(height: 12),
+              _AIProviderSignalStrip(setup: setup),
+              const SizedBox(height: 12),
               if (setup.providers.isEmpty)
                 Text(
                   '暂无 Provider',
@@ -615,6 +617,92 @@ class _AIProviderSetupSurface extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _AIProviderSignalStrip extends StatelessWidget {
+  const _AIProviderSignalStrip({required this.setup});
+
+  final AIProviderSetupData setup;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final enabledProviders = setup.providers
+        .where((provider) => provider.enabled)
+        .length;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _AIProviderSignalPill(
+          icon: Icons.bolt_outlined,
+          label: '$enabledProviders 个启用',
+          color: enabledProviders > 0
+              ? financeColors.income
+              : colorScheme.outline,
+        ),
+        _AIProviderSignalPill(
+          icon: Icons.extension_outlined,
+          label: '${setup.presets.length} 个预设',
+          color: colorScheme.secondary,
+        ),
+        _AIProviderSignalPill(
+          icon: Icons.enhanced_encryption_outlined,
+          label: 'Key 已保护',
+          color: financeColors.asset,
+        ),
+      ],
+    );
+  }
+}
+
+class _AIProviderSignalPill extends StatelessWidget {
+  const _AIProviderSignalPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

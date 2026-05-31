@@ -42,6 +42,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('AI 财务报告'), findsOneWidget);
+    expect(find.text('0 个启用'), findsOneWidget);
+    expect(find.text('Key 已保护'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('DeepSeek / deepseek-v4-flash'),
       300,
@@ -300,6 +302,8 @@ void main() {
 
     expect(find.text('Provider 配置'), findsOneWidget);
     expect(find.text('暂无 Provider'), findsOneWidget);
+    expect(find.text('0 个启用'), findsOneWidget);
+    expect(find.text('Key 已保护'), findsOneWidget);
 
     await tester.tap(find.text('添加 Provider'));
     await tester.pumpAndSettle();
