@@ -32,8 +32,20 @@ void main() {
       expect(find.text('100%'), findsAtLeastNWidgets(1));
       expect(find.text('最大待还'), findsOneWidget);
       expect(find.text('房贷 · ¥80000.00'), findsOneWidget);
-      expect(find.text('房贷'), findsOneWidget);
+      expect(find.text('房贷'), findsAtLeastNWidgets(1));
       expect(find.text('待还 ¥80000.00'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('reminder-card-reminder-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('reminder-debt-panel-reminder-1')),
+        findsOneWidget,
+      );
+      expect(find.text('凭证已留存'), findsOneWidget);
+      expect(find.text('进度 33%'), findsOneWidget);
+      expect(find.text('贷款账户'), findsOneWidget);
+      expect(find.text('月供'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('上岸进度和提醒卡片使用分段入场动效', (tester) async {
@@ -250,7 +262,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
 
-      expect(find.text('房贷'), findsOneWidget);
+      expect(find.text('房贷'), findsAtLeastNWidgets(1));
       expect(repository.listCalls, 2);
     });
 
@@ -306,7 +318,7 @@ void main() {
       expect(find.textContaining('暂停失败'), findsOneWidget);
       expect(find.text('提醒已暂停'), findsNothing);
       expect(find.text('进行中'), findsWidgets);
-      expect(find.text('房贷'), findsOneWidget);
+      expect(find.text('房贷'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('记录还款失败时展示错误且保留待还金额', (tester) async {
