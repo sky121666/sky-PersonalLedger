@@ -1386,6 +1386,13 @@ class _ReminderDebtPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          _ReminderGuardrailMatrix(
+            reminder: reminder,
+            statusLabel: statusLabel,
+            statusColor: statusColor,
+            accentColor: accentColor,
+          ),
+          const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: SizedBox(
@@ -1440,6 +1447,194 @@ class _ReminderDebtPanel extends StatelessWidget {
             ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReminderGuardrailMatrix extends StatelessWidget {
+  const _ReminderGuardrailMatrix({
+    required this.reminder,
+    required this.statusLabel,
+    required this.statusColor,
+    required this.accentColor,
+  });
+
+  final ReminderItem reminder;
+  final String statusLabel;
+  final Color statusColor;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final hasEvidence = reminder.evidence.trim().isNotEmpty;
+    final evidenceColor = hasEvidence
+        ? financeColors.income
+        : colorScheme.tertiary;
+    return Container(
+      key: ValueKey('reminder-guardrail-matrix-${reminder.id}'),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          statusColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.13
+                : 0.06,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: statusColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.shield_outlined, color: statusColor, size: 17),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '还款守护矩阵',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _ReminderGuardrailPill(label: statusLabel, color: statusColor),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ReminderGuardrailTile(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: '待还压力',
+                  value: _formatMoney(reminder.currentBalance ?? 0),
+                  color: statusColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReminderGuardrailTile(
+                  icon: Icons.stacked_line_chart_outlined,
+                  label: '上岸进度',
+                  value: '${reminder.progress.toStringAsFixed(0)}%',
+                  color: accentColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReminderGuardrailTile(
+                  icon: hasEvidence
+                      ? Icons.verified_user_outlined
+                      : Icons.attach_file_outlined,
+                  label: '凭证状态',
+                  value: hasEvidence ? '已留存' : '待补充',
+                  color: evidenceColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReminderGuardrailTile extends StatelessWidget {
+  const _ReminderGuardrailTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 66),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.15
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReminderGuardrailPill extends StatelessWidget {
+  const _ReminderGuardrailPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.11),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

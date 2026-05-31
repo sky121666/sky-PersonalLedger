@@ -21,7 +21,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('负债管理'), findsOneWidget);
-      expect(find.text('上岸进度'), findsOneWidget);
+      expect(find.text('上岸进度'), findsAtLeastNWidgets(1));
       expect(find.text('稳步推进'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('repayment-rhythm-radar')),
@@ -42,6 +42,15 @@ void main() {
         find.byKey(const ValueKey('reminder-debt-panel-reminder-1')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('reminder-guardrail-matrix-reminder-1')),
+        findsOneWidget,
+      );
+      expect(find.text('还款守护矩阵'), findsOneWidget);
+      expect(find.text('待还压力'), findsOneWidget);
+      expect(find.text('上岸进度'), findsAtLeastNWidgets(1));
+      expect(find.text('凭证状态'), findsOneWidget);
+      expect(find.text('已留存'), findsOneWidget);
       expect(find.text('凭证已留存'), findsOneWidget);
       expect(find.text('进度 33%'), findsOneWidget);
       expect(find.text('贷款账户'), findsOneWidget);
