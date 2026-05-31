@@ -1293,119 +1293,144 @@ class _TransactionListTile extends StatelessWidget {
       TransactionType.expense => '-',
       TransactionType.transfer => '',
     };
+    final accountLabel = item.type == TransactionType.transfer
+        ? '${item.account?.name ?? '转出账户'} → ${item.toAccount?.name ?? '转入账户'}'
+        : item.account?.name ?? '账户流水';
 
-    return Padding(
-      key: ValueKey('transaction-item-${item.id}'),
-      padding: const EdgeInsets.only(bottom: 10),
-      child: PremiumSurface(
-        accentColor: selected ? colorScheme.primary : amountColor,
-        padding: EdgeInsets.zero,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppTheme.surfaceRadius),
-            onTap: selectionMode ? onSelectionToggle : onTap,
-            onLongPress: onSelectionToggle,
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (selectionMode)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Checkbox(
-                        key: ValueKey('transaction-select-${item.id}'),
-                        value: selected,
-                        onChanged: (_) => onSelectionToggle(),
+    return Semantics(
+      label:
+          '${item.typeLabel}，${item.displayTitle}，金额$prefix¥${item.amount.toStringAsFixed(2)}，$accountLabel，${_formatDateTime(item.transactionDate)}',
+      selected: selected,
+      child: Padding(
+        key: ValueKey('transaction-item-${item.id}'),
+        padding: const EdgeInsets.only(bottom: 10),
+        child: PremiumSurface(
+          accentColor: selected ? colorScheme.primary : amountColor,
+          padding: EdgeInsets.zero,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppTheme.surfaceRadius),
+              onTap: selectionMode ? onSelectionToggle : onTap,
+              onLongPress: onSelectionToggle,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (selectionMode)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Checkbox(
+                          key: ValueKey('transaction-select-${item.id}'),
+                          value: selected,
+                          onChanged: (_) => onSelectionToggle(),
+                        ),
+                      )
+                    else
+                      IconBadge(
+                        icon: _typeIcon(item.type),
+                        color: amountColor,
+                        size: 42,
+                        iconSize: 22,
                       ),
-                    )
-                  else
-                    IconBadge(
-                      icon: _typeIcon(item.type),
-                      color: amountColor,
-                      size: 42,
-                      iconSize: 22,
-                    ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                item.displayTitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.displayTitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w900),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              '$prefix¥${item.amount.toStringAsFixed(2)}',
-                              key: ValueKey('transaction-amount-${item.id}'),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: amountColor,
-                                    fontWeight: FontWeight.w800,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          _formatDateTime(item.transactionDate),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.outline),
-                        ),
-                        if (item.remark.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            item.remark,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium,
+                              const SizedBox(width: 10),
+                              Text(
+                                '$prefix¥${item.amount.toStringAsFixed(2)}',
+                                key: ValueKey('transaction-amount-${item.id}'),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: amountColor,
+                                      fontWeight: FontWeight.w900,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                              ),
+                            ],
                           ),
-                        ],
-                        if (item.tags.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: item.tags
-                                .map(
-                                  (tag) => _TransactionTagChip(
-                                    label: tag,
-                                    color: amountColor,
-                                  ),
-                                )
-                                .toList(),
+                            spacing: 7,
+                            runSpacing: 7,
+                            children: [
+                              _TransactionMetaPill(
+                                icon: _typeIcon(item.type),
+                                label: item.typeLabel,
+                                color: amountColor,
+                              ),
+                              _TransactionMetaPill(
+                                icon: Icons.account_balance_wallet_outlined,
+                                label: accountLabel,
+                                color: colorScheme.primary,
+                              ),
+                              _TransactionMetaPill(
+                                icon: Icons.schedule_outlined,
+                                label: _formatDateTime(item.transactionDate),
+                                color: colorScheme.outline,
+                              ),
+                            ],
                           ),
+                          if (item.remark.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              item.remark,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                          if (item.tags.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: item.tags
+                                  .map(
+                                    (tag) => _TransactionTagChip(
+                                      label: tag,
+                                      color: amountColor,
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  if (!selectionMode)
-                    PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          onTap();
-                        } else if (value == 'delete') {
-                          onDelete();
-                        }
-                      },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(value: 'edit', child: Text('编辑')),
-                        PopupMenuItem(value: 'delete', child: Text('删除')),
-                      ],
-                    ),
-                ],
+                    if (!selectionMode)
+                      PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            onTap();
+                          } else if (value == 'delete') {
+                            onDelete();
+                          }
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(value: 'edit', child: Text('编辑')),
+                          PopupMenuItem(value: 'delete', child: Text('删除')),
+                        ],
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1420,6 +1445,53 @@ class _TransactionListTile extends StatelessWidget {
       TransactionType.expense => Icons.north_east,
       TransactionType.transfer => Icons.swap_horiz,
     };
+  }
+}
+
+class _TransactionMetaPill extends StatelessWidget {
+  const _TransactionMetaPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 26, maxWidth: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.09),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

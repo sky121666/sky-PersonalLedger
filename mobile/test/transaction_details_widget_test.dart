@@ -44,9 +44,19 @@ void main() {
       expect(find.text('均笔'), findsOneWidget);
       expect(find.text('¥32.50'), findsWidgets);
       expect(find.text('餐饮'), findsAtLeastNWidgets(1));
+      expect(find.text('支出'), findsAtLeastNWidgets(1));
+      expect(find.text('现金'), findsAtLeastNWidgets(1));
+      expect(find.text('2026-05-18 12:00'), findsAtLeastNWidgets(1));
       expect(
         find.byKey(const ValueKey('transaction-amount-transaction-1')),
         findsOneWidget,
+      );
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('transaction-item-transaction-1')),
+          matching: find.byType(Semantics),
+        ),
+        findsWidgets,
       );
       expect(find.textContaining('午餐'), findsOneWidget);
 
@@ -409,6 +419,7 @@ TransactionItem _transaction({
       name: '餐饮',
       type: 'expense',
     ),
+    account: const LedgerAccount(id: 'account-1', name: '现金', type: 'cash'),
     tags: const ['日常'],
   );
 }
