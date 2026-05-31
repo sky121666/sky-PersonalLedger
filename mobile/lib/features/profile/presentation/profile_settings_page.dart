@@ -1796,66 +1796,71 @@ class _ProfileThemeOption extends StatelessWidget {
       ),
       colorScheme.surface,
     );
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: ValueKey('profile-settings-theme-${palette.id}'),
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          constraints: const BoxConstraints(minHeight: 82),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: selected
-                  ? palette.seedColor
-                  : colorScheme.outlineVariant.withValues(alpha: 0.70),
-              width: selected ? 1.4 : 1,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '主题模板：${palette.label}，${palette.signature}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey('profile-settings-theme-${palette.id}'),
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            constraints: const BoxConstraints(minHeight: 82),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: selected
+                    ? palette.seedColor
+                    : colorScheme.outlineVariant.withValues(alpha: 0.70),
+                width: selected ? 1.4 : 1,
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              _ProfileThemeSwatches(palette: palette),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      palette.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
+            child: Row(
+              children: [
+                _ProfileThemeSwatches(palette: palette),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        palette.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      palette.signature,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
+                      const SizedBox(height: 3),
+                      Text(
+                        palette.signature,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked,
-                size: 20,
-                color: selected ? palette.seedColor : colorScheme.outline,
-              ),
-            ],
+                const SizedBox(width: 8),
+                Icon(
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked,
+                  size: 20,
+                  color: selected ? palette.seedColor : colorScheme.outline,
+                ),
+              ],
+            ),
           ),
         ),
       ),

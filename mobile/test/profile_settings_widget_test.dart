@@ -112,6 +112,13 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('profile-settings-theme-obsidian')),
+          matching: find.byType(Semantics),
+        ),
+        findsWidgets,
+      );
       await tester.tap(
         find.byKey(const ValueKey('profile-settings-theme-obsidian')),
       );
