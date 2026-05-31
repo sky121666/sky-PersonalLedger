@@ -79,10 +79,20 @@ class FamilyPage extends ConsumerWidget {
                     themeSettings: themeSettings,
                   ),
                 ),
+                const SizedBox(height: 12),
+                StaggeredEntrance(
+                  index: 3,
+                  child: _FamilyReadinessSurface(
+                    members: members,
+                    budgets: memberBudgetsState.valueOrNull ?? const [],
+                    statistics: statistics,
+                    themeSettings: themeSettings,
+                  ),
+                ),
                 if (memberBudgetsState.valueOrNull?.isNotEmpty == true) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 3,
+                    index: 4,
                     child: _FamilyBudgetSurface(
                       budgets: memberBudgetsState.valueOrNull!,
                     ),
@@ -98,7 +108,7 @@ class FamilyPage extends ConsumerWidget {
                 if (summary != null && summary.members.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 4,
+                    index: 5,
                     child: _FamilyRankingSurface(summary: summary),
                   ),
                 ],
@@ -108,7 +118,7 @@ class FamilyPage extends ConsumerWidget {
                     )) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 5,
+                    index: 6,
                     child: _FamilyCategorySurface(statistics: statistics),
                   ),
                 ],
@@ -132,7 +142,7 @@ class FamilyPage extends ConsumerWidget {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: StaggeredEntrance(
-                      index: index + 6,
+                      index: index + 7,
                       child: _FamilyMemberCard(member: member),
                     ),
                   );
@@ -743,6 +753,225 @@ class _FamilyGovernancePill extends StatelessWidget {
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.w900,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyReadinessSurface extends StatelessWidget {
+  const _FamilyReadinessSurface({
+    required this.members,
+    required this.budgets,
+    required this.statistics,
+    required this.themeSettings,
+  });
+
+  final List<FamilyMember> members;
+  final List<BudgetItem> budgets;
+  final FamilyStatistics? statistics;
+  final AppThemeSettings themeSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = themeSettings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final enabledCount = members.where((member) => member.isEnabled).length;
+    final hasDefault = members.any((member) => member.isDefault);
+    final categoryCount =
+        statistics?.members.fold<int>(
+          0,
+          (sum, member) => sum + member.categories.length,
+        ) ??
+        0;
+    final readyScore = [
+      enabledCount > 0,
+      hasDefault,
+      budgets.isNotEmpty,
+      categoryCount > 0,
+    ].where((ready) => ready).length;
+    final readinessColor = readyScore >= 3
+        ? financeColors.income
+        : readyScore >= 2
+        ? financeColors.warning
+        : colorScheme.outline;
+    final readinessLabel = readyScore >= 3
+        ? '阶段可用'
+        : readyScore >= 2
+        ? '继续完善'
+        : '待配置';
+
+    return PremiumSurface(
+      key: const ValueKey('family-readiness-surface'),
+      accentColor: readinessColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.fact_check_outlined,
+                color: readinessColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '家庭功能成熟度',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${palette.sceneLabel} · 成员、预算、统计和权限预留的阶段状态',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _FamilyGovernancePill(
+                label: readinessLabel,
+                icon: readyScore >= 3
+                    ? Icons.verified_outlined
+                    : Icons.pending_actions_outlined,
+                color: readinessColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 8,
+              value: readyScore / 4,
+              color: readinessColor,
+              backgroundColor: colorScheme.outlineVariant.withValues(
+                alpha: 0.42,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _FamilyReadinessTile(
+                  icon: Icons.groups_2_outlined,
+                  label: '成员启用',
+                  value: '$enabledCount/${members.length}',
+                  color: enabledCount > 0
+                      ? financeColors.income
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FamilyReadinessTile(
+                  icon: Icons.admin_panel_settings_outlined,
+                  label: '默认成员',
+                  value: hasDefault ? '已指定' : '待指定',
+                  color: hasDefault ? palette.assetColor : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FamilyReadinessTile(
+                  icon: Icons.savings_outlined,
+                  label: '预算规则',
+                  value: '${budgets.length}',
+                  color: budgets.isNotEmpty
+                      ? financeColors.warning
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FamilyReadinessTile(
+                  icon: Icons.donut_large_outlined,
+                  label: '分类统计',
+                  value: '$categoryCount',
+                  color: categoryCount > 0
+                      ? colorScheme.tertiary
+                      : colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyReadinessTile extends StatelessWidget {
+  const _FamilyReadinessTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

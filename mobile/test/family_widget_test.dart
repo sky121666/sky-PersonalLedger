@@ -128,6 +128,20 @@ void main() {
     expect(find.text('1/2'), findsOneWidget);
     expect(find.text('32%'), findsOneWidget);
     expect(find.text('1 类'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('family-readiness-surface')),
+      260,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('family-readiness-surface')),
+      findsOneWidget,
+    );
+    expect(find.text('家庭功能成熟度'), findsOneWidget);
+    expect(find.text('阶段可用'), findsOneWidget);
+    expect(find.text('成员启用'), findsOneWidget);
+    expect(find.text('默认成员'), findsOneWidget);
+    expect(find.text('分类统计'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('家庭预算'), 260);
     await tester.pumpAndSettle();
     expect(find.text('家庭预算'), findsAtLeastNWidgets(1));
