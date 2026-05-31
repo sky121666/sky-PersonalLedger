@@ -96,25 +96,15 @@ class _TransactionDetailsPageState
             const SizedBox(height: 8),
             StaggeredEntrance(
               index: 1,
-              child: _TransactionSearchBar(
+              child: _TransactionFilterWorkbench(
+                state: state,
                 controller: _searchController,
                 onChanged: controller.updateKeyword,
                 onClear: () {
                   _searchController.clear();
-                  controller.updateKeyword('');
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            StaggeredEntrance(
-              index: 2,
-              child: _TransactionFilterBar(
-                state: state,
-                onChanged: controller.updateFilters,
-                onClear: () {
-                  _searchController.clear();
                   controller.clearFilters();
                 },
+                onFilterChanged: controller.updateFilters,
               ),
             ),
             const SizedBox(height: 8),
@@ -493,52 +483,224 @@ class _OverviewMetricShell extends StatelessWidget {
   }
 }
 
-class _TransactionSearchBar extends StatelessWidget {
-  const _TransactionSearchBar({
+class _TransactionFilterWorkbench extends ConsumerWidget {
+  const _TransactionFilterWorkbench({
+    required this.state,
     required this.controller,
     required this.onChanged,
     required this.onClear,
+    required this.onFilterChanged,
   });
 
+  final TransactionListState state;
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final Future<void> Function({
+    TransactionType? type,
+    String? accountId,
+    String? categoryId,
+    bool clearType,
+    bool clearAccount,
+    bool clearCategory,
+  })
+  onFilterChanged;
 
-  /// 构建交易搜索输入框。
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final activeCount = [
+      state.keyword.trim().isNotEmpty,
+      state.type != null,
+      state.accountId != null && state.accountId!.isNotEmpty,
+      state.categoryId != null && state.categoryId!.isNotEmpty,
+    ].where((active) => active).length;
+
+    return PremiumSurface(
+      key: const ValueKey('transaction-filter-workbench'),
+      padding: const EdgeInsets.all(14),
+      accentColor: colorScheme.primary,
+      child: FutureBuilder<List<LedgerAccount>>(
+        future: ref.read(transactionRepositoryProvider).listAccounts(),
+        builder: (context, snapshot) {
+          final accounts = snapshot.data ?? const <LedgerAccount>[];
+          final accountLabel = _selectedAccountLabel(accounts);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: Icons.tune_rounded,
+                    color: colorScheme.primary,
+                    size: 42,
+                    iconSize: 21,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '交易筛选工作台',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          state.hasActiveFilter
+                              ? '已启用 $activeCount 项条件 · 命中 ${state.items.length}/${state.total} 笔'
+                              : '快速定位备注、类型和账户流水',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (state.hasActiveFilter)
+                    TextButton.icon(
+                      onPressed: onClear,
+                      icon: const Icon(Icons.filter_alt_off_outlined),
+                      label: const Text('清空'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('transaction-search'),
+                controller: controller,
+                decoration: InputDecoration(
+                  hintText: '搜索备注、标签或交易说明',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: controller.text.isEmpty
+                      ? null
+                      : IconButton(
+                          onPressed: onClear,
+                          icon: const Icon(Icons.close),
+                          tooltip: '清空搜索',
+                        ),
+                ),
+                onChanged: onChanged,
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _FilterStatusPill(
+                    icon: Icons.segment_outlined,
+                    label: state.type?.label ?? '类型不限',
+                    color: _typeColor(context, state.type),
+                    selected: state.type != null,
+                  ),
+                  _FilterStatusPill(
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: accountLabel,
+                    color: financeColors.asset,
+                    selected:
+                        state.accountId != null && state.accountId!.isNotEmpty,
+                  ),
+                  _FilterStatusPill(
+                    icon: Icons.search_rounded,
+                    label: state.keyword.trim().isEmpty
+                        ? '未输入关键词'
+                        : '关键词 ${state.keyword.trim()}',
+                    color: colorScheme.secondary,
+                    selected: state.keyword.trim().isNotEmpty,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _TransactionFilterControls(
+                state: state,
+                accounts: accounts,
+                onChanged: onFilterChanged,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  String _selectedAccountLabel(List<LedgerAccount> accounts) {
+    final accountId = state.accountId;
+    if (accountId == null || accountId.isEmpty) {
+      return '账户不限';
+    }
+    for (final account in accounts) {
+      if (account.id == accountId) {
+        return account.name;
+      }
+    }
+    return '指定账户';
+  }
+}
+
+class _FilterStatusPill extends StatelessWidget {
+  const _FilterStatusPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.selected,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool selected;
+
   @override
   Widget build(BuildContext context) {
-    return PremiumSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      accentColor: Theme.of(context).colorScheme.primary,
-      child: TextField(
-        key: const ValueKey('transaction-search'),
-        controller: controller,
-        decoration: InputDecoration(
-          hintText: '搜索备注',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: controller.text.isEmpty
-              ? null
-              : IconButton(
-                  onPressed: onClear,
-                  icon: const Icon(Icons.close),
-                  tooltip: '清空搜索',
-                ),
-          border: InputBorder.none,
+    final colorScheme = Theme.of(context).colorScheme;
+    final background = selected
+        ? color.withValues(alpha: 0.13)
+        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.62);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 36),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: selected
+              ? color.withValues(alpha: 0.28)
+              : colorScheme.outlineVariant.withValues(alpha: 0.55),
         ),
-        onChanged: onChanged,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: selected ? color : colorScheme.outline),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: selected ? color : colorScheme.onSurfaceVariant,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _TransactionFilterBar extends ConsumerWidget {
-  const _TransactionFilterBar({
+class _TransactionFilterControls extends StatelessWidget {
+  const _TransactionFilterControls({
     required this.state,
+    required this.accounts,
     required this.onChanged,
-    required this.onClear,
   });
 
   final TransactionListState state;
+  final List<LedgerAccount> accounts;
   final Future<void> Function({
     TransactionType? type,
     String? accountId,
@@ -548,68 +710,73 @@ class _TransactionFilterBar extends ConsumerWidget {
     bool clearCategory,
   })
   onChanged;
-  final VoidCallback onClear;
 
   /// 构建交易筛选栏。
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<List<LedgerAccount>>(
-      future: ref.read(transactionRepositoryProvider).listAccounts(),
-      builder: (context, snapshot) {
-        final accounts = snapshot.data ?? const <LedgerAccount>[];
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              FilterChip(
-                selected: state.type == null,
-                label: const Text('全部类型'),
-                onSelected: (_) => onChanged(clearType: true),
-              ),
-              const SizedBox(width: 8),
-              for (final type in TransactionType.values) ...[
-                FilterChip(
-                  selected: state.type == type,
-                  label: Text(type.label),
-                  onSelected: (_) => onChanged(type: type),
-                ),
-                const SizedBox(width: 8),
-              ],
-              if (accounts.isNotEmpty)
-                DropdownMenu<String>(
-                  width: 150,
-                  initialSelection: state.accountId ?? '',
-                  dropdownMenuEntries: [
-                    const DropdownMenuEntry(value: '', label: '全部账户'),
-                    ...accounts.map(
-                      (account) => DropdownMenuEntry(
-                        value: account.id,
-                        label: account.name,
-                      ),
-                    ),
-                  ],
-                  onSelected: (value) {
-                    if (value == null || value.isEmpty) {
-                      onChanged(clearAccount: true);
-                    } else {
-                      onChanged(accountId: value);
-                    }
-                  },
-                ),
-              if (state.hasActiveFilter) ...[
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: onClear,
-                  icon: const Icon(Icons.filter_alt_off_outlined),
-                  label: const Text('清空'),
-                ),
-              ],
-            ],
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          FilterChip(
+            avatar: const Icon(Icons.all_inclusive_rounded, size: 18),
+            selected: state.type == null,
+            label: const Text('全部类型'),
+            onSelected: (_) => onChanged(clearType: true),
           ),
-        );
-      },
+          const SizedBox(width: 8),
+          for (final type in TransactionType.values) ...[
+            FilterChip(
+              avatar: Icon(_typeIcon(type), size: 18),
+              selected: state.type == type,
+              label: Text(type.label),
+              onSelected: (_) => onChanged(type: type),
+            ),
+            const SizedBox(width: 8),
+          ],
+          if (accounts.isNotEmpty)
+            DropdownMenu<String>(
+              width: 158,
+              initialSelection: state.accountId ?? '',
+              leadingIcon: const Icon(Icons.account_balance_wallet_outlined),
+              dropdownMenuEntries: [
+                const DropdownMenuEntry(value: '', label: '全部账户'),
+                ...accounts.map(
+                  (account) =>
+                      DropdownMenuEntry(value: account.id, label: account.name),
+                ),
+              ],
+              onSelected: (value) {
+                if (value == null || value.isEmpty) {
+                  onChanged(clearAccount: true);
+                } else {
+                  onChanged(accountId: value);
+                }
+              },
+            ),
+        ],
+      ),
     );
   }
+}
+
+Color _typeColor(BuildContext context, TransactionType? type) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final financeColors = AppTheme.financeColors(context);
+  return switch (type) {
+    TransactionType.income => financeColors.income,
+    TransactionType.expense => financeColors.expense,
+    TransactionType.transfer => colorScheme.primary,
+    null => colorScheme.primary,
+  };
+}
+
+IconData _typeIcon(TransactionType type) {
+  return switch (type) {
+    TransactionType.income => Icons.south_west,
+    TransactionType.expense => Icons.north_east,
+    TransactionType.transfer => Icons.swap_horiz,
+  };
 }
 
 class _TransactionListTile extends StatelessWidget {

@@ -218,6 +218,11 @@ void main() {
           find.byKey(const ValueKey('transaction-search')),
           findsOneWidget,
         );
+        expect(
+          find.byKey(const ValueKey('transaction-filter-workbench')),
+          findsOneWidget,
+        );
+        expect(find.text('交易筛选工作台'), findsOneWidget);
         expect(find.text('全部类型'), findsOneWidget);
         expect(find.text('餐饮'), findsOneWidget);
         expect(find.text('-¥32.50'), findsOneWidget);

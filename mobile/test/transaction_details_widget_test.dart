@@ -18,6 +18,12 @@ void main() {
       expect(find.text('明细'), findsOneWidget);
       expect(find.text('交易明细总览'), findsOneWidget);
       expect(find.text('当前列表 1 笔 · 共 1 笔'), findsOneWidget);
+      expect(find.text('交易筛选工作台'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('transaction-filter-workbench')),
+        findsOneWidget,
+      );
+      expect(find.text('快速定位备注、类型和账户流水'), findsOneWidget);
       expect(find.text('均笔'), findsOneWidget);
       expect(find.text('¥32.50'), findsWidgets);
       expect(find.text('餐饮'), findsOneWidget);
@@ -99,6 +105,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.listQueries.last.type, TransactionType.expense);
+      expect(find.text('已启用 2 项条件 · 命中 1/1 笔'), findsOneWidget);
     });
 
     testWidgets('清空筛选会重置搜索和类型条件', (tester) async {
@@ -123,6 +130,7 @@ void main() {
       expect(field.controller?.text, isEmpty);
       expect(repository.listQueries.last.keyword, isEmpty);
       expect(repository.listQueries.last.type, isNull);
+      expect(find.text('快速定位备注、类型和账户流水'), findsOneWidget);
     });
 
     testWidgets('滚动到底部时加载下一页交易', (tester) async {
@@ -209,7 +217,7 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
     });
   });
 }
