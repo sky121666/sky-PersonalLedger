@@ -1085,34 +1085,102 @@ class _AccountOverviewCard extends StatelessWidget {
   /// 构建账户概览卡片。
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
+      key: const ValueKey('home-account-overview-card'),
+      accentColor: financeColors.asset,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              IconBadge(
+                icon: Icons.account_balance_wallet_outlined,
+                color: financeColors.asset,
+                size: 40,
+                iconSize: 21,
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  '账户概览',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '账户概览',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '资产、负债与现金账户一屏扫读',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                '$totalCount 个账户',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
+              _HomeAccountCountPill(
+                totalCount: totalCount,
+                color: financeColors.asset,
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           if (accounts.isEmpty)
             const _EmptyCardLine(text: '暂无账户，请先创建账户')
           else
-            ...accounts.map((account) => _AccountLine(account: account)),
+            ...accounts.map(
+              (account) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: account == accounts.last ? 0 : 10,
+                ),
+                child: _AccountLine(account: account),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _HomeAccountCountPill extends StatelessWidget {
+  const _HomeAccountCountPill({required this.totalCount, required this.color});
+
+  final int totalCount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 30, maxWidth: 112),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        '$totalCount 个账户',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
@@ -1127,37 +1195,144 @@ class _AccountLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            child: LedgerIcon(
-              icon: account.icon.isEmpty ? account.type : account.icon,
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = account.isDebt ? financeColors.expense : financeColors.asset;
+    final typeLabel = account.isDebt ? '负债账户' : '资产账户';
+    return Semantics(
+      label:
+          '${account.name}，$typeLabel，余额${_formatCurrency(account.currentBalance)}',
+      child: AnimatedContainer(
+        key: ValueKey('home-account-line-${account.id}'),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        constraints: const BoxConstraints(minHeight: 72),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            accent.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.14
+                  : 0.07,
             ),
+            colorScheme.surface,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              account.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: accent.withValues(alpha: 0.14)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  accent.withValues(alpha: 0.12),
+                  colorScheme.surface,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: accent.withValues(alpha: 0.16)),
+              ),
+              child: Center(
+                child: LedgerIcon(
+                  icon: account.type,
+                  color: accent,
+                  size: 22,
+                  fallback: account.isDebt
+                      ? Icons.credit_card_outlined
+                      : Icons.account_balance_wallet_outlined,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            _formatCurrency(account.currentBalance),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: account.isDebt ? financeColors.expense : null,
-              fontWeight: FontWeight.w600,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    account.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      _AccountStatusPill(label: typeLabel, color: accent),
+                      if (account.isArchived) ...[
+                        const SizedBox(width: 6),
+                        _AccountStatusPill(
+                          label: '已归档',
+                          color: colorScheme.outline,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _formatCurrency(account.currentBalance),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: account.isDebt ? financeColors.expense : null,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  account.isDebt ? '待偿还' : '可用余额',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountStatusPill extends StatelessWidget {
+  const _AccountStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 24, maxWidth: 86),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.09),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

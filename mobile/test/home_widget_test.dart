@@ -146,6 +146,69 @@ void main() {
       expect(familyCard.accentColor, AppThemePalette.graphite.incomeColor);
     });
 
+    testWidgets('首页账户概览使用现代化账户数据条目', (tester) async {
+      final repository = _FakeHomeRepository(
+        summaries: [
+          _summary(
+            accounts: const [
+              Account(
+                id: 'cash-1',
+                name: '现金钱包',
+                type: 'cash',
+                icon: '💰',
+                color: '#10B981',
+                currentBalance: 1280,
+                isArchived: false,
+              ),
+              Account(
+                id: 'credit-1',
+                name: '信用卡',
+                type: 'credit',
+                icon: '💳',
+                color: '#EF4444',
+                currentBalance: 860,
+                isArchived: false,
+              ),
+            ],
+          ),
+        ],
+      );
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('home-account-overview-card')),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('home-account-overview-card')),
+        findsOneWidget,
+      );
+      expect(find.text('资产、负债与现金账户一屏扫读'), findsOneWidget);
+      expect(find.text('2 个账户'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-account-line-cash-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-account-line-credit-1')),
+        findsOneWidget,
+      );
+      expect(find.text('资产账户'), findsOneWidget);
+      expect(find.text('可用余额'), findsOneWidget);
+      expect(find.text('负债账户'), findsOneWidget);
+      expect(find.text('待偿还'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('home-account-line-credit-1')),
+          matching: find.byType(Semantics),
+        ),
+        findsWidgets,
+      );
+    });
+
     testWidgets('FinanceHeroCard 默认跟随主题资产色', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
