@@ -133,6 +133,36 @@ void main() {
       expect(appBarTheme.toolbarHeight, 60);
     });
 
+    test('开关和复选框使用主题化交互状态', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.violet);
+      final switchTheme = theme.switchTheme;
+      final checkboxTheme = theme.checkboxTheme;
+
+      expect(
+        switchTheme.thumbColor?.resolve({WidgetState.selected}),
+        AppThemePalette.violet.seedColor,
+      );
+      expect(
+        checkboxTheme.fillColor?.resolve({WidgetState.selected}),
+        AppThemePalette.violet.seedColor,
+      );
+      expect(checkboxTheme.shape, isA<RoundedRectangleBorder>());
+      expect(switchTheme.materialTapTargetSize, MaterialTapTargetSize.padded);
+      expect(checkboxTheme.materialTapTargetSize, MaterialTapTargetSize.padded);
+    });
+
+    test('浮动操作按钮使用主题化高级样式', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.plasma);
+      final fabTheme = theme.floatingActionButtonTheme;
+
+      expect(fabTheme.backgroundColor, AppThemePalette.plasma.seedColor);
+      expect(fabTheme.foregroundColor, theme.colorScheme.onPrimary);
+      expect(fabTheme.enableFeedback, isTrue);
+      expect(fabTheme.elevation, 4);
+      expect(fabTheme.shape, isA<RoundedRectangleBorder>());
+      expect(fabTheme.extendedTextStyle?.fontWeight, FontWeight.w900);
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);

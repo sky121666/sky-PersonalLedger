@@ -187,6 +187,12 @@ class AppTheme {
       segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
       chipTheme: _chipTheme(colorScheme, palette),
       appBarTheme: _appBarTheme(colorScheme, palette),
+      switchTheme: _switchTheme(colorScheme, palette),
+      checkboxTheme: _checkboxTheme(colorScheme, palette),
+      floatingActionButtonTheme: _floatingActionButtonTheme(
+        colorScheme,
+        palette,
+      ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -231,6 +237,12 @@ class AppTheme {
       segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
       chipTheme: _chipTheme(colorScheme, palette),
       appBarTheme: _appBarTheme(colorScheme, palette),
+      switchTheme: _switchTheme(colorScheme, palette),
+      checkboxTheme: _checkboxTheme(colorScheme, palette),
+      floatingActionButtonTheme: _floatingActionButtonTheme(
+        colorScheme,
+        palette,
+      ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -527,6 +539,115 @@ class AppTheme {
         fontSize: 14,
         fontWeight: FontWeight.w700,
       ),
+    );
+  }
+
+  static SwitchThemeData _switchTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final inactiveTrack = Color.alphaBlend(
+      colorScheme.onSurfaceVariant.withValues(alpha: 0.14),
+      colorScheme.surfaceContainerHighest,
+    );
+    return SwitchThemeData(
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      splashRadius: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return colorScheme.onSurface.withValues(alpha: 0.38);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return palette.seedColor;
+        }
+        return colorScheme.surface;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return colorScheme.onSurface.withValues(alpha: 0.10);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return palette.seedColor.withValues(alpha: 0.26);
+        }
+        return inactiveTrack;
+      }),
+      trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return palette.seedColor.withValues(alpha: 0.42);
+        }
+        return colorScheme.outlineVariant;
+      }),
+      trackOutlineWidth: WidgetStateProperty.resolveWith((states) {
+        return states.contains(WidgetState.selected) ? 1.2 : 1;
+      }),
+      overlayColor: WidgetStatePropertyAll(
+        palette.seedColor.withValues(alpha: 0.10),
+      ),
+      thumbIcon: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return Icon(
+            Icons.check_rounded,
+            size: 14,
+            color: colorScheme.surface,
+          );
+        }
+        return null;
+      }),
+    );
+  }
+
+  static CheckboxThemeData _checkboxTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return CheckboxThemeData(
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      splashRadius: 22,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      side: BorderSide(color: colorScheme.outlineVariant, width: 1.3),
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return colorScheme.onSurface.withValues(alpha: 0.12);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return palette.seedColor;
+        }
+        return Colors.transparent;
+      }),
+      checkColor: WidgetStatePropertyAll(colorScheme.onPrimary),
+      overlayColor: WidgetStatePropertyAll(
+        palette.seedColor.withValues(alpha: 0.10),
+      ),
+    );
+  }
+
+  static FloatingActionButtonThemeData _floatingActionButtonTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return FloatingActionButtonThemeData(
+      backgroundColor: palette.seedColor,
+      foregroundColor: colorScheme.onPrimary,
+      focusColor: palette.seedColor.withValues(alpha: 0.16),
+      hoverColor: palette.seedColor.withValues(alpha: 0.12),
+      splashColor: colorScheme.onPrimary.withValues(alpha: 0.16),
+      elevation: 4,
+      focusElevation: 6,
+      hoverElevation: 6,
+      highlightElevation: 8,
+      disabledElevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      enableFeedback: true,
+      iconSize: 24,
+      extendedIconLabelSpacing: 10,
+      extendedPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      extendedTextStyle: const TextStyle(fontWeight: FontWeight.w900),
+      mouseCursor: WidgetStateProperty.resolveWith((states) {
+        return states.contains(WidgetState.disabled)
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click;
+      }),
     );
   }
 }
