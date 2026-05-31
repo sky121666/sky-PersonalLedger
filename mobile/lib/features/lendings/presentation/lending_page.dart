@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
@@ -325,8 +327,88 @@ class _SummarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final netColor = summary.netLending >= 0
+        ? Colors.teal.shade700
+        : colorScheme.error;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        PremiumSurface(
+          accentColor: netColor,
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: Icons.handshake_outlined,
+                    color: netColor,
+                    size: 48,
+                    iconSize: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '借贷往来总览',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '跟踪借出、借入、还款和结清状态。',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                height: 1.3,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    _formatSignedMoney(summary.netLending),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: netColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  MetricPill(
+                    label: '借出中',
+                    value: '${summary.activeLendOut} 笔',
+                    icon: Icons.north_east,
+                    color: Colors.teal.shade700,
+                  ),
+                  MetricPill(
+                    label: '借入中',
+                    value: '${summary.activeBorrowIn} 笔',
+                    icon: Icons.south_west,
+                    color: Colors.indigo.shade600,
+                  ),
+                  MetricPill(
+                    label: '已结清',
+                    value:
+                        '${summary.settledLendOut + summary.settledBorrowIn} 笔',
+                    icon: Icons.check_circle_outline,
+                    color: netColor,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -347,22 +429,6 @@ class _SummarySection extends StatelessWidget {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.account_balance_outlined),
-            title: const Text('净借贷影响'),
-            trailing: Text(
-              _formatSignedMoney(summary.netLending),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: summary.netLending >= 0
-                    ? Colors.teal.shade700
-                    : Theme.of(context).colorScheme.error,
-              ),
-            ),
-          ),
         ),
       ],
     );
@@ -385,39 +451,43 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 18, color: colorScheme.primary),
-                const SizedBox(width: 6),
-                Text(label, style: Theme.of(context).textTheme.labelLarge),
-              ],
-            ),
-            const SizedBox(height: 10),
-            FittedBox(
-              alignment: Alignment.centerLeft,
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: icon,
+                color: colorScheme.primary,
+                size: 34,
+                iconSize: 18,
               ),
+              const SizedBox(width: 8),
+              Text(label, style: Theme.of(context).textTheme.labelLarge),
+            ],
+          ),
+          const SizedBox(height: 10),
+          FittedBox(
+            alignment: Alignment.centerLeft,
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 4),
-            Text(
-              caption,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            caption,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -477,14 +547,17 @@ class _LendingList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (lendings.isEmpty) {
-      return AppEmptyView(
-        title: switch (tab) {
-          _LendingTab.lendOut => '暂无借出记录',
-          _LendingTab.borrowIn => '暂无借入记录',
-          _LendingTab.settled => '暂无已结清记录',
-        },
-        message: '可以先从上方按钮新增一笔借贷往来。',
-        icon: Icons.handshake_outlined,
+      return PremiumSurface(
+        padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+        child: AppEmptyView(
+          title: switch (tab) {
+            _LendingTab.lendOut => '暂无借出记录',
+            _LendingTab.borrowIn => '暂无借入记录',
+            _LendingTab.settled => '暂无已结清记录',
+          },
+          message: '可以先从上方按钮新增一笔借贷往来。',
+          icon: Icons.handshake_outlined,
+        ),
       );
     }
 
@@ -529,125 +602,161 @@ class _LendingCard extends StatelessWidget {
     final accent = item.type == LendingType.lendOut
         ? Colors.teal.shade700
         : Colors.indigo.shade600;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  backgroundColor: accent.withValues(alpha: 0.12),
-                  foregroundColor: accent,
-                  child: Text(_avatarText(item.contactName)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.contactName,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+    return PremiumSurface(
+      accentColor: accent,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ContactBadge(name: item.contactName, color: accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.contactName,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${item.typeLabel} · ${_formatDate(item.lendDate)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${item.typeLabel} · ${_formatDate(item.lendDate)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                if (busy)
-                  const SizedBox.square(
-                    dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!item.isSettled)
-                        IconButton(
-                          onPressed: onRepay,
-                          icon: const Icon(Icons.payments_outlined),
-                          tooltip: '记录还款',
-                        ),
-                      IconButton(
-                        onPressed: onRecords,
-                        icon: const Icon(Icons.receipt_long_outlined),
-                        tooltip: '查看还款记录',
+              ),
+              if (busy)
+                const SizedBox.square(
+                  dimension: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Wrap(
+                  spacing: 2,
+                  children: [
+                    if (!item.isSettled)
+                      IconButton.filledTonal(
+                        onPressed: onRepay,
+                        icon: const Icon(Icons.payments_outlined),
+                        tooltip: '记录还款',
                       ),
-                      IconButton(
-                        onPressed: onEdit,
-                        icon: const Icon(Icons.edit_outlined),
-                        tooltip: '编辑借贷记录',
-                      ),
-                      IconButton(
-                        onPressed: onDelete,
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: '删除借贷记录',
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _InfoChip(
-                    label: item.typeLabel,
-                    value: _formatMoney(item.principal),
-                  ),
+                    IconButton.filledTonal(
+                      onPressed: onRecords,
+                      icon: const Icon(Icons.receipt_long_outlined),
+                      tooltip: '查看还款记录',
+                    ),
+                    IconButton.filledTonal(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                      tooltip: '编辑借贷记录',
+                    ),
+                    IconButton.filledTonal(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: '删除借贷记录',
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _InfoChip(
-                    label: '剩余',
-                    value: _formatMoney(item.currentBalance),
-                  ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _InfoChip(
+                  label: item.typeLabel,
+                  value: _formatMoney(item.principal),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _InfoChip(
-                    label: '已还',
-                    value: _formatMoney(item.totalRepaid),
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _InfoChip(
+                  label: '剩余',
+                  value: _formatMoney(item.currentBalance),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(value: item.progress / 100),
-            const SizedBox(height: 8),
-            Text(
-              '剩余 ${_formatMoney(item.currentBalance)}',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            if (item.dueDate != null || item.accountName != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                [
-                  if (item.dueDate != null) '到期 ${_formatDate(item.dueDate!)}',
-                  if (item.accountName != null) '账户 ${item.accountName}',
-                ].join(' · '),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _InfoChip(
+                  label: '已还',
+                  value: _formatMoney(item.totalRepaid),
                 ),
               ),
             ],
-            if (item.remark.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(item.remark, style: Theme.of(context).textTheme.bodySmall),
-            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: item.progress / 100,
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(999),
+            color: accent,
+            backgroundColor: colorScheme.surfaceContainerHighest,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '剩余 ${_formatMoney(item.currentBalance)}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          if (item.dueDate != null || item.accountName != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              [
+                if (item.dueDate != null) '到期 ${_formatDate(item.dueDate!)}',
+                if (item.accountName != null) '账户 ${item.accountName}',
+              ].join(' · '),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
+          if (item.remark.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              item.remark,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactBadge extends StatelessWidget {
+  const _ContactBadge({required this.name, required this.color});
+
+  final String name;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(
+          alpha: Theme.of(context).brightness == Brightness.dark ? 0.22 : 0.12,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        _avatarText(name),
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );

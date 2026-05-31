@@ -35,6 +35,8 @@ import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/family/presentation/family_page.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
+import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
+import 'package:personal_ledger/features/lendings/presentation/lending_page.dart';
 import 'package:personal_ledger/features/main/presentation/main_shell_page.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/notifications/presentation/notification_settings_page.dart';
@@ -684,6 +686,44 @@ void main() {
           binding,
           tester,
           'debt-reminders-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium lending dashboard (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              lendingRepositoryProvider.overrideWithValue(
+                _FakeLendingRepository(),
+              ),
+              accountRepositoryProvider.overrideWithValue(
+                _FakeAccountRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const LendingPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('借贷往来'), findsOneWidget);
+        expect(find.text('借贷往来总览'), findsOneWidget);
+        expect(find.text('应收'), findsOneWidget);
+        expect(find.text('张三'), findsOneWidget);
+        expect(find.text('剩余 ¥800.00'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'lending-dashboard-${variant.name}',
         );
       });
 
@@ -1788,6 +1828,87 @@ const _reminders = [
     remark: '首套房商贷',
     evidence: '',
     isEnabled: true,
+  ),
+];
+
+class _FakeLendingRepository implements LendingRepository {
+  @override
+  Future<LendingItem?> create(CreateLendingRequest request) async {
+    return _lendings.first;
+  }
+
+  @override
+  Future<void> delete(String id) async {}
+
+  @override
+  Future<List<LendingItem>?> list({bool includeSettled = false}) async {
+    return _lendings;
+  }
+
+  @override
+  Future<LendingItem?> recordRepayment(
+    String id,
+    RecordRepaymentRequest request,
+  ) async {
+    return _lendings.first;
+  }
+
+  @override
+  Future<List<LendingRecordItem>?> records(String id) async {
+    return [
+      LendingRecordItem(
+        id: 'record-1',
+        lendingId: 'lend-1',
+        type: LendingRecordType.repay,
+        amount: 200,
+        recordDate: DateTime(2026, 5, 12),
+        accountName: '现金',
+        remark: '首次还款',
+      ),
+    ];
+  }
+
+  @override
+  Future<LendingSummary?> summaryOverview() async {
+    return const LendingSummary(
+      totalLendOut: 1000,
+      totalBorrowIn: 500,
+      activeLendOut: 1,
+      activeBorrowIn: 1,
+      settledLendOut: 0,
+      settledBorrowIn: 0,
+      totalReceivable: 1200,
+      totalPayable: 400,
+      netLending: 800,
+    );
+  }
+
+  @override
+  Future<LendingItem?> update(String id, UpdateLendingRequest request) async {
+    return _lendings.first;
+  }
+}
+
+final _lendings = [
+  LendingItem(
+    id: 'lend-1',
+    type: LendingType.lendOut,
+    contactName: '张三',
+    principal: 1000,
+    currentBalance: 800,
+    totalRepaid: 200,
+    lendDate: DateTime(2026, 5, 1, 9),
+    dueDate: DateTime(2026, 6, 1, 9),
+    remark: '朋友周转',
+  ),
+  LendingItem(
+    id: 'borrow-1',
+    type: LendingType.borrowIn,
+    contactName: '李四',
+    principal: 500,
+    currentBalance: 400,
+    totalRepaid: 100,
+    lendDate: DateTime(2026, 5, 2, 9),
   ),
 ];
 
