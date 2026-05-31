@@ -109,6 +109,8 @@ void main() {
     expect(find.text('2026-05 家庭支出'), findsOneWidget);
     expect(find.text('¥320.00'), findsOneWidget);
     expect(find.text('成员支出排行'), findsOneWidget);
+    expect(find.text('支出集中度'), findsOneWidget);
+    expect(find.text('成员A 63%'), findsOneWidget);
     expect(find.text('¥200.00 · 3 笔'), findsOneWidget);
     expect(find.text('家庭预算'), findsOneWidget);
     expect(find.text('¥1000.00'), findsOneWidget);

@@ -587,6 +587,7 @@ class _FamilyRankingSurface extends StatelessWidget {
     final financeColors = AppTheme.financeColors(context);
     final ranked = [...summary.members]
       ..sort((a, b) => b.expenseTotal.compareTo(a.expenseTotal));
+    final topMember = ranked.isEmpty ? null : ranked.first;
     return PremiumSurface(
       accentColor: financeColors.asset,
       child: Column(
@@ -604,10 +605,71 @@ class _FamilyRankingSurface extends StatelessWidget {
               ),
             ],
           ),
+          if (topMember != null) ...[
+            const SizedBox(height: 12),
+            _FamilyConcentrationStrip(
+              member: topMember,
+              total: summary.totalExpense,
+            ),
+          ],
           const SizedBox(height: 14),
           ...ranked.map(
             (member) =>
                 _FamilyRankingRow(member: member, total: summary.totalExpense),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyConcentrationStrip extends StatelessWidget {
+  const _FamilyConcentrationStrip({required this.member, required this.total});
+
+  final FamilyMemberSummary member;
+  final double total;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = _memberColor(context, member.color);
+    final ratio = total <= 0 ? 0.0 : (member.expenseTotal / total * 100);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.hub_outlined, color: color, size: 18),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              '支出集中度',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Text(
+            '${member.name.isEmpty ? '未命名成员' : member.name} ${ratio.toStringAsFixed(0)}%',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),
