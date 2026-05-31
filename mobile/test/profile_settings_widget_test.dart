@@ -103,6 +103,9 @@ void main() {
 
       await tester.tap(find.text('深色模式'));
       await tester.pumpAndSettle();
+      preferences = await SharedPreferences.getInstance();
+      expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
+
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('profile-settings-theme-obsidian')),
         320,
@@ -115,7 +118,6 @@ void main() {
       await tester.pumpAndSettle();
 
       preferences = await SharedPreferences.getInstance();
-      expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
       expect(preferences.getString('app_theme_palette'), 'obsidian');
       expect(find.text('当前模板'), findsOneWidget);
       expect(find.text('黑曜蓝'), findsWidgets);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../app/theme/theme_mode_controller.dart';
@@ -189,14 +190,18 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
     if (mode == null) {
       return;
     }
+    HapticFeedback.selectionClick();
     ref.read(themeControllerProvider.notifier).setThemeMode(mode);
+    _showMessage('外观模式已切换为${_profileSettingsThemeModeLabel(mode)}');
   }
 
   void _setThemePalette(AppThemePalette? palette) {
     if (palette == null) {
       return;
     }
+    HapticFeedback.selectionClick();
     ref.read(themeControllerProvider.notifier).setPalette(palette);
+    _showMessage('主题模板已切换为${palette.label}');
   }
 }
 
@@ -1393,101 +1398,107 @@ class _ProfileThemeTemplateTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        key: ValueKey('profile-settings-template-${item.targetPalette.id}'),
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 170),
-          curve: Curves.easeOutCubic,
-          scale: selected ? 1 : 0.985,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${item.label}主题模板：${item.targetPalette.label}',
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          key: ValueKey('profile-settings-template-${item.targetPalette.id}'),
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 170),
             curve: Curves.easeOutCubic,
-            constraints: const BoxConstraints(minHeight: 76),
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                item.color.withValues(
-                  alpha: selected
-                      ? (Theme.of(context).brightness == Brightness.dark
-                            ? 0.24
-                            : 0.13)
-                      : (Theme.of(context).brightness == Brightness.dark
-                            ? 0.16
-                            : 0.08),
-                ),
-                colorScheme.surface,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: selected
-                    ? item.targetPalette.seedColor
-                    : item.color.withValues(alpha: 0.16),
-                width: selected ? 1.5 : 1,
-              ),
-              boxShadow: [
-                if (selected)
-                  BoxShadow(
-                    color: item.targetPalette.seedColor.withValues(alpha: 0.16),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
+            scale: selected ? 1 : 0.985,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              constraints: const BoxConstraints(minHeight: 76),
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  item.color.withValues(
+                    alpha: selected
+                        ? (Theme.of(context).brightness == Brightness.dark
+                              ? 0.24
+                              : 0.13)
+                        : (Theme.of(context).brightness == Brightness.dark
+                              ? 0.16
+                              : 0.08),
                   ),
-              ],
-            ),
-            child: Row(
-              children: [
-                IconBadge(
-                  icon: item.icon,
-                  color: item.color,
-                  size: 38,
-                  iconSize: 20,
+                  colorScheme.surface,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        item.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w800,
-                            ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: selected
+                      ? item.targetPalette.seedColor
+                      : item.color.withValues(alpha: 0.16),
+                  width: selected ? 1.5 : 1,
+                ),
+                boxShadow: [
+                  if (selected)
+                    BoxShadow(
+                      color: item.targetPalette.seedColor.withValues(
+                        alpha: 0.16,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        item.targetPalette.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  IconBadge(
+                    icon: item.icon,
+                    color: item.color,
+                    size: 38,
+                    iconSize: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          item.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w800,
+                              ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 3),
+                        Text(
+                          item.targetPalette.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 160),
-                  child: Icon(
-                    selected
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked,
-                    key: ValueKey(selected),
-                    size: 20,
-                    color: selected
-                        ? item.targetPalette.seedColor
-                        : colorScheme.outline,
+                  const SizedBox(width: 8),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 160),
+                    child: Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked,
+                      key: ValueKey(selected),
+                      size: 20,
+                      color: selected
+                          ? item.targetPalette.seedColor
+                          : colorScheme.outline,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
