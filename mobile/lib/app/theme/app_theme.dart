@@ -186,6 +186,7 @@ class AppTheme {
       snackBarTheme: _snackBarTheme(colorScheme, palette),
       segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
       chipTheme: _chipTheme(colorScheme, palette),
+      appBarTheme: _appBarTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -229,6 +230,7 @@ class AppTheme {
       snackBarTheme: _snackBarTheme(colorScheme, palette),
       segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
       chipTheme: _chipTheme(colorScheme, palette),
+      appBarTheme: _appBarTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -489,6 +491,42 @@ class AppTheme {
       ),
       iconTheme: IconThemeData(size: 18, color: palette.seedColor),
       brightness: colorScheme.brightness,
+    );
+  }
+
+  static AppBarThemeData _appBarTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final foregroundColor = colorScheme.onSurface;
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final backgroundColor = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.10 : 0.045),
+      colorScheme.surface,
+    );
+
+    return AppBarThemeData(
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      centerTitle: false,
+      titleSpacing: 16,
+      toolbarHeight: 60,
+      iconTheme: IconThemeData(color: foregroundColor, size: 22),
+      actionsIconTheme: IconThemeData(color: palette.seedColor, size: 22),
+      titleTextStyle: TextStyle(
+        color: foregroundColor,
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+      ),
+      toolbarTextStyle: TextStyle(
+        color: colorScheme.onSurfaceVariant,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }

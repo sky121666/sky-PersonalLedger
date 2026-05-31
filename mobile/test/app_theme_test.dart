@@ -118,6 +118,21 @@ void main() {
       expect(disabledColor, chipTheme.disabledColor);
     });
 
+    test('顶部导航栏使用轻量主题化样式', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.obsidian);
+      final appBarTheme = theme.appBarTheme;
+
+      expect(appBarTheme.elevation, 0);
+      expect(appBarTheme.scrolledUnderElevation, 0);
+      expect(appBarTheme.surfaceTintColor, Colors.transparent);
+      expect(
+        appBarTheme.actionsIconTheme?.color,
+        AppThemePalette.obsidian.seedColor,
+      );
+      expect(appBarTheme.titleTextStyle?.fontWeight, FontWeight.w900);
+      expect(appBarTheme.toolbarHeight, 60);
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);
