@@ -18,6 +18,7 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeSettings = ref.watch(themeControllerProvider);
+    final financeColors = AppTheme.financeColors(context);
     return Scaffold(
       appBar: AppBar(title: const Text('我的')),
       body: AdaptivePageContainer(
@@ -37,28 +38,28 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 _SettingsEntry(
                   icon: Icons.account_balance_wallet_outlined,
-                  color: AppTheme.assetColor,
+                  color: financeColors.asset,
                   title: '账户管理',
                   subtitle: '新增、编辑、归档和删除账户',
                   onTap: () => context.push(AppRoutePaths.accounts),
                 ),
                 _SettingsEntry(
                   icon: Icons.receipt_long_outlined,
-                  color: AppTheme.warningColor,
+                  color: financeColors.warning,
                   title: '账户流水',
                   subtitle: '查看全部账户余额变动记录',
                   onTap: () => context.push(AppRoutePaths.accountLogs),
                 ),
                 _SettingsEntry(
                   icon: Icons.category_outlined,
-                  color: AppTheme.expenseColor,
+                  color: financeColors.expense,
                   title: '分类管理',
                   subtitle: '维护收入和支出分类',
                   onTap: () => context.push(AppRoutePaths.categories),
                 ),
                 _SettingsEntry(
                   icon: Icons.label_outline,
-                  color: AppTheme.incomeColor,
+                  color: financeColors.income,
                   title: '标签管理',
                   subtitle: '维护交易标签和使用标记',
                   onTap: () => context.push(AppRoutePaths.tags),
@@ -78,14 +79,14 @@ class ProfilePage extends ConsumerWidget {
               children: [
                 _SettingsEntry(
                   icon: Icons.savings_outlined,
-                  color: AppTheme.incomeColor,
+                  color: financeColors.income,
                   title: '预算管理',
                   subtitle: '设置总预算和分类预算提醒线',
                   onTap: () => context.push(AppRoutePaths.budgets),
                 ),
                 _SettingsEntry(
                   icon: Icons.notifications_active_outlined,
-                  color: AppTheme.warningColor,
+                  color: financeColors.warning,
                   title: '负债管理',
                   subtitle: '查看还款提醒和上岸进度',
                   onTap: () => context.push(AppRoutePaths.reminders),
@@ -133,7 +134,7 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 _SettingsEntry(
                   icon: Icons.security_outlined,
-                  color: AppTheme.expenseColor,
+                  color: financeColors.expense,
                   title: '账号安全',
                   subtitle: '修改密码和配置安全入口',
                   onTap: () => context.push(AppRoutePaths.securitySettings),
@@ -147,7 +148,7 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 _SettingsEntry(
                   icon: Icons.storage_outlined,
-                  color: AppTheme.assetColor,
+                  color: financeColors.asset,
                   title: '数据管理',
                   subtitle: '备份、恢复和导出交易数据',
                   onTap: () => context.push(AppRoutePaths.dataManagement),
@@ -373,6 +374,7 @@ class _AppearancePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: settings.palette.seedColor,
       child: Column(
@@ -409,6 +411,11 @@ class _AppearancePanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
+          _ThemeLivePreview(
+            palette: settings.palette,
+            financeColors: financeColors,
+          ),
+          const SizedBox(height: 18),
           Text(
             '外观模式',
             style: Theme.of(
@@ -442,6 +449,13 @@ class _AppearancePanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
+          Text(
+            '主题模板',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
           for (final palette in AppThemePalette.values) ...[
             _ThemePaletteOption(
               palette: palette,
@@ -451,6 +465,169 @@ class _AppearancePanel extends StatelessWidget {
             if (palette != AppThemePalette.values.last)
               const SizedBox(height: 10),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeLivePreview extends StatelessWidget {
+  const _ThemeLivePreview({required this.palette, required this.financeColors});
+
+  final AppThemePalette palette;
+  final AppFinanceColors financeColors;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(
+              palette.seedColor.withValues(alpha: 0.22),
+              colorScheme.surface,
+            ),
+            Color.alphaBlend(
+              palette.assetColor.withValues(alpha: 0.16),
+              colorScheme.surface,
+            ),
+            Color.alphaBlend(
+              palette.warningColor.withValues(alpha: 0.10),
+              colorScheme.surface,
+            ),
+          ],
+        ),
+        border: Border.all(color: palette.seedColor.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.space_dashboard_outlined,
+                color: palette.seedColor,
+                size: 38,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${palette.label} 预览',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              Text(
+                '+12.8%',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: financeColors.income,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '¥12,840.00',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _PreviewMetric(
+                  label: '资产',
+                  value: '8.4w',
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _PreviewMetric(
+                  label: '提醒',
+                  value: '3 项',
+                  color: financeColors.warning,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _PreviewMetric(
+                  label: '支出',
+                  value: '2.1w',
+                  color: financeColors.expense,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviewMetric extends StatelessWidget {
+  const _PreviewMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
@@ -476,60 +653,85 @@ class _ThemePaletteOption extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
-        child: AnimatedContainer(
+        child: AnimatedScale(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Color.alphaBlend(
-              palette.seedColor.withValues(alpha: selected ? 0.12 : 0.04),
-              colorScheme.surface,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: selected
-                  ? palette.seedColor
-                  : colorScheme.outlineVariant.withValues(alpha: 0.72),
-              width: selected ? 1.4 : 1,
-            ),
-          ),
+          curve: Curves.easeOutCubic,
+          scale: selected ? 1 : 0.985,
           child: Row(
             children: [
-              _ThemePalettePreview(palette: palette),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      palette.label,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      palette.description,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 4,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? palette.seedColor
+                      : colorScheme.outlineVariant.withValues(alpha: 0.48),
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: selected
-                    ? Icon(
-                        Icons.check_circle,
-                        key: const ValueKey('selected'),
-                        color: palette.seedColor,
-                      )
-                    : Icon(
-                        Icons.radio_button_unchecked,
-                        key: const ValueKey('unselected'),
-                        color: colorScheme.outline,
+              Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Color.alphaBlend(
+                      palette.seedColor.withValues(
+                        alpha: selected ? 0.12 : 0.04,
                       ),
+                      colorScheme.surface,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: selected
+                          ? palette.seedColor
+                          : colorScheme.outlineVariant.withValues(alpha: 0.72),
+                      width: selected ? 1.4 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      _ThemePalettePreview(palette: palette),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              palette.label,
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              palette.description,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: selected
+                            ? Icon(
+                                Icons.check_circle,
+                                key: const ValueKey('selected'),
+                                color: palette.seedColor,
+                              )
+                            : Icon(
+                                Icons.radio_button_unchecked,
+                                key: const ValueKey('unselected'),
+                                color: colorScheme.outline,
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+              const SizedBox(width: 1),
             ],
           ),
         ),

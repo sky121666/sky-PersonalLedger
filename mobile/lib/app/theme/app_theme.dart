@@ -82,6 +82,7 @@ class AppTheme {
     return ThemeData(
       colorScheme: colorScheme,
       scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+      extensions: [AppFinanceColors.fromPalette(palette)],
       useMaterial3: true,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
@@ -120,6 +121,7 @@ class AppTheme {
     return ThemeData(
       colorScheme: colorScheme,
       scaffoldBackgroundColor: const Color(0xFF020617),
+      extensions: [AppFinanceColors.fromPalette(palette)],
       useMaterial3: true,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
@@ -146,6 +148,68 @@ class AppTheme {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
       ),
+    );
+  }
+
+  static AppFinanceColors financeColors(BuildContext context) {
+    return Theme.of(context).extension<AppFinanceColors>() ??
+        AppFinanceColors.fromPalette(AppThemePalette.teal);
+  }
+}
+
+class AppFinanceColors extends ThemeExtension<AppFinanceColors> {
+  const AppFinanceColors({
+    required this.brand,
+    required this.income,
+    required this.expense,
+    required this.asset,
+    required this.warning,
+  });
+
+  final Color brand;
+  final Color income;
+  final Color expense;
+  final Color asset;
+  final Color warning;
+
+  factory AppFinanceColors.fromPalette(AppThemePalette palette) {
+    return AppFinanceColors(
+      brand: palette.seedColor,
+      income: AppTheme.incomeColor,
+      expense: AppTheme.expenseColor,
+      asset: palette.assetColor,
+      warning: palette.warningColor,
+    );
+  }
+
+  @override
+  AppFinanceColors copyWith({
+    Color? brand,
+    Color? income,
+    Color? expense,
+    Color? asset,
+    Color? warning,
+  }) {
+    return AppFinanceColors(
+      brand: brand ?? this.brand,
+      income: income ?? this.income,
+      expense: expense ?? this.expense,
+      asset: asset ?? this.asset,
+      warning: warning ?? this.warning,
+    );
+  }
+
+  @override
+  AppFinanceColors lerp(ThemeExtension<AppFinanceColors>? other, double t) {
+    if (other is! AppFinanceColors) {
+      return this;
+    }
+    return AppFinanceColors(
+      brand: Color.lerp(brand, other.brand, t)!,
+      income: Color.lerp(income, other.income, t)!,
+      expense: Color.lerp(expense, other.expense, t)!,
+      asset: Color.lerp(asset, other.asset, t)!,
+      warning: Color.lerp(warning, other.warning, t)!,
     );
   }
 }
