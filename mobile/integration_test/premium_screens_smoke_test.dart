@@ -1,6 +1,7 @@
 import 'dart:io' show Directory, File, Platform;
 import 'dart:ui' as ui;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +27,8 @@ import 'package:personal_ledger/features/categories/application/category_control
 import 'package:personal_ledger/features/categories/data/category.dart';
 import 'package:personal_ledger/features/categories/data/category_repository.dart';
 import 'package:personal_ledger/features/categories/presentation/categories_page.dart';
+import 'package:personal_ledger/features/data_management/data/data_management_repository.dart';
+import 'package:personal_ledger/features/data_management/presentation/data_management_page.dart';
 import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/family/presentation/family_page.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
@@ -368,6 +371,54 @@ void main() {
           binding,
           tester,
           'notification-settings-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium data management vault (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              dataManagementRepositoryProvider.overrideWithValue(
+                _FakeDataManagementRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const DataManagementPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('数据管理'), findsOneWidget);
+        expect(find.text('数据保险库'), findsOneWidget);
+        expect(find.text('数据出口'), findsOneWidget);
+        expect(find.text('下载备份'), findsOneWidget);
+        expect(find.text('导出 CSV'), findsOneWidget);
+        expect(find.text('自动备份'), findsWidgets);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+
+        await tester.scrollUntilVisible(
+          find.text('auto_backup_user1_20260516_120000.json'),
+          360,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('已有备份'), findsOneWidget);
+        expect(
+          find.text('auto_backup_user1_20260516_120000.json'),
+          findsOneWidget,
+        );
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'data-management-vault-${variant.name}',
         );
       });
 
@@ -1161,6 +1212,69 @@ class _FakeNotificationRepository implements NotificationRepository {
     );
     return settings;
   }
+}
+
+class _FakeDataManagementRepository implements DataManagementRepository {
+  @override
+  Future<DataFileResult> downloadBackup() async {
+    return const DataFileResult(
+      filename: 'backup.json',
+      path: '/tmp/backup.json',
+      size: 128,
+    );
+  }
+
+  @override
+  Future<DataFileResult> exportTransactionsCsv() async {
+    return const DataFileResult(
+      filename: 'transactions.csv',
+      path: '/tmp/transactions.csv',
+      size: 64,
+    );
+  }
+
+  @override
+  Future<AutoBackupOverview> getAutoBackupOverview() async {
+    return const AutoBackupOverview(
+      settings: AutoBackupSettings(
+        enabled: true,
+        frequency: 'weekly',
+        hour: 3,
+        maxBackups: 10,
+        lastBackup: '2026-05-16 12:00:00',
+      ),
+      files: [
+        AutoBackupFile(
+          filename: 'auto_backup_user1_20260516_120000.json',
+          size: 2048,
+          createdAt: '2026-05-16 12:00:00',
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<AutoBackupSettings?> getAutoBackupSettings() async {
+    return (await getAutoBackupOverview()).settings;
+  }
+
+  @override
+  Future<List<AutoBackupFile>?> listAutoBackupFiles() async {
+    return (await getAutoBackupOverview()).files;
+  }
+
+  @override
+  Future<void> restoreBackup(PlatformFile file) async {}
+
+  @override
+  Future<AutoBackupSettings?> saveAutoBackupSettings(
+    AutoBackupSettings settings,
+  ) async {
+    return settings;
+  }
+
+  @override
+  Future<void> triggerAutoBackup() async {}
 }
 
 class _FakeHomeRepository implements HomeRepository {

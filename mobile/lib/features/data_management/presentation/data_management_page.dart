@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../data/data_management_repository.dart';
 
 class DataManagementPage extends ConsumerStatefulWidget {
@@ -49,7 +51,12 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
-            _WarningPanel(isBusy: _isBusy),
+            _DataManagementHero(
+              isBusy: _isBusy,
+              autoBackupEnabled: _autoBackupSettings.enabled,
+              backupCount: _autoBackupFiles.length,
+              maxBackups: _autoBackupSettings.maxBackups,
+            ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               _MessagePanel(
@@ -66,6 +73,13 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               ),
             ],
             const SizedBox(height: 16),
+            Text(
+              '数据出口',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
             _ActionCard(
               icon: Icons.backup_outlined,
               title: '完整备份',
@@ -365,63 +379,80 @@ class _AutoBackupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
-                  foregroundColor: colorScheme.primary,
-                  child: const Icon(Icons.schedule_outlined),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '自动备份',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
+    final statusColor = settings.enabled
+        ? colorScheme.primary
+        : colorScheme.outline;
+    return PremiumSurface(
+      accentColor: statusColor,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.schedule_outlined,
+                color: statusColor,
+                size: 46,
+                iconSize: 23,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '自动备份',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        settings.lastBackup == null ||
-                                settings.lastBackup!.isEmpty
-                            ? '定时在服务器生成备份文件'
-                            : '上次备份：${settings.lastBackup}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.outline,
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      settings.lastBackup == null ||
+                              settings.lastBackup!.isEmpty
+                          ? '定时在服务器生成备份文件'
+                          : '上次备份：${settings.lastBackup}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: enabled && !loading ? onReload : null,
-                  icon: const Icon(Icons.refresh),
-                  tooltip: '刷新自动备份',
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: settings.enabled,
-              onChanged: enabled && !loading ? onEnabledChanged : null,
-              title: const Text('启用自动备份'),
-              subtitle: const Text('按设定频率保留服务器端备份'),
-            ),
-            const SizedBox(height: 8),
-            SegmentedButton<String>(
+              ),
+              IconButton.filledTonal(
+                onPressed: enabled && !loading ? onReload : null,
+                icon: const Icon(Icons.refresh),
+                tooltip: '刷新自动备份',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _SwitchPanel(
+            value: settings.enabled,
+            enabled: enabled && !loading,
+            onChanged: onEnabledChanged,
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'daily', label: Text('每天')),
-                ButtonSegment(value: 'weekly', label: Text('每周')),
-                ButtonSegment(value: 'monthly', label: Text('每月')),
+                ButtonSegment(
+                  value: 'daily',
+                  label: Text('每天'),
+                  icon: Icon(Icons.today_outlined),
+                ),
+                ButtonSegment(
+                  value: 'weekly',
+                  label: Text('每周'),
+                  icon: Icon(Icons.view_week_outlined),
+                ),
+                ButtonSegment(
+                  value: 'monthly',
+                  label: Text('每月'),
+                  icon: Icon(Icons.calendar_month_outlined),
+                ),
               ],
               selected: {settings.frequency},
               showSelectedIcon: false,
@@ -429,128 +460,311 @@ class _AutoBackupCard extends StatelessWidget {
                   ? (values) => onFrequencyChanged(values.first)
                   : null,
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<int>(
-                    key: ValueKey(settings.hour),
-                    initialValue: settings.hour,
-                    decoration: const InputDecoration(
-                      labelText: '执行小时',
-                      border: OutlineInputBorder(),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey(settings.hour),
+                  initialValue: settings.hour,
+                  decoration: InputDecoration(
+                    labelText: '执行小时',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: Icon(
+                      Icons.access_time_outlined,
+                      color: colorScheme.primary,
                     ),
-                    items: [
-                      for (var hour = 0; hour < 24; hour++)
-                        DropdownMenuItem(
-                          value: hour,
-                          child: Text('${hour.toString().padLeft(2, '0')}:00'),
-                        ),
-                    ],
-                    onChanged: enabled && !loading && settings.enabled
-                        ? (value) {
-                            if (value != null) {
-                              onHourChanged(value);
-                            }
+                  ),
+                  items: [
+                    for (var hour = 0; hour < 24; hour++)
+                      DropdownMenuItem(
+                        value: hour,
+                        child: Text('${hour.toString().padLeft(2, '0')}:00'),
+                      ),
+                  ],
+                  onChanged: enabled && !loading && settings.enabled
+                      ? (value) {
+                          if (value != null) {
+                            onHourChanged(value);
                           }
-                        : null,
-                  ),
+                        }
+                      : null,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: maxBackupsController,
-                    enabled: enabled && !loading,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '保留份数',
-                      border: OutlineInputBorder(),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: maxBackupsController,
+                  enabled: enabled && !loading,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: '保留份数',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: Icon(
+                      Icons.inventory_2_outlined,
+                      color: colorScheme.primary,
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: enabled && !loading ? onSave : null,
+                  icon: loading
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(loading ? '处理中...' : '保存设置'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: enabled && !loading ? onTrigger : null,
+                  icon: const Icon(Icons.play_arrow_outlined),
+                  label: const Text('立即备份'),
+                ),
+              ),
+            ],
+          ),
+          if (files.isNotEmpty) ...[
+            const SizedBox(height: 18),
             Row(
               children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: enabled && !loading ? onSave : null,
-                    icon: loading
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save_outlined),
-                    label: Text(loading ? '处理中...' : '保存设置'),
-                  ),
+                Text(
+                  '已有备份',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: enabled && !loading ? onTrigger : null,
-                    icon: const Icon(Icons.play_arrow_outlined),
-                    label: const Text('立即备份'),
+                const Spacer(),
+                Text(
+                  '${files.length} 个文件',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
-            if (files.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text(
-                '已有备份',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              for (final file in files.take(3))
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  leading: const Icon(Icons.description_outlined),
-                  title: Text(
-                    file.filename,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    '${_formatFileSize(file.size)} · ${file.createdAt}',
-                  ),
-                ),
+            const SizedBox(height: 10),
+            for (final file in files.take(3)) ...[
+              _BackupFileRow(file: file),
+              if (file != files.take(3).last) const SizedBox(height: 8),
             ],
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DataManagementHero extends StatelessWidget {
+  const _DataManagementHero({
+    required this.isBusy,
+    required this.autoBackupEnabled,
+    required this.backupCount,
+    required this.maxBackups,
+  });
+
+  final bool isBusy;
+  final bool autoBackupEnabled;
+  final int backupCount;
+  final int maxBackups;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final statusColor = isBusy ? colorScheme.tertiary : colorScheme.primary;
+    return PremiumSurface(
+      accentColor: statusColor,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: isBusy ? Icons.sync_outlined : Icons.shield_moon_outlined,
+                color: statusColor,
+                size: 50,
+                iconSize: 25,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '数据保险库',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      isBusy ? '数据操作正在执行，请不要关闭应用。' : '恢复备份会覆盖当前数据，请确认备份来源可信。',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              MetricPill(
+                label: '自动备份',
+                value: autoBackupEnabled ? '已启用' : '未启用',
+                icon: autoBackupEnabled
+                    ? Icons.verified_outlined
+                    : Icons.pause_circle_outline,
+                color: autoBackupEnabled
+                    ? colorScheme.primary
+                    : colorScheme.outline,
+              ),
+              MetricPill(
+                label: '服务器备份',
+                value: '$backupCount 个',
+                icon: Icons.cloud_done_outlined,
+                color: colorScheme.tertiary,
+              ),
+              MetricPill(
+                label: '保留策略',
+                value: '$maxBackups 份',
+                icon: Icons.inventory_2_outlined,
+                color: colorScheme.secondary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwitchPanel extends StatelessWidget {
+  const _SwitchPanel({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: enabled ? () => onChanged(!value) : null,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              IconBadge(
+                icon: Icons.auto_awesome_motion_outlined,
+                color: value ? colorScheme.primary : colorScheme.outline,
+                size: 38,
+                iconSize: 19,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '启用自动备份',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '按设定频率保留服务器端备份',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(value: value, onChanged: enabled ? onChanged : null),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _WarningPanel extends StatelessWidget {
-  const _WarningPanel({required this.isBusy});
+class _BackupFileRow extends StatelessWidget {
+  const _BackupFileRow({required this.file});
 
-  final bool isBusy;
+  final AutoBackupFile file;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.secondaryContainer.withValues(alpha: 0.55),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, color: colorScheme.onSecondaryContainer),
-          const SizedBox(width: 12),
+          IconBadge(
+            icon: Icons.description_outlined,
+            color: colorScheme.primary,
+            size: 36,
+            iconSize: 18,
+          ),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              isBusy ? '数据操作正在执行，请不要关闭应用。' : '恢复备份会覆盖当前数据，请确认备份来源可信。',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSecondaryContainer,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  file.filename,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${_formatFileSize(file.size)} · ${file.createdAt}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -628,65 +842,59 @@ class _ActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final iconColor = isDanger ? colorScheme.error : colorScheme.primary;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  backgroundColor: iconColor.withValues(alpha: 0.12),
-                  foregroundColor: iconColor,
-                  child: Icon(icon),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
+    return PremiumSurface(
+      accentColor: iconColor,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(icon: icon, color: iconColor, size: 46, iconSize: 23),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.outline,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: isDanger
-                  ? FilledButton.tonalIcon(
-                      onPressed: enabled ? onPressed : null,
-                      icon: _ButtonIcon(
-                        busy: busy,
-                        fallback: Icons.upload_file,
-                      ),
-                      label: Text(busy ? '恢复中...' : buttonLabel),
-                    )
-                  : FilledButton.icon(
-                      onPressed: enabled ? onPressed : null,
-                      icon: _ButtonIcon(
-                        busy: busy,
-                        fallback: Icons.download_outlined,
-                      ),
-                      label: Text(busy ? '处理中...' : buttonLabel),
                     ),
-            ),
-          ],
-        ),
+                    const SizedBox(height: 5),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: isDanger
+                ? FilledButton.tonalIcon(
+                    onPressed: enabled ? onPressed : null,
+                    icon: _ButtonIcon(busy: busy, fallback: Icons.upload_file),
+                    label: Text(busy ? '恢复中...' : buttonLabel),
+                  )
+                : FilledButton.icon(
+                    onPressed: enabled ? onPressed : null,
+                    icon: _ButtonIcon(
+                      busy: busy,
+                      fallback: Icons.download_outlined,
+                    ),
+                    label: Text(busy ? '处理中...' : buttonLabel),
+                  ),
+          ),
+        ],
       ),
     );
   }
