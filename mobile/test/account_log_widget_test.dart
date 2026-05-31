@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
@@ -21,6 +22,18 @@ void main() {
 
       expect(find.text('现金流水'), findsOneWidget);
       expect(find.text('当前余额 ¥1280.00'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('account-log-audit-center')),
+        findsOneWidget,
+      );
+      expect(find.text('流水审计中枢'), findsOneWidget);
+      expect(find.text('个人控制中枢 · 静谧墨绿'), findsNothing);
+      expect(find.text('静谧墨绿 · 现金 · 1 天'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('工资入账'),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('收入'), findsOneWidget);
       expect(find.text('+¥500.00'), findsAtLeastNWidgets(1));
       expect(find.text('工资入账'), findsOneWidget);
@@ -35,7 +48,7 @@ void main() {
         account: _account(),
       );
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
     testWidgets('账户流水概览展示记录数量和分组状态', (tester) async {
@@ -62,10 +75,14 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('记录 · 共 2 条流水记录'), findsOneWidget);
+      expect(find.text('2 条流水'), findsOneWidget);
+      expect(find.text('流入笔数'), findsOneWidget);
+      expect(find.text('流出笔数'), findsOneWidget);
+      expect(find.text('无校准'), findsOneWidget);
       expect(find.text('分组 · 1 天'), findsOneWidget);
       expect(find.text('状态 · 已同步'), findsOneWidget);
-      expect(find.text('净变动'), findsOneWidget);
-      expect(find.text('+¥420.00'), findsOneWidget);
+      expect(find.text('净变动'), findsAtLeastNWidgets(1));
+      expect(find.text('+¥420.00'), findsAtLeastNWidgets(1));
       expect(find.text('流入'), findsOneWidget);
       expect(find.text('¥500.00'), findsOneWidget);
       expect(find.text('流出'), findsOneWidget);
@@ -103,6 +120,11 @@ void main() {
 
       expect(find.text('账户流水'), findsOneWidget);
       expect(find.text('现金'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('加载更多'),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('加载更多'), findsOneWidget);
 
       await tester.tap(find.text('加载更多'));
@@ -151,6 +173,11 @@ void main() {
       )..listErrors = {2: 1};
       await _pumpPage(tester, repository);
 
+      await tester.scrollUntilVisible(
+        find.text('加载更多'),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('加载更多'));
       await tester.pumpAndSettle();
 
@@ -265,7 +292,12 @@ Future<void> _pumpPage(
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [accountLogRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        accountLogRepositoryProvider.overrideWithValue(repository),
+        themeControllerProvider.overrideWith(
+          (ref) => _FixedThemeController(palette),
+        ),
+      ],
       child: MaterialApp(
         theme: AppTheme.lightTheme(palette),
         darkTheme: AppTheme.darkTheme(palette),
@@ -274,6 +306,20 @@ Future<void> _pumpPage(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _FixedThemeController extends ThemeController {
+  _FixedThemeController(AppThemePalette palette) {
+    state = AppThemeSettings(palette: palette);
+  }
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> setPalette(AppThemePalette palette) async {
+    state = state.copyWith(palette: palette);
+  }
 }
 
 class _FakeAccountLogRepository implements AccountLogRepository {

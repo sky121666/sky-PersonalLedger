@@ -515,6 +515,12 @@ void main() {
 
         expect(find.text('招商银行流水'), findsOneWidget);
         expect(find.text('当前余额 ¥1280.00'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('account-log-audit-center')),
+          findsOneWidget,
+        );
+        expect(find.text('流水审计中枢'), findsOneWidget);
+        expect(find.textContaining('静谧墨绿'), findsOneWidget);
         expect(find.text('收入'), findsOneWidget);
         expect(find.text('+¥500.00'), findsOneWidget);
         expect(find.text('工资入账'), findsOneWidget);

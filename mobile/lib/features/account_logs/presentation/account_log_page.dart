@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -117,6 +118,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
   @override
   Widget build(BuildContext context) {
     final account = widget.account;
+    final themeSettings = ref.watch(themeControllerProvider);
     return Scaffold(
       appBar: AppBar(
         title: Text(account == null ? '账户流水' : '${account.name}流水'),
@@ -128,11 +130,11 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
           ),
         ],
       ),
-      body: AdaptivePageContainer(child: _buildBody(account)),
+      body: AdaptivePageContainer(child: _buildBody(account, themeSettings)),
     );
   }
 
-  Widget _buildBody(Account? account) {
+  Widget _buildBody(Account? account, AppThemeSettings themeSettings) {
     if (_loading && _logs.isEmpty) {
       return const AppLoadingView(message: '流水加载中...');
     }
@@ -176,6 +178,18 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
           ],
           StaggeredEntrance(
             index: account == null ? 0 : 1,
+            child: _AccountLogAuditCenter(
+              logs: _logs,
+              total: _total,
+              groupCount: groups.length,
+              hasMore: _hasMore,
+              account: account,
+              palette: themeSettings.palette,
+            ),
+          ),
+          const SizedBox(height: 12),
+          StaggeredEntrance(
+            index: account == null ? 1 : 2,
             child: _LogOverviewCard(
               logs: _logs,
               total: _total,
@@ -187,7 +201,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
           const SizedBox(height: 12),
           for (final entry in groups.indexed) ...[
             StaggeredEntrance(
-              index: (account == null ? 1 : 2) + entry.$1 * 2,
+              index: (account == null ? 2 : 3) + entry.$1 * 2,
               child: _DateHeader(
                 date: entry.$2.date,
                 count: entry.$2.logs.length,
@@ -195,7 +209,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
             ),
             const SizedBox(height: 8),
             StaggeredEntrance(
-              index: (account == null ? 2 : 3) + entry.$1 * 2,
+              index: (account == null ? 3 : 4) + entry.$1 * 2,
               child: PremiumSurface(
                 padding: const EdgeInsets.all(10),
                 child: Column(
@@ -318,7 +332,7 @@ class _AccountSummaryCard extends StatelessWidget {
                 child: _SummaryPill(
                   icon: Icons.account_balance_wallet_outlined,
                   label: '账户类型',
-                  value: account.type,
+                  value: _accountTypeLabel(account.type),
                   color: color,
                 ),
               ),
@@ -327,7 +341,7 @@ class _AccountSummaryCard extends StatelessWidget {
                 child: _SummaryPill(
                   icon: Icons.timeline_outlined,
                   label: '流水视图',
-                  value: '按日期归档',
+                  value: '按日归档',
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
@@ -447,6 +461,270 @@ class _LogOverviewCard extends StatelessWidget {
                   ],
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountLogAuditCenter extends StatelessWidget {
+  const _AccountLogAuditCenter({
+    required this.logs,
+    required this.total,
+    required this.groupCount,
+    required this.hasMore,
+    required this.account,
+    required this.palette,
+  });
+
+  final List<AccountLogItem> logs;
+  final int total;
+  final int groupCount;
+  final bool hasMore;
+  final Account? account;
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final scopedColor = account == null
+        ? palette.assetColor
+        : _parseColor(account!.color, palette.assetColor);
+    final inflowCount = logs.where((log) => log.balanceChange > 0).length;
+    final outflowCount = logs.where((log) => log.balanceChange < 0).length;
+    final adjustmentCount = logs
+        .where(
+          (log) =>
+              log.type == AccountLogType.adjustment ||
+              log.type == AccountLogType.rollback,
+        )
+        .length;
+    final netChange = logs.fold<double>(
+      0,
+      (sum, log) => sum + log.balanceChange,
+    );
+    final netColor = netChange >= 0
+        ? financeColors.income
+        : financeColors.expense;
+    return PremiumSurface(
+      key: const ValueKey('account-log-audit-center'),
+      accentColor: scopedColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.manage_search_outlined,
+                color: scopedColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '流水审计中枢',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${palette.label} · ${account == null ? '全部账户' : account!.name} · $groupCount 天',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _AuditStatusPill(
+                icon: hasMore ? Icons.sync_outlined : Icons.verified_outlined,
+                label: hasMore ? '可追溯' : '已同步',
+                color: hasMore ? financeColors.warning : financeColors.income,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _AuditMetricTile(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: '净变动',
+                  value: _formatSignedMoney(netChange),
+                  color: netColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AuditMetricTile(
+                  icon: Icons.south_west_rounded,
+                  label: '流入笔数',
+                  value: '$inflowCount',
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AuditMetricTile(
+                  icon: Icons.north_east_rounded,
+                  label: '流出笔数',
+                  value: '$outflowCount',
+                  color: financeColors.expense,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AuditStatusPill(
+                icon: Icons.format_list_numbered,
+                label: '$total 条流水',
+                color: scopedColor,
+              ),
+              _AuditStatusPill(
+                icon: Icons.tune_outlined,
+                label: adjustmentCount > 0 ? '校准 $adjustmentCount' : '无校准',
+                color: adjustmentCount > 0
+                    ? colorScheme.tertiary
+                    : colorScheme.secondary,
+              ),
+              _AuditStatusPill(
+                icon: Icons.palette_outlined,
+                label: palette.signature,
+                color: palette.seedColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuditMetricTile extends StatelessWidget {
+  const _AuditMetricTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuditStatusPill extends StatelessWidget {
+  const _AuditStatusPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 34, maxWidth: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],
@@ -810,6 +1088,17 @@ String _formatSignedMoney(double value) {
   }
   final sign = value > 0 ? '+' : '-';
   return '$sign${_formatMoney(value.abs())}';
+}
+
+String _accountTypeLabel(String value) {
+  return switch (value) {
+    'cash' => '现金',
+    'bank_card' => '银行卡',
+    'credit_card' => '信用卡',
+    'alipay' => '支付宝',
+    'wechat' => '微信',
+    _ => value.isEmpty ? '账户' : value,
+  };
 }
 
 String _formatTime(DateTime value) {
