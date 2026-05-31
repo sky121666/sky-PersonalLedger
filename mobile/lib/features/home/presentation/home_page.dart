@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
-import '../../../app/widgets/animated_money_text.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../../app/widgets/staggered_entrance.dart';
@@ -71,27 +71,7 @@ class _HomeContent extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 96),
           children: [
-            _entry(
-              0,
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '个人记账',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '下拉可刷新账户、统计和预算数据',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _entry(0, const _HomeDashboardHeader()),
             const SizedBox(height: 16),
             _entry(1, _NetAssetsCard(accounts: summary.accounts)),
             const SizedBox(height: 16),
@@ -118,6 +98,43 @@ class _HomeContent extends StatelessWidget {
 
   Widget _entry(int index, Widget child) {
     return StaggeredEntrance(index: index, child: child);
+  }
+}
+
+class _HomeDashboardHeader extends StatelessWidget {
+  const _HomeDashboardHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '财务控制台',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${now.year} 年 ${now.month} 月 · 私人账本',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconBadge(
+          icon: Icons.insights_outlined,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ],
+    );
   }
 }
 
@@ -158,50 +175,27 @@ class _NetAssetsCard extends StatelessWidget {
   /// 构建净资产卡片。
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return PremiumSurface(
+    return FinanceHeroCard(
+      label: '净资产',
+      amount: accounts.netAssets,
       accentColor: AppTheme.assetColor,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '净资产',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 10),
-          AnimatedMoneyText(
-            amount: accounts.netAssets,
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _MetricTile(
-                  label: '总资产',
-                  value: _formatCurrency(accounts.totalAssets),
-                  icon: Icons.account_balance_wallet_outlined,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MetricTile(
-                  label: '总负债',
-                  value: _formatCurrency(accounts.totalLiabilities),
-                  icon: Icons.credit_card_outlined,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      semanticLabel: '净资产 ${_formatCurrency(accounts.netAssets)}',
+      metrics: [
+        FinanceMetricData(
+          label: '总资产',
+          value: _formatCurrency(accounts.totalAssets),
+          icon: Icons.account_balance_wallet_outlined,
+          color: AppTheme.assetColor,
+        ),
+        FinanceMetricData(
+          label: '总负债',
+          value: _formatCurrency(accounts.totalLiabilities),
+          icon: Icons.credit_card_outlined,
+          color: accounts.totalLiabilities > 0
+              ? AppTheme.expenseColor
+              : Theme.of(context).colorScheme.outline,
+        ),
+      ],
     );
   }
 }
@@ -214,50 +208,165 @@ class _MonthlyOverviewCard extends StatelessWidget {
   /// 构建本月收支卡片。
   @override
   Widget build(BuildContext context) {
+    final balanceColor = overview.balance >= 0
+        ? Theme.of(context).colorScheme.primary
+        : AppTheme.expenseColor;
     return PremiumSurface(
       accentColor: AppTheme.incomeColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '本月收支',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
+              IconBadge(
+                icon: Icons.payments_outlined,
+                color: AppTheme.incomeColor,
+                size: 36,
+                iconSize: 18,
+              ),
+              const SizedBox(width: 10),
               Expanded(
-                child: _AmountColumn(
-                  label: '收入',
-                  value: overview.income,
-                  color: AppTheme.incomeColor,
+                child: Text(
+                  '本月现金流',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              Expanded(
-                child: _AmountColumn(
-                  label: '支出',
-                  value: overview.expense,
-                  color: AppTheme.expenseColor,
-                ),
-              ),
-              Expanded(
-                child: _AmountColumn(
-                  label: '结余',
-                  value: overview.balance,
-                  color: Theme.of(context).colorScheme.primary,
+              Text(
+                '本月已记 ${overview.transactionCount} 笔',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            '本月已记 ${overview.transactionCount} 笔',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              MetricPill(
+                label: '收入',
+                value: _formatCurrency(overview.income),
+                icon: Icons.south_west,
+                color: AppTheme.incomeColor,
+                expanded: true,
+              ),
+              const SizedBox(width: 10),
+              MetricPill(
+                label: '支出',
+                value: _formatCurrency(overview.expense),
+                icon: Icons.north_east,
+                color: AppTheme.expenseColor,
+                expanded: true,
+              ),
+            ],
           ),
+          const SizedBox(height: 10),
+          MetricPill(
+            label: '结余',
+            value: _formatCurrency(overview.balance),
+            icon: Icons.trending_up,
+            color: balanceColor,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetSummaryCard extends StatelessWidget {
+  const _BudgetSummaryCard({required this.summary});
+
+  final BudgetSummary summary;
+
+  /// 构建预算摘要卡片。
+  @override
+  Widget build(BuildContext context) {
+    final hasBudget = summary.totalAmount > 0;
+    final progress = hasBudget
+        ? (summary.percentage / 100).clamp(0.0, 1.0)
+        : 0.0;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return PremiumSurface(
+      accentColor: AppTheme.warningColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ProgressRing(
+                value: progress,
+                color: hasBudget ? AppTheme.warningColor : colorScheme.outline,
+                center: Text(
+                  hasBudget
+                      ? '${summary.percentage.toStringAsFixed(0)}%'
+                      : '--',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '预算摘要',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      hasBudget
+                          ? '${_formatCurrency(summary.totalSpent)} / ${_formatCurrency(summary.totalAmount)}'
+                          : '本月暂未设置预算',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (hasBudget) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _BudgetInfoItem(
+                    label: '剩余预算',
+                    value: _formatCurrency(summary.remainingAmount),
+                  ),
+                ),
+                Expanded(
+                  child: _BudgetInfoItem(
+                    label: '日可用',
+                    value: _formatCurrency(summary.dailyAvailable),
+                  ),
+                ),
+                Expanded(
+                  child: _BudgetInfoItem(
+                    label: '剩余天数',
+                    value: '${summary.daysRemaining} 天',
+                  ),
+                ),
+              ],
+            ),
+            if (summary.overBudgetCategories.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                '超预算：${summary.overBudgetCategories.map((item) => item.name).join('、')}',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -305,169 +414,6 @@ class _AccountOverviewCard extends StatelessWidget {
             ...accounts.map((account) => _AccountLine(account: account)),
         ],
       ),
-    );
-  }
-}
-
-class _BudgetSummaryCard extends StatelessWidget {
-  const _BudgetSummaryCard({required this.summary});
-
-  final BudgetSummary summary;
-
-  /// 构建预算摘要卡片。
-  @override
-  Widget build(BuildContext context) {
-    final hasBudget = summary.totalAmount > 0;
-    final progress = hasBudget
-        ? (summary.percentage / 100).clamp(0.0, 1.0)
-        : 0.0;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return PremiumSurface(
-      accentColor: AppTheme.warningColor,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '预算摘要',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          if (!hasBudget)
-            const _EmptyCardLine(text: '本月暂未设置预算')
-          else ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('已用 ${summary.percentage.toStringAsFixed(1)}%'),
-                Text(
-                  '${_formatCurrency(summary.totalSpent)} / ${_formatCurrency(summary.totalAmount)}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
-              borderRadius: BorderRadius.circular(999),
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _BudgetInfoItem(
-                    label: '剩余预算',
-                    value: _formatCurrency(summary.remainingAmount),
-                  ),
-                ),
-                Expanded(
-                  child: _BudgetInfoItem(
-                    label: '日可用',
-                    value: _formatCurrency(summary.dailyAvailable),
-                  ),
-                ),
-                Expanded(
-                  child: _BudgetInfoItem(
-                    label: '剩余天数',
-                    value: '${summary.daysRemaining} 天',
-                  ),
-                ),
-              ],
-            ),
-            if (summary.overBudgetCategories.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                '超预算：${summary.overBudgetCategories.map((item) => item.name).join('、')}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  /// 构建净资产指标项。
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: colorScheme.onPrimaryContainer),
-          const SizedBox(height: 8),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AmountColumn extends StatelessWidget {
-  const _AmountColumn({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final double value;
-  final Color color;
-
-  /// 构建本月收支金额列。
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 6),
-        Text(
-          _formatCurrency(value),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
     );
   }
 }

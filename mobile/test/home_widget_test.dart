@@ -61,7 +61,7 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      expect(find.text('本月收支'), findsOneWidget);
+      expect(find.text('本月现金流'), findsOneWidget);
       expect(find.text('预算摘要'), findsOneWidget);
       expect(find.text('快速记账'), findsOneWidget);
       expect(find.text('家庭支出'), findsOneWidget);

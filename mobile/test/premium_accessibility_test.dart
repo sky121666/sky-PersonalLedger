@@ -29,6 +29,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        await tester.scrollUntilVisible(find.text('快速记账'), 320);
+        await tester.pumpAndSettle();
         final surfaceLabels = tester
             .widgetList<PremiumSurface>(find.byType(PremiumSurface))
             .map((surface) => surface.semanticLabel)

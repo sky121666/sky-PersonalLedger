@@ -43,9 +43,9 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          expect(find.text('个人记账'), findsOneWidget);
+          expect(find.text('财务控制台'), findsOneWidget);
           expect(find.text('净资产'), findsOneWidget);
-          expect(find.text('本月收支'), findsOneWidget);
+          expect(find.text('本月现金流'), findsOneWidget);
           expect(find.text('快速记账'), findsOneWidget);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
@@ -223,8 +223,8 @@ class _VisualVariant {
 Widget _premiumApp({required ThemeMode themeMode, required Widget home}) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: AppTheme.lightTheme,
-    darkTheme: AppTheme.darkTheme,
+    theme: AppTheme.lightTheme(),
+    darkTheme: AppTheme.darkTheme(),
     themeMode: themeMode,
     home: home,
   );
