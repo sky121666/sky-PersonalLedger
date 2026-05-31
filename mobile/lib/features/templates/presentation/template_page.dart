@@ -314,6 +314,7 @@ class _TemplateHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: colorScheme.tertiary,
       padding: const EdgeInsets.all(18),
@@ -353,29 +354,99 @@ class _TemplateHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          Row(
             children: [
-              MetricPill(
-                label: '模板数',
-                value: '$templateCount 个',
-                icon: Icons.dashboard_customize_outlined,
-                color: colorScheme.tertiary,
+              Expanded(
+                child: _TemplateSignalTile(
+                  icon: Icons.dashboard_customize_outlined,
+                  label: '模板数',
+                  value: '$templateCount',
+                  color: colorScheme.tertiary,
+                ),
               ),
-              MetricPill(
-                label: '累计使用',
-                value: '$totalUsedCount 次',
-                icon: Icons.play_circle_outline,
-                color: colorScheme.primary,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _TemplateSignalTile(
+                  icon: Icons.play_circle_outline,
+                  label: '累计使用',
+                  value: '$totalUsedCount',
+                  color: financeColors.income,
+                ),
               ),
-              MetricPill(
-                label: '可用账户',
-                value: '$accountCount 个',
-                icon: Icons.account_balance_wallet_outlined,
-                color: colorScheme.secondary,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _TemplateSignalTile(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: '可用账户',
+                  value: '$accountCount',
+                  color: financeColors.asset,
+                ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateSignalTile extends StatelessWidget {
+  const _TemplateSignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

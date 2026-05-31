@@ -28,6 +28,15 @@ void main() {
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
     });
 
+    testWidgets('快捷模板头部展示复用效率信号', (tester) async {
+      final repository = _FakeTemplateRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.text('模板数'), findsOneWidget);
+      expect(find.text('累计使用'), findsOneWidget);
+      expect(find.text('可用账户'), findsOneWidget);
+    });
+
     testWidgets('新增模板时提交表单字段并刷新列表', (tester) async {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
