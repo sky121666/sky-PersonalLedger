@@ -7,6 +7,7 @@ import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../../app/theme/app_theme.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -14,7 +15,7 @@ class ProfilePage extends ConsumerWidget {
   /// 构建我的页和主题设置入口。
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeControllerProvider);
+    final themeSettings = ref.watch(themeControllerProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('我的')),
       body: AdaptivePageContainer(
@@ -179,10 +180,16 @@ class ProfilePage extends ConsumerWidget {
             const SizedBox(height: 16),
             Card(
               child: RadioGroup<AppThemeMode>(
-                groupValue: themeMode,
+                groupValue: themeSettings.mode,
                 onChanged: (value) => _setThemeMode(ref, value),
                 child: const Column(
                   children: [
+                    ListTile(
+                      leading: Icon(Icons.contrast_outlined),
+                      title: Text('外观模式'),
+                      subtitle: Text('控制浅色、深色或跟随系统'),
+                    ),
+                    Divider(height: 1),
                     RadioListTile<AppThemeMode>(
                       value: AppThemeMode.system,
                       title: Text('跟随系统'),
@@ -199,6 +206,30 @@ class ProfilePage extends ConsumerWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            Card(
+              child: RadioGroup<AppThemePalette>(
+                groupValue: themeSettings.palette,
+                onChanged: (value) => _setThemePalette(ref, value),
+                child: Column(
+                  children: [
+                    const ListTile(
+                      leading: Icon(Icons.palette_outlined),
+                      title: Text('主题色模板'),
+                      subtitle: Text('为移动端仪表盘切换不同高级色彩方案'),
+                    ),
+                    const Divider(height: 1),
+                    for (final palette in AppThemePalette.values)
+                      RadioListTile<AppThemePalette>(
+                        value: palette,
+                        title: Text(palette.label),
+                        subtitle: Text(palette.description),
+                        secondary: _ThemePalettePreview(palette: palette),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -210,7 +241,15 @@ class ProfilePage extends ConsumerWidget {
     if (value == null) {
       return;
     }
-    ref.read(themeModeControllerProvider.notifier).setThemeMode(value);
+    ref.read(themeControllerProvider.notifier).setThemeMode(value);
+  }
+
+  /// 更新主题色模板。
+  void _setThemePalette(WidgetRef ref, AppThemePalette? value) {
+    if (value == null) {
+      return;
+    }
+    ref.read(themeControllerProvider.notifier).setPalette(value);
   }
 
   /// 展示退出确认弹窗。
@@ -241,5 +280,45 @@ class ProfilePage extends ConsumerWidget {
       return;
     }
     await ref.read(authControllerProvider.notifier).changeServer();
+  }
+}
+
+class _ThemePalettePreview extends StatelessWidget {
+  const _ThemePalettePreview({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _PaletteDot(color: palette.seedColor, size: 22),
+        const SizedBox(width: 4),
+        _PaletteDot(color: palette.assetColor, size: 18),
+        const SizedBox(width: 4),
+        _PaletteDot(color: palette.warningColor, size: 14),
+      ],
+    );
+  }
+}
+
+class _PaletteDot extends StatelessWidget {
+  const _PaletteDot({required this.color, required this.size});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+    );
   }
 }

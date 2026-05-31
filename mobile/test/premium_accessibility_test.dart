@@ -151,8 +151,8 @@ Future<void> _withSemantics(
 Widget _premiumApp(Widget home) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: AppTheme.lightTheme,
-    darkTheme: AppTheme.darkTheme,
+    theme: AppTheme.lightTheme(),
+    darkTheme: AppTheme.darkTheme(),
     home: home,
   );
 }

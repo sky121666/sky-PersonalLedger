@@ -1,5 +1,71 @@
 import 'package:flutter/material.dart';
 
+enum AppThemePalette {
+  teal(
+    id: 'teal',
+    label: '静谧墨绿',
+    description: '默认金融色，稳定、克制、耐看。',
+    seedColor: Color(0xFF0F766E),
+    assetColor: Color(0xFF2563EB),
+    warningColor: Color(0xFFF59E0B),
+  ),
+  graphite(
+    id: 'graphite',
+    label: '石墨蓝',
+    description: '更冷静的高级仪表盘气质。',
+    seedColor: Color(0xFF334155),
+    assetColor: Color(0xFF0EA5E9),
+    warningColor: Color(0xFFEAB308),
+  ),
+  indigo(
+    id: 'indigo',
+    label: '深海靛蓝',
+    description: '更偏科技和 AI 分析场景。',
+    seedColor: Color(0xFF4338CA),
+    assetColor: Color(0xFF0284C7),
+    warningColor: Color(0xFFF59E0B),
+  ),
+  emerald(
+    id: 'emerald',
+    label: '翡翠绿',
+    description: '更清爽，适合轻量日常记账。',
+    seedColor: Color(0xFF047857),
+    assetColor: Color(0xFF0891B2),
+    warningColor: Color(0xFFD97706),
+  ),
+  amber(
+    id: 'amber',
+    label: '琥珀金',
+    description: '更温暖，但保留金融产品克制感。',
+    seedColor: Color(0xFFB45309),
+    assetColor: Color(0xFF2563EB),
+    warningColor: Color(0xFFF59E0B),
+  );
+
+  const AppThemePalette({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.seedColor,
+    required this.assetColor,
+    required this.warningColor,
+  });
+
+  final String id;
+  final String label;
+  final String description;
+  final Color seedColor;
+  final Color assetColor;
+  final Color warningColor;
+
+  static AppThemePalette fromId(String? id) {
+    return AppThemePalette.values.firstWhere(
+      (palette) => palette.id == id,
+      orElse: () => AppThemePalette.teal,
+    );
+  }
+}
+
 class AppTheme {
   static const Color seedColor = Color(0xFF0F766E);
   static const Color incomeColor = Color(0xFF059669);
@@ -9,8 +75,10 @@ class AppTheme {
   static const double surfaceRadius = 20;
 
   /// 构建浅色主题。
-  static ThemeData get lightTheme {
-    final colorScheme = ColorScheme.fromSeed(seedColor: seedColor);
+  static ThemeData lightTheme([
+    AppThemePalette palette = AppThemePalette.teal,
+  ]) {
+    final colorScheme = ColorScheme.fromSeed(seedColor: palette.seedColor);
     return ThemeData(
       colorScheme: colorScheme,
       scaffoldBackgroundColor: const Color(0xFFF8FAFC),
@@ -44,9 +112,9 @@ class AppTheme {
   }
 
   /// 构建深色主题。
-  static ThemeData get darkTheme {
+  static ThemeData darkTheme([AppThemePalette palette = AppThemePalette.teal]) {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: seedColor,
+      seedColor: palette.seedColor,
       brightness: Brightness.dark,
     );
     return ThemeData(

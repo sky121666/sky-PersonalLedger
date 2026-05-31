@@ -72,6 +72,10 @@ const _entryLabels = [
   'AI 财务报告',
   '年度报告',
   '更换服务器',
+  '外观模式',
+  '主题色模板',
+  '静谧墨绿',
+  '石墨蓝',
 ];
 
 const _targetPaths = [

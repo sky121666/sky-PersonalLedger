@@ -11,13 +11,13 @@ class PersonalLedgerApp extends ConsumerWidget {
   /// 构建个人记账应用入口并接入主题模式。
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeControllerProvider);
+    final themeSettings = ref.watch(themeControllerProvider);
     return MaterialApp.router(
       title: '个人记账',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: switch (themeMode) {
+      theme: AppTheme.lightTheme(themeSettings.palette),
+      darkTheme: AppTheme.darkTheme(themeSettings.palette),
+      themeMode: switch (themeSettings.mode) {
         AppThemeMode.system => ThemeMode.system,
         AppThemeMode.light => ThemeMode.light,
         AppThemeMode.dark => ThemeMode.dark,
