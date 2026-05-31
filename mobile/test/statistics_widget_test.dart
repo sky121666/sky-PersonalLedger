@@ -53,6 +53,15 @@ void main() {
       expect(find.text('本月现金流稳健'), findsAtLeastNWidgets(1));
       expect(find.text('结余率'), findsAtLeastNWidgets(1));
       expect(find.text('60%'), findsAtLeastNWidgets(1));
+      expect(
+        find.byKey(const ValueKey('statistics-ai-input-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('AI 分析输入质量'), findsOneWidget);
+      expect(find.text('周报可分析'), findsOneWidget);
+      expect(find.text('交易样本'), findsOneWidget);
+      expect(find.text('趋势节点'), findsAtLeastNWidgets(1));
+      expect(find.text('分类样本'), findsAtLeastNWidgets(1));
       expect(find.text('餐饮'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('statistics-category-rank-card')),
@@ -93,13 +102,20 @@ void main() {
       expect(find.text('数据洞察台'), findsOneWidget);
       expect(find.text('数据皮肤'), findsOneWidget);
       expect(find.text('默认稳健'), findsOneWidget);
-      expect(find.text('趋势节点'), findsOneWidget);
-      expect(find.text('分类样本'), findsOneWidget);
+      expect(find.text('趋势节点'), findsAtLeastNWidgets(1));
+      expect(find.text('分类样本'), findsAtLeastNWidgets(1));
       expect(find.text('本月现金流持平'), findsAtLeastNWidgets(1));
       expect(find.text('结余率'), findsAtLeastNWidgets(1));
+      expect(find.text('AI 分析输入质量'), findsOneWidget);
+      expect(find.text('待积累'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('statistics-ai-input-panel')),
+        findsOneWidget,
+      );
       expect(find.text('收入变化'), findsOneWidget);
       expect(find.text('支出变化'), findsOneWidget);
       expect(find.text('0 笔'), findsAtLeastNWidgets(1));
+      await tester.scrollUntilVisible(find.text('本月暂无趋势数据'), 300);
       expect(find.text('本月暂无趋势数据'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('本月暂无分类数据'), 300);
       expect(find.text('本月暂无分类数据'), findsOneWidget);

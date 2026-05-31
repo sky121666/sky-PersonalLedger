@@ -158,7 +158,7 @@ class _StatisticsContent extends StatelessWidget {
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 4,
-              child: _StatisticsThemeDataStrip(
+              child: _StatisticsAiInputPanel(
                 dashboard: dashboard,
                 settings: themeSettings,
               ),
@@ -166,11 +166,19 @@ class _StatisticsContent extends StatelessWidget {
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 5,
-              child: _TrendCard(trend: dashboard.trend),
+              child: _StatisticsThemeDataStrip(
+                dashboard: dashboard,
+                settings: themeSettings,
+              ),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 6,
+              child: _TrendCard(trend: dashboard.trend),
+            ),
+            const SizedBox(height: 16),
+            StaggeredEntrance(
+              index: 7,
               child: _CategoryRankCard(
                 response: dashboard.categories,
                 categoryType: categoryType,
@@ -1072,6 +1080,213 @@ class _StatisticsDeckMetric extends StatelessWidget {
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w900,
               fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsAiInputPanel extends StatelessWidget {
+  const _StatisticsAiInputPanel({
+    required this.dashboard,
+    required this.settings,
+  });
+
+  final StatisticsDashboard dashboard;
+  final AppThemeSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final overview = dashboard.overview;
+    final palette = settings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final savingRate = _savingRate(overview);
+    final trendCount = dashboard.trend.items.length;
+    final categoryCount = dashboard.categories.items.length;
+    final readyScore = [
+      overview.transactionCount > 0,
+      trendCount > 0,
+      categoryCount > 0,
+      overview.income > 0 || overview.expense > 0,
+    ].where((ready) => ready).length;
+    final readyColor = readyScore >= 3
+        ? financeColors.income
+        : palette.warningColor;
+    final readyLabel = readyScore >= 3 ? '周报可分析' : '待积累';
+
+    return PremiumSurface(
+      key: const ValueKey('statistics-ai-input-panel'),
+      accentColor: readyColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.psychology_alt_outlined,
+                color: readyColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI 分析输入质量',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${palette.sceneLabel} · 为周报、预算复盘和异常解释预留输入质量判断',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _StatisticsCockpitPill(
+                icon: readyScore >= 3
+                    ? Icons.auto_awesome_outlined
+                    : Icons.hourglass_empty_outlined,
+                label: readyLabel,
+                color: readyColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 8,
+              value: readyScore / 4,
+              color: readyColor,
+              backgroundColor: colorScheme.outlineVariant.withValues(
+                alpha: 0.42,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _StatisticsAiMetric(
+                  icon: Icons.receipt_long_outlined,
+                  label: '交易样本',
+                  value: '${overview.transactionCount} 笔',
+                  color: overview.transactionCount > 0
+                      ? financeColors.income
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsAiMetric(
+                  icon: Icons.timeline_outlined,
+                  label: '趋势节点',
+                  value: '$trendCount 个',
+                  color: trendCount > 0
+                      ? palette.assetColor
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsAiMetric(
+                  icon: Icons.donut_large_outlined,
+                  label: '分类样本',
+                  value: '$categoryCount 类',
+                  color: categoryCount > 0
+                      ? financeColors.expense
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsAiMetric(
+                  icon: Icons.savings_outlined,
+                  label: '结余率',
+                  value: '${savingRate.toStringAsFixed(0)}%',
+                  color: overview.balance >= 0
+                      ? financeColors.income
+                      : colorScheme.error,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsAiMetric extends StatelessWidget {
+  const _StatisticsAiMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
