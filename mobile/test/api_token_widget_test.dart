@@ -29,6 +29,16 @@ void main() {
       expect(find.text('AI/自动化'), findsOneWidget);
       expect(find.text('脚本隔离'), findsOneWidget);
       expect(find.text('完整 Token 不进入列表，仅保留前缀和撤销入口'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('api-token-exposure-radar')),
+        findsOneWidget,
+      );
+      expect(find.text('授权暴露面雷达'), findsOneWidget);
+      expect(find.text('永久凭证'), findsOneWidget);
+      expect(find.text('未使用'), findsWidgets);
+      expect(find.text('限期凭证'), findsOneWidget);
+      expect(find.text('可撤销'), findsOneWidget);
+      expect(find.text('完整密钥不落入列表，建议定期清理永久凭证'), findsOneWidget);
       expect(find.text('1 个访问凭证正在管理中'), findsOneWidget);
       expect(find.text('我的手机'), findsOneWidget);
       expect(find.textContaining('abcd1234...'), findsOneWidget);
@@ -55,7 +65,7 @@ void main() {
       );
       expect(find.text('full-token-value'), findsOneWidget);
       expect(find.text('iPhone'), findsOneWidget);
-      expect(find.text('待保存'), findsOneWidget);
+      expect(find.text('待保存'), findsWidgets);
       expect(find.text('完整 Token 正在等待复制保存'), findsOneWidget);
       final successSurface = tester.widget<PremiumSurface>(
         find

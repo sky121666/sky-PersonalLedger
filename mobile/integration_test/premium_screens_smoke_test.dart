@@ -754,6 +754,11 @@ void main() {
         expect(find.text('OpenAPI'), findsOneWidget);
         expect(find.text('AI/自动化'), findsOneWidget);
         expect(find.text('完整 Token 不进入列表，仅保留前缀和撤销入口'), findsOneWidget);
+        expect(find.text('授权暴露面雷达'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('api-token-exposure-radar')),
+          findsOneWidget,
+        );
         expect(find.text('创建新令牌'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);

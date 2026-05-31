@@ -212,6 +212,14 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
           const SizedBox(height: 12),
           StaggeredEntrance(
             index: 2,
+            child: _TokenExposureRadar(
+              tokens: _tokens,
+              hasPendingToken: _createdToken != null,
+            ),
+          ),
+          const SizedBox(height: 12),
+          StaggeredEntrance(
+            index: 3,
             child: _CreateTokenCard(
               nameController: _nameController,
               expiryDays: _expiryDays,
@@ -224,7 +232,7 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
           if (_createdToken != null) ...[
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 3,
+              index: 4,
               child: _CreatedTokenCard(
                 token: _createdToken!,
                 onCopy: _copyCreatedToken,
@@ -233,12 +241,12 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
           ],
           const SizedBox(height: 12),
           StaggeredEntrance(
-            index: _createdToken == null ? 3 : 4,
+            index: _createdToken == null ? 4 : 5,
             child: _TokenListHeader(tokenCount: _tokens.length),
           ),
           const SizedBox(height: 8),
           StaggeredEntrance(
-            index: _createdToken == null ? 4 : 5,
+            index: _createdToken == null ? 5 : 6,
             child: _tokens.isEmpty
                 ? const PremiumSurface(
                     padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),
@@ -679,6 +687,193 @@ class _TokenChannelStatusPill extends StatelessWidget {
           color: color,
           fontWeight: FontWeight.w900,
         ),
+      ),
+    );
+  }
+}
+
+class _TokenExposureRadar extends StatelessWidget {
+  const _TokenExposureRadar({
+    required this.tokens,
+    required this.hasPendingToken,
+  });
+
+  final List<ApiTokenItem> tokens;
+  final bool hasPendingToken;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final neverExpires = tokens.where((token) => token.neverExpires).length;
+    final unused = tokens.where((token) => token.lastUsedAt == null).length;
+    final expiring = tokens.where((token) => !token.neverExpires).length;
+    final exposureLabel = hasPendingToken
+        ? '待保存'
+        : neverExpires > 0
+        ? '需巡检'
+        : '受控';
+    return PremiumSurface(
+      key: const ValueKey('api-token-exposure-radar'),
+      accentColor: financeColors.warning,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.security_outlined,
+                color: financeColors.warning,
+                size: 42,
+                iconSize: 21,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '授权暴露面雷达',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _TokenChannelStatusPill(
+                label: exposureLabel,
+                color: hasPendingToken
+                    ? colorScheme.tertiary
+                    : neverExpires > 0
+                    ? financeColors.warning
+                    : financeColors.income,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TokenRadarMetric(
+                icon: Icons.all_inclusive_outlined,
+                label: '永久凭证',
+                value: '$neverExpires 个',
+                color: neverExpires > 0
+                    ? financeColors.warning
+                    : financeColors.income,
+              ),
+              _TokenRadarMetric(
+                icon: Icons.history_toggle_off_outlined,
+                label: '未使用',
+                value: '$unused 个',
+                color: unused > 0 ? financeColors.asset : financeColors.income,
+              ),
+              _TokenRadarMetric(
+                icon: Icons.event_available_outlined,
+                label: '限期凭证',
+                value: '$expiring 个',
+                color: colorScheme.tertiary,
+              ),
+              _TokenRadarMetric(
+                icon: Icons.delete_outline,
+                label: '可撤销',
+                value: '${tokens.length} 个',
+                color: financeColors.expense,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(
+                Icons.visibility_off_outlined,
+                size: 18,
+                color: financeColors.warning,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hasPendingToken
+                      ? '新建 Token 仅本次可见，请完成复制后再离开'
+                      : tokens.isEmpty
+                      ? '当前没有外部访问凭证'
+                      : '完整密钥不落入列表，建议定期清理永久凭证',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TokenRadarMetric extends StatelessWidget {
+  const _TokenRadarMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 7),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
