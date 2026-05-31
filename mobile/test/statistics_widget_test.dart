@@ -21,6 +21,8 @@ void main() {
       expect(repository.dashboardCalls, 2);
       expect(find.text('统计分析'), findsOneWidget);
       expect(find.text('本月现金流稳健'), findsOneWidget);
+      expect(find.text('结余率'), findsOneWidget);
+      expect(find.text('60%'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
     });
 
@@ -32,6 +34,9 @@ void main() {
 
       expect(find.text('交易笔数'), findsOneWidget);
       expect(find.text('本月现金流持平'), findsOneWidget);
+      expect(find.text('结余率'), findsOneWidget);
+      expect(find.text('收入变化'), findsOneWidget);
+      expect(find.text('支出变化'), findsOneWidget);
       expect(find.text('0 笔'), findsOneWidget);
       expect(find.text('本月暂无趋势数据'), findsOneWidget);
       expect(find.text('本月暂无分类数据'), findsOneWidget);
@@ -142,8 +147,8 @@ StatisticsDashboard _dashboard({
       income: empty ? 0 : 1000,
       expense: empty ? 0 : expense,
       balance: empty ? 0 : 1000 - expense,
-      incomeChange: 0,
-      expenseChange: 0,
+      incomeChange: empty ? 0 : 12,
+      expenseChange: empty ? 0 : -8,
       dailyAverage: empty ? 0 : 20,
       transactionCount: empty ? 0 : 5,
     ),

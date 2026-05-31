@@ -299,37 +299,201 @@ class _OverviewCard extends StatelessWidget {
     final balanceColor = overview.balance >= 0
         ? financeColors.income
         : Theme.of(context).colorScheme.error;
-    return FinanceHeroCard(
-      label: '本月总支出',
-      amount: overview.expense,
-      accentColor: financeColors.expense,
-      semanticLabel: '本月总支出 ${_formatCurrency(overview.expense)}',
-      metrics: [
-        FinanceMetricData(
-          label: '收入',
-          value: _formatCurrency(overview.income),
-          icon: Icons.south_west,
-          color: financeColors.income,
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      label: '本月总支出 ${_formatCurrency(overview.expense)}',
+      child: PremiumSurface(
+        accentColor: financeColors.expense,
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconBadge(
+                  icon: Icons.payments_outlined,
+                  color: financeColors.expense,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '本月总支出',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              _formatCurrency(overview.expense),
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _OverviewInsightStrip(overview: overview),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                MetricPill(
+                  label: '收入',
+                  value: _formatCurrency(overview.income),
+                  icon: Icons.south_west,
+                  color: financeColors.income,
+                ),
+                MetricPill(
+                  label: '结余',
+                  value: _formatCurrency(overview.balance),
+                  icon: Icons.trending_up,
+                  color: balanceColor,
+                ),
+                MetricPill(
+                  label: '日均支出',
+                  value: _formatCurrency(overview.dailyAverage),
+                  icon: Icons.calendar_today_outlined,
+                  color: colorScheme.primary,
+                ),
+                MetricPill(
+                  label: '交易笔数',
+                  value: '${overview.transactionCount} 笔',
+                  icon: Icons.receipt_long_outlined,
+                  color: colorScheme.outline,
+                ),
+              ],
+            ),
+          ],
         ),
-        FinanceMetricData(
-          label: '结余',
-          value: _formatCurrency(overview.balance),
-          icon: Icons.trending_up,
-          color: balanceColor,
+      ),
+    );
+  }
+}
+
+class _OverviewInsightStrip extends StatelessWidget {
+  const _OverviewInsightStrip({required this.overview});
+
+  final StatisticsOverviewData overview;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final savingRate = overview.income > 0
+        ? (overview.balance / overview.income * 100).clamp(-999.0, 999.0)
+        : 0.0;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
         ),
-        FinanceMetricData(
-          label: '日均支出',
-          value: _formatCurrency(overview.dailyAverage),
-          icon: Icons.calendar_today_outlined,
-          color: Theme.of(context).colorScheme.primary,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.14)),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _InsightChip(
+            icon: Icons.savings_outlined,
+            label: '结余率',
+            value: '${savingRate.toStringAsFixed(0)}%',
+            color: overview.balance >= 0
+                ? financeColors.income
+                : financeColors.expense,
+          ),
+          _InsightChip(
+            icon: _changeIcon(overview.incomeChange),
+            label: '收入变化',
+            value: _formatPercentChange(overview.incomeChange),
+            color: _changeColor(
+              context,
+              overview.incomeChange,
+              positiveGood: true,
+            ),
+          ),
+          _InsightChip(
+            icon: _changeIcon(overview.expenseChange),
+            label: '支出变化',
+            value: _formatPercentChange(overview.expenseChange),
+            color: _changeColor(
+              context,
+              overview.expenseChange,
+              positiveGood: false,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightChip extends StatelessWidget {
+  const _InsightChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 44),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
         ),
-        FinanceMetricData(
-          label: '交易笔数',
-          value: '${overview.transactionCount} 笔',
-          icon: Icons.receipt_long_outlined,
-          color: Theme.of(context).colorScheme.outline,
-        ),
-      ],
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -587,4 +751,36 @@ IconData _statisticsSignalIcon(double balance) {
     return Icons.priority_high_outlined;
   }
   return Icons.drag_handle_outlined;
+}
+
+String _formatPercentChange(double value) {
+  if (value == 0) {
+    return '0%';
+  }
+  final sign = value > 0 ? '+' : '';
+  return '$sign${value.toStringAsFixed(0)}%';
+}
+
+IconData _changeIcon(double value) {
+  if (value > 0) {
+    return Icons.trending_up;
+  }
+  if (value < 0) {
+    return Icons.trending_down;
+  }
+  return Icons.trending_flat;
+}
+
+Color _changeColor(
+  BuildContext context,
+  double value, {
+  required bool positiveGood,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final financeColors = AppTheme.financeColors(context);
+  if (value == 0) {
+    return colorScheme.outline;
+  }
+  final isGood = positiveGood ? value > 0 : value < 0;
+  return isGood ? financeColors.income : financeColors.expense;
 }
