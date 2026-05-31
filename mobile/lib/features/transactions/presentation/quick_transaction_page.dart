@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../app/widgets/adaptive_page_container.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../../app/widgets/staggered_entrance.dart';
-import '../../../app/widgets/adaptive_page_container.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
 import '../../attachments/data/attachment_repository.dart';
@@ -90,23 +91,20 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                 StaggeredEntrance(
                   index: 0,
                   child: PremiumSurface(
-                    accentColor: Theme.of(context).colorScheme.primary,
+                    accentColor: _typeColor(context, _type),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SegmentedButton<TransactionType>(
-                          segments: TransactionType.values
-                              .map(
-                                (type) => ButtonSegment(
-                                  value: type,
-                                  label: Text(type.label),
-                                ),
-                              )
-                              .toList(),
-                          selected: {_type},
-                          onSelectionChanged: (values) {
+                        _QuickTransactionHero(
+                          type: _type,
+                          amountController: _amountController,
+                        ),
+                        const SizedBox(height: 16),
+                        _TransactionTypeSelector(
+                          selectedType: _type,
+                          onSelected: (type) {
                             setState(() {
-                              _type = values.first;
+                              _type = type;
                               _categoryId = null;
                               _toAccountId = null;
                             });
@@ -117,10 +115,11 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                           key: const ValueKey('transaction-amount'),
                           controller: _amountController,
                           autofocus: widget.embedded && !_isEditing,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: '金额',
                             prefixText: '¥ ',
-                            border: OutlineInputBorder(),
+                            border: const OutlineInputBorder(),
+                            prefixIcon: Icon(_typeIcon(_type)),
                           ),
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
@@ -199,12 +198,21 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                 FilledButton(
                   key: const ValueKey('transaction-save'),
                   onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox.square(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (_submitting)
+                        const SizedBox.square(
                           dimension: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(_isEditing ? '保存修改' : '保存'),
+                      else
+                        Icon(_isEditing ? Icons.save_outlined : Icons.check),
+                      const SizedBox(width: 8),
+                      Text(_isEditing ? '保存修改' : '保存'),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -378,14 +386,63 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   }
 
   Widget _buildDateTimePicker() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = _typeColor(context, _type);
     return Material(
       color: Colors.transparent,
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: const Text('时间'),
-        subtitle: Text(_formatDateTime(_transactionDate)),
-        trailing: const Icon(Icons.calendar_month_outlined),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
         onTap: _pickDateTime,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              accentColor.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.14
+                    : 0.08,
+              ),
+              colorScheme.surface,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: accentColor.withValues(alpha: 0.16)),
+          ),
+          child: Row(
+            children: [
+              IconBadge(
+                icon: Icons.calendar_month_outlined,
+                color: accentColor,
+                size: 38,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '时间',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatDateTime(_transactionDate),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: colorScheme.outline),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -692,6 +749,218 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       _customTagController.clear();
     });
   }
+}
+
+class _QuickTransactionHero extends StatelessWidget {
+  const _QuickTransactionHero({
+    required this.type,
+    required this.amountController,
+  });
+
+  final TransactionType type;
+  final TextEditingController amountController;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = _typeColor(context, type);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(
+              accentColor.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.22
+                    : 0.14,
+              ),
+              colorScheme.surface,
+            ),
+            Color.alphaBlend(
+              colorScheme.primary.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.10
+                    : 0.06,
+              ),
+              colorScheme.surface,
+            ),
+          ],
+        ),
+        border: Border.all(color: accentColor.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: _typeIcon(type),
+            color: accentColor,
+            size: 48,
+            iconSize: 24,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${type.label}金额',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: accentColor,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                AnimatedBuilder(
+                  animation: amountController,
+                  builder: (context, _) {
+                    final amount = amountController.text.trim();
+                    return Text(
+                      amount.isEmpty ? '¥0.00' : '¥$amount',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionTypeSelector extends StatelessWidget {
+  const _TransactionTypeSelector({
+    required this.selectedType,
+    required this.onSelected,
+  });
+
+  final TransactionType selectedType;
+  final ValueChanged<TransactionType> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final type in TransactionType.values) ...[
+          Expanded(
+            child: _TransactionTypeCard(
+              type: type,
+              selected: selectedType == type,
+              onTap: () => onSelected(type),
+            ),
+          ),
+          if (type != TransactionType.values.last) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _TransactionTypeCard extends StatelessWidget {
+  const _TransactionTypeCard({
+    required this.type,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final TransactionType type;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = _typeColor(context, type);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: type.label,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            constraints: const BoxConstraints(minHeight: 74),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: selected
+                  ? Color.alphaBlend(
+                      accentColor.withValues(
+                        alpha: Theme.of(context).brightness == Brightness.dark
+                            ? 0.20
+                            : 0.12,
+                      ),
+                      colorScheme.surface,
+                    )
+                  : colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: selected
+                    ? accentColor
+                    : colorScheme.outlineVariant.withValues(alpha: 0.74),
+                width: selected ? 1.4 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _typeIcon(type),
+                  color: selected ? accentColor : colorScheme.onSurfaceVariant,
+                  size: 21,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  type.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: selected
+                        ? accentColor
+                        : colorScheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color _typeColor(BuildContext context, TransactionType type) {
+  final financeColors = AppTheme.financeColors(context);
+  final colorScheme = Theme.of(context).colorScheme;
+  return switch (type) {
+    TransactionType.income => financeColors.income,
+    TransactionType.expense => financeColors.expense,
+    TransactionType.transfer => colorScheme.primary,
+  };
+}
+
+IconData _typeIcon(TransactionType type) {
+  return switch (type) {
+    TransactionType.income => Icons.south_west,
+    TransactionType.expense => Icons.north_east,
+    TransactionType.transfer => Icons.swap_horiz,
+  };
 }
 
 String _formatDateTime(DateTime dateTime) {

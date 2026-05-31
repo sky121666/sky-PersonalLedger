@@ -280,6 +280,28 @@ void main() {
       expect(find.byType(PremiumSurface), findsWidgets);
     });
 
+    testWidgets('金额工作台会随输入和类型切换更新', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(tester, repository: repository);
+
+      expect(find.text('支出金额'), findsOneWidget);
+      expect(find.text('¥0.00'), findsOneWidget);
+      expect(find.byType(SegmentedButton<TransactionType>), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '66.60',
+      );
+      await tester.pump();
+
+      expect(find.text('¥66.60'), findsOneWidget);
+
+      await tester.tap(find.text('收入'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('收入金额'), findsOneWidget);
+    });
+
     testWidgets('账户区域跟随主题色模板', (tester) async {
       final repository = _FakeTransactionRepository();
       await _pumpTransactionPage(
