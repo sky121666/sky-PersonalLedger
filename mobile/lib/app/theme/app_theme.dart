@@ -197,6 +197,8 @@ class AppTheme {
       popupMenuTheme: _popupMenuTheme(colorScheme, palette),
       progressIndicatorTheme: _progressIndicatorTheme(colorScheme, palette),
       dividerTheme: _dividerTheme(colorScheme, palette),
+      dialogTheme: _dialogTheme(colorScheme, palette),
+      bottomSheetTheme: _bottomSheetTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -245,6 +247,8 @@ class AppTheme {
       popupMenuTheme: _popupMenuTheme(colorScheme, palette),
       progressIndicatorTheme: _progressIndicatorTheme(colorScheme, palette),
       dividerTheme: _dividerTheme(colorScheme, palette),
+      dialogTheme: _dialogTheme(colorScheme, palette),
+      bottomSheetTheme: _bottomSheetTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -957,6 +961,71 @@ class AppTheme {
       space: 1,
       thickness: 1,
       radius: BorderRadius.circular(999),
+    );
+  }
+
+  static DialogThemeData _dialogTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final backgroundColor = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.12 : 0.04),
+      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
+    );
+
+    return DialogThemeData(
+      backgroundColor: backgroundColor,
+      elevation: 0,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.42 : 0.14),
+      surfaceTintColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: isDark ? 0.62 : 0.42),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      iconColor: palette.seedColor,
+      titleTextStyle: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+      ),
+      contentTextStyle: TextStyle(
+        color: colorScheme.onSurfaceVariant,
+        fontSize: 14,
+        height: 1.45,
+        fontWeight: FontWeight.w600,
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
+    );
+  }
+
+  static BottomSheetThemeData _bottomSheetTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final backgroundColor = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.14 : 0.045),
+      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
+    );
+
+    return BottomSheetThemeData(
+      backgroundColor: backgroundColor,
+      modalBackgroundColor: backgroundColor,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      modalElevation: 0,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.36 : 0.12),
+      modalBarrierColor: Colors.black.withValues(alpha: isDark ? 0.58 : 0.38),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      showDragHandle: true,
+      dragHandleColor: palette.seedColor.withValues(
+        alpha: isDark ? 0.48 : 0.32,
+      ),
+      dragHandleSize: const Size(44, 5),
+      clipBehavior: Clip.antiAlias,
     );
   }
 }

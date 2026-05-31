@@ -217,6 +217,30 @@ void main() {
       expect(dividerTheme.radius, BorderRadius.circular(999));
     });
 
+    test('对话框和底部弹层使用主题化高级表面', () {
+      final theme = AppTheme.darkTheme(AppThemePalette.plasma);
+      final dialogTheme = theme.dialogTheme;
+      final bottomSheetTheme = theme.bottomSheetTheme;
+
+      expect(dialogTheme.backgroundColor, isNotNull);
+      expect(dialogTheme.elevation, 0);
+      expect(dialogTheme.surfaceTintColor, Colors.transparent);
+      expect(dialogTheme.shape, isA<RoundedRectangleBorder>());
+      expect(dialogTheme.iconColor, AppThemePalette.plasma.seedColor);
+      expect(dialogTheme.titleTextStyle?.fontWeight, FontWeight.w900);
+      expect(dialogTheme.clipBehavior, Clip.antiAlias);
+
+      expect(bottomSheetTheme.backgroundColor, isNotNull);
+      expect(bottomSheetTheme.modalBackgroundColor, isNotNull);
+      expect(bottomSheetTheme.elevation, 0);
+      expect(bottomSheetTheme.modalElevation, 0);
+      expect(bottomSheetTheme.surfaceTintColor, Colors.transparent);
+      expect(bottomSheetTheme.shape, isA<RoundedRectangleBorder>());
+      expect(bottomSheetTheme.showDragHandle, isTrue);
+      expect(bottomSheetTheme.dragHandleSize, const Size(44, 5));
+      expect(bottomSheetTheme.clipBehavior, Clip.antiAlias);
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);
