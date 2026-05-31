@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
 import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
@@ -33,6 +34,13 @@ void main() {
       expect(find.text('本月暂无趋势数据'), findsOneWidget);
       expect(find.text('本月暂无分类数据'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
+    });
+
+    testWidgets('统计页核心区块使用分段入场动效', (tester) async {
+      final repository = _FakeStatisticsRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
     });
 
     testWidgets('统计刷新后恢复为最新数据', (tester) async {

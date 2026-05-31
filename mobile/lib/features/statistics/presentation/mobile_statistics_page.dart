@@ -6,6 +6,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../data/statistics_models.dart';
 import '../data/statistics_repository.dart';
 
@@ -121,20 +122,32 @@ class _StatisticsContent extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 96),
           children: [
-            _MonthHeader(
-              selectedMonth: selectedMonth,
-              onPreviousMonth: onPreviousMonth,
-              onNextMonth: onNextMonth,
+            StaggeredEntrance(
+              index: 0,
+              child: _MonthHeader(
+                selectedMonth: selectedMonth,
+                onPreviousMonth: onPreviousMonth,
+                onNextMonth: onNextMonth,
+              ),
             ),
             const SizedBox(height: 16),
-            _OverviewCard(overview: dashboard.overview),
+            StaggeredEntrance(
+              index: 1,
+              child: _OverviewCard(overview: dashboard.overview),
+            ),
             const SizedBox(height: 16),
-            _TrendCard(trend: dashboard.trend),
+            StaggeredEntrance(
+              index: 2,
+              child: _TrendCard(trend: dashboard.trend),
+            ),
             const SizedBox(height: 16),
-            _CategoryRankCard(
-              response: dashboard.categories,
-              categoryType: categoryType,
-              onCategoryTypeChanged: onCategoryTypeChanged,
+            StaggeredEntrance(
+              index: 3,
+              child: _CategoryRankCard(
+                response: dashboard.categories,
+                categoryType: categoryType,
+                onCategoryTypeChanged: onCategoryTypeChanged,
+              ),
             ),
           ],
         ),
