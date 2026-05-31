@@ -14,10 +14,19 @@ void main() {
       expect(find.text('invoice.pdf'), findsOneWidget);
       expect(find.text('已上传'), findsOneWidget);
       expect(find.text('receipt.jpg'), findsOneWidget);
-      expect(find.text('待上传'), findsOneWidget);
+      expect(find.text('待上传'), findsAtLeastNWidgets(1));
       expect(find.text('附件工作台'), findsOneWidget);
       expect(find.text('已关联 2 个附件'), findsOneWidget);
       expect(find.byType(PremiumSurface), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('attachment-signal-deck')),
+        findsOneWidget,
+      );
+      expect(find.text('已留存'), findsOneWidget);
+      expect(find.text('待上传'), findsAtLeastNWidgets(1));
+      expect(find.text('剩余'), findsOneWidget);
+      expect(find.text('文件凭证'), findsOneWidget);
+      expect(find.text('图片凭证'), findsOneWidget);
       expect(find.text('2/5'), findsOneWidget);
 
       await tester.tap(find.byTooltip('移除').first);
@@ -82,6 +91,7 @@ void main() {
 
       expect(find.text('receipt.jpg'), findsOneWidget);
       expect(find.text('50%'), findsOneWidget);
+      expect(find.text('上传中'), findsOneWidget);
       expect(find.text('invoice.pdf'), findsOneWidget);
       expect(find.text('完成'), findsOneWidget);
     });

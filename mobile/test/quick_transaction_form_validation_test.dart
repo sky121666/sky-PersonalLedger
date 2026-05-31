@@ -219,7 +219,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('receipt.jpg'), findsOneWidget);
-      expect(find.text('待上传'), findsOneWidget);
+      expect(find.text('待上传'), findsAtLeastNWidgets(1));
 
       await _tapSaveButton(tester);
       await tester.pumpAndSettle();
@@ -294,6 +294,11 @@ void main() {
       expect(find.byKey(const ValueKey('transaction-amount')), findsOneWidget);
       expect(find.text('选择支出分类'), findsOneWidget);
       expect(find.text('金额、账户和分类是保存前的关键字段'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('transaction-save')),
+        260,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.widgetWithText(FilledButton, '保存'), findsOneWidget);
       expect(find.byType(PremiumSurface), findsWidgets);
     });

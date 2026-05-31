@@ -86,6 +86,15 @@ class AttachmentPickerField extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
+          _AttachmentSignalDeck(
+            totalCount: totalCount,
+            maxFiles: maxFiles,
+            uploadedCount: attachments.length,
+            pendingCount: pendingFiles.length,
+            uploadProgress: uploadProgress,
+            accent: accent,
+          ),
+          const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
@@ -301,6 +310,147 @@ class AttachmentPickerField extends ConsumerWidget {
   }
 }
 
+class _AttachmentSignalDeck extends StatelessWidget {
+  const _AttachmentSignalDeck({
+    required this.totalCount,
+    required this.maxFiles,
+    required this.uploadedCount,
+    required this.pendingCount,
+    required this.uploadProgress,
+    required this.accent,
+  });
+
+  final int totalCount;
+  final int maxFiles;
+  final int uploadedCount;
+  final int pendingCount;
+  final List<AttachmentUploadProgress> uploadProgress;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final remaining = (maxFiles - totalCount).clamp(0, maxFiles);
+    final uploadingCount = uploadProgress
+        .where((progress) => !progress.completed)
+        .length;
+    return Container(
+      key: const ValueKey('attachment-signal-deck'),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accent.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.13
+                : 0.06,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _AttachmentSignalTile(
+              icon: Icons.cloud_done_outlined,
+              label: '已留存',
+              value: '$uploadedCount',
+              color: financeColors.income,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _AttachmentSignalTile(
+              icon: Icons.pending_actions_outlined,
+              label: '待上传',
+              value: '$pendingCount',
+              color: financeColors.warning,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _AttachmentSignalTile(
+              icon: uploadingCount > 0
+                  ? Icons.cloud_upload_outlined
+                  : Icons.inventory_2_outlined,
+              label: uploadingCount > 0 ? '上传中' : '剩余',
+              value: uploadingCount > 0 ? '$uploadingCount' : '$remaining',
+              color: uploadingCount > 0 ? accent : colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentSignalTile extends StatelessWidget {
+  const _AttachmentSignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 62),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AttachmentCapacityPill extends StatelessWidget {
   const _AttachmentCapacityPill({
     required this.totalCount,
@@ -426,6 +576,8 @@ class _AttachmentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final fileTypeLabel = isImage ? '图片凭证' : '文件凭证';
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -445,13 +597,40 @@ class _AttachmentTile extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             child: Row(
               children: [
-                IconBadge(
-                  icon: isImage
-                      ? Icons.image_outlined
-                      : Icons.insert_drive_file,
-                  color: stateColor,
-                  size: 38,
-                  iconSize: 20,
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconBadge(
+                      icon: isImage
+                          ? Icons.image_outlined
+                          : Icons.insert_drive_file,
+                      color: stateColor,
+                      size: 40,
+                      iconSize: 20,
+                    ),
+                    Positioned(
+                      right: -3,
+                      bottom: -3,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: stateColor.withValues(alpha: 0.24),
+                          ),
+                        ),
+                        child: Icon(
+                          subtitle == '已上传'
+                              ? Icons.check_rounded
+                              : Icons.schedule_rounded,
+                          color: stateColor,
+                          size: 12,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -467,7 +646,22 @@ class _AttachmentTile extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      _AttachmentStateChip(label: subtitle, color: stateColor),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _AttachmentStateChip(
+                            label: subtitle,
+                            color: stateColor,
+                          ),
+                          _AttachmentStateChip(
+                            label: fileTypeLabel,
+                            color: isImage
+                                ? financeColors.asset
+                                : colorScheme.primary,
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
