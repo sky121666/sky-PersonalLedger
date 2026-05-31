@@ -215,6 +215,7 @@ class _CategoryHeader extends StatelessWidget {
         .where((category) => category.isSystem)
         .length;
     final customCount = categories.length - systemCount;
+    final palettePreview = categories.take(8).toList();
     return PremiumSurface(
       accentColor: accentColor,
       padding: const EdgeInsets.all(18),
@@ -251,6 +252,15 @@ class _CategoryHeader extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          _CategorySpectrumPanel(
+            selectedType: selectedType,
+            categories: categories,
+            systemCount: systemCount,
+            customCount: customCount,
+            palettePreview: palettePreview,
+            accentColor: accentColor,
           ),
           const SizedBox(height: 16),
           Row(
@@ -299,6 +309,111 @@ class _CategoryHeader extends StatelessWidget {
             ],
             selected: {selectedType},
             onSelectionChanged: (values) => onTypeChanged(values.first),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategorySpectrumPanel extends StatelessWidget {
+  const _CategorySpectrumPanel({
+    required this.selectedType,
+    required this.categories,
+    required this.systemCount,
+    required this.customCount,
+    required this.palettePreview,
+    required this.accentColor,
+  });
+
+  final CategoryType selectedType;
+  final List<Category> categories;
+  final int systemCount;
+  final int customCount;
+  final List<Category> palettePreview;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final total = categories.isEmpty ? 1 : categories.length;
+    final customRatio = (customCount / total).clamp(0.0, 1.0);
+    return Container(
+      key: const ValueKey('category-spectrum-panel'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '分类颜色系统',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              Text(
+                '自定义占比 ${(customRatio * 100).round()}%',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (final entry in palettePreview.indexed) ...[
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: _parseColor(entry.$2.color, accentColor),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                if (entry.$1 != palettePreview.length - 1)
+                  const SizedBox(width: 4),
+              ],
+              if (palettePreview.isEmpty)
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _CategoryMetaChip(
+                label: '${selectedType.label}模式',
+                color: accentColor,
+              ),
+              _CategoryMetaChip(
+                label: '系统 $systemCount',
+                color: colorScheme.primary,
+              ),
+              _CategoryMetaChip(
+                label: '自定义 $customCount',
+                color: colorScheme.tertiary,
+              ),
+            ],
           ),
         ],
       ),
@@ -365,6 +480,31 @@ class _CategorySignalTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CategoryMetaChip extends StatelessWidget {
+  const _CategoryMetaChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

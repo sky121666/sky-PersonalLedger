@@ -36,6 +36,15 @@ void main() {
       expect(find.text('分类总数'), findsOneWidget);
       expect(find.text('系统'), findsOneWidget);
       expect(find.text('自定义'), findsOneWidget);
+      expect(find.text('分类颜色系统'), findsOneWidget);
+      expect(find.text('自定义占比 50%'), findsOneWidget);
+      expect(find.text('支出模式'), findsOneWidget);
+      expect(find.text('系统 1'), findsOneWidget);
+      expect(find.text('自定义 1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('category-spectrum-panel')),
+        findsOneWidget,
+      );
       expect(find.text('2'), findsOneWidget);
       expect(find.text('1'), findsNWidgets(2));
     });
