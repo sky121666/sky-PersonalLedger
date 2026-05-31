@@ -35,6 +35,18 @@ void main() {
       expect(find.text('1 个备份'), findsOneWidget);
       expect(find.text('CSV 明细'), findsOneWidget);
       expect(find.byKey(const ValueKey('data-operation-rail')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('data-recovery-matrix')),
+        findsOneWidget,
+      );
+      expect(find.text('灾备矩阵'), findsOneWidget);
+      expect(find.text('手动链路'), findsOneWidget);
+      expect(find.text('完整备份'), findsAtLeastNWidgets(1));
+      expect(find.text('JSON 可恢复'), findsOneWidget);
+      expect(find.text('交易分析'), findsOneWidget);
+      expect(find.text('表格复盘'), findsOneWidget);
+      expect(find.text('恢复闸门'), findsOneWidget);
+      expect(find.text('覆盖前阻断'), findsOneWidget);
       expect(find.text('导出、恢复和迁移数据前先确认目标文件来源。'), findsOneWidget);
       await tester.tap(find.text('下载备份'));
       await tester.pumpAndSettle();
@@ -148,7 +160,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.triggerAutoBackupCalls, 1);
-      expect(find.textContaining('磁盘空间不足'), findsOneWidget);
+      expect(find.textContaining('磁盘空间不足'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('自动备份加载失败后可以刷新恢复', (tester) async {
@@ -201,7 +213,7 @@ void main() {
 Future<void> _pumpPage(
   WidgetTester tester,
   _FakeDataManagementRepository repository, {
-  Size physicalSize = const Size(1200, 1600),
+  Size physicalSize = const Size(1200, 2200),
 }) async {
   tester.view.physicalSize = physicalSize;
   tester.view.devicePixelRatio = 1;

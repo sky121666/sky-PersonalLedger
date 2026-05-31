@@ -114,6 +114,14 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             const SizedBox(height: 12),
             StaggeredEntrance(
               index: 5,
+              child: _DataRecoveryMatrix(
+                autoBackupEnabled: _autoBackupSettings.enabled,
+                backupCount: _autoBackupFiles.length,
+              ),
+            ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 6,
               child: _ActionCard(
                 icon: Icons.backup_outlined,
                 accentColor: financeColors.asset,
@@ -128,7 +136,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 6,
+              index: 7,
               child: _ActionCard(
                 icon: Icons.table_view_outlined,
                 accentColor: financeColors.income,
@@ -143,7 +151,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 7,
+              index: 8,
               child: _ActionCard(
                 icon: Icons.restore_outlined,
                 accentColor: colorScheme.error,
@@ -159,7 +167,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 8,
+              index: 9,
               child: _AutoBackupCard(
                 settings: _autoBackupSettings,
                 files: _autoBackupFiles,
@@ -493,6 +501,241 @@ class _DataOperationRail extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DataRecoveryMatrix extends StatelessWidget {
+  const _DataRecoveryMatrix({
+    required this.autoBackupEnabled,
+    required this.backupCount,
+  });
+
+  final bool autoBackupEnabled;
+  final int backupCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final protectionColor = autoBackupEnabled && backupCount > 0
+        ? financeColors.income
+        : financeColors.warning;
+    return PremiumSurface(
+      key: const ValueKey('data-recovery-matrix'),
+      accentColor: protectionColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.grid_view_rounded,
+                color: protectionColor,
+                size: 40,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '灾备矩阵',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '把导出、分析、恢复拆成可判断的安全路径',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _DataMatrixPill(
+                label: autoBackupEnabled ? '自动链路' : '手动链路',
+                color: protectionColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final threeColumn = constraints.maxWidth >= 560;
+              final twoColumn = constraints.maxWidth >= 380;
+              final gap = threeColumn ? 10.0 : 8.0;
+              final width = threeColumn
+                  ? (constraints.maxWidth - gap * 2) / 3
+                  : twoColumn
+                  ? (constraints.maxWidth - gap) / 2
+                  : constraints.maxWidth;
+              final tiles = [
+                _DataRecoveryMatrixTileData(
+                  icon: Icons.data_object_outlined,
+                  title: '完整备份',
+                  value: backupCount == 0 ? '待生成' : '$backupCount 份',
+                  caption: 'JSON 可恢复',
+                  color: financeColors.asset,
+                ),
+                _DataRecoveryMatrixTileData(
+                  icon: Icons.query_stats_outlined,
+                  title: '交易分析',
+                  value: 'CSV',
+                  caption: '表格复盘',
+                  color: financeColors.income,
+                ),
+                _DataRecoveryMatrixTileData(
+                  icon: Icons.gpp_maybe_outlined,
+                  title: '恢复闸门',
+                  value: '二次确认',
+                  caption: '覆盖前阻断',
+                  color: colorScheme.error,
+                ),
+              ];
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final tile in tiles)
+                    SizedBox(
+                      width: width,
+                      child: _DataRecoveryMatrixTile(data: tile),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataRecoveryMatrixTileData {
+  const _DataRecoveryMatrixTileData({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.caption,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String caption;
+  final Color color;
+}
+
+class _DataRecoveryMatrixTile extends StatelessWidget {
+  const _DataRecoveryMatrixTile({required this.data});
+
+  final _DataRecoveryMatrixTileData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 96),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          data.color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: data.color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(data.icon, color: data.color, size: 19),
+              const Spacer(),
+              Icon(
+                Icons.arrow_outward_rounded,
+                color: data.color.withValues(alpha: 0.78),
+                size: 17,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            data.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            data.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _DataMatrixPill(label: data.caption, color: data.color),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataMatrixPill extends StatelessWidget {
+  const _DataMatrixPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28, maxWidth: 132),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
