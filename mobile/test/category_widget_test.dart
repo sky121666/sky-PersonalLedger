@@ -29,6 +29,17 @@ void main() {
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
+    testWidgets('分类头部展示系统和自定义分类信号', (tester) async {
+      final repository = _FakeCategoryRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.text('分类总数'), findsOneWidget);
+      expect(find.text('系统'), findsOneWidget);
+      expect(find.text('自定义'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('1'), findsNWidgets(2));
+    });
+
     testWidgets('新增分类时提交表单字段并刷新列表', (tester) async {
       final repository = _FakeCategoryRepository();
       await _pumpPage(tester, repository);

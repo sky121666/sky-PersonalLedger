@@ -96,7 +96,7 @@ class CategoriesPage extends ConsumerWidget {
               index: 0,
               child: _CategoryHeader(
                 selectedType: selectedType,
-                count: state.valueOrNull?.categories.length ?? 0,
+                categories: state.valueOrNull?.categories ?? const [],
                 onTypeChanged: (type) => ref
                     .read(categoryListControllerProvider.notifier)
                     .setType(type),
@@ -196,20 +196,25 @@ class _CategoryContent extends ConsumerWidget {
 class _CategoryHeader extends StatelessWidget {
   const _CategoryHeader({
     required this.selectedType,
-    required this.count,
+    required this.categories,
     required this.onTypeChanged,
   });
 
   final CategoryType selectedType;
-  final int count;
+  final List<Category> categories;
   final ValueChanged<CategoryType> onTypeChanged;
 
   @override
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final accentColor = selectedType == CategoryType.expense
         ? financeColors.expense
         : financeColors.income;
+    final systemCount = categories
+        .where((category) => category.isSystem)
+        .length;
+    final customCount = categories.length - systemCount;
     return PremiumSurface(
       accentColor: accentColor,
       padding: const EdgeInsets.all(18),
@@ -237,12 +242,43 @@ class _CategoryHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '$count 个分类用于快速归集交易',
+                      '${categories.length} 个分类用于快速归集交易',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
+                        color: colorScheme.outline,
                       ),
                     ),
                   ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _CategorySignalTile(
+                  icon: Icons.dashboard_customize_outlined,
+                  label: '分类总数',
+                  value: '${categories.length}',
+                  color: accentColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CategorySignalTile(
+                  icon: Icons.verified_outlined,
+                  label: '系统',
+                  value: '$systemCount',
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CategorySignalTile(
+                  icon: Icons.tune_outlined,
+                  label: '自定义',
+                  value: '$customCount',
+                  color: financeColors.asset,
                 ),
               ),
             ],
@@ -263,6 +299,70 @@ class _CategoryHeader extends StatelessWidget {
             ],
             selected: {selectedType},
             onSelectionChanged: (values) => onTypeChanged(values.first),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategorySignalTile extends StatelessWidget {
+  const _CategorySignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
