@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../../app/widgets/staggered_entrance.dart';
 import '../data/ai_report_repository.dart';
@@ -992,6 +993,8 @@ class _AIReportScheduleForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final normalizedHour = _normalizedHour(settings.hour);
     return PremiumSurface(
       accentColor: colorScheme.primary,
       child: Column(
@@ -1015,17 +1018,35 @@ class _AIReportScheduleForm extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: settings.enabled,
-            title: const Text('启用自动生成'),
-            subtitle: const Text('只发送聚合快照，不包含交易备注和附件。'),
-            onChanged: saving
-                ? null
-                : (value) => onChanged(settings.copyWith(enabled: value)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _AIScheduleMetric(
+                  label: '运行时间',
+                  value: '${normalizedHour.toString().padLeft(2, '0')}:00',
+                  icon: Icons.schedule_outlined,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AIScheduleMetric(
+                  label: '隐私策略',
+                  value: '聚合快照',
+                  icon: Icons.privacy_tip_outlined,
+                  color: financeColors.asset,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          _AIScheduleEnablePanel(
+            value: settings.enabled,
+            enabled: !saving,
+            onChanged: (value) => onChanged(settings.copyWith(enabled: value)),
+          ),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1049,38 +1070,46 @@ class _AIReportScheduleForm extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              const Text('运行小时'),
-              const SizedBox(width: 12),
-              DropdownButton<int>(
-                value: _normalizedHour(settings.hour),
-                items: [
-                  for (var hour = 0; hour < 24; hour++)
-                    DropdownMenuItem(value: hour, child: Text('$hour:00')),
-                ],
-                onChanged: saving
-                    ? null
-                    : (value) {
-                        if (value != null) {
-                          onChanged(settings.copyWith(hour: value));
-                        }
-                      },
+          DropdownButtonFormField<int>(
+            initialValue: normalizedHour,
+            decoration: InputDecoration(
+              labelText: '运行小时',
+              border: const OutlineInputBorder(),
+              prefixIcon: Icon(
+                Icons.access_time_outlined,
+                color: colorScheme.primary,
               ),
+            ),
+            items: [
+              for (var hour = 0; hour < 24; hour++)
+                DropdownMenuItem(
+                  value: hour,
+                  child: Text('${hour.toString().padLeft(2, '0')}:00'),
+                ),
             ],
+            onChanged: saving
+                ? null
+                : (value) {
+                    if (value != null) {
+                      onChanged(settings.copyWith(hour: value));
+                    }
+                  },
+          ),
+          const SizedBox(height: 12),
+          _ScheduleAuditRow(
+            label: '周报上次检查',
+            value: settings.lastWeeklyRun.isEmpty
+                ? '无'
+                : settings.lastWeeklyRun,
+            icon: Icons.view_week_outlined,
           ),
           const SizedBox(height: 8),
-          Text(
-            '周报上次检查：${settings.lastWeeklyRun.isEmpty ? '无' : settings.lastWeeklyRun}',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-          ),
-          Text(
-            '月报上次检查：${settings.lastMonthlyRun.isEmpty ? '无' : settings.lastMonthlyRun}',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+          _ScheduleAuditRow(
+            label: '月报上次检查',
+            value: settings.lastMonthlyRun.isEmpty
+                ? '无'
+                : settings.lastMonthlyRun,
+            icon: Icons.calendar_month_outlined,
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -1106,6 +1135,161 @@ class _AIReportScheduleForm extends StatelessWidget {
     if (hour < 0) return 0;
     if (hour > 23) return 23;
     return hour;
+  }
+}
+
+class _AIScheduleMetric extends StatelessWidget {
+  const _AIScheduleMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AIScheduleEnablePanel extends StatelessWidget {
+  const _AIScheduleEnablePanel({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = value ? colorScheme.primary : colorScheme.outline;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: enabled ? () => onChanged(!value) : null,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: accentColor.withValues(alpha: 0.20)),
+          ),
+          child: Row(
+            children: [
+              IconBadge(
+                icon: value
+                    ? Icons.auto_awesome_motion_outlined
+                    : Icons.motion_photos_paused_outlined,
+                color: accentColor,
+                size: 40,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '启用自动生成',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '只发送聚合快照，不包含交易备注和附件。',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Switch(value: value, onChanged: enabled ? onChanged : null),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleAuditRow extends StatelessWidget {
+  const _ScheduleAuditRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: colorScheme.outline),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            '$label：$value',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+          ),
+        ),
+      ],
+    );
   }
 }
 

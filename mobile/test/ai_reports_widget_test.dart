@@ -269,6 +269,8 @@ void main() {
 
     expect(find.text('自动报告'), findsOneWidget);
     expect(find.text('默认关闭'), findsOneWidget);
+    expect(find.text('运行时间'), findsOneWidget);
+    expect(find.text('聚合快照'), findsOneWidget);
 
     await tester.tap(find.text('启用自动生成'));
     await tester.pumpAndSettle();
