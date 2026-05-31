@@ -68,6 +68,8 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
           onSubmitted: (_) => isLoading ? null : _submitServerUrl(),
         ),
         const SizedBox(height: 14),
+        _ServerInputSignalDeck(controller: _serverUrlController),
+        const SizedBox(height: 14),
         const _ServerCapabilityGrid(),
         const SizedBox(height: 14),
         _ServerTopologyPreview(
@@ -103,6 +105,186 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ServerInputSignalDeck extends StatelessWidget {
+  const _ServerInputSignalDeck({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final value = controller.text.trim();
+        final isEmpty = value.isEmpty;
+        final isHttps = value.startsWith('https://');
+        final isHttp = value.startsWith('http://');
+        final isPrivate = _looksLikePrivateEndpoint(value);
+        final protocolLabel = isEmpty
+            ? '等待输入'
+            : isHttps
+            ? 'HTTPS 就绪'
+            : isHttp && isPrivate
+            ? '内网 HTTP'
+            : '需 HTTPS';
+        final scopeLabel = isEmpty
+            ? '未绑定'
+            : isPrivate
+            ? '局域网'
+            : '公开域名';
+        final protocolColor = isHttps || (isHttp && isPrivate)
+            ? financeColors.income
+            : isEmpty
+            ? colorScheme.outline
+            : colorScheme.error;
+        final scopeColor = isPrivate
+            ? financeColors.asset
+            : financeColors.brand;
+        return PremiumSurface(
+          accentColor: protocolColor,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: Icons.tune_outlined,
+                    color: protocolColor,
+                    size: 38,
+                    iconSize: 19,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '连接策略',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '自动区分公开 HTTPS、局域网地址和首次初始化入口',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                height: 1.35,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ServerSignalTile(
+                      icon: Icons.enhanced_encryption_outlined,
+                      label: '协议',
+                      value: protocolLabel,
+                      color: protocolColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _ServerSignalTile(
+                      icon: Icons.public_outlined,
+                      label: '范围',
+                      value: scopeLabel,
+                      color: scopeColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _ServerSignalTile(
+                      icon: Icons.admin_panel_settings_outlined,
+                      label: '初始化',
+                      value: '只执行一次',
+                      color: financeColors.income,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ServerSignalTile extends StatelessWidget {
+  const _ServerSignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 62),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -583,4 +765,29 @@ class _TopologyStatusPill extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _looksLikePrivateEndpoint(String value) {
+  final normalized = value
+      .trim()
+      .toLowerCase()
+      .replaceFirst('https://', '')
+      .replaceFirst('http://', '');
+  if (normalized.isEmpty) {
+    return false;
+  }
+  final host = normalized.split('/').first.split(':').first;
+  if (host == 'localhost' ||
+      host == '127.0.0.1' ||
+      host.startsWith('10.') ||
+      host.startsWith('192.168.') ||
+      host.endsWith('.local')) {
+    return true;
+  }
+  final parts = host.split('.');
+  if (parts.length == 4 && parts.every((part) => int.tryParse(part) != null)) {
+    final second = int.tryParse(parts[1]) ?? -1;
+    return parts.first == '172' && second >= 16 && second <= 31;
+  }
+  return false;
 }

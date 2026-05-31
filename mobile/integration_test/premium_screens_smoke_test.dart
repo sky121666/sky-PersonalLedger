@@ -219,6 +219,7 @@ void main() {
 
         expect(find.text('连接服务器'), findsOneWidget);
         expect(find.text('自托管入口'), findsOneWidget);
+        expect(find.text('连接策略'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('server-topology-preview')),
           findsOneWidget,
@@ -237,6 +238,7 @@ void main() {
 
         expect(find.text('https://ledger.example.com'), findsWidgets);
         expect(find.text('地址就绪'), findsOneWidget);
+        expect(find.text('HTTPS 就绪'), findsOneWidget);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,

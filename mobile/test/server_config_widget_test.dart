@@ -25,8 +25,10 @@ void main() {
       expect(find.byType(AuthFlowShell), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
       expect(find.text('私有服务连接'), findsOneWidget);
+      expect(find.text('连接策略'), findsOneWidget);
       expect(find.text('HTTPS'), findsOneWidget);
       expect(find.text('初始化一次'), findsOneWidget);
+      expect(find.text('只执行一次'), findsOneWidget);
       expect(find.text('跨端同步'), findsOneWidget);
       expect(find.text('家庭'), findsOneWidget);
       expect(find.text('AI'), findsOneWidget);
@@ -53,6 +55,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ledger.example.com:8080'), findsWidgets);
       expect(find.text('地址就绪'), findsOneWidget);
+      expect(find.text('需 HTTPS'), findsOneWidget);
+      expect(find.text('公开域名'), findsOneWidget);
       await _scrollIntoTapArea(tester, find.text('连接'));
       await tester.tap(find.text('连接'));
       await tester.pumpAndSettle();
