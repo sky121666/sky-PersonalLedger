@@ -36,6 +36,21 @@ void main() {
       expect(find.text('已绑定'), findsOneWidget);
       expect(find.text('登录状态'), findsOneWidget);
       expect(find.text('有记录'), findsOneWidget);
+      expect(find.text('资料完整度'), findsOneWidget);
+      expect(find.text('3/4'), findsOneWidget);
+      expect(find.text('昵称'), findsAtLeastNWidgets(1));
+      expect(find.text('邮箱'), findsAtLeastNWidgets(1));
+      expect(find.text('头像'), findsOneWidget);
+      expect(find.text('简介'), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('资料完整度根据缺失字段降级展示', (tester) async {
+      final repository = _FakeProfileRepository()
+        ..profile = _profile(nickname: '', email: '', bio: '');
+      await _pumpPage(tester, repository);
+
+      expect(find.text('资料完整度'), findsOneWidget);
+      expect(find.text('0/4'), findsOneWidget);
     });
 
     testWidgets('保存资料时提交当前输入', (tester) async {
@@ -195,14 +210,19 @@ class _FakeProfileRepository implements ProfileRepository {
   }
 }
 
-UserProfile _profile({String nickname = 'Sky'}) {
+UserProfile _profile({
+  String nickname = 'Sky',
+  String email = 'sky@example.com',
+  String avatar = '',
+  String bio = '记账中',
+}) {
   return UserProfile(
     id: 1,
     username: 'admin',
     nickname: nickname,
-    email: 'sky@example.com',
-    avatar: '',
-    bio: '记账中',
+    email: email,
+    avatar: avatar,
+    bio: bio,
     createdAt: '2026-05-01',
     lastLoginAt: '2026-05-17 09:00:00',
   );

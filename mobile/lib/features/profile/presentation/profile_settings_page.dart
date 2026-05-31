@@ -258,6 +258,159 @@ class _ProfileHeader extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _ProfileCompletenessStrip(profile: profile),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileCompletenessStrip extends StatelessWidget {
+  const _ProfileCompletenessStrip({required this.profile});
+
+  final UserProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final checks = [
+      _ProfileCompletionCheck(
+        label: '昵称',
+        complete: profile.nickname.trim().isNotEmpty,
+      ),
+      _ProfileCompletionCheck(
+        label: '邮箱',
+        complete: profile.email.trim().isNotEmpty,
+      ),
+      _ProfileCompletionCheck(
+        label: '头像',
+        complete: profile.avatar.trim().isNotEmpty,
+      ),
+      _ProfileCompletionCheck(
+        label: '简介',
+        complete: profile.bio.trim().isNotEmpty,
+      ),
+    ];
+    final completed = checks.where((check) => check.complete).length;
+    final progress = completed / checks.length;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final accent = progress >= 0.75
+        ? financeColors.income
+        : financeColors.warning;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accent.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune_outlined, size: 18, color: accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '资料完整度',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '$completed/${checks.length}',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 7,
+              value: progress,
+              color: accent,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final check in checks)
+                _ProfileCompletionChip(check: check, activeColor: accent),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileCompletionCheck {
+  const _ProfileCompletionCheck({required this.label, required this.complete});
+
+  final String label;
+  final bool complete;
+}
+
+class _ProfileCompletionChip extends StatelessWidget {
+  const _ProfileCompletionChip({
+    required this.check,
+    required this.activeColor,
+  });
+
+  final _ProfileCompletionCheck check;
+  final Color activeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = check.complete ? activeColor : colorScheme.outline;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: check.complete ? 0.10 : 0.06),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            check.complete ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 14,
+            color: color,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            check.label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
       ),
     );
