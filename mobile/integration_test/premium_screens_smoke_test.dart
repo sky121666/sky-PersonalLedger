@@ -885,6 +885,11 @@ void main() {
         expect(find.text('午餐'), findsOneWidget);
         expect(find.text('支出 · 现金 · 餐饮'), findsOneWidget);
         expect(find.text('已用 3 次'), findsOneWidget);
+        expect(find.text('复用效率雷达'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('template-reuse-radar')),
+          findsOneWidget,
+        );
         expect(find.text('模板执行流水线'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('template-automation-strip')),

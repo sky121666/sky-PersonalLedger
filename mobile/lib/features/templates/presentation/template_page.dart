@@ -314,7 +314,6 @@ class _TemplateHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: colorScheme.tertiary,
       padding: const EdgeInsets.all(18),
@@ -354,35 +353,10 @@ class _TemplateHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _TemplateSignalTile(
-                  icon: Icons.dashboard_customize_outlined,
-                  label: '模板数',
-                  value: '$templateCount',
-                  color: colorScheme.tertiary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _TemplateSignalTile(
-                  icon: Icons.play_circle_outline,
-                  label: '累计使用',
-                  value: '$totalUsedCount',
-                  color: financeColors.income,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _TemplateSignalTile(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: '可用账户',
-                  value: '$accountCount',
-                  color: financeColors.asset,
-                ),
-              ),
-            ],
+          _TemplateReuseRadar(
+            templateCount: templateCount,
+            totalUsedCount: totalUsedCount,
+            accountCount: accountCount,
           ),
           const SizedBox(height: 14),
           _TemplateAutomationStrip(
@@ -542,8 +516,131 @@ class _TemplatePipelineArrow extends StatelessWidget {
   }
 }
 
-class _TemplateSignalTile extends StatelessWidget {
-  const _TemplateSignalTile({
+class _TemplateReuseRadar extends StatelessWidget {
+  const _TemplateReuseRadar({
+    required this.templateCount,
+    required this.totalUsedCount,
+    required this.accountCount,
+  });
+
+  final int templateCount;
+  final int totalUsedCount;
+  final int accountCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final averageReuse = templateCount == 0
+        ? 0
+        : (totalUsedCount / templateCount).round();
+    final readiness = templateCount == 0 || accountCount == 0
+        ? '待配置'
+        : averageReuse >= 3
+        ? '高复用'
+        : '可提效';
+    return Container(
+      key: const ValueKey('template-reuse-radar'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.tertiary.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.tertiary.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_mode_outlined,
+                size: 19,
+                color: colorScheme.tertiary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '复用效率雷达',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _TemplateStatusPill(
+                label: readiness,
+                color: colorScheme.tertiary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TemplateRadarMetric(
+                icon: Icons.dashboard_customize_outlined,
+                label: '模板数',
+                value: '$templateCount 个',
+                color: colorScheme.tertiary,
+              ),
+              _TemplateRadarMetric(
+                icon: Icons.play_circle_outline,
+                label: '累计使用',
+                value: '$totalUsedCount 次',
+                color: financeColors.income,
+              ),
+              _TemplateRadarMetric(
+                icon: Icons.speed_outlined,
+                label: '平均复用',
+                value: '$averageReuse 次',
+                color: financeColors.asset,
+              ),
+              _TemplateRadarMetric(
+                icon: Icons.account_balance_wallet_outlined,
+                label: '可用账户',
+                value: '$accountCount 个',
+                color: financeColors.expense,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(
+                Icons.touch_app_outlined,
+                size: 18,
+                color: colorScheme.tertiary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  templateCount == 0
+                      ? '建立第一个高频模板后，可直接一键记账'
+                      : '每个模板平均复用 $averageReuse 次',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateRadarMetric extends StatelessWidget {
+  const _TemplateRadarMetric({
     required this.icon,
     required this.label,
     required this.value,
@@ -561,8 +658,7 @@ class _TemplateSignalTile extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           color.withValues(
@@ -572,33 +668,36 @@ class _TemplateSignalTile extends StatelessWidget {
           ),
           colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.16)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 7),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -634,6 +733,31 @@ class _TemplateMetaPill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TemplateStatusPill extends StatelessWidget {
+  const _TemplateStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

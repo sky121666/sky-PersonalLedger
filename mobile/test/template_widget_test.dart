@@ -35,6 +35,14 @@ void main() {
       expect(find.text('模板数'), findsOneWidget);
       expect(find.text('累计使用'), findsOneWidget);
       expect(find.text('可用账户'), findsOneWidget);
+      expect(find.text('复用效率雷达'), findsOneWidget);
+      expect(find.text('平均复用'), findsOneWidget);
+      expect(find.text('高复用'), findsOneWidget);
+      expect(find.text('每个模板平均复用 3 次'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('template-reuse-radar')),
+        findsOneWidget,
+      );
       expect(find.text('模板执行流水线'), findsOneWidget);
       expect(find.text('1 个模板'), findsOneWidget);
       expect(find.text('可一键记账'), findsOneWidget);
