@@ -1067,13 +1067,13 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.text('家庭成员'), findsOneWidget);
-          expect(find.text('成员A'), findsWidgets);
-          expect(find.text('成员B'), findsWidgets);
-          expect(find.text('默认'), findsOneWidget);
-          expect(find.text('停用'), findsOneWidget);
           expect(find.text('2026-05 家庭支出'), findsOneWidget);
-          expect(find.text('¥320.00'), findsOneWidget);
-          expect(find.text('成员支出排行'), findsOneWidget);
+          expect(find.text('家庭协同中枢'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('family-collaboration-hub')),
+            findsOneWidget,
+          );
+          expect(find.text('¥320.00'), findsAtLeastNWidgets(1));
           expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
@@ -1081,6 +1081,14 @@ void main() {
             tester,
             'family-hub-summary-${variant.name}',
           );
+
+          await tester.scrollUntilVisible(find.text('成员支出排行'), 360);
+          expect(find.text('成员支出排行'), findsOneWidget);
+          await tester.scrollUntilVisible(find.text('停用'), 360);
+          expect(find.text('成员A'), findsWidgets);
+          expect(find.text('成员B'), findsWidgets);
+          expect(find.text('默认'), findsOneWidget);
+          expect(find.text('停用'), findsOneWidget);
         },
       );
 

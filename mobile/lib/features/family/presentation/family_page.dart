@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../../app/widgets/staggered_entrance.dart';
 import '../../budgets/data/budget_repository.dart';
@@ -17,6 +19,7 @@ class FamilyPage extends ConsumerWidget {
     final membersState = ref.watch(familyMembersProvider);
     final summaryState = ref.watch(familySummaryProvider);
     final memberBudgetsState = ref.watch(memberBudgetsProvider);
+    final themeSettings = ref.watch(themeControllerProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('家庭成员'),
@@ -56,10 +59,21 @@ class FamilyPage extends ConsumerWidget {
                     loadingSummary: summaryState.isLoading,
                   ),
                 ),
+                const SizedBox(height: 12),
+                StaggeredEntrance(
+                  index: 1,
+                  child: _FamilyCollaborationHub(
+                    members: members,
+                    summary: summary,
+                    budgets: memberBudgetsState.valueOrNull ?? const [],
+                    statistics: statistics,
+                    themeSettings: themeSettings,
+                  ),
+                ),
                 if (memberBudgetsState.valueOrNull?.isNotEmpty == true) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 1,
+                    index: 2,
                     child: _FamilyBudgetSurface(
                       budgets: memberBudgetsState.valueOrNull!,
                     ),
@@ -75,7 +89,7 @@ class FamilyPage extends ConsumerWidget {
                 if (summary != null && summary.members.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 2,
+                    index: 3,
                     child: _FamilyRankingSurface(summary: summary),
                   ),
                 ],
@@ -85,7 +99,7 @@ class FamilyPage extends ConsumerWidget {
                     )) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 3,
+                    index: 4,
                     child: _FamilyCategorySurface(statistics: statistics),
                   ),
                 ],
@@ -109,7 +123,7 @@ class FamilyPage extends ConsumerWidget {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: StaggeredEntrance(
-                      index: index + 3,
+                      index: index + 5,
                       child: _FamilyMemberCard(member: member),
                     ),
                   );
@@ -220,6 +234,251 @@ class _FamilySummaryHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FamilyCollaborationHub extends StatelessWidget {
+  const _FamilyCollaborationHub({
+    required this.members,
+    required this.summary,
+    required this.budgets,
+    required this.statistics,
+    required this.themeSettings,
+  });
+
+  final List<FamilyMember> members;
+  final FamilySummary? summary;
+  final List<BudgetItem> budgets;
+  final FamilyStatistics? statistics;
+  final AppThemeSettings themeSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = themeSettings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final enabledCount = members.where((member) => member.isEnabled).length;
+    final budgetAmount = budgets.fold<double>(
+      0,
+      (sum, budget) => sum + budget.amount,
+    );
+    final categoryCount =
+        statistics?.members.fold<int>(
+          0,
+          (sum, member) => sum + member.categories.length,
+        ) ??
+        0;
+    final familyExpense = summary?.totalExpense ?? 0;
+    final budgetCoverage = budgetAmount <= 0
+        ? 0.0
+        : (familyExpense / budgetAmount * 100).clamp(0.0, 999.0);
+    return PremiumSurface(
+      key: const ValueKey('family-collaboration-hub'),
+      accentColor: palette.seedColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.hub_outlined,
+                color: palette.seedColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '家庭协同中枢',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${palette.label} · 成员、预算、分类归属统一展示',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _FamilyPaletteSwatches(palette: palette),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _FamilyHubMetric(
+                  label: '启用成员',
+                  value: '$enabledCount/${members.length}',
+                  icon: Icons.groups_2_outlined,
+                  color: enabledCount > 0
+                      ? financeColors.income
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FamilyHubMetric(
+                  label: '家庭支出',
+                  value: _formatMoney(familyExpense),
+                  icon: Icons.receipt_long_outlined,
+                  color: financeColors.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _FamilyHubMetric(
+                  label: '预算覆盖',
+                  value: budgetAmount <= 0
+                      ? '未设置'
+                      : '${budgetCoverage.toStringAsFixed(0)}%',
+                  icon: Icons.savings_outlined,
+                  color: budgetAmount <= 0
+                      ? colorScheme.outline
+                      : financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FamilyHubMetric(
+                  label: '分类拆分',
+                  value: '$categoryCount 类',
+                  icon: Icons.donut_large_outlined,
+                  color: colorScheme.tertiary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyHubMetric extends StatelessWidget {
+  const _FamilyHubMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyPaletteSwatches extends StatelessWidget {
+  const _FamilyPaletteSwatches({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      palette.seedColor,
+      palette.assetColor,
+      palette.incomeColor,
+      palette.expenseColor,
+    ];
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Stack(
+        children: [
+          for (var index = 0; index < colors.length; index += 1)
+            Positioned(
+              left: (index % 2) * 18,
+              top: (index ~/ 2) * 18,
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: colors[index],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.surface,
+                    width: 1.4,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

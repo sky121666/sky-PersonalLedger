@@ -107,14 +107,25 @@ void main() {
     expect(find.text('协同中'), findsOneWidget);
     expect(find.text('已汇总'), findsOneWidget);
     expect(find.text('2026-05 家庭支出'), findsOneWidget);
-    expect(find.text('¥320.00'), findsOneWidget);
+    expect(find.text('¥320.00'), findsAtLeastNWidgets(1));
+    expect(find.text('家庭协同中枢'), findsOneWidget);
+    expect(find.textContaining('成员、预算、分类归属统一展示'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('family-collaboration-hub')),
+      findsOneWidget,
+    );
+    expect(find.text('1/2'), findsOneWidget);
+    expect(find.text('32%'), findsOneWidget);
+    expect(find.text('1 类'), findsOneWidget);
+    expect(find.text('家庭预算'), findsOneWidget);
+    expect(find.text('¥1000.00'), findsOneWidget);
+    expect(find.text('45%'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('成员支出排行'), 300);
+    await tester.pumpAndSettle();
     expect(find.text('成员支出排行'), findsOneWidget);
     expect(find.text('支出集中度'), findsOneWidget);
     expect(find.text('成员A 63%'), findsOneWidget);
     expect(find.text('¥200.00 · 3 笔'), findsOneWidget);
-    expect(find.text('家庭预算'), findsOneWidget);
-    expect(find.text('¥1000.00'), findsOneWidget);
-    expect(find.text('45%'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('成员分类拆分'), 300);
     await tester.pumpAndSettle();
     expect(find.text('成员分类拆分'), findsOneWidget);
