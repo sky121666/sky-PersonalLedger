@@ -116,6 +116,11 @@ void main() {
     expect(find.text('模式控制'), findsOneWidget);
     expect(find.text('财务语义'), findsOneWidget);
     expect(find.text('4 色'), findsOneWidget);
+    expect(find.text('跨端体验预览'), findsOneWidget);
+    expect(find.text('iOS 原生感'), findsAtLeastNWidgets(1));
+    expect(find.text('Android 动效'), findsAtLeastNWidgets(1));
+    expect(find.text('数据看板'), findsAtLeastNWidgets(1));
+    expect(find.text('AI 报告'), findsAtLeastNWidgets(1));
     expect(find.text('收入色'), findsOneWidget);
     expect(find.text('资产色'), findsOneWidget);
     expect(find.text('支出色'), findsOneWidget);

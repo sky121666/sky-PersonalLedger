@@ -437,6 +437,8 @@ class _AppearancePanel extends StatelessWidget {
           const SizedBox(height: 12),
           _ThemeCapabilityMatrix(settings: settings),
           const SizedBox(height: 18),
+          _ThemeExperienceDeck(palette: settings.palette),
+          const SizedBox(height: 18),
           Text(
             '外观模式',
             style: Theme.of(
@@ -601,6 +603,202 @@ class _ThemeCapabilityMatrix extends StatelessWidget {
       AppThemeMode.light => '浅色',
       AppThemeMode.dark => '深色',
     };
+  }
+}
+
+class _ThemeExperienceDeck extends StatelessWidget {
+  const _ThemeExperienceDeck({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppFinanceColors.fromPalette(palette);
+    final cards = [
+      _ThemeExperienceCardData(
+        icon: Icons.phone_iphone_outlined,
+        title: 'iOS 原生感',
+        subtitle: '轻表面 / 弹层 / 大标题',
+        accent: palette.seedColor,
+        bars: [0.72, 0.46, 0.88],
+      ),
+      _ThemeExperienceCardData(
+        icon: Icons.android_outlined,
+        title: 'Android 动效',
+        subtitle: '状态层 / Ripple / Material',
+        accent: financeColors.asset,
+        bars: [0.52, 0.82, 0.64],
+      ),
+      _ThemeExperienceCardData(
+        icon: Icons.query_stats_outlined,
+        title: '数据看板',
+        subtitle: '图表 / 进度 / 财务语义',
+        accent: financeColors.income,
+        bars: [0.86, 0.58, 0.42],
+      ),
+      _ThemeExperienceCardData(
+        icon: Icons.auto_awesome_outlined,
+        title: 'AI 报告',
+        subtitle: '洞察 / 周报 / 家庭分析',
+        accent: financeColors.warning,
+        bars: [0.44, 0.78, 0.92],
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '跨端体验预览',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final entry in cards.indexed) ...[
+                _ThemeExperienceCard(data: entry.$2),
+                if (entry.$1 != cards.length - 1) const SizedBox(width: 10),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThemeExperienceCardData {
+  const _ThemeExperienceCardData({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.bars,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color accent;
+  final List<double> bars;
+}
+
+class _ThemeExperienceCard extends StatelessWidget {
+  const _ThemeExperienceCard({required this.data});
+
+  final _ThemeExperienceCardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      width: 184,
+      constraints: const BoxConstraints(minHeight: 132),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          data.accent.withValues(alpha: isDark ? 0.16 : 0.08),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: data.accent.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: data.icon,
+                color: data.accent,
+                size: 36,
+                iconSize: 19,
+              ),
+              const Spacer(),
+              Icon(
+                Icons.arrow_outward_rounded,
+                size: 18,
+                color: data.accent.withValues(alpha: 0.82),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            data.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            data.subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (final entry in data.bars.indexed) ...[
+                Expanded(
+                  child: _ThemeExperienceBar(
+                    progress: entry.$2,
+                    color: data.accent,
+                  ),
+                ),
+                if (entry.$1 != data.bars.length - 1) const SizedBox(width: 6),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeExperienceBar extends StatelessWidget {
+  const _ThemeExperienceBar({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: SizedBox(
+        height: 7,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(
+              color: Color.alphaBlend(
+                color.withValues(alpha: 0.10),
+                colorScheme.surfaceContainerHighest,
+              ),
+            ),
+            FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: progress,
+              child: ColoredBox(color: color),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
