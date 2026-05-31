@@ -19,6 +19,16 @@ void main() {
       expect(find.text('显示策略 · 隐藏'), findsOneWidget);
       expect(find.text('列表保护 · 仅前缀'), findsOneWidget);
       expect(find.text('失效控制 · 可撤销'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('api-token-channel-console')),
+        findsOneWidget,
+      );
+      expect(find.text('接口通道控制台'), findsOneWidget);
+      expect(find.text('移动端'), findsOneWidget);
+      expect(find.text('OpenAPI'), findsOneWidget);
+      expect(find.text('AI/自动化'), findsOneWidget);
+      expect(find.text('脚本隔离'), findsOneWidget);
+      expect(find.text('完整 Token 不进入列表，仅保留前缀和撤销入口'), findsOneWidget);
       expect(find.text('1 个访问凭证正在管理中'), findsOneWidget);
       expect(find.text('我的手机'), findsOneWidget);
       expect(find.textContaining('abcd1234...'), findsOneWidget);
@@ -45,6 +55,8 @@ void main() {
       );
       expect(find.text('full-token-value'), findsOneWidget);
       expect(find.text('iPhone'), findsOneWidget);
+      expect(find.text('待保存'), findsOneWidget);
+      expect(find.text('完整 Token 正在等待复制保存'), findsOneWidget);
       final successSurface = tester.widget<PremiumSurface>(
         find
             .ancestor(

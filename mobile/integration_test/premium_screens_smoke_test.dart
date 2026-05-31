@@ -607,10 +607,15 @@ void main() {
 
         expect(find.text('API Token'), findsOneWidget);
         expect(find.text('API 安全访问'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('api-token-channel-console')),
+          findsOneWidget,
+        );
+        expect(find.text('接口通道控制台'), findsOneWidget);
+        expect(find.text('OpenAPI'), findsOneWidget);
+        expect(find.text('AI/自动化'), findsOneWidget);
+        expect(find.text('完整 Token 不进入列表，仅保留前缀和撤销入口'), findsOneWidget);
         expect(find.text('创建新令牌'), findsOneWidget);
-        expect(find.text('已创建的令牌'), findsOneWidget);
-        expect(find.text('我的手机'), findsOneWidget);
-        expect(find.text('abcd1234... · 未使用 · 永不过期'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -618,6 +623,16 @@ void main() {
           tester,
           'api-token-control-${variant.name}',
         );
+
+        await tester.scrollUntilVisible(
+          find.text('已创建的令牌'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('已创建的令牌'), findsOneWidget);
+        expect(find.text('我的手机'), findsOneWidget);
+        expect(find.text('abcd1234... · 未使用 · 永不过期'), findsOneWidget);
+        _expectStableVisualFrame(tester);
       });
 
       testWidgets('renders premium category library (${variant.name})', (

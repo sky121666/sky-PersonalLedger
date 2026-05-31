@@ -204,6 +204,14 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
           const SizedBox(height: 12),
           StaggeredEntrance(
             index: 1,
+            child: _TokenChannelConsole(
+              tokenCount: _tokens.length,
+              hasPendingToken: _createdToken != null,
+            ),
+          ),
+          const SizedBox(height: 12),
+          StaggeredEntrance(
+            index: 2,
             child: _CreateTokenCard(
               nameController: _nameController,
               expiryDays: _expiryDays,
@@ -216,7 +224,7 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
           if (_createdToken != null) ...[
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 2,
+              index: 3,
               child: _CreatedTokenCard(
                 token: _createdToken!,
                 onCopy: _copyCreatedToken,
@@ -225,12 +233,12 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
           ],
           const SizedBox(height: 12),
           StaggeredEntrance(
-            index: _createdToken == null ? 2 : 3,
+            index: _createdToken == null ? 3 : 4,
             child: _TokenListHeader(tokenCount: _tokens.length),
           ),
           const SizedBox(height: 8),
           StaggeredEntrance(
-            index: _createdToken == null ? 3 : 4,
+            index: _createdToken == null ? 4 : 5,
             child: _tokens.isEmpty
                 ? const PremiumSurface(
                     padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),
@@ -443,6 +451,234 @@ class _TokenSecurityPill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TokenChannelConsole extends StatelessWidget {
+  const _TokenChannelConsole({
+    required this.tokenCount,
+    required this.hasPendingToken,
+  });
+
+  final int tokenCount;
+  final bool hasPendingToken;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return PremiumSurface(
+      key: const ValueKey('api-token-channel-console'),
+      accentColor: financeColors.asset,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.route_outlined,
+                color: financeColors.asset,
+                size: 42,
+                iconSize: 21,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '接口通道控制台',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _TokenChannelStatusPill(
+                label: hasPendingToken ? '待保存' : '$tokenCount 个凭证',
+                color: hasPendingToken
+                    ? colorScheme.tertiary
+                    : financeColors.income,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _TokenChannelTile(
+                  icon: Icons.phone_iphone_outlined,
+                  label: '移动端',
+                  value: 'App 登录',
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TokenChannelTile(
+                  icon: Icons.api_outlined,
+                  label: 'OpenAPI',
+                  value: '外部访问',
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TokenChannelTile(
+                  icon: Icons.smart_toy_outlined,
+                  label: 'AI/自动化',
+                  value: '脚本隔离',
+                  color: colorScheme.tertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _TokenSafetyRail(
+            activeTokens: tokenCount,
+            hasPendingToken: hasPendingToken,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TokenChannelTile extends StatelessWidget {
+  const _TokenChannelTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 74),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, color: color, size: 19),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TokenSafetyRail extends StatelessWidget {
+  const _TokenSafetyRail({
+    required this.activeTokens,
+    required this.hasPendingToken,
+  });
+
+  final int activeTokens;
+  final bool hasPendingToken;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          financeColors.asset.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: financeColors.asset.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.shield_outlined, size: 18, color: financeColors.asset),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              hasPendingToken
+                  ? '完整 Token 正在等待复制保存'
+                  : activeTokens == 0
+                  ? '还没有外部访问凭证'
+                  : '完整 Token 不进入列表，仅保留前缀和撤销入口',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TokenChannelStatusPill extends StatelessWidget {
+  const _TokenChannelStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
