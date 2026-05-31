@@ -35,6 +35,8 @@ import 'package:personal_ledger/features/profile/presentation/profile_page.dart'
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_repository.dart';
 import 'package:personal_ledger/features/reports/presentation/yearly_report_page.dart';
+import 'package:personal_ledger/features/security/data/security_repository.dart';
+import 'package:personal_ledger/features/security/presentation/security_settings_page.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
 import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
@@ -291,6 +293,44 @@ void main() {
           binding,
           tester,
           'account-logs-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium security settings (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              securityRepositoryProvider.overrideWithValue(
+                _FakeSecurityRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const SecuritySettingsPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('账号安全'), findsOneWidget);
+        expect(find.text('修改密码'), findsOneWidget);
+        expect(find.text('安全入口'), findsOneWidget);
+        expect(find.text('当前入口：/ledger'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('security-entry-path')),
+          findsOneWidget,
+        );
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'security-settings-${variant.name}',
         );
       });
 
@@ -971,6 +1011,39 @@ const _accountLogAccount = ledger_account.Account(
   isArchived: false,
   sortOrder: 1,
 );
+
+class _FakeSecurityRepository implements SecurityRepository {
+  var entryPath = const SecurityEntryPath(entryPath: '/ledger', enabled: true);
+
+  @override
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {}
+
+  @override
+  Future<SecurityEntryPath> disableEntryPath() async {
+    entryPath = const SecurityEntryPath.disabled();
+    return entryPath;
+  }
+
+  @override
+  Future<SecurityEntryPath> generateEntryPath() async {
+    entryPath = const SecurityEntryPath(entryPath: '/generated', enabled: true);
+    return entryPath;
+  }
+
+  @override
+  Future<SecurityEntryPath> getEntryPath() async {
+    return entryPath;
+  }
+
+  @override
+  Future<SecurityEntryPath> setEntryPath(String entryPath) async {
+    this.entryPath = SecurityEntryPath(entryPath: entryPath, enabled: true);
+    return this.entryPath;
+  }
+}
 
 class _FakeHomeRepository implements HomeRepository {
   @override
