@@ -110,6 +110,8 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                             });
                           },
                         ),
+                        const SizedBox(height: 12),
+                        _TransactionFlowHint(type: _type),
                         const SizedBox(height: 16),
                         TextFormField(
                           key: const ValueKey('transaction-amount'),
@@ -840,6 +842,67 @@ class _QuickTransactionHero extends StatelessWidget {
   }
 }
 
+class _TransactionFlowHint extends StatelessWidget {
+  const _TransactionFlowHint({required this.type});
+
+  final TransactionType type;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = _typeColor(context, type);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accentColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accentColor.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(_typeHintIcon(type), color: accentColor, size: 18),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _typeHintTitle(type),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _typeHintDescription(type),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TransactionTypeSelector extends StatelessWidget {
   const _TransactionTypeSelector({
     required this.selectedType,
@@ -960,6 +1023,30 @@ IconData _typeIcon(TransactionType type) {
     TransactionType.income => Icons.south_west,
     TransactionType.expense => Icons.north_east,
     TransactionType.transfer => Icons.swap_horiz,
+  };
+}
+
+IconData _typeHintIcon(TransactionType type) {
+  return switch (type) {
+    TransactionType.income => Icons.account_balance_wallet_outlined,
+    TransactionType.expense => Icons.category_outlined,
+    TransactionType.transfer => Icons.compare_arrows_outlined,
+  };
+}
+
+String _typeHintTitle(TransactionType type) {
+  return switch (type) {
+    TransactionType.income => '记录收入来源',
+    TransactionType.expense => '选择支出分类',
+    TransactionType.transfer => '确认转入账户',
+  };
+}
+
+String _typeHintDescription(TransactionType type) {
+  return switch (type) {
+    TransactionType.income => '填写到账账户、收入分类和可选标签',
+    TransactionType.expense => '金额、账户和分类是保存前的关键字段',
+    TransactionType.transfer => '转出账户和转入账户不能相同',
   };
 }
 

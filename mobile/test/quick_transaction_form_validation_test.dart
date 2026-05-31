@@ -276,6 +276,8 @@ void main() {
 
       expect(find.text('记一笔'), findsOneWidget);
       expect(find.byKey(const ValueKey('transaction-amount')), findsOneWidget);
+      expect(find.text('选择支出分类'), findsOneWidget);
+      expect(find.text('金额、账户和分类是保存前的关键字段'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, '保存'), findsOneWidget);
       expect(find.byType(PremiumSurface), findsWidgets);
     });
@@ -300,6 +302,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('收入金额'), findsOneWidget);
+      expect(find.text('记录收入来源'), findsOneWidget);
+
+      await tester.tap(find.text('转账'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('转账金额'), findsOneWidget);
+      expect(find.text('确认转入账户'), findsOneWidget);
+      expect(find.text('转出账户和转入账户不能相同'), findsOneWidget);
     });
 
     testWidgets('账户区域跟随主题色模板', (tester) async {
