@@ -23,6 +23,8 @@ void main() {
       expect(find.text('借贷往来'), findsOneWidget);
       expect(find.text('应收'), findsOneWidget);
       expect(find.text('¥1,200.00'), findsOneWidget);
+      expect(find.text('结清率'), findsOneWidget);
+      expect(find.text('0%'), findsOneWidget);
       expect(find.text('张三'), findsOneWidget);
       expect(find.text('剩余 ¥800.00'), findsOneWidget);
     });

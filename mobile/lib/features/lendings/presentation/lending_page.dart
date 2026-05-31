@@ -345,6 +345,12 @@ class _SummarySection extends StatelessWidget {
     final netColor = summary.netLending >= 0
         ? financeColors.income
         : colorScheme.error;
+    final activeCount = summary.activeLendOut + summary.activeBorrowIn;
+    final settledCount = summary.settledLendOut + summary.settledBorrowIn;
+    final totalCount = activeCount + settledCount;
+    final settledRatio = totalCount == 0
+        ? 0
+        : (settledCount / totalCount * 100).round();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -411,9 +417,8 @@ class _SummarySection extends StatelessWidget {
                     color: financeColors.asset,
                   ),
                   MetricPill(
-                    label: '已结清',
-                    value:
-                        '${summary.settledLendOut + summary.settledBorrowIn} 笔',
+                    label: '结清率',
+                    value: '$settledRatio%',
                     icon: Icons.check_circle_outline,
                     color: netColor,
                   ),
