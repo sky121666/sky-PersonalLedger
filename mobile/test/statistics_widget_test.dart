@@ -20,6 +20,7 @@ void main() {
 
       expect(repository.dashboardCalls, 2);
       expect(find.text('统计分析'), findsOneWidget);
+      expect(find.text('本月现金流稳健'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
     });
 
@@ -30,6 +31,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('交易笔数'), findsOneWidget);
+      expect(find.text('本月现金流持平'), findsOneWidget);
       expect(find.text('0 笔'), findsOneWidget);
       expect(find.text('本月暂无趋势数据'), findsOneWidget);
       expect(find.text('本月暂无分类数据'), findsOneWidget);

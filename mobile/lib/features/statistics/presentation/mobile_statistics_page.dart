@@ -126,6 +126,7 @@ class _StatisticsContent extends StatelessWidget {
               index: 0,
               child: _MonthHeader(
                 selectedMonth: selectedMonth,
+                overview: dashboard.overview,
                 onPreviousMonth: onPreviousMonth,
                 onNextMonth: onNextMonth,
               ),
@@ -187,11 +188,13 @@ class _StatisticsErrorView extends StatelessWidget {
 class _MonthHeader extends StatelessWidget {
   const _MonthHeader({
     required this.selectedMonth,
+    required this.overview,
     required this.onPreviousMonth,
     required this.onNextMonth,
   });
 
   final DateTime selectedMonth;
+  final StatisticsOverviewData overview;
   final VoidCallback onPreviousMonth;
   final VoidCallback? onNextMonth;
 
@@ -216,6 +219,8 @@ class _MonthHeader extends StatelessWidget {
                   color: Theme.of(context).colorScheme.outline,
                 ),
               ),
+              const SizedBox(height: 8),
+              _StatisticsSignalPill(overview: overview),
             ],
           ),
         ),
@@ -231,6 +236,54 @@ class _MonthHeader extends StatelessWidget {
           tooltip: '下个月',
         ),
       ],
+    );
+  }
+}
+
+class _StatisticsSignalPill extends StatelessWidget {
+  const _StatisticsSignalPill({required this.overview});
+
+  final StatisticsOverviewData overview;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = overview.balance > 0
+        ? financeColors.income
+        : overview.balance < 0
+        ? colorScheme.error
+        : colorScheme.primary;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_statisticsSignalIcon(overview.balance), color: color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            _statisticsSignalLabel(overview.balance),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -514,4 +567,24 @@ Color _parseColor(String value, Color fallback) {
   final hex = value.replaceFirst('#', '');
   final colorValue = int.tryParse(hex.length == 6 ? 'FF$hex' : hex, radix: 16);
   return colorValue == null ? fallback : Color(colorValue);
+}
+
+String _statisticsSignalLabel(double balance) {
+  if (balance > 0) {
+    return '本月现金流稳健';
+  }
+  if (balance < 0) {
+    return '本月现金流承压';
+  }
+  return '本月现金流持平';
+}
+
+IconData _statisticsSignalIcon(double balance) {
+  if (balance > 0) {
+    return Icons.verified_outlined;
+  }
+  if (balance < 0) {
+    return Icons.priority_high_outlined;
+  }
+  return Icons.drag_handle_outlined;
 }
