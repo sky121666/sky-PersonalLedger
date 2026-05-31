@@ -6,6 +6,7 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../../transactions/application/ledger_refresh.dart';
 import '../../transactions/data/transaction_models.dart';
 import '../data/template_repository.dart';
@@ -226,25 +227,31 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 96),
         children: [
-          _TemplateHero(
-            templateCount: 0,
-            totalUsedCount: 0,
-            accountCount: _accounts.length,
+          StaggeredEntrance(
+            index: 0,
+            child: _TemplateHero(
+              templateCount: 0,
+              totalUsedCount: 0,
+              accountCount: _accounts.length,
+            ),
           ),
           const SizedBox(height: 12),
-          PremiumSurface(
-            padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
-            child: AppEmptyView(
-              title: '暂无快捷模板',
-              message: '保存常用收支后，可以一键按模板记账。',
-              icon: Icons.bolt_outlined,
-              action: FilledButton.icon(
-                onPressed:
-                    _submitting || _accounts.isEmpty || _categories.isEmpty
-                    ? null
-                    : _openTemplateForm,
-                icon: const Icon(Icons.add),
-                label: const Text('新增模板'),
+          StaggeredEntrance(
+            index: 1,
+            child: PremiumSurface(
+              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+              child: AppEmptyView(
+                title: '暂无快捷模板',
+                message: '保存常用收支后，可以一键按模板记账。',
+                icon: Icons.bolt_outlined,
+                action: FilledButton.icon(
+                  onPressed:
+                      _submitting || _accounts.isEmpty || _categories.isEmpty
+                      ? null
+                      : _openTemplateForm,
+                  icon: const Icon(Icons.add),
+                  label: const Text('新增模板'),
+                ),
               ),
             ),
           ),
@@ -266,20 +273,26 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
         separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           if (index == 0) {
-            return _TemplateHero(
-              templateCount: _templates.length,
-              totalUsedCount: totalUsedCount,
-              accountCount: _accounts.length,
+            return StaggeredEntrance(
+              index: 0,
+              child: _TemplateHero(
+                templateCount: _templates.length,
+                totalUsedCount: totalUsedCount,
+                accountCount: _accounts.length,
+              ),
             );
           }
           final template = _templates[index - 1];
-          return _TemplateCard(
-            template: template,
-            accountName: _accountName(template.accountId),
-            categoryName: _categoryName(template.categoryId),
-            busy: _submitting,
-            onApply: () => _applyTemplate(template),
-            onDelete: () => _deleteTemplate(template),
+          return StaggeredEntrance(
+            index: index,
+            child: _TemplateCard(
+              template: template,
+              accountName: _accountName(template.accountId),
+              categoryName: _categoryName(template.categoryId),
+              busy: _submitting,
+              onApply: () => _applyTemplate(template),
+              onDelete: () => _deleteTemplate(template),
+            ),
           );
         },
       ),

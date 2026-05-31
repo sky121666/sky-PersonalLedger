@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/templates/data/template_repository.dart';
 import 'package:personal_ledger/features/templates/presentation/template_page.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
@@ -18,6 +19,13 @@ void main() {
       expect(find.text('午餐'), findsOneWidget);
       expect(find.text('支出 · 现金 · 餐饮'), findsOneWidget);
       expect(find.text('已用 3 次'), findsOneWidget);
+    });
+
+    testWidgets('快捷模板列表使用分段入场动效', (tester) async {
+      final repository = _FakeTemplateRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
     });
 
     testWidgets('新增模板时提交表单字段并刷新列表', (tester) async {
