@@ -8,6 +8,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
@@ -302,6 +303,10 @@ class _ReminderContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeCount = dashboard.activeReminders.length;
+    final inactiveStartIndex = activeCount + 2;
+    final paidOffStartIndex =
+        inactiveStartIndex + dashboard.inactiveReminders.length + 1;
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
@@ -313,14 +318,18 @@ class _ReminderContent extends StatelessWidget {
               _MessagePanel(message: errorMessage!),
               const SizedBox(height: 12),
             ],
-            _DebtSummaryCard(summary: dashboard.summary),
+            StaggeredEntrance(
+              index: 0,
+              child: _DebtSummaryCard(summary: dashboard.summary),
+            ),
             const SizedBox(height: 16),
             if (dashboard.reminders.isEmpty)
-              const _EmptyReminderCard()
+              const StaggeredEntrance(index: 1, child: _EmptyReminderCard())
             else ...[
               _ReminderSection(
                 title: '进行中',
                 reminders: dashboard.activeReminders,
+                startIndex: 1,
                 busyAction: busyAction,
                 onToggle: onToggle,
                 onEdit: onEdit,
@@ -330,6 +339,7 @@ class _ReminderContent extends StatelessWidget {
               _ReminderSection(
                 title: '已暂停',
                 reminders: dashboard.inactiveReminders,
+                startIndex: inactiveStartIndex,
                 busyAction: busyAction,
                 onToggle: onToggle,
                 onEdit: onEdit,
@@ -339,6 +349,7 @@ class _ReminderContent extends StatelessWidget {
               _ReminderSection(
                 title: '已还清',
                 reminders: dashboard.paidOffReminders,
+                startIndex: paidOffStartIndex,
                 busyAction: busyAction,
                 onToggle: onToggle,
                 onEdit: onEdit,
@@ -538,6 +549,7 @@ class _ReminderSection extends StatelessWidget {
   const _ReminderSection({
     required this.title,
     required this.reminders,
+    required this.startIndex,
     required this.busyAction,
     required this.onToggle,
     required this.onEdit,
@@ -548,6 +560,7 @@ class _ReminderSection extends StatelessWidget {
 
   final String title;
   final List<ReminderItem> reminders;
+  final int startIndex;
   final String? busyAction;
   final ValueChanged<ReminderItem> onToggle;
   final ValueChanged<ReminderItem> onEdit;
@@ -564,25 +577,31 @@ class _ReminderSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 8),
-          child: Text(
-            '$title (${reminders.length})',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-              fontWeight: FontWeight.bold,
+        StaggeredEntrance(
+          index: startIndex,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 8),
+            child: Text(
+              '$title (${reminders.length})',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),
-        for (final reminder in reminders) ...[
-          _ReminderCard(
-            reminder: reminder,
-            busyAction: busyAction,
-            readOnly: readOnly,
-            onToggle: () => onToggle(reminder),
-            onEdit: () => onEdit(reminder),
-            onDelete: () => onDelete(reminder),
-            onRecordPayment: () => onRecordPayment(reminder),
+        for (final entry in reminders.indexed) ...[
+          StaggeredEntrance(
+            index: startIndex + entry.$1 + 1,
+            child: _ReminderCard(
+              reminder: entry.$2,
+              busyAction: busyAction,
+              readOnly: readOnly,
+              onToggle: () => onToggle(entry.$2),
+              onEdit: () => onEdit(entry.$2),
+              onDelete: () => onDelete(entry.$2),
+              onRecordPayment: () => onRecordPayment(entry.$2),
+            ),
           ),
           const SizedBox(height: 8),
         ],

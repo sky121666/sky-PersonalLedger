@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
@@ -23,6 +24,13 @@ void main() {
       expect(find.text('上岸进度'), findsOneWidget);
       expect(find.text('房贷'), findsOneWidget);
       expect(find.text('待还 ¥80000.00'), findsOneWidget);
+    });
+
+    testWidgets('上岸进度和提醒卡片使用分段入场动效', (tester) async {
+      final repository = _FakeReminderRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
     testWidgets('菜单中可以暂停提醒', (tester) async {
