@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'motion_tokens.dart';
+
 enum AppThemePalette {
   teal(
     id: 'teal',
@@ -207,6 +209,8 @@ class AppTheme {
   static const Color assetColor = Color(0xFF2563EB);
   static const Color warningColor = Color(0xFFF59E0B);
   static const double surfaceRadius = 20;
+  static const Duration themeAnimationDuration = MotionTokens.long;
+  static const Curve themeAnimationCurve = MotionTokens.curveEmphasized;
 
   /// 构建浅色主题。
   static ThemeData lightTheme([

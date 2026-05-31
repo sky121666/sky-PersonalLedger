@@ -17,6 +17,8 @@ class PersonalLedgerApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme(themeSettings.palette),
       darkTheme: AppTheme.darkTheme(themeSettings.palette),
+      themeAnimationDuration: AppTheme.themeAnimationDuration,
+      themeAnimationCurve: AppTheme.themeAnimationCurve,
       themeMode: switch (themeSettings.mode) {
         AppThemeMode.system => ThemeMode.system,
         AppThemeMode.light => ThemeMode.light,

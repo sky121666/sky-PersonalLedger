@@ -57,6 +57,14 @@ void main() {
       expect(AppThemePalette.plasma.platformCue, '动效');
     });
 
+    test('主题切换动效使用统一高级节奏', () {
+      expect(
+        AppTheme.themeAnimationDuration,
+        const Duration(milliseconds: 360),
+      );
+      expect(AppTheme.themeAnimationCurve, Curves.fastOutSlowIn);
+    });
+
     test('输入框视觉跟随主题模板', () {
       final theme = AppTheme.lightTheme(AppThemePalette.plasma);
       final inputTheme = theme.inputDecorationTheme;
