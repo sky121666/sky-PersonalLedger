@@ -354,6 +354,15 @@ class _SecurityOverviewCard extends StatelessWidget {
                   color: financeColors.expense,
                 ),
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SecurityMetric(
+                  icon: Icons.radar_outlined,
+                  label: '安全态势',
+                  value: entryPath.enabled ? '已隔离 · 改密退出' : '待启用 · 改密退出',
+                  color: colorScheme.tertiary,
+                ),
+              ),
             ],
           ),
         ],
