@@ -23,11 +23,27 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('budget-risk-radar')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('budget-family-hub-panel')),
+        findsOneWidget,
+      );
       expect(find.text('预算控制台'), findsOneWidget);
       expect(find.text('1 项预警'), findsWidgets);
       expect(find.text('分类覆盖'), findsWidgets);
       expect(find.text('家庭额度'), findsOneWidget);
       expect(find.text('预算风险雷达'), findsOneWidget);
+      expect(find.text('家庭预算 Hub'), findsOneWidget);
+      expect(find.text('家庭稳态'), findsOneWidget);
+      expect(find.text('家庭额度池'), findsOneWidget);
+      expect(find.text('家庭剩余额度'), findsOneWidget);
+      expect(find.text('成员覆盖率'), findsOneWidget);
+      expect(find.text('家庭燃烧率'), findsWidgets);
+      expect(find.text('家庭燃烧'), findsOneWidget);
+      expect(find.text('成员覆盖'), findsOneWidget);
+      expect(find.text('¥1200.00'), findsAtLeastNWidgets(1));
+      expect(find.text('¥780.00'), findsAtLeastNWidgets(1));
+      expect(find.text('100%'), findsAtLeastNWidgets(1));
+      expect(find.text('35%'), findsAtLeastNWidgets(1));
       expect(find.text('稳定项'), findsOneWidget);
       expect(find.text('预警项'), findsOneWidget);
       expect(find.text('风险项'), findsOneWidget);
@@ -43,6 +59,9 @@ void main() {
       expect(find.text('¥1800.00'), findsAtLeastNWidgets(1));
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('87%'), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('家庭成员预算'), 300);
+      await tester.pumpAndSettle();
       expect(find.text('家庭成员预算'), findsOneWidget);
       expect(find.text('家人'), findsOneWidget);
     });

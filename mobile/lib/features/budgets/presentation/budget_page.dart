@@ -283,7 +283,7 @@ class _BudgetContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final budgetList = dashboard.budgetList;
     final categoryCount = budgetList.categoryBudgets.length;
-    final memberHeaderIndex = categoryCount + 6;
+    final memberHeaderIndex = categoryCount + 7;
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
@@ -310,11 +310,19 @@ class _BudgetContent extends StatelessWidget {
             const SizedBox(height: 12),
             StaggeredEntrance(
               index: 2,
-              child: _BudgetSummaryCard(budget: budgetList.totalBudget),
+              child: _BudgetFamilyHubPanel(
+                budgetList: budgetList,
+                familyMembers: familyMembers,
+              ),
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
               index: 3,
+              child: _BudgetSummaryCard(budget: budgetList.totalBudget),
+            ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 4,
               child: _TotalBudgetCard(
                 budget: budgetList.totalBudget,
                 busy: busyAction == 'total',
@@ -323,7 +331,7 @@ class _BudgetContent extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 4,
+              index: 5,
               child: _CategoryBudgetHeader(
                 count: budgetList.categoryBudgets.length,
                 availableCount: dashboard.availableExpenseCategories.length,
@@ -333,13 +341,13 @@ class _BudgetContent extends StatelessWidget {
             const SizedBox(height: 8),
             if (budgetList.categoryBudgets.isEmpty)
               const StaggeredEntrance(
-                index: 5,
+                index: 6,
                 child: _EmptyCategoryBudgetCard(),
               )
             else
               for (final entry in budgetList.categoryBudgets.indexed) ...[
                 StaggeredEntrance(
-                  index: entry.$1 + 5,
+                  index: entry.$1 + 6,
                   child: _CategoryBudgetCard(
                     budget: entry.$2,
                     busy: busyAction == 'delete-${entry.$2.id}',
@@ -948,6 +956,333 @@ class _BudgetRadarTile extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       constraints: const BoxConstraints(minHeight: 88),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 21),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetFamilyHubPanel extends StatelessWidget {
+  const _BudgetFamilyHubPanel({
+    required this.budgetList,
+    required this.familyMembers,
+  });
+
+  final BudgetListResponse budgetList;
+  final List<FamilyMember> familyMembers;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final enabledMembers = familyMembers
+        .where((member) => member.isEnabled)
+        .toList();
+    final memberBudgets = budgetList.memberBudgets;
+    final totalAmount = memberBudgets.fold<double>(
+      0,
+      (sum, budget) => sum + budget.amount,
+    );
+    final totalSpent = memberBudgets.fold<double>(
+      0,
+      (sum, budget) => sum + budget.spent,
+    );
+    final totalRemaining = memberBudgets.fold<double>(
+      0,
+      (sum, budget) => sum + budget.remaining,
+    );
+    final coverageRatio = enabledMembers.isEmpty
+        ? 0.0
+        : (memberBudgets.length / enabledMembers.length).clamp(0.0, 1.0);
+    final burnRatio = totalAmount <= 0
+        ? 0.0
+        : (totalSpent / totalAmount).clamp(0.0, 1.0);
+    final primaryMemberBudget = memberBudgets.isEmpty
+        ? null
+        : memberBudgets.reduce((a, b) => a.percentage >= b.percentage ? a : b);
+    final statusColor = memberBudgets.any((budget) => budget.isOverBudget)
+        ? colorScheme.error
+        : memberBudgets.any((budget) => budget.isNearLimit)
+        ? financeColors.warning
+        : financeColors.asset;
+    final statusLabel = memberBudgets.isEmpty
+        ? '预留中'
+        : memberBudgets.any((budget) => budget.isNearLimit)
+        ? '需关注'
+        : '家庭稳态';
+
+    return PremiumSurface(
+      key: const ValueKey('budget-family-hub-panel'),
+      accentColor: statusColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.family_restroom_outlined,
+                color: statusColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '家庭预算 Hub',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      primaryMemberBudget == null
+                          ? '预留家庭成员额度、提醒线和 Family Hub 联动'
+                          : '${primaryMemberBudget.memberName} · ${primaryMemberBudget.percentage.toStringAsFixed(0)}% 使用',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _BudgetSignalPill(
+                icon: memberBudgets.isEmpty
+                    ? Icons.pending_actions_outlined
+                    : Icons.groups_2_outlined,
+                label: statusLabel,
+                color: statusColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _BudgetFamilyProgressStrip(
+            burnRatio: burnRatio,
+            coverageRatio: coverageRatio,
+            burnColor: statusColor,
+            coverageColor: financeColors.income,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth >= 420
+                  ? (constraints.maxWidth - 8) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _BudgetFamilyMetric(
+                    width: itemWidth,
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: '家庭额度池',
+                    value: totalAmount <= 0 ? '未设置' : _formatMoney(totalAmount),
+                    meta: '${memberBudgets.length} 个成员预算',
+                    color: statusColor,
+                  ),
+                  _BudgetFamilyMetric(
+                    width: itemWidth,
+                    icon: Icons.savings_outlined,
+                    label: '家庭剩余额度',
+                    value: totalAmount <= 0
+                        ? '待接入'
+                        : _formatMoney(totalRemaining),
+                    meta: totalRemaining < 0 ? '已超支' : '可继续分配',
+                    color: totalRemaining < 0
+                        ? colorScheme.error
+                        : financeColors.income,
+                  ),
+                  _BudgetFamilyMetric(
+                    width: itemWidth,
+                    icon: Icons.hub_outlined,
+                    label: '成员覆盖率',
+                    value: '${(coverageRatio * 100).toStringAsFixed(0)}%',
+                    meta: '${enabledMembers.length} 个启用成员',
+                    color: financeColors.asset,
+                  ),
+                  _BudgetFamilyMetric(
+                    width: itemWidth,
+                    icon: Icons.local_fire_department_outlined,
+                    label: '家庭燃烧率',
+                    value: '${(burnRatio * 100).toStringAsFixed(0)}%',
+                    meta: totalAmount <= 0
+                        ? '等待预算'
+                        : '已用 ${_formatMoney(totalSpent)}',
+                    color: statusColor,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetFamilyProgressStrip extends StatelessWidget {
+  const _BudgetFamilyProgressStrip({
+    required this.burnRatio,
+    required this.coverageRatio,
+    required this.burnColor,
+    required this.coverageColor,
+  });
+
+  final double burnRatio;
+  final double coverageRatio;
+  final Color burnColor;
+  final Color coverageColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          burnColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: burnColor.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _BudgetBurnLegend(label: '家庭燃烧', color: burnColor),
+              const SizedBox(width: 12),
+              _BudgetBurnLegend(label: '成员覆盖', color: coverageColor),
+              const Spacer(),
+              Text(
+                '${(burnRatio * 100).toStringAsFixed(0)}% / ${(coverageRatio * 100).toStringAsFixed(0)}%',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: math.max(1, (burnRatio * 100).round()),
+                    child: ColoredBox(color: burnColor),
+                  ),
+                  Expanded(
+                    flex: math.max(1, (coverageRatio * 100).round()),
+                    child: ColoredBox(color: coverageColor),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetFamilyMetric extends StatelessWidget {
+  const _BudgetFamilyMetric({
+    required this.width,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.meta,
+    required this.color,
+  });
+
+  final double width;
+  final IconData icon;
+  final String label;
+  final String value;
+  final String meta;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      width: width,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 86),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
