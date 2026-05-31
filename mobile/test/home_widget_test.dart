@@ -32,6 +32,8 @@ void main() {
 
       expect(find.text('暂无账户，请先创建账户'), findsOneWidget);
       expect(find.text('本月已记 0 笔'), findsOneWidget);
+      expect(find.text('暂无现金流'), findsOneWidget);
+      expect(find.text('等待首笔记录'), findsOneWidget);
       expect(find.text('本月暂未设置预算'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
     });
@@ -64,6 +66,9 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('本月现金流'), findsOneWidget);
+      expect(find.text('现金流充沛'), findsOneWidget);
+      expect(find.text('结余率 60%'), findsOneWidget);
+      expect(find.text('本月趋势已同步'), findsOneWidget);
       expect(find.text('预算摘要'), findsOneWidget);
       expect(find.text('快速记账'), findsOneWidget);
       expect(find.text('家庭支出'), findsOneWidget);

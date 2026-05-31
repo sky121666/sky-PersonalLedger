@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -75,9 +77,9 @@ class _HomeContent extends StatelessWidget {
             const SizedBox(height: 16),
             _entry(1, _NetAssetsCard(accounts: summary.accounts)),
             const SizedBox(height: 16),
-            _entry(2, _MonthlyOverviewCard(overview: summary.overview)),
+            _entry(2, const QuickHomeActionCard()),
             const SizedBox(height: 16),
-            _entry(3, const QuickHomeActionCard()),
+            _entry(3, _MonthlyOverviewCard(overview: summary.overview)),
             const SizedBox(height: 16),
             _entry(4, FamilyHomeSummaryCard(summary: summary.familySummary)),
             const SizedBox(height: 16),
@@ -243,6 +245,8 @@ class _MonthlyOverviewCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          _CashFlowPulse(overview: overview),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -272,6 +276,139 @@ class _MonthlyOverviewCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CashFlowPulse extends StatelessWidget {
+  const _CashFlowPulse({required this.overview});
+
+  final StatisticsOverview overview;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final totalFlow = overview.income + overview.expense;
+    final incomeRatio = totalFlow > 0 ? overview.income / totalFlow : 0.0;
+    final expenseRatio = totalFlow > 0 ? overview.expense / totalFlow : 0.0;
+    final savingRate = overview.income > 0
+        ? (overview.balance / overview.income * 100).clamp(-999.0, 999.0)
+        : 0.0;
+    final statusColor = overview.balance >= 0
+        ? financeColors.income
+        : financeColors.expense;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          statusColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: statusColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.monitor_heart_outlined, color: statusColor, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _cashFlowSignalLabel(overview),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '结余率 ${savingRate.toStringAsFixed(0)}%',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 10,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: math.max(1, (incomeRatio * 100).round()),
+                    child: ColoredBox(color: financeColors.income),
+                  ),
+                  Expanded(
+                    flex: math.max(1, (expenseRatio * 100).round()),
+                    child: ColoredBox(color: financeColors.expense),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _CashFlowLegend(label: '收入', color: financeColors.income),
+              const SizedBox(width: 12),
+              _CashFlowLegend(label: '支出', color: financeColors.expense),
+              const Spacer(),
+              Text(
+                overview.transactionCount == 0 ? '等待首笔记录' : '本月趋势已同步',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CashFlowLegend extends StatelessWidget {
+  const _CashFlowLegend({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -516,4 +653,17 @@ class _EmptyCardLine extends StatelessWidget {
 /// 格式化人民币金额。
 String _formatCurrency(double value) {
   return '¥${value.toStringAsFixed(2)}';
+}
+
+String _cashFlowSignalLabel(StatisticsOverview overview) {
+  if (overview.transactionCount == 0) {
+    return '暂无现金流';
+  }
+  if (overview.balance < 0) {
+    return '支出高于收入';
+  }
+  if (overview.income > 0 && overview.balance / overview.income >= 0.5) {
+    return '现金流充沛';
+  }
+  return '现金流稳定';
 }
