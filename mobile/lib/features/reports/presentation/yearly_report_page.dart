@@ -222,8 +222,9 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     final savingsColor = report.netSavings >= 0
-        ? AppTheme.incomeColor
+        ? financeColors.income
         : colorScheme.error;
     return PremiumSurface(
       accentColor: savingsColor,
@@ -269,13 +270,13 @@ class _SummaryCard extends StatelessWidget {
                 _SummaryTile(
                   label: '收入',
                   value: _formatCurrency(report.totalIncome),
-                  color: AppTheme.incomeColor,
+                  color: financeColors.income,
                   icon: Icons.south_west,
                 ),
                 _SummaryTile(
                   label: '支出',
                   value: _formatCurrency(report.totalExpense),
-                  color: AppTheme.expenseColor,
+                  color: financeColors.expense,
                   icon: Icons.north_east,
                 ),
                 _SummaryTile(
@@ -405,16 +406,17 @@ class _AnnualHighlightsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
-      accentColor: AppTheme.assetColor,
+      accentColor: financeColors.asset,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const IconBadge(
+              IconBadge(
                 icon: Icons.auto_graph_outlined,
-                color: AppTheme.assetColor,
+                color: financeColors.asset,
               ),
               const SizedBox(width: 10),
               Text(
@@ -434,25 +436,25 @@ class _AnnualHighlightsCard extends StatelessWidget {
                 label: '交易笔数',
                 value: '${report.transactionCount} 笔',
                 icon: Icons.receipt_long_outlined,
-                color: AppTheme.assetColor,
+                color: financeColors.asset,
               ),
               MetricPill(
                 label: '活跃天数',
                 value: '${report.activeDays} 天',
                 icon: Icons.event_available_outlined,
-                color: AppTheme.incomeColor,
+                color: financeColors.income,
               ),
               MetricPill(
                 label: '月均收入',
                 value: _formatCurrency(report.averageIncome),
                 icon: Icons.south_west,
-                color: AppTheme.incomeColor,
+                color: financeColors.income,
               ),
               MetricPill(
                 label: '月均支出',
                 value: _formatCurrency(report.averageExpense),
                 icon: Icons.north_east,
-                color: AppTheme.expenseColor,
+                color: financeColors.expense,
               ),
             ],
           ),
@@ -513,6 +515,7 @@ class _MonthlyTrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final maxAmount = items.fold<double>(
       0,
       (current, item) =>
@@ -520,15 +523,15 @@ class _MonthlyTrendCard extends StatelessWidget {
     );
 
     return PremiumSurface(
-      accentColor: AppTheme.incomeColor,
+      accentColor: financeColors.income,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const IconBadge(
+              IconBadge(
                 icon: Icons.stacked_bar_chart_outlined,
-                color: AppTheme.incomeColor,
+                color: financeColors.income,
               ),
               const SizedBox(width: 10),
               Text(
@@ -569,6 +572,7 @@ class _MonthlyBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final incomeHeight = _barHeight(item.income);
     final expenseHeight = _barHeight(item.expense);
     final colorScheme = Theme.of(context).colorScheme;
@@ -581,9 +585,9 @@ class _MonthlyBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _Bar(height: incomeHeight, color: AppTheme.incomeColor),
+              _Bar(height: incomeHeight, color: financeColors.income),
               const SizedBox(width: 3),
-              _Bar(height: expenseHeight, color: AppTheme.expenseColor),
+              _Bar(height: expenseHeight, color: financeColors.expense),
             ],
           ),
         ),
@@ -643,9 +647,10 @@ class _CategoryRankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final accentColor = title.contains('收入')
-        ? AppTheme.incomeColor
-        : AppTheme.expenseColor;
+        ? financeColors.income
+        : financeColors.expense;
     final maxAmount = items.fold<double>(
       0,
       (current, item) => math.max(current, item.amount),

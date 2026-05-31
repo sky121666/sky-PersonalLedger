@@ -175,24 +175,25 @@ class _NetAssetsCard extends StatelessWidget {
   /// 构建净资产卡片。
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     return FinanceHeroCard(
       label: '净资产',
       amount: accounts.netAssets,
-      accentColor: AppTheme.assetColor,
+      accentColor: financeColors.asset,
       semanticLabel: '净资产 ${_formatCurrency(accounts.netAssets)}',
       metrics: [
         FinanceMetricData(
           label: '总资产',
           value: _formatCurrency(accounts.totalAssets),
           icon: Icons.account_balance_wallet_outlined,
-          color: AppTheme.assetColor,
+          color: financeColors.asset,
         ),
         FinanceMetricData(
           label: '总负债',
           value: _formatCurrency(accounts.totalLiabilities),
           icon: Icons.credit_card_outlined,
           color: accounts.totalLiabilities > 0
-              ? AppTheme.expenseColor
+              ? financeColors.expense
               : Theme.of(context).colorScheme.outline,
         ),
       ],
@@ -208,11 +209,12 @@ class _MonthlyOverviewCard extends StatelessWidget {
   /// 构建本月收支卡片。
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final balanceColor = overview.balance >= 0
         ? Theme.of(context).colorScheme.primary
-        : AppTheme.expenseColor;
+        : financeColors.expense;
     return PremiumSurface(
-      accentColor: AppTheme.incomeColor,
+      accentColor: financeColors.income,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -220,7 +222,7 @@ class _MonthlyOverviewCard extends StatelessWidget {
             children: [
               IconBadge(
                 icon: Icons.payments_outlined,
-                color: AppTheme.incomeColor,
+                color: financeColors.income,
                 size: 36,
                 iconSize: 18,
               ),
@@ -248,7 +250,7 @@ class _MonthlyOverviewCard extends StatelessWidget {
                 label: '收入',
                 value: _formatCurrency(overview.income),
                 icon: Icons.south_west,
-                color: AppTheme.incomeColor,
+                color: financeColors.income,
                 expanded: true,
               ),
               const SizedBox(width: 10),
@@ -256,7 +258,7 @@ class _MonthlyOverviewCard extends StatelessWidget {
                 label: '支出',
                 value: _formatCurrency(overview.expense),
                 icon: Icons.north_east,
-                color: AppTheme.expenseColor,
+                color: financeColors.expense,
                 expanded: true,
               ),
             ],
@@ -287,9 +289,10 @@ class _BudgetSummaryCard extends StatelessWidget {
         ? (summary.percentage / 100).clamp(0.0, 1.0)
         : 0.0;
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
 
     return PremiumSurface(
-      accentColor: AppTheme.warningColor,
+      accentColor: financeColors.warning,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -297,7 +300,7 @@ class _BudgetSummaryCard extends StatelessWidget {
             children: [
               ProgressRing(
                 value: progress,
-                color: hasBudget ? AppTheme.warningColor : colorScheme.outline,
+                color: hasBudget ? financeColors.warning : colorScheme.outline,
                 center: Text(
                   hasBudget
                       ? '${summary.percentage.toStringAsFixed(0)}%'
@@ -426,6 +429,7 @@ class _AccountLine extends StatelessWidget {
   /// 构建账户列表行。
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -452,7 +456,7 @@ class _AccountLine extends StatelessWidget {
           Text(
             _formatCurrency(account.currentBalance),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: account.isDebt ? Colors.redAccent : null,
+              color: account.isDebt ? financeColors.expense : null,
               fontWeight: FontWeight.w600,
             ),
           ),

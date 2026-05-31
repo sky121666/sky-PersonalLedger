@@ -180,26 +180,27 @@ class _AccountSummaryCard extends StatelessWidget {
   /// 构建账户资产汇总卡片。
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final activeCount = result.accounts
         .where((item) => !item.isArchived)
         .length;
     return FinanceHeroCard(
       label: '资产概览',
       amount: result.netAssets,
-      accentColor: AppTheme.assetColor,
+      accentColor: financeColors.asset,
       semanticLabel: '净资产 ${_formatMoney(result.netAssets)}',
       metrics: [
         FinanceMetricData(
           label: '总资产',
           value: _formatMoney(result.totalAssets),
           icon: Icons.trending_up,
-          color: AppTheme.incomeColor,
+          color: financeColors.income,
         ),
         FinanceMetricData(
           label: '总负债',
           value: _formatMoney(result.totalLiabilities),
           icon: Icons.trending_down,
-          color: AppTheme.expenseColor,
+          color: financeColors.expense,
         ),
         FinanceMetricData(
           label: '活跃账户',
@@ -277,15 +278,16 @@ class _AccountListTile extends ConsumerWidget {
   /// 构建账户列表项。
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final financeColors = AppTheme.financeColors(context);
     final color = _parseColor(
       account.color,
       Theme.of(context).colorScheme.primary,
     );
     final isDebt = _isDebtAccount(account.type);
     final balanceColor = isDebt
-        ? AppTheme.expenseColor
+        ? financeColors.expense
         : account.currentBalance >= 0
-        ? AppTheme.incomeColor
+        ? financeColors.income
         : Theme.of(context).colorScheme.error;
     return PremiumSurface(
       accentColor: color,

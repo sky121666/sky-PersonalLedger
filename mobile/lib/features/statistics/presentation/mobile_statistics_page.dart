@@ -229,20 +229,21 @@ class _OverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final balanceColor = overview.balance >= 0
-        ? AppTheme.incomeColor
+        ? financeColors.income
         : Theme.of(context).colorScheme.error;
     return FinanceHeroCard(
       label: '本月总支出',
       amount: overview.expense,
-      accentColor: AppTheme.expenseColor,
+      accentColor: financeColors.expense,
       semanticLabel: '本月总支出 ${_formatCurrency(overview.expense)}',
       metrics: [
         FinanceMetricData(
           label: '收入',
           value: _formatCurrency(overview.income),
           icon: Icons.south_west,
-          color: AppTheme.incomeColor,
+          color: financeColors.income,
         ),
         FinanceMetricData(
           label: '结余',
@@ -274,6 +275,7 @@ class _TrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final items = trend.items;
     final maxAmount = items.fold<double>(
       0,
@@ -321,7 +323,7 @@ class _TrendCard extends StatelessWidget {
                     label: _dayLabel(item.date),
                     primaryValue: item.income,
                     secondaryValue: item.expense,
-                    primaryColor: AppTheme.incomeColor,
+                    primaryColor: financeColors.income,
                     secondaryColor: Theme.of(context).colorScheme.error,
                   ),
               ],
@@ -337,10 +339,11 @@ class _TrendLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _LegendDot(label: '收入', color: AppTheme.incomeColor),
+        _LegendDot(label: '收入', color: financeColors.income),
         const SizedBox(width: 10),
         _LegendDot(label: '支出', color: Theme.of(context).colorScheme.error),
       ],
@@ -384,10 +387,12 @@ class _CategoryRankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final accentColor = categoryType == 'expense'
+        ? financeColors.expense
+        : financeColors.income;
     return PremiumSurface(
-      accentColor: categoryType == 'expense'
-          ? AppTheme.expenseColor
-          : AppTheme.incomeColor,
+      accentColor: accentColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -395,9 +400,7 @@ class _CategoryRankCard extends StatelessWidget {
             children: [
               IconBadge(
                 icon: Icons.donut_large_outlined,
-                color: categoryType == 'expense'
-                    ? AppTheme.expenseColor
-                    : AppTheme.incomeColor,
+                color: accentColor,
                 size: 36,
                 iconSize: 18,
               ),

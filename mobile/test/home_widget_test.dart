@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
@@ -70,13 +72,24 @@ void main() {
       expect(find.byType(PremiumSurface), findsWidgets);
       expect(find.byKey(const Key('family-home-summary-card')), findsOneWidget);
     });
+
+    testWidgets('首页核心财务卡跟随主题色模板', (tester) async {
+      final repository = _FakeHomeRepository();
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final hero = tester.widget<FinanceHeroCard>(
+        find.byType(FinanceHeroCard).first,
+      );
+      expect(hero.accentColor, AppThemePalette.graphite.assetColor);
+    });
   });
 }
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeHomeRepository repository,
-) async {
+  _FakeHomeRepository repository, {
+  AppThemePalette palette = AppThemePalette.teal,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -85,7 +98,11 @@ Future<void> _pumpPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [homeRepositoryProvider.overrideWithValue(repository)],
-      child: const MaterialApp(home: HomePage()),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        home: const HomePage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();
