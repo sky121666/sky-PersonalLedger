@@ -1115,19 +1115,22 @@ void main() {
             findsOneWidget,
           );
           expect(
-            find.byKey(const ValueKey('ai-insight-quality-panel')),
+            find.byKey(const ValueKey('ai-production-readiness-panel')),
             findsOneWidget,
           );
           expect(find.text('AI 分析控制台'), findsOneWidget);
           expect(find.text('AI 模型编排'), findsOneWidget);
-          expect(find.text('AI 洞察质量层'), findsOneWidget);
-          expect(find.text('OpenAI-compatible'), findsOneWidget);
-          expect(find.text('Provider 就绪'), findsOneWidget);
-          expect(find.text('默认脱敏'), findsOneWidget);
-          expect(find.text('OpenAI API'), findsOneWidget);
+          expect(find.text('AI 生产就绪层'), findsOneWidget);
+          expect(find.text('生产可用'), findsOneWidget);
+          expect(find.text('就绪度'), findsOneWidget);
+          expect(find.text('100%'), findsWidgets);
+          expect(find.text('DeepSeek 就绪'), findsOneWidget);
+          expect(find.text('周报自动化'), findsOneWidget);
+          expect(find.text('密钥不出屏'), findsOneWidget);
+          expect(find.text('报告留痕'), findsOneWidget);
+          expect(find.text('OpenAI-compatible'), findsWidgets);
           expect(find.text('分析就绪'), findsOneWidget);
           expect(find.text('报告总数'), findsOneWidget);
-          expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
@@ -1135,7 +1138,18 @@ void main() {
             'ai-report-command-center-${variant.name}',
           );
 
+          await _scrollIntoTapArea(tester, find.text('AI 洞察质量层'));
+          expect(
+            find.byKey(const ValueKey('ai-insight-quality-panel')),
+            findsOneWidget,
+          );
+          expect(find.text('AI 洞察质量层'), findsOneWidget);
+          expect(find.text('Provider 就绪'), findsOneWidget);
+          expect(find.text('默认脱敏'), findsOneWidget);
+          expect(find.text('OpenAI API'), findsOneWidget);
+
           await _scrollIntoTapArea(tester, find.text('每周总结'));
+          expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
           await tester.tap(find.text('每周总结').last);
           await tester.pumpAndSettle();
 

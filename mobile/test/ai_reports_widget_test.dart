@@ -55,16 +55,30 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('ai-insight-quality-panel')),
+      find.byKey(const ValueKey('ai-production-readiness-panel')),
       findsOneWidget,
     );
     expect(find.text('AI 分析控制台'), findsOneWidget);
+    expect(find.text('分析就绪'), findsOneWidget);
+    expect(find.text('报告总数'), findsOneWidget);
     expect(find.text('AI 模型编排'), findsOneWidget);
-    expect(find.text('AI 洞察质量层'), findsOneWidget);
-    expect(find.text('待接入'), findsOneWidget);
+    expect(find.text('待接入'), findsWidgets);
     expect(find.text('静谧墨绿'), findsOneWidget);
     expect(find.text('周报未启用'), findsOneWidget);
     expect(find.text('Key 不回显'), findsOneWidget);
+    expect(find.text('AI 生产就绪层'), findsOneWidget);
+    expect(find.text('待补齐'), findsOneWidget);
+    expect(find.text('就绪度'), findsOneWidget);
+    expect(find.text('40%'), findsOneWidget);
+    expect(find.text('DeepSeek 可接入'), findsOneWidget);
+    expect(find.text('密钥不出屏'), findsOneWidget);
+    expect(find.text('报告留痕'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('AI 洞察质量层'));
+    expect(
+      find.byKey(const ValueKey('ai-insight-quality-panel')),
+      findsOneWidget,
+    );
+    expect(find.text('AI 洞察质量层'), findsOneWidget);
     expect(find.text('Provider 待接入'), findsOneWidget);
     expect(find.text('覆盖率'), findsOneWidget);
     expect(find.text('100%'), findsOneWidget);
@@ -74,8 +88,6 @@ void main() {
     expect(find.text('默认脱敏'), findsOneWidget);
     expect(find.text('手动生成'), findsOneWidget);
     expect(find.text('OpenAI API'), findsOneWidget);
-    expect(find.text('分析就绪'), findsOneWidget);
-    expect(find.text('报告总数'), findsOneWidget);
     await _scrollIntoTapArea(tester, find.text('Provider 配置'));
     expect(find.text('0 个启用'), findsOneWidget);
     expect(find.text('Key 已保护'), findsOneWidget);
@@ -190,6 +202,7 @@ void main() {
 
     expect(find.text('AI 分析控制台'), findsOneWidget);
     expect(find.text('AI 模型编排'), findsOneWidget);
+    expect(find.text('AI 生产就绪层'), findsOneWidget);
     expect(find.text('等待生成'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('暂无 AI 报告'), 300);
     expect(find.text('暂无 AI 报告'), findsOneWidget);

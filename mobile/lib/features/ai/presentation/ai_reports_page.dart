@@ -83,6 +83,12 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               schedule: scheduleState.valueOrNull,
               themePalette: themeSettings.palette,
             );
+            final productionReadinessPanel = _AIProductionReadinessPanel(
+              reports: reports,
+              providerSetup: providerState.valueOrNull,
+              schedule: scheduleState.valueOrNull,
+              themePalette: themeSettings.palette,
+            );
             final insightQualityPanel = _AIInsightQualityPanel(
               reports: reports,
               providerSetup: providerState.valueOrNull,
@@ -95,6 +101,8 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                   commandCenter,
                   const SizedBox(height: 12),
                   orchestrationPanel,
+                  const SizedBox(height: 12),
+                  productionReadinessPanel,
                   const SizedBox(height: 12),
                   insightQualityPanel,
                   const SizedBox(height: 12),
@@ -110,7 +118,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               );
             }
             return ListView.separated(
-              itemCount: reports.length + (_generating ? 1 : 0) + 5,
+              itemCount: reports.length + (_generating ? 1 : 0) + 6,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 if (index == 0) {
@@ -120,18 +128,21 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                   return orchestrationPanel;
                 }
                 if (index == 2) {
-                  return insightQualityPanel;
+                  return productionReadinessPanel;
                 }
                 if (index == 3) {
-                  return providerSurface;
+                  return insightQualityPanel;
                 }
                 if (index == 4) {
+                  return providerSurface;
+                }
+                if (index == 5) {
                   return scheduleSurface;
                 }
-                if (_generating && index == 5) {
+                if (_generating && index == 6) {
                   return const _AIReportGeneratingSurface();
                 }
-                final reportIndex = index - 5 - (_generating ? 1 : 0);
+                final reportIndex = index - 6 - (_generating ? 1 : 0);
                 final report = reports[reportIndex];
                 return StaggeredEntrance(
                   index: index,
@@ -864,6 +875,195 @@ class _AIProviderOrchestrationPanel extends StatelessWidget {
                       ? colorScheme.error
                       : themePalette.warningColor,
                 ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AIProductionReadinessPanel extends StatelessWidget {
+  const _AIProductionReadinessPanel({
+    required this.reports,
+    required this.providerSetup,
+    required this.schedule,
+    required this.themePalette,
+  });
+
+  final List<AIReportSummary> reports;
+  final AIProviderSetupData? providerSetup;
+  final AIReportScheduleSettings? schedule;
+  final AppThemePalette themePalette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final providers = providerSetup?.providers ?? const <AIProviderSummary>[];
+    final enabledProviders = providers
+        .where((provider) => provider.enabled)
+        .toList();
+    final hasOpenAICompatible = enabledProviders.any(
+      (provider) => provider.providerType == 'openai_compatible',
+    );
+    final completedReports = reports
+        .where((report) => report.status == 'completed')
+        .length;
+    final failedReports = reports.where((report) => report.status == 'failed');
+    final isScheduleReady = schedule?.enabled == true;
+    final hasEvidence = completedReports > 0;
+    final readinessScore =
+        (hasOpenAICompatible ? 35 : 0) +
+        (isScheduleReady ? 25 : 0) +
+        20 +
+        (hasEvidence ? 20 : 0);
+    final readinessColor = readinessScore >= 80
+        ? financeColors.income
+        : readinessScore >= 55
+        ? themePalette.warningColor
+        : colorScheme.outline;
+    final deepSeekReady = enabledProviders.any(
+      (provider) =>
+          provider.name.toLowerCase().contains('deepseek') ||
+          provider.baseUrl.toLowerCase().contains('deepseek'),
+    );
+    final statusText = readinessScore >= 80
+        ? '生产可用'
+        : readinessScore >= 55
+        ? '接近就绪'
+        : '待补齐';
+
+    return PremiumSurface(
+      key: const ValueKey('ai-production-readiness-panel'),
+      accentColor: readinessColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.verified_outlined,
+                color: readinessColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI 生产就绪层',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Provider、周报、脱敏和报告证据的发布前检查',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _AICommandSignalPill(
+                icon: readinessScore >= 80
+                    ? Icons.rocket_launch_outlined
+                    : Icons.pending_actions_outlined,
+                label: statusText,
+                color: readinessColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.speed_outlined,
+                  label: '就绪度',
+                  value: '$readinessScore%',
+                  color: readinessColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.route_outlined,
+                  label: 'Provider',
+                  value: hasOpenAICompatible ? '已接入' : '待接入',
+                  color: hasOpenAICompatible
+                      ? themePalette.assetColor
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.dataset_outlined,
+                  label: '证据',
+                  value: '$completedReports 份',
+                  color: hasEvidence
+                      ? financeColors.income
+                      : colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AIProviderSignalPill(
+                icon: Icons.api_outlined,
+                label: hasOpenAICompatible ? 'OpenAI-compatible' : '网关待接入',
+                color: hasOpenAICompatible
+                    ? themePalette.assetColor
+                    : colorScheme.outline,
+              ),
+              _AIProviderSignalPill(
+                icon: deepSeekReady
+                    ? Icons.auto_awesome_outlined
+                    : Icons.extension_outlined,
+                label: deepSeekReady ? 'DeepSeek 就绪' : 'DeepSeek 可接入',
+                color: deepSeekReady
+                    ? themePalette.seedColor
+                    : colorScheme.outline,
+              ),
+              _AIProviderSignalPill(
+                icon: isScheduleReady
+                    ? Icons.event_repeat_outlined
+                    : Icons.touch_app_outlined,
+                label: isScheduleReady ? '周报自动化' : '手动周报',
+                color: isScheduleReady
+                    ? financeColors.income
+                    : colorScheme.outline,
+              ),
+              _AIProviderSignalPill(
+                icon: Icons.visibility_off_outlined,
+                label: '密钥不出屏',
+                color: themePalette.assetColor,
+              ),
+              _AIProviderSignalPill(
+                icon: failedReports.isEmpty
+                    ? Icons.task_alt_outlined
+                    : Icons.report_problem_outlined,
+                label: failedReports.isEmpty
+                    ? '报告留痕'
+                    : '${failedReports.length} 个失败',
+                color: failedReports.isEmpty
+                    ? financeColors.income
+                    : colorScheme.error,
               ),
             ],
           ),
