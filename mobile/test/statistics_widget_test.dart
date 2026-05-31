@@ -54,6 +54,24 @@ void main() {
       expect(find.text('结余率'), findsAtLeastNWidgets(1));
       expect(find.text('60%'), findsAtLeastNWidgets(1));
       expect(find.text('餐饮'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('statistics-category-rank-card')),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('statistics-category-rank-card')),
+        findsOneWidget,
+      );
+      expect(find.text('支出结构扫描'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('statistics-category-rank-cat-1')),
+        findsOneWidget,
+      );
+      expect(find.text('#1'), findsOneWidget);
+      expect(find.text('5 笔'), findsAtLeastNWidgets(1));
+      expect(find.text('100.0%'), findsOneWidget);
     });
 
     testWidgets('统计页展示空统计摘要', (tester) async {

@@ -1634,6 +1634,7 @@ class _CategoryRankCard extends StatelessWidget {
         ? financeColors.expense
         : financeColors.income;
     return PremiumSurface(
+      key: const ValueKey('statistics-category-rank-card'),
       accentColor: accentColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1648,12 +1649,31 @@ class _CategoryRankCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  '分类排行',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '分类排行',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      categoryType == 'expense' ? '支出结构扫描' : '收入来源扫描',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              _CategoryRankTotalPill(
+                amount: _formatCurrency(response.total),
+                color: accentColor,
               ),
             ],
           ),
@@ -1673,26 +1693,68 @@ class _CategoryRankCard extends StatelessWidget {
           if (response.items.isEmpty)
             const _EmptyLine(text: '本月暂无分类数据')
           else ...[
-            Text(
-              '总计 ${_formatCurrency(response.total)}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-            ),
-            const SizedBox(height: 12),
-            for (final item in response.items)
+            for (final item in response.items.indexed)
               CategoryRankTile(
-                name: item.categoryName,
-                icon: item.icon,
-                amount: _formatCurrency(item.amount),
-                percentage: item.percentage,
-                count: item.count,
+                key: ValueKey('statistics-category-rank-${item.$2.categoryId}'),
+                name: item.$2.categoryName,
+                icon: item.$2.icon,
+                amount: _formatCurrency(item.$2.amount),
+                percentage: item.$2.percentage,
+                count: item.$2.count,
                 color: _parseColor(
-                  item.color,
+                  item.$2.color,
                   Theme.of(context).colorScheme.primary,
                 ),
+                rank: item.$1 + 1,
               ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryRankTotalPill extends StatelessWidget {
+  const _CategoryRankTotalPill({required this.amount, required this.color});
+
+  final String amount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 32, maxWidth: 132),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.summarize_outlined, color: color, size: 15),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              amount,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
         ],
       ),
     );
