@@ -344,6 +344,12 @@ void main() {
             findsOneWidget,
           );
           expect(find.text('记账指挥条'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('quick-entry-readiness-panel')),
+            findsOneWidget,
+          );
+          expect(find.text('录入质量层'), findsOneWidget);
+          expect(find.text('待补齐'), findsOneWidget);
           expect(find.text('静谧墨绿'), findsOneWidget);
           expect(
             find.byKey(const ValueKey('transaction-amount')),
@@ -357,11 +363,11 @@ void main() {
           );
 
           await tester.scrollUntilVisible(
-            find.text('分类'),
+            find.text('分类').last,
             300,
             scrollable: find.byType(Scrollable).first,
           );
-          expect(find.text('分类'), findsOneWidget);
+          expect(find.text('分类'), findsWidgets);
           await tester.scrollUntilVisible(
             find.text('成员'),
             300,

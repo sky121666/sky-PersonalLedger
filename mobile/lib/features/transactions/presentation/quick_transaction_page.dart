@@ -145,6 +145,19 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                               _attachments.length +
                               _pendingAttachmentFiles.length,
                         ),
+                        const SizedBox(height: 12),
+                        _QuickEntryReadinessPanel(
+                          type: _type,
+                          amountController: _amountController,
+                          accountName: _selectedAccountName,
+                          targetName: _selectedTargetName,
+                          familyName: _selectedFamilyMemberName,
+                          hasAccount: _accountId != null,
+                          hasTarget: _type == TransactionType.transfer
+                              ? _toAccountId != null
+                              : _categoryId != null,
+                          hasFamilyContext: _memberId != null,
+                        ),
                         const SizedBox(height: 16),
                         _TransactionTypeSelector(
                           selectedType: _type,
@@ -1018,6 +1031,265 @@ class _QuickEntryCommandStrip extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickEntryReadinessPanel extends StatelessWidget {
+  const _QuickEntryReadinessPanel({
+    required this.type,
+    required this.amountController,
+    required this.accountName,
+    required this.targetName,
+    required this.familyName,
+    required this.hasAccount,
+    required this.hasTarget,
+    required this.hasFamilyContext,
+  });
+
+  final TransactionType type;
+  final TextEditingController amountController;
+  final String accountName;
+  final String targetName;
+  final String familyName;
+  final bool hasAccount;
+  final bool hasTarget;
+  final bool hasFamilyContext;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: amountController,
+      builder: (context, _) {
+        final amount = double.tryParse(amountController.text.trim()) ?? 0;
+        final hasAmount = amount > 0;
+        final readyCount = [
+          hasAmount,
+          hasAccount,
+          hasTarget,
+        ].where((item) => item).length;
+        final progress = readyCount / 3;
+        final accentColor = _typeColor(context, type);
+        final colorScheme = Theme.of(context).colorScheme;
+        final financeColors = AppTheme.financeColors(context);
+        return AnimatedContainer(
+          key: const ValueKey('quick-entry-readiness-panel'),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              accentColor.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.16
+                    : 0.08,
+              ),
+              colorScheme.surface,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: accentColor.withValues(alpha: 0.16)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.rule_folder_outlined,
+                    color: accentColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '录入质量层',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  _QuickReadinessPill(
+                    label: progress >= 1 ? '可保存' : '待补齐',
+                    color: progress >= 1
+                        ? financeColors.income
+                        : financeColors.warning,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: SizedBox(
+                  height: 8,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ColoredBox(color: colorScheme.surfaceContainerHighest),
+                      FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: progress,
+                        child: ColoredBox(color: accentColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _QuickReadinessNode(
+                      icon: Icons.payments_outlined,
+                      label: '金额',
+                      value: hasAmount ? '已输入' : '待输入',
+                      color: hasAmount ? accentColor : colorScheme.outline,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _QuickReadinessNode(
+                      icon: Icons.account_balance_wallet_outlined,
+                      label: '账户',
+                      value: accountName,
+                      color: hasAccount
+                          ? AppTheme.financeColors(context).asset
+                          : colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _QuickReadinessNode(
+                      icon: type == TransactionType.transfer
+                          ? Icons.swap_horiz_outlined
+                          : Icons.category_outlined,
+                      label: type == TransactionType.transfer ? '流向' : '分类',
+                      value: targetName,
+                      color: hasTarget ? accentColor : colorScheme.outline,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _QuickReadinessNode(
+                      icon: Icons.diversity_3_outlined,
+                      label: '归属',
+                      value: familyName,
+                      color: hasFamilyContext
+                          ? colorScheme.tertiary
+                          : colorScheme.secondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _QuickReadinessNode extends StatelessWidget {
+  const _QuickReadinessNode({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickReadinessPill extends StatelessWidget {
+  const _QuickReadinessPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 30, maxWidth: 96),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.10),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

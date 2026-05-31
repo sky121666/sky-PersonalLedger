@@ -281,6 +281,13 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('记账指挥条'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('quick-entry-readiness-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('录入质量层'), findsOneWidget);
+      expect(find.text('待补齐'), findsOneWidget);
+      expect(find.text('待输入'), findsOneWidget);
       expect(find.text('静谧墨绿'), findsOneWidget);
       expect(find.text('现金'), findsAtLeastNWidgets(1));
       expect(find.text('分类 待选分类'), findsOneWidget);
@@ -323,6 +330,27 @@ void main() {
       expect(find.text('流向 待选转入'), findsOneWidget);
       expect(find.text('确认转入账户'), findsOneWidget);
       expect(find.text('转出账户和转入账户不能相同'), findsOneWidget);
+    });
+
+    testWidgets('录入质量层会随金额和分类选择进入可保存状态', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(tester, repository: repository);
+
+      expect(find.text('录入质量层'), findsOneWidget);
+      expect(find.text('待补齐'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '66.60',
+      );
+      await tester.pump();
+      expect(find.text('已输入'), findsOneWidget);
+      expect(find.text('待补齐'), findsOneWidget);
+
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+
+      expect(find.text('可保存'), findsOneWidget);
+      expect(find.text('餐饮'), findsWidgets);
     });
 
     testWidgets('账户区域跟随主题色模板', (tester) async {
