@@ -128,36 +128,132 @@ class _ConnectionStatusStrip extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: accentColor.withValues(alpha: 0.22)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconBadge(
-            icon: isLoading ? Icons.sync : Icons.hub_outlined,
-            color: accentColor,
-            size: 40,
-            iconSize: 20,
+          Row(
+            children: [
+              IconBadge(
+                icon: isLoading ? Icons.sync : Icons.hub_outlined,
+                color: accentColor,
+                size: 40,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isLoading ? '正在验证服务' : '私有服务连接',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isLoading
+                          ? '检查地址、初始化状态和登录入口'
+                          : '一个地址连接你的 Web、iOS 和 Android 数据源',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isLoading ? '正在验证服务' : '私有服务连接',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isLoading
-                      ? '检查地址、初始化状态和登录入口'
-                      : '一个地址连接你的 Web、iOS 和 Android 数据源',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 12),
+          _ConnectionAssuranceRail(accentColor: accentColor),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConnectionAssuranceRail extends StatelessWidget {
+  const _ConnectionAssuranceRail({required this.accentColor});
+
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    return Row(
+      children: [
+        Expanded(
+          child: _ConnectionAssuranceTile(
+            icon: Icons.lock_outline,
+            label: 'HTTPS',
+            color: accentColor,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ConnectionAssuranceTile(
+            icon: Icons.verified_outlined,
+            label: '初始化一次',
+            color: financeColors.income,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ConnectionAssuranceTile(
+            icon: Icons.devices_other_outlined,
+            label: '跨端同步',
+            color: financeColors.asset,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConnectionAssuranceTile extends StatelessWidget {
+  const _ConnectionAssuranceTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 54),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],

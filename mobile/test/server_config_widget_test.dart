@@ -24,6 +24,9 @@ void main() {
       expect(find.byType(AuthFlowShell), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
       expect(find.text('私有服务连接'), findsOneWidget);
+      expect(find.text('HTTPS'), findsOneWidget);
+      expect(find.text('初始化一次'), findsOneWidget);
+      expect(find.text('跨端同步'), findsOneWidget);
       expect(find.text('家庭'), findsOneWidget);
       expect(find.text('AI'), findsOneWidget);
       expect(find.text('备份'), findsOneWidget);
