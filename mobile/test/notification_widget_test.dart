@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/notifications/presentation/notification_settings_page.dart';
 
@@ -13,6 +14,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('通知设置'), findsOneWidget);
+      expect(find.text('通知控制台'), findsOneWidget);
+      expect(find.text('Active'), findsOneWidget);
       expect(find.text('启用通知'), findsOneWidget);
       expect(find.text('企业微信'), findsWidgets);
       expect(find.text('还款日提醒'), findsOneWidget);
@@ -160,6 +163,14 @@ void main() {
       );
     });
 
+    testWidgets('通知设置页使用高级表面和分段入场动效', (tester) async {
+      final repository = _FakeNotificationRepository();
+      await _pumpPage(tester, repository, physicalSize: const Size(1200, 2600));
+
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(4));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(6));
+    });
+
     test('空通知密钥不会进入更新请求 JSON', () {
       const request = NotificationSettingRequest(
         enabled: true,
@@ -198,8 +209,9 @@ Future<void> _pumpPage(
   WidgetTester tester,
   _FakeNotificationRepository repository, {
   AppThemePalette palette = AppThemePalette.teal,
+  Size physicalSize = const Size(1200, 1600),
 }) async {
-  tester.view.physicalSize = const Size(1200, 1600);
+  tester.view.physicalSize = physicalSize;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);

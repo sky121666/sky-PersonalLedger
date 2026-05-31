@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/motion_tokens.dart';
@@ -23,6 +25,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
   late final AnimationController _controller;
   late final Animation<double> _opacity;
   late final Animation<Offset> _position;
+  Timer? _delayTimer;
 
   @override
   void initState() {
@@ -38,7 +41,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
       end: Offset.zero,
     ).animate(curved);
 
-    Future<void>.delayed(MotionTokens.staggerStep * widget.index, () {
+    _delayTimer = Timer(MotionTokens.staggerStep * widget.index, () {
       if (!mounted) return;
       if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
         _controller.value = 1;
@@ -50,6 +53,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
 
   @override
   void dispose() {
+    _delayTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }

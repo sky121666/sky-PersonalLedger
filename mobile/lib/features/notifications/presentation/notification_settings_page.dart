@@ -6,6 +6,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../data/notification_repository.dart';
 
 class NotificationSettingsPage extends ConsumerWidget {
@@ -141,88 +142,134 @@ class _NotificationSettingsFormState
       child: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
+          StaggeredEntrance(
+            index: 0,
+            child: _NotificationOverviewCard(
+              enabled: _enabled,
+              enabledChannels: _enabledChannelCount,
+              activeRules: _activeRuleCount,
+              advanceDays: _advanceDays,
+            ),
+          ),
           if (_errorMessage != null) ...[
-            _ErrorBanner(message: _errorMessage!),
             const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 1,
+              child: _ErrorBanner(message: _errorMessage!),
+            ),
           ],
-          PremiumSurface(
-            accentColor: enabledAccent,
-            child: _NotificationSwitchRow(
-              icon: Icons.notifications_active_outlined,
-              color: enabledAccent,
-              title: '启用通知',
-              subtitle: '开启后按下方通道和提醒选项发送消息。',
-              value: _enabled,
-              switchKey: const ValueKey('notification-enabled'),
-              onChanged: _isBusy
-                  ? null
-                  : (value) => setState(() => _enabled = value),
+          const SizedBox(height: 12),
+          StaggeredEntrance(
+            index: 2,
+            child: PremiumSurface(
+              accentColor: enabledAccent,
+              child: _NotificationSwitchRow(
+                icon: Icons.notifications_active_outlined,
+                color: enabledAccent,
+                title: '启用通知',
+                subtitle: '开启后按下方通道和提醒选项发送消息。',
+                value: _enabled,
+                switchKey: const ValueKey('notification-enabled'),
+                onChanged: _isBusy
+                    ? null
+                    : (value) => setState(() => _enabled = value),
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          SegmentedButton<_NotificationChannel>(
-            segments: const [
-              ButtonSegment(
-                value: _NotificationChannel.wecom,
-                icon: Icon(Icons.chat_outlined),
-                label: Text('企业微信'),
+          StaggeredEntrance(
+            index: 3,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SegmentedButton<_NotificationChannel>(
+                segments: const [
+                  ButtonSegment(
+                    value: _NotificationChannel.wecom,
+                    icon: Icon(Icons.chat_outlined),
+                    label: Text('企业微信'),
+                  ),
+                  ButtonSegment(
+                    value: _NotificationChannel.dingtalk,
+                    icon: Icon(Icons.forum_outlined),
+                    label: Text('钉钉'),
+                  ),
+                  ButtonSegment(
+                    value: _NotificationChannel.email,
+                    icon: Icon(Icons.mail_outline),
+                    label: Text('邮箱'),
+                  ),
+                  ButtonSegment(
+                    value: _NotificationChannel.webhook,
+                    icon: Icon(Icons.webhook_outlined),
+                    label: Text('Webhook'),
+                  ),
+                ],
+                selected: {_channel},
+                onSelectionChanged: _isBusy
+                    ? null
+                    : (value) => setState(() => _channel = value.single),
               ),
-              ButtonSegment(
-                value: _NotificationChannel.dingtalk,
-                icon: Icon(Icons.forum_outlined),
-                label: Text('钉钉'),
-              ),
-              ButtonSegment(
-                value: _NotificationChannel.email,
-                icon: Icon(Icons.mail_outline),
-                label: Text('邮箱'),
-              ),
-              ButtonSegment(
-                value: _NotificationChannel.webhook,
-                icon: Icon(Icons.webhook_outlined),
-                label: Text('Webhook'),
-              ),
-            ],
-            selected: {_channel},
-            onSelectionChanged: _isBusy
-                ? null
-                : (value) => setState(() => _channel = value.single),
+            ),
           ),
           const SizedBox(height: 12),
-          _buildChannelCard(),
+          StaggeredEntrance(index: 4, child: _buildChannelCard()),
           const SizedBox(height: 16),
-          _OptionsCard(
-            paymentDue: _notifyPaymentDue,
-            budgetAlert: _notifyBudgetAlert,
-            lendingDue: _notifyLendingDue,
-            annualReport: _notifyAnnualReport,
-            advanceDays: _advanceDays,
-            enabled: !_isBusy,
-            onPaymentDueChanged: (value) =>
-                setState(() => _notifyPaymentDue = value),
-            onBudgetAlertChanged: (value) =>
-                setState(() => _notifyBudgetAlert = value),
-            onLendingDueChanged: (value) =>
-                setState(() => _notifyLendingDue = value),
-            onAnnualReportChanged: (value) =>
-                setState(() => _notifyAnnualReport = value),
-            onAdvanceDaysChanged: (value) =>
-                setState(() => _advanceDays = value),
+          StaggeredEntrance(
+            index: 5,
+            child: _OptionsCard(
+              paymentDue: _notifyPaymentDue,
+              budgetAlert: _notifyBudgetAlert,
+              lendingDue: _notifyLendingDue,
+              annualReport: _notifyAnnualReport,
+              advanceDays: _advanceDays,
+              enabled: !_isBusy,
+              onPaymentDueChanged: (value) =>
+                  setState(() => _notifyPaymentDue = value),
+              onBudgetAlertChanged: (value) =>
+                  setState(() => _notifyBudgetAlert = value),
+              onLendingDueChanged: (value) =>
+                  setState(() => _notifyLendingDue = value),
+              onAnnualReportChanged: (value) =>
+                  setState(() => _notifyAnnualReport = value),
+              onAdvanceDaysChanged: (value) =>
+                  setState(() => _advanceDays = value),
+            ),
           ),
           const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _isBusy ? null : _save,
-            icon: _busyAction == 'save'
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
-            label: const Text('保存设置'),
+          StaggeredEntrance(
+            index: 6,
+            child: FilledButton.icon(
+              onPressed: _isBusy ? null : _save,
+              icon: _busyAction == 'save'
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: const Text('保存设置'),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  int get _enabledChannelCount {
+    return [
+      _wecomEnabled,
+      _dingtalkEnabled,
+      _emailEnabled,
+      _webhookEnabled,
+    ].where((enabled) => enabled).length;
+  }
+
+  int get _activeRuleCount {
+    return [
+      _notifyPaymentDue,
+      _notifyBudgetAlert,
+      _notifyLendingDue,
+      _notifyAnnualReport,
+    ].where((enabled) => enabled).length;
   }
 
   Widget _buildChannelCard() {
@@ -540,6 +587,181 @@ class _NotificationSettingsFormState
 }
 
 enum _NotificationChannel { wecom, dingtalk, email, webhook }
+
+class _NotificationOverviewCard extends StatelessWidget {
+  const _NotificationOverviewCard({
+    required this.enabled,
+    required this.enabledChannels,
+    required this.activeRules,
+    required this.advanceDays,
+  });
+
+  final bool enabled;
+  final int enabledChannels;
+  final int activeRules;
+  final int advanceDays;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final accent = enabled ? financeColors.income : financeColors.warning;
+    return PremiumSurface(
+      accentColor: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: enabled
+                    ? Icons.notifications_active_outlined
+                    : Icons.notifications_paused_outlined,
+                color: accent,
+                size: 48,
+                iconSize: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '通知控制台',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      enabled ? '关键财务事件会按规则推送' : '通知已暂停，规则仍会保留',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: Color.alphaBlend(
+                    accent.withValues(alpha: 0.14),
+                    colorScheme.surface,
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: accent.withValues(alpha: 0.22)),
+                ),
+                child: Text(
+                  enabled ? 'Active' : 'Paused',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _NotificationMetric(
+                  icon: Icons.hub_outlined,
+                  label: '启用通道',
+                  value: '$enabledChannels 个',
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _NotificationMetric(
+                  icon: Icons.rule_outlined,
+                  label: '提醒规则',
+                  value: '$activeRules 项',
+                  color: financeColors.warning,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _NotificationMetric(
+                  icon: Icons.event_available_outlined,
+                  label: '提前提醒',
+                  value: '$advanceDays 天',
+                  color: colorScheme.tertiary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationMetric extends StatelessWidget {
+  const _NotificationMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 70),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ChannelCard extends StatelessWidget {
   const _ChannelCard({
