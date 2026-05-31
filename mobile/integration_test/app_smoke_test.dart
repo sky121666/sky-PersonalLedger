@@ -22,7 +22,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('连接服务器'), findsOneWidget);
-    expect(find.text('请输入自托管个人记账服务地址'), findsOneWidget);
+    expect(find.text('自托管入口'), findsOneWidget);
+    expect(find.textContaining('连接后会自动判断是否需要首次初始化'), findsOneWidget);
 
     await tester.tap(find.text('连接'));
     await tester.pumpAndSettle();

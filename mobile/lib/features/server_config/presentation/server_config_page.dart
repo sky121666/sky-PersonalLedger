@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
+import '../../../app/widgets/auth_flow_shell.dart';
 import '../../auth/application/auth_controller.dart';
 
 class ServerConfigPage extends ConsumerStatefulWidget {
@@ -39,64 +41,40 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.stage == AuthStage.checking;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.account_balance_wallet,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '连接服务器',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '请输入自托管个人记账服务地址',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                TextField(
-                  controller: _serverUrlController,
-                  enabled: !isLoading,
-                  decoration: InputDecoration(
-                    labelText: '服务器地址',
-                    hintText: 'example.com:8080',
-                    border: const OutlineInputBorder(),
-                    errorText: authState.errorMessage,
-                  ),
-                  keyboardType: TextInputType.url,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => isLoading ? null : _submitServerUrl(),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: isLoading ? null : _submitServerUrl,
-                    child: isLoading
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('连接'),
-                  ),
-                ),
-              ],
-            ),
+    final accentColor = AppTheme.financeColors(context).brand;
+    return AuthFlowShell(
+      icon: Icons.account_balance_wallet_outlined,
+      title: '连接服务器',
+      subtitle: '请输入自托管个人记账服务地址，连接后会自动判断是否需要首次初始化。',
+      primaryLabel: '自托管入口',
+      accentColor: accentColor,
+      children: [
+        TextField(
+          controller: _serverUrlController,
+          enabled: !isLoading,
+          decoration: InputDecoration(
+            labelText: '服务器地址',
+            hintText: 'example.com:8080',
+            border: const OutlineInputBorder(),
+            errorText: authState.errorMessage,
+            prefixIcon: const Icon(Icons.dns_outlined),
           ),
+          keyboardType: TextInputType.url,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => isLoading ? null : _submitServerUrl(),
         ),
-      ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: isLoading ? null : _submitServerUrl,
+          icon: isLoading
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.arrow_forward),
+          label: const Text('连接'),
+        ),
+      ],
     );
   }
 }

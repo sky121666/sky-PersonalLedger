@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/auth_flow_shell.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -29,6 +32,8 @@ void main() {
 
       expect(find.text('密码至少需要 6 位'), findsOneWidget);
       expect(repository.loginCalls, isEmpty);
+      expect(find.byType(AuthFlowShell), findsOneWidget);
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
     });
 
     testWidgets('输入有效密码后调用登录并进入 authenticated', (tester) async {
@@ -50,6 +55,7 @@ void main() {
 
       expect(repository.loginCalls, ['123456']);
       expect(controller.debugState.stage, AuthStage.authenticated);
+      expect(find.text('安全登录'), findsOneWidget);
     });
   });
 
@@ -75,6 +81,7 @@ void main() {
 
       expect(find.text('密码至少需要 8 位'), findsOneWidget);
       expect(repository.initCalls, isEmpty);
+      expect(find.byType(AuthFlowShell), findsOneWidget);
     });
 
     testWidgets('两次密码不一致时显示错误且不提交初始化', (tester) async {
@@ -121,6 +128,8 @@ void main() {
 
       expect(repository.initCalls, ['12345678']);
       expect(controller.debugState.stage, AuthStage.authenticated);
+      expect(find.text('初始化保护'), findsOneWidget);
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
   });
 
@@ -168,7 +177,7 @@ void main() {
       );
       final changeServerTile = find.ancestor(
         of: find.text('更换服务器'),
-        matching: find.byType(ListTile),
+        matching: find.byType(InkWell),
       );
       await Scrollable.ensureVisible(
         tester.element(changeServerTile),

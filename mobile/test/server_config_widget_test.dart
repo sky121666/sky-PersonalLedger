@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/auth_flow_shell.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -17,6 +20,9 @@ void main() {
       expect(controller.connectCalls, ['']);
       expect(find.text('请输入服务器地址'), findsOneWidget);
       expect(find.text('连接服务器'), findsOneWidget);
+      expect(find.text('自托管入口'), findsOneWidget);
+      expect(find.byType(AuthFlowShell), findsOneWidget);
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
     });
 
     testWidgets('提交服务器地址时调用连接流程', (tester) async {
@@ -31,6 +37,7 @@ void main() {
 
       expect(controller.connectCalls, ['ledger.example.com:8080']);
       expect(controller.debugState.stage, AuthStage.loginRequired);
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
     });
   });
 }
