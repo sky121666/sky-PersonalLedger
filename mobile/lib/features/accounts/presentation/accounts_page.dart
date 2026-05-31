@@ -9,6 +9,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../../account_logs/presentation/account_log_page.dart';
 import '../application/account_controller.dart';
 import '../data/account.dart';
@@ -122,14 +123,17 @@ class _AccountContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (result.accounts.isEmpty) {
-      return AppEmptyView(
-        title: '暂无账户',
-        message: '添加现金、银行卡或支付账户后即可开始记账。',
-        icon: Icons.account_balance_wallet_outlined,
-        action: FilledButton.icon(
-          onPressed: () => _openAccountForm(context),
-          icon: const Icon(Icons.add),
-          label: const Text('新增账户'),
+      return StaggeredEntrance(
+        index: 0,
+        child: AppEmptyView(
+          title: '暂无账户',
+          message: '添加现金、银行卡或支付账户后即可开始记账。',
+          icon: Icons.account_balance_wallet_outlined,
+          action: FilledButton.icon(
+            onPressed: () => _openAccountForm(context),
+            icon: const Icon(Icons.add),
+            label: const Text('新增账户'),
+          ),
         ),
       );
     }
@@ -145,16 +149,24 @@ class _AccountContent extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
-          _AccountSummaryCard(result: result),
+          StaggeredEntrance(
+            index: 0,
+            child: _AccountSummaryCard(result: result),
+          ),
           const SizedBox(height: 16),
           _AccountSection(
             title: '正常账户',
             accounts: activeAccounts,
             sortable: true,
+            startIndex: 1,
           ),
           if (archivedAccounts.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _AccountSection(title: '已归档账户', accounts: archivedAccounts),
+            _AccountSection(
+              title: '已归档账户',
+              accounts: archivedAccounts,
+              startIndex: activeAccounts.length + 2,
+            ),
           ],
         ],
       ),
@@ -223,11 +235,13 @@ class _AccountSection extends StatelessWidget {
   const _AccountSection({
     required this.title,
     required this.accounts,
+    required this.startIndex,
     this.sortable = false,
   });
 
   final String title;
   final List<Account> accounts;
+  final int startIndex;
   final bool sortable;
 
   /// 构建账户分组列表。
@@ -240,20 +254,26 @@ class _AccountSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeader(
-          title: title,
-          subtitle: '${accounts.length} 个账户',
-          icon: title == '已归档账户'
-              ? Icons.archive_outlined
-              : Icons.account_balance_wallet_outlined,
+        StaggeredEntrance(
+          index: startIndex,
+          child: _SectionHeader(
+            title: title,
+            subtitle: '${accounts.length} 个账户',
+            icon: title == '已归档账户'
+                ? Icons.archive_outlined
+                : Icons.account_balance_wallet_outlined,
+          ),
         ),
         const SizedBox(height: 8),
         for (final entry in accounts.indexed) ...[
-          _AccountListTile(
-            account: entry.$2,
-            sectionAccountIds: accountIds,
-            accountIndex: entry.$1,
-            canSort: sortable,
+          StaggeredEntrance(
+            index: startIndex + entry.$1 + 1,
+            child: _AccountListTile(
+              account: entry.$2,
+              sectionAccountIds: accountIds,
+              accountIndex: entry.$1,
+              canSort: sortable,
+            ),
           ),
           const SizedBox(height: 10),
         ],

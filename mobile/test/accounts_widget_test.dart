@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
@@ -46,6 +47,13 @@ void main() {
       expect(find.text('银行卡'), findsOneWidget);
       expect(find.text('房贷'), findsOneWidget);
       expect(find.text('Apple Pay'), findsOneWidget);
+    });
+
+    testWidgets('账户概览和账户卡片使用分段入场动效', (tester) async {
+      final repository = _FakeAccountRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
     });
 
     testWidgets('新增负债账户时提交负债字段', (tester) async {
