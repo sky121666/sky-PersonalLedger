@@ -121,6 +121,14 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('预算摘要'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-budget-summary-card')),
+        findsOneWidget,
+      );
+      expect(find.text('预算运行中'), findsOneWidget);
+      expect(find.text('剩余预算'), findsOneWidget);
+      expect(find.text('日可用'), findsOneWidget);
+      expect(find.text('剩余天数'), findsOneWidget);
     });
 
     testWidgets('首页核心财务卡跟随主题色模板', (tester) async {

@@ -989,6 +989,7 @@ class _BudgetSummaryCard extends StatelessWidget {
     final financeColors = AppTheme.financeColors(context);
 
     return PremiumSurface(
+      key: const ValueKey('home-budget-summary-card'),
       accentColor: financeColors.warning,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1019,14 +1020,28 @@ class _BudgetSummaryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      hasBudget
-                          ? '${_formatCurrency(summary.totalSpent)} / ${_formatCurrency(summary.totalAmount)}'
-                          : '本月暂未设置预算',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _BudgetStatusPill(
+                          label: hasBudget ? '预算运行中' : '预算待设置',
+                          color: hasBudget
+                              ? financeColors.warning
+                              : colorScheme.outline,
+                        ),
+                        Text(
+                          hasBudget
+                              ? '${_formatCurrency(summary.totalSpent)} / ${_formatCurrency(summary.totalAmount)}'
+                              : '本月暂未设置预算',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1035,38 +1050,129 @@ class _BudgetSummaryCard extends StatelessWidget {
           ),
           if (hasBudget) ...[
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _BudgetInfoItem(
-                    label: '剩余预算',
-                    value: _formatCurrency(summary.remainingAmount),
-                  ),
-                ),
-                Expanded(
-                  child: _BudgetInfoItem(
-                    label: '日可用',
-                    value: _formatCurrency(summary.dailyAvailable),
-                  ),
-                ),
-                Expanded(
-                  child: _BudgetInfoItem(
-                    label: '剩余天数',
-                    value: '${summary.daysRemaining} 天',
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 420;
+                final gap = compact ? 8.0 : 10.0;
+                final width = compact
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - gap * 2) / 3;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: [
+                    SizedBox(
+                      width: width,
+                      child: _BudgetInfoItem(
+                        icon: Icons.account_balance_wallet_outlined,
+                        color: financeColors.warning,
+                        label: '剩余预算',
+                        value: _formatCurrency(summary.remainingAmount),
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _BudgetInfoItem(
+                        icon: Icons.today_outlined,
+                        color: financeColors.asset,
+                        label: '日可用',
+                        value: _formatCurrency(summary.dailyAvailable),
+                      ),
+                    ),
+                    SizedBox(
+                      width: width,
+                      child: _BudgetInfoItem(
+                        icon: Icons.hourglass_bottom_outlined,
+                        color: colorScheme.tertiary,
+                        label: '剩余天数',
+                        value: '${summary.daysRemaining} 天',
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             if (summary.overBudgetCategories.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(
-                '超预算：${summary.overBudgetCategories.map((item) => item.name).join('、')}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
+              _BudgetOverrunAlert(
+                names: summary.overBudgetCategories
+                    .map((item) => item.name)
+                    .join('、'),
               ),
             ],
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetStatusPill extends StatelessWidget {
+  const _BudgetStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28, maxWidth: 112),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.09),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _BudgetOverrunAlert extends StatelessWidget {
+  const _BudgetOverrunAlert({required this.names});
+
+  final String names;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.error.withValues(alpha: 0.08),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.error.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: colorScheme.error, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '超预算：$names',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.error,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1339,28 +1445,72 @@ class _AccountStatusPill extends StatelessWidget {
 }
 
 class _BudgetInfoItem extends StatelessWidget {
-  const _BudgetInfoItem({required this.label, required this.value});
+  const _BudgetInfoItem({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+  });
 
+  final IconData icon;
+  final Color color;
   final String label;
   final String value;
 
   /// 构建预算信息项。
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 74),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
         ),
-      ],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
