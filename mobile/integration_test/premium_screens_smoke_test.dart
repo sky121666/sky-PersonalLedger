@@ -31,6 +31,8 @@ import 'package:personal_ledger/features/family/presentation/family_page.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
 import 'package:personal_ledger/features/main/presentation/main_shell_page.dart';
+import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
+import 'package:personal_ledger/features/notifications/presentation/notification_settings_page.dart';
 import 'package:personal_ledger/features/profile/presentation/profile_page.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_repository.dart';
@@ -331,6 +333,41 @@ void main() {
           binding,
           tester,
           'security-settings-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium notification settings (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              notificationRepositoryProvider.overrideWithValue(
+                _FakeNotificationRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const NotificationSettingsPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('通知设置'), findsOneWidget);
+        expect(find.text('启用通知'), findsOneWidget);
+        expect(find.text('企业微信'), findsWidgets);
+        expect(find.text('还款日提醒'), findsOneWidget);
+        expect(find.text('提前 3 天提醒'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'notification-settings-${variant.name}',
         );
       });
 
@@ -1042,6 +1079,87 @@ class _FakeSecurityRepository implements SecurityRepository {
   Future<SecurityEntryPath> setEntryPath(String entryPath) async {
     this.entryPath = SecurityEntryPath(entryPath: entryPath, enabled: true);
     return this.entryPath;
+  }
+}
+
+class _FakeNotificationRepository implements NotificationRepository {
+  NotificationSetting settings = const NotificationSetting(
+    id: 1,
+    userId: 1,
+    enabled: true,
+    wecomEnabled: true,
+    wecomWebhook: 'https://qyapi.example.com/send?key=old',
+    dingtalkEnabled: false,
+    dingtalkWebhook: '',
+    dingtalkSecret: '',
+    emailEnabled: false,
+    smtpHost: '',
+    smtpPort: 587,
+    smtpUser: '',
+    smtpFrom: '',
+    emailTo: '',
+    webhookEnabled: false,
+    webhookUrl: '',
+    webhookSecret: '',
+    notifyPaymentDue: true,
+    notifyBudgetAlert: true,
+    notifyLendingDue: true,
+    notifyAnnualReport: true,
+    advanceDays: 3,
+  );
+
+  @override
+  Future<NotificationSetting?> getSettings() async {
+    return settings;
+  }
+
+  @override
+  Future<TestNotificationResult?> testDingtalk({
+    required String webhook,
+    String secret = '',
+  }) async {
+    return const TestNotificationResult(success: true, message: '发送成功');
+  }
+
+  @override
+  Future<TestNotificationResult?> testEmail({
+    required String smtpHost,
+    required int smtpPort,
+    required String smtpUser,
+    String smtpPassword = '',
+    String smtpFrom = '',
+    String emailTo = '',
+  }) async {
+    return const TestNotificationResult(success: true, message: '发送成功');
+  }
+
+  @override
+  Future<TestNotificationResult?> testWebhook({
+    required String url,
+    String secret = '',
+  }) async {
+    return const TestNotificationResult(success: true, message: '发送成功');
+  }
+
+  @override
+  Future<TestNotificationResult?> testWecom(String webhook) async {
+    return const TestNotificationResult(success: true, message: '发送成功');
+  }
+
+  @override
+  Future<NotificationSetting?> updateSettings(
+    NotificationSettingRequest request,
+  ) async {
+    settings = settings.copyWith(
+      enabled: request.enabled,
+      wecomEnabled: request.wecomEnabled,
+      notifyPaymentDue: request.notifyPaymentDue,
+      notifyBudgetAlert: request.notifyBudgetAlert,
+      notifyLendingDue: request.notifyLendingDue,
+      notifyAnnualReport: request.notifyAnnualReport,
+      advanceDays: request.advanceDays,
+    );
+    return settings;
   }
 }
 

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../data/notification_repository.dart';
 
 class NotificationSettingsPage extends ConsumerWidget {
@@ -138,13 +141,17 @@ class _NotificationSettingsFormState
             _ErrorBanner(message: _errorMessage!),
             const SizedBox(height: 12),
           ],
-          Card(
-            child: SwitchListTile(
-              key: const ValueKey('notification-enabled'),
-              secondary: const Icon(Icons.notifications_active_outlined),
-              title: const Text('启用通知'),
-              subtitle: const Text('开启后按下方通道和提醒选项发送消息。'),
+          PremiumSurface(
+            accentColor: _enabled
+                ? AppTheme.incomeColor
+                : AppTheme.warningColor,
+            child: _NotificationSwitchRow(
+              icon: Icons.notifications_active_outlined,
+              color: _enabled ? AppTheme.incomeColor : AppTheme.warningColor,
+              title: '启用通知',
+              subtitle: '开启后按下方通道和提醒选项发送消息。',
               value: _enabled,
+              switchKey: const ValueKey('notification-enabled'),
               onChanged: _isBusy
                   ? null
                   : (value) => setState(() => _enabled = value),
@@ -555,36 +562,45 @@ class _ChannelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(title),
-              subtitle: Text(enabledLabel),
-              value: enabled,
-              onChanged: onEnabledChanged,
-            ),
-            const SizedBox(height: 8),
-            ...children,
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: testing ? null : onTest,
-              icon: testing
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send_outlined),
-              label: Text(testing ? '测试中...' : testButtonText),
-            ),
-          ],
-        ),
+    final accentColor = enabled ? AppTheme.incomeColor : AppTheme.assetColor;
+    return PremiumSurface(
+      accentColor: accentColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _NotificationSwitchRow(
+            icon: _channelIcon(title),
+            color: accentColor,
+            title: title,
+            subtitle: enabledLabel,
+            value: enabled,
+            onChanged: onEnabledChanged,
+          ),
+          const SizedBox(height: 14),
+          ...children,
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: testing ? null : onTest,
+            icon: testing
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send_outlined),
+            label: Text(testing ? '测试中...' : testButtonText),
+          ),
+        ],
       ),
     );
+  }
+
+  IconData _channelIcon(String title) {
+    return switch (title) {
+      '企业微信' => Icons.chat_outlined,
+      '钉钉' => Icons.forum_outlined,
+      '邮箱' => Icons.mail_outline,
+      _ => Icons.webhook_outlined,
+    };
   }
 }
 
@@ -617,58 +633,224 @@ class _OptionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return PremiumSurface(
+      accentColor: AppTheme.warningColor,
       child: Column(
         children: [
-          const ListTile(
-            leading: Icon(Icons.tune_outlined),
-            title: Text('通知选项'),
+          const _NotificationPanelHeader(
+            icon: Icons.tune_outlined,
+            color: AppTheme.warningColor,
+            title: '通知选项',
+            subtitle: '选择要主动推送的财务事件和提前提醒天数',
           ),
-          SwitchListTile(
-            title: const Text('还款日提醒'),
+          const SizedBox(height: 10),
+          _NotificationSwitchRow(
+            icon: Icons.credit_card_outlined,
+            color: AppTheme.warningColor,
+            title: '还款日提醒',
             value: paymentDue,
             onChanged: enabled ? onPaymentDueChanged : null,
           ),
-          const Divider(height: 1),
-          SwitchListTile(
-            key: const ValueKey('notification-budget-alert'),
-            title: const Text('预算超支提醒'),
+          const SizedBox(height: 8),
+          _NotificationSwitchRow(
+            icon: Icons.savings_outlined,
+            color: AppTheme.expenseColor,
+            title: '预算超支提醒',
             value: budgetAlert,
+            switchKey: const ValueKey('notification-budget-alert'),
             onChanged: enabled ? onBudgetAlertChanged : null,
           ),
-          const Divider(height: 1),
-          SwitchListTile(
-            title: const Text('借款到期提醒'),
+          const SizedBox(height: 8),
+          _NotificationSwitchRow(
+            icon: Icons.handshake_outlined,
+            color: AppTheme.assetColor,
+            title: '借款到期提醒',
             value: lendingDue,
             onChanged: enabled ? onLendingDueChanged : null,
           ),
-          const Divider(height: 1),
-          SwitchListTile(
-            title: const Text('年度报告通知'),
+          const SizedBox(height: 8),
+          _NotificationSwitchRow(
+            icon: Icons.summarize_outlined,
+            color: AppTheme.incomeColor,
+            title: '年度报告通知',
             value: annualReport,
             onChanged: enabled ? onAnnualReportChanged : null,
           ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.event_available_outlined),
-            title: Text('提前 $advanceDays 天提醒'),
-            trailing: DropdownButton<int>(
-              value: advanceDays,
-              items: const [
-                DropdownMenuItem(value: 1, child: Text('1 天')),
-                DropdownMenuItem(value: 2, child: Text('2 天')),
-                DropdownMenuItem(value: 3, child: Text('3 天')),
-                DropdownMenuItem(value: 5, child: Text('5 天')),
-                DropdownMenuItem(value: 7, child: Text('7 天')),
+          const SizedBox(height: 8),
+          _NotificationAdvanceRow(
+            advanceDays: advanceDays,
+            enabled: enabled,
+            onAdvanceDaysChanged: onAdvanceDaysChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationPanelHeader extends StatelessWidget {
+  const _NotificationPanelHeader({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconBadge(icon: icon, color: color),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationSwitchRow extends StatelessWidget {
+  const _NotificationSwitchRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+    this.switchKey,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final Key? switchKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: value ? 0.10 : 0.04),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: value ? 0.18 : 0.10)),
+      ),
+      child: Row(
+        children: [
+          IconBadge(icon: icon, color: color, size: 38, iconSize: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
-              onChanged: enabled
-                  ? (value) {
-                      if (value != null) {
-                        onAdvanceDaysChanged(value);
-                      }
-                    }
-                  : null,
             ),
+          ),
+          const SizedBox(width: 12),
+          Switch(key: switchKey, value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationAdvanceRow extends StatelessWidget {
+  const _NotificationAdvanceRow({
+    required this.advanceDays,
+    required this.enabled,
+    required this.onAdvanceDaysChanged,
+  });
+
+  final int advanceDays;
+  final bool enabled;
+  final ValueChanged<int> onAdvanceDaysChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.44),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          const IconBadge(
+            icon: Icons.event_available_outlined,
+            color: AppTheme.assetColor,
+            size: 38,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '提前 $advanceDays 天提醒',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+          DropdownButton<int>(
+            value: advanceDays,
+            items: const [
+              DropdownMenuItem(value: 1, child: Text('1 天')),
+              DropdownMenuItem(value: 2, child: Text('2 天')),
+              DropdownMenuItem(value: 3, child: Text('3 天')),
+              DropdownMenuItem(value: 5, child: Text('5 天')),
+              DropdownMenuItem(value: 7, child: Text('7 天')),
+            ],
+            onChanged: enabled
+                ? (value) {
+                    if (value != null) {
+                      onAdvanceDaysChanged(value);
+                    }
+                  }
+                : null,
           ),
         ],
       ),
