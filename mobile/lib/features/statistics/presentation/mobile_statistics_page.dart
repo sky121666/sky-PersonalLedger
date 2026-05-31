@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -36,6 +37,7 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
       categoryType: _categoryType,
     );
     final dashboardState = ref.watch(statisticsDashboardProvider(query));
+    final themeSettings = ref.watch(themeControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,6 +60,7 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
         ),
         data: (dashboard) => _StatisticsContent(
           dashboard: dashboard,
+          themeSettings: themeSettings,
           selectedMonth: _selectedMonth,
           categoryType: _categoryType,
           onPreviousMonth: _goPreviousMonth,
@@ -97,6 +100,7 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
 class _StatisticsContent extends StatelessWidget {
   const _StatisticsContent({
     required this.dashboard,
+    required this.themeSettings,
     required this.selectedMonth,
     required this.categoryType,
     required this.onPreviousMonth,
@@ -106,6 +110,7 @@ class _StatisticsContent extends StatelessWidget {
   });
 
   final StatisticsDashboard dashboard;
+  final AppThemeSettings themeSettings;
   final DateTime selectedMonth;
   final String categoryType;
   final VoidCallback onPreviousMonth;
@@ -139,16 +144,24 @@ class _StatisticsContent extends StatelessWidget {
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 2,
-              child: _OverviewCard(overview: dashboard.overview),
+              child: _StatisticsThemeDataStrip(
+                dashboard: dashboard,
+                settings: themeSettings,
+              ),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 3,
-              child: _TrendCard(trend: dashboard.trend),
+              child: _OverviewCard(overview: dashboard.overview),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 4,
+              child: _TrendCard(trend: dashboard.trend),
+            ),
+            const SizedBox(height: 16),
+            StaggeredEntrance(
+              index: 5,
               child: _CategoryRankCard(
                 response: dashboard.categories,
                 categoryType: categoryType,
@@ -504,6 +517,228 @@ class _StatisticsDeckMetric extends StatelessWidget {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsThemeDataStrip extends StatelessWidget {
+  const _StatisticsThemeDataStrip({
+    required this.dashboard,
+    required this.settings,
+  });
+
+  final StatisticsDashboard dashboard;
+  final AppThemeSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = settings.palette;
+    final overview = dashboard.overview;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final savingRate = _savingRate(overview);
+    return PremiumSurface(
+      key: const ValueKey('statistics-theme-data-strip'),
+      accentColor: palette.seedColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.gradient_outlined,
+                color: palette.seedColor,
+                size: 40,
+                iconSize: 21,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '数据皮肤',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${palette.label} · 图表、分类和现金流语义色同步',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _StatisticsPaletteSwatches(palette: palette),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _StatisticsToneChip(
+                  label: '收入',
+                  value: _formatCurrency(overview.income),
+                  icon: Icons.south_west_rounded,
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsToneChip(
+                  label: '支出',
+                  value: _formatCurrency(overview.expense),
+                  icon: Icons.north_east_rounded,
+                  color: financeColors.expense,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _StatisticsToneChip(
+                  label: '结余率',
+                  value: '${savingRate.toStringAsFixed(0)}%',
+                  icon: Icons.savings_outlined,
+                  color: overview.balance >= 0
+                      ? financeColors.income
+                      : financeColors.expense,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsToneChip(
+                  label: '主题',
+                  value: palette.signature,
+                  icon: Icons.palette_outlined,
+                  color: palette.seedColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsToneChip extends StatelessWidget {
+  const _StatisticsToneChip({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsPaletteSwatches extends StatelessWidget {
+  const _StatisticsPaletteSwatches({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      palette.seedColor,
+      palette.assetColor,
+      palette.incomeColor,
+      palette.expenseColor,
+    ];
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Stack(
+        children: [
+          for (var index = 0; index < colors.length; index += 1)
+            Positioned(
+              left: (index % 2) * 18,
+              top: (index ~/ 2) * 18,
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: colors[index],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.surface,
+                    width: 1.4,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

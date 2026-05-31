@@ -806,6 +806,11 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('数据洞察台'), findsOneWidget);
+        expect(find.text('数据皮肤'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('statistics-theme-data-strip')),
+          findsOneWidget,
+        );
         expect(find.text('现金流正向'), findsOneWidget);
         expect(find.text('本月总支出'), findsOneWidget);
         _expectStableVisualFrame(tester);

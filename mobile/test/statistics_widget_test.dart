@@ -25,6 +25,12 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('数据洞察台'), findsOneWidget);
+      expect(find.text('数据皮肤'), findsOneWidget);
+      expect(find.textContaining('图表、分类和现金流语义色同步'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('statistics-theme-data-strip')),
+        findsOneWidget,
+      );
       expect(find.text('现金流正向'), findsOneWidget);
       expect(find.text('交易活跃'), findsOneWidget);
       expect(find.text('本月现金流稳健'), findsOneWidget);
@@ -41,6 +47,8 @@ void main() {
 
       expect(find.text('交易笔数'), findsOneWidget);
       expect(find.text('数据洞察台'), findsOneWidget);
+      expect(find.text('数据皮肤'), findsOneWidget);
+      expect(find.text('默认稳健'), findsOneWidget);
       expect(find.text('趋势节点'), findsOneWidget);
       expect(find.text('分类样本'), findsOneWidget);
       expect(find.text('本月现金流持平'), findsOneWidget);
@@ -57,7 +65,7 @@ void main() {
       final repository = _FakeStatisticsRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
     });
 
     testWidgets('统计刷新后恢复为最新数据', (tester) async {
