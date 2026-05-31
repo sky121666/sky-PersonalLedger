@@ -30,7 +30,17 @@ void main() {
       expect(find.text('自动退出'), findsOneWidget);
       expect(find.text('入口模式'), findsOneWidget);
       expect(find.text('隔离'), findsOneWidget);
-      expect(find.text('需确认'), findsOneWidget);
+      expect(find.text('需确认'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('security-entry-guardrail-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('入口守护策略'), findsOneWidget);
+      expect(find.text('隔离中'), findsOneWidget);
+      expect(find.text('入口路径'), findsAtLeastNWidgets(1));
+      expect(find.text('生成方式'), findsOneWidget);
+      expect(find.text('随机可换'), findsOneWidget);
+      expect(find.text('关闭影响'), findsOneWidget);
     });
 
     testWidgets('保存入口路径时提交当前输入', (tester) async {
