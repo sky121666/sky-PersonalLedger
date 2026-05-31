@@ -163,6 +163,29 @@ void main() {
       expect(fabTheme.extendedTextStyle?.fontWeight, FontWeight.w900);
     });
 
+    test('按钮体系使用统一触控尺寸和主题色状态', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.cyan);
+      final filledStyle = theme.filledButtonTheme.style;
+      final outlinedStyle = theme.outlinedButtonTheme.style;
+      final textStyle = theme.textButtonTheme.style;
+      final elevatedStyle = theme.elevatedButtonTheme.style;
+      final iconStyle = theme.iconButtonTheme.style;
+
+      expect(filledStyle?.minimumSize?.resolve({}), const Size(48, 48));
+      expect(
+        filledStyle?.backgroundColor?.resolve({}),
+        AppThemePalette.cyan.seedColor,
+      );
+      expect(outlinedStyle?.minimumSize?.resolve({}), const Size(48, 48));
+      expect(textStyle?.minimumSize?.resolve({}), const Size(44, 44));
+      expect(elevatedStyle?.elevation?.resolve({}), 2);
+      expect(iconStyle?.minimumSize?.resolve({}), const Size(48, 48));
+      expect(
+        iconStyle?.backgroundColor?.resolve({WidgetState.selected}),
+        AppThemePalette.cyan.seedColor.withValues(alpha: 0.14),
+      );
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);

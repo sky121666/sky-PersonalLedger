@@ -207,17 +207,11 @@ class AppTheme {
           borderRadius: BorderRadius.all(Radius.circular(surfaceRadius)),
         ),
       ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(48, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      ),
-      iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
-      ),
+      filledButtonTheme: _filledButtonTheme(colorScheme, palette),
+      outlinedButtonTheme: _outlinedButtonTheme(colorScheme, palette),
+      textButtonTheme: _textButtonTheme(colorScheme, palette),
+      elevatedButtonTheme: _elevatedButtonTheme(colorScheme, palette),
+      iconButtonTheme: _iconButtonTheme(colorScheme, palette),
     );
   }
 
@@ -257,17 +251,11 @@ class AppTheme {
           borderRadius: BorderRadius.all(Radius.circular(surfaceRadius)),
         ),
       ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(48, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      ),
-      iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
-      ),
+      filledButtonTheme: _filledButtonTheme(colorScheme, palette),
+      outlinedButtonTheme: _outlinedButtonTheme(colorScheme, palette),
+      textButtonTheme: _textButtonTheme(colorScheme, palette),
+      elevatedButtonTheme: _elevatedButtonTheme(colorScheme, palette),
+      iconButtonTheme: _iconButtonTheme(colorScheme, palette),
     );
   }
 
@@ -287,6 +275,195 @@ class AppTheme {
     return Color.alphaBlend(
       palette.seedColor.withValues(alpha: tintAlpha),
       baseColor,
+    );
+  }
+
+  static FilledButtonThemeData _filledButtonTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return FilledButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.w900),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return colorScheme.onSurface.withValues(alpha: 0.12);
+          }
+          return palette.seedColor;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return colorScheme.onSurface.withValues(alpha: 0.38);
+          }
+          return colorScheme.onPrimary;
+        }),
+        overlayColor: WidgetStatePropertyAll(
+          colorScheme.onPrimary.withValues(alpha: 0.12),
+        ),
+        elevation: const WidgetStatePropertyAll(0),
+        enableFeedback: true,
+      ),
+    );
+  }
+
+  static OutlinedButtonThemeData _outlinedButtonTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return OutlinedButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.w800),
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return colorScheme.onSurface.withValues(alpha: 0.38);
+          }
+          return palette.seedColor;
+        }),
+        side: WidgetStateProperty.resolveWith((states) {
+          final disabled = states.contains(WidgetState.disabled);
+          final focused = states.contains(WidgetState.focused);
+          return BorderSide(
+            color: disabled
+                ? colorScheme.outlineVariant
+                : palette.seedColor.withValues(alpha: focused ? 0.86 : 0.42),
+            width: focused ? 1.4 : 1,
+          );
+        }),
+        overlayColor: WidgetStatePropertyAll(
+          palette.seedColor.withValues(alpha: 0.08),
+        ),
+        backgroundColor: WidgetStatePropertyAll(
+          Color.alphaBlend(
+            palette.seedColor.withValues(
+              alpha: colorScheme.brightness == Brightness.dark ? 0.08 : 0.035,
+            ),
+            colorScheme.surface,
+          ),
+        ),
+      ),
+    );
+  }
+
+  static TextButtonThemeData _textButtonTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return TextButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(44, 44)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.w800),
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return colorScheme.onSurface.withValues(alpha: 0.38);
+          }
+          return palette.seedColor;
+        }),
+        overlayColor: WidgetStatePropertyAll(
+          palette.seedColor.withValues(alpha: 0.08),
+        ),
+      ),
+    );
+  }
+
+  static ElevatedButtonThemeData _elevatedButtonTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return ElevatedButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.w900),
+        ),
+        backgroundColor: WidgetStatePropertyAll(
+          Color.alphaBlend(
+            palette.seedColor.withValues(
+              alpha: colorScheme.brightness == Brightness.dark ? 0.18 : 0.08,
+            ),
+            colorScheme.surface,
+          ),
+        ),
+        foregroundColor: WidgetStatePropertyAll(palette.seedColor),
+        elevation: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return 0;
+          }
+          if (states.contains(WidgetState.pressed)) {
+            return 1;
+          }
+          return 2;
+        }),
+        shadowColor: WidgetStatePropertyAll(
+          palette.seedColor.withValues(alpha: 0.18),
+        ),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+    );
+  }
+
+  static IconButtonThemeData _iconButtonTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return IconButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        tapTargetSize: MaterialTapTargetSize.padded,
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return colorScheme.onSurface.withValues(alpha: 0.38);
+          }
+          return colorScheme.onSurfaceVariant;
+        }),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return palette.seedColor.withValues(alpha: 0.14);
+          }
+          if (states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return palette.seedColor.withValues(alpha: 0.08);
+          }
+          return Colors.transparent;
+        }),
+        overlayColor: WidgetStatePropertyAll(
+          palette.seedColor.withValues(alpha: 0.08),
+        ),
+      ),
     );
   }
 
