@@ -764,6 +764,8 @@ class _ProfileThemePanel extends StatelessWidget {
           const SizedBox(height: 14),
           _ProfileThemeSemanticPreview(palette: palette),
           const SizedBox(height: 14),
+          _ProfileThemeDnaPanel(palette: palette),
+          const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
               final twoColumn = constraints.maxWidth >= 520;
@@ -1724,11 +1726,282 @@ class _ProfileSemanticPill extends StatelessWidget {
   }
 }
 
+class _ProfileThemeDnaPanel extends StatelessWidget {
+  const _ProfileThemeDnaPanel({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final dnaItems = [
+      _ThemeDnaSignal(
+        icon: Icons.animation_outlined,
+        label: '动效取向',
+        value: _themeDnaMotionCue(palette),
+        color: palette.seedColor,
+      ),
+      _ThemeDnaSignal(
+        icon: Icons.devices_outlined,
+        label: '跨端适配',
+        value: _themeDnaPlatformCue(palette),
+        color: palette.assetColor,
+      ),
+      _ThemeDnaSignal(
+        icon: Icons.contrast_outlined,
+        label: '视觉强度',
+        value: _themeDnaIntensityCue(palette),
+        color: palette.warningColor,
+      ),
+    ];
+    return AnimatedContainer(
+      key: const ValueKey('profile-settings-theme-dna-panel'),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          palette.seedColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.seedColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.blur_on_outlined, color: palette.seedColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '主题 DNA',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _ProfileSemanticPill(
+                label: palette.platformCue,
+                color: palette.assetColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _ProfileThemeSpectrum(palette: palette),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final threeColumn = constraints.maxWidth >= 560;
+              final twoColumn = constraints.maxWidth >= 390;
+              final gap = threeColumn ? 10.0 : 8.0;
+              final width = threeColumn
+                  ? (constraints.maxWidth - gap * 2) / 3
+                  : twoColumn
+                  ? (constraints.maxWidth - gap) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final item in dnaItems)
+                    SizedBox(
+                      width: width,
+                      child: _ProfileThemeDnaTile(item: item),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileThemeSpectrum extends StatelessWidget {
+  const _ProfileThemeSpectrum({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final colors = [
+      palette.seedColor,
+      palette.assetColor,
+      palette.incomeColor,
+      palette.expenseColor,
+      palette.warningColor,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              '色彩光谱',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${colors.length} 组语义色',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: SizedBox(
+            height: 14,
+            child: Row(
+              children: [
+                for (final color in colors)
+                  Expanded(child: ColoredBox(color: color)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThemeDnaSignal {
+  const _ThemeDnaSignal({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+}
+
+class _ProfileThemeDnaTile extends StatelessWidget {
+  const _ProfileThemeDnaTile({required this.item});
+
+  final _ThemeDnaSignal item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 78),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          item.color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: item.color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(item.icon, color: item.color, size: 21),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  item.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 String _profileSettingsThemeModeLabel(AppThemeMode mode) {
   return switch (mode) {
     AppThemeMode.system => '跟随系统',
     AppThemeMode.light => '浅色',
     AppThemeMode.dark => '深色',
+  };
+}
+
+String _themeDnaMotionCue(AppThemePalette palette) {
+  return switch (palette) {
+    AppThemePalette.plasma ||
+    AppThemePalette.kinetic ||
+    AppThemePalette.aurora => '高动效',
+    AppThemePalette.obsidian ||
+    AppThemePalette.luxe ||
+    AppThemePalette.violet => '沉浸过渡',
+    AppThemePalette.titanium ||
+    AppThemePalette.slate ||
+    AppThemePalette.graphite => '克制平滑',
+    _ => '轻量动效',
+  };
+}
+
+String _themeDnaPlatformCue(AppThemePalette palette) {
+  return switch (palette) {
+    AppThemePalette.violet ||
+    AppThemePalette.titanium ||
+    AppThemePalette.obsidian => 'iOS / Android',
+    AppThemePalette.graphite ||
+    AppThemePalette.slate ||
+    AppThemePalette.luxe => 'Web / 大屏',
+    AppThemePalette.kinetic ||
+    AppThemePalette.aurora ||
+    AppThemePalette.plasma => '跨端高频',
+    _ => '移动优先',
+  };
+}
+
+String _themeDnaIntensityCue(AppThemePalette palette) {
+  return switch (palette) {
+    AppThemePalette.obsidian ||
+    AppThemePalette.luxe ||
+    AppThemePalette.plasma ||
+    AppThemePalette.rose => '高对比',
+    AppThemePalette.titanium ||
+    AppThemePalette.slate ||
+    AppThemePalette.graphite => '低饱和',
+    _ => '中等强度',
   };
 }
 

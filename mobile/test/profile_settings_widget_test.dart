@@ -87,6 +87,19 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('财务语义预览'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-settings-theme-dna-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('主题 DNA'), findsOneWidget);
+      expect(find.text('色彩光谱'), findsOneWidget);
+      expect(find.text('5 组语义色'), findsOneWidget);
+      expect(find.text('动效取向'), findsOneWidget);
+      expect(find.text('跨端适配'), findsAtLeastNWidgets(1));
+      expect(find.text('视觉强度'), findsOneWidget);
+      expect(find.text('轻量动效'), findsOneWidget);
+      expect(find.text('移动优先'), findsOneWidget);
+      expect(find.text('中等强度'), findsOneWidget);
       expect(find.text('周报高光'), findsOneWidget);
       expect(find.text('预算状态'), findsOneWidget);
       expect(find.text('收入色'), findsOneWidget);
@@ -103,6 +116,8 @@ void main() {
       preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('app_theme_palette'), 'plasma');
       expect(find.text('电浆蓝'), findsWidgets);
+      expect(find.text('高动效'), findsOneWidget);
+      expect(find.text('跨端高频'), findsWidgets);
 
       await tester.tap(find.text('深色模式'));
       await tester.pumpAndSettle();
