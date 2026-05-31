@@ -438,6 +438,12 @@ void main() {
         expect(find.text('全部类型'), findsOneWidget);
         expect(find.text('餐饮'), findsAtLeastNWidgets(1));
         await tester.scrollUntilVisible(
+          find.text('入账'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('入账'), findsOneWidget);
+        await tester.scrollUntilVisible(
           find.text('-¥32.50'),
           180,
           scrollable: find.byType(Scrollable).first,

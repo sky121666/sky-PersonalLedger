@@ -47,6 +47,9 @@ void main() {
       expect(find.text('支出'), findsAtLeastNWidgets(1));
       expect(find.text('现金'), findsAtLeastNWidgets(1));
       expect(find.text('2026-05-18 12:00'), findsAtLeastNWidgets(1));
+      expect(find.text('分类'), findsOneWidget);
+      expect(find.text('账户'), findsOneWidget);
+      expect(find.text('入账'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('transaction-amount-transaction-1')),
         findsOneWidget,
@@ -173,7 +176,12 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      await tester.drag(find.byType(ListView), const Offset(0, -3200));
+      await tester.scrollUntilVisible(
+        find.text('流水 25'),
+        420,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.drag(find.byType(ListView), const Offset(0, -900));
       await tester.pumpAndSettle();
 
       expect(
