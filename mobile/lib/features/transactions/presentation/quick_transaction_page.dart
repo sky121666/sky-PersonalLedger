@@ -378,12 +378,15 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   }
 
   Widget _buildDateTimePicker() {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: const Text('时间'),
-      subtitle: Text(_formatDateTime(_transactionDate)),
-      trailing: const Icon(Icons.calendar_month_outlined),
-      onTap: _pickDateTime,
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('时间'),
+        subtitle: Text(_formatDateTime(_transactionDate)),
+        trailing: const Icon(Icons.calendar_month_outlined),
+        onTap: _pickDateTime,
+      ),
     );
   }
 
