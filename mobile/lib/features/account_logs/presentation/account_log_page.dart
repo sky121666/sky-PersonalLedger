@@ -462,11 +462,11 @@ _TypeStyle _typeStyle(BuildContext context, AccountLogType type) {
     ),
     AccountLogType.rollback => _TypeStyle(
       icon: Icons.undo,
-      color: Colors.purple.shade700,
+      color: Theme.of(context).colorScheme.tertiary,
     ),
     AccountLogType.adjustment => _TypeStyle(
       icon: Icons.auto_fix_high,
-      color: Colors.grey.shade700,
+      color: Theme.of(context).colorScheme.outline,
     ),
   };
 }

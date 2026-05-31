@@ -165,6 +165,46 @@ void main() {
         isTrue,
       );
     });
+
+    testWidgets('回滚和调整流水使用主题语义色', (tester) async {
+      final repository = _FakeAccountLogRepository(
+        pages: {
+          1: AccountLogListResult(
+            list: [
+              _log(
+                id: 'rollback-1',
+                type: AccountLogType.rollback,
+                balanceBefore: 1280,
+                balanceAfter: 780,
+                remark: '撤回交易',
+              ),
+              _log(
+                id: 'adjustment-1',
+                type: AccountLogType.adjustment,
+                balanceBefore: 780,
+                balanceAfter: 780,
+                remark: '余额校准',
+              ),
+            ],
+            total: 2,
+            page: 1,
+            pageSize: 50,
+          ),
+        },
+      );
+      final theme = AppTheme.lightTheme(AppThemePalette.graphite);
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final badges = tester.widgetList<IconBadge>(find.byType(IconBadge));
+      expect(
+        badges.any((badge) => badge.color == theme.colorScheme.tertiary),
+        isTrue,
+      );
+      expect(
+        badges.any((badge) => badge.color == theme.colorScheme.outline),
+        isTrue,
+      );
+    });
   });
 }
 
