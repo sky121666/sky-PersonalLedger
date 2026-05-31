@@ -76,6 +76,11 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
           isLoading: isLoading,
           serverUrlController: _serverUrlController,
         ),
+        const SizedBox(height: 14),
+        _ServerReleaseReadinessPanel(
+          isLoading: isLoading,
+          serverUrlController: _serverUrlController,
+        ),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: isLoading ? null : _submitServerUrl,
@@ -440,6 +445,211 @@ class _ConnectionAssuranceTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerReleaseReadinessPanel extends StatelessWidget {
+  const _ServerReleaseReadinessPanel({
+    required this.isLoading,
+    required this.serverUrlController,
+  });
+
+  final bool isLoading;
+  final TextEditingController serverUrlController;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return AnimatedBuilder(
+      animation: serverUrlController,
+      builder: (context, _) {
+        final value = serverUrlController.text.trim();
+        final isHttps = value.startsWith('https://');
+        final isPrivate = _looksLikePrivateEndpoint(value);
+        final isValidScope = value.isNotEmpty && (isHttps || isPrivate);
+        final completed = [
+          isValidScope,
+          true,
+          value.isNotEmpty,
+          true,
+        ].where((ready) => ready).length;
+        final readinessLabel = isLoading
+            ? '验证中'
+            : completed >= 4
+            ? '可连接'
+            : value.isEmpty
+            ? '待输入'
+            : '需加固';
+        final readinessColor = isLoading
+            ? colorScheme.tertiary
+            : completed >= 4
+            ? financeColors.income
+            : value.isEmpty
+            ? colorScheme.outline
+            : financeColors.warning;
+
+        return AnimatedContainer(
+          key: const ValueKey('server-release-readiness-panel'),
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              readinessColor.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.16
+                    : 0.07,
+              ),
+              colorScheme.surface,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: readinessColor.withValues(alpha: 0.16)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: Icons.fact_check_outlined,
+                    color: readinessColor,
+                    size: 40,
+                    iconSize: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '部署就绪检查',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$completed/4 项已满足，面向 Web、iOS、Android 共用同一服务',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                height: 1.35,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _TopologyStatusPill(
+                    icon: completed >= 4
+                        ? Icons.verified_outlined
+                        : Icons.tune_outlined,
+                    label: readinessLabel,
+                    color: readinessColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  minHeight: 8,
+                  value: completed / 4,
+                  color: readinessColor,
+                  backgroundColor: colorScheme.outlineVariant.withValues(
+                    alpha: 0.42,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ServerReadinessChip(
+                    icon: isValidScope
+                        ? Icons.enhanced_encryption_outlined
+                        : Icons.lock_open_outlined,
+                    label: isValidScope ? '地址可信' : '地址待确认',
+                    color: isValidScope
+                        ? financeColors.income
+                        : financeColors.warning,
+                  ),
+                  _ServerReadinessChip(
+                    icon: Icons.admin_panel_settings_outlined,
+                    label: '初始化只一次',
+                    color: financeColors.income,
+                  ),
+                  _ServerReadinessChip(
+                    icon: value.isEmpty
+                        ? Icons.devices_other_outlined
+                        : Icons.sync_alt_outlined,
+                    label: value.isEmpty ? '等待跨端绑定' : '跨端可复用',
+                    color: value.isEmpty
+                        ? colorScheme.outline
+                        : financeColors.asset,
+                  ),
+                  _ServerReadinessChip(
+                    icon: Icons.cloud_sync_outlined,
+                    label: '备份恢复预留',
+                    color: financeColors.brand,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ServerReadinessChip extends StatelessWidget {
+  const _ServerReadinessChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface,
               fontWeight: FontWeight.w800,
             ),
           ),

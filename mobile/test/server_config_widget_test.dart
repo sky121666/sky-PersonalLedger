@@ -43,6 +43,16 @@ void main() {
       expect(find.text('Web'), findsOneWidget);
       expect(find.text('iOS'), findsOneWidget);
       expect(find.text('Android'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('server-release-readiness-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('部署就绪检查'), findsOneWidget);
+      expect(find.text('待输入'), findsOneWidget);
+      expect(find.text('地址待确认'), findsOneWidget);
+      expect(find.text('初始化只一次'), findsOneWidget);
+      expect(find.text('等待跨端绑定'), findsOneWidget);
+      expect(find.text('备份恢复预留'), findsOneWidget);
     });
 
     testWidgets('提交服务器地址时调用连接流程', (tester) async {
@@ -57,6 +67,9 @@ void main() {
       expect(find.text('地址就绪'), findsOneWidget);
       expect(find.text('需 HTTPS'), findsOneWidget);
       expect(find.text('公开域名'), findsOneWidget);
+      expect(find.text('部署就绪检查'), findsOneWidget);
+      expect(find.text('需加固'), findsOneWidget);
+      expect(find.text('跨端可复用'), findsOneWidget);
       await _scrollIntoTapArea(tester, find.text('连接'));
       await tester.tap(find.text('连接'));
       await tester.pumpAndSettle();
