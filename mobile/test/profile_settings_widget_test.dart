@@ -50,6 +50,15 @@ void main() {
         find.byKey(const ValueKey('profile-settings-theme-studio')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('profile-settings-theme-curation-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('推荐主题策展'), findsOneWidget);
+      expect(find.text('3 个高频场景'), findsOneWidget);
+      expect(find.text('旗舰夜间使用'), findsOneWidget);
+      expect(find.text('前卫数据流'), findsOneWidget);
+      expect(find.text('动效先锋界面'), findsOneWidget);
       expect(find.text('模式同步'), findsOneWidget);
       expect(find.text('语义色板'), findsOneWidget);
       expect(find.text('跨端预览'), findsOneWidget);
@@ -65,7 +74,15 @@ void main() {
       expect(find.text('支出色'), findsOneWidget);
       expect(find.text('警示色'), findsOneWidget);
       expect(find.text('浅色模式'), findsOneWidget);
-      expect(find.text('黑曜蓝'), findsOneWidget);
+      expect(find.text('黑曜蓝'), findsWidgets);
+
+      await tester.tap(
+        find.byKey(const ValueKey('profile-settings-featured-theme-plasma')),
+      );
+      await tester.pumpAndSettle();
+      var preferences = await SharedPreferences.getInstance();
+      expect(preferences.getString('app_theme_palette'), 'plasma');
+      expect(find.text('电浆蓝'), findsWidgets);
 
       await tester.tap(find.text('深色模式'));
       await tester.pumpAndSettle();
@@ -80,7 +97,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final preferences = await SharedPreferences.getInstance();
+      preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
       expect(preferences.getString('app_theme_palette'), 'obsidian');
       expect(find.text('当前模板'), findsOneWidget);

@@ -164,6 +164,42 @@ enum AppThemePalette {
   }
 }
 
+extension AppThemePaletteCuration on AppThemePalette {
+  String get sceneLabel {
+    return switch (this) {
+      AppThemePalette.teal => '长期稳健记账',
+      AppThemePalette.graphite => '专业资产面板',
+      AppThemePalette.indigo => 'AI 分析场景',
+      AppThemePalette.emerald => '轻量家庭日常',
+      AppThemePalette.amber => '温暖账本复盘',
+      AppThemePalette.cyan => '清透数据看板',
+      AppThemePalette.violet => '高端设备动效',
+      AppThemePalette.rose => '精致暗调记录',
+      AppThemePalette.slate => '商务低饱和',
+      AppThemePalette.aurora => '前卫数据流',
+      AppThemePalette.obsidian => '旗舰夜间使用',
+      AppThemePalette.plasma => '动效先锋界面',
+    };
+  }
+
+  String get platformCue {
+    return switch (this) {
+      AppThemePalette.teal => '默认',
+      AppThemePalette.graphite => '桌面感',
+      AppThemePalette.indigo => 'AI',
+      AppThemePalette.emerald => '家庭',
+      AppThemePalette.amber => '复盘',
+      AppThemePalette.cyan => '看板',
+      AppThemePalette.violet => 'iOS',
+      AppThemePalette.rose => '暗调',
+      AppThemePalette.slate => '商务',
+      AppThemePalette.aurora => '跨端',
+      AppThemePalette.obsidian => '夜间',
+      AppThemePalette.plasma => '动效',
+    };
+  }
+}
+
 class AppTheme {
   static const Color seedColor = Color(0xFF0F766E);
   static const Color incomeColor = Color(0xFF059669);

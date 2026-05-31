@@ -1385,10 +1385,14 @@ void main() {
         expect(find.text('模板数量'), findsOneWidget);
         expect(find.text('12 套'), findsOneWidget);
         expect(find.text('模式同步'), findsOneWidget);
+        expect(find.text('推荐主题策展'), findsOneWidget);
+        expect(find.text('3 个高频场景'), findsOneWidget);
+        expect(find.text('旗舰夜间使用'), findsOneWidget);
+        expect(find.text('动效先锋界面'), findsOneWidget);
         expect(find.text('财务语义预览'), findsOneWidget);
         expect(find.text('周报高光'), findsOneWidget);
         expect(find.text('预算状态'), findsOneWidget);
-        expect(find.text('黑曜蓝'), findsOneWidget);
+        expect(find.text('黑曜蓝'), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,

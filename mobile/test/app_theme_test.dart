@@ -48,6 +48,15 @@ void main() {
       expect(financeColors?.warning, AppThemePalette.graphite.warningColor);
     });
 
+    test('主题模板提供设置页策展语义', () {
+      expect(AppThemePalette.obsidian.sceneLabel, '旗舰夜间使用');
+      expect(AppThemePalette.aurora.sceneLabel, '前卫数据流');
+      expect(AppThemePalette.plasma.sceneLabel, '动效先锋界面');
+      expect(AppThemePalette.obsidian.platformCue, '夜间');
+      expect(AppThemePalette.aurora.platformCue, '跨端');
+      expect(AppThemePalette.plasma.platformCue, '动效');
+    });
+
     test('输入框视觉跟随主题模板', () {
       final theme = AppTheme.lightTheme(AppThemePalette.plasma);
       final inputTheme = theme.inputDecorationTheme;
