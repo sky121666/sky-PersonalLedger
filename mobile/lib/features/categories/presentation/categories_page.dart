@@ -652,76 +652,95 @@ class _CategoryCard extends ConsumerWidget {
   /// 构建分类卡片。
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final color = _parseColor(
-      category.color,
-      Theme.of(context).colorScheme.primary,
-    );
-    return PremiumSurface(
-      accentColor: color,
-      padding: EdgeInsets.zero,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => _openEdit(context),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    IconBadge(
-                      icon: _categoryIconData(category.icon),
-                      color: color,
-                      size: 42,
-                      iconSize: 22,
-                    ),
-                    const Spacer(),
-                    PopupMenuButton<_CategoryAction>(
-                      onSelected: (action) =>
-                          _handleAction(context, ref, action),
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(
-                          value: _CategoryAction.edit,
-                          child: Text('编辑'),
-                        ),
-                        PopupMenuItem(
-                          value: _CategoryAction.delete,
-                          child: Text('删除'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Text(
-                  category.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = _parseColor(category.color, colorScheme.primary);
+    final typeColor = category.type == CategoryType.expense
+        ? AppTheme.financeColors(context).expense
+        : AppTheme.financeColors(context).income;
+    return Semantics(
+      label:
+          '${category.name}，${category.type.label}分类，${category.isSystem ? '系统分类' : '自定义分类'}',
+      button: true,
+      child: PremiumSurface(
+        key: ValueKey('category-card-${category.id}'),
+        accentColor: color,
+        padding: EdgeInsets.zero,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _openEdit(context),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      IconBadge(
+                        icon: _categoryIconData(category.icon),
+                        color: color,
+                        size: 42,
+                        iconSize: 22,
+                      ),
+                      const Spacer(),
+                      _CategoryStatusDot(color: color),
+                      PopupMenuButton<_CategoryAction>(
+                        onSelected: (action) =>
+                            _handleAction(context, ref, action),
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: _CategoryAction.edit,
+                            child: Text('编辑'),
+                          ),
+                          PopupMenuItem(
+                            value: _CategoryAction.delete,
+                            child: Text('删除'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    category.isSystem ? '系统分类' : '自定义分类',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w700,
+                  const SizedBox(height: 12),
+                  Text(
+                    category.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _CategoryCardPill(
+                        icon: category.type == CategoryType.expense
+                            ? Icons.remove_circle_outline
+                            : Icons.add_circle_outline,
+                        label: category.type.label,
+                        color: typeColor,
+                      ),
+                      _CategoryCardPill(
+                        icon: category.isSystem
+                            ? Icons.verified_outlined
+                            : Icons.tune_outlined,
+                        label: category.isSystem ? '系统分类' : '自定义分类',
+                        color: color,
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  _CategorySignalPanel(
+                    color: color,
+                    icon: _categoryIconData(category.icon),
+                    title: category.isSystem ? '稳定基础' : '个性归类',
+                    caption: category.isSystem ? '系统预设' : '用户维护',
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -777,6 +796,155 @@ class _CategoryCard extends ConsumerWidget {
           }
         }
     }
+  }
+}
+
+class _CategoryStatusDot extends StatelessWidget {
+  const _CategoryStatusDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 9,
+      height: 9,
+      margin: const EdgeInsets.only(top: 12, right: 2),
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategorySignalPanel extends StatelessWidget {
+  const _CategorySignalPanel({
+    required this.color,
+    required this.icon,
+    required this.title,
+    required this.caption,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String title;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      key: ValueKey('category-signal-$title'),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 17, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryCardPill extends StatelessWidget {
+  const _CategoryCardPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 28, maxWidth: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -20,6 +20,18 @@ void main() {
       expect(find.text('系统分类'), findsOneWidget);
       expect(find.text('交通'), findsOneWidget);
       expect(find.text('自定义分类'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('category-card-cat-food')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('category-card-cat-traffic')),
+        findsOneWidget,
+      );
+      expect(find.text('稳定基础'), findsOneWidget);
+      expect(find.text('个性归类'), findsOneWidget);
+      expect(find.text('系统预设'), findsOneWidget);
+      expect(find.text('用户维护'), findsOneWidget);
     });
 
     testWidgets('分类头部和卡片使用分段入场动效', (tester) async {
