@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/bootstrap/presentation/bootstrap_page.dart';
 
 void main() {
@@ -21,7 +22,12 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('正在准备账本环境'), findsOneWidget);
+    expect(find.text('本机配置'), findsOneWidget);
+    expect(find.text('连接入口'), findsOneWidget);
+    expect(find.text('安全上下文'), findsOneWidget);
+    expect(find.byType(PremiumSurface), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
     await tester.pumpAndSettle();
 
