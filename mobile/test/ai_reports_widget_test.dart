@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/ai/data/ai_report_repository.dart';
 import 'package:personal_ledger/features/ai/presentation/ai_reports_page.dart';
@@ -60,6 +61,72 @@ void main() {
     expect(find.text('账户变化'), findsOneWidget);
     expect(find.text('账户1'), findsOneWidget);
     expect(find.text('+¥380.00'), findsOneWidget);
+  });
+
+  testWidgets('AIReportsPage 跟随主题色模板', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          aiReportsProvider.overrideWith((ref) async {
+            return const [
+              AIReportSummary(
+                id: 'report-1',
+                reportType: 'weekly',
+                status: 'completed',
+                periodStart: '2026-05-18T00:00:00Z',
+                periodEnd: '2026-05-24T23:59:59Z',
+                providerName: 'DeepSeek',
+                model: 'deepseek-v4-flash',
+                contentJson:
+                    '{"summary":"支出可控","highlights":["净现金流为正"],"risks":["预算偏高"],"suggestions":["继续记录"]}',
+                snapshotJson:
+                    '{"account_changes":[{"account_name":"账户1","balance_delta":380}]}',
+              ),
+            ];
+          }),
+          aiReportScheduleProvider.overrideWith(
+            (ref) async => const AIReportScheduleSettings(),
+          ),
+          aiProviderSetupProvider.overrideWith(
+            (ref) async =>
+                const AIProviderSetupData(presets: [], providers: []),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme(AppThemePalette.graphite),
+          darkTheme: AppTheme.darkTheme(AppThemePalette.graphite),
+          home: const AIReportsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('DeepSeek / deepseek-v4-flash'),
+      300,
+    );
+
+    final surfaces = tester.widgetList<PremiumSurface>(
+      find.byType(PremiumSurface),
+    );
+    expect(
+      surfaces.any(
+        (surface) => surface.accentColor == AppThemePalette.graphite.assetColor,
+      ),
+      isTrue,
+    );
+
+    await tester.tap(find.text('DeepSeek / deepseek-v4-flash'));
+    await tester.pumpAndSettle();
+
+    final highlightIcon = tester.widget<Icon>(
+      find.byIcon(Icons.trending_up_outlined).first,
+    );
+    final riskIcon = tester.widget<Icon>(
+      find.byIcon(Icons.warning_amber_outlined).first,
+    );
+    expect(highlightIcon.color, AppThemePalette.graphite.incomeColor);
+    expect(riskIcon.color, AppThemePalette.graphite.warningColor);
   });
 
   testWidgets('AIReportsPage 空态可见', (tester) async {

@@ -1121,9 +1121,10 @@ class _AIReportsEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return Center(
       child: PremiumSurface(
-        accentColor: AppTheme.assetColor,
+        accentColor: financeColors.asset,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1239,12 +1240,13 @@ class _AIReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     final parsed = AIReportContentData.parse(report);
     final snapshot = AIReportSnapshotData.parse(report.snapshotJson);
     final isFailed = report.status == 'failed';
     return PremiumSurface(
       padding: EdgeInsets.zero,
-      accentColor: isFailed ? colorScheme.error : AppTheme.assetColor,
+      accentColor: isFailed ? colorScheme.error : financeColors.asset,
       child: Theme(
         data: Theme.of(context).copyWith(
           dividerColor: Colors.transparent,
@@ -1385,8 +1387,9 @@ class _AIReportStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     final color = switch (status) {
-      'completed' => AppTheme.incomeColor,
+      'completed' => financeColors.income,
       'running' => colorScheme.primary,
       'failed' => colorScheme.error,
       _ => colorScheme.outline,
@@ -1417,6 +1420,7 @@ class _AIReportContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     if (data.summary.isEmpty &&
         data.highlights.isEmpty &&
         data.risks.isEmpty &&
@@ -1435,7 +1439,7 @@ class _AIReportContent extends StatelessWidget {
           _AIReportSection(
             title: '重点',
             icon: Icons.trending_up_outlined,
-            color: AppTheme.incomeColor,
+            color: financeColors.income,
             items: data.highlights,
           ),
         ],
@@ -1444,7 +1448,7 @@ class _AIReportContent extends StatelessWidget {
           _AIReportSection(
             title: '风险',
             icon: Icons.warning_amber_outlined,
-            color: AppTheme.warningColor,
+            color: financeColors.warning,
             items: data.risks,
           ),
         ],
@@ -1605,7 +1609,8 @@ String _formatSignedMoney(double value) {
 }
 
 Color _moneyToneColor(BuildContext context, double value) {
-  if (value > 0) return AppTheme.incomeColor;
-  if (value < 0) return AppTheme.expenseColor;
+  final financeColors = AppTheme.financeColors(context);
+  if (value > 0) return financeColors.income;
+  if (value < 0) return financeColors.expense;
   return Theme.of(context).colorScheme.outline;
 }

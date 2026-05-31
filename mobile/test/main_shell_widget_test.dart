@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/features/main/presentation/main_shell_page.dart';
 
 void main() {
@@ -49,6 +50,44 @@ void main() {
     await tester.tap(find.text('记一笔'));
     await tester.pumpAndSettle();
     expect(find.text('quick-content'), findsOneWidget);
+  });
+
+  testWidgets('MainShellPage 宽屏侧栏跟随主题色模板', (tester) async {
+    tester.view.physicalSize = const Size(1024, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = GoRouter(
+      initialLocation: AppRoutePaths.home,
+      routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) =>
+              MainShellPage(navigationShell: navigationShell),
+          branches: [
+            _branch(AppRoutePaths.home, 'home-content'),
+            _branch(AppRoutePaths.transactions, 'transactions-content'),
+            _branch(AppRoutePaths.statistics, 'statistics-content'),
+            _branch(AppRoutePaths.profile, 'profile-content'),
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        theme: AppTheme.lightTheme(AppThemePalette.graphite),
+        darkTheme: AppTheme.darkTheme(AppThemePalette.graphite),
+        routerConfig: router,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    final brandIcon = tester.widget<Icon>(
+      find.byIcon(Icons.account_balance_wallet_outlined).first,
+    );
+    expect(brandIcon.color, AppThemePalette.graphite.assetColor);
   });
 }
 

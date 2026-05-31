@@ -199,6 +199,7 @@ class _PremiumNavigationRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return SafeArea(
       right: false,
       child: Padding(
@@ -226,12 +227,12 @@ class _PremiumNavigationRail extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppTheme.assetColor.withValues(alpha: 0.14),
+                    color: financeColors.asset.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.account_balance_wallet_outlined,
-                    color: AppTheme.assetColor,
+                    color: financeColors.asset,
                   ),
                 ),
               ),
