@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/auth_flow_shell.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../application/auth_controller.dart';
 
 class SetupPasswordPage extends ConsumerStatefulWidget {
@@ -68,6 +69,12 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
       children: [
         _SetupAssuranceRail(accentColor: accentColor),
         const SizedBox(height: 14),
+        _SetupInitializationMatrix(
+          passwordController: _passwordController,
+          confirmPasswordController: _confirmPasswordController,
+          accentColor: accentColor,
+        ),
+        const SizedBox(height: 14),
         _SetupPasswordSignalDeck(
           passwordController: _passwordController,
           confirmPasswordController: _confirmPasswordController,
@@ -129,6 +136,216 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
           label: const Text('完成设置'),
         ),
       ],
+    );
+  }
+}
+
+class _SetupInitializationMatrix extends StatelessWidget {
+  const _SetupInitializationMatrix({
+    required this.passwordController,
+    required this.confirmPasswordController,
+    required this.accentColor,
+  });
+
+  final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        passwordController,
+        confirmPasswordController,
+      ]),
+      builder: (context, _) {
+        final password = passwordController.text;
+        final confirm = confirmPasswordController.text;
+        final lengthReady = password.length >= 8;
+        final matched =
+            password.isNotEmpty && confirm.isNotEmpty && password == confirm;
+        final ready = lengthReady && matched;
+        final stateColor = ready ? financeColors.income : accentColor;
+        final tiles = [
+          _SetupMatrixTileData(
+            icon: Icons.looks_one_outlined,
+            title: '初始化边界',
+            value: '一次性',
+            caption: '创建后锁定',
+            color: accentColor,
+          ),
+          _SetupMatrixTileData(
+            icon: Icons.password_outlined,
+            title: '密码强度',
+            value: lengthReady ? '已达标' : '${password.length}/8',
+            caption: '至少 8 位',
+            color: lengthReady ? financeColors.income : colorScheme.outline,
+          ),
+          _SetupMatrixTileData(
+            icon: matched
+                ? Icons.verified_user_outlined
+                : Icons.rule_folder_outlined,
+            title: '二次确认',
+            value: matched ? '一致' : '待确认',
+            caption: '阻断误设',
+            color: matched ? financeColors.income : accentColor,
+          ),
+        ];
+        return PremiumSurface(
+          key: const ValueKey('setup-initialization-matrix'),
+          accentColor: stateColor,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: Icons.grid_view_rounded,
+                    color: stateColor,
+                    size: 38,
+                    iconSize: 19,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '初始化控制矩阵',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  _SetupMatrixPill(
+                    label: ready ? '可初始化' : '待校验',
+                    color: stateColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  for (final entry in tiles.indexed) ...[
+                    Expanded(child: _SetupMatrixTile(data: entry.$2)),
+                    if (entry.$1 != tiles.length - 1) const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SetupMatrixTileData {
+  const _SetupMatrixTileData({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.caption,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String caption;
+  final Color color;
+}
+
+class _SetupMatrixTile extends StatelessWidget {
+  const _SetupMatrixTile({required this.data});
+
+  final _SetupMatrixTileData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 84),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          data.color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: data.color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(data.icon, color: data.color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            data.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            data.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          _SetupMatrixPill(label: data.caption, color: data.color),
+        ],
+      ),
+    );
+  }
+}
+
+class _SetupMatrixPill extends StatelessWidget {
+  const _SetupMatrixPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 26, maxWidth: 108),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }

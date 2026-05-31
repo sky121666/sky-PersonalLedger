@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/auth_flow_shell.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../application/auth_controller.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -59,6 +60,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       children: [
         _LoginAssuranceRail(accentColor: accentColor),
         const SizedBox(height: 14),
+        _LoginAccessMatrix(
+          controller: _passwordController,
+          accentColor: accentColor,
+        ),
+        const SizedBox(height: 14),
         _LoginSessionSignalDeck(
           controller: _passwordController,
           accentColor: accentColor,
@@ -97,6 +103,204 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           label: const Text('登录'),
         ),
       ],
+    );
+  }
+}
+
+class _LoginAccessMatrix extends StatelessWidget {
+  const _LoginAccessMatrix({
+    required this.controller,
+    required this.accentColor,
+  });
+
+  final TextEditingController controller;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final ready = controller.text.length >= 6;
+        final stateColor = ready ? financeColors.income : colorScheme.outline;
+        final tiles = [
+          _LoginAccessTileData(
+            icon: Icons.dns_outlined,
+            title: '私有服务',
+            value: '已绑定',
+            caption: '独立数据源',
+            color: accentColor,
+          ),
+          _LoginAccessTileData(
+            icon: Icons.phonelink_lock_outlined,
+            title: '本设备',
+            value: '会话解锁',
+            caption: '本机安全态',
+            color: financeColors.asset,
+          ),
+          _LoginAccessTileData(
+            icon: ready ? Icons.verified_outlined : Icons.lock_clock_outlined,
+            title: '密码闸门',
+            value: ready ? '可登录' : '${controller.text.length}/6',
+            caption: '输入校验',
+            color: stateColor,
+          ),
+        ];
+        return PremiumSurface(
+          key: const ValueKey('login-access-matrix'),
+          accentColor: stateColor,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: Icons.grid_view_rounded,
+                    color: stateColor,
+                    size: 38,
+                    iconSize: 19,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '访问控制矩阵',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  _LoginMatrixPill(
+                    label: ready ? '就绪' : '待解锁',
+                    color: stateColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  for (final entry in tiles.indexed) ...[
+                    Expanded(child: _LoginAccessTile(data: entry.$2)),
+                    if (entry.$1 != tiles.length - 1) const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LoginAccessTileData {
+  const _LoginAccessTileData({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.caption,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String caption;
+  final Color color;
+}
+
+class _LoginAccessTile extends StatelessWidget {
+  const _LoginAccessTile({required this.data});
+
+  final _LoginAccessTileData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 84),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          data.color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: data.color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(data.icon, color: data.color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            data.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            data.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          _LoginMatrixPill(label: data.caption, color: data.color),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginMatrixPill extends StatelessWidget {
+  const _LoginMatrixPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 26, maxWidth: 108),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }
