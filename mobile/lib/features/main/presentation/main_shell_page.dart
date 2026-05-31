@@ -351,6 +351,7 @@ class _PremiumNavigationRail extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: NavigationRail(
+              key: const ValueKey('main-shell-navigation-rail'),
               minWidth: 92,
               backgroundColor: Colors.transparent,
               selectedIndex: selectedIndex,
@@ -374,26 +375,38 @@ class _PremiumNavigationRail extends StatelessWidget {
                   ),
                 ),
               ),
-              destinations: const [
+              destinations: [
                 NavigationRailDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded),
-                  label: Text('首页'),
+                  icon: const Icon(Icons.home_outlined),
+                  selectedIcon: const Icon(Icons.home_rounded),
+                  label: const Text(
+                    '首页',
+                    key: ValueKey('main-shell-rail-home'),
+                  ),
                 ),
                 NavigationRailDestination(
-                  icon: Icon(Icons.receipt_long_outlined),
-                  selectedIcon: Icon(Icons.receipt_long_rounded),
-                  label: Text('明细'),
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  selectedIcon: const Icon(Icons.receipt_long_rounded),
+                  label: const Text(
+                    '明细',
+                    key: ValueKey('main-shell-rail-transactions'),
+                  ),
                 ),
                 NavigationRailDestination(
-                  icon: Icon(Icons.bar_chart_outlined),
-                  selectedIcon: Icon(Icons.bar_chart_rounded),
-                  label: Text('统计'),
+                  icon: const Icon(Icons.bar_chart_outlined),
+                  selectedIcon: const Icon(Icons.bar_chart_rounded),
+                  label: const Text(
+                    '统计',
+                    key: ValueKey('main-shell-rail-statistics'),
+                  ),
                 ),
                 NavigationRailDestination(
-                  icon: Icon(Icons.person_outline),
-                  selectedIcon: Icon(Icons.person_rounded),
-                  label: Text('我的'),
+                  icon: const Icon(Icons.person_outline),
+                  selectedIcon: const Icon(Icons.person_rounded),
+                  label: const Text(
+                    '我的',
+                    key: ValueKey('main-shell-rail-profile'),
+                  ),
                 ),
               ],
             ),

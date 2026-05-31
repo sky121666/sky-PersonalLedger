@@ -149,10 +149,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(NavigationRail), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('main-shell-navigation-rail')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('main-shell-rail-statistics')),
+      findsOneWidget,
+    );
     final brandIcon = tester.widget<Icon>(
       find.byIcon(Icons.account_balance_wallet_outlined).first,
     );
     expect(brandIcon.color, AppThemePalette.graphite.assetColor);
+
+    await tester.tap(find.byKey(const ValueKey('main-shell-rail-statistics')));
+    await tester.pumpAndSettle();
+    expect(find.text('statistics-content'), findsOneWidget);
   });
 }
 
