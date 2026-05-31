@@ -120,6 +120,8 @@ void main() {
     expect(find.text('资产色'), findsOneWidget);
     expect(find.text('支出色'), findsOneWidget);
     expect(find.text('警示色'), findsOneWidget);
+    expect(find.text('预算洞察输入框'), findsOneWidget);
+    expect(find.text('分析'), findsOneWidget);
   });
 
   testWidgets('ProfilePage 设置入口跟随主题色模板', (tester) async {
@@ -203,6 +205,7 @@ const _entryLabels = [
   '模板矩阵',
   '模式控制',
   '财务语义',
+  '预算洞察输入框',
   '静谧墨绿',
   '石墨蓝',
   '冰川青',

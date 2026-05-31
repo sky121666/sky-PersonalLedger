@@ -768,6 +768,73 @@ class _ThemeLivePreview extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _PreviewInputToken(palette: palette),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviewInputToken extends StatelessWidget {
+  const _PreviewInputToken({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          palette.seedColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surfaceContainerHighest,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.seedColor.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.manage_search_outlined,
+            color: palette.seedColor,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '预算洞察输入框',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: palette.seedColor,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '分析',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onPrimary,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
         ],
       ),
     );
