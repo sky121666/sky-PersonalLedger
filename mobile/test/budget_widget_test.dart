@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/budgets/presentation/budget_page.dart';
 import 'package:personal_ledger/features/categories/application/category_controller.dart';
@@ -128,13 +130,34 @@ void main() {
       expect(find.text('总预算已保存'), findsNothing);
       expect(find.text('¥1800.00'), findsOneWidget);
     });
+
+    testWidgets('预算页资产面板跟随主题色模板', (tester) async {
+      final budgetRepository = _FakeBudgetRepository();
+      await _pumpPage(
+        tester,
+        budgetRepository,
+        palette: AppThemePalette.graphite,
+      );
+
+      final surfaces = tester.widgetList<PremiumSurface>(
+        find.byType(PremiumSurface),
+      );
+      expect(
+        surfaces.any(
+          (surface) =>
+              surface.accentColor == AppThemePalette.graphite.assetColor,
+        ),
+        isTrue,
+      );
+    });
   });
 }
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeBudgetRepository budgetRepository,
-) async {
+  _FakeBudgetRepository budgetRepository, {
+  AppThemePalette palette = AppThemePalette.teal,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -158,7 +181,11 @@ Future<void> _pumpPage(
           ];
         }),
       ],
-      child: const MaterialApp(home: BudgetPage()),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        home: const BudgetPage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

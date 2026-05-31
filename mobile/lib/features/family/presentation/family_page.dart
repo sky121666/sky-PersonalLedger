@@ -129,9 +129,10 @@ class _FamilyEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return Center(
       child: PremiumSurface(
-        accentColor: AppTheme.assetColor,
+        accentColor: financeColors.asset,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -181,13 +182,14 @@ class _FamilySummaryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final enabledCount = members.where((member) => member.isEnabled).length;
     final month = summary?.month.isNotEmpty == true ? summary!.month : '本月';
     return Row(
       children: [
         Expanded(
           child: PremiumSurface(
-            accentColor: AppTheme.incomeColor,
+            accentColor: financeColors.income,
             child: _FamilyMetric(
               label: '启用成员',
               value: '$enabledCount',
@@ -199,7 +201,7 @@ class _FamilySummaryHeader extends StatelessWidget {
         Expanded(
           flex: 2,
           child: PremiumSurface(
-            accentColor: AppTheme.warningColor,
+            accentColor: financeColors.warning,
             child: _FamilyMetric(
               label: '$month 家庭支出',
               value: loadingSummary
@@ -221,6 +223,7 @@ class _FamilyBudgetSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final totalAmount = budgets.fold<double>(
       0,
       (sum, budget) => sum + budget.amount,
@@ -232,7 +235,7 @@ class _FamilyBudgetSurface extends StatelessWidget {
     final remaining = totalAmount - totalSpent;
     final visibleBudgets = budgets.take(3).toList();
     return PremiumSurface(
-      accentColor: AppTheme.warningColor,
+      accentColor: financeColors.warning,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -383,12 +386,13 @@ class _FamilyCategorySurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final visibleMembers = statistics.members
         .where((member) => member.categories.isNotEmpty)
         .take(4)
         .toList();
     return PremiumSurface(
-      accentColor: AppTheme.assetColor,
+      accentColor: financeColors.asset,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -521,10 +525,11 @@ class _FamilyRankingSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final ranked = [...summary.members]
       ..sort((a, b) => b.expenseTotal.compareTo(a.expenseTotal));
     return PremiumSurface(
-      accentColor: AppTheme.assetColor,
+      accentColor: financeColors.asset,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -607,6 +612,7 @@ class _FamilyMemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final accent = _memberColor(context, member.color);
     final colorScheme = Theme.of(context).colorScheme;
     final relationship = member.relationship.isEmpty
@@ -665,10 +671,10 @@ class _FamilyMemberCard extends StatelessWidget {
             alignment: WrapAlignment.end,
             children: [
               if (member.isDefault)
-                const _MemberStateChip(
+                _MemberStateChip(
                   label: '默认',
                   icon: Icons.check_circle_outline,
-                  color: AppTheme.incomeColor,
+                  color: financeColors.income,
                 ),
               _MemberStateChip(
                 label: member.isEnabled ? '启用' : '停用',
@@ -676,7 +682,7 @@ class _FamilyMemberCard extends StatelessWidget {
                     ? Icons.person_outline
                     : Icons.person_off_outlined,
                 color: member.isEnabled
-                    ? AppTheme.assetColor
+                    ? financeColors.asset
                     : colorScheme.outline,
               ),
             ],
@@ -737,13 +743,14 @@ Color _memberColor(BuildContext context, String color) {
 
 Color _budgetStatusColor(BuildContext context, double percentage) {
   final colorScheme = Theme.of(context).colorScheme;
+  final financeColors = AppTheme.financeColors(context);
   if (percentage >= 100) {
     return colorScheme.error;
   }
   if (percentage >= 80) {
-    return AppTheme.warningColor;
+    return financeColors.warning;
   }
-  return AppTheme.incomeColor;
+  return financeColors.income;
 }
 
 String _formatMoney(double value) {

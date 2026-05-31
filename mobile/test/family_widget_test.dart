@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/family/data/family_repository.dart';
@@ -140,5 +141,27 @@ void main() {
 
     expect(find.text('还没有家庭成员'), findsOneWidget);
     expect(find.text('添加成员'), findsOneWidget);
+  });
+
+  testWidgets('FamilyPage 空态跟随主题色模板', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          familyMembersProvider.overrideWith((ref) async => const []),
+          memberBudgetsProvider.overrideWith((ref) async => const []),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme(AppThemePalette.graphite),
+          darkTheme: AppTheme.darkTheme(AppThemePalette.graphite),
+          home: const FamilyPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final surface = tester.widget<PremiumSurface>(
+      find.byType(PremiumSurface).first,
+    );
+    expect(surface.accentColor, AppThemePalette.graphite.assetColor);
   });
 }

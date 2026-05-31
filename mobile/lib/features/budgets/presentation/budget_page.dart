@@ -433,6 +433,7 @@ class _BudgetSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final totalBudget = budget;
     final used = totalBudget?.spent ?? 0;
     final amount = totalBudget?.amount ?? 0;
@@ -526,13 +527,13 @@ class _BudgetSummaryCard extends StatelessWidget {
                   label: '预算金额',
                   value: _formatMoney(amount),
                   icon: Icons.account_balance_wallet_outlined,
-                  color: AppTheme.assetColor,
+                  color: financeColors.asset,
                 ),
                 MetricPill(
                   label: '已用',
                   value: _formatMoney(used),
                   icon: Icons.local_fire_department_outlined,
-                  color: AppTheme.expenseColor,
+                  color: financeColors.expense,
                 ),
                 MetricPill(
                   label: '提醒线',
@@ -563,8 +564,9 @@ class _TotalBudgetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalBudget = budget;
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
-      accentColor: AppTheme.assetColor,
+      accentColor: financeColors.asset,
       child: Padding(
         padding: EdgeInsets.zero,
         child: Column(
@@ -1341,13 +1343,14 @@ String _formatMoney(double value) {
 }
 
 Color _budgetStatusColor(BuildContext context, double percentage) {
+  final financeColors = AppTheme.financeColors(context);
   if (percentage >= 100) {
     return Theme.of(context).colorScheme.error;
   }
   if (percentage >= 80) {
-    return AppTheme.warningColor;
+    return financeColors.warning;
   }
-  return AppTheme.incomeColor;
+  return financeColors.income;
 }
 
 String _budgetStatusText(BudgetItem budget) {
