@@ -176,21 +176,21 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
           ],
           StaggeredEntrance(
             index: account == null ? 0 : 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                '共 $_total 条流水记录',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
+            child: _LogOverviewCard(
+              total: _total,
+              groupCount: groups.length,
+              hasMore: _hasMore,
+              account: account,
             ),
           ),
           const SizedBox(height: 12),
           for (final entry in groups.indexed) ...[
             StaggeredEntrance(
               index: (account == null ? 1 : 2) + entry.$1 * 2,
-              child: _DateHeader(date: entry.$2.date),
+              child: _DateHeader(
+                date: entry.$2.date,
+                count: entry.$2.logs.length,
+              ),
             ),
             const SizedBox(height: 8),
             StaggeredEntrance(
@@ -212,9 +212,23 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
             const SizedBox(height: 16),
           ],
           if (_hasMore)
-            OutlinedButton(
+            FilledButton.tonal(
               onPressed: _loadingMore ? null : _loadMore,
-              child: Text(_loadingMore ? '加载中...' : '加载更多'),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_loadingMore)
+                    const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    const Icon(Icons.expand_more),
+                  const SizedBox(width: 8),
+                  Text(_loadingMore ? '加载中...' : '加载更多'),
+                ],
+              ),
             )
           else
             Padding(
@@ -245,49 +259,193 @@ class _AccountSummaryCard extends StatelessWidget {
     );
     return PremiumSurface(
       accentColor: color,
-      padding: const EdgeInsets.all(20),
-      child: Row(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Center(
-              child: LedgerIcon(
-                icon: account.icon.isEmpty ? account.type : account.icon,
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  account.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: color.withValues(alpha: 0.18)),
+                ),
+                child: Center(
+                  child: LedgerIcon(
+                    icon: account.icon.isEmpty ? account.type : account.icon,
                   ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  '当前余额 ${_formatMoney(account.currentBalance)}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      account.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '当前余额 ${_formatMoney(account.currentBalance)}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                _formatMoney(account.currentBalance),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryPill(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: '账户类型',
+                  value: account.type,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SummaryPill(
+                  icon: Icons.timeline_outlined,
+                  label: '流水视图',
+                  value: '按日期归档',
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogOverviewCard extends StatelessWidget {
+  const _LogOverviewCard({
+    required this.total,
+    required this.groupCount,
+    required this.hasMore,
+    required this.account,
+  });
+
+  final int total;
+  final int groupCount;
+  final bool hasMore;
+  final Account? account;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final accent = account == null
+        ? financeColors.asset
+        : _parseColor(account!.color, financeColors.asset);
+    return PremiumSurface(
+      accentColor: accent,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: Icons.receipt_long_outlined,
+            color: accent,
+            size: 42,
+            iconSize: 21,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _SummaryPill(
+                  icon: Icons.format_list_numbered,
+                  label: '记录',
+                  value: '共 $total 条流水记录',
+                  color: accent,
+                ),
+                _SummaryPill(
+                  icon: Icons.calendar_month_outlined,
+                  label: '分组',
+                  value: '$groupCount 天',
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                _SummaryPill(
+                  icon: hasMore
+                      ? Icons.more_horiz_outlined
+                      : Icons.check_circle_outline,
+                  label: '状态',
+                  value: hasMore ? '可继续加载' : '已同步',
+                  color: hasMore ? financeColors.warning : financeColors.income,
                 ),
               ],
             ),
           ),
-          Text(
-            _formatMoney(account.currentBalance),
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryPill extends StatelessWidget {
+  const _SummaryPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '$label · $value',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -297,18 +455,49 @@ class _AccountSummaryCard extends StatelessWidget {
 }
 
 class _DateHeader extends StatelessWidget {
-  const _DateHeader({required this.date});
+  const _DateHeader({required this.date, required this.count});
 
   final DateTime date;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Text(
-        _formatGroupDate(date),
-        style: Theme.of(context).textTheme.titleSmall,
-      ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 15,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _formatGroupDate(date),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '$count 条',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

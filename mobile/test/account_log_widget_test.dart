@@ -38,6 +38,35 @@ void main() {
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
     });
 
+    testWidgets('账户流水概览展示记录数量和分组状态', (tester) async {
+      final repository = _FakeAccountLogRepository(
+        pages: {
+          1: AccountLogListResult(
+            list: [
+              _log(id: 'log-1', account: _account()),
+              _log(
+                id: 'log-2',
+                type: AccountLogType.expense,
+                balanceBefore: 1280,
+                balanceAfter: 1200,
+                remark: '午餐',
+                account: _account(),
+              ),
+            ],
+            total: 2,
+            page: 1,
+            pageSize: 50,
+          ),
+        },
+      );
+      await _pumpPage(tester, repository);
+
+      expect(find.text('记录 · 共 2 条流水记录'), findsOneWidget);
+      expect(find.text('分组 · 1 天'), findsOneWidget);
+      expect(find.text('状态 · 已同步'), findsOneWidget);
+      expect(find.text('2 条'), findsOneWidget);
+    });
+
     testWidgets('全量流水展示账户名称并支持加载更多', (tester) async {
       final repository = _FakeAccountLogRepository(
         pages: {
