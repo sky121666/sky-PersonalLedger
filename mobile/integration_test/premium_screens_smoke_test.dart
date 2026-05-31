@@ -914,20 +914,57 @@ void main() {
           'statistics-period-overview-${variant.name}',
         );
 
-        await tester.drag(find.byType(ListView).first, const Offset(0, -900));
-        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('现金流驾驶舱'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(
+          find.byKey(const ValueKey('statistics-data-cockpit')),
+          findsOneWidget,
+        );
+        expect(find.text('现金流驾驶舱'), findsOneWidget);
+        expect(find.text('可持续'), findsOneWidget);
+        expect(find.text('收入池'), findsOneWidget);
+        expect(find.text('支出池'), findsOneWidget);
+        expect(find.text('结余效率'), findsOneWidget);
+        expect(find.text('支出压力'), findsOneWidget);
+        expect(find.text('趋势覆盖'), findsOneWidget);
+        expect(find.text('首要分类'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+
+        await tester.scrollUntilVisible(
+          find.text('数据洞察台'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(
           find.byKey(const ValueKey('statistics-insight-deck')),
           findsOneWidget,
         );
         expect(find.text('数据洞察台'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('数据皮肤'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('数据皮肤'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('statistics-theme-data-strip')),
           findsOneWidget,
         );
         expect(find.text('现金流正向'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('收支趋势'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('收支趋势'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('分类排行'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('分类排行'), findsOneWidget);
         expect(find.text('餐饮'), findsOneWidget);
         expect(find.text('交通'), findsOneWidget);

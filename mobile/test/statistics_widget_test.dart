@@ -26,6 +26,18 @@ void main() {
       );
       expect(find.textContaining('周期指挥台'), findsOneWidget);
       expect(
+        find.byKey(const ValueKey('statistics-data-cockpit')),
+        findsOneWidget,
+      );
+      expect(find.text('现金流驾驶舱'), findsOneWidget);
+      expect(find.text('可持续'), findsOneWidget);
+      expect(find.text('收入池'), findsOneWidget);
+      expect(find.text('支出池'), findsOneWidget);
+      expect(find.text('结余效率'), findsOneWidget);
+      expect(find.text('支出压力'), findsOneWidget);
+      expect(find.text('趋势覆盖'), findsOneWidget);
+      expect(find.text('首要分类'), findsOneWidget);
+      expect(
         find.byKey(const ValueKey('statistics-insight-deck')),
         findsOneWidget,
       );
@@ -56,6 +68,10 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('周期指挥台'), findsOneWidget);
+      expect(find.text('现金流驾驶舱'), findsOneWidget);
+      expect(find.text('支出压力'), findsOneWidget);
+      expect(find.text('首要分类'), findsOneWidget);
+      expect(find.text('暂无分类'), findsOneWidget);
       expect(find.text('数据洞察台'), findsOneWidget);
       expect(find.text('数据皮肤'), findsOneWidget);
       expect(find.text('默认稳健'), findsOneWidget);
@@ -67,6 +83,7 @@ void main() {
       expect(find.text('支出变化'), findsOneWidget);
       expect(find.text('0 笔'), findsAtLeastNWidgets(1));
       expect(find.text('本月暂无趋势数据'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('本月暂无分类数据'), 300);
       expect(find.text('本月暂无分类数据'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
     });

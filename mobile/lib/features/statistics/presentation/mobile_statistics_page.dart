@@ -142,14 +142,22 @@ class _StatisticsContent extends StatelessWidget {
               index: 1,
               child: _OverviewCard(overview: dashboard.overview),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             StaggeredEntrance(
               index: 2,
-              child: _StatisticsInsightDeck(dashboard: dashboard),
+              child: _StatisticsDataCockpit(
+                dashboard: dashboard,
+                settings: themeSettings,
+              ),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 3,
+              child: _StatisticsInsightDeck(dashboard: dashboard),
+            ),
+            const SizedBox(height: 16),
+            StaggeredEntrance(
+              index: 4,
               child: _StatisticsThemeDataStrip(
                 dashboard: dashboard,
                 settings: themeSettings,
@@ -157,12 +165,12 @@ class _StatisticsContent extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 4,
+              index: 5,
               child: _TrendCard(trend: dashboard.trend),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 5,
+              index: 6,
               child: _CategoryRankCard(
                 response: dashboard.categories,
                 categoryType: categoryType,
@@ -490,6 +498,360 @@ class _StatisticsSignalPill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             _statisticsSignalLabel(overview.balance),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsDataCockpit extends StatelessWidget {
+  const _StatisticsDataCockpit({
+    required this.dashboard,
+    required this.settings,
+  });
+
+  final StatisticsDashboard dashboard;
+  final AppThemeSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final overview = dashboard.overview;
+    final palette = settings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final savingRate = _savingRate(overview);
+    final spendPressure = overview.income <= 0
+        ? 0.0
+        : (overview.expense / overview.income * 100).clamp(0.0, 999.0);
+    final trendCoverage = dashboard.trend.items.length;
+    final topCategory = dashboard.categories.items.isEmpty
+        ? null
+        : dashboard.categories.items.first;
+    final statusColor = overview.balance >= 0
+        ? financeColors.income
+        : financeColors.expense;
+    final statusLabel = overview.balance >= 0 ? '可持续' : '需收缩';
+
+    return PremiumSurface(
+      key: const ValueKey('statistics-data-cockpit'),
+      accentColor: statusColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.analytics_outlined,
+                color: statusColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '现金流驾驶舱',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${palette.label} · 收入、支出、结余和分类压力联动',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _StatisticsCockpitPill(
+                icon: overview.balance >= 0
+                    ? Icons.rocket_launch_outlined
+                    : Icons.tune_outlined,
+                label: statusLabel,
+                color: statusColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _StatisticsFlowBalanceBar(
+            income: overview.income,
+            expense: overview.expense,
+            incomeColor: financeColors.income,
+            expenseColor: financeColors.expense,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth >= 420
+                  ? (constraints.maxWidth - 8) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _StatisticsCockpitTile(
+                    width: itemWidth,
+                    icon: Icons.savings_outlined,
+                    label: '结余效率',
+                    value: '${savingRate.toStringAsFixed(0)}%',
+                    meta: _formatCurrency(overview.balance),
+                    color: statusColor,
+                  ),
+                  _StatisticsCockpitTile(
+                    width: itemWidth,
+                    icon: Icons.local_fire_department_outlined,
+                    label: '支出压力',
+                    value: '${spendPressure.toStringAsFixed(0)}%',
+                    meta: _formatCurrency(overview.expense),
+                    color: spendPressure > 75
+                        ? financeColors.expense
+                        : palette.warningColor,
+                  ),
+                  _StatisticsCockpitTile(
+                    width: itemWidth,
+                    icon: Icons.timeline_outlined,
+                    label: '趋势覆盖',
+                    value: '$trendCoverage 段',
+                    meta: trendCoverage > 0 ? '可分析' : '待积累',
+                    color: palette.assetColor,
+                  ),
+                  _StatisticsCockpitTile(
+                    width: itemWidth,
+                    icon: Icons.donut_large_outlined,
+                    label: '首要分类',
+                    value: topCategory?.categoryName ?? '暂无分类',
+                    meta: topCategory == null
+                        ? '0%'
+                        : '${topCategory.percentage.toStringAsFixed(0)}%',
+                    color: topCategory == null
+                        ? colorScheme.outline
+                        : _parseColor(topCategory.color, palette.seedColor),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsFlowBalanceBar extends StatelessWidget {
+  const _StatisticsFlowBalanceBar({
+    required this.income,
+    required this.expense,
+    required this.incomeColor,
+    required this.expenseColor,
+  });
+
+  final double income;
+  final double expense;
+  final Color incomeColor;
+  final Color expenseColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final total = income.abs() + expense.abs();
+    final incomeShare = total <= 0 ? 0.5 : income.abs() / total;
+    final expenseShare = total <= 0 ? 0.5 : expense.abs() / total;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _LegendDot(label: '收入池', color: incomeColor),
+              const SizedBox(width: 12),
+              _LegendDot(label: '支出池', color: expenseColor),
+              const Spacer(),
+              Text(
+                '${(incomeShare * 100).toStringAsFixed(0)}% / ${(expenseShare * 100).toStringAsFixed(0)}%',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: (incomeShare * 100).round().clamp(1, 1000),
+                    child: ColoredBox(color: incomeColor),
+                  ),
+                  Expanded(
+                    flex: (expenseShare * 100).round().clamp(1, 1000),
+                    child: ColoredBox(color: expenseColor),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsCockpitTile extends StatelessWidget {
+  const _StatisticsCockpitTile({
+    required this.width,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.meta,
+    required this.color,
+  });
+
+  final double width;
+  final IconData icon;
+  final String label;
+  final String value;
+  final String meta;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      width: width,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 88),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 21, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsCockpitPill extends StatelessWidget {
+  const _StatisticsCockpitPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: color,
               fontWeight: FontWeight.w900,
