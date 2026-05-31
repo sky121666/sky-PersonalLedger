@@ -88,6 +88,7 @@ void main() {
         expect(find.text('明细'), findsOneWidget);
         expect(find.text('统计'), findsOneWidget);
         expect(find.text('我的'), findsOneWidget);
+        expect(find.text('快速入口'), findsOneWidget);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,

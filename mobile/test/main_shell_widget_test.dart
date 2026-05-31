@@ -45,6 +45,7 @@ void main() {
       find.byKey(const ValueKey('main-shell-quick-transaction')),
       findsOneWidget,
     );
+    expect(find.text('快速入口'), findsOneWidget);
     expect(
       find.ancestor(
         of: find.byKey(const ValueKey('main-shell-tab-home')),

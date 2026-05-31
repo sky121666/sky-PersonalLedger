@@ -19,7 +19,6 @@ class MainShellPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isWideLayout = MediaQuery.sizeOf(context).width >= 720;
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: Row(
         children: [
@@ -34,17 +33,9 @@ class MainShellPage extends StatelessWidget {
       floatingActionButton: Semantics(
         button: true,
         label: '快速记一笔',
-        child: FloatingActionButton.extended(
+        child: _QuickTransactionFab(
           key: const ValueKey('main-shell-quick-transaction'),
           onPressed: () => _openQuickTransaction(context),
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
-          elevation: 8,
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('记一笔'),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
         ),
       ),
       floatingActionButtonLocation: isWideLayout
@@ -112,6 +103,97 @@ class MainShellPage extends StatelessWidget {
                   const QuickTransactionPage(embedded: true),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickTransactionFab extends StatelessWidget {
+  const _QuickTransactionFab({required this.onPressed, super.key});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onPressed,
+        child: Ink(
+          padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                colorScheme.primary,
+                Color.alphaBlend(
+                  financeColors.asset.withValues(alpha: isDark ? 0.42 : 0.30),
+                  colorScheme.primary,
+                ),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: colorScheme.onPrimary.withValues(alpha: 0.22),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.primary.withValues(
+                  alpha: isDark ? 0.34 : 0.24,
+                ),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: colorScheme.onPrimary.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Icon(
+                  Icons.add_rounded,
+                  color: colorScheme.onPrimary,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '记一笔',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onPrimary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    '快速入口',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onPrimary.withValues(alpha: 0.74),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -283,6 +365,19 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  width: selected ? 22 : 5,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? activeColor
+                        : colorScheme.outlineVariant.withValues(alpha: 0.0),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: 4),
                 AnimatedScale(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOutCubic,
