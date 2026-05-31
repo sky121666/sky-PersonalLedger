@@ -83,12 +83,20 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               schedule: scheduleState.valueOrNull,
               themePalette: themeSettings.palette,
             );
+            final insightQualityPanel = _AIInsightQualityPanel(
+              reports: reports,
+              providerSetup: providerState.valueOrNull,
+              schedule: scheduleState.valueOrNull,
+              themePalette: themeSettings.palette,
+            );
             if (reports.isEmpty) {
               return ListView(
                 children: [
                   commandCenter,
                   const SizedBox(height: 12),
                   orchestrationPanel,
+                  const SizedBox(height: 12),
+                  insightQualityPanel,
                   const SizedBox(height: 12),
                   providerSurface,
                   const SizedBox(height: 12),
@@ -102,7 +110,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               );
             }
             return ListView.separated(
-              itemCount: reports.length + (_generating ? 1 : 0) + 4,
+              itemCount: reports.length + (_generating ? 1 : 0) + 5,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 if (index == 0) {
@@ -112,15 +120,18 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                   return orchestrationPanel;
                 }
                 if (index == 2) {
-                  return providerSurface;
+                  return insightQualityPanel;
                 }
                 if (index == 3) {
+                  return providerSurface;
+                }
+                if (index == 4) {
                   return scheduleSurface;
                 }
-                if (_generating && index == 4) {
+                if (_generating && index == 5) {
                   return const _AIReportGeneratingSurface();
                 }
-                final reportIndex = index - 4 - (_generating ? 1 : 0);
+                final reportIndex = index - 5 - (_generating ? 1 : 0);
                 final report = reports[reportIndex];
                 return StaggeredEntrance(
                   index: index,
@@ -859,6 +870,195 @@ class _AIProviderOrchestrationPanel extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _AIInsightQualityPanel extends StatelessWidget {
+  const _AIInsightQualityPanel({
+    required this.reports,
+    required this.providerSetup,
+    required this.schedule,
+    required this.themePalette,
+  });
+
+  final List<AIReportSummary> reports;
+  final AIProviderSetupData? providerSetup;
+  final AIReportScheduleSettings? schedule;
+  final AppThemePalette themePalette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final completedReports = reports
+        .where((report) => report.status == 'completed')
+        .toList();
+    final activeProviders =
+        providerSetup?.providers.where((provider) => provider.enabled).length ??
+        0;
+    final insightCount = completedReports.fold<int>(
+      0,
+      (sum, report) =>
+          sum + _countReportItems(report.contentJson, 'highlights'),
+    );
+    final riskCount = completedReports.fold<int>(
+      0,
+      (sum, report) => sum + _countReportItems(report.contentJson, 'risks'),
+    );
+    final suggestionCount = completedReports.fold<int>(
+      0,
+      (sum, report) =>
+          sum + _countReportItems(report.contentJson, 'suggestions'),
+    );
+    final coverage = reports.isEmpty
+        ? 0
+        : (completedReports.length / reports.length * 100).round();
+    final qualityColor = completedReports.isEmpty
+        ? colorScheme.outline
+        : riskCount > suggestionCount
+        ? financeColors.warning
+        : financeColors.income;
+
+    return PremiumSurface(
+      key: const ValueKey('ai-insight-quality-panel'),
+      accentColor: qualityColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.analytics_outlined,
+                color: qualityColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI 洞察质量层',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${themePalette.signature} · 报告覆盖、风险、建议和脱敏状态',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _AICommandSignalPill(
+                icon: activeProviders > 0
+                    ? Icons.verified_user_outlined
+                    : Icons.shield_outlined,
+                label: activeProviders > 0 ? 'Provider 就绪' : 'Provider 待接入',
+                color: activeProviders > 0
+                    ? themePalette.assetColor
+                    : colorScheme.outline,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.radar_outlined,
+                  label: '覆盖率',
+                  value: '$coverage%',
+                  color: qualityColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.trending_up_outlined,
+                  label: '重点',
+                  value: '$insightCount 条',
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.warning_amber_outlined,
+                  label: '风险',
+                  value: '$riskCount 条',
+                  color: riskCount > 0
+                      ? financeColors.warning
+                      : colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AIProviderSignalPill(
+                icon: Icons.tips_and_updates_outlined,
+                label: '建议 $suggestionCount 条',
+                color: suggestionCount > 0
+                    ? themePalette.seedColor
+                    : colorScheme.outline,
+              ),
+              _AIProviderSignalPill(
+                icon: Icons.visibility_off_outlined,
+                label: '默认脱敏',
+                color: themePalette.assetColor,
+              ),
+              _AIProviderSignalPill(
+                icon: schedule?.enabled == true
+                    ? Icons.event_available_outlined
+                    : Icons.event_busy_outlined,
+                label: schedule?.enabled == true ? '每周自动' : '手动生成',
+                color: schedule?.enabled == true
+                    ? financeColors.income
+                    : colorScheme.outline,
+              ),
+              _AIProviderSignalPill(
+                icon: Icons.api_outlined,
+                label: 'OpenAI API',
+                color: activeProviders > 0
+                    ? themePalette.assetColor
+                    : colorScheme.outline,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _countReportItems(String? contentJson, String key) {
+    if (contentJson == null || contentJson.trim().isEmpty) {
+      return 0;
+    }
+    try {
+      final decoded = jsonDecode(contentJson);
+      if (decoded is! Map<String, dynamic>) {
+        return 0;
+      }
+      final value = decoded[key];
+      if (value is List) {
+        return value.length;
+      }
+    } catch (_) {
+      return 0;
+    }
+    return 0;
   }
 }
 

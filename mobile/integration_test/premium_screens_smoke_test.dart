@@ -1088,9 +1088,17 @@ void main() {
             find.byKey(const ValueKey('ai-provider-orchestration-panel')),
             findsOneWidget,
           );
+          expect(
+            find.byKey(const ValueKey('ai-insight-quality-panel')),
+            findsOneWidget,
+          );
           expect(find.text('AI 分析控制台'), findsOneWidget);
           expect(find.text('AI 模型编排'), findsOneWidget);
+          expect(find.text('AI 洞察质量层'), findsOneWidget);
           expect(find.text('OpenAI-compatible'), findsOneWidget);
+          expect(find.text('Provider 就绪'), findsOneWidget);
+          expect(find.text('默认脱敏'), findsOneWidget);
+          expect(find.text('OpenAI API'), findsOneWidget);
           expect(find.text('分析就绪'), findsOneWidget);
           expect(find.text('报告总数'), findsOneWidget);
           expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);

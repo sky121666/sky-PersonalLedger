@@ -54,14 +54,29 @@ void main() {
       find.byKey(const ValueKey('ai-provider-orchestration-panel')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('ai-insight-quality-panel')),
+      findsOneWidget,
+    );
     expect(find.text('AI 分析控制台'), findsOneWidget);
     expect(find.text('AI 模型编排'), findsOneWidget);
+    expect(find.text('AI 洞察质量层'), findsOneWidget);
     expect(find.text('待接入'), findsOneWidget);
     expect(find.text('静谧墨绿'), findsOneWidget);
     expect(find.text('周报未启用'), findsOneWidget);
     expect(find.text('Key 不回显'), findsOneWidget);
+    expect(find.text('Provider 待接入'), findsOneWidget);
+    expect(find.text('覆盖率'), findsOneWidget);
+    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('重点'), findsOneWidget);
+    expect(find.text('风险'), findsOneWidget);
+    expect(find.text('建议 1 条'), findsOneWidget);
+    expect(find.text('默认脱敏'), findsOneWidget);
+    expect(find.text('手动生成'), findsOneWidget);
+    expect(find.text('OpenAI API'), findsOneWidget);
     expect(find.text('分析就绪'), findsOneWidget);
     expect(find.text('报告总数'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('Provider 配置'));
     expect(find.text('0 个启用'), findsOneWidget);
     expect(find.text('Key 已保护'), findsOneWidget);
     await _scrollIntoTapArea(tester, find.text('每周总结'));
@@ -326,6 +341,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _scrollIntoTapArea(tester, find.text('Provider 配置'));
     expect(find.text('Provider 配置'), findsOneWidget);
     expect(find.text('暂无 Provider'), findsOneWidget);
     expect(find.text('0 个启用'), findsOneWidget);
