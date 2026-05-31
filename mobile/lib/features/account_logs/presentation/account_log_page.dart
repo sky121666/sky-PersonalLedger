@@ -926,93 +926,296 @@ class _AccountLogTile extends StatelessWidget {
         ? financeColors.expense
         : Theme.of(context).colorScheme.outline;
     final colorScheme = Theme.of(context).colorScheme;
+    final directionIcon = change > 0
+        ? Icons.arrow_downward_rounded
+        : change < 0
+        ? Icons.arrow_upward_rounded
+        : Icons.drag_handle_rounded;
+    final directionLabel = change > 0
+        ? '余额增加'
+        : change < 0
+        ? '余额减少'
+        : '余额不变';
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Color.alphaBlend(
-            typeStyle.color.withValues(alpha: 0.05),
+            typeStyle.color.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.11
+                  : 0.06,
+            ),
             colorScheme.surface,
           ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: typeStyle.color.withValues(alpha: 0.10)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            IconBadge(
-              icon: typeStyle.icon,
-              color: typeStyle.color,
-              size: 40,
-              iconSize: 21,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: typeStyle.color.withValues(alpha: 0.14)),
+          boxShadow: [
+            BoxShadow(
+              color: typeStyle.color.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        log.type.label,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconBadge(
+                      icon: typeStyle.icon,
+                      color: typeStyle.color,
+                      size: 42,
+                      iconSize: 21,
+                    ),
+                    Positioned(
+                      right: -3,
+                      bottom: -3,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: changeColor.withValues(alpha: 0.26),
+                          ),
+                        ),
+                        child: Icon(
+                          directionIcon,
+                          color: changeColor,
+                          size: 12,
                         ),
                       ),
-                      if (showAccount && log.account != null) ...[
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            log.account!.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: colorScheme.outline),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _LedgerMicroChip(
+                            icon: typeStyle.icon,
+                            label: log.type.label,
+                            color: typeStyle.color,
                           ),
+                          if (showAccount && log.account != null)
+                            _LedgerMicroChip(
+                              icon: Icons.account_balance_wallet_outlined,
+                              label: log.account!.name,
+                              color: colorScheme.primary,
+                            ),
+                          _LedgerMicroChip(
+                            icon: Icons.schedule_outlined,
+                            label: _formatTime(log.createdAt),
+                            color: colorScheme.secondary,
+                          ),
+                        ],
+                      ),
+                      if (log.remark.isNotEmpty) ...[
+                        const SizedBox(height: 9),
+                        Text(
+                          log.remark,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
                         ),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${_formatMoney(log.balanceBefore)} -> ${_formatMoney(log.balanceAfter)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (log.remark.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     Text(
-                      log.remark,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      _formatSignedMoney(change),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: changeColor,
+                        fontWeight: FontWeight.w900,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      directionLabel,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatTime(log.createdAt),
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.outline,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  changeColor.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark
+                        ? 0.14
+                        : 0.07,
+                  ),
+                  colorScheme.surface,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: changeColor.withValues(alpha: 0.12)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _BalanceTracePoint(
+                      label: '变动前',
+                      value: _formatMoney(log.balanceBefore),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Container(
+                      width: 34,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: changeColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Icon(
+                        Icons.arrow_forward_rounded,
+                        color: changeColor,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: _BalanceTracePoint(
+                      label: '变动后',
+                      value: _formatMoney(log.balanceAfter),
+                      color: changeColor,
+                      alignEnd: true,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 10),
-            Text(
-              _formatSignedMoney(change),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: changeColor,
-                fontWeight: FontWeight.w900,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LedgerMicroChip extends StatelessWidget {
+  const _LedgerMicroChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28, maxWidth: 170),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BalanceTracePoint extends StatelessWidget {
+  const _BalanceTracePoint({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.alignEnd = false,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final bool alignEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -35,6 +35,9 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('收入'), findsOneWidget);
+      expect(find.text('余额增加'), findsOneWidget);
+      expect(find.text('变动前'), findsOneWidget);
+      expect(find.text('变动后'), findsOneWidget);
       expect(find.text('+¥500.00'), findsAtLeastNWidgets(1));
       expect(find.text('工资入账'), findsOneWidget);
     });
@@ -132,6 +135,7 @@ void main() {
 
       expect(repository.listPages, [1, 2]);
       expect(find.text('支出'), findsOneWidget);
+      expect(find.text('余额减少'), findsOneWidget);
       expect(find.text('-¥80.00'), findsOneWidget);
       expect(find.text('午餐'), findsOneWidget);
     });
