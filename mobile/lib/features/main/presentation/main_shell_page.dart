@@ -120,11 +120,42 @@ class _PremiumBottomNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final destinations = [
+      _ShellDestination(
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home_rounded,
+        label: '首页',
+        color: financeColors.asset,
+      ),
+      _ShellDestination(
+        icon: Icons.receipt_long_outlined,
+        selectedIcon: Icons.receipt_long_rounded,
+        label: '明细',
+        color: financeColors.income,
+      ),
+      _ShellDestination(
+        icon: Icons.bar_chart_outlined,
+        selectedIcon: Icons.bar_chart_rounded,
+        label: '统计',
+        color: financeColors.warning,
+      ),
+      _ShellDestination(
+        icon: Icons.person_outline,
+        selectedIcon: Icons.person_rounded,
+        label: '我的',
+        color: colorScheme.primary,
+      ),
+    ];
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-        child: DecoratedBox(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          constraints: const BoxConstraints(minHeight: 74),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             color: Color.alphaBlend(
               colorScheme.primary.withValues(
@@ -148,35 +179,125 @@ class _PremiumBottomNavigation extends StatelessWidget {
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: NavigationBar(
-              height: 66,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              selectedIndex: selectedIndex,
-              indicatorColor: colorScheme.primaryContainer,
-              onDestinationSelected: onDestinationSelected,
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded),
-                  label: '首页',
+          child: Row(
+            children: [
+              for (final entry in destinations.indexed) ...[
+                Expanded(
+                  child: _PremiumBottomNavigationItem(
+                    destination: entry.$2,
+                    selected: selectedIndex == entry.$1,
+                    onTap: () => onDestinationSelected(entry.$1),
+                  ),
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.receipt_long_outlined),
-                  selectedIcon: Icon(Icons.receipt_long_rounded),
-                  label: '明细',
+                if (entry.$1 != destinations.length - 1)
+                  const SizedBox(width: 6),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShellDestination {
+  const _ShellDestination({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final Color color;
+}
+
+class _PremiumBottomNavigationItem extends StatelessWidget {
+  const _PremiumBottomNavigationItem({
+    required this.destination,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _ShellDestination destination;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final activeColor = destination.color;
+    final foreground = selected ? activeColor : colorScheme.onSurfaceVariant;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: destination.label,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            constraints: const BoxConstraints(minHeight: 58),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? Color.alphaBlend(
+                      activeColor.withValues(
+                        alpha: Theme.of(context).brightness == Brightness.dark
+                            ? 0.22
+                            : 0.14,
+                      ),
+                      colorScheme.surface,
+                    )
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected
+                    ? activeColor.withValues(alpha: 0.26)
+                    : Colors.transparent,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedScale(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  scale: selected ? 1.08 : 1,
+                  child: Icon(
+                    selected ? destination.selectedIcon : destination.icon,
+                    color: foreground,
+                    size: 22,
+                  ),
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.bar_chart_outlined),
-                  selectedIcon: Icon(Icons.bar_chart_rounded),
-                  label: '统计',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline),
-                  selectedIcon: Icon(Icons.person_rounded),
-                  label: '我的',
+                const SizedBox(height: 4),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  style:
+                      Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: foreground,
+                        fontWeight: selected
+                            ? FontWeight.w900
+                            : FontWeight.w600,
+                      ) ??
+                      TextStyle(
+                        color: foreground,
+                        fontWeight: selected
+                            ? FontWeight.w900
+                            : FontWeight.w600,
+                      ),
+                  child: Text(
+                    destination.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

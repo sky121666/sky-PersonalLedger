@@ -30,10 +30,17 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      MaterialApp.router(
+        theme: AppTheme.lightTheme(AppThemePalette.violet),
+        darkTheme: AppTheme.darkTheme(AppThemePalette.violet),
+        routerConfig: router,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('home-content'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
 
     await tester.tap(find.text('明细'));
     await tester.pumpAndSettle();
@@ -50,6 +57,51 @@ void main() {
     await tester.tap(find.text('记一笔'));
     await tester.pumpAndSettle();
     expect(find.text('quick-content'), findsOneWidget);
+  });
+
+  testWidgets('MainShellPage 移动端胶囊导航跟随主题语义色', (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = GoRouter(
+      initialLocation: AppRoutePaths.home,
+      routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) =>
+              MainShellPage(navigationShell: navigationShell),
+          branches: [
+            _branch(AppRoutePaths.home, 'home-content'),
+            _branch(AppRoutePaths.transactions, 'transactions-content'),
+            _branch(AppRoutePaths.statistics, 'statistics-content'),
+            _branch(AppRoutePaths.profile, 'profile-content'),
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        theme: AppTheme.lightTheme(AppThemePalette.graphite),
+        darkTheme: AppTheme.darkTheme(AppThemePalette.graphite),
+        routerConfig: router,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final selectedHomeIcon = tester.widget<Icon>(
+      find.byIcon(Icons.home_rounded),
+    );
+    expect(selectedHomeIcon.color, AppThemePalette.graphite.assetColor);
+
+    await tester.tap(find.text('统计'));
+    await tester.pumpAndSettle();
+
+    final selectedStatsIcon = tester.widget<Icon>(
+      find.byIcon(Icons.bar_chart_rounded),
+    );
+    expect(selectedStatsIcon.color, AppThemePalette.graphite.warningColor);
   });
 
   testWidgets('MainShellPage 宽屏侧栏跟随主题色模板', (tester) async {
