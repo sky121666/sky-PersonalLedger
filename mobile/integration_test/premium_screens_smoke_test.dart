@@ -841,8 +841,13 @@ void main() {
         expect(find.text('旅行'), findsOneWidget);
         expect(find.text('系统标签 · 使用 8 次'), findsOneWidget);
         expect(find.text('标签颜色系统'), findsOneWidget);
+        expect(find.text('标签治理雷达'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('tag-spectrum-panel')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('tag-governance-radar')),
           findsOneWidget,
         );
         expect(find.byType(PremiumSurface), findsWidgets);

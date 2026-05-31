@@ -268,7 +268,6 @@ class _TagHeader extends StatelessWidget {
     final mostUsed = tags.toList()
       ..sort((left, right) => right.usedCount.compareTo(left.usedCount));
     final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: colorScheme.primary,
       padding: const EdgeInsets.all(18),
@@ -312,35 +311,12 @@ class _TagHeader extends StatelessWidget {
             topTag: mostUsed.isEmpty ? null : mostUsed.first,
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _TagSignalTile(
-                  icon: Icons.sell_outlined,
-                  label: '标签总数',
-                  value: '${tags.length}',
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _TagSignalTile(
-                  icon: Icons.tune_outlined,
-                  label: '自定义',
-                  value: '$customCount',
-                  color: financeColors.asset,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _TagSignalTile(
-                  icon: Icons.trending_up_outlined,
-                  label: '累计使用',
-                  value: '$usedCount',
-                  color: financeColors.income,
-                ),
-              ),
-            ],
+          _TagGovernanceRadar(
+            tags: tags,
+            systemCount: systemCount,
+            customCount: customCount,
+            usedCount: usedCount,
+            topTag: mostUsed.isEmpty ? null : mostUsed.first,
           ),
         ],
       ),
@@ -450,8 +426,143 @@ class _TagSpectrumPanel extends StatelessWidget {
   }
 }
 
-class _TagSignalTile extends StatelessWidget {
-  const _TagSignalTile({
+class _TagGovernanceRadar extends StatelessWidget {
+  const _TagGovernanceRadar({
+    required this.tags,
+    required this.systemCount,
+    required this.customCount,
+    required this.usedCount,
+    this.topTag,
+  });
+
+  final List<TagItem> tags;
+  final int systemCount;
+  final int customCount;
+  final int usedCount;
+  final TagItem? topTag;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final colorCount = tags
+        .map((tag) => tag.color.trim().toLowerCase())
+        .where((color) => color.isNotEmpty)
+        .toSet()
+        .length;
+    final iconCount = tags
+        .map((tag) => tag.icon.trim().toLowerCase())
+        .where((icon) => icon.isNotEmpty)
+        .toSet()
+        .length;
+    final total = tags.isEmpty ? 1 : tags.length;
+    final customRatio = ((customCount / total) * 100).round();
+    final topShare = usedCount == 0 || topTag == null
+        ? 0
+        : ((topTag!.usedCount / usedCount) * 100).round();
+    final radarLabel = usedCount == 0
+        ? '待积累'
+        : topShare >= 60
+        ? '高集中'
+        : '分布均衡';
+
+    return Container(
+      key: const ValueKey('tag-governance-radar'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.hub_outlined, size: 19, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '标签治理雷达',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _TagMetaChip(label: radarLabel, color: colorScheme.primary),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TagRadarMetric(
+                icon: Icons.palette_outlined,
+                label: '颜色覆盖',
+                value: '$colorCount 色',
+                color: colorScheme.primary,
+              ),
+              _TagRadarMetric(
+                icon: Icons.auto_awesome_mosaic_outlined,
+                label: '图标覆盖',
+                value: '$iconCount 枚',
+                color: financeColors.asset,
+              ),
+              _TagRadarMetric(
+                icon: Icons.tune_outlined,
+                label: '自定义率',
+                value: '$customRatio%',
+                color: customCount > systemCount
+                    ? financeColors.income
+                    : financeColors.expense,
+              ),
+              _TagRadarMetric(
+                icon: Icons.trending_up_outlined,
+                label: '使用集中',
+                value: '$topShare%',
+                color: financeColors.income,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(
+                Icons.local_activity_outlined,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  topTag == null
+                      ? '标签库暂无使用记录'
+                      : '高频标签 · ${topTag!.name} · ${topTag!.usedCount} 次',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagRadarMetric extends StatelessWidget {
+  const _TagRadarMetric({
     required this.icon,
     required this.label,
     required this.value,
@@ -469,8 +580,7 @@ class _TagSignalTile extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           color.withValues(
@@ -480,33 +590,36 @@ class _TagSignalTile extends StatelessWidget {
           ),
           colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.16)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 7),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
           ),
         ],
       ),

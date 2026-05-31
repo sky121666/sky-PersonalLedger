@@ -29,14 +29,20 @@ void main() {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('标签总数'), findsOneWidget);
-      expect(find.text('自定义'), findsOneWidget);
-      expect(find.text('累计使用'), findsOneWidget);
       expect(find.text('标签颜色系统'), findsOneWidget);
       expect(find.text('自定义占比 50%'), findsOneWidget);
       expect(find.text('高频 工资收入 · 8 次'), findsOneWidget);
       expect(find.byKey(const ValueKey('tag-spectrum-panel')), findsOneWidget);
-      expect(find.text('10'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('tag-governance-radar')),
+        findsOneWidget,
+      );
+      expect(find.text('标签治理雷达'), findsOneWidget);
+      expect(find.text('颜色覆盖'), findsOneWidget);
+      expect(find.text('图标覆盖'), findsOneWidget);
+      expect(find.text('自定义率'), findsOneWidget);
+      expect(find.text('使用集中'), findsOneWidget);
+      expect(find.text('高频标签 · 工资收入 · 8 次'), findsOneWidget);
     });
 
     testWidgets('新增标签时提交表单字段并刷新列表', (tester) async {
