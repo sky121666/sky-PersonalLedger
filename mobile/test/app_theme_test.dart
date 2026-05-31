@@ -103,6 +103,21 @@ void main() {
       );
     });
 
+    test('筛选标签使用主题色状态样式', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.emerald);
+      final chipTheme = theme.chipTheme;
+      final selectedColor = chipTheme.color?.resolve({WidgetState.selected});
+      final disabledColor = chipTheme.color?.resolve({WidgetState.disabled});
+
+      expect(chipTheme.showCheckmark, isTrue);
+      expect(chipTheme.checkmarkColor, AppThemePalette.emerald.seedColor);
+      expect(chipTheme.elevation, 0);
+      expect(chipTheme.pressElevation, 0);
+      expect(chipTheme.shape, isA<RoundedRectangleBorder>());
+      expect(selectedColor, chipTheme.selectedColor);
+      expect(disabledColor, chipTheme.disabledColor);
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);

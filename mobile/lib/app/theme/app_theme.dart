@@ -185,6 +185,7 @@ class AppTheme {
       inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
       snackBarTheme: _snackBarTheme(colorScheme, palette),
       segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
+      chipTheme: _chipTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -227,6 +228,7 @@ class AppTheme {
       inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
       snackBarTheme: _snackBarTheme(colorScheme, palette),
       segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
+      chipTheme: _chipTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -430,6 +432,63 @@ class AppTheme {
           palette.seedColor.withValues(alpha: 0.08),
         ),
       ),
+    );
+  }
+
+  static ChipThemeData _chipTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final baseBackground = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.10 : 0.045),
+      colorScheme.surfaceContainerHighest,
+    );
+    final selectedBackground = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.24 : 0.13),
+      colorScheme.surface,
+    );
+    final disabledBackground = Color.alphaBlend(
+      colorScheme.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
+      colorScheme.surface,
+    );
+
+    return ChipThemeData(
+      color: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return disabledBackground;
+        }
+        if (states.contains(WidgetState.selected)) {
+          return selectedBackground;
+        }
+        return baseBackground;
+      }),
+      backgroundColor: baseBackground,
+      selectedColor: selectedBackground,
+      secondarySelectedColor: selectedBackground,
+      disabledColor: disabledBackground,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      selectedShadowColor: Colors.transparent,
+      elevation: 0,
+      pressElevation: 0,
+      showCheckmark: true,
+      checkmarkColor: palette.seedColor,
+      deleteIconColor: colorScheme.onSurfaceVariant,
+      side: BorderSide(color: palette.seedColor.withValues(alpha: 0.16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+      labelStyle: TextStyle(
+        color: colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w800,
+      ),
+      secondaryLabelStyle: TextStyle(
+        color: palette.seedColor,
+        fontWeight: FontWeight.w900,
+      ),
+      iconTheme: IconThemeData(size: 18, color: palette.seedColor),
+      brightness: colorScheme.brightness,
     );
   }
 }
