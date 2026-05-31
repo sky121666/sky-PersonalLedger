@@ -23,6 +23,10 @@ void main() {
       expect(find.text('自托管入口'), findsOneWidget);
       expect(find.byType(AuthFlowShell), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
+      expect(find.text('私有服务连接'), findsOneWidget);
+      expect(find.text('家庭'), findsOneWidget);
+      expect(find.text('AI'), findsOneWidget);
+      expect(find.text('备份'), findsOneWidget);
     });
 
     testWidgets('提交服务器地址时调用连接流程', (tester) async {

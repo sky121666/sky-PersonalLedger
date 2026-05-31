@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/auth_flow_shell.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../../auth/application/auth_controller.dart';
 
 class ServerConfigPage extends ConsumerStatefulWidget {
@@ -49,6 +51,8 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
       primaryLabel: '自托管入口',
       accentColor: accentColor,
       children: [
+        _ConnectionStatusStrip(isLoading: isLoading, accentColor: accentColor),
+        const SizedBox(height: 14),
         TextField(
           controller: _serverUrlController,
           enabled: !isLoading,
@@ -63,18 +67,171 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => isLoading ? null : _submitServerUrl(),
         ),
+        const SizedBox(height: 14),
+        const _ServerCapabilityGrid(),
         const SizedBox(height: 16),
-        FilledButton.icon(
+        FilledButton(
           onPressed: isLoading ? null : _submitServerUrl,
-          icon: isLoading
-              ? const SizedBox.square(
-                  dimension: 20,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isLoading)
+                const SizedBox.square(
+                  dimension: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.arrow_forward),
-          label: const Text('连接'),
+              else
+                const Icon(Icons.arrow_forward),
+              const SizedBox(width: 8),
+              const Text('连接'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          '远程正式环境建议使用 HTTPS；本地或内网地址会按当前安全策略校验。',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.45,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _ConnectionStatusStrip extends StatelessWidget {
+  const _ConnectionStatusStrip({
+    required this.isLoading,
+    required this.accentColor,
+  });
+
+  final bool isLoading;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accentColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accentColor.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: isLoading ? Icons.sync : Icons.hub_outlined,
+            color: accentColor,
+            size: 40,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isLoading ? '正在验证服务' : '私有服务连接',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isLoading
+                      ? '检查地址、初始化状态和登录入口'
+                      : '一个地址连接你的 Web、iOS 和 Android 数据源',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerCapabilityGrid extends StatelessWidget {
+  const _ServerCapabilityGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    return Row(
+      children: [
+        Expanded(
+          child: _ServerCapabilityTile(
+            label: '家庭',
+            icon: Icons.group_outlined,
+            color: financeColors.asset,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ServerCapabilityTile(
+            label: 'AI',
+            icon: Icons.auto_awesome_outlined,
+            color: financeColors.brand,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ServerCapabilityTile(
+            label: '备份',
+            icon: Icons.cloud_done_outlined,
+            color: financeColors.income,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ServerCapabilityTile extends StatelessWidget {
+  const _ServerCapabilityTile({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumSurface(
+      accentColor: color,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
     );
   }
 }
