@@ -89,6 +89,19 @@ void main() {
       expect(find.text('资产账户'), findsOneWidget);
       expect(find.text('负债账户'), findsOneWidget);
       expect(find.text('2 个'), findsAtLeastNWidgets(1));
+      expect(
+        find.byKey(const ValueKey('account-card-bank-card')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('account-balance-bank-card')),
+        findsOneWidget,
+      );
+      expect(find.text('当前余额'), findsAtLeastNWidgets(1));
+      expect(find.text('剩余负债'), findsOneWidget);
+      expect(find.text('资产轨道'), findsAtLeastNWidgets(1));
+      expect(find.text('偿还进度'), findsOneWidget);
+      expect(find.text('期初对比'), findsAtLeastNWidgets(1));
       expect(find.text('支持排序'), findsOneWidget);
       expect(find.text('资产类'), findsAtLeastNWidgets(1));
       expect(find.text('负债类'), findsOneWidget);

@@ -1115,156 +1115,204 @@ class _AccountListTile extends ConsumerWidget {
         : account.currentBalance >= 0
         ? financeColors.income
         : Theme.of(context).colorScheme.error;
-    return PremiumSurface(
-      accentColor: color,
-      padding: EdgeInsets.zero,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => _handleAction(context, ref, _AccountAction.logs),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    IconBadge(
-                      icon: _accountIconData(account),
-                      color: color,
-                      size: 42,
-                      iconSize: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  account.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w800),
+    final delta = account.currentBalance - account.initialBalance;
+    final deltaColor = isDebt
+        ? financeColors.expense
+        : delta >= 0
+        ? financeColors.income
+        : Theme.of(context).colorScheme.error;
+    final statusLabel = account.isArchived
+        ? '已归档'
+        : isDebt
+        ? '负债账户'
+        : '资产账户';
+    return Semantics(
+      label:
+          '${account.name}，${_accountTypeLabel(account.type)}，$statusLabel，当前余额${_formatMoney(account.currentBalance)}',
+      button: true,
+      child: PremiumSurface(
+        key: ValueKey('account-card-${account.id}'),
+        accentColor: color,
+        padding: EdgeInsets.zero,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _handleAction(context, ref, _AccountAction.logs),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      IconBadge(
+                        icon: _accountIconData(account),
+                        color: color,
+                        size: 42,
+                        iconSize: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    account.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  ),
                                 ),
-                              ),
-                              if (account.isArchived) ...[
-                                const SizedBox(width: 8),
-                                const Chip(
-                                  label: Text('已归档'),
-                                  visualDensity: VisualDensity.compact,
+                                if (account.isArchived) ...[
+                                  const SizedBox(width: 8),
+                                  const Chip(
+                                    label: Text('已归档'),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 7),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                _AccountInfoChip(
+                                  icon: _accountIconData(account),
+                                  label: _accountTypeLabel(account.type),
+                                  color: color,
+                                ),
+                                _AccountInfoChip(
+                                  icon: isDebt
+                                      ? Icons.request_quote_outlined
+                                      : Icons.savings_outlined,
+                                  label: isDebt ? '负债类' : '资产类',
+                                  color: isDebt
+                                      ? financeColors.expense
+                                      : financeColors.income,
+                                ),
+                                _AccountInfoChip(
+                                  icon: account.isArchived
+                                      ? Icons.inventory_2_outlined
+                                      : Icons.verified_outlined,
+                                  label: account.isArchived ? '归档' : '正常',
+                                  color: account.isArchived
+                                      ? Theme.of(context).colorScheme.outline
+                                      : Theme.of(context).colorScheme.primary,
                                 ),
                               ],
-                            ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            _formatMoney(account.currentBalance),
+                            key: ValueKey('account-balance-${account.id}'),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: balanceColor,
+                                  fontWeight: FontWeight.w900,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
                           ),
-                          const SizedBox(height: 7),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              _AccountInfoChip(
-                                icon: _accountIconData(account),
-                                label: _accountTypeLabel(account.type),
-                                color: color,
-                              ),
-                              _AccountInfoChip(
-                                icon: isDebt
-                                    ? Icons.request_quote_outlined
-                                    : Icons.savings_outlined,
-                                label: isDebt ? '负债类' : '资产类',
-                                color: isDebt
-                                    ? financeColors.expense
-                                    : financeColors.income,
-                              ),
-                              _AccountInfoChip(
-                                icon: account.isArchived
-                                    ? Icons.inventory_2_outlined
-                                    : Icons.verified_outlined,
-                                label: account.isArchived ? '归档' : '正常',
-                                color: account.isArchived
-                                    ? Theme.of(context).colorScheme.outline
-                                    : Theme.of(context).colorScheme.primary,
-                              ),
-                            ],
+                          const SizedBox(height: 3),
+                          Text(
+                            isDebt ? '剩余负债' : '当前余额',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      _formatMoney(account.currentBalance),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: balanceColor,
-                        fontWeight: FontWeight.w800,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    PopupMenuButton<_AccountAction>(
-                      onSelected: (action) =>
-                          _handleAction(context, ref, action),
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: _AccountAction.logs,
-                          child: Text('查看流水'),
-                        ),
-                        const PopupMenuItem(
-                          value: _AccountAction.edit,
-                          child: Text('编辑'),
-                        ),
-                        if (canSort) ...[
-                          PopupMenuItem(
-                            value: _AccountAction.moveUp,
-                            enabled: accountIndex > 0,
-                            child: const Text('上移'),
+                      PopupMenuButton<_AccountAction>(
+                        onSelected: (action) =>
+                            _handleAction(context, ref, action),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: _AccountAction.logs,
+                            child: Text('查看流水'),
                           ),
+                          const PopupMenuItem(
+                            value: _AccountAction.edit,
+                            child: Text('编辑'),
+                          ),
+                          if (canSort) ...[
+                            PopupMenuItem(
+                              value: _AccountAction.moveUp,
+                              enabled: accountIndex > 0,
+                              child: const Text('上移'),
+                            ),
+                            PopupMenuItem(
+                              value: _AccountAction.moveDown,
+                              enabled:
+                                  accountIndex < sectionAccountIds.length - 1,
+                              child: const Text('下移'),
+                            ),
+                          ],
                           PopupMenuItem(
-                            value: _AccountAction.moveDown,
-                            enabled:
-                                accountIndex < sectionAccountIds.length - 1,
-                            child: const Text('下移'),
+                            value: _AccountAction.archive,
+                            child: Text(account.isArchived ? '恢复' : '归档'),
+                          ),
+                          const PopupMenuItem(
+                            value: _AccountAction.delete,
+                            child: Text('删除'),
                           ),
                         ],
-                        PopupMenuItem(
-                          value: _AccountAction.archive,
-                          child: Text(account.isArchived ? '恢复' : '归档'),
-                        ),
-                        const PopupMenuItem(
-                          value: _AccountAction.delete,
-                          child: Text('删除'),
-                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _AccountBalanceSignal(
+                    account: account,
+                    isDebt: isDebt,
+                    accentColor: color,
+                    balanceColor: balanceColor,
+                    deltaColor: deltaColor,
+                  ),
+                  if (isDebt || account.remark.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (isDebt && account.paymentDay != null)
+                          _AccountInfoChip(
+                            icon: Icons.event_available_outlined,
+                            label: '还款日 ${account.paymentDay} 日',
+                          ),
+                        if (isDebt && account.interestRate != null)
+                          _AccountInfoChip(
+                            icon: Icons.percent_outlined,
+                            label: '年利率 ${account.interestRate}%',
+                          ),
+                        if (account.remark.isNotEmpty)
+                          _AccountInfoChip(
+                            icon: Icons.notes_outlined,
+                            label: account.remark,
+                          ),
                       ],
                     ),
                   ],
-                ),
-                if (isDebt || account.remark.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (isDebt && account.paymentDay != null)
-                        _AccountInfoChip(
-                          icon: Icons.event_available_outlined,
-                          label: '还款日 ${account.paymentDay} 日',
-                        ),
-                      if (isDebt && account.interestRate != null)
-                        _AccountInfoChip(
-                          icon: Icons.percent_outlined,
-                          label: '年利率 ${account.interestRate}%',
-                        ),
-                      if (account.remark.isNotEmpty)
-                        _AccountInfoChip(
-                          icon: Icons.notes_outlined,
-                          label: account.remark,
-                        ),
-                    ],
-                  ),
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -1364,6 +1412,151 @@ class _AccountListTile extends ConsumerWidget {
         ).showSnackBar(SnackBar(content: Text('排序失败：$error')));
       }
     }
+  }
+}
+
+class _AccountBalanceSignal extends StatelessWidget {
+  const _AccountBalanceSignal({
+    required this.account,
+    required this.isDebt,
+    required this.accentColor,
+    required this.balanceColor,
+    required this.deltaColor,
+  });
+
+  final Account account;
+  final bool isDebt;
+  final Color accentColor;
+  final Color balanceColor;
+  final Color deltaColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final baseline = account.initialBalance.abs();
+    final current = account.currentBalance.abs();
+    final progress = baseline <= 0 ? 1.0 : (current / baseline).clamp(0.0, 1.0);
+    final delta = account.currentBalance - account.initialBalance;
+    final deltaLabel = delta == 0
+        ? '无变化'
+        : '${delta > 0 ? '+' : ''}${_formatMoney(delta)}';
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          accentColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accentColor.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _AccountSignalMetric(
+                icon: isDebt ? Icons.route_outlined : Icons.monitor_heart,
+                label: isDebt ? '偿还进度' : '资产轨道',
+                value: isDebt
+                    ? '${(progress * 100).toStringAsFixed(0)}%'
+                    : _formatMoney(account.initialBalance),
+                color: accentColor,
+              ),
+              const SizedBox(width: 8),
+              _AccountSignalMetric(
+                icon: delta >= 0
+                    ? Icons.trending_up_rounded
+                    : Icons.trending_down_rounded,
+                label: '期初对比',
+                value: deltaLabel,
+                color: deltaColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 8,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+                  ),
+                  FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: progress,
+                    child: ColoredBox(color: balanceColor),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountSignalMetric extends StatelessWidget {
+  const _AccountSignalMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Row(
+        children: [
+          Icon(icon, size: 17, color: color),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

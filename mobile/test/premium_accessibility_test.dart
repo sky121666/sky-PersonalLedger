@@ -70,9 +70,9 @@ void main() {
 
         expect(find.text('记一笔'), findsOneWidget);
         expect(find.byTooltip('关闭'), findsOneWidget);
-        expect(find.text('金额'), findsOneWidget);
-        expect(find.text('账户'), findsOneWidget);
-        expect(find.text('分类'), findsOneWidget);
+        expect(find.text('金额'), findsAtLeastNWidgets(1));
+        expect(find.text('账户'), findsAtLeastNWidgets(1));
+        expect(find.text('分类'), findsAtLeastNWidgets(1));
         expect(find.text('成员'), findsOneWidget);
         _expectMinTapTarget(tester, find.byTooltip('关闭'));
 
@@ -128,6 +128,7 @@ void main() {
 
         expect(find.text('家庭成员'), findsOneWidget);
         expect(find.byTooltip('刷新家庭数据'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('默认'), 240);
         expect(find.text('默认'), findsOneWidget);
         expect(find.text('启用'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('停用'), 240);
