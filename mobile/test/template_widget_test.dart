@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/templates/data/template_repository.dart';
 import 'package:personal_ledger/features/templates/presentation/template_page.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
@@ -97,6 +100,35 @@ void main() {
       expect(find.text('新增模板'), findsWidgets);
     });
 
+    testWidgets('收入模板跟随主题收入色', (tester) async {
+      final repository = _FakeTemplateRepository()
+        ..templates = const [
+          QuickTemplateItem(
+            id: 'tpl-income',
+            name: '工资',
+            type: TransactionType.income,
+            amount: 12000,
+            accountId: 'account-1',
+            categoryId: 'category-income',
+          ),
+        ];
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final surface = tester.widget<PremiumSurface>(
+        find.byType(PremiumSurface).last,
+      );
+      final badge = tester.widget<IconBadge>(
+        find
+            .ancestor(
+              of: find.byIcon(Icons.trending_up_outlined),
+              matching: find.byType(IconBadge),
+            )
+            .first,
+      );
+      expect(surface.accentColor, AppThemePalette.graphite.incomeColor);
+      expect(badge.color, AppThemePalette.graphite.incomeColor);
+    });
+
     testWidgets('新增模板失败时展示错误且保留输入和原列表', (tester) async {
       final repository = _FakeTemplateRepository()..createError = '新增模板失败';
       await _pumpPage(tester, repository);
@@ -151,8 +183,9 @@ void main() {
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeTemplateRepository repository,
-) async {
+  _FakeTemplateRepository repository, {
+  AppThemePalette palette = AppThemePalette.teal,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -161,7 +194,11 @@ Future<void> _pumpPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [templateRepositoryProvider.overrideWithValue(repository)],
-      child: const MaterialApp(home: TemplatePage()),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        home: const TemplatePage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

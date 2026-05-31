@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/api_tokens/data/api_token_repository.dart';
 import 'package:personal_ledger/features/api_tokens/presentation/api_token_page.dart';
 
@@ -18,7 +21,7 @@ void main() {
 
     testWidgets('创建令牌后显示完整 token 且刷新列表', (tester) async {
       final repository = _FakeApiTokenRepository();
-      await _pumpPage(tester, repository);
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
 
       await tester.enterText(
         find.byKey(const ValueKey('api-token-name')),
@@ -36,6 +39,24 @@ void main() {
       );
       expect(find.text('full-token-value'), findsOneWidget);
       expect(find.text('iPhone'), findsOneWidget);
+      final successSurface = tester.widget<PremiumSurface>(
+        find
+            .ancestor(
+              of: find.text('令牌创建成功'),
+              matching: find.byType(PremiumSurface),
+            )
+            .first,
+      );
+      final successBadge = tester.widget<IconBadge>(
+        find
+            .ancestor(
+              of: find.byIcon(Icons.check_circle_outline),
+              matching: find.byType(IconBadge),
+            )
+            .first,
+      );
+      expect(successSurface.accentColor, AppThemePalette.graphite.incomeColor);
+      expect(successBadge.color, AppThemePalette.graphite.incomeColor);
     });
 
     testWidgets('创建令牌时会提交选择的有效期', (tester) async {
@@ -97,8 +118,9 @@ void main() {
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeApiTokenRepository repository,
-) async {
+  _FakeApiTokenRepository repository, {
+  AppThemePalette palette = AppThemePalette.teal,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -107,7 +129,11 @@ Future<void> _pumpPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [apiTokenRepositoryProvider.overrideWithValue(repository)],
-      child: const MaterialApp(home: ApiTokenPage()),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        home: const ApiTokenPage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

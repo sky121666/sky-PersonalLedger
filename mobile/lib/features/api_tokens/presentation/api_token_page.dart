@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../data/api_token_repository.dart';
@@ -489,7 +490,7 @@ class _CreatedTokenCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final successColor = Colors.green.shade700;
+    final successColor = AppTheme.financeColors(context).income;
     return PremiumSurface(
       accentColor: successColor,
       padding: const EdgeInsets.all(16),

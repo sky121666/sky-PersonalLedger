@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../transactions/application/ledger_refresh.dart';
@@ -422,8 +423,9 @@ class _TemplateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     final isIncome = template.type == TransactionType.income;
-    final amountColor = isIncome ? Colors.green.shade700 : colorScheme.error;
+    final amountColor = isIncome ? financeColors.income : colorScheme.error;
     return PremiumSurface(
       accentColor: amountColor,
       padding: const EdgeInsets.all(14),
