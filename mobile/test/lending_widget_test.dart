@@ -43,6 +43,17 @@ void main() {
       expect(find.text('0%'), findsOneWidget);
       expect(find.text('张三'), findsOneWidget);
       expect(find.text('剩余 ¥800.00'), findsOneWidget);
+      expect(find.byKey(const ValueKey('lending-card-lend-1')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('lending-progress-lend-1')),
+        findsOneWidget,
+      );
+      expect(find.text('凭证已留存'), findsOneWidget);
+      expect(find.text('待补凭证'), findsNothing);
+      expect(find.text('本金'), findsAtLeastNWidgets(1));
+      expect(find.text('已还'), findsAtLeastNWidgets(1));
+      expect(find.text('进度 20%'), findsOneWidget);
+      expect(find.text('备注'), findsOneWidget);
     });
 
     testWidgets('借贷总览和借贷卡片使用分段入场动效', (tester) async {
