@@ -1547,9 +1547,13 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('模板适配矩阵'), findsOneWidget);
-        expect(find.text('多场景'), findsOneWidget);
+        expect(find.text('点按切换'), findsOneWidget);
         expect(find.text('家庭账本'), findsOneWidget);
         expect(find.text('AI 分析'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('profile-settings-template-indigo')),
+          findsOneWidget,
+        );
         expect(find.text('推荐主题策展'), findsOneWidget);
         expect(find.text('3 个高频场景'), findsOneWidget);
         expect(find.text('旗舰夜间使用'), findsOneWidget);

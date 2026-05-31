@@ -67,11 +67,18 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('模板适配矩阵'), findsOneWidget);
-      expect(find.text('多场景'), findsOneWidget);
+      expect(find.text('点按切换'), findsOneWidget);
       expect(find.text('日常记账'), findsOneWidget);
       expect(find.text('家庭账本'), findsOneWidget);
       expect(find.text('AI 分析'), findsOneWidget);
       expect(find.text('夜间高频'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('profile-settings-template-indigo')),
+      );
+      await tester.pumpAndSettle();
+      var preferences = await SharedPreferences.getInstance();
+      expect(preferences.getString('app_theme_palette'), 'indigo');
+      expect(find.text('深海靛蓝'), findsWidgets);
       expect(
         find.byKey(const ValueKey('profile-settings-theme-semantic-preview')),
         findsOneWidget,
@@ -90,7 +97,7 @@ void main() {
         find.byKey(const ValueKey('profile-settings-featured-theme-plasma')),
       );
       await tester.pumpAndSettle();
-      var preferences = await SharedPreferences.getInstance();
+      preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('app_theme_palette'), 'plasma');
       expect(find.text('电浆蓝'), findsWidgets);
 
