@@ -34,7 +34,17 @@ void main() {
       );
       expect(find.text('交易洞察轨道'), findsOneWidget);
       expect(find.text('最大金额'), findsOneWidget);
-      expect(find.text('标签覆盖'), findsOneWidget);
+      expect(find.text('标签覆盖'), findsAtLeastNWidgets(1));
+      expect(
+        find.byKey(const ValueKey('transaction-composition-matrix')),
+        findsOneWidget,
+      );
+      expect(find.text('流水构成矩阵'), findsOneWidget);
+      expect(find.text('全量构成'), findsOneWidget);
+      expect(find.text('收入占比'), findsOneWidget);
+      expect(find.text('支出占比'), findsOneWidget);
+      expect(find.text('筛选命中'), findsOneWidget);
+      expect(find.text('1/1 笔'), findsAtLeastNWidgets(1));
       expect(find.text('交易筛选工作台'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('transaction-filter-workbench')),
@@ -63,6 +73,12 @@ void main() {
       );
       expect(find.textContaining('午餐'), findsOneWidget);
 
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('transaction-item-transaction-1')),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('transaction-item-transaction-1')),
       );
@@ -76,6 +92,12 @@ void main() {
       final repository = _FakeTransactionRepository();
       await _pumpPage(tester, repository);
 
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('transaction-item-transaction-1')),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
@@ -98,10 +120,21 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('transaction-item-transaction-1')),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.longPress(
         find.byKey(const ValueKey('transaction-item-transaction-1')),
       );
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('transaction-select-transaction-2')),
+        260,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(
         find.byKey(const ValueKey('transaction-select-transaction-2')),
       );
@@ -137,6 +170,7 @@ void main() {
       expect(repository.listQueries.last.type, TransactionType.expense);
       expect(find.text('已启用 2 项条件 · 命中 1/1 笔'), findsOneWidget);
       expect(find.text('筛选视图 · 2 项条件'), findsOneWidget);
+      expect(find.text('筛选构成'), findsOneWidget);
     });
 
     testWidgets('清空筛选会重置搜索和类型条件', (tester) async {
@@ -197,6 +231,12 @@ void main() {
       expect(find.text('暂无交易明细'), findsOneWidget);
       expect(find.text('点击“记一笔”添加第一条收支记录。'), findsOneWidget);
 
+      await tester.scrollUntilVisible(
+        find.widgetWithText(FilledButton, '去记一笔'),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '去记一笔'));
       await tester.pumpAndSettle();
 

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -141,7 +143,7 @@ class _TransactionDetailsPageState
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 18),
-        itemCount: state.items.length + 5,
+        itemCount: state.items.length + 6,
         itemBuilder: (context, index) {
           if (index == 0) {
             return StaggeredEntrance(
@@ -172,9 +174,21 @@ class _TransactionDetailsPageState
           }
           if (index == 3) {
             return Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              padding: const EdgeInsets.only(top: 8),
               child: StaggeredEntrance(
                 index: 3,
+                child: _TransactionCompositionMatrix(
+                  state: state,
+                  palette: palette,
+                ),
+              ),
+            );
+          }
+          if (index == 4) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: StaggeredEntrance(
+                index: 4,
                 child: _TransactionFilterWorkbench(
                   state: state,
                   controller: _searchController,
@@ -188,10 +202,10 @@ class _TransactionDetailsPageState
               ),
             );
           }
-          if (index == state.items.length + 4) {
+          if (index == state.items.length + 5) {
             return _LoadMoreIndicator(state: state);
           }
-          final itemIndex = index - 4;
+          final itemIndex = index - 5;
           final item = state.items[itemIndex];
           return StaggeredEntrance(
             index: itemIndex.clamp(0, 5),
@@ -234,6 +248,11 @@ class _TransactionDetailsPageState
       const SizedBox(height: 8),
       StaggeredEntrance(
         index: 3,
+        child: _TransactionCompositionMatrix(state: state, palette: palette),
+      ),
+      const SizedBox(height: 8),
+      StaggeredEntrance(
+        index: 4,
         child: _TransactionFilterWorkbench(
           state: state,
           controller: _searchController,
@@ -902,6 +921,355 @@ class _InsightRailTile extends StatelessWidget {
                   style: Theme.of(
                     context,
                   ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionCompositionMatrix extends StatelessWidget {
+  const _TransactionCompositionMatrix({
+    required this.state,
+    required this.palette,
+  });
+
+  final TransactionListState state;
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final incomeCount = _countByType(TransactionType.income);
+    final expenseCount = _countByType(TransactionType.expense);
+    final transferCount = _countByType(TransactionType.transfer);
+    final taggedCount = state.items
+        .where((item) => item.tags.isNotEmpty)
+        .length;
+    final totalCount = state.items.length;
+    final classifiedCount = incomeCount + expenseCount + transferCount;
+    final tagCoverage = totalCount == 0 ? 0.0 : taggedCount / totalCount;
+    final filterHitRatio = state.total == 0
+        ? 0.0
+        : state.items.length / state.total;
+    final accentColor = state.hasActiveFilter
+        ? palette.assetColor
+        : expenseCount > incomeCount
+        ? financeColors.expense
+        : financeColors.income;
+    final statusLabel = state.hasActiveFilter ? '筛选构成' : '全量构成';
+
+    return PremiumSurface(
+      key: const ValueKey('transaction-composition-matrix'),
+      accentColor: accentColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.hub_outlined,
+                color: accentColor,
+                size: 42,
+                iconSize: 21,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '流水构成矩阵',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      totalCount == 0
+                          ? '等待交易数据接入'
+                          : '$classifiedCount 笔流水 · 标签覆盖 ${(tagCoverage * 100).toStringAsFixed(0)}%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _TransactionSignalPill(
+                icon: state.hasActiveFilter
+                    ? Icons.filter_alt_outlined
+                    : Icons.grid_view_outlined,
+                label: statusLabel,
+                color: accentColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _TransactionCompositionBar(
+            incomeCount: incomeCount,
+            expenseCount: expenseCount,
+            transferCount: transferCount,
+            incomeColor: financeColors.income,
+            expenseColor: financeColors.expense,
+            transferColor: palette.assetColor,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth >= 420
+                  ? (constraints.maxWidth - 8) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _TransactionCompositionTile(
+                    width: itemWidth,
+                    icon: Icons.south_west,
+                    label: '收入占比',
+                    value: _ratioLabel(incomeCount, totalCount),
+                    meta: '$incomeCount 笔',
+                    color: financeColors.income,
+                  ),
+                  _TransactionCompositionTile(
+                    width: itemWidth,
+                    icon: Icons.north_east,
+                    label: '支出占比',
+                    value: _ratioLabel(expenseCount, totalCount),
+                    meta: '$expenseCount 笔',
+                    color: financeColors.expense,
+                  ),
+                  _TransactionCompositionTile(
+                    width: itemWidth,
+                    icon: Icons.sell_outlined,
+                    label: '标签覆盖',
+                    value: '${(tagCoverage * 100).toStringAsFixed(0)}%',
+                    meta: '$taggedCount/$totalCount 笔',
+                    color: colorScheme.secondary,
+                  ),
+                  _TransactionCompositionTile(
+                    width: itemWidth,
+                    icon: Icons.manage_search_outlined,
+                    label: '筛选命中',
+                    value: '${(filterHitRatio * 100).toStringAsFixed(0)}%',
+                    meta: '${state.items.length}/${state.total} 笔',
+                    color: palette.warningColor,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _countByType(TransactionType type) {
+    return state.items.where((item) => item.type == type).length;
+  }
+
+  String _ratioLabel(int count, int total) {
+    if (total == 0) {
+      return '0%';
+    }
+    return '${(count / total * 100).toStringAsFixed(0)}%';
+  }
+}
+
+class _TransactionCompositionBar extends StatelessWidget {
+  const _TransactionCompositionBar({
+    required this.incomeCount,
+    required this.expenseCount,
+    required this.transferCount,
+    required this.incomeColor,
+    required this.expenseColor,
+    required this.transferColor,
+  });
+
+  final int incomeCount;
+  final int expenseCount;
+  final int transferCount;
+  final Color incomeColor;
+  final Color expenseColor;
+  final Color transferColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final total = incomeCount + expenseCount + transferCount;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _CompositionLegend(label: '收入', color: incomeColor),
+              const SizedBox(width: 12),
+              _CompositionLegend(label: '支出', color: expenseColor),
+              const SizedBox(width: 12),
+              _CompositionLegend(label: '转账', color: transferColor),
+              const Spacer(),
+              Text(
+                total == 0 ? '待接入' : '$total 笔',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: total == 0 ? 1 : math.max(1, incomeCount),
+                    child: ColoredBox(color: incomeColor),
+                  ),
+                  Expanded(
+                    flex: total == 0 ? 1 : math.max(1, expenseCount),
+                    child: ColoredBox(color: expenseColor),
+                  ),
+                  Expanded(
+                    flex: total == 0 ? 1 : math.max(1, transferCount),
+                    child: ColoredBox(color: transferColor),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompositionLegend extends StatelessWidget {
+  const _CompositionLegend({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TransactionCompositionTile extends StatelessWidget {
+  const _TransactionCompositionTile({
+    required this.width,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.meta,
+    required this.color,
+  });
+
+  final double width;
+  final IconData icon;
+  final String label;
+  final String value;
+  final String meta;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      width: width,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 82),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
