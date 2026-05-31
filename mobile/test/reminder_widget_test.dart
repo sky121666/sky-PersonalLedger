@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
@@ -234,6 +237,34 @@ void main() {
       expect(find.text('¥0.00'), findsWidgets);
     });
 
+    testWidgets('临近还款提醒跟随主题警示色', (tester) async {
+      final repository = _FakeReminderRepository()
+        ..reminders = [_activeReminder(paymentDay: DateTime.now().day)];
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final reminderSurface = tester.widget<PremiumSurface>(
+        find
+            .ancestor(
+              of: find.text('房贷'),
+              matching: find.byType(PremiumSurface),
+            )
+            .first,
+      );
+      final reminderBadge = tester.widget<IconBadge>(
+        find
+            .ancestor(
+              of: find.byIcon(Icons.house_outlined),
+              matching: find.byType(IconBadge),
+            )
+            .first,
+      );
+      expect(
+        reminderSurface.accentColor,
+        AppThemePalette.graphite.warningColor,
+      );
+      expect(reminderBadge.color, AppThemePalette.graphite.warningColor);
+    });
+
     testWidgets('暂停提醒失败时展示错误且保留原状态', (tester) async {
       final repository = _FakeReminderRepository()..toggleError = '暂停失败';
       await _pumpPage(tester, repository);
@@ -275,6 +306,7 @@ Future<void> _pumpPage(
   _FakeReminderRepository repository, {
   _FakeAttachmentRepository? attachmentRepository,
   _FakeAttachmentPickerService? attachmentPickerService,
+  AppThemePalette palette = AppThemePalette.teal,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -293,7 +325,11 @@ Future<void> _pumpPage(
             attachmentPickerService,
           ),
       ],
-      child: const MaterialApp(home: ReminderPage()),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        home: const ReminderPage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

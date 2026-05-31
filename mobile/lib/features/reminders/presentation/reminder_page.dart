@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -612,13 +613,14 @@ class _ReminderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     final days = reminder.daysUntilPayment(DateTime.now());
     final busy =
         busyAction == 'toggle-${reminder.id}' ||
         busyAction == 'delete-${reminder.id}' ||
         busyAction == 'payment-${reminder.id}';
     final accentColor = days <= reminder.advanceDays
-        ? Colors.orange
+        ? financeColors.warning
         : colorScheme.primary;
 
     return PremiumSurface(
