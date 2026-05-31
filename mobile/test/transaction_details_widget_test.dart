@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/transaction_details_page.dart';
@@ -178,13 +179,24 @@ void main() {
       expect(find.text('餐饮'), findsOneWidget);
       expect(repository.listQueries.length, 2);
     });
+
+    testWidgets('交易列表跟随主题色模板', (tester) async {
+      final repository = _FakeTransactionRepository(
+        items: [_transaction(type: TransactionType.income)],
+      );
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final amountText = tester.widget<Text>(find.text('+¥32.50'));
+      expect(amountText.style?.color, AppThemePalette.graphite.incomeColor);
+    });
   });
 }
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeTransactionRepository repository,
-) async {
+  _FakeTransactionRepository repository, {
+  AppThemePalette palette = AppThemePalette.teal,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -216,7 +228,11 @@ Future<void> _pumpPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [transactionRepositoryProvider.overrideWithValue(repository)],
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        routerConfig: router,
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -311,10 +327,11 @@ class _FakeTransactionRepository implements TransactionRepository {
 TransactionItem _transaction({
   String id = 'transaction-1',
   String remark = '午餐',
+  TransactionType type = TransactionType.expense,
 }) {
   return TransactionItem(
     id: id,
-    type: TransactionType.expense,
+    type: type,
     amount: 32.5,
     accountId: 'account-1',
     categoryId: 'category-food',

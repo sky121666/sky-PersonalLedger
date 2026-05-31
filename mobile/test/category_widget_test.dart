@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/categories/application/category_controller.dart';
 import 'package:personal_ledger/features/categories/data/category.dart';
 import 'package:personal_ledger/features/categories/data/category_repository.dart';
@@ -85,7 +87,8 @@ void main() {
     });
 
     testWidgets('没有分类时展示空状态', (tester) async {
-      final repository = _FakeCategoryRepository()..expenseCategories = const [];
+      final repository = _FakeCategoryRepository()
+        ..expenseCategories = const [];
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无支出分类'), findsOneWidget);
@@ -143,13 +146,24 @@ void main() {
       expect(find.text('删除成功'), findsNothing);
       expect(find.text('交通'), findsOneWidget);
     });
+
+    testWidgets('分类头部跟随主题色模板', (tester) async {
+      final repository = _FakeCategoryRepository();
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final surface = tester.widget<PremiumSurface>(
+        find.byType(PremiumSurface).first,
+      );
+      expect(surface.accentColor, AppThemePalette.graphite.expenseColor);
+    });
   });
 }
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  _FakeCategoryRepository repository,
-) async {
+  _FakeCategoryRepository repository, {
+  AppThemePalette palette = AppThemePalette.teal,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -158,7 +172,11 @@ Future<void> _pumpPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [categoryRepositoryProvider.overrideWithValue(repository)],
-      child: const MaterialApp(home: CategoriesPage()),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
+        home: const CategoriesPage(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

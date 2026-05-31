@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
 import 'package:personal_ledger/features/account_logs/presentation/account_log_page.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
@@ -150,6 +152,19 @@ void main() {
       expect(find.text('午餐'), findsOneWidget);
       expect(find.text('-¥80.00'), findsOneWidget);
     });
+
+    testWidgets('账户流水图标跟随主题色模板', (tester) async {
+      final repository = _FakeAccountLogRepository();
+      await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
+
+      final badges = tester.widgetList<IconBadge>(find.byType(IconBadge));
+      expect(
+        badges.any(
+          (badge) => badge.color == AppThemePalette.graphite.incomeColor,
+        ),
+        isTrue,
+      );
+    });
   });
 }
 
@@ -158,11 +173,14 @@ Future<void> _pumpPage(
   _FakeAccountLogRepository repository, {
   String? accountId,
   Account? account,
+  AppThemePalette palette = AppThemePalette.teal,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [accountLogRepositoryProvider.overrideWithValue(repository)],
       child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
         home: AccountLogPage(accountId: accountId, account: account),
       ),
     ),
@@ -174,18 +192,17 @@ class _FakeAccountLogRepository implements AccountLogRepository {
   _FakeAccountLogRepository({
     Map<int, AccountLogListResult>? pages,
     Map<int, List<AccountLogListResult>>? pageSequences,
-  })
-    : pages =
-          pages ??
-          {
-            1: AccountLogListResult(
-              list: [_log(account: _account())],
-              total: 1,
-              page: 1,
-              pageSize: 50,
-            ),
-          },
-      pageSequences = pageSequences ?? const {};
+  }) : pages =
+           pages ??
+           {
+             1: AccountLogListResult(
+               list: [_log(account: _account())],
+               total: 1,
+               page: 1,
+               pageSize: 50,
+             ),
+           },
+       pageSequences = pageSequences ?? const {};
 
   final Map<int, AccountLogListResult> pages;
   final Map<int, List<AccountLogListResult>> pageSequences;

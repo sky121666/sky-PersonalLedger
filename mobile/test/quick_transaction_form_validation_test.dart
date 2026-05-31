@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_picker_service.dart';
@@ -278,6 +279,26 @@ void main() {
       expect(find.widgetWithText(FilledButton, '保存'), findsOneWidget);
       expect(find.byType(PremiumSurface), findsWidgets);
     });
+
+    testWidgets('账户区域跟随主题色模板', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        palette: AppThemePalette.graphite,
+      );
+
+      final surfaces = tester.widgetList<PremiumSurface>(
+        find.byType(PremiumSurface),
+      );
+      expect(
+        surfaces.any(
+          (surface) =>
+              surface.accentColor == AppThemePalette.graphite.assetColor,
+        ),
+        isTrue,
+      );
+    });
   });
 }
 
@@ -289,6 +310,7 @@ Future<void> _pumpTransactionPage(
   AttachmentPickerService? attachmentPickerService,
   List<FamilyMember> familyMembers = const [],
   bool embedded = false,
+  AppThemePalette palette = AppThemePalette.teal,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -308,6 +330,8 @@ Future<void> _pumpTransactionPage(
         familyMembersProvider.overrideWith((ref) async => familyMembers),
       ],
       child: MaterialApp(
+        theme: AppTheme.lightTheme(palette),
+        darkTheme: AppTheme.darkTheme(palette),
         home: QuickTransactionPage(
           editingTransaction: editingTransaction,
           embedded: embedded,

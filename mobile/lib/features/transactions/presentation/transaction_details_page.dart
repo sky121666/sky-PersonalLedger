@@ -403,8 +403,9 @@ class _TransactionListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     final amountColor = switch (item.type) {
-      TransactionType.income => AppTheme.incomeColor,
+      TransactionType.income => financeColors.income,
       TransactionType.expense => colorScheme.error,
       TransactionType.transfer => colorScheme.primary,
     };

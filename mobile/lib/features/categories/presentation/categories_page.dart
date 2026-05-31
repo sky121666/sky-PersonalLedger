@@ -172,9 +172,10 @@ class _CategoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
     final accentColor = selectedType == CategoryType.expense
-        ? AppTheme.expenseColor
-        : AppTheme.incomeColor;
+        ? financeColors.expense
+        : financeColors.income;
     return PremiumSurface(
       accentColor: accentColor,
       padding: const EdgeInsets.all(18),

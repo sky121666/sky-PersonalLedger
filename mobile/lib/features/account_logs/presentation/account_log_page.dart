@@ -310,12 +310,13 @@ class _AccountLogTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final typeStyle = _typeStyle(log.type);
+    final typeStyle = _typeStyle(context, log.type);
     final change = log.balanceChange;
+    final financeColors = AppTheme.financeColors(context);
     final changeColor = change > 0
-        ? AppTheme.incomeColor
+        ? financeColors.income
         : change < 0
-        ? AppTheme.expenseColor
+        ? financeColors.expense
         : Theme.of(context).colorScheme.outline;
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -440,23 +441,24 @@ List<_LogGroup> _groupLogsByDate(List<AccountLogItem> logs) {
   return groups;
 }
 
-_TypeStyle _typeStyle(AccountLogType type) {
+_TypeStyle _typeStyle(BuildContext context, AccountLogType type) {
+  final financeColors = AppTheme.financeColors(context);
   return switch (type) {
     AccountLogType.income => _TypeStyle(
       icon: Icons.trending_up,
-      color: AppTheme.incomeColor,
+      color: financeColors.income,
     ),
     AccountLogType.expense => _TypeStyle(
       icon: Icons.trending_down,
-      color: AppTheme.expenseColor,
+      color: financeColors.expense,
     ),
     AccountLogType.transferIn => _TypeStyle(
       icon: Icons.swap_horiz,
-      color: AppTheme.assetColor,
+      color: financeColors.asset,
     ),
     AccountLogType.transferOut => _TypeStyle(
       icon: Icons.swap_horiz,
-      color: AppTheme.warningColor,
+      color: financeColors.warning,
     ),
     AccountLogType.rollback => _TypeStyle(
       icon: Icons.undo,

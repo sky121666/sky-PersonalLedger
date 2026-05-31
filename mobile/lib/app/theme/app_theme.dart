@@ -6,6 +6,8 @@ enum AppThemePalette {
     label: '静谧墨绿',
     description: '默认金融色，稳定、克制、耐看。',
     seedColor: Color(0xFF0F766E),
+    incomeColor: Color(0xFF059669),
+    expenseColor: Color(0xFFDC2626),
     assetColor: Color(0xFF2563EB),
     warningColor: Color(0xFFF59E0B),
   ),
@@ -14,6 +16,8 @@ enum AppThemePalette {
     label: '石墨蓝',
     description: '更冷静的高级仪表盘气质。',
     seedColor: Color(0xFF334155),
+    incomeColor: Color(0xFF10B981),
+    expenseColor: Color(0xFFEF4444),
     assetColor: Color(0xFF0EA5E9),
     warningColor: Color(0xFFEAB308),
   ),
@@ -22,6 +26,8 @@ enum AppThemePalette {
     label: '深海靛蓝',
     description: '更偏科技和 AI 分析场景。',
     seedColor: Color(0xFF4338CA),
+    incomeColor: Color(0xFF22C55E),
+    expenseColor: Color(0xFFF43F5E),
     assetColor: Color(0xFF0284C7),
     warningColor: Color(0xFFF59E0B),
   ),
@@ -30,6 +36,8 @@ enum AppThemePalette {
     label: '翡翠绿',
     description: '更清爽，适合轻量日常记账。',
     seedColor: Color(0xFF047857),
+    incomeColor: Color(0xFF16A34A),
+    expenseColor: Color(0xFFE11D48),
     assetColor: Color(0xFF0891B2),
     warningColor: Color(0xFFD97706),
   ),
@@ -38,6 +46,8 @@ enum AppThemePalette {
     label: '琥珀金',
     description: '更温暖，但保留金融产品克制感。',
     seedColor: Color(0xFFB45309),
+    incomeColor: Color(0xFF15803D),
+    expenseColor: Color(0xFFB91C1C),
     assetColor: Color(0xFF2563EB),
     warningColor: Color(0xFFF59E0B),
   );
@@ -47,6 +57,8 @@ enum AppThemePalette {
     required this.label,
     required this.description,
     required this.seedColor,
+    required this.incomeColor,
+    required this.expenseColor,
     required this.assetColor,
     required this.warningColor,
   });
@@ -55,6 +67,8 @@ enum AppThemePalette {
   final String label;
   final String description;
   final Color seedColor;
+  final Color incomeColor;
+  final Color expenseColor;
   final Color assetColor;
   final Color warningColor;
 
@@ -175,8 +189,8 @@ class AppFinanceColors extends ThemeExtension<AppFinanceColors> {
   factory AppFinanceColors.fromPalette(AppThemePalette palette) {
     return AppFinanceColors(
       brand: palette.seedColor,
-      income: AppTheme.incomeColor,
-      expense: AppTheme.expenseColor,
+      income: palette.incomeColor,
+      expense: palette.expenseColor,
       asset: palette.assetColor,
       warning: palette.warningColor,
     );

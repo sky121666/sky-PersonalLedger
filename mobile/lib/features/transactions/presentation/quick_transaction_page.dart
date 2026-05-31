@@ -142,7 +142,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                 StaggeredEntrance(
                   index: 1,
                   child: PremiumSurface(
-                    accentColor: AppTheme.assetColor,
+                    accentColor: AppTheme.financeColors(context).asset,
                     child: Column(
                       children: [
                         _buildAccountPicker(),
