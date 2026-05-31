@@ -1150,6 +1150,12 @@ void main() {
             find.byKey(const ValueKey('family-collaboration-hub')),
             findsOneWidget,
           );
+          expect(find.text('家庭治理预留'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('family-governance-surface')),
+            findsOneWidget,
+          );
+          expect(find.text('权限预留'), findsOneWidget);
           expect(find.text('¥320.00'), findsAtLeastNWidgets(1));
           expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);

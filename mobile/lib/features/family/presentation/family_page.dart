@@ -70,10 +70,19 @@ class FamilyPage extends ConsumerWidget {
                     themeSettings: themeSettings,
                   ),
                 ),
+                const SizedBox(height: 12),
+                StaggeredEntrance(
+                  index: 2,
+                  child: _FamilyGovernanceSurface(
+                    members: members,
+                    budgets: memberBudgetsState.valueOrNull ?? const [],
+                    themeSettings: themeSettings,
+                  ),
+                ),
                 if (memberBudgetsState.valueOrNull?.isNotEmpty == true) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 2,
+                    index: 3,
                     child: _FamilyBudgetSurface(
                       budgets: memberBudgetsState.valueOrNull!,
                     ),
@@ -89,7 +98,7 @@ class FamilyPage extends ConsumerWidget {
                 if (summary != null && summary.members.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 3,
+                    index: 4,
                     child: _FamilyRankingSurface(summary: summary),
                   ),
                 ],
@@ -99,7 +108,7 @@ class FamilyPage extends ConsumerWidget {
                     )) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 4,
+                    index: 5,
                     child: _FamilyCategorySurface(statistics: statistics),
                   ),
                 ],
@@ -123,7 +132,7 @@ class FamilyPage extends ConsumerWidget {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: StaggeredEntrance(
-                      index: index + 5,
+                      index: index + 6,
                       child: _FamilyMemberCard(member: member),
                     ),
                   );
@@ -477,6 +486,265 @@ class _FamilyPaletteSwatches extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyGovernanceSurface extends StatelessWidget {
+  const _FamilyGovernanceSurface({
+    required this.members,
+    required this.budgets,
+    required this.themeSettings,
+  });
+
+  final List<FamilyMember> members;
+  final List<BudgetItem> budgets;
+  final AppThemeSettings themeSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = themeSettings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final enabledCount = members.where((member) => member.isEnabled).length;
+    final defaultCount = members.where((member) => member.isDefault).length;
+    final disabledCount = members.length - enabledCount;
+    final roleStatus = defaultCount > 0 ? '已指定' : '待指定';
+    final budgetStatus = budgets.isEmpty ? '预留' : '${budgets.length} 项';
+    return PremiumSurface(
+      key: const ValueKey('family-governance-surface'),
+      accentColor: colorScheme.tertiary,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.admin_panel_settings_outlined,
+                color: colorScheme.tertiary,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '家庭治理预留',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${palette.signature} · 角色、权限、预算规则分层接入',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _FamilyGovernancePill(
+                label: '阶段 1',
+                icon: Icons.flag_outlined,
+                color: palette.seedColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _FamilyGovernanceTile(
+                  icon: Icons.manage_accounts_outlined,
+                  label: '角色入口',
+                  value: roleStatus,
+                  caption: defaultCount > 0 ? '默认成员就绪' : '需要默认成员',
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FamilyGovernanceTile(
+                  icon: Icons.rule_folder_outlined,
+                  label: '预算规则',
+                  value: budgetStatus,
+                  caption: budgets.isEmpty ? '后续可扩展' : '成员预算已接入',
+                  color: financeColors.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _FamilyGovernancePill(
+                label: '启用 $enabledCount',
+                icon: Icons.person_outline,
+                color: financeColors.income,
+              ),
+              _FamilyGovernancePill(
+                label: '停用 $disabledCount',
+                icon: Icons.person_off_outlined,
+                color: disabledCount > 0
+                    ? colorScheme.outline
+                    : financeColors.income,
+              ),
+              _FamilyGovernancePill(
+                label: '权限预留',
+                icon: Icons.lock_outline,
+                color: colorScheme.tertiary,
+              ),
+              _FamilyGovernancePill(
+                label: '家庭预算',
+                icon: Icons.savings_outlined,
+                color: financeColors.warning,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyGovernanceTile extends StatelessWidget {
+  const _FamilyGovernanceTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.caption,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String caption;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 84),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyGovernancePill extends StatelessWidget {
+  const _FamilyGovernancePill({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 32, maxWidth: 148),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
         ],
       ),
     );

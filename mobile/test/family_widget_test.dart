@@ -114,10 +114,23 @@ void main() {
       find.byKey(const ValueKey('family-collaboration-hub')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('family-governance-surface')),
+      findsOneWidget,
+    );
+    expect(find.text('家庭治理预留'), findsOneWidget);
+    expect(find.textContaining('角色、权限、预算规则分层接入'), findsOneWidget);
+    expect(find.text('角色入口'), findsOneWidget);
+    expect(find.text('已指定'), findsOneWidget);
+    expect(find.text('预算规则'), findsOneWidget);
+    expect(find.text('1 项'), findsOneWidget);
+    expect(find.text('权限预留'), findsOneWidget);
     expect(find.text('1/2'), findsOneWidget);
     expect(find.text('32%'), findsOneWidget);
     expect(find.text('1 类'), findsOneWidget);
-    expect(find.text('家庭预算'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('家庭预算'), 260);
+    await tester.pumpAndSettle();
+    expect(find.text('家庭预算'), findsAtLeastNWidgets(1));
     expect(find.text('¥1000.00'), findsOneWidget);
     expect(find.text('45%'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('成员支出排行'), 300);
