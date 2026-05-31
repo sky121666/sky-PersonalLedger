@@ -14,6 +14,9 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('数据保险库'), findsOneWidget);
+      expect(find.text('传输路径'), findsOneWidget);
+      expect(find.text('覆盖确认'), findsOneWidget);
+      expect(find.text('备份留存'), findsOneWidget);
       expect(find.text('导出、恢复和迁移数据前先确认目标文件来源。'), findsOneWidget);
       await tester.tap(find.text('下载备份'));
       await tester.pumpAndSettle();

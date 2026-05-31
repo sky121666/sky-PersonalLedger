@@ -732,6 +732,124 @@ class _DataManagementHero extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          _DataTrustRail(
+            autoBackupEnabled: autoBackupEnabled,
+            maxBackups: maxBackups,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataTrustRail extends StatelessWidget {
+  const _DataTrustRail({
+    required this.autoBackupEnabled,
+    required this.maxBackups,
+  });
+
+  final bool autoBackupEnabled;
+  final int maxBackups;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Row(
+      children: [
+        Expanded(
+          child: _DataTrustTile(
+            icon: Icons.download_done_outlined,
+            label: '传输路径',
+            value: '本机保存',
+            color: financeColors.asset,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _DataTrustTile(
+            icon: Icons.verified_user_outlined,
+            label: '覆盖确认',
+            value: '二次确认',
+            color: colorScheme.error,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _DataTrustTile(
+            icon: autoBackupEnabled
+                ? Icons.cloud_sync_outlined
+                : Icons.cloud_off_outlined,
+            label: '备份留存',
+            value: autoBackupEnabled ? '$maxBackups 份' : '待启用',
+            color: autoBackupEnabled
+                ? colorScheme.primary
+                : colorScheme.outline,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DataTrustTile extends StatelessWidget {
+  const _DataTrustTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 78),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
