@@ -201,6 +201,9 @@ class AppTheme {
       bottomSheetTheme: _bottomSheetTheme(colorScheme, palette),
       datePickerTheme: _datePickerTheme(colorScheme, palette),
       timePickerTheme: _timePickerTheme(colorScheme, palette),
+      dropdownMenuTheme: _dropdownMenuTheme(colorScheme, palette),
+      menuTheme: _menuTheme(colorScheme, palette),
+      menuButtonTheme: _menuButtonTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -253,6 +256,9 @@ class AppTheme {
       bottomSheetTheme: _bottomSheetTheme(colorScheme, palette),
       datePickerTheme: _datePickerTheme(colorScheme, palette),
       timePickerTheme: _timePickerTheme(colorScheme, palette),
+      dropdownMenuTheme: _dropdownMenuTheme(colorScheme, palette),
+      menuTheme: _menuTheme(colorScheme, palette),
+      menuButtonTheme: _menuButtonTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -1179,6 +1185,107 @@ class AppTheme {
       dialTextStyle: const TextStyle(fontWeight: FontWeight.w800),
       cancelButtonStyle: _textButtonTheme(colorScheme, palette).style,
       confirmButtonStyle: _filledButtonTheme(colorScheme, palette).style,
+    );
+  }
+
+  static DropdownMenuThemeData _dropdownMenuTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return DropdownMenuThemeData(
+      textStyle: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: 14,
+        fontWeight: FontWeight.w800,
+      ),
+      inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
+      menuStyle: _menuStyle(colorScheme, palette),
+      disabledColor: colorScheme.onSurface.withValues(alpha: 0.38),
+    );
+  }
+
+  static MenuThemeData _menuTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return MenuThemeData(style: _menuStyle(colorScheme, palette));
+  }
+
+  static MenuButtonThemeData _menuButtonTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return MenuButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(44, 44)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.w800),
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return colorScheme.onSurface.withValues(alpha: 0.38);
+          }
+          return colorScheme.onSurface;
+        }),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return palette.seedColor.withValues(
+              alpha: colorScheme.brightness == Brightness.dark ? 0.14 : 0.08,
+            );
+          }
+          return Colors.transparent;
+        }),
+        overlayColor: WidgetStatePropertyAll(
+          palette.seedColor.withValues(alpha: 0.10),
+        ),
+        iconColor: WidgetStatePropertyAll(palette.seedColor),
+        enableFeedback: true,
+      ),
+    );
+  }
+
+  static MenuStyle _menuStyle(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final backgroundColor = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.12 : 0.04),
+      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
+    );
+
+    return MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(backgroundColor),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      shadowColor: WidgetStatePropertyAll(
+        Colors.black.withValues(alpha: isDark ? 0.34 : 0.12),
+      ),
+      elevation: const WidgetStatePropertyAll(6),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      ),
+      minimumSize: const WidgetStatePropertyAll(Size(180, 44)),
+      maximumSize: const WidgetStatePropertyAll(Size(420, 420)),
+      side: WidgetStatePropertyAll(
+        BorderSide(
+          color: palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.10),
+        ),
+      ),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      mouseCursor: WidgetStateProperty.resolveWith((states) {
+        return states.contains(WidgetState.disabled)
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click;
+      }),
     );
   }
 }

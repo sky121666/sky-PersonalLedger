@@ -284,6 +284,33 @@ void main() {
       expect(timePickerTheme.confirmButtonStyle, isNotNull);
     });
 
+    test('下拉菜单和菜单项使用主题化选择器样式', () {
+      final theme = AppTheme.darkTheme(AppThemePalette.aurora);
+      final dropdownTheme = theme.dropdownMenuTheme;
+      final menuTheme = theme.menuTheme;
+      final menuButtonTheme = theme.menuButtonTheme;
+
+      expect(dropdownTheme.textStyle?.fontWeight, FontWeight.w800);
+      expect(dropdownTheme.inputDecorationTheme?.filled, isTrue);
+      expect(dropdownTheme.menuStyle, isNotNull);
+      expect(dropdownTheme.disabledColor, isNotNull);
+
+      final menuStyle = menuTheme.style;
+      expect(menuStyle?.backgroundColor?.resolve({}), isNotNull);
+      expect(menuStyle?.surfaceTintColor?.resolve({}), Colors.transparent);
+      expect(menuStyle?.elevation?.resolve({}), 6);
+      expect(menuStyle?.shape?.resolve({}), isA<RoundedRectangleBorder>());
+      expect(menuStyle?.minimumSize?.resolve({}), const Size(180, 44));
+
+      final buttonStyle = menuButtonTheme.style;
+      expect(buttonStyle?.minimumSize?.resolve({}), const Size(44, 44));
+      expect(
+        buttonStyle?.iconColor?.resolve({}),
+        AppThemePalette.aurora.seedColor,
+      );
+      expect(buttonStyle?.enableFeedback, isTrue);
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);
