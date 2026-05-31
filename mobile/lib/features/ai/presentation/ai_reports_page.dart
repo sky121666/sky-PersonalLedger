@@ -83,6 +83,12 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               schedule: scheduleState.valueOrNull,
               themePalette: themeSettings.palette,
             );
+            final gatewayContractPanel = _AIGatewayContractPanel(
+              reports: reports,
+              providerSetup: providerState.valueOrNull,
+              schedule: scheduleState.valueOrNull,
+              themePalette: themeSettings.palette,
+            );
             final productionReadinessPanel = _AIProductionReadinessPanel(
               reports: reports,
               providerSetup: providerState.valueOrNull,
@@ -102,6 +108,8 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                   const SizedBox(height: 12),
                   orchestrationPanel,
                   const SizedBox(height: 12),
+                  gatewayContractPanel,
+                  const SizedBox(height: 12),
                   productionReadinessPanel,
                   const SizedBox(height: 12),
                   insightQualityPanel,
@@ -118,7 +126,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               );
             }
             return ListView.separated(
-              itemCount: reports.length + (_generating ? 1 : 0) + 6,
+              itemCount: reports.length + (_generating ? 1 : 0) + 7,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 if (index == 0) {
@@ -128,21 +136,24 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                   return orchestrationPanel;
                 }
                 if (index == 2) {
-                  return productionReadinessPanel;
+                  return gatewayContractPanel;
                 }
                 if (index == 3) {
-                  return insightQualityPanel;
+                  return productionReadinessPanel;
                 }
                 if (index == 4) {
-                  return providerSurface;
+                  return insightQualityPanel;
                 }
                 if (index == 5) {
+                  return providerSurface;
+                }
+                if (index == 6) {
                   return scheduleSurface;
                 }
-                if (_generating && index == 6) {
+                if (_generating && index == 7) {
                   return const _AIReportGeneratingSurface();
                 }
-                final reportIndex = index - 6 - (_generating ? 1 : 0);
+                final reportIndex = index - 7 - (_generating ? 1 : 0);
                 final report = reports[reportIndex];
                 return StaggeredEntrance(
                   index: index,
@@ -1064,6 +1075,197 @@ class _AIProductionReadinessPanel extends StatelessWidget {
                 color: failedReports.isEmpty
                     ? financeColors.income
                     : colorScheme.error,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AIGatewayContractPanel extends StatelessWidget {
+  const _AIGatewayContractPanel({
+    required this.reports,
+    required this.providerSetup,
+    required this.schedule,
+    required this.themePalette,
+  });
+
+  final List<AIReportSummary> reports;
+  final AIProviderSetupData? providerSetup;
+  final AIReportScheduleSettings? schedule;
+  final AppThemePalette themePalette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final providers = providerSetup?.providers ?? const <AIProviderSummary>[];
+    final enabledProviders = providers
+        .where((provider) => provider.enabled)
+        .toList();
+    final compatibleProviders = enabledProviders
+        .where((provider) => provider.providerType == 'openai_compatible')
+        .toList();
+    final primaryProvider = compatibleProviders.isNotEmpty
+        ? compatibleProviders.first
+        : enabledProviders.firstOrNull;
+    final hasDeepSeek = enabledProviders.any(
+      (provider) =>
+          provider.name.toLowerCase().contains('deepseek') ||
+          provider.baseUrl.toLowerCase().contains('deepseek'),
+    );
+    final completedReports = reports
+        .where((report) => report.status == 'completed')
+        .length;
+    final contractScore = [
+      compatibleProviders.isNotEmpty,
+      primaryProvider?.baseUrl.trim().isNotEmpty == true,
+      primaryProvider?.model.trim().isNotEmpty == true,
+      schedule?.enabled == true || completedReports > 0,
+    ].where((ready) => ready).length;
+    final contractColor = contractScore >= 3
+        ? financeColors.income
+        : contractScore >= 2
+        ? themePalette.warningColor
+        : colorScheme.outline;
+    final contractLabel = contractScore >= 3
+        ? '接口可用'
+        : contractScore >= 2
+        ? '待验证'
+        : '待配置';
+
+    return PremiumSurface(
+      key: const ValueKey('ai-gateway-contract-panel'),
+      accentColor: contractColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.api_outlined,
+                color: contractColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'OpenAI-compatible 网关契约',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      primaryProvider == null
+                          ? '等待配置 DeepSeek 或兼容 OpenAI API 的 Provider'
+                          : '${primaryProvider.baseUrl} · ${primaryProvider.model}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _AICommandSignalPill(
+                icon: contractScore >= 3
+                    ? Icons.verified_outlined
+                    : Icons.pending_actions_outlined,
+                label: contractLabel,
+                color: contractColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.hub_outlined,
+                  label: '兼容接口',
+                  value: '${compatibleProviders.length} 个',
+                  color: compatibleProviders.isNotEmpty
+                      ? themePalette.assetColor
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.memory_outlined,
+                  label: '模型',
+                  value: primaryProvider?.model.isNotEmpty == true
+                      ? '已选择'
+                      : '待选择',
+                  color: primaryProvider?.model.isNotEmpty == true
+                      ? financeColors.income
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.event_repeat_outlined,
+                  label: '周报链路',
+                  value: schedule?.enabled == true
+                      ? '${schedule!.hour}:00'
+                      : '手动',
+                  color: schedule?.enabled == true
+                      ? financeColors.income
+                      : themePalette.warningColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AIProviderSignalPill(
+                icon: hasDeepSeek
+                    ? Icons.auto_awesome_outlined
+                    : Icons.extension_outlined,
+                label: hasDeepSeek ? 'DeepSeek 已适配' : 'DeepSeek 预留',
+                color: hasDeepSeek
+                    ? themePalette.seedColor
+                    : colorScheme.outline,
+              ),
+              _AIProviderSignalPill(
+                icon: compatibleProviders.isNotEmpty
+                    ? Icons.route_outlined
+                    : Icons.link_off_outlined,
+                label: compatibleProviders.isNotEmpty
+                    ? 'OpenAPI 兼容'
+                    : 'OpenAPI 待接入',
+                color: compatibleProviders.isNotEmpty
+                    ? themePalette.assetColor
+                    : colorScheme.outline,
+              ),
+              _AIProviderSignalPill(
+                icon: Icons.visibility_off_outlined,
+                label: '密钥保护',
+                color: themePalette.assetColor,
+              ),
+              _AIProviderSignalPill(
+                icon: completedReports > 0
+                    ? Icons.dataset_outlined
+                    : Icons.note_add_outlined,
+                label: completedReports > 0 ? '报告样本 $completedReports' : '等待样本',
+                color: completedReports > 0
+                    ? financeColors.income
+                    : colorScheme.outline,
               ),
             ],
           ),

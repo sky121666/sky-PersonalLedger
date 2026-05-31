@@ -55,7 +55,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('ai-production-readiness-panel')),
+      find.byKey(const ValueKey('ai-gateway-contract-panel')),
       findsOneWidget,
     );
     expect(find.text('AI 分析控制台'), findsOneWidget);
@@ -66,6 +66,16 @@ void main() {
     expect(find.text('静谧墨绿'), findsOneWidget);
     expect(find.text('周报未启用'), findsOneWidget);
     expect(find.text('Key 不回显'), findsOneWidget);
+    expect(find.text('OpenAI-compatible 网关契约'), findsOneWidget);
+    expect(find.text('兼容接口'), findsOneWidget);
+    expect(find.text('DeepSeek 预留'), findsOneWidget);
+    expect(find.text('OpenAPI 待接入'), findsOneWidget);
+    expect(find.text('密钥保护'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('AI 生产就绪层'));
+    expect(
+      find.byKey(const ValueKey('ai-production-readiness-panel')),
+      findsOneWidget,
+    );
     expect(find.text('AI 生产就绪层'), findsOneWidget);
     expect(find.text('待补齐'), findsOneWidget);
     expect(find.text('就绪度'), findsOneWidget);
@@ -202,8 +212,10 @@ void main() {
 
     expect(find.text('AI 分析控制台'), findsOneWidget);
     expect(find.text('AI 模型编排'), findsOneWidget);
-    expect(find.text('AI 生产就绪层'), findsOneWidget);
+    expect(find.text('OpenAI-compatible 网关契约'), findsOneWidget);
     expect(find.text('等待生成'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('AI 生产就绪层'));
+    expect(find.text('AI 生产就绪层'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('暂无 AI 报告'), 300);
     expect(find.text('暂无 AI 报告'), findsOneWidget);
     expect(find.text('生成报告'), findsWidgets);
