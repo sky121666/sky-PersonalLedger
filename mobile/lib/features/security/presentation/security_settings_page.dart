@@ -7,6 +7,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/security_repository.dart';
 
@@ -230,24 +231,193 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
-        _PasswordCard(
-          oldPasswordController: _oldPasswordController,
-          newPasswordController: _newPasswordController,
-          confirmPasswordController: _confirmPasswordController,
-          submitting: _passwordSubmitting,
-          onSubmit: _changePassword,
+        StaggeredEntrance(
+          index: 0,
+          child: _SecurityOverviewCard(entryPath: _entryPath),
         ),
         const SizedBox(height: 16),
-        _EntryPathCard(
-          entryPath: _entryPath,
-          controller: _entryPathController,
-          submitting: _entrySubmitting,
-          onSave: _saveEntryPath,
-          onGenerate: _generateEntryPath,
-          onDisable: _disableEntryPath,
-          onToggle: _toggleEntryPath,
+        StaggeredEntrance(
+          index: 1,
+          child: _PasswordCard(
+            oldPasswordController: _oldPasswordController,
+            newPasswordController: _newPasswordController,
+            confirmPasswordController: _confirmPasswordController,
+            submitting: _passwordSubmitting,
+            onSubmit: _changePassword,
+          ),
+        ),
+        const SizedBox(height: 16),
+        StaggeredEntrance(
+          index: 2,
+          child: _EntryPathCard(
+            entryPath: _entryPath,
+            controller: _entryPathController,
+            submitting: _entrySubmitting,
+            onSave: _saveEntryPath,
+            onGenerate: _generateEntryPath,
+            onDisable: _disableEntryPath,
+            onToggle: _toggleEntryPath,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _SecurityOverviewCard extends StatelessWidget {
+  const _SecurityOverviewCard({required this.entryPath});
+
+  final SecurityEntryPath entryPath;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final accent = entryPath.enabled
+        ? financeColors.asset
+        : financeColors.warning;
+    return PremiumSurface(
+      accentColor: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.admin_panel_settings_outlined,
+                color: accent,
+                size: 46,
+                iconSize: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '安全控制台',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      entryPath.enabled ? '安全入口已启用' : '安全入口未启用',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: Color.alphaBlend(
+                    accent.withValues(alpha: 0.14),
+                    colorScheme.surface,
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: accent.withValues(alpha: 0.22)),
+                ),
+                child: Text(
+                  entryPath.enabled ? 'Protected' : 'Open',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _SecurityMetric(
+                  icon: Icons.route_outlined,
+                  label: '入口路径',
+                  value: entryPath.enabled ? entryPath.displayPath : '未启用',
+                  color: accent,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SecurityMetric(
+                  icon: Icons.password_outlined,
+                  label: '密码策略',
+                  value: '8 位以上',
+                  color: financeColors.expense,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SecurityMetric extends StatelessWidget {
+  const _SecurityMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
     );
   }
 }

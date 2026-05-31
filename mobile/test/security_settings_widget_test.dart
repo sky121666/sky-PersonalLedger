@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -16,6 +17,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('账号安全'), findsOneWidget);
+      expect(find.text('安全控制台'), findsOneWidget);
+      expect(find.text('Protected'), findsOneWidget);
       expect(find.text('安全入口'), findsOneWidget);
       expect(find.text('/ledger'), findsWidgets);
       expect(find.text('当前入口：/ledger'), findsOneWidget);
@@ -185,6 +188,14 @@ void main() {
         ),
         isTrue,
       );
+    });
+
+    testWidgets('账号安全页使用高级表面和分段入场动效', (tester) async {
+      final repository = _FakeSecurityRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
   });
 }
