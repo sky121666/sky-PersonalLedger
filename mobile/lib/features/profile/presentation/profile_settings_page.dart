@@ -302,6 +302,12 @@ class _ProfileFormCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          _ProfileDraftPreview(
+            nicknameController: nicknameController,
+            emailController: emailController,
+            avatarController: avatarController,
+          ),
+          const SizedBox(height: 16),
           TextField(
             key: const ValueKey('profile-nickname'),
             controller: nicknameController,
@@ -358,6 +364,120 @@ class _ProfileFormCard extends StatelessWidget {
             label: Text(submitting ? '保存中...' : '保存资料'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileDraftPreview extends StatelessWidget {
+  const _ProfileDraftPreview({
+    required this.nicknameController,
+    required this.emailController,
+    required this.avatarController,
+  });
+
+  final TextEditingController nicknameController;
+  final TextEditingController emailController;
+  final TextEditingController avatarController;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        nicknameController,
+        emailController,
+        avatarController,
+      ]),
+      builder: (context, _) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final displayName = nicknameController.text.trim().isEmpty
+            ? '未设置昵称'
+            : nicknameController.text.trim();
+        final email = emailController.text.trim().isEmpty
+            ? '未设置邮箱'
+            : emailController.text.trim();
+        final avatar = avatarController.text.trim();
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.tertiary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: colorScheme.tertiary.withValues(alpha: 0.18),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                _DraftAvatar(displayName: displayName, avatar: avatar),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '资料预览',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: colorScheme.tertiary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '当前昵称：$displayName',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DraftAvatar extends StatelessWidget {
+  const _DraftAvatar({required this.displayName, required this.avatar});
+
+  final String displayName;
+  final String avatar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fallback = CircleAvatar(
+      radius: 25,
+      backgroundColor: colorScheme.tertiary,
+      foregroundColor: colorScheme.onTertiary,
+      child: Text(displayName.isEmpty ? '账' : displayName[0]),
+    );
+    if (avatar.isEmpty) {
+      return fallback;
+    }
+    return ClipOval(
+      child: Image.network(
+        avatar,
+        width: 50,
+        height: 50,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => fallback,
       ),
     );
   }
