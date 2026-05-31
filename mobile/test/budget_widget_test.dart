@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/budgets/presentation/budget_page.dart';
 import 'package:personal_ledger/features/categories/application/category_controller.dart';
@@ -22,6 +23,13 @@ void main() {
       expect(find.text('87%'), findsOneWidget);
       expect(find.text('家庭成员预算'), findsOneWidget);
       expect(find.text('家人'), findsOneWidget);
+    });
+
+    testWidgets('预算总览和预算卡片使用分段入场动效', (tester) async {
+      final budgetRepository = _FakeBudgetRepository();
+      await _pumpPage(tester, budgetRepository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(6));
     });
 
     testWidgets('保存总预算时提交金额和提醒阈值', (tester) async {

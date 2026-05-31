@@ -9,6 +9,7 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../../categories/data/category.dart';
 import '../../family/data/family_repository.dart';
 import '../data/budget_repository.dart';
@@ -281,6 +282,8 @@ class _BudgetContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final budgetList = dashboard.budgetList;
+    final categoryCount = budgetList.categoryBudgets.length;
+    final memberHeaderIndex = categoryCount + 4;
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
@@ -292,58 +295,85 @@ class _BudgetContent extends StatelessWidget {
               _MessagePanel(message: errorMessage!, isError: true),
               const SizedBox(height: 12),
             ],
-            _BudgetSummaryCard(budget: budgetList.totalBudget),
+            StaggeredEntrance(
+              index: 0,
+              child: _BudgetSummaryCard(budget: budgetList.totalBudget),
+            ),
             const SizedBox(height: 12),
-            _TotalBudgetCard(
-              budget: budgetList.totalBudget,
-              busy: busyAction == 'total',
-              onEdit: onEditTotal,
+            StaggeredEntrance(
+              index: 1,
+              child: _TotalBudgetCard(
+                budget: budgetList.totalBudget,
+                busy: busyAction == 'total',
+                onEdit: onEditTotal,
+              ),
             ),
             const SizedBox(height: 16),
-            _CategoryBudgetHeader(
-              count: budgetList.categoryBudgets.length,
-              availableCount: dashboard.availableExpenseCategories.length,
-              onAdd: busyAction == null ? onAddCategory : null,
+            StaggeredEntrance(
+              index: 2,
+              child: _CategoryBudgetHeader(
+                count: budgetList.categoryBudgets.length,
+                availableCount: dashboard.availableExpenseCategories.length,
+                onAdd: busyAction == null ? onAddCategory : null,
+              ),
             ),
             const SizedBox(height: 8),
             if (budgetList.categoryBudgets.isEmpty)
-              const _EmptyCategoryBudgetCard()
+              const StaggeredEntrance(
+                index: 3,
+                child: _EmptyCategoryBudgetCard(),
+              )
             else
-              for (final budget in budgetList.categoryBudgets) ...[
-                _CategoryBudgetCard(
-                  budget: budget,
-                  busy: busyAction == 'delete-${budget.id}',
-                  onDelete: () => onDeleteCategory(budget),
+              for (final entry in budgetList.categoryBudgets.indexed) ...[
+                StaggeredEntrance(
+                  index: entry.$1 + 3,
+                  child: _CategoryBudgetCard(
+                    budget: entry.$2,
+                    busy: busyAction == 'delete-${entry.$2.id}',
+                    onDelete: () => onDeleteCategory(entry.$2),
+                  ),
                 ),
                 const SizedBox(height: 8),
               ],
             if (budgetList.memberBudgets.isNotEmpty) ...[
               const SizedBox(height: 16),
-              _MemberBudgetHeader(
-                count: budgetList.memberBudgets.length,
-                availableMemberCount: familyMembers
-                    .where((member) => member.isEnabled)
-                    .length,
-                onAdd: busyAction == null ? onAddMember : null,
+              StaggeredEntrance(
+                index: memberHeaderIndex,
+                child: _MemberBudgetHeader(
+                  count: budgetList.memberBudgets.length,
+                  availableMemberCount: familyMembers
+                      .where((member) => member.isEnabled)
+                      .length,
+                  onAdd: busyAction == null ? onAddMember : null,
+                ),
               ),
               const SizedBox(height: 8),
             ] else ...[
               const SizedBox(height: 16),
-              _MemberBudgetHeader(
-                count: 0,
-                availableMemberCount: familyMembers
-                    .where((member) => member.isEnabled)
-                    .length,
-                onAdd: busyAction == null ? onAddMember : null,
+              StaggeredEntrance(
+                index: memberHeaderIndex,
+                child: _MemberBudgetHeader(
+                  count: 0,
+                  availableMemberCount: familyMembers
+                      .where((member) => member.isEnabled)
+                      .length,
+                  onAdd: busyAction == null ? onAddMember : null,
+                ),
               ),
               const SizedBox(height: 8),
-              const _EmptyMemberBudgetCard(),
+              StaggeredEntrance(
+                index: memberHeaderIndex + 1,
+                child: const _EmptyMemberBudgetCard(),
+              ),
             ],
-            for (final budget in budgetList.memberBudgets) ...[
-              _MemberBudgetCard(
-                budget: budget,
-                busy: busyAction == 'delete-${budget.id}',
-                onDelete: () => onDeleteMember(budget),
+            for (final entry in budgetList.memberBudgets.indexed) ...[
+              StaggeredEntrance(
+                index: memberHeaderIndex + entry.$1 + 1,
+                child: _MemberBudgetCard(
+                  budget: entry.$2,
+                  busy: busyAction == 'delete-${entry.$2.id}',
+                  onDelete: () => onDeleteMember(entry.$2),
+                ),
               ),
               const SizedBox(height: 8),
             ],
