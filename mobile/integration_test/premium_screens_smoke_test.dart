@@ -1347,7 +1347,12 @@ void main() {
           find.byKey(const ValueKey('yearly-insight-deck')),
           findsOneWidget,
         );
+        expect(
+          find.byKey(const ValueKey('yearly-narrative-radar')),
+          findsOneWidget,
+        );
         expect(find.text('年度洞察台'), findsOneWidget);
+        expect(find.text('年度叙事雷达'), findsOneWidget);
         expect(find.text('年度正结余'), findsOneWidget);
         expect(find.text('净结余'), findsAtLeastNWidgets(1));
         _expectStableVisualFrame(tester);

@@ -132,21 +132,26 @@ class _ReportContent extends StatelessWidget {
               index: 1,
               child: _YearlyInsightDeck(report: report),
             ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 2,
+              child: _YearlyNarrativeRadar(report: report),
+            ),
             const SizedBox(height: 16),
-            StaggeredEntrance(index: 2, child: _SummaryCard(report: report)),
+            StaggeredEntrance(index: 3, child: _SummaryCard(report: report)),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 3,
+              index: 4,
               child: _AnnualHighlightsCard(report: report),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 4,
+              index: 5,
               child: _MonthlyTrendCard(items: report.monthlyData),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 5,
+              index: 6,
               child: _CategoryRankCard(
                 title: '年度支出 Top',
                 items: report.topExpenses,
@@ -155,7 +160,7 @@ class _ReportContent extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 6,
+              index: 7,
               child: _CategoryRankCard(
                 title: '年度收入 Top',
                 items: report.topIncomes,
@@ -450,6 +455,261 @@ class _YearlyDeckMetric extends StatelessWidget {
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w900,
               fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearlyNarrativeRadar extends StatelessWidget {
+  const _YearlyNarrativeRadar({required this.report});
+
+  final YearlyReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final bestMonth = report.monthlyData.fold<MonthlyReportData?>(
+      null,
+      (current, item) =>
+          current == null || item.balance > current.balance ? item : current,
+    );
+    final peakExpense = report.monthlyData.fold<MonthlyReportData?>(
+      null,
+      (current, item) =>
+          current == null || item.expense > current.expense ? item : current,
+    );
+    final topExpense = report.topExpenses.isEmpty
+        ? null
+        : report.topExpenses.first;
+    final accent = report.netSavings >= 0
+        ? financeColors.income
+        : financeColors.expense;
+    final rhythmLabel = report.transactionCount == 0
+        ? '暂无年度样本'
+        : report.activeDays >= 180
+        ? '高频账本'
+        : report.activeDays >= 60
+        ? '稳定记录'
+        : '轻量记录';
+
+    return PremiumSurface(
+      key: const ValueKey('yearly-narrative-radar'),
+      accentColor: accent,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.radar_outlined,
+                color: accent,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '年度叙事雷达',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '把峰值、节奏、分类和单笔异常压缩成年度故事线',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _YearlyInsightBadge(
+                label: rhythmLabel,
+                color: accent,
+                positive: report.netSavings >= 0,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _NarrativeRadarMetric(
+                  icon: Icons.emoji_events_outlined,
+                  label: '最佳结余',
+                  value: bestMonth?.month ?? '-',
+                  caption: bestMonth == null
+                      ? '暂无月度数据'
+                      : _formatCurrency(bestMonth.balance),
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _NarrativeRadarMetric(
+                  icon: Icons.local_fire_department_outlined,
+                  label: '支出峰值',
+                  value: peakExpense?.month ?? '-',
+                  caption: peakExpense == null
+                      ? '暂无月度数据'
+                      : _formatCurrency(peakExpense.expense),
+                  color: financeColors.expense,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _NarrativeRadarMetric(
+                  icon: Icons.calendar_today_outlined,
+                  label: '日均支出',
+                  value: _formatCurrency(report.dailyAvgExpense),
+                  caption: '${report.activeDays} 天活跃',
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _NarrativeRadarMetric(
+                  icon: Icons.bolt_outlined,
+                  label: '最大单笔',
+                  value: _formatCurrency(report.maxSingleExpense),
+                  caption: report.maxExpenseRemark.isEmpty
+                      ? topExpense?.categoryName ?? '暂无备注'
+                      : report.maxExpenseRemark,
+                  color: colorScheme.tertiary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            constraints: const BoxConstraints(minHeight: 54),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                accent.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.18
+                      : 0.08,
+                ),
+                colorScheme.surface,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: accent.withValues(alpha: 0.16)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.category_outlined, size: 19, color: accent),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    topExpense == null
+                        ? '暂无主导支出分类'
+                        : '主导支出 · ${topExpense.categoryName} · ${topExpense.percentage.toStringAsFixed(1)}%',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NarrativeRadarMetric extends StatelessWidget {
+  const _NarrativeRadarMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.caption,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String caption;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 19, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                ),
+              ],
             ),
           ),
         ],
