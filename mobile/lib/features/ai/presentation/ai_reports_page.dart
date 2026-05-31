@@ -69,9 +69,17 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               onChanged: _saveSchedule,
               onTrigger: _triggerSchedule,
             );
+            final commandCenter = _AIReportCommandCenter(
+              reports: reports,
+              providerSetup: providerState.valueOrNull,
+              schedule: scheduleState.valueOrNull,
+              generating: _generating,
+            );
             if (reports.isEmpty) {
               return ListView(
                 children: [
+                  commandCenter,
+                  const SizedBox(height: 12),
                   providerSurface,
                   const SizedBox(height: 12),
                   scheduleSurface,
@@ -84,19 +92,22 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               );
             }
             return ListView.separated(
-              itemCount: reports.length + (_generating ? 1 : 0) + 2,
+              itemCount: reports.length + (_generating ? 1 : 0) + 3,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return providerSurface;
+                  return commandCenter;
                 }
                 if (index == 1) {
+                  return providerSurface;
+                }
+                if (index == 2) {
                   return scheduleSurface;
                 }
-                if (_generating && index == 2) {
+                if (_generating && index == 3) {
                   return const _AIReportGeneratingSurface();
                 }
-                final reportIndex = index - 2 - (_generating ? 1 : 0);
+                final reportIndex = index - 3 - (_generating ? 1 : 0);
                 final report = reports[reportIndex];
                 return StaggeredEntrance(
                   index: index,
@@ -422,6 +433,259 @@ class _AIReportScheduleSurface extends StatelessWidget {
         triggering: triggering,
         onChanged: onChanged,
         onTrigger: onTrigger,
+      ),
+    );
+  }
+}
+
+class _AIReportCommandCenter extends StatelessWidget {
+  const _AIReportCommandCenter({
+    required this.reports,
+    required this.providerSetup,
+    required this.schedule,
+    required this.generating,
+  });
+
+  final List<AIReportSummary> reports;
+  final AIProviderSetupData? providerSetup;
+  final AIReportScheduleSettings? schedule;
+  final bool generating;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final completedCount = reports
+        .where((report) => report.status == 'completed')
+        .length;
+    final failedCount = reports
+        .where((report) => report.status == 'failed')
+        .length;
+    final enabledProviders =
+        providerSetup?.providers.where((provider) => provider.enabled).length ??
+        0;
+    final accentColor = failedCount > 0
+        ? colorScheme.error
+        : completedCount > 0
+        ? financeColors.income
+        : colorScheme.primary;
+    final latestReport = reports.isEmpty ? null : reports.first;
+    final latestModel = latestReport == null
+        ? '等待生成'
+        : '${latestReport.providerName} / ${latestReport.model}';
+
+    return PremiumSurface(
+      key: const ValueKey('ai-report-command-center'),
+      accentColor: accentColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.psychology_alt_outlined,
+                color: accentColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI 分析控制台',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      latestModel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _AICommandSignalPill(
+                icon: failedCount > 0
+                    ? Icons.warning_amber_rounded
+                    : Icons.verified_outlined,
+                label: failedCount > 0 ? '$failedCount 个失败' : '分析就绪',
+                color: failedCount > 0 ? colorScheme.error : accentColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.description_outlined,
+                  label: '报告总数',
+                  value: '${reports.length} 份',
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.task_alt_outlined,
+                  label: '已完成',
+                  value: '$completedCount 份',
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AICommandMetric(
+                  icon: Icons.key_outlined,
+                  label: 'Provider',
+                  value: '$enabledProviders 个',
+                  color: financeColors.asset,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _AICommandMetric(
+                  icon: schedule?.enabled == true
+                      ? Icons.event_repeat_outlined
+                      : Icons.event_busy_outlined,
+                  label: '自动报告',
+                  value: schedule?.enabled == true
+                      ? '${schedule!.hour}:00'
+                      : '未启用',
+                  color: schedule?.enabled == true
+                      ? financeColors.income
+                      : colorScheme.outline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AICommandMetric(
+                  icon: generating
+                      ? Icons.autorenew_outlined
+                      : Icons.auto_awesome_outlined,
+                  label: '生成状态',
+                  value: generating ? '生成中' : '空闲',
+                  color: generating
+                      ? colorScheme.secondary
+                      : colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AICommandSignalPill extends StatelessWidget {
+  const _AICommandSignalPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AICommandMetric extends StatelessWidget {
+  const _AICommandMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }

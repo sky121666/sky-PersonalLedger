@@ -767,6 +767,24 @@ void main() {
             ProviderScope(
               overrides: [
                 aiReportsProvider.overrideWith((ref) async => _aiReports),
+                aiReportScheduleProvider.overrideWith(
+                  (ref) async => const AIReportScheduleSettings(enabled: true),
+                ),
+                aiProviderSetupProvider.overrideWith(
+                  (ref) async => const AIProviderSetupData(
+                    presets: [],
+                    providers: [
+                      AIProviderSummary(
+                        id: 'provider-deepseek',
+                        name: 'DeepSeek',
+                        providerType: 'openai_compatible',
+                        baseUrl: 'https://api.deepseek.com',
+                        model: 'deepseek-v4-flash',
+                        enabled: true,
+                      ),
+                    ],
+                  ),
+                ),
               ],
               child: _screenshotHost(
                 _premiumApp(
@@ -779,11 +797,25 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.text('AI 财务报告'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('ai-report-command-center')),
+            findsOneWidget,
+          );
+          expect(find.text('AI 分析控制台'), findsOneWidget);
+          expect(find.text('分析就绪'), findsOneWidget);
+          expect(find.text('报告总数'), findsOneWidget);
           expect(find.text('每周总结'), findsOneWidget);
           expect(find.text('已完成'), findsOneWidget);
           expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
+          _expectStableVisualFrame(tester);
+          await _capturePremiumScreenshot(
+            binding,
+            tester,
+            'ai-report-command-center-${variant.name}',
+          );
 
-          await tester.tap(find.text('每周总结'));
+          await _scrollIntoTapArea(tester, find.text('每周总结').last);
+          await tester.tap(find.text('每周总结').last);
           await tester.pumpAndSettle();
 
           expect(find.text('支出结构稳定'), findsWidgets);
@@ -1057,6 +1089,26 @@ void _expectStableVisualFrame(WidgetTester tester) {
     isNull,
     reason: 'Premium screen should not overflow or throw',
   );
+}
+
+Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(finder, 300);
+  await tester.pumpAndSettle();
+  final center = tester.getCenter(finder);
+  if (center.dy > 760) {
+    await tester.drag(
+      find.byType(Scrollable).first,
+      Offset(0, -(center.dy - 640)),
+    );
+    await tester.pumpAndSettle();
+  }
+  if (center.dy < 96) {
+    await tester.drag(
+      find.byType(Scrollable).first,
+      Offset(0, 128 - center.dy),
+    );
+    await tester.pumpAndSettle();
+  }
 }
 
 Future<void> _prepareScreenshotCapture(

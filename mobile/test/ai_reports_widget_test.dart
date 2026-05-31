@@ -42,18 +42,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('AI 财务报告'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('ai-report-command-center')),
+      findsOneWidget,
+    );
+    expect(find.text('AI 分析控制台'), findsOneWidget);
+    expect(find.text('分析就绪'), findsOneWidget);
+    expect(find.text('报告总数'), findsOneWidget);
     expect(find.text('0 个启用'), findsOneWidget);
     expect(find.text('Key 已保护'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('DeepSeek / deepseek-v4-flash'),
-      300,
-    );
+    await _scrollIntoTapArea(tester, find.text('每周总结').last);
     expect(find.text('每周总结'), findsWidgets);
     expect(find.text('已完成'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsWidgets);
     expect(find.text('DeepSeek / deepseek-v4-flash'), findsWidgets);
 
-    await tester.tap(find.text('DeepSeek / deepseek-v4-flash'));
+    await tester.tap(find.text('每周总结').last);
     await tester.pumpAndSettle();
 
     expect(find.text('支出可控'), findsWidgets);
@@ -108,22 +112,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('DeepSeek / deepseek-v4-flash'),
-      300,
-    );
+    await _scrollIntoTapArea(tester, find.text('每周总结').last);
 
     final surfaces = tester.widgetList<PremiumSurface>(
       find.byType(PremiumSurface),
     );
     expect(
       surfaces.any(
-        (surface) => surface.accentColor == AppThemePalette.graphite.assetColor,
+        (surface) =>
+            surface.accentColor == AppThemePalette.graphite.incomeColor ||
+            surface.accentColor == AppThemePalette.graphite.assetColor,
       ),
       isTrue,
     );
 
-    await tester.tap(find.text('DeepSeek / deepseek-v4-flash'));
+    await tester.tap(find.text('每周总结').last);
     await tester.pumpAndSettle();
 
     final highlightIcon = tester.widget<Icon>(
@@ -154,6 +157,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('AI 分析控制台'), findsOneWidget);
+    expect(find.text('等待生成'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('暂无 AI 报告'), 300);
     expect(find.text('暂无 AI 报告'), findsOneWidget);
     expect(find.text('生成报告'), findsWidgets);
@@ -190,13 +195,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('DeepSeek / deepseek-v4-flash'),
-      300,
-    );
+    await _scrollIntoTapArea(tester, find.text('每周总结').last);
     expect(find.text('失败'), findsOneWidget);
 
-    await tester.tap(find.text('DeepSeek / deepseek-v4-flash'));
+    await tester.tap(find.text('每周总结').last);
     await tester.pumpAndSettle();
 
     expect(find.text('enabled ai provider not found'), findsWidgets);
@@ -274,11 +276,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('自动报告'), findsOneWidget);
+    expect(find.text('自动报告'), findsAtLeastNWidgets(1));
     expect(find.text('默认关闭'), findsOneWidget);
     expect(find.text('运行时间'), findsOneWidget);
     expect(find.text('聚合快照'), findsOneWidget);
 
+    await _scrollIntoTapArea(tester, find.text('启用自动生成'));
     await tester.tap(find.text('启用自动生成'));
     await tester.pumpAndSettle();
 
@@ -325,6 +328,11 @@ void main() {
     expect(find.text('Provider 已保存'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    await _scrollIntoTapArea(
+      tester,
+      find.byKey(const ValueKey('ai-provider-test-provider-1')),
+    );
     await tester.tap(find.byKey(const ValueKey('ai-provider-test-provider-1')));
     await tester.pumpAndSettle();
 
@@ -332,6 +340,11 @@ void main() {
     expect(find.text('连接测试通过'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    await _scrollIntoTapArea(
+      tester,
+      find.byKey(const ValueKey('ai-provider-edit-provider-1')),
+    );
     await tester.tap(find.byKey(const ValueKey('ai-provider-edit-provider-1')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(2), 'deepseek-reasoner');
@@ -344,6 +357,11 @@ void main() {
     expect(find.text('Provider 已更新'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    await _scrollIntoTapArea(
+      tester,
+      find.byKey(const ValueKey('ai-provider-delete-provider-1')),
+    );
     await tester.tap(
       find.byKey(const ValueKey('ai-provider-delete-provider-1')),
     );
@@ -368,6 +386,20 @@ void main() {
 
     expect(payload, isNot(contains('api_key')));
   });
+}
+
+Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(finder, 300);
+  await tester.pumpAndSettle();
+  final center = tester.getCenter(finder);
+  if (center.dy > 500) {
+    await tester.drag(find.byType(ListView), Offset(0, -(center.dy - 420)));
+    await tester.pumpAndSettle();
+  }
+  if (center.dy < 88) {
+    await tester.drag(find.byType(ListView), Offset(0, 112 - center.dy));
+    await tester.pumpAndSettle();
+  }
 }
 
 class _FakeAIReportRepository implements AIReportRepository {
