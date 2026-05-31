@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/auth_flow_shell.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../application/auth_controller.dart';
 
 class SetupPasswordPage extends ConsumerStatefulWidget {
@@ -65,6 +66,8 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
         label: const Text('更换服务器'),
       ),
       children: [
+        _SetupAssuranceRail(accentColor: accentColor),
+        const SizedBox(height: 16),
         TextField(
           controller: _passwordController,
           enabled: !isLoading,
@@ -120,6 +123,95 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
           label: const Text('完成设置'),
         ),
       ],
+    );
+  }
+}
+
+class _SetupAssuranceRail extends StatelessWidget {
+  const _SetupAssuranceRail({required this.accentColor});
+
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    return Row(
+      children: [
+        Expanded(
+          child: _SetupAssuranceTile(
+            icon: Icons.looks_one_outlined,
+            label: '只初始化一次',
+            color: accentColor,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _SetupAssuranceTile(
+            icon: Icons.admin_panel_settings_outlined,
+            label: '管理员保护',
+            color: financeColors.asset,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _SetupAssuranceTile(
+            icon: Icons.lock_reset_outlined,
+            label: '改密退出',
+            color: financeColors.income,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SetupAssuranceTile extends StatelessWidget {
+  const _SetupAssuranceTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconBadge(icon: icon, color: color, size: 30, iconSize: 16),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

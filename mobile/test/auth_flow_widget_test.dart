@@ -132,6 +132,9 @@ void main() {
       expect(repository.initCalls, ['12345678']);
       expect(controller.debugState.stage, AuthStage.authenticated);
       expect(find.text('初始化保护'), findsOneWidget);
+      expect(find.text('只初始化一次'), findsOneWidget);
+      expect(find.text('管理员保护'), findsOneWidget);
+      expect(find.text('改密退出'), findsOneWidget);
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
   });
