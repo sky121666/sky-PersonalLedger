@@ -45,7 +45,7 @@ void main() {
       expect(find.text('设置主题中心'), findsOneWidget);
       expect(find.text('当前模板'), findsOneWidget);
       expect(find.text('模板数量'), findsOneWidget);
-      expect(find.text('12 套'), findsOneWidget);
+      expect(find.text('16 套'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('profile-settings-theme-studio')),
         findsOneWidget,
@@ -56,9 +56,9 @@ void main() {
       );
       expect(find.text('推荐主题策展'), findsOneWidget);
       expect(find.text('3 个高频场景'), findsOneWidget);
-      expect(find.text('旗舰夜间使用'), findsOneWidget);
-      expect(find.text('前卫数据流'), findsOneWidget);
-      expect(find.text('动效先锋界面'), findsOneWidget);
+      expect(find.text('旗舰夜间使用'), findsWidgets);
+      expect(find.text('前卫数据流'), findsWidgets);
+      expect(find.text('动效先锋界面'), findsWidgets);
       expect(find.text('模式同步'), findsOneWidget);
       expect(find.text('语义色板'), findsOneWidget);
       expect(find.text('跨端预览'), findsOneWidget);
@@ -72,6 +72,9 @@ void main() {
       expect(find.text('家庭账本'), findsOneWidget);
       expect(find.text('AI 分析'), findsOneWidget);
       expect(find.text('夜间高频'), findsOneWidget);
+      expect(find.text('跨端高频交互'), findsOneWidget);
+      expect(find.text('极简旗舰设备'), findsOneWidget);
+      expect(find.text('高端暗金'), findsWidgets);
       await tester.tap(
         find.byKey(const ValueKey('profile-settings-template-indigo')),
       );

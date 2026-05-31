@@ -354,7 +354,10 @@ void main() {
       final labels = AppThemePalette.values.map((palette) => palette.label);
 
       expect(ids.length, AppThemePalette.values.length);
-      expect(labels, containsAll(['冰川青', '星云紫', '曜石玫瑰', '钛金灰']));
+      expect(labels, containsAll(['冰川青', '星云紫', '曜石玫瑰', '钛金灰', '量子青橙', '鎏金黑']));
+      expect(AppThemePalette.kinetic.sceneLabel, '跨端高频交互');
+      expect(AppThemePalette.titanium.platformCue, '原生');
+      expect(AppThemePalette.values.length, 16);
     });
   });
 }

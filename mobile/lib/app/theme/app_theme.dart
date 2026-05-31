@@ -134,6 +134,50 @@ enum AppThemePalette {
     expenseColor: Color(0xFFEC4899),
     assetColor: Color(0xFF06B6D4),
     warningColor: Color(0xFFF59E0B),
+  ),
+  kinetic(
+    id: 'kinetic',
+    label: '量子青橙',
+    signature: '跨端动线',
+    description: '青色数据流与暖橙提示，适合更活跃的跨端交互。',
+    seedColor: Color(0xFF0D9488),
+    incomeColor: Color(0xFF65A30D),
+    expenseColor: Color(0xFFF43F5E),
+    assetColor: Color(0xFF2563EB),
+    warningColor: Color(0xFFEA580C),
+  ),
+  titanium(
+    id: 'titanium',
+    label: '钛银蓝',
+    signature: '极简旗舰',
+    description: '银蓝低饱和底色，适合更克制的旗舰设备质感。',
+    seedColor: Color(0xFF64748B),
+    incomeColor: Color(0xFF059669),
+    expenseColor: Color(0xFFE11D48),
+    assetColor: Color(0xFF0284C7),
+    warningColor: Color(0xFFD97706),
+  ),
+  solaris(
+    id: 'solaris',
+    label: '日冕橙',
+    signature: '复盘高光',
+    description: '暖橙主轴搭配冷蓝资产色，适合周报和预算复盘。',
+    seedColor: Color(0xFFEA580C),
+    incomeColor: Color(0xFF16A34A),
+    expenseColor: Color(0xFFDC2626),
+    assetColor: Color(0xFF2563EB),
+    warningColor: Color(0xFFF59E0B),
+  ),
+  luxe(
+    id: 'luxe',
+    label: '鎏金黑',
+    signature: '高端暗金',
+    description: '深色高端资产面板气质，适合夜间和大屏展示。',
+    seedColor: Color(0xFF854D0E),
+    incomeColor: Color(0xFF22C55E),
+    expenseColor: Color(0xFFF43F5E),
+    assetColor: Color(0xFF38BDF8),
+    warningColor: Color(0xFFFBBF24),
   );
 
   const AppThemePalette({
@@ -181,6 +225,10 @@ extension AppThemePaletteCuration on AppThemePalette {
       AppThemePalette.aurora => '前卫数据流',
       AppThemePalette.obsidian => '旗舰夜间使用',
       AppThemePalette.plasma => '动效先锋界面',
+      AppThemePalette.kinetic => '跨端高频交互',
+      AppThemePalette.titanium => '极简旗舰设备',
+      AppThemePalette.solaris => '周报预算复盘',
+      AppThemePalette.luxe => '夜间资产展示',
     };
   }
 
@@ -198,6 +246,10 @@ extension AppThemePaletteCuration on AppThemePalette {
       AppThemePalette.aurora => '跨端',
       AppThemePalette.obsidian => '夜间',
       AppThemePalette.plasma => '动效',
+      AppThemePalette.kinetic => '手势',
+      AppThemePalette.titanium => '原生',
+      AppThemePalette.solaris => '复盘',
+      AppThemePalette.luxe => '暗金',
     };
   }
 }

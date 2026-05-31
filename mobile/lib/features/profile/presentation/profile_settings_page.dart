@@ -1809,7 +1809,7 @@ class _ProfileThemeOption extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            constraints: const BoxConstraints(minHeight: 82),
+            constraints: const BoxConstraints(minHeight: 112),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: background,
@@ -1847,6 +1847,21 @@ class _ProfileThemeOption extends StatelessWidget {
                           color: colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _ProfileSemanticPill(
+                            label: palette.sceneLabel,
+                            color: palette.assetColor,
+                          ),
+                          _ProfileSemanticPill(
+                            label: palette.platformCue,
+                            color: palette.seedColor,
+                          ),
+                        ],
                       ),
                     ],
                   ),
