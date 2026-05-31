@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/ledger_icon.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../application/category_controller.dart';
 import '../data/category.dart';
 
@@ -65,15 +67,12 @@ class CategoriesPage extends ConsumerWidget {
       body: AdaptivePageContainer(
         child: Column(
           children: [
-            SegmentedButton<CategoryType>(
-              segments: const [
-                ButtonSegment(value: CategoryType.expense, label: Text('支出')),
-                ButtonSegment(value: CategoryType.income, label: Text('收入')),
-              ],
-              selected: {selectedType},
-              onSelectionChanged: (values) => ref
+            _CategoryHeader(
+              selectedType: selectedType,
+              count: state.valueOrNull?.categories.length ?? 0,
+              onTypeChanged: (type) => ref
                   .read(categoryListControllerProvider.notifier)
-                  .setType(values.first),
+                  .setType(type),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -133,10 +132,10 @@ class _CategoryContent extends ConsumerWidget {
       child: GridView.builder(
         padding: const EdgeInsets.only(bottom: 96),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 180,
+          maxCrossAxisExtent: 190,
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 1.25,
+          childAspectRatio: 1.1,
         ),
         itemCount: state.categories.length,
         itemBuilder: (context, index) {
@@ -160,6 +159,82 @@ class _CategoryContent extends ConsumerWidget {
   }
 }
 
+class _CategoryHeader extends StatelessWidget {
+  const _CategoryHeader({
+    required this.selectedType,
+    required this.count,
+    required this.onTypeChanged,
+  });
+
+  final CategoryType selectedType;
+  final int count;
+  final ValueChanged<CategoryType> onTypeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = selectedType == CategoryType.expense
+        ? AppTheme.expenseColor
+        : AppTheme.incomeColor;
+    return PremiumSurface(
+      accentColor: accentColor,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: selectedType == CategoryType.expense
+                    ? Icons.south_east
+                    : Icons.north_west,
+                color: accentColor,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${selectedType.label}分类库',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '$count 个分类用于快速归集交易',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SegmentedButton<CategoryType>(
+            segments: const [
+              ButtonSegment(
+                value: CategoryType.expense,
+                label: Text('支出'),
+                icon: Icon(Icons.remove_circle_outline),
+              ),
+              ButtonSegment(
+                value: CategoryType.income,
+                label: Text('收入'),
+                icon: Icon(Icons.add_circle_outline),
+              ),
+            ],
+            selected: {selectedType},
+            onSelectionChanged: (values) => onTypeChanged(values.first),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CategoryCard extends ConsumerWidget {
   const _CategoryCard({required this.category});
 
@@ -172,50 +247,73 @@ class _CategoryCard extends ConsumerWidget {
       category.color,
       Theme.of(context).colorScheme.primary,
     );
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _openEdit(context),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: color.withValues(alpha: 0.14),
-                    child: LedgerIcon(
-                      icon: category.icon,
-                      fallback: Icons.category_outlined,
+    return PremiumSurface(
+      accentColor: color,
+      padding: EdgeInsets.zero,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _openEdit(context),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    IconBadge(
+                      icon: _categoryIconData(category.icon),
+                      color: color,
+                      size: 42,
+                      iconSize: 22,
+                    ),
+                    const Spacer(),
+                    PopupMenuButton<_CategoryAction>(
+                      onSelected: (action) =>
+                          _handleAction(context, ref, action),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: _CategoryAction.edit,
+                          child: Text('编辑'),
+                        ),
+                        PopupMenuItem(
+                          value: _CategoryAction.delete,
+                          child: Text('删除'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  category.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    category.isSystem ? '系统分类' : '自定义分类',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const Spacer(),
-                  PopupMenuButton<_CategoryAction>(
-                    onSelected: (action) => _handleAction(context, ref, action),
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: _CategoryAction.edit,
-                        child: Text('编辑'),
-                      ),
-                      PopupMenuItem(
-                        value: _CategoryAction.delete,
-                        child: Text('删除'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Text(
-                category.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(category.isSystem ? '系统分类' : '自定义分类'),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -440,6 +538,23 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
 }
 
 enum _CategoryAction { edit, delete }
+
+IconData _categoryIconData(String value) {
+  final normalized = value.trim().toLowerCase();
+  return switch (normalized) {
+    'food' || 'restaurant' || '🍽️' => Icons.restaurant_outlined,
+    'transport' || 'car' || '🚗' => Icons.directions_car_outlined,
+    'shopping' || 'cart' || '🛒' => Icons.shopping_bag_outlined,
+    'home' || 'house' || '🏠' => Icons.home_outlined,
+    'game' || '🎮' => Icons.sports_esports_outlined,
+    'medical' || 'health' || '💊' => Icons.medical_services_outlined,
+    'phone' || '📞' => Icons.phone_iphone_outlined,
+    'card' || 'credit-card' || '💳' => Icons.credit_card_outlined,
+    'salary' || 'income' || '💰' || '💵' => Icons.payments_outlined,
+    'investment' || '📈' => Icons.show_chart_outlined,
+    _ => Icons.category_outlined,
+  };
+}
 
 /// 解析十六进制颜色。
 Color _parseColor(String value, Color fallback) {

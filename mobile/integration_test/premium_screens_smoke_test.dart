@@ -21,6 +21,7 @@ import 'package:personal_ledger/features/budgets/presentation/budget_page.dart';
 import 'package:personal_ledger/features/categories/application/category_controller.dart';
 import 'package:personal_ledger/features/categories/data/category.dart';
 import 'package:personal_ledger/features/categories/data/category_repository.dart';
+import 'package:personal_ledger/features/categories/presentation/categories_page.dart';
 import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/family/presentation/family_page.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
@@ -170,6 +171,41 @@ void main() {
           binding,
           tester,
           'accounts-control-room-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium category library (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              categoryRepositoryProvider.overrideWithValue(
+                _FakeCategoryRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const CategoriesPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('分类'), findsOneWidget);
+        expect(find.text('支出分类库'), findsOneWidget);
+        expect(find.text('餐饮'), findsOneWidget);
+        expect(find.text('交通'), findsOneWidget);
+        expect(find.text('系统分类'), findsWidgets);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'category-library-${variant.name}',
         );
       });
 
