@@ -22,6 +22,7 @@ void main() {
 
       expect(find.text('负债管理'), findsOneWidget);
       expect(find.text('上岸进度'), findsOneWidget);
+      expect(find.text('稳步推进'), findsOneWidget);
       expect(find.text('房贷'), findsOneWidget);
       expect(find.text('待还 ¥80000.00'), findsOneWidget);
     });

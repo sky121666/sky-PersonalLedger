@@ -547,11 +547,19 @@ class _DebtSummaryCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  '上岸进度',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '上岸进度',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    _DebtSignalPill(summary: summary),
+                  ],
                 ),
               ),
               Text(
@@ -599,6 +607,54 @@ class _DebtSummaryCard extends StatelessWidget {
             const SizedBox(height: 16),
             _NextPaymentBanner(summary: summary),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DebtSignalPill extends StatelessWidget {
+  const _DebtSignalPill({required this.summary});
+
+  final DebtSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final color = summary.progress >= 80
+        ? financeColors.income
+        : summary.progress >= 30
+        ? colorScheme.primary
+        : financeColors.warning;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.route_outlined, color: color, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            _debtSignalLabel(summary.progress),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ],
       ),
     );
@@ -1642,4 +1698,14 @@ IconData _loanTypeIcon(String loanType) {
 String _formatMoney(double value) {
   final sign = value < 0 ? '-' : '';
   return '$sign¥${value.abs().toStringAsFixed(2)}';
+}
+
+String _debtSignalLabel(double progress) {
+  if (progress >= 80) {
+    return '接近上岸';
+  }
+  if (progress >= 30) {
+    return '稳步推进';
+  }
+  return '刚刚启动';
 }
