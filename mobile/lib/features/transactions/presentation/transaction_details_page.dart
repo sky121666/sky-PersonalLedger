@@ -8,6 +8,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../application/ledger_refresh.dart';
 import '../application/transaction_list_controller.dart';
 import '../data/transaction_models.dart';
@@ -88,22 +89,33 @@ class _TransactionDetailsPageState
       body: AdaptivePageContainer(
         child: Column(
           children: [
-            _TransactionSearchBar(
-              controller: _searchController,
-              onChanged: controller.updateKeyword,
-              onClear: () {
-                _searchController.clear();
-                controller.updateKeyword('');
-              },
+            StaggeredEntrance(
+              index: 0,
+              child: _TransactionOverviewCard(state: state),
             ),
             const SizedBox(height: 10),
-            _TransactionFilterBar(
-              state: state,
-              onChanged: controller.updateFilters,
-              onClear: () {
-                _searchController.clear();
-                controller.clearFilters();
-              },
+            StaggeredEntrance(
+              index: 1,
+              child: _TransactionSearchBar(
+                controller: _searchController,
+                onChanged: controller.updateKeyword,
+                onClear: () {
+                  _searchController.clear();
+                  controller.updateKeyword('');
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            StaggeredEntrance(
+              index: 2,
+              child: _TransactionFilterBar(
+                state: state,
+                onChanged: controller.updateFilters,
+                onClear: () {
+                  _searchController.clear();
+                  controller.clearFilters();
+                },
+              ),
             ),
             const SizedBox(height: 12),
             Expanded(child: _buildBody(state, controller)),
@@ -152,14 +164,18 @@ class _TransactionDetailsPageState
             return _LoadMoreIndicator(state: state);
           }
           final item = state.items[index];
-          return _TransactionListTile(
-            item: item,
-            selectionMode: _selectedIds.isNotEmpty,
-            selected: _selectedIds.contains(item.id),
-            onTap: () =>
-                context.push(AppRoutePaths.quickTransaction, extra: item),
-            onSelectionToggle: () => _toggleSelection(item.id),
-            onDelete: () => _confirmDelete(item),
+          return StaggeredEntrance(
+            index: index.clamp(0, 5),
+            offset: const Offset(0, 8),
+            child: _TransactionListTile(
+              item: item,
+              selectionMode: _selectedIds.isNotEmpty,
+              selected: _selectedIds.contains(item.id),
+              onTap: () =>
+                  context.push(AppRoutePaths.quickTransaction, extra: item),
+              onSelectionToggle: () => _toggleSelection(item.id),
+              onDelete: () => _confirmDelete(item),
+            ),
           );
         },
       ),
@@ -260,6 +276,242 @@ class _TransactionDetailsPageState
     if (position.pixels >= position.maxScrollExtent - 420) {
       ref.read(transactionListControllerProvider.notifier).loadMore();
     }
+  }
+}
+
+class _TransactionOverviewCard extends StatelessWidget {
+  const _TransactionOverviewCard({required this.state});
+
+  final TransactionListState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final income = _sumByType(TransactionType.income);
+    final expense = _sumByType(TransactionType.expense);
+    final transferCount = state.items
+        .where((item) => item.type == TransactionType.transfer)
+        .length;
+    final net = income - expense;
+    final accent = net >= 0 ? financeColors.income : financeColors.expense;
+
+    return PremiumSurface(
+      accentColor: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.receipt_long_outlined,
+                color: accent,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      state.hasActiveFilter ? '筛选结果概览' : '交易明细总览',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '当前列表 ${state.items.length} 笔 · 共 ${state.total} 笔',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _OverviewDeltaBadge(value: net, color: accent),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _OverviewMetric(
+                  label: '收入',
+                  value: income,
+                  color: financeColors.income,
+                  icon: Icons.south_west,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _OverviewMetric(
+                  label: '支出',
+                  value: expense,
+                  color: financeColors.expense,
+                  icon: Icons.north_east,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _OverviewCountMetric(
+                  label: '划转',
+                  value: transferCount,
+                  color: colorScheme.primary,
+                  icon: Icons.swap_horiz,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _sumByType(TransactionType type) {
+    return state.items
+        .where((item) => item.type == type)
+        .fold(0, (total, item) => total + item.amount);
+  }
+}
+
+class _OverviewDeltaBadge extends StatelessWidget {
+  const _OverviewDeltaBadge({required this.value, required this.color});
+
+  final double value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final sign = value >= 0 ? '+' : '-';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        '$sign¥${value.abs().toStringAsFixed(2)}',
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w900,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
+  }
+}
+
+class _OverviewMetric extends StatelessWidget {
+  const _OverviewMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return _OverviewMetricShell(
+      label: label,
+      value: '¥${value.toStringAsFixed(2)}',
+      color: color,
+      icon: icon,
+    );
+  }
+}
+
+class _OverviewCountMetric extends StatelessWidget {
+  const _OverviewCountMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return _OverviewMetricShell(
+      label: label,
+      value: '$value 笔',
+      color: color,
+      icon: icon,
+    );
+  }
+}
+
+class _OverviewMetricShell extends StatelessWidget {
+  const _OverviewMetricShell({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 86),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -467,6 +719,7 @@ class _TransactionListTile extends StatelessWidget {
                             const SizedBox(width: 10),
                             Text(
                               '$prefix¥${item.amount.toStringAsFixed(2)}',
+                              key: ValueKey('transaction-amount-${item.id}'),
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: amountColor,

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/transaction_details_page.dart';
@@ -15,8 +16,13 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('明细'), findsOneWidget);
+      expect(find.text('交易明细总览'), findsOneWidget);
+      expect(find.text('当前列表 1 笔 · 共 1 笔'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
-      expect(find.text('-¥32.50'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('transaction-amount-transaction-1')),
+        findsOneWidget,
+      );
       expect(find.textContaining('午餐'), findsOneWidget);
 
       await tester.tap(
@@ -87,7 +93,7 @@ void main() {
 
       expect(repository.listQueries.last.keyword, '午餐');
 
-      await tester.tap(find.text('支出'));
+      await tester.tap(find.widgetWithText(FilterChip, '支出'));
       await tester.pumpAndSettle();
 
       expect(repository.listQueries.last.type, TransactionType.expense);
@@ -103,7 +109,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('支出'));
+      await tester.tap(find.widgetWithText(FilterChip, '支出'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('清空'));
@@ -129,7 +135,7 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      await tester.drag(find.byType(ListView), const Offset(0, -1400));
+      await tester.drag(find.byType(ListView), const Offset(0, -3200));
       await tester.pumpAndSettle();
 
       expect(
@@ -186,8 +192,22 @@ void main() {
       );
       await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
 
-      final amountText = tester.widget<Text>(find.text('+¥32.50'));
+      final amountText = tester.widget<Text>(
+        find.byKey(const ValueKey('transaction-amount-transaction-1')),
+      );
       expect(amountText.style?.color, AppThemePalette.graphite.incomeColor);
+    });
+
+    testWidgets('交易明细核心区域使用分段入场动效', (tester) async {
+      final repository = _FakeTransactionRepository(
+        items: [
+          _transaction(id: 'transaction-1', remark: '午餐'),
+          _transaction(id: 'transaction-2', remark: '晚餐'),
+        ],
+      );
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
     });
   });
 }
