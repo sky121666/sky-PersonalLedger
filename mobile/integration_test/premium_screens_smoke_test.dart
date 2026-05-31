@@ -6,7 +6,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
@@ -26,6 +28,7 @@ import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/family/presentation/family_page.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
+import 'package:personal_ledger/features/main/presentation/main_shell_page.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
 import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
@@ -40,6 +43,37 @@ void main() {
 
   group('premium target screens', () {
     for (final variant in _visualVariants) {
+      testWidgets('renders premium shell navigation (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          _screenshotHost(_premiumShellApp(themeMode: variant.themeMode)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('shell-home'), findsOneWidget);
+        expect(find.text('首页'), findsOneWidget);
+        expect(find.text('明细'), findsOneWidget);
+        expect(find.text('统计'), findsOneWidget);
+        expect(find.text('我的'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'main-shell-navigation-${variant.name}',
+        );
+
+        await tester.tap(find.text('明细'));
+        await tester.pumpAndSettle();
+        expect(find.text('shell-transactions'), findsOneWidget);
+
+        await tester.tap(find.text('记一笔'));
+        await tester.pumpAndSettle();
+        expect(find.text('shell-quick-entry'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+      });
+
       testWidgets(
         'renders premium home dashboard with family summary (${variant.name})',
         (tester) async {
@@ -434,6 +468,56 @@ Widget _premiumApp({required ThemeMode themeMode, required Widget home}) {
     themeMode: themeMode,
     home: home,
   );
+}
+
+Widget _premiumShellApp({required ThemeMode themeMode}) {
+  return MaterialApp.router(
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.lightTheme(),
+    darkTheme: AppTheme.darkTheme(),
+    themeMode: themeMode,
+    routerConfig: _premiumShellRouter(),
+  );
+}
+
+GoRouter _premiumShellRouter() {
+  return GoRouter(
+    initialLocation: AppRoutePaths.home,
+    routes: [
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) => MainShellPage(
+          navigationShell: navigationShell,
+          quickTransactionBuilder: (_) =>
+              const _ShellMarker('shell-quick-entry'),
+        ),
+        branches: [
+          _shellBranch(AppRoutePaths.home, 'shell-home'),
+          _shellBranch(AppRoutePaths.transactions, 'shell-transactions'),
+          _shellBranch(AppRoutePaths.statistics, 'shell-statistics'),
+          _shellBranch(AppRoutePaths.profile, 'shell-profile'),
+        ],
+      ),
+    ],
+  );
+}
+
+StatefulShellBranch _shellBranch(String path, String label) {
+  return StatefulShellBranch(
+    routes: [
+      GoRoute(path: path, builder: (context, state) => _ShellMarker(label)),
+    ],
+  );
+}
+
+class _ShellMarker extends StatelessWidget {
+  const _ShellMarker(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(body: Center(child: Text(label)));
+  }
 }
 
 Widget _screenshotHost(Widget child) {
