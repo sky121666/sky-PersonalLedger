@@ -286,6 +286,14 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('录入质量层'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('quick-entry-flow-panel')),
+        findsOneWidget,
+      );
+      expect(find.text('记账动线'), findsOneWidget);
+      expect(find.text('等待金额'), findsOneWidget);
+      expect(find.text('家庭归属'), findsOneWidget);
+      expect(find.text('凭证状态'), findsOneWidget);
       expect(find.text('待补齐'), findsOneWidget);
       expect(find.text('待输入'), findsOneWidget);
       expect(find.text('静谧墨绿'), findsOneWidget);
@@ -319,6 +327,7 @@ void main() {
 
       expect(find.text('¥66.60'), findsOneWidget);
       expect(find.text('支出 · ¥66.60'), findsOneWidget);
+      expect(find.text('金额就绪'), findsOneWidget);
 
       await tester.tap(find.text('收入'));
       await tester.pumpAndSettle();
@@ -332,6 +341,7 @@ void main() {
 
       expect(find.text('转账金额'), findsOneWidget);
       expect(find.text('转账 · ¥66.60'), findsOneWidget);
+      expect(find.text('转账动线'), findsOneWidget);
       expect(find.text('流向 待选转入'), findsOneWidget);
       expect(find.text('确认转入账户'), findsOneWidget);
       expect(find.text('转出账户和转入账户不能相同'), findsOneWidget);
