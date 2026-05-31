@@ -62,7 +62,7 @@ void main() {
       await tester.tap(find.text('下载备份'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('网络失败'), findsOneWidget);
+      expect(find.textContaining('网络失败'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('保存自动备份设置时提交当前设置', (tester) async {
@@ -158,6 +158,12 @@ void main() {
 
       expect(find.textContaining('自动备份加载失败'), findsOneWidget);
 
+      await tester.scrollUntilVisible(
+        find.byTooltip('刷新自动备份'),
+        280,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('刷新自动备份'));
       await tester.pumpAndSettle();
 
@@ -173,6 +179,9 @@ void main() {
       expect(find.text('JSON 全量'), findsAtLeastNWidgets(1));
       expect(find.text('表格分析'), findsOneWidget);
       expect(find.text('覆盖恢复'), findsOneWidget);
+      expect(find.text('风险控制'), findsAtLeastNWidgets(1));
+      expect(find.text('安全导出'), findsAtLeastNWidgets(1));
+      expect(find.text('服务器留存'), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(5));
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(7));
     });

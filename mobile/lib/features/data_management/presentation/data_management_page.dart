@@ -257,6 +257,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         return;
       }
       setState(() => _errorMessage = error.toString());
+      _showDataError(error);
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -329,6 +330,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         return;
       }
       setState(() => _errorMessage = error.toString());
+      _showDataError(error);
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -359,6 +361,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         return;
       }
       setState(() => _errorMessage = error.toString());
+      _showDataError(error);
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -391,11 +394,18 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         return;
       }
       setState(() => _errorMessage = error.toString());
+      _showDataError(error);
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
       }
     }
+  }
+
+  void _showDataError(Object error) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(error.toString())));
   }
 }
 
@@ -1301,46 +1311,234 @@ class _BackupFileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(12),
+    final financeColors = AppTheme.financeColors(context);
+    return Semantics(
+      label:
+          '${file.filename}，${_formatFileSize(file.size)}，创建于 ${file.createdAt}',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            financeColors.asset.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.13
+                  : 0.06,
+            ),
+            colorScheme.surface,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: financeColors.asset.withValues(alpha: 0.14),
+          ),
+        ),
+        child: Row(
+          children: [
+            IconBadge(
+              icon: Icons.description_outlined,
+              color: financeColors.asset,
+              size: 38,
+              iconSize: 19,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    file.filename,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _BackupFileSignal(
+                        icon: Icons.storage_outlined,
+                        label: _formatFileSize(file.size),
+                        color: financeColors.asset,
+                      ),
+                      _BackupFileSignal(
+                        icon: Icons.schedule_outlined,
+                        label: file.createdAt,
+                        color: colorScheme.tertiary,
+                      ),
+                      _BackupFileSignal(
+                        icon: Icons.verified_outlined,
+                        label: '服务器留存',
+                        color: financeColors.income,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BackupFileSignal extends StatelessWidget {
+  const _BackupFileSignal({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 28, maxWidth: 176),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.15
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconBadge(
-            icon: Icons.description_outlined,
-            color: colorScheme.primary,
-            size: 36,
-            iconSize: 18,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  file.filename,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${_formatFileSize(file.size)} · ${file.createdAt}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ActionCardSignal extends StatelessWidget {
+  const _ActionCardSignal({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        constraints: const BoxConstraints(minHeight: 64),
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            color.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.15
+                  : 0.08,
+            ),
+            colorScheme.surface,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.16)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionControlStrip extends StatelessWidget {
+  const _ActionControlStrip({required this.color, required this.isDanger});
+
+  final Color color;
+  final bool isDanger;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Row(
+      children: [
+        _ActionCardSignal(
+          icon: isDanger
+              ? Icons.warning_amber_outlined
+              : Icons.verified_user_outlined,
+          label: '风险控制',
+          value: isDanger ? '覆盖确认' : '安全导出',
+          color: isDanger ? colorScheme.error : financeColors.income,
+        ),
+        const SizedBox(width: 8),
+        _ActionCardSignal(
+          icon: isDanger ? Icons.upload_file_outlined : Icons.download_outlined,
+          label: '操作路径',
+          value: isDanger ? '本机选择' : '本机保存',
+          color: color,
+        ),
+        const SizedBox(width: 8),
+        _ActionCardSignal(
+          icon: isDanger ? Icons.restore_page_outlined : Icons.bolt_outlined,
+          label: '执行方式',
+          value: isDanger ? '恢复' : '即时',
+          color: isDanger ? colorScheme.error : colorScheme.tertiary,
+        ),
+      ],
     );
   }
 }
@@ -1446,6 +1644,8 @@ class _ActionCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          _ActionControlStrip(color: iconColor, isDanger: isDanger),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
