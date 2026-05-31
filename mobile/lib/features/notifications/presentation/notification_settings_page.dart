@@ -820,6 +820,12 @@ class _ChannelCard extends StatelessWidget {
             value: enabled,
             onChanged: onEnabledChanged,
           ),
+          const SizedBox(height: 12),
+          _ChannelDeliveryStrip(
+            channel: title,
+            enabled: enabled,
+            color: accentColor,
+          ),
           const SizedBox(height: 14),
           ...children,
           const SizedBox(height: 12),
@@ -888,6 +894,13 @@ class _OptionsCard extends StatelessWidget {
             title: '通知选项',
             subtitle: '选择要主动推送的财务事件和提前提醒天数',
           ),
+          const SizedBox(height: 12),
+          _NotificationRuleMatrix(
+            paymentDue: paymentDue,
+            budgetAlert: budgetAlert,
+            lendingDue: lendingDue,
+            annualReport: annualReport,
+          ),
           const SizedBox(height: 10),
           _NotificationSwitchRow(
             icon: Icons.credit_card_outlined,
@@ -932,6 +945,255 @@ class _OptionsCard extends StatelessWidget {
             onAdvanceDaysChanged: onAdvanceDaysChanged,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChannelDeliveryStrip extends StatelessWidget {
+  const _ChannelDeliveryStrip({
+    required this.channel,
+    required this.enabled,
+    required this.color,
+  });
+
+  final String channel;
+  final bool enabled;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Semantics(
+      label:
+          '$channel 投递链路，${enabled ? '已启用' : '已停用'}，${_secretPolicy(channel)}',
+      child: Row(
+        children: [
+          _ChannelSignalTile(
+            icon: _deliveryIcon(channel),
+            label: '通道类型',
+            value: channel,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          _ChannelSignalTile(
+            icon: Icons.key_outlined,
+            label: '密钥策略',
+            value: _secretPolicy(channel),
+            color: channel == '企业微信'
+                ? financeColors.asset
+                : colorScheme.tertiary,
+          ),
+          const SizedBox(width: 8),
+          _ChannelSignalTile(
+            icon: enabled ? Icons.outgoing_mail : Icons.pause_circle_outline,
+            label: '测试状态',
+            value: enabled ? '可发送' : '先启用',
+            color: enabled ? financeColors.income : colorScheme.outline,
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _deliveryIcon(String channel) {
+    return switch (channel) {
+      '企业微信' => Icons.chat_outlined,
+      '钉钉' => Icons.forum_outlined,
+      '邮箱' => Icons.mail_outline,
+      _ => Icons.webhook_outlined,
+    };
+  }
+
+  String _secretPolicy(String channel) {
+    return switch (channel) {
+      '企业微信' => 'Webhook',
+      '邮箱' => '授权码',
+      _ => '签名密钥',
+    };
+  }
+}
+
+class _ChannelSignalTile extends StatelessWidget {
+  const _ChannelSignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        constraints: const BoxConstraints(minHeight: 66),
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            color.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.16
+                  : 0.08,
+            ),
+            colorScheme.surface,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.16)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationRuleMatrix extends StatelessWidget {
+  const _NotificationRuleMatrix({
+    required this.paymentDue,
+    required this.budgetAlert,
+    required this.lendingDue,
+    required this.annualReport,
+  });
+
+  final bool paymentDue;
+  final bool budgetAlert;
+  final bool lendingDue;
+  final bool annualReport;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    return Column(
+      children: [
+        Row(
+          children: [
+            _RuleSignalTile(
+              icon: Icons.credit_card_outlined,
+              label: '还款',
+              enabled: paymentDue,
+              color: financeColors.warning,
+            ),
+            const SizedBox(width: 8),
+            _RuleSignalTile(
+              icon: Icons.savings_outlined,
+              label: '预算',
+              enabled: budgetAlert,
+              color: financeColors.expense,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _RuleSignalTile(
+              icon: Icons.handshake_outlined,
+              label: '借贷',
+              enabled: lendingDue,
+              color: financeColors.asset,
+            ),
+            const SizedBox(width: 8),
+            _RuleSignalTile(
+              icon: Icons.summarize_outlined,
+              label: '年报',
+              enabled: annualReport,
+              color: financeColors.income,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RuleSignalTile extends StatelessWidget {
+  const _RuleSignalTile({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = enabled ? color : colorScheme.outline;
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        constraints: const BoxConstraints(minHeight: 56),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            foreground.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.15
+                  : 0.08,
+            ),
+            colorScheme.surface,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: foreground.withValues(alpha: 0.16)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: foreground),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+              ),
+            ),
+            _NotificationStatePill(
+              label: enabled ? '推送' : '关闭',
+              color: foreground,
+              active: enabled,
+            ),
+          ],
+        ),
       ),
     );
   }

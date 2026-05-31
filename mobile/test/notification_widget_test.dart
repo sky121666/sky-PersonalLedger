@@ -20,8 +20,14 @@ void main() {
       expect(find.text('通道覆盖率'), findsOneWidget);
       expect(find.text('25%'), findsOneWidget);
       expect(find.text('可测试'), findsOneWidget);
+      expect(find.text('通道类型'), findsOneWidget);
+      expect(find.text('密钥策略'), findsOneWidget);
+      expect(find.text('测试状态'), findsOneWidget);
+      expect(find.text('Webhook'), findsAtLeastNWidgets(1));
+      expect(find.text('可发送'), findsOneWidget);
       expect(find.text('启用通知'), findsOneWidget);
       expect(find.text('企业微信'), findsWidgets);
+      expect(find.text('推送'), findsAtLeastNWidgets(1));
       expect(find.text('还款日提醒'), findsOneWidget);
       expect(find.text('提前 3 天提醒'), findsOneWidget);
     });

@@ -634,6 +634,14 @@ void main() {
         expect(find.text('通知设置'), findsOneWidget);
         expect(find.text('启用通知'), findsOneWidget);
         expect(find.text('企业微信'), findsWidgets);
+        expect(find.text('通道类型'), findsOneWidget);
+        expect(find.text('密钥策略'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('还款日提醒'),
+          240,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         expect(find.text('还款日提醒'), findsOneWidget);
         expect(find.text('提前 3 天提醒'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
