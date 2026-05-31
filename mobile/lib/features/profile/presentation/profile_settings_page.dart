@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../data/profile_repository.dart';
 
 class ProfileSettingsPage extends ConsumerStatefulWidget {
@@ -140,25 +143,31 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
     }
     final profile = _profile;
     if (profile == null) {
-      return const AppEmptyView(
-        title: '暂无个人资料',
-        message: '刷新后重试。',
-        icon: Icons.manage_accounts_outlined,
+      return const StaggeredEntrance(
+        index: 0,
+        child: AppEmptyView(
+          title: '暂无个人资料',
+          message: '刷新后重试。',
+          icon: Icons.manage_accounts_outlined,
+        ),
       );
     }
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
-        _ProfileHeader(profile: profile),
+        StaggeredEntrance(index: 0, child: _ProfileHeader(profile: profile)),
         const SizedBox(height: 16),
-        _ProfileFormCard(
-          nicknameController: _nicknameController,
-          emailController: _emailController,
-          avatarController: _avatarController,
-          bioController: _bioController,
-          submitting: _submitting,
-          onSubmit: _saveProfile,
+        StaggeredEntrance(
+          index: 1,
+          child: _ProfileFormCard(
+            nicknameController: _nicknameController,
+            emailController: _emailController,
+            avatarController: _avatarController,
+            bioController: _bioController,
+            submitting: _submitting,
+            onSubmit: _saveProfile,
+          ),
         ),
       ],
     );
@@ -173,47 +182,43 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      color: colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            _ProfileAvatar(profile: profile),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      child: Row(
+        children: [
+          _ProfileAvatar(profile: profile),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '用户名：${profile.username}',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+                if (profile.createdAt.isNotEmpty)
                   Text(
-                    profile.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    '创建时间：${profile.createdAt}',
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
                   ),
-                  const SizedBox(height: 4),
+                if (profile.lastLoginAt?.isNotEmpty ?? false)
                   Text(
-                    '用户名：${profile.username}',
-                    style: TextStyle(color: colorScheme.onPrimaryContainer),
+                    '上次登录：${profile.lastLoginAt}',
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
                   ),
-                  if (profile.createdAt.isNotEmpty)
-                    Text(
-                      '创建时间：${profile.createdAt}',
-                      style: TextStyle(color: colorScheme.onPrimaryContainer),
-                    ),
-                  if (profile.lastLoginAt?.isNotEmpty ?? false)
-                    Text(
-                      '上次登录：${profile.lastLoginAt}',
-                      style: TextStyle(color: colorScheme.onPrimaryContainer),
-                    ),
-                ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -271,71 +276,88 @@ class _ProfileFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('编辑资料', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 16),
-            TextField(
-              key: const ValueKey('profile-nickname'),
-              controller: nicknameController,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: '昵称',
-                border: OutlineInputBorder(),
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.tertiary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.edit_note_outlined,
+                color: colorScheme.tertiary,
+                size: 40,
+                iconSize: 22,
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('profile-email'),
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: '邮箱',
-                border: OutlineInputBorder(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '编辑资料',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const ValueKey('profile-nickname'),
+            controller: nicknameController,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: '昵称',
+              border: OutlineInputBorder(),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('profile-avatar'),
-              controller: avatarController,
-              keyboardType: TextInputType.url,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: '头像 URL',
-                border: OutlineInputBorder(),
-              ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('profile-email'),
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: '邮箱',
+              border: OutlineInputBorder(),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('profile-bio'),
-              controller: bioController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: '简介',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
-              ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('profile-avatar'),
+            controller: avatarController,
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: '头像 URL',
+              border: OutlineInputBorder(),
             ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              key: const ValueKey('profile-save'),
-              onPressed: submitting ? null : onSubmit,
-              icon: submitting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(submitting ? '保存中...' : '保存资料'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('profile-bio'),
+            controller: bioController,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: '简介',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const ValueKey('profile-save'),
+            onPressed: submitting ? null : onSubmit,
+            icon: submitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: Text(submitting ? '保存中...' : '保存资料'),
+          ),
+        ],
       ),
     );
   }

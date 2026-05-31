@@ -9,6 +9,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../app/widgets/staggered_entrance.dart';
 import '../../auth/application/auth_controller.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -25,149 +26,164 @@ class ProfilePage extends ConsumerWidget {
       body: AdaptivePageContainer(
         child: ListView(
           children: [
-            _ProfileHero(onLogout: () => _confirmLogout(context, ref)),
-            const SizedBox(height: 16),
-            _SettingsSection(
-              title: '资产配置',
-              children: [
-                _SettingsEntry(
-                  icon: Icons.manage_accounts_outlined,
-                  color: colorScheme.primary,
-                  title: '个人资料',
-                  subtitle: '编辑昵称、邮箱和简介',
-                  onTap: () => context.push(AppRoutePaths.profileSettings),
-                ),
-                _SettingsEntry(
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: financeColors.asset,
-                  title: '账户管理',
-                  subtitle: '新增、编辑、归档和删除账户',
-                  onTap: () => context.push(AppRoutePaths.accounts),
-                ),
-                _SettingsEntry(
-                  icon: Icons.receipt_long_outlined,
-                  color: financeColors.warning,
-                  title: '账户流水',
-                  subtitle: '查看全部账户余额变动记录',
-                  onTap: () => context.push(AppRoutePaths.accountLogs),
-                ),
-                _SettingsEntry(
-                  icon: Icons.category_outlined,
-                  color: financeColors.expense,
-                  title: '分类管理',
-                  subtitle: '维护收入和支出分类',
-                  onTap: () => context.push(AppRoutePaths.categories),
-                ),
-                _SettingsEntry(
-                  icon: Icons.label_outline,
-                  color: financeColors.income,
-                  title: '标签管理',
-                  subtitle: '维护交易标签和使用标记',
-                  onTap: () => context.push(AppRoutePaths.tags),
-                ),
-                _SettingsEntry(
-                  icon: Icons.bolt_outlined,
-                  color: colorScheme.tertiary,
-                  title: '快捷模板',
-                  subtitle: '保存常用收支并一键记账',
-                  onTap: () => context.push(AppRoutePaths.templates),
-                ),
-              ],
+            StaggeredEntrance(
+              index: 0,
+              child: _ProfileHero(onLogout: () => _confirmLogout(context, ref)),
             ),
             const SizedBox(height: 16),
-            _SettingsSection(
-              title: '能力中心',
-              children: [
-                _SettingsEntry(
-                  icon: Icons.savings_outlined,
-                  color: financeColors.income,
-                  title: '预算管理',
-                  subtitle: '设置总预算和分类预算提醒线',
-                  onTap: () => context.push(AppRoutePaths.budgets),
-                ),
-                _SettingsEntry(
-                  icon: Icons.notifications_active_outlined,
-                  color: financeColors.warning,
-                  title: '负债管理',
-                  subtitle: '查看还款提醒和上岸进度',
-                  onTap: () => context.push(AppRoutePaths.reminders),
-                ),
-                _SettingsEntry(
-                  icon: Icons.handshake_outlined,
-                  color: financeColors.asset,
-                  title: '借贷往来',
-                  subtitle: '管理借出、借入和还款记录',
-                  onTap: () => context.push(AppRoutePaths.lendings),
-                ),
-                _SettingsEntry(
-                  icon: Icons.diversity_3_outlined,
-                  color: colorScheme.tertiary,
-                  title: '家庭成员',
-                  subtitle: '管理家庭记账成员和支出归属',
-                  onTap: () => context.push(AppRoutePaths.family),
-                ),
-                _SettingsEntry(
-                  icon: Icons.auto_awesome_outlined,
-                  color: colorScheme.primary,
-                  title: 'AI 财务报告',
-                  subtitle: '查看每周总结和智能分析',
-                  onTap: () => context.push(AppRoutePaths.aiReports),
-                ),
-                _SettingsEntry(
-                  icon: Icons.summarize_outlined,
-                  color: financeColors.asset,
-                  title: '年度报告',
-                  subtitle: '查看年度收支、结余和分类排行',
-                  onTap: () => context.push(AppRoutePaths.yearlyReport),
-                ),
-              ],
+            StaggeredEntrance(
+              index: 1,
+              child: _SettingsSection(
+                title: '资产配置',
+                children: [
+                  _SettingsEntry(
+                    icon: Icons.manage_accounts_outlined,
+                    color: colorScheme.primary,
+                    title: '个人资料',
+                    subtitle: '编辑昵称、邮箱和简介',
+                    onTap: () => context.push(AppRoutePaths.profileSettings),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.account_balance_wallet_outlined,
+                    color: financeColors.asset,
+                    title: '账户管理',
+                    subtitle: '新增、编辑、归档和删除账户',
+                    onTap: () => context.push(AppRoutePaths.accounts),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.receipt_long_outlined,
+                    color: financeColors.warning,
+                    title: '账户流水',
+                    subtitle: '查看全部账户余额变动记录',
+                    onTap: () => context.push(AppRoutePaths.accountLogs),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.category_outlined,
+                    color: financeColors.expense,
+                    title: '分类管理',
+                    subtitle: '维护收入和支出分类',
+                    onTap: () => context.push(AppRoutePaths.categories),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.label_outline,
+                    color: financeColors.income,
+                    title: '标签管理',
+                    subtitle: '维护交易标签和使用标记',
+                    onTap: () => context.push(AppRoutePaths.tags),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.bolt_outlined,
+                    color: colorScheme.tertiary,
+                    title: '快捷模板',
+                    subtitle: '保存常用收支并一键记账',
+                    onTap: () => context.push(AppRoutePaths.templates),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
-            _SettingsSection(
-              title: '系统设置',
-              children: [
-                _SettingsEntry(
-                  icon: Icons.notifications_none_outlined,
-                  color: colorScheme.secondary,
-                  title: '通知设置',
-                  subtitle: '配置提醒通道和通知类型',
-                  onTap: () => context.push(AppRoutePaths.notifications),
-                ),
-                _SettingsEntry(
-                  icon: Icons.security_outlined,
-                  color: financeColors.expense,
-                  title: '账号安全',
-                  subtitle: '修改密码和配置安全入口',
-                  onTap: () => context.push(AppRoutePaths.securitySettings),
-                ),
-                _SettingsEntry(
-                  icon: Icons.vpn_key_outlined,
-                  color: financeColors.income,
-                  title: 'API Token',
-                  subtitle: '管理 App 和外部 API 访问令牌',
-                  onTap: () => context.push(AppRoutePaths.apiTokens),
-                ),
-                _SettingsEntry(
-                  icon: Icons.storage_outlined,
-                  color: financeColors.asset,
-                  title: '数据管理',
-                  subtitle: '备份、恢复和导出交易数据',
-                  onTap: () => context.push(AppRoutePaths.dataManagement),
-                ),
-                _SettingsEntry(
-                  icon: Icons.dns_outlined,
-                  color: colorScheme.outline,
-                  title: '更换服务器',
-                  subtitle: '清除本机登录态并重新连接服务地址',
-                  onTap: () => _confirmChangeServer(context, ref),
-                ),
-              ],
+            StaggeredEntrance(
+              index: 2,
+              child: _SettingsSection(
+                title: '能力中心',
+                children: [
+                  _SettingsEntry(
+                    icon: Icons.savings_outlined,
+                    color: financeColors.income,
+                    title: '预算管理',
+                    subtitle: '设置总预算和分类预算提醒线',
+                    onTap: () => context.push(AppRoutePaths.budgets),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.notifications_active_outlined,
+                    color: financeColors.warning,
+                    title: '负债管理',
+                    subtitle: '查看还款提醒和上岸进度',
+                    onTap: () => context.push(AppRoutePaths.reminders),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.handshake_outlined,
+                    color: financeColors.asset,
+                    title: '借贷往来',
+                    subtitle: '管理借出、借入和还款记录',
+                    onTap: () => context.push(AppRoutePaths.lendings),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.diversity_3_outlined,
+                    color: colorScheme.tertiary,
+                    title: '家庭成员',
+                    subtitle: '管理家庭记账成员和支出归属',
+                    onTap: () => context.push(AppRoutePaths.family),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.auto_awesome_outlined,
+                    color: colorScheme.primary,
+                    title: 'AI 财务报告',
+                    subtitle: '查看每周总结和智能分析',
+                    onTap: () => context.push(AppRoutePaths.aiReports),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.summarize_outlined,
+                    color: financeColors.asset,
+                    title: '年度报告',
+                    subtitle: '查看年度收支、结余和分类排行',
+                    onTap: () => context.push(AppRoutePaths.yearlyReport),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
-            _AppearancePanel(
-              settings: themeSettings,
-              onModeChanged: (value) => _setThemeMode(ref, value),
-              onPaletteChanged: (value) => _setThemePalette(ref, value),
+            StaggeredEntrance(
+              index: 3,
+              child: _SettingsSection(
+                title: '系统设置',
+                children: [
+                  _SettingsEntry(
+                    icon: Icons.notifications_none_outlined,
+                    color: colorScheme.secondary,
+                    title: '通知设置',
+                    subtitle: '配置提醒通道和通知类型',
+                    onTap: () => context.push(AppRoutePaths.notifications),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.security_outlined,
+                    color: financeColors.expense,
+                    title: '账号安全',
+                    subtitle: '修改密码和配置安全入口',
+                    onTap: () => context.push(AppRoutePaths.securitySettings),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.vpn_key_outlined,
+                    color: financeColors.income,
+                    title: 'API Token',
+                    subtitle: '管理 App 和外部 API 访问令牌',
+                    onTap: () => context.push(AppRoutePaths.apiTokens),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.storage_outlined,
+                    color: financeColors.asset,
+                    title: '数据管理',
+                    subtitle: '备份、恢复和导出交易数据',
+                    onTap: () => context.push(AppRoutePaths.dataManagement),
+                  ),
+                  _SettingsEntry(
+                    icon: Icons.dns_outlined,
+                    color: colorScheme.outline,
+                    title: '更换服务器',
+                    subtitle: '清除本机登录态并重新连接服务地址',
+                    onTap: () => _confirmChangeServer(context, ref),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            StaggeredEntrance(
+              index: 4,
+              child: _AppearancePanel(
+                settings: themeSettings,
+                onModeChanged: (value) => _setThemeMode(ref, value),
+                onPaletteChanged: (value) => _setThemePalette(ref, value),
+              ),
             ),
           ],
         ),

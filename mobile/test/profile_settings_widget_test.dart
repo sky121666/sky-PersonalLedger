@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/profile/data/profile_repository.dart';
 import 'package:personal_ledger/features/profile/presentation/profile_settings_page.dart';
 
@@ -14,6 +16,14 @@ void main() {
       expect(find.text('Sky'), findsWidgets);
       expect(find.text('用户名：admin'), findsOneWidget);
       expect(find.text('创建时间：2026-05-01'), findsOneWidget);
+    });
+
+    testWidgets('个人资料摘要和表单使用高级表面与入场动效', (tester) async {
+      final repository = _FakeProfileRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
     });
 
     testWidgets('保存资料时提交当前输入', (tester) async {
@@ -78,8 +88,7 @@ void main() {
     });
 
     testWidgets('保存失败时展示错误且保留输入', (tester) async {
-      final repository = _FakeProfileRepository()
-        ..updateProfileError = '保存失败';
+      final repository = _FakeProfileRepository()..updateProfileError = '保存失败';
       await _pumpPage(tester, repository);
 
       await tester.enterText(

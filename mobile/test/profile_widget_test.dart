@@ -6,6 +6,7 @@ import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
+import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -138,6 +139,30 @@ void main() {
     expect(badgeColors, contains(AppThemePalette.graphite.expenseColor));
     expect(badgeColors, contains(theme.colorScheme.primary));
     expect(badgeColors, contains(theme.colorScheme.tertiary));
+  });
+
+  testWidgets('ProfilePage 设置分区和主题模板使用分段入场动效', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final authRepository = _FakeAuthRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(authRepository),
+          authControllerProvider.overrideWith((ref) {
+            return _TestAuthController(ref);
+          }),
+        ],
+        child: const MaterialApp(home: ProfilePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
   });
 }
 
