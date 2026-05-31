@@ -18,6 +18,7 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeSettings = ref.watch(themeControllerProvider);
+    final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     return Scaffold(
       appBar: AppBar(title: const Text('我的')),
@@ -31,7 +32,7 @@ class ProfilePage extends ConsumerWidget {
               children: [
                 _SettingsEntry(
                   icon: Icons.manage_accounts_outlined,
-                  color: colorSchemeOf(context).primary,
+                  color: colorScheme.primary,
                   title: '个人资料',
                   subtitle: '编辑昵称、邮箱和简介',
                   onTap: () => context.push(AppRoutePaths.profileSettings),
@@ -66,7 +67,7 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 _SettingsEntry(
                   icon: Icons.bolt_outlined,
-                  color: const Color(0xFF8B5CF6),
+                  color: colorScheme.tertiary,
                   title: '快捷模板',
                   subtitle: '保存常用收支并一键记账',
                   onTap: () => context.push(AppRoutePaths.templates),
@@ -93,28 +94,28 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 _SettingsEntry(
                   icon: Icons.handshake_outlined,
-                  color: const Color(0xFF0EA5E9),
+                  color: financeColors.asset,
                   title: '借贷往来',
                   subtitle: '管理借出、借入和还款记录',
                   onTap: () => context.push(AppRoutePaths.lendings),
                 ),
                 _SettingsEntry(
                   icon: Icons.diversity_3_outlined,
-                  color: const Color(0xFF9333EA),
+                  color: colorScheme.tertiary,
                   title: '家庭成员',
                   subtitle: '管理家庭记账成员和支出归属',
                   onTap: () => context.push(AppRoutePaths.family),
                 ),
                 _SettingsEntry(
                   icon: Icons.auto_awesome_outlined,
-                  color: const Color(0xFF4F46E5),
+                  color: colorScheme.primary,
                   title: 'AI 财务报告',
                   subtitle: '查看每周总结和智能分析',
                   onTap: () => context.push(AppRoutePaths.aiReports),
                 ),
                 _SettingsEntry(
                   icon: Icons.summarize_outlined,
-                  color: const Color(0xFF0891B2),
+                  color: financeColors.asset,
                   title: '年度报告',
                   subtitle: '查看年度收支、结余和分类排行',
                   onTap: () => context.push(AppRoutePaths.yearlyReport),
@@ -127,7 +128,7 @@ class ProfilePage extends ConsumerWidget {
               children: [
                 _SettingsEntry(
                   icon: Icons.notifications_none_outlined,
-                  color: const Color(0xFF64748B),
+                  color: colorScheme.secondary,
                   title: '通知设置',
                   subtitle: '配置提醒通道和通知类型',
                   onTap: () => context.push(AppRoutePaths.notifications),
@@ -141,7 +142,7 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 _SettingsEntry(
                   icon: Icons.vpn_key_outlined,
-                  color: const Color(0xFF0F766E),
+                  color: financeColors.income,
                   title: 'API Token',
                   subtitle: '管理 App 和外部 API 访问令牌',
                   onTap: () => context.push(AppRoutePaths.apiTokens),
@@ -155,7 +156,7 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 _SettingsEntry(
                   icon: Icons.dns_outlined,
-                  color: const Color(0xFF475569),
+                  color: colorScheme.outline,
                   title: '更换服务器',
                   subtitle: '清除本机登录态并重新连接服务地址',
                   onTap: () => _confirmChangeServer(context, ref),
@@ -790,6 +791,3 @@ class _PaletteDot extends StatelessWidget {
     );
   }
 }
-
-ColorScheme colorSchemeOf(BuildContext context) =>
-    Theme.of(context).colorScheme;

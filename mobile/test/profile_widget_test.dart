@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
+import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -103,6 +105,39 @@ void main() {
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
     expect(preferences.getString('app_theme_palette'), 'graphite');
+  });
+
+  testWidgets('ProfilePage 设置入口跟随主题色模板', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final theme = AppTheme.lightTheme(AppThemePalette.graphite);
+    final authRepository = _FakeAuthRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(authRepository),
+          authControllerProvider.overrideWith((ref) {
+            return _TestAuthController(ref);
+          }),
+        ],
+        child: MaterialApp(
+          theme: theme,
+          darkTheme: AppTheme.darkTheme(AppThemePalette.graphite),
+          home: const ProfilePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final badgeColors = tester
+        .widgetList<IconBadge>(find.byType(IconBadge))
+        .map((badge) => badge.color)
+        .toList();
+    expect(badgeColors, contains(AppThemePalette.graphite.assetColor));
+    expect(badgeColors, contains(AppThemePalette.graphite.incomeColor));
+    expect(badgeColors, contains(AppThemePalette.graphite.expenseColor));
+    expect(badgeColors, contains(theme.colorScheme.primary));
+    expect(badgeColors, contains(theme.colorScheme.tertiary));
   });
 }
 
