@@ -19,7 +19,7 @@ class AppLoadingView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _LoadingOrb(color: colorScheme.primary),
+            _LoadingIndicatorTile(color: colorScheme.primary),
             const SizedBox(height: 16),
             Text(
               message,
@@ -27,6 +27,15 @@ class AppLoadingView extends StatelessWidget {
               style: Theme.of(
                 context,
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            _StateSignalStrip(
+              items: [
+                _StateSignalItem(label: '连接', value: '检查中'),
+                _StateSignalItem(label: '同步', value: '等待中'),
+                _StateSignalItem(label: '界面', value: '渲染中'),
+              ],
+              color: colorScheme.primary,
             ),
             const SizedBox(height: 12),
             ClipRRect(
@@ -88,6 +97,17 @@ class AppEmptyView extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 14),
+            _StateSignalStrip(
+              items: [
+                _StateSignalItem(label: '状态', value: '暂无内容'),
+                _StateSignalItem(
+                  label: '操作',
+                  value: action == null ? '等待数据' : '可创建',
+                ),
+              ],
+              color: accentColor,
+            ),
             if (action != null) ...[const SizedBox(height: 18), action!],
           ],
         ),
@@ -141,6 +161,17 @@ class AppErrorView extends StatelessWidget {
                 height: 1.45,
               ),
             ),
+            const SizedBox(height: 14),
+            _StateSignalStrip(
+              items: [
+                _StateSignalItem(label: '状态', value: '异常'),
+                _StateSignalItem(
+                  label: '恢复',
+                  value: onRetry == null ? '稍后重试' : '可重试',
+                ),
+              ],
+              color: colorScheme.error,
+            ),
             if (onRetry != null) ...[
               const SizedBox(height: 18),
               FilledButton(
@@ -180,8 +211,68 @@ class _StateViewFrame extends StatelessWidget {
   }
 }
 
-class _LoadingOrb extends StatelessWidget {
-  const _LoadingOrb({required this.color});
+class _StateSignalItem {
+  const _StateSignalItem({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+class _StateSignalStrip extends StatelessWidget {
+  const _StateSignalStrip({required this.items, required this.color});
+
+  final List<_StateSignalItem> items;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final item in items) _StateSignalChip(item: item, color: color),
+      ],
+    );
+  }
+}
+
+class _StateSignalChip extends StatelessWidget {
+  const _StateSignalChip({required this.item, required this.color});
+
+  final _StateSignalItem item;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        '${item.label} · ${item.value}',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingIndicatorTile extends StatelessWidget {
+  const _LoadingIndicatorTile({required this.color});
 
   final Color color;
 
@@ -196,14 +287,14 @@ class _LoadingOrb extends StatelessWidget {
         return Transform.scale(scale: scale, child: child);
       },
       child: Container(
-        width: 58,
+        width: 76,
         height: 58,
         decoration: BoxDecoration(
           color: Color.alphaBlend(
             color.withValues(alpha: 0.14),
             colorScheme.surface,
           ),
-          shape: BoxShape.circle,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withValues(alpha: 0.24)),
           boxShadow: [
             BoxShadow(
