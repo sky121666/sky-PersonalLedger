@@ -29,6 +29,7 @@ import 'package:personal_ledger/features/family/presentation/family_page.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
 import 'package:personal_ledger/features/main/presentation/main_shell_page.dart';
+import 'package:personal_ledger/features/profile/presentation/profile_page.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
 import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
@@ -479,6 +480,44 @@ void main() {
             binding,
             tester,
             'family-hub-summary-${variant.name}',
+          );
+        },
+      );
+
+      testWidgets(
+        'renders premium profile settings and theme templates (${variant.name})',
+        (tester) async {
+          await _prepareScreenshotCapture(binding);
+          await tester.pumpWidget(
+            ProviderScope(
+              child: _screenshotHost(
+                _premiumApp(
+                  themeMode: variant.themeMode,
+                  home: const ProfilePage(),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.text('我的'), findsOneWidget);
+          expect(find.text('个人记账'), findsOneWidget);
+          expect(find.text('资产配置'), findsOneWidget);
+          _expectStableVisualFrame(tester);
+
+          await tester.scrollUntilVisible(
+            find.text('主题色模板'),
+            420,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(find.text('外观模式'), findsOneWidget);
+          expect(find.text('石墨蓝'), findsOneWidget);
+          expect(find.byType(PremiumSurface), findsWidgets);
+          _expectStableVisualFrame(tester);
+          await _capturePremiumScreenshot(
+            binding,
+            tester,
+            'profile-theme-templates-${variant.name}',
           );
         },
       );
