@@ -104,6 +104,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('家庭成员'), findsOneWidget);
+    expect(find.text('协同中'), findsOneWidget);
+    expect(find.text('已汇总'), findsOneWidget);
     expect(find.text('2026-05 家庭支出'), findsOneWidget);
     expect(find.text('¥320.00'), findsOneWidget);
     expect(find.text('成员支出排行'), findsOneWidget);

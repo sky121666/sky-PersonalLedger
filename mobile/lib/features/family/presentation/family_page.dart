@@ -194,6 +194,10 @@ class _FamilySummaryHeader extends StatelessWidget {
               label: '启用成员',
               value: '$enabledCount',
               helper: '共 ${members.length} 位',
+              statusLabel: enabledCount > 0 ? '协同中' : '待启用',
+              statusColor: enabledCount > 0
+                  ? financeColors.income
+                  : Theme.of(context).colorScheme.outline,
             ),
           ),
         ),
@@ -208,6 +212,10 @@ class _FamilySummaryHeader extends StatelessWidget {
                   ? '加载中'
                   : _formatMoney(summary?.totalExpense ?? 0),
               helper: '按成员归属聚合',
+              statusLabel: loadingSummary ? '同步中' : '已汇总',
+              statusColor: loadingSummary
+                  ? Theme.of(context).colorScheme.primary
+                  : financeColors.warning,
             ),
           ),
         ),
@@ -342,11 +350,15 @@ class _FamilyMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.helper,
+    this.statusLabel,
+    this.statusColor,
   });
 
   final String label;
   final String value;
   final String helper;
+  final String? statusLabel;
+  final Color? statusColor;
 
   @override
   Widget build(BuildContext context) {
@@ -374,7 +386,54 @@ class _FamilyMetric extends StatelessWidget {
             context,
           ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
         ),
+        if (statusLabel != null && statusColor != null) ...[
+          const SizedBox(height: 8),
+          _FamilyStatusPill(label: statusLabel!, color: statusColor!),
+        ],
       ],
+    );
+  }
+}
+
+class _FamilyStatusPill extends StatelessWidget {
+  const _FamilyStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.groups_2_outlined, color: color, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
