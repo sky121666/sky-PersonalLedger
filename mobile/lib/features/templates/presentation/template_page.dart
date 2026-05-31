@@ -574,6 +574,11 @@ class _TemplateFormSheetState extends ConsumerState<_TemplateFormSheet> {
     if (!selectableCategories.any((category) => category.id == _categoryId)) {
       _categoryId = null;
     }
+    final financeColors = AppTheme.financeColors(context);
+    final accentColor = _type == TransactionType.income
+        ? financeColors.income
+        : Theme.of(context).colorScheme.error;
+    final amount = double.tryParse(_amountController.text.trim());
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -588,17 +593,26 @@ class _TemplateFormSheetState extends ConsumerState<_TemplateFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('新增快捷模板', style: Theme.of(context).textTheme.titleLarge),
+              _TemplateFormPreview(
+                title: _nameController.text.trim().isEmpty
+                    ? '未命名模板'
+                    : _nameController.text.trim(),
+                amount: amount,
+                type: _type,
+                color: accentColor,
+              ),
               const SizedBox(height: 16),
               SegmentedButton<TransactionType>(
                 segments: const [
                   ButtonSegment(
                     value: TransactionType.expense,
                     label: Text('支出'),
+                    icon: Icon(Icons.trending_down_outlined),
                   ),
                   ButtonSegment(
                     value: TransactionType.income,
                     label: Text('收入'),
+                    icon: Icon(Icons.trending_up_outlined),
                   ),
                 ],
                 selected: {_type},
@@ -617,6 +631,7 @@ class _TemplateFormSheetState extends ConsumerState<_TemplateFormSheet> {
                   labelText: '模板名称',
                   border: OutlineInputBorder(),
                 ),
+                onChanged: (_) => setState(() {}),
                 validator: (value) =>
                     value == null || value.trim().isEmpty ? '请输入模板名称' : null,
               ),
@@ -632,6 +647,7 @@ class _TemplateFormSheetState extends ConsumerState<_TemplateFormSheet> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                onChanged: (_) => setState(() {}),
                 validator: (value) {
                   final amount = double.tryParse(value ?? '');
                   return amount == null || amount <= 0 ? '请输入有效金额' : null;
@@ -726,5 +742,76 @@ class _TemplateFormSheetState extends ConsumerState<_TemplateFormSheet> {
         setState(() => _submitting = false);
       }
     }
+  }
+}
+
+class _TemplateFormPreview extends StatelessWidget {
+  const _TemplateFormPreview({
+    required this.title,
+    required this.amount,
+    required this.type,
+    required this.color,
+  });
+
+  final String title;
+  final double? amount;
+  final TransactionType type;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isIncome = type == TransactionType.income;
+    final amountText = amount == null
+        ? '¥ --'
+        : '${isIncome ? '+' : '-'}¥${amount!.toStringAsFixed(2)}';
+    return PremiumSurface(
+      accentColor: color,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: isIncome
+                ? Icons.trending_up_outlined
+                : Icons.trending_down_outlined,
+            color: color,
+            size: 48,
+            iconSize: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '新增快捷模板',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '当前名称：$title',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            amountText,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
