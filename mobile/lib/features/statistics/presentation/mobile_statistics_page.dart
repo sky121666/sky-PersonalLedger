@@ -132,6 +132,7 @@ class _StatisticsContent extends StatelessWidget {
               child: _MonthHeader(
                 selectedMonth: selectedMonth,
                 overview: dashboard.overview,
+                settings: themeSettings,
                 onPreviousMonth: onPreviousMonth,
                 onNextMonth: onNextMonth,
               ),
@@ -139,20 +140,20 @@ class _StatisticsContent extends StatelessWidget {
             const SizedBox(height: 12),
             StaggeredEntrance(
               index: 1,
-              child: _StatisticsInsightDeck(dashboard: dashboard),
+              child: _OverviewCard(overview: dashboard.overview),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 2,
-              child: _StatisticsThemeDataStrip(
-                dashboard: dashboard,
-                settings: themeSettings,
-              ),
+              child: _StatisticsInsightDeck(dashboard: dashboard),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 3,
-              child: _OverviewCard(overview: dashboard.overview),
+              child: _StatisticsThemeDataStrip(
+                dashboard: dashboard,
+                settings: themeSettings,
+              ),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
@@ -207,53 +208,247 @@ class _MonthHeader extends StatelessWidget {
   const _MonthHeader({
     required this.selectedMonth,
     required this.overview,
+    required this.settings,
     required this.onPreviousMonth,
     required this.onNextMonth,
   });
 
   final DateTime selectedMonth;
   final StatisticsOverviewData overview;
+  final AppThemeSettings settings;
   final VoidCallback onPreviousMonth;
   final VoidCallback? onNextMonth;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final palette = settings.palette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final balanceColor = overview.balance >= 0
+        ? financeColors.income
+        : financeColors.expense;
+    return PremiumSurface(
+      key: const ValueKey('statistics-period-command-center'),
+      accentColor: palette.seedColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                '统计分析',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              IconBadge(
+                icon: Icons.space_dashboard_outlined,
+                color: palette.seedColor,
+                size: 44,
+                iconSize: 23,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '统计分析',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '周期指挥台 · ${palette.label}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                _formatMonthLabel(selectedMonth),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
-              const SizedBox(height: 8),
               _StatisticsSignalPill(overview: overview),
             ],
           ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              IconButton.filledTonal(
+                onPressed: onPreviousMonth,
+                icon: const Icon(Icons.chevron_left),
+                tooltip: '上个月',
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsPeriodCard(
+                  monthLabel: _formatMonthLabel(selectedMonth),
+                  signalLabel: _statisticsSignalLabel(overview.balance),
+                  color: balanceColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                onPressed: onNextMonth,
+                icon: const Icon(Icons.chevron_right),
+                tooltip: '下个月',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _StatisticsHeaderMetric(
+                  label: '收入',
+                  value: _formatCurrency(overview.income),
+                  icon: Icons.south_west_rounded,
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsHeaderMetric(
+                  label: '支出',
+                  value: _formatCurrency(overview.expense),
+                  icon: Icons.north_east_rounded,
+                  color: financeColors.expense,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsHeaderMetric(
+                  label: '结余',
+                  value: _formatCurrency(overview.balance),
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: balanceColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsPeriodCard extends StatelessWidget {
+  const _StatisticsPeriodCard({
+    required this.monthLabel,
+    required this.signalLabel,
+    required this.color,
+  });
+
+  final String monthLabel;
+  final String signalLabel;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
         ),
-        IconButton.filledTonal(
-          onPressed: onPreviousMonth,
-          icon: const Icon(Icons.chevron_left),
-          tooltip: '上个月',
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            monthLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            signalLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsHeaderMetric extends StatelessWidget {
+  const _StatisticsHeaderMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
         ),
-        const SizedBox(width: 8),
-        IconButton.filledTonal(
-          onPressed: onNextMonth,
-          icon: const Icon(Icons.chevron_right),
-          tooltip: '下个月',
-        ),
-      ],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

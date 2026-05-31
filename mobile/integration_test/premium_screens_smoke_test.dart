@@ -854,6 +854,21 @@ void main() {
 
         expect(find.text('统计分析'), findsOneWidget);
         expect(
+          find.byKey(const ValueKey('statistics-period-command-center')),
+          findsOneWidget,
+        );
+        expect(find.textContaining('周期指挥台'), findsOneWidget);
+        expect(find.text('本月总支出'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'statistics-period-overview-${variant.name}',
+        );
+
+        await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+        await tester.pumpAndSettle();
+        expect(
           find.byKey(const ValueKey('statistics-insight-deck')),
           findsOneWidget,
         );
@@ -864,16 +879,6 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('现金流正向'), findsOneWidget);
-        expect(find.text('本月总支出'), findsOneWidget);
-        _expectStableVisualFrame(tester);
-        await _capturePremiumScreenshot(
-          binding,
-          tester,
-          'statistics-insight-deck-${variant.name}',
-        );
-
-        await tester.drag(find.byType(ListView).first, const Offset(0, -900));
-        await tester.pumpAndSettle();
         expect(find.text('收支趋势'), findsOneWidget);
         expect(find.text('分类排行'), findsOneWidget);
         expect(find.text('餐饮'), findsOneWidget);

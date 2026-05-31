@@ -21,6 +21,11 @@ void main() {
       expect(repository.dashboardCalls, 2);
       expect(find.text('统计分析'), findsOneWidget);
       expect(
+        find.byKey(const ValueKey('statistics-period-command-center')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('周期指挥台'), findsOneWidget);
+      expect(
         find.byKey(const ValueKey('statistics-insight-deck')),
         findsOneWidget,
       );
@@ -33,7 +38,7 @@ void main() {
       );
       expect(find.text('现金流正向'), findsOneWidget);
       expect(find.text('交易活跃'), findsOneWidget);
-      expect(find.text('本月现金流稳健'), findsOneWidget);
+      expect(find.text('本月现金流稳健'), findsAtLeastNWidgets(1));
       expect(find.text('结余率'), findsAtLeastNWidgets(1));
       expect(find.text('60%'), findsAtLeastNWidgets(1));
       expect(find.text('餐饮'), findsOneWidget);
@@ -46,12 +51,17 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('交易笔数'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('statistics-period-command-center')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('周期指挥台'), findsOneWidget);
       expect(find.text('数据洞察台'), findsOneWidget);
       expect(find.text('数据皮肤'), findsOneWidget);
       expect(find.text('默认稳健'), findsOneWidget);
       expect(find.text('趋势节点'), findsOneWidget);
       expect(find.text('分类样本'), findsOneWidget);
-      expect(find.text('本月现金流持平'), findsOneWidget);
+      expect(find.text('本月现金流持平'), findsAtLeastNWidgets(1));
       expect(find.text('结余率'), findsAtLeastNWidgets(1));
       expect(find.text('收入变化'), findsOneWidget);
       expect(find.text('支出变化'), findsOneWidget);
