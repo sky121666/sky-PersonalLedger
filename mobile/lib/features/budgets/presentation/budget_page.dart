@@ -283,7 +283,7 @@ class _BudgetContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final budgetList = dashboard.budgetList;
     final categoryCount = budgetList.categoryBudgets.length;
-    final memberHeaderIndex = categoryCount + 4;
+    final memberHeaderIndex = categoryCount + 5;
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
@@ -297,11 +297,16 @@ class _BudgetContent extends StatelessWidget {
             ],
             StaggeredEntrance(
               index: 0,
-              child: _BudgetSummaryCard(budget: budgetList.totalBudget),
+              child: _BudgetCommandCenter(dashboard: dashboard),
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
               index: 1,
+              child: _BudgetSummaryCard(budget: budgetList.totalBudget),
+            ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 2,
               child: _TotalBudgetCard(
                 budget: budgetList.totalBudget,
                 busy: busyAction == 'total',
@@ -310,7 +315,7 @@ class _BudgetContent extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 2,
+              index: 3,
               child: _CategoryBudgetHeader(
                 count: budgetList.categoryBudgets.length,
                 availableCount: dashboard.availableExpenseCategories.length,
@@ -320,13 +325,13 @@ class _BudgetContent extends StatelessWidget {
             const SizedBox(height: 8),
             if (budgetList.categoryBudgets.isEmpty)
               const StaggeredEntrance(
-                index: 3,
+                index: 4,
                 child: _EmptyCategoryBudgetCard(),
               )
             else
               for (final entry in budgetList.categoryBudgets.indexed) ...[
                 StaggeredEntrance(
-                  index: entry.$1 + 3,
+                  index: entry.$1 + 4,
                   child: _CategoryBudgetCard(
                     budget: entry.$2,
                     busy: busyAction == 'delete-${entry.$2.id}',
@@ -451,6 +456,217 @@ class _MessagePanel extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BudgetCommandCenter extends StatelessWidget {
+  const _BudgetCommandCenter({required this.dashboard});
+
+  final BudgetDashboard dashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final budgetList = dashboard.budgetList;
+    final totalBudget = budgetList.totalBudget;
+    final allBudgets = [
+      if (totalBudget != null) totalBudget,
+      ...budgetList.categoryBudgets,
+      ...budgetList.memberBudgets,
+    ];
+    final riskCount = allBudgets.where((budget) => budget.isNearLimit).length;
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final statusColor = totalBudget == null
+        ? colorScheme.primary
+        : _budgetStatusColor(context, totalBudget.percentage);
+    final remainingLabel = totalBudget == null
+        ? '未设置'
+        : _formatMoney(totalBudget.remaining);
+
+    return PremiumSurface(
+      key: const ValueKey('budget-command-center'),
+      accentColor: statusColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.speed_outlined,
+                color: statusColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '预算控制台',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      totalBudget == null
+                          ? '先设置总预算，再追踪分类和家庭成员额度'
+                          : '${_budgetRhythmLabel(totalBudget.percentage)} · 剩余 $remainingLabel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _BudgetSignalPill(
+                icon: riskCount > 0
+                    ? Icons.warning_amber_rounded
+                    : Icons.verified_outlined,
+                label: riskCount > 0 ? '$riskCount 项预警' : '节奏稳定',
+                color: riskCount > 0 ? financeColors.expense : statusColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _BudgetCommandMetric(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: '总预算',
+                  value: totalBudget == null ? '未启动' : remainingLabel,
+                  color: statusColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _BudgetCommandMetric(
+                  icon: Icons.pie_chart_outline,
+                  label: '分类覆盖',
+                  value: '${budgetList.categoryBudgets.length} 项',
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _BudgetCommandMetric(
+                  icon: Icons.family_restroom_outlined,
+                  label: '家庭额度',
+                  value: '${budgetList.memberBudgets.length} 项',
+                  color: financeColors.asset,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetSignalPill extends StatelessWidget {
+  const _BudgetSignalPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetCommandMetric extends StatelessWidget {
+  const _BudgetCommandMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }

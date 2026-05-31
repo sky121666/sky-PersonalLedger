@@ -640,12 +640,23 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('预算管理'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('budget-command-center')),
+          findsOneWidget,
+        );
+        expect(find.text('预算控制台'), findsOneWidget);
+        expect(find.text('1 项预警'), findsOneWidget);
         expect(find.text('本月预算总览'), findsOneWidget);
         expect(find.text('月度总预算'), findsOneWidget);
         expect(find.text('分类预算'), findsOneWidget);
         expect(find.text('餐饮'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'budget-command-center-${variant.name}',
+        );
 
         await tester.drag(find.byType(ListView).first, const Offset(0, -900));
         await tester.pumpAndSettle();

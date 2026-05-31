@@ -18,11 +18,19 @@ void main() {
       await _pumpPage(tester, budgetRepository);
 
       expect(find.text('预算管理'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('budget-command-center')),
+        findsOneWidget,
+      );
+      expect(find.text('预算控制台'), findsOneWidget);
+      expect(find.text('1 项预警'), findsOneWidget);
+      expect(find.text('分类覆盖'), findsOneWidget);
+      expect(find.text('家庭额度'), findsOneWidget);
       expect(find.text('节奏健康'), findsOneWidget);
       expect(find.text('预算燃烧节奏正常'), findsOneWidget);
       expect(find.text('提醒线 80%'), findsWidgets);
       expect(find.text('40% 已使用'), findsOneWidget);
-      expect(find.text('¥1800.00'), findsOneWidget);
+      expect(find.text('¥1800.00'), findsAtLeastNWidgets(1));
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('87%'), findsOneWidget);
       expect(find.text('家庭成员预算'), findsOneWidget);
@@ -140,7 +148,7 @@ void main() {
       expect(budgetRepository.setTotalCalls.single.amount, 3500);
       expect(find.textContaining('总预算保存失败'), findsOneWidget);
       expect(find.text('总预算已保存'), findsNothing);
-      expect(find.text('¥1800.00'), findsOneWidget);
+      expect(find.text('¥1800.00'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('预算页资产面板跟随主题色模板', (tester) async {
