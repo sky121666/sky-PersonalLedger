@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
@@ -55,12 +57,23 @@ void main() {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('负债承压'), findsOneWidget);
+      expect(find.text('负债承压'), findsAtLeastNWidgets(1));
+      expect(
+        find.byKey(const ValueKey('account-portfolio-control-strip')),
+        findsOneWidget,
+      );
+      expect(find.text('资产控制中枢'), findsOneWidget);
+      expect(find.text('静谧墨绿'), findsOneWidget);
+      expect(find.text('活跃 3 个'), findsOneWidget);
+      expect(find.text('无归档'), findsOneWidget);
+      expect(find.text('流动账户'), findsOneWidget);
+      expect(find.text('负债暴露'), findsOneWidget);
+      expect(find.text('资产路径'), findsOneWidget);
       expect(find.text('资产占比'), findsOneWidget);
       expect(find.text('负债占比'), findsOneWidget);
       expect(find.text('资产账户'), findsOneWidget);
       expect(find.text('负债账户'), findsOneWidget);
-      expect(find.text('2 个'), findsOneWidget);
+      expect(find.text('2 个'), findsAtLeastNWidgets(1));
       expect(find.text('支持排序'), findsOneWidget);
       expect(find.text('资产类'), findsAtLeastNWidgets(1));
       expect(find.text('负债类'), findsOneWidget);
@@ -199,11 +212,30 @@ Future<void> _pumpPage(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [accountRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        accountRepositoryProvider.overrideWithValue(repository),
+        themeControllerProvider.overrideWith(
+          (ref) => _FixedThemeController(AppThemePalette.teal),
+        ),
+      ],
       child: const MaterialApp(home: AccountsPage()),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _FixedThemeController extends ThemeController {
+  _FixedThemeController(AppThemePalette palette) {
+    state = AppThemeSettings(palette: palette);
+  }
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> setPalette(AppThemePalette palette) async {
+    state = state.copyWith(palette: palette);
+  }
 }
 
 class _FakeAccountRepository implements AccountRepository {

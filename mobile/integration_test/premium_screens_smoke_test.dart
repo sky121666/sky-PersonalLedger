@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
@@ -404,6 +405,9 @@ void main() {
               accountRepositoryProvider.overrideWithValue(
                 _FakeAccountRepository(),
               ),
+              themeControllerProvider.overrideWith(
+                (ref) => _FixedThemeController(AppThemePalette.teal),
+              ),
             ],
             child: _screenshotHost(
               _premiumApp(
@@ -417,24 +421,39 @@ void main() {
 
         expect(find.text('账户'), findsOneWidget);
         expect(find.text('资产概览'), findsOneWidget);
-        expect(find.text('正常账户'), findsOneWidget);
-        expect(find.text('支持排序'), findsOneWidget);
-        expect(find.text('资产类'), findsAtLeastNWidgets(1));
-        expect(find.text('负债类'), findsOneWidget);
-        expect(find.text('招商银行'), findsOneWidget);
-        expect(find.text('住房贷款'), findsOneWidget);
-        _expectStableVisualFrame(tester);
-
-        await tester.drag(find.byType(ListView).first, const Offset(0, -500));
-        await tester.pumpAndSettle();
-        expect(find.text('已归档账户'), findsOneWidget);
-        expect(find.byType(PremiumSurface), findsWidgets);
+        expect(
+          find.byKey(const ValueKey('account-portfolio-control-strip')),
+          findsOneWidget,
+        );
+        expect(find.text('资产控制中枢'), findsOneWidget);
+        expect(find.text('静谧墨绿'), findsOneWidget);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
           'accounts-control-room-${variant.name}',
         );
+
+        await tester.scrollUntilVisible(
+          find.text('正常账户'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('正常账户'), findsOneWidget);
+        expect(find.text('支持排序'), findsOneWidget);
+        expect(find.text('资产类'), findsAtLeastNWidgets(1));
+        expect(find.text('招商银行'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+        await tester.scrollUntilVisible(
+          find.text('已归档账户'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('已归档账户'), findsOneWidget);
+        expect(find.text('负债类'), findsOneWidget);
+        expect(find.text('住房贷款'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
       });
 
       testWidgets('renders premium account logs (${variant.name})', (
@@ -2625,6 +2644,20 @@ class _FakeProfileRepository implements ProfileRepository {
       lastLoginAt: profile.lastLoginAt,
     );
     return profile;
+  }
+}
+
+class _FixedThemeController extends ThemeController {
+  _FixedThemeController(AppThemePalette palette) {
+    state = AppThemeSettings(palette: palette);
+  }
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> setPalette(AppThemePalette palette) async {
+    state = state.copyWith(palette: palette);
   }
 }
 
