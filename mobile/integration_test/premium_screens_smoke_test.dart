@@ -596,12 +596,23 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('统计分析'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('statistics-insight-deck')),
+          findsOneWidget,
+        );
+        expect(find.text('数据洞察台'), findsOneWidget);
+        expect(find.text('现金流正向'), findsOneWidget);
         expect(find.text('本月总支出'), findsOneWidget);
-        expect(find.text('收支趋势'), findsOneWidget);
         _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'statistics-insight-deck-${variant.name}',
+        );
 
         await tester.drag(find.byType(ListView).first, const Offset(0, -900));
         await tester.pumpAndSettle();
+        expect(find.text('收支趋势'), findsOneWidget);
         expect(find.text('分类排行'), findsOneWidget);
         expect(find.text('餐饮'), findsOneWidget);
         expect(find.text('交通'), findsOneWidget);

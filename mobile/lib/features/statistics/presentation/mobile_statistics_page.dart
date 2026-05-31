@@ -131,19 +131,24 @@ class _StatisticsContent extends StatelessWidget {
                 onNextMonth: onNextMonth,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             StaggeredEntrance(
               index: 1,
-              child: _OverviewCard(overview: dashboard.overview),
+              child: _StatisticsInsightDeck(dashboard: dashboard),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 2,
-              child: _TrendCard(trend: dashboard.trend),
+              child: _OverviewCard(overview: dashboard.overview),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 3,
+              child: _TrendCard(trend: dashboard.trend),
+            ),
+            const SizedBox(height: 16),
+            StaggeredEntrance(
+              index: 4,
               child: _CategoryRankCard(
                 response: dashboard.categories,
                 categoryType: categoryType,
@@ -288,6 +293,223 @@ class _StatisticsSignalPill extends StatelessWidget {
   }
 }
 
+class _StatisticsInsightDeck extends StatelessWidget {
+  const _StatisticsInsightDeck({required this.dashboard});
+
+  final StatisticsDashboard dashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final overview = dashboard.overview;
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final balanceColor = overview.balance >= 0
+        ? financeColors.income
+        : colorScheme.error;
+    final savingRate = _savingRate(overview);
+
+    return PremiumSurface(
+      key: const ValueKey('statistics-insight-deck'),
+      accentColor: balanceColor,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.query_stats_outlined,
+                color: balanceColor,
+                size: 44,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '数据洞察台',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_statisticsSignalLabel(overview.balance)} · 结余率 ${savingRate.toStringAsFixed(0)}%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _StatisticsSignalBadge(overview: overview),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _StatisticsDeckMetric(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: '净现金流',
+                  value: _formatCurrency(overview.balance),
+                  color: balanceColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsDeckMetric(
+                  icon: Icons.savings_outlined,
+                  label: '结余率',
+                  value: '${savingRate.toStringAsFixed(0)}%',
+                  color: balanceColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsDeckMetric(
+                  icon: Icons.receipt_long_outlined,
+                  label: '交易活跃',
+                  value: '${overview.transactionCount} 笔',
+                  color: colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _StatisticsDeckMetric(
+                  icon: Icons.stacked_bar_chart_outlined,
+                  label: '趋势节点',
+                  value: '${dashboard.trend.items.length} 个',
+                  color: colorScheme.secondary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatisticsDeckMetric(
+                  icon: Icons.donut_large_outlined,
+                  label: '分类样本',
+                  value: '${dashboard.categories.items.length} 类',
+                  color: financeColors.expense,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsSignalBadge extends StatelessWidget {
+  const _StatisticsSignalBadge({required this.overview});
+
+  final StatisticsOverviewData overview;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = overview.balance > 0
+        ? financeColors.income
+        : overview.balance < 0
+        ? colorScheme.error
+        : colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_statisticsSignalIcon(overview.balance), size: 16, color: color),
+          const SizedBox(width: 5),
+          Text(
+            overview.balance >= 0 ? '现金流正向' : '现金流承压',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsDeckMetric extends StatelessWidget {
+  const _StatisticsDeckMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 72),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _OverviewCard extends StatelessWidget {
   const _OverviewCard({required this.overview});
 
@@ -383,9 +605,7 @@ class _OverviewInsightStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
-    final savingRate = overview.income > 0
-        ? (overview.balance / overview.income * 100).clamp(-999.0, 999.0)
-        : 0.0;
+    final savingRate = _savingRate(overview);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
@@ -717,6 +937,12 @@ String _formatMonth(DateTime date) {
 
 String _formatMonthLabel(DateTime date) {
   return '${date.year}年${date.month}月';
+}
+
+double _savingRate(StatisticsOverviewData overview) {
+  return overview.income > 0
+      ? (overview.balance / overview.income * 100).clamp(-999.0, 999.0)
+      : 0.0;
 }
 
 String _dayLabel(String value) {
