@@ -13,9 +13,17 @@ void main() {
 
       expect(find.text('标签管理'), findsOneWidget);
       expect(find.text('工资收入'), findsOneWidget);
-      expect(find.text('系统标签 · 使用 8 次'), findsOneWidget);
+      expect(find.text('系统标签'), findsAtLeastNWidgets(1));
+      expect(find.text('使用 8 次'), findsOneWidget);
       expect(find.text('旅行'), findsOneWidget);
-      expect(find.text('自定义标签 · 使用 2 次'), findsOneWidget);
+      expect(find.text('自定义标签'), findsAtLeastNWidgets(1));
+      expect(find.text('使用 2 次'), findsOneWidget);
+      expect(find.byKey(const ValueKey('tag-card-system-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tag-card-custom-1')), findsOneWidget);
+      expect(find.text('高频标签'), findsOneWidget);
+      expect(find.text('场景标签'), findsOneWidget);
+      expect(find.text('系统预设'), findsOneWidget);
+      expect(find.text('用户维护'), findsOneWidget);
     });
 
     testWidgets('标签头部和卡片使用分段入场动效', (tester) async {

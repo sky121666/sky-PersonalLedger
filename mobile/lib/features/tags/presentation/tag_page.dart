@@ -642,54 +642,201 @@ class _TagCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _parseColor(tag.color, Theme.of(context).colorScheme.primary);
-    return PremiumSurface(
-      accentColor: color,
-      padding: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            IconBadge(icon: _tagIconData(tag.icon), color: color),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tag.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      _TagMetaChip(
-                        label: '${tag.sourceLabel} · 使用 ${tag.usedCount} 次',
-                        color: color,
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = _parseColor(tag.color, colorScheme.primary);
+    final sourceColor = tag.isSystem
+        ? AppTheme.financeColors(context).income
+        : colorScheme.primary;
+    return Semantics(
+      label: '${tag.name}，${tag.sourceLabel}，使用 ${tag.usedCount} 次',
+      button: true,
+      child: PremiumSurface(
+        key: ValueKey('tag-card-${tag.id}'),
+        accentColor: color,
+        padding: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              IconBadge(icon: _tagIconData(tag.icon), color: color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tag.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
                       ),
-                    ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _TagCardPill(
+                          icon: tag.isSystem
+                              ? Icons.verified_outlined
+                              : Icons.tune_outlined,
+                          label: tag.sourceLabel,
+                          color: sourceColor,
+                        ),
+                        _TagCardPill(
+                          icon: Icons.local_activity_outlined,
+                          label: '使用 ${tag.usedCount} 次',
+                          color: color,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _TagSignalPanel(
+                      color: color,
+                      icon: _tagIconData(tag.icon),
+                      title: tag.usedCount >= 5 ? '高频标签' : '场景标签',
+                      caption: tag.isSystem ? '系统预设' : '用户维护',
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: busy ? null : onEdit,
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: '编辑标签',
+              ),
+              IconButton(
+                onPressed: busy || tag.isSystem ? null : onDelete,
+                icon: const Icon(Icons.delete_outline),
+                tooltip: tag.isSystem ? '系统标签不能删除' : '删除标签',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TagSignalPanel extends StatelessWidget {
+  const _TagSignalPanel({
+    required this.color,
+    required this.icon,
+    required this.title,
+    required this.caption,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String title;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      key: ValueKey('tag-signal-$title'),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 17, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w900,
                   ),
-                ],
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagCardPill extends StatelessWidget {
+  const _TagCardPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 28, maxWidth: 160),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
               ),
             ),
-            IconButton(
-              onPressed: busy ? null : onEdit,
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: '编辑标签',
-            ),
-            IconButton(
-              onPressed: busy || tag.isSystem ? null : onDelete,
-              icon: const Icon(Icons.delete_outline),
-              tooltip: tag.isSystem ? '系统标签不能删除' : '删除标签',
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
