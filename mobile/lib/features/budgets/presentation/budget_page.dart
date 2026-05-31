@@ -503,6 +503,13 @@ class _BudgetSummaryCard extends StatelessWidget {
                         color: Theme.of(context).colorScheme.outline,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    _BudgetStatusPill(
+                      label: totalBudget == null
+                          ? '等待设置'
+                          : _budgetRhythmLabel(totalBudget.percentage),
+                      color: statusColor,
+                    ),
                   ],
                 ),
               ),
@@ -574,6 +581,49 @@ class _BudgetSummaryCard extends StatelessWidget {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetStatusPill extends StatelessWidget {
+  const _BudgetStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.speed_outlined, color: color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ],
       ),
     );
@@ -1391,4 +1441,14 @@ String _budgetStatusText(BudgetItem budget) {
     return '接近预算上限';
   }
   return '控制良好';
+}
+
+String _budgetRhythmLabel(double percentage) {
+  if (percentage >= 100) {
+    return '预算超速';
+  }
+  if (percentage >= 80) {
+    return '接近提醒线';
+  }
+  return '节奏健康';
 }

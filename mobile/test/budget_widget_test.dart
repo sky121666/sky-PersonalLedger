@@ -18,6 +18,7 @@ void main() {
       await _pumpPage(tester, budgetRepository);
 
       expect(find.text('预算管理'), findsOneWidget);
+      expect(find.text('节奏健康'), findsOneWidget);
       expect(find.text('¥1800.00'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('87%'), findsOneWidget);
