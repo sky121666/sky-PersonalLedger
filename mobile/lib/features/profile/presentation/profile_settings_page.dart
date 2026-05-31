@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -182,40 +183,143 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: colorScheme.primary,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ProfileAvatar(profile: profile),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  profile.displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              _ProfileAvatar(profile: profile),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      profile.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '用户名：${profile.username}',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
+                    ),
+                    if (profile.createdAt.isNotEmpty)
+                      Text(
+                        '创建时间：${profile.createdAt}',
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                      ),
+                    if (profile.lastLoginAt?.isNotEmpty ?? false)
+                      Text(
+                        '上次登录：${profile.lastLoginAt}',
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '用户名：${profile.username}',
-                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _ProfileSignalTile(
+                  icon: Icons.badge_outlined,
+                  label: '账号 ID',
+                  value: '#${profile.id}',
+                  color: colorScheme.primary,
                 ),
-                if (profile.createdAt.isNotEmpty)
-                  Text(
-                    '创建时间：${profile.createdAt}',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
-                if (profile.lastLoginAt?.isNotEmpty ?? false)
-                  Text(
-                    '上次登录：${profile.lastLoginAt}',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
-              ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ProfileSignalTile(
+                  icon: Icons.alternate_email_outlined,
+                  label: '联系方式',
+                  value: profile.email.isEmpty ? '未绑定' : '已绑定',
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ProfileSignalTile(
+                  icon: Icons.verified_user_outlined,
+                  label: '登录状态',
+                  value: (profile.lastLoginAt?.isNotEmpty ?? false)
+                      ? '有记录'
+                      : '待同步',
+                  color: financeColors.income,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSignalTile extends StatelessWidget {
+  const _ProfileSignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 78),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

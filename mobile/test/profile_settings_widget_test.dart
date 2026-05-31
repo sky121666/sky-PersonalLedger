@@ -26,6 +26,18 @@ void main() {
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
     });
 
+    testWidgets('个人资料头部展示身份状态摘要', (tester) async {
+      final repository = _FakeProfileRepository();
+      await _pumpPage(tester, repository);
+
+      expect(find.text('账号 ID'), findsOneWidget);
+      expect(find.text('#1'), findsOneWidget);
+      expect(find.text('联系方式'), findsOneWidget);
+      expect(find.text('已绑定'), findsOneWidget);
+      expect(find.text('登录状态'), findsOneWidget);
+      expect(find.text('有记录'), findsOneWidget);
+    });
+
     testWidgets('保存资料时提交当前输入', (tester) async {
       final repository = _FakeProfileRepository();
       await _pumpPage(tester, repository);
