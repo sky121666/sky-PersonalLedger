@@ -473,15 +473,30 @@ class _AppearancePanel extends StatelessWidget {
             ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
-          for (final palette in AppThemePalette.values) ...[
-            _ThemePaletteOption(
-              palette: palette,
-              selected: settings.palette == palette,
-              onTap: () => onPaletteChanged(palette),
-            ),
-            if (palette != AppThemePalette.values.last)
-              const SizedBox(height: 10),
-          ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumn = constraints.maxWidth >= 520;
+              final gap = twoColumn ? 12.0 : 10.0;
+              final cardWidth = twoColumn
+                  ? (constraints.maxWidth - gap) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final palette in AppThemePalette.values)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _ThemePaletteOption(
+                        palette: palette,
+                        selected: settings.palette == palette,
+                        onTap: () => onPaletteChanged(palette),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -668,89 +683,156 @@ class _ThemePaletteOption extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: AnimatedScale(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           scale: selected ? 1 : 0.985,
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 4,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? palette.seedColor
-                      : colorScheme.outlineVariant.withValues(alpha: 0.48),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              Expanded(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Color.alphaBlend(
-                      palette.seedColor.withValues(
-                        alpha: selected ? 0.12 : 0.04,
-                      ),
-                      colorScheme.surface,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: selected
-                          ? palette.seedColor
-                          : colorScheme.outlineVariant.withValues(alpha: 0.72),
-                      width: selected ? 1.4 : 1,
-                    ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            constraints: const BoxConstraints(minHeight: 154),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.alphaBlend(
+                    palette.seedColor.withValues(alpha: selected ? 0.18 : 0.08),
+                    colorScheme.surface,
                   ),
-                  child: Row(
-                    children: [
-                      _ThemePalettePreview(palette: palette),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              palette.label,
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w800),
+                  Color.alphaBlend(
+                    palette.assetColor.withValues(
+                      alpha: selected ? 0.14 : 0.06,
+                    ),
+                    colorScheme.surface,
+                  ),
+                ],
+              ),
+              border: Border.all(
+                color: selected
+                    ? palette.seedColor
+                    : colorScheme.outlineVariant.withValues(alpha: 0.72),
+                width: selected ? 1.6 : 1,
+              ),
+              boxShadow: [
+                if (selected)
+                  BoxShadow(
+                    color: palette.seedColor.withValues(alpha: 0.18),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _ThemePalettePreview(palette: palette),
+                    const Spacer(),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: selected
+                          ? Icon(
+                              Icons.check_circle,
+                              key: const ValueKey('selected'),
+                              color: palette.seedColor,
+                            )
+                          : Icon(
+                              Icons.radio_button_unchecked,
+                              key: const ValueKey('unselected'),
+                              color: colorScheme.outline,
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              palette.description,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        child: selected
-                            ? Icon(
-                                Icons.check_circle,
-                                key: const ValueKey('selected'),
-                                color: palette.seedColor,
-                              )
-                            : Icon(
-                                Icons.radio_button_unchecked,
-                                key: const ValueKey('unselected'),
-                                color: colorScheme.outline,
-                              ),
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  palette.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  palette.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ),
-              const SizedBox(width: 1),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PaletteSignalBar(
+                        color: palette.incomeColor,
+                        height: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _PaletteSignalBar(
+                        color: palette.assetColor,
+                        height: 30,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _PaletteSignalBar(
+                        color: palette.expenseColor,
+                        height: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _PaletteSignalBar(
+                        color: palette.warningColor,
+                        height: 26,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaletteSignalBar extends StatelessWidget {
+  const _PaletteSignalBar({required this.color, required this.height});
+
+  final Color color;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        height: height,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.22),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
       ),
     );
@@ -765,14 +847,15 @@ class _ThemePalettePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 70,
-      height: 44,
+      width: 86,
+      height: 42,
       child: Stack(
         alignment: Alignment.centerLeft,
         children: [
           Positioned(left: 0, child: _PaletteDot(color: palette.seedColor)),
-          Positioned(left: 22, child: _PaletteDot(color: palette.assetColor)),
-          Positioned(left: 44, child: _PaletteDot(color: palette.warningColor)),
+          Positioned(left: 18, child: _PaletteDot(color: palette.assetColor)),
+          Positioned(left: 36, child: _PaletteDot(color: palette.incomeColor)),
+          Positioned(left: 54, child: _PaletteDot(color: palette.warningColor)),
         ],
       ),
     );
@@ -787,8 +870,8 @@ class _PaletteDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 34,
-      height: 34,
+      width: 32,
+      height: 32,
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,

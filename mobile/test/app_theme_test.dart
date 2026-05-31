@@ -47,5 +47,13 @@ void main() {
       expect(financeColors?.expense, AppThemePalette.graphite.expenseColor);
       expect(financeColors?.warning, AppThemePalette.graphite.warningColor);
     });
+
+    test('主题模板标识唯一并覆盖高端色板', () {
+      final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
+      final labels = AppThemePalette.values.map((palette) => palette.label);
+
+      expect(ids.length, AppThemePalette.values.length);
+      expect(labels, containsAll(['冰川青', '星云紫', '曜石玫瑰', '钛金灰']));
+    });
   });
 }

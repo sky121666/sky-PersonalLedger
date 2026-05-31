@@ -60,6 +60,10 @@ void main() {
 
   testWidgets('ProfilePage 可切换外观模式和主题色模板', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final authRepository = _FakeAuthRepository();
     final router = GoRouter(
       initialLocation: AppRoutePaths.profile,
@@ -89,7 +93,7 @@ void main() {
       260,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.drag(find.byType(ListView), const Offset(0, -160));
+    await tester.ensureVisible(find.text('深色模式'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('深色模式'));
     await tester.pumpAndSettle();
@@ -98,7 +102,7 @@ void main() {
       220,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.drag(find.byType(ListView), const Offset(0, -120));
+    await tester.ensureVisible(find.text('石墨蓝'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('石墨蓝'));
     await tester.pumpAndSettle();
@@ -188,6 +192,10 @@ const _entryLabels = [
   '主题色模板',
   '静谧墨绿',
   '石墨蓝',
+  '冰川青',
+  '星云紫',
+  '曜石玫瑰',
+  '钛金灰',
 ];
 
 const _targetPaths = [
