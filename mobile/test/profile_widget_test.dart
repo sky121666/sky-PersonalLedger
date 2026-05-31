@@ -98,18 +98,19 @@ void main() {
     await tester.tap(find.text('深色模式'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('石墨蓝'),
+      find.text('极光青'),
       220,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.ensureVisible(find.text('石墨蓝'));
+    await tester.ensureVisible(find.text('极光青'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('石墨蓝'));
+    await tester.tap(find.text('极光青'));
     await tester.pumpAndSettle();
 
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
-    expect(preferences.getString('app_theme_palette'), 'graphite');
+    expect(preferences.getString('app_theme_palette'), 'aurora');
+    expect(find.text('当前已应用：极光青'), findsOneWidget);
   });
 
   testWidgets('ProfilePage 设置入口跟随主题色模板', (tester) async {
@@ -196,6 +197,12 @@ const _entryLabels = [
   '星云紫',
   '曜石玫瑰',
   '钛金灰',
+  '极光青',
+  '黑曜蓝',
+  '电浆蓝',
+  '前卫清透',
+  '旗舰暗色',
+  '动效先锋',
 ];
 
 const _targetPaths = [

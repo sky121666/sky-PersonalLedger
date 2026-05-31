@@ -432,6 +432,8 @@ class _AppearancePanel extends StatelessWidget {
             palette: settings.palette,
             financeColors: financeColors,
           ),
+          const SizedBox(height: 12),
+          _AppliedThemeStrip(palette: settings.palette),
           const SizedBox(height: 18),
           Text(
             '外观模式',
@@ -497,6 +499,53 @@ class _AppearancePanel extends StatelessWidget {
               );
             },
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppliedThemeStrip extends StatelessWidget {
+  const _AppliedThemeStrip({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          palette.seedColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.seedColor.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.done_all_outlined, color: palette.seedColor, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '当前已应用：${palette.label}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          _PaletteSignaturePill(palette: palette),
         ],
       ),
     );
@@ -751,13 +800,21 @@ class _ThemePaletteOption extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 14),
-                Text(
-                  palette.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        palette.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _PaletteSignaturePill(palette: palette),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -803,6 +860,37 @@ class _ThemePaletteOption extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaletteSignaturePill extends StatelessWidget {
+  const _PaletteSignaturePill({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          palette.seedColor.withValues(alpha: 0.10),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.seedColor.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        palette.signature,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: palette.seedColor,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );

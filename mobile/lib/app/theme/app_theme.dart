@@ -4,6 +4,7 @@ enum AppThemePalette {
   teal(
     id: 'teal',
     label: '静谧墨绿',
+    signature: '默认稳健',
     description: '默认金融色，稳定、克制、耐看。',
     seedColor: Color(0xFF0F766E),
     incomeColor: Color(0xFF059669),
@@ -14,6 +15,7 @@ enum AppThemePalette {
   graphite(
     id: 'graphite',
     label: '石墨蓝',
+    signature: '冷静仪表',
     description: '更冷静的高级仪表盘气质。',
     seedColor: Color(0xFF334155),
     incomeColor: Color(0xFF10B981),
@@ -24,6 +26,7 @@ enum AppThemePalette {
   indigo(
     id: 'indigo',
     label: '深海靛蓝',
+    signature: 'AI 科技',
     description: '更偏科技和 AI 分析场景。',
     seedColor: Color(0xFF4338CA),
     incomeColor: Color(0xFF22C55E),
@@ -34,6 +37,7 @@ enum AppThemePalette {
   emerald(
     id: 'emerald',
     label: '翡翠绿',
+    signature: '轻量日常',
     description: '更清爽，适合轻量日常记账。',
     seedColor: Color(0xFF047857),
     incomeColor: Color(0xFF16A34A),
@@ -44,6 +48,7 @@ enum AppThemePalette {
   amber(
     id: 'amber',
     label: '琥珀金',
+    signature: '温暖克制',
     description: '更温暖，但保留金融产品克制感。',
     seedColor: Color(0xFFB45309),
     incomeColor: Color(0xFF15803D),
@@ -54,6 +59,7 @@ enum AppThemePalette {
   cyan(
     id: 'cyan',
     label: '冰川青',
+    signature: '数据看板',
     description: '更清透的科技感，适合数据看板。',
     seedColor: Color(0xFF0891B2),
     incomeColor: Color(0xFF14B8A6),
@@ -64,6 +70,7 @@ enum AppThemePalette {
   violet(
     id: 'violet',
     label: '星云紫',
+    signature: '高端设备',
     description: '更强 AI 和高端设备感。',
     seedColor: Color(0xFF7C3AED),
     incomeColor: Color(0xFF10B981),
@@ -74,6 +81,7 @@ enum AppThemePalette {
   rose(
     id: 'rose',
     label: '曜石玫瑰',
+    signature: '精致暗调',
     description: '更精致的暗色高级感。',
     seedColor: Color(0xFFBE185D),
     incomeColor: Color(0xFF22C55E),
@@ -84,17 +92,52 @@ enum AppThemePalette {
   slate(
     id: 'slate',
     label: '钛金灰',
+    signature: '商务低饱和',
     description: '低饱和商务风，适合长期使用。',
     seedColor: Color(0xFF475569),
     incomeColor: Color(0xFF16A34A),
     expenseColor: Color(0xFFDC2626),
     assetColor: Color(0xFF0284C7),
     warningColor: Color(0xFFEAB308),
+  ),
+  aurora(
+    id: 'aurora',
+    label: '极光青',
+    signature: '前卫清透',
+    description: '青蓝高光与冷绿色，强化数据流动感。',
+    seedColor: Color(0xFF0E7490),
+    incomeColor: Color(0xFF2DD4BF),
+    expenseColor: Color(0xFFF43F5E),
+    assetColor: Color(0xFF3B82F6),
+    warningColor: Color(0xFFF97316),
+  ),
+  obsidian(
+    id: 'obsidian',
+    label: '黑曜蓝',
+    signature: '旗舰暗色',
+    description: '深蓝底色与高亮资产色，适合夜间重度使用。',
+    seedColor: Color(0xFF1E3A8A),
+    incomeColor: Color(0xFF34D399),
+    expenseColor: Color(0xFFF87171),
+    assetColor: Color(0xFF60A5FA),
+    warningColor: Color(0xFFFBBF24),
+  ),
+  plasma(
+    id: 'plasma',
+    label: '电浆蓝',
+    signature: '动效先锋',
+    description: '蓝紫主轴搭配明亮资产色，更适合高动效界面。',
+    seedColor: Color(0xFF2563EB),
+    incomeColor: Color(0xFF22C55E),
+    expenseColor: Color(0xFFEC4899),
+    assetColor: Color(0xFF06B6D4),
+    warningColor: Color(0xFFF59E0B),
   );
 
   const AppThemePalette({
     required this.id,
     required this.label,
+    required this.signature,
     required this.description,
     required this.seedColor,
     required this.incomeColor,
@@ -105,6 +148,7 @@ enum AppThemePalette {
 
   final String id;
   final String label;
+  final String signature;
   final String description;
   final Color seedColor;
   final Color incomeColor;
