@@ -34,15 +34,27 @@ void main() {
       expect(find.text('AI'), findsOneWidget);
       expect(find.text('备份'), findsOneWidget);
       expect(
+        find.byKey(const ValueKey('server-distribution-matrix')),
+        findsOneWidget,
+      );
+      expect(find.text('跨端分发矩阵'), findsOneWidget);
+      expect(find.text('等待地址'), findsOneWidget);
+      expect(find.text('待绑定'), findsWidgets);
+      expect(find.text('浏览器入口'), findsOneWidget);
+      expect(find.text('原生客户端'), findsOneWidget);
+      expect(find.text('Material 体验'), findsOneWidget);
+      expect(find.text('一处部署'), findsOneWidget);
+      expect(find.text('数据统一'), findsOneWidget);
+      expect(
         find.byKey(const ValueKey('server-topology-preview')),
         findsOneWidget,
       );
       expect(find.text('部署拓扑预览'), findsOneWidget);
       expect(find.text('等待输入服务地址'), findsOneWidget);
       expect(find.text('待完善'), findsOneWidget);
-      expect(find.text('Web'), findsOneWidget);
-      expect(find.text('iOS'), findsOneWidget);
-      expect(find.text('Android'), findsOneWidget);
+      expect(find.text('Web'), findsAtLeastNWidgets(1));
+      expect(find.text('iOS'), findsAtLeastNWidgets(1));
+      expect(find.text('Android'), findsAtLeastNWidgets(1));
       expect(
         find.byKey(const ValueKey('server-release-readiness-panel')),
         findsOneWidget,
@@ -70,6 +82,8 @@ void main() {
       expect(find.text('部署就绪检查'), findsOneWidget);
       expect(find.text('需加固'), findsOneWidget);
       expect(find.text('跨端可复用'), findsOneWidget);
+      expect(find.text('统一入口'), findsOneWidget);
+      expect(find.text('单点服务'), findsWidgets);
       await _scrollIntoTapArea(tester, find.text('连接'));
       await tester.tap(find.text('连接'));
       await tester.pumpAndSettle();

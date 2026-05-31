@@ -72,6 +72,11 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
         const SizedBox(height: 14),
         const _ServerCapabilityGrid(),
         const SizedBox(height: 14),
+        _ServerDistributionMatrix(
+          serverUrlController: _serverUrlController,
+          isLoading: isLoading,
+        ),
+        const SizedBox(height: 14),
         _ServerTopologyPreview(
           isLoading: isLoading,
           serverUrlController: _serverUrlController,
@@ -722,6 +727,221 @@ class _ServerCapabilityTile extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerDistributionMatrix extends StatelessWidget {
+  const _ServerDistributionMatrix({
+    required this.serverUrlController,
+    required this.isLoading,
+  });
+
+  final TextEditingController serverUrlController;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return AnimatedBuilder(
+      animation: serverUrlController,
+      builder: (context, _) {
+        final value = serverUrlController.text.trim();
+        final endpointLabel = value.isEmpty ? '待绑定' : '单点服务';
+        final endpointColor = value.isEmpty
+            ? colorScheme.outline
+            : financeColors.income;
+        final tiles = [
+          _ServerDistributionTileData(
+            icon: Icons.language_outlined,
+            title: 'Web',
+            value: endpointLabel,
+            caption: '浏览器入口',
+            color: colorScheme.primary,
+          ),
+          _ServerDistributionTileData(
+            icon: Icons.phone_iphone_outlined,
+            title: 'iOS',
+            value: endpointLabel,
+            caption: '原生客户端',
+            color: financeColors.income,
+          ),
+          _ServerDistributionTileData(
+            icon: Icons.android_outlined,
+            title: 'Android',
+            value: endpointLabel,
+            caption: 'Material 体验',
+            color: financeColors.asset,
+          ),
+          _ServerDistributionTileData(
+            icon: Icons.cloud_sync_outlined,
+            title: '服务边界',
+            value: isLoading ? '验证中' : '一处部署',
+            caption: '数据统一',
+            color: endpointColor,
+          ),
+        ];
+        return PremiumSurface(
+          key: const ValueKey('server-distribution-matrix'),
+          accentColor: endpointColor,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: Icons.device_hub_outlined,
+                    color: endpointColor,
+                    size: 40,
+                    iconSize: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '跨端分发矩阵',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '一个服务地址承载 Web、iOS、Android 和备份恢复入口',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                height: 1.35,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _TopologyStatusPill(
+                    icon: value.isEmpty
+                        ? Icons.link_off_outlined
+                        : Icons.link_outlined,
+                    label: value.isEmpty ? '等待地址' : '统一入口',
+                    color: endpointColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final twoColumn = constraints.maxWidth >= 430;
+                  final gap = twoColumn ? 10.0 : 8.0;
+                  final width = twoColumn
+                      ? (constraints.maxWidth - gap) / 2
+                      : constraints.maxWidth;
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: [
+                      for (final tile in tiles)
+                        SizedBox(
+                          width: width,
+                          child: _ServerDistributionTile(data: tile),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ServerDistributionTileData {
+  const _ServerDistributionTileData({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.caption,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String caption;
+  final Color color;
+}
+
+class _ServerDistributionTile extends StatelessWidget {
+  const _ServerDistributionTile({required this.data});
+
+  final _ServerDistributionTileData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 78),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          data.color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: data.color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(data.icon, color: data.color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  data.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  data.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            data.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: data.color,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),
