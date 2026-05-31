@@ -258,12 +258,24 @@ class _SummaryCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  '净结余',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '净结余',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    _YearlySignalPill(
+                      label: _yearlySignalLabel(report.netSavings),
+                      color: savingsColor,
+                      positive: report.netSavings >= 0,
+                    ),
+                  ],
                 ),
               ),
               _SavingsRatePill(rate: report.savingsRate, color: savingsColor),
@@ -321,6 +333,58 @@ class _SummaryCard extends StatelessWidget {
                 ],
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearlySignalPill extends StatelessWidget {
+  const _YearlySignalPill({
+    required this.label,
+    required this.color,
+    required this.positive,
+  });
+
+  final String label;
+  final Color color;
+  final bool positive;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            positive ? Icons.verified_outlined : Icons.priority_high_outlined,
+            color: color,
+            size: 14,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),
@@ -830,4 +894,14 @@ class _EmptyLine extends StatelessWidget {
 
 String _formatCurrency(double value) {
   return '¥${value.toStringAsFixed(2)}';
+}
+
+String _yearlySignalLabel(double netSavings) {
+  if (netSavings > 0) {
+    return '年度现金流稳健';
+  }
+  if (netSavings < 0) {
+    return '年度现金流承压';
+  }
+  return '年度现金流持平';
 }

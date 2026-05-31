@@ -14,6 +14,7 @@ void main() {
 
       expect(find.text('年度报告'), findsWidgets);
       expect(find.text('2026 年账本汇总'), findsOneWidget);
+      expect(find.text('年度现金流稳健'), findsOneWidget);
       expect(find.text('¥600.00'), findsWidgets);
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('工资'), findsOneWidget);
