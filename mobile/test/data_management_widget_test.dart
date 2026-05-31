@@ -113,6 +113,9 @@ void main() {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository, physicalSize: const Size(1200, 4000));
 
+      expect(find.text('JSON 全量'), findsOneWidget);
+      expect(find.text('表格分析'), findsOneWidget);
+      expect(find.text('覆盖恢复'), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(5));
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(6));
     });

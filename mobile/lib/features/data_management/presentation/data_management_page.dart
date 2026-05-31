@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -46,6 +47,8 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return Scaffold(
       appBar: AppBar(title: const Text('数据管理')),
       body: AdaptivePageContainer(
@@ -96,7 +99,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               index: 3,
               child: _ActionCard(
                 icon: Icons.backup_outlined,
+                accentColor: financeColors.asset,
                 title: '完整备份',
+                statusLabel: 'JSON 全量',
                 subtitle: '导出账户、分类、交易、预算、提醒、借贷、标签和个人资料。',
                 buttonLabel: '下载备份',
                 busy: _busyAction == 'backup',
@@ -109,7 +114,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               index: 4,
               child: _ActionCard(
                 icon: Icons.table_view_outlined,
+                accentColor: financeColors.income,
                 title: '交易 CSV',
+                statusLabel: '表格分析',
                 subtitle: '导出当前全部交易明细，方便用表格软件继续分析。',
                 buttonLabel: '导出 CSV',
                 busy: _busyAction == 'csv',
@@ -122,7 +129,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               index: 5,
               child: _ActionCard(
                 icon: Icons.restore_outlined,
+                accentColor: colorScheme.error,
                 title: '恢复备份',
+                statusLabel: '覆盖恢复',
                 subtitle: '用备份 JSON 覆盖当前账户下的数据。恢复前建议先下载一份最新备份。',
                 buttonLabel: '选择备份恢复',
                 busy: _busyAction == 'restore',
@@ -859,28 +868,20 @@ class _MessagePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final background = isError
-        ? colorScheme.errorContainer
-        : colorScheme.surfaceContainerHighest;
-    final foreground = isError
-        ? colorScheme.onErrorContainer
-        : colorScheme.onSurfaceVariant;
-    return Container(
+    final foreground = isError ? colorScheme.error : colorScheme.primary;
+    return PremiumSurface(
+      accentColor: foreground,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(14),
-      ),
       child: Row(
         children: [
-          Icon(icon, color: foreground),
+          IconBadge(icon: icon, color: foreground, size: 38, iconSize: 19),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: foreground),
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -892,7 +893,9 @@ class _MessagePanel extends StatelessWidget {
 class _ActionCard extends StatelessWidget {
   const _ActionCard({
     required this.icon,
+    required this.accentColor,
     required this.title,
+    required this.statusLabel,
     required this.subtitle,
     required this.buttonLabel,
     required this.busy,
@@ -902,7 +905,9 @@ class _ActionCard extends StatelessWidget {
   });
 
   final IconData icon;
+  final Color accentColor;
   final String title;
+  final String statusLabel;
   final String subtitle;
   final String buttonLabel;
   final bool busy;
@@ -913,7 +918,7 @@ class _ActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final iconColor = isDanger ? colorScheme.error : colorScheme.primary;
+    final iconColor = isDanger ? colorScheme.error : accentColor;
     return PremiumSurface(
       accentColor: iconColor,
       padding: const EdgeInsets.all(16),
@@ -935,6 +940,8 @@ class _ActionCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    const SizedBox(height: 7),
+                    _ActionStatusPill(label: statusLabel, color: iconColor),
                     const SizedBox(height: 5),
                     Text(
                       subtitle,
@@ -986,6 +993,37 @@ class _ButtonIcon extends StatelessWidget {
     return const SizedBox.square(
       dimension: 18,
       child: CircularProgressIndicator(strokeWidth: 2),
+    );
+  }
+}
+
+class _ActionStatusPill extends StatelessWidget {
+  const _ActionStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
     );
   }
 }
