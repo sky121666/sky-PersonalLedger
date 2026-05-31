@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_picker_service.dart';
@@ -275,6 +276,14 @@ void main() {
       );
 
       expect(find.text('记一笔'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('quick-entry-command-strip')),
+        findsOneWidget,
+      );
+      expect(find.text('记账指挥条'), findsOneWidget);
+      expect(find.text('静谧墨绿'), findsOneWidget);
+      expect(find.text('现金'), findsAtLeastNWidgets(1));
+      expect(find.text('分类 待选分类'), findsOneWidget);
       expect(find.byKey(const ValueKey('transaction-amount')), findsOneWidget);
       expect(find.text('选择支出分类'), findsOneWidget);
       expect(find.text('金额、账户和分类是保存前的关键字段'), findsOneWidget);
@@ -297,17 +306,21 @@ void main() {
       await tester.pump();
 
       expect(find.text('¥66.60'), findsOneWidget);
+      expect(find.text('支出 · ¥66.60'), findsOneWidget);
 
       await tester.tap(find.text('收入'));
       await tester.pumpAndSettle();
 
       expect(find.text('收入金额'), findsOneWidget);
+      expect(find.text('收入 · ¥66.60'), findsOneWidget);
       expect(find.text('记录收入来源'), findsOneWidget);
 
       await tester.tap(find.text('转账'));
       await tester.pumpAndSettle();
 
       expect(find.text('转账金额'), findsOneWidget);
+      expect(find.text('转账 · ¥66.60'), findsOneWidget);
+      expect(find.text('流向 待选转入'), findsOneWidget);
       expect(find.text('确认转入账户'), findsOneWidget);
       expect(find.text('转出账户和转入账户不能相同'), findsOneWidget);
     });
@@ -360,6 +373,9 @@ Future<void> _pumpTransactionPage(
             attachmentPickerService,
           ),
         familyMembersProvider.overrideWith((ref) async => familyMembers),
+        themeControllerProvider.overrideWith(
+          (ref) => _FixedThemeController(palette),
+        ),
       ],
       child: MaterialApp(
         theme: AppTheme.lightTheme(palette),
@@ -394,6 +410,20 @@ Future<void> _selectDropdownItem(
   await tester.pumpAndSettle();
   await tester.tap(find.text(itemText).last);
   await tester.pumpAndSettle();
+}
+
+class _FixedThemeController extends ThemeController {
+  _FixedThemeController(AppThemePalette palette) {
+    state = AppThemeSettings(palette: palette);
+  }
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> setPalette(AppThemePalette palette) async {
+    state = state.copyWith(palette: palette);
+  }
 }
 
 class _FakeTransactionRepository implements TransactionRepository {

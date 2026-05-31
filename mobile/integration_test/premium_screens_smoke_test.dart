@@ -317,6 +317,9 @@ void main() {
                 familyMembersProvider.overrideWith(
                   (ref) async => _familyMembers,
                 ),
+                themeControllerProvider.overrideWith(
+                  (ref) => _FixedThemeController(AppThemePalette.teal),
+                ),
               ],
               child: _screenshotHost(
                 _premiumApp(
@@ -330,24 +333,45 @@ void main() {
 
           expect(find.text('记一笔'), findsOneWidget);
           expect(
+            find.byKey(const ValueKey('quick-entry-command-strip')),
+            findsOneWidget,
+          );
+          expect(find.text('记账指挥条'), findsOneWidget);
+          expect(find.text('静谧墨绿'), findsOneWidget);
+          expect(
             find.byKey(const ValueKey('transaction-amount')),
             findsOneWidget,
           );
-          expect(find.text('分类'), findsOneWidget);
-          expect(find.text('成员'), findsOneWidget);
-          await tester.drag(find.byType(ListView).first, const Offset(0, -900));
-          await tester.pumpAndSettle();
-          expect(
-            find.byKey(const ValueKey('transaction-save')),
-            findsOneWidget,
-          );
-          expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
             'quick-transaction-form-${variant.name}',
           );
+
+          await tester.scrollUntilVisible(
+            find.text('分类'),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(find.text('分类'), findsOneWidget);
+          await tester.scrollUntilVisible(
+            find.text('成员'),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(find.text('成员'), findsOneWidget);
+          await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('transaction-save')),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(
+            find.byKey(const ValueKey('transaction-save')),
+            findsOneWidget,
+          );
+          expect(find.byType(PremiumSurface), findsWidgets);
+          _expectStableVisualFrame(tester);
         },
       );
 

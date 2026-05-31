@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
@@ -57,6 +58,37 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
 
   bool get _isEditing => widget.editingTransaction != null;
 
+  String get _selectedAccountName {
+    return _accounts
+            .where((account) => account.id == _accountId)
+            .map((account) => account.name)
+            .firstOrNull ??
+        '待选账户';
+  }
+
+  String get _selectedTargetName {
+    if (_type == TransactionType.transfer) {
+      return _accounts
+              .where((account) => account.id == _toAccountId)
+              .map((account) => account.name)
+              .firstOrNull ??
+          '待选转入';
+    }
+    return _categories
+            .where((category) => category.id == _categoryId)
+            .map((category) => category.name)
+            .firstOrNull ??
+        '待选分类';
+  }
+
+  String get _selectedFamilyMemberName {
+    return _familyMembers
+            .where((member) => member.id == _memberId)
+            .map((member) => member.name)
+            .firstOrNull ??
+        (_familyMembers.isEmpty ? '个人记录' : '未指定成员');
+  }
+
   /// 初始化交易表单基础数据。
   @override
   void initState() {
@@ -76,6 +108,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   /// 构建新增或编辑交易表单页面。
   @override
   Widget build(BuildContext context) {
+    final themeSettings = ref.watch(themeControllerProvider);
     final content = _loading
         ? const Center(child: CircularProgressIndicator())
         : Form(
@@ -98,6 +131,19 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                         _QuickTransactionHero(
                           type: _type,
                           amountController: _amountController,
+                        ),
+                        const SizedBox(height: 12),
+                        _QuickEntryCommandStrip(
+                          type: _type,
+                          amountController: _amountController,
+                          palette: themeSettings.palette,
+                          accountName: _selectedAccountName,
+                          targetName: _selectedTargetName,
+                          familyName: _selectedFamilyMemberName,
+                          tagCount: _selectedTags.length,
+                          attachmentCount:
+                              _attachments.length +
+                              _pendingAttachmentFiles.length,
                         ),
                         const SizedBox(height: 16),
                         _TransactionTypeSelector(
@@ -834,6 +880,194 @@ class _QuickTransactionHero extends StatelessWidget {
                   },
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickEntryCommandStrip extends StatelessWidget {
+  const _QuickEntryCommandStrip({
+    required this.type,
+    required this.amountController,
+    required this.palette,
+    required this.accountName,
+    required this.targetName,
+    required this.familyName,
+    required this.tagCount,
+    required this.attachmentCount,
+  });
+
+  final TransactionType type;
+  final TextEditingController amountController;
+  final AppThemePalette palette;
+  final String accountName;
+  final String targetName;
+  final String familyName;
+  final int tagCount;
+  final int attachmentCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final accentColor = _typeColor(context, type);
+    final targetIcon = type == TransactionType.transfer
+        ? Icons.swap_horiz_outlined
+        : Icons.category_outlined;
+    final targetLabel = type == TransactionType.transfer ? '流向' : '分类';
+
+    return PremiumSurface(
+      key: const ValueKey('quick-entry-command-strip'),
+      accentColor: accentColor,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.tune_outlined,
+                color: accentColor,
+                size: 42,
+                iconSize: 21,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '记账指挥条',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    AnimatedBuilder(
+                      animation: amountController,
+                      builder: (context, _) {
+                        final amount = amountController.text.trim();
+                        return Text(
+                          amount.isEmpty
+                              ? '${type.label} · 等待输入金额'
+                              : '${type.label} · ¥$amount',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              _QuickEntrySignalPill(
+                icon: Icons.palette_outlined,
+                label: palette.label,
+                color: palette.seedColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _QuickEntrySignalPill(
+                icon: Icons.account_balance_wallet_outlined,
+                label: accountName,
+                color: palette.assetColor,
+              ),
+              _QuickEntrySignalPill(
+                icon: targetIcon,
+                label: '$targetLabel $targetName',
+                color: type == TransactionType.income
+                    ? financeColors.income
+                    : type == TransactionType.expense
+                    ? financeColors.expense
+                    : palette.assetColor,
+              ),
+              _QuickEntrySignalPill(
+                icon: Icons.family_restroom_outlined,
+                label: familyName,
+                color: financeColors.asset,
+              ),
+              _QuickEntrySignalPill(
+                icon: tagCount > 0
+                    ? Icons.label_important_outline
+                    : Icons.label_outline,
+                label: tagCount > 0 ? '标签 $tagCount' : '无标签',
+                color: colorScheme.secondary,
+              ),
+              _QuickEntrySignalPill(
+                icon: attachmentCount > 0
+                    ? Icons.attachment_outlined
+                    : Icons.insert_drive_file_outlined,
+                label: attachmentCount > 0 ? '附件 $attachmentCount' : '无附件',
+                color: colorScheme.tertiary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickEntrySignalPill extends StatelessWidget {
+  const _QuickEntrySignalPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 34, maxWidth: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],
