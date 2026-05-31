@@ -265,6 +265,8 @@ class _TagHeader extends StatelessWidget {
     final systemCount = tags.where((tag) => tag.isSystem).length;
     final customCount = tags.length - systemCount;
     final usedCount = tags.fold<int>(0, (sum, tag) => sum + tag.usedCount);
+    final mostUsed = tags.toList()
+      ..sort((left, right) => right.usedCount.compareTo(left.usedCount));
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
@@ -303,6 +305,13 @@ class _TagHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+          _TagSpectrumPanel(
+            tags: tags,
+            systemCount: systemCount,
+            customCount: customCount,
+            topTag: mostUsed.isEmpty ? null : mostUsed.first,
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -331,6 +340,108 @@ class _TagHeader extends StatelessWidget {
                   color: financeColors.income,
                 ),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagSpectrumPanel extends StatelessWidget {
+  const _TagSpectrumPanel({
+    required this.tags,
+    required this.systemCount,
+    required this.customCount,
+    this.topTag,
+  });
+
+  final List<TagItem> tags;
+  final int systemCount;
+  final int customCount;
+  final TagItem? topTag;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final total = tags.isEmpty ? 1 : tags.length;
+    final customRatio = (customCount / total).clamp(0.0, 1.0);
+    final swatches = tags.take(8).toList();
+    return Container(
+      key: const ValueKey('tag-spectrum-panel'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '标签颜色系统',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              Text(
+                '自定义占比 ${(customRatio * 100).round()}%',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (final tag in swatches) ...[
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: _parseColor(tag.color, colorScheme.primary),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                if (tag != swatches.last) const SizedBox(width: 4),
+              ],
+              if (swatches.isEmpty)
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TagMetaChip(
+                label: '系统 $systemCount',
+                color: colorScheme.primary,
+              ),
+              _TagMetaChip(
+                label: '自定义 $customCount',
+                color: colorScheme.tertiary,
+              ),
+              if (topTag != null)
+                _TagMetaChip(
+                  label: '高频 ${topTag!.name} · ${topTag!.usedCount} 次',
+                  color: _parseColor(topTag!.color, colorScheme.primary),
+                ),
             ],
           ),
         ],

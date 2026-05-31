@@ -35,6 +35,14 @@ void main() {
       expect(find.text('模板数'), findsOneWidget);
       expect(find.text('累计使用'), findsOneWidget);
       expect(find.text('可用账户'), findsOneWidget);
+      expect(find.text('模板执行流水线'), findsOneWidget);
+      expect(find.text('1 个模板'), findsOneWidget);
+      expect(find.text('可一键记账'), findsOneWidget);
+      expect(find.text('已复用 3 次'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('template-automation-strip')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('新增模板时提交表单字段并刷新列表', (tester) async {
@@ -70,7 +78,7 @@ void main() {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('套用'));
+      await tester.tap(find.byKey(const ValueKey('template-apply')));
       await tester.pumpAndSettle();
 
       expect(repository.applyCalls, hasLength(1));
@@ -172,7 +180,7 @@ void main() {
       final repository = _FakeTemplateRepository()..applyError = '套用模板失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('套用'));
+      await tester.tap(find.byKey(const ValueKey('template-apply')));
       await tester.pumpAndSettle();
 
       expect(repository.applyCalls, hasLength(1));

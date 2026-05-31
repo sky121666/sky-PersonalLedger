@@ -384,8 +384,160 @@ class _TemplateHero extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          _TemplateAutomationStrip(
+            templateCount: templateCount,
+            totalUsedCount: totalUsedCount,
+            accountCount: accountCount,
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _TemplateAutomationStrip extends StatelessWidget {
+  const _TemplateAutomationStrip({
+    required this.templateCount,
+    required this.totalUsedCount,
+    required this.accountCount,
+  });
+
+  final int templateCount;
+  final int totalUsedCount;
+  final int accountCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final readiness = templateCount == 0 || accountCount == 0
+        ? '待建立模板'
+        : '可一键记账';
+    final reuseScore = totalUsedCount == 0 ? '复用未开始' : '已复用 $totalUsedCount 次';
+    return Container(
+      key: const ValueKey('template-automation-strip'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '模板执行流水线',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _TemplatePipelineNode(
+                  icon: Icons.library_add_check_outlined,
+                  label: '沉淀',
+                  value: '$templateCount 个模板',
+                  color: colorScheme.tertiary,
+                ),
+              ),
+              _TemplatePipelineArrow(color: colorScheme.outline),
+              Expanded(
+                child: _TemplatePipelineNode(
+                  icon: Icons.touch_app_outlined,
+                  label: '套用',
+                  value: readiness,
+                  color: financeColors.asset,
+                ),
+              ),
+              _TemplatePipelineArrow(color: colorScheme.outline),
+              Expanded(
+                child: _TemplatePipelineNode(
+                  icon: Icons.insights_outlined,
+                  label: '复用',
+                  value: reuseScore,
+                  color: financeColors.income,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplatePipelineNode extends StatelessWidget {
+  const _TemplatePipelineNode({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              color.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.18
+                    : 0.1,
+              ),
+              colorScheme.surface,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.18)),
+          ),
+          child: Icon(icon, color: color, size: 21),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+        ),
+      ],
+    );
+  }
+}
+
+class _TemplatePipelineArrow extends StatelessWidget {
+  const _TemplatePipelineArrow({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 34),
+      child: Icon(Icons.chevron_right_rounded, color: color, size: 22),
     );
   }
 }
@@ -576,6 +728,7 @@ class _TemplateCard extends StatelessWidget {
               ),
               const Spacer(),
               TextButton.icon(
+                key: const ValueKey('template-apply'),
                 onPressed: busy ? null : onApply,
                 icon: const Icon(Icons.play_arrow_outlined),
                 label: const Text('套用'),

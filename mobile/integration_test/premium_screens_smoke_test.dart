@@ -691,6 +691,11 @@ void main() {
         expect(find.text('工资收入'), findsOneWidget);
         expect(find.text('旅行'), findsOneWidget);
         expect(find.text('系统标签 · 使用 8 次'), findsOneWidget);
+        expect(find.text('标签颜色系统'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('tag-spectrum-panel')),
+          findsOneWidget,
+        );
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -726,6 +731,11 @@ void main() {
         expect(find.text('午餐'), findsOneWidget);
         expect(find.text('支出 · 现金 · 餐饮'), findsOneWidget);
         expect(find.text('已用 3 次'), findsOneWidget);
+        expect(find.text('模板执行流水线'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('template-automation-strip')),
+          findsOneWidget,
+        );
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(

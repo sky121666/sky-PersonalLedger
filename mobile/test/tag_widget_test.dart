@@ -32,6 +32,10 @@ void main() {
       expect(find.text('标签总数'), findsOneWidget);
       expect(find.text('自定义'), findsOneWidget);
       expect(find.text('累计使用'), findsOneWidget);
+      expect(find.text('标签颜色系统'), findsOneWidget);
+      expect(find.text('自定义占比 50%'), findsOneWidget);
+      expect(find.text('高频 工资收入 · 8 次'), findsOneWidget);
+      expect(find.byKey(const ValueKey('tag-spectrum-panel')), findsOneWidget);
       expect(find.text('10'), findsOneWidget);
     });
 
