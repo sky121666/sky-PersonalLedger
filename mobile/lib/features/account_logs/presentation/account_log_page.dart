@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../../accounts/data/account.dart';
 import '../data/account_log_repository.dart';
 
@@ -177,17 +180,16 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
           for (final group in groups) ...[
             _DateHeader(date: group.date),
             const SizedBox(height: 8),
-            Card(
+            PremiumSurface(
+              padding: const EdgeInsets.all(10),
               child: Column(
                 children: [
-                  for (var index = 0; index < group.logs.length; index++) ...[
+                  for (var index = 0; index < group.logs.length; index++)
                     _AccountLogTile(
                       log: group.logs[index],
                       showAccount: account == null,
+                      isLast: index == group.logs.length - 1,
                     ),
-                    if (index != group.logs.length - 1)
-                      const Divider(height: 1, indent: 72),
-                  ],
                 ],
               ),
             ),
@@ -225,37 +227,54 @@ class _AccountSummaryCard extends StatelessWidget {
       account.color,
       Theme.of(context).colorScheme.primary,
     );
-    return Card(
-      color: color.withValues(alpha: 0.12),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: color.withValues(alpha: 0.18),
+    return PremiumSurface(
+      accentColor: color,
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Center(
               child: LedgerIcon(
                 icon: account.icon.isEmpty ? account.type : account.icon,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    account.name,
-                    style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  account.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '当前余额 ${_formatMoney(account.currentBalance)}',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '当前余额 ${_formatMoney(account.currentBalance)}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Text(
+            _formatMoney(account.currentBalance),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -279,57 +298,111 @@ class _DateHeader extends StatelessWidget {
 }
 
 class _AccountLogTile extends StatelessWidget {
-  const _AccountLogTile({required this.log, required this.showAccount});
+  const _AccountLogTile({
+    required this.log,
+    required this.showAccount,
+    required this.isLast,
+  });
 
   final AccountLogItem log;
   final bool showAccount;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     final typeStyle = _typeStyle(log.type);
     final change = log.balanceChange;
     final changeColor = change > 0
-        ? Colors.green.shade700
+        ? AppTheme.incomeColor
         : change < 0
-        ? Colors.red.shade700
+        ? AppTheme.expenseColor
         : Theme.of(context).colorScheme.outline;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: typeStyle.color.withValues(alpha: 0.14),
-        child: Icon(typeStyle.icon, color: typeStyle.color),
-      ),
-      title: Row(
-        children: [
-          Text(log.type.label),
-          if (showAccount && log.account != null) ...[
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                log.account!.name,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            typeStyle.color.withValues(alpha: 0.05),
+            colorScheme.surface,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: typeStyle.color.withValues(alpha: 0.10)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            IconBadge(
+              icon: typeStyle.icon,
+              color: typeStyle.color,
+              size: 40,
+              iconSize: 21,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        log.type.label,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (showAccount && log.account != null) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            log.account!.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.outline),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_formatMoney(log.balanceBefore)} -> ${_formatMoney(log.balanceAfter)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (log.remark.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      log.remark,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatTime(log.createdAt),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              _formatSignedMoney(change),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: changeColor,
+                fontWeight: FontWeight.w900,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],
-        ],
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${_formatMoney(log.balanceBefore)} -> ${_formatMoney(log.balanceAfter)}',
-          ),
-          if (log.remark.isNotEmpty)
-            Text(log.remark, maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text(_formatTime(log.createdAt)),
-        ],
-      ),
-      trailing: Text(
-        _formatSignedMoney(change),
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: changeColor,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -371,19 +444,19 @@ _TypeStyle _typeStyle(AccountLogType type) {
   return switch (type) {
     AccountLogType.income => _TypeStyle(
       icon: Icons.trending_up,
-      color: Colors.green.shade700,
+      color: AppTheme.incomeColor,
     ),
     AccountLogType.expense => _TypeStyle(
       icon: Icons.trending_down,
-      color: Colors.red.shade700,
+      color: AppTheme.expenseColor,
     ),
     AccountLogType.transferIn => _TypeStyle(
       icon: Icons.swap_horiz,
-      color: Colors.blue.shade700,
+      color: AppTheme.assetColor,
     ),
     AccountLogType.transferOut => _TypeStyle(
       icon: Icons.swap_horiz,
-      color: Colors.orange.shade700,
+      color: AppTheme.warningColor,
     ),
     AccountLogType.rollback => _TypeStyle(
       icon: Icons.undo,

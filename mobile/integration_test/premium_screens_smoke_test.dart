@@ -11,6 +11,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
+import 'package:personal_ledger/features/account_logs/presentation/account_log_page.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart'
     as ledger_account;
@@ -251,6 +253,44 @@ void main() {
           binding,
           tester,
           'accounts-control-room-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium account logs (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              accountLogRepositoryProvider.overrideWithValue(
+                _FakeAccountLogRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const AccountLogPage(
+                  accountId: 'bank-card',
+                  account: _accountLogAccount,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('招商银行流水'), findsOneWidget);
+        expect(find.text('当前余额 ¥1280.00'), findsOneWidget);
+        expect(find.text('收入'), findsOneWidget);
+        expect(find.text('+¥500.00'), findsOneWidget);
+        expect(find.text('工资入账'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'account-logs-${variant.name}',
         );
       });
 
@@ -867,6 +907,69 @@ const _yearlyReport = YearlyReport(
   maxExpenseRemark: '年度保险',
   activeDays: 218,
   dailyAvgExpense: 254.25,
+);
+
+class _FakeAccountLogRepository implements AccountLogRepository {
+  @override
+  Future<AccountLogListResult> list({int page = 1, int pageSize = 50}) async {
+    return _accountLogResult(page: page, pageSize: pageSize);
+  }
+
+  @override
+  Future<AccountLogListResult> listByAccountId(
+    String accountId, {
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    return _accountLogResult(page: page, pageSize: pageSize);
+  }
+
+  AccountLogListResult _accountLogResult({
+    required int page,
+    required int pageSize,
+  }) {
+    return AccountLogListResult(
+      list: [
+        AccountLogItem(
+          id: 'log-1',
+          accountId: 'bank-card',
+          type: AccountLogType.income,
+          amount: 500,
+          balanceBefore: 780,
+          balanceAfter: 1280,
+          createdAt: DateTime(2026, 5, 14, 9, 30),
+          remark: '工资入账',
+          account: _accountLogAccount,
+        ),
+        AccountLogItem(
+          id: 'log-2',
+          accountId: 'bank-card',
+          type: AccountLogType.expense,
+          amount: 80,
+          balanceBefore: 1280,
+          balanceAfter: 1200,
+          createdAt: DateTime(2026, 5, 14, 12, 10),
+          remark: '午餐',
+          account: _accountLogAccount,
+        ),
+      ],
+      total: 2,
+      page: page,
+      pageSize: pageSize,
+    );
+  }
+}
+
+const _accountLogAccount = ledger_account.Account(
+  id: 'bank-card',
+  name: '招商银行',
+  type: 'bank_card',
+  icon: 'card',
+  color: '#2563EB',
+  initialBalance: 1000,
+  currentBalance: 1280,
+  isArchived: false,
+  sortOrder: 1,
 );
 
 class _FakeHomeRepository implements HomeRepository {
