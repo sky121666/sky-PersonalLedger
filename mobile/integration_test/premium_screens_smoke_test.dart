@@ -37,6 +37,8 @@ import 'package:personal_ledger/features/main/presentation/main_shell_page.dart'
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/notifications/presentation/notification_settings_page.dart';
 import 'package:personal_ledger/features/profile/presentation/profile_page.dart';
+import 'package:personal_ledger/features/reminders/data/reminder_repository.dart';
+import 'package:personal_ledger/features/reminders/presentation/reminder_page.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_repository.dart';
 import 'package:personal_ledger/features/reports/presentation/yearly_report_page.dart';
@@ -569,6 +571,44 @@ void main() {
           binding,
           tester,
           'budget-control-room-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium debt reminders (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              reminderRepositoryProvider.overrideWithValue(
+                _FakeReminderRepository(),
+              ),
+              accountRepositoryProvider.overrideWithValue(
+                _FakeAccountRepository(),
+              ),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const ReminderPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('负债管理'), findsOneWidget);
+        expect(find.text('上岸进度'), findsOneWidget);
+        expect(find.text('进行中 (1)'), findsOneWidget);
+        expect(find.text('房贷'), findsOneWidget);
+        expect(find.text('待还 ¥80000.00'), findsOneWidget);
+        expect(find.byType(PremiumSurface), findsWidgets);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'debt-reminders-${variant.name}',
         );
       });
 
@@ -1566,6 +1606,87 @@ class _FakeBudgetRepository implements BudgetRepository {
     return null;
   }
 }
+
+class _FakeReminderRepository implements ReminderRepository {
+  @override
+  Future<ReminderItem?> createReminder(ReminderFormRequest request) async {
+    return _reminders.first;
+  }
+
+  @override
+  Future<void> deleteReminder(String id) async {}
+
+  @override
+  Future<DebtSummary?> getDebtSummary() async {
+    return const DebtSummary(
+      totalDebt: 80000,
+      totalPaid: 20000,
+      totalPrincipal: 100000,
+      progress: 20,
+      activeLoans: 1,
+      paidOffLoans: 0,
+      nextPaymentDay: 16,
+      nextPaymentName: '房贷',
+      daysUntilNext: 3,
+    );
+  }
+
+  @override
+  Future<List<ReminderItem>?> listReminders({String? accountId}) async {
+    return _reminders;
+  }
+
+  @override
+  Future<ReminderItem?> recordPayment(
+    String id, {
+    required double amount,
+    String? accountId,
+    double? principalAmount,
+    double? interestAmount,
+  }) async {
+    return _reminders.first;
+  }
+
+  @override
+  Future<ReminderItem?> toggleReminder(String id) async {
+    return _reminders.first;
+  }
+
+  @override
+  Future<ReminderItem?> updateReminder(
+    String id,
+    ReminderFormRequest request,
+  ) async {
+    return _reminders.first;
+  }
+}
+
+const _reminders = [
+  ReminderItem(
+    id: 'reminder-1',
+    name: '房贷',
+    accountId: 'mortgage',
+    accountName: '住房贷款',
+    loanType: 'mortgage',
+    paymentDay: 16,
+    billingDay: 1,
+    advanceDays: 5,
+    amount: 3200,
+    principal: 100000,
+    currentBalance: 80000,
+    interestRate: 3.25,
+    totalInterest: 18000,
+    totalPaid: 20000,
+    interestPaid: 3200,
+    startDate: '2026-01-01',
+    targetDate: '2036-01-01',
+    paidOffAt: null,
+    color: '#2563EB',
+    remark: '首套房商贷',
+    evidence: '',
+    isEnabled: true,
+  ),
+];
 
 class _FakeTagRepository implements TagRepository {
   @override

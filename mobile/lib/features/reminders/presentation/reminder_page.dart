@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
+import '../../../app/widgets/premium_surface.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
@@ -421,107 +423,112 @@ class _DebtSummaryCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final progress = math.min(summary.progress, 100) / 100;
 
-    return Card(
-      color: colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.track_changes_outlined, color: colorScheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '上岸进度',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.track_changes_outlined,
+                color: colorScheme.primary,
+                size: 48,
+                iconSize: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '上岸进度',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                Text(
-                  '${summary.progress.toStringAsFixed(1)}%',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
-              borderRadius: BorderRadius.circular(999),
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryMetric(
-                    label: '待还',
-                    value: _formatMoney(summary.totalDebt),
-                  ),
-                ),
-                Expanded(
-                  child: _SummaryMetric(
-                    label: '已还',
-                    value: _formatMoney(summary.totalPaid),
-                  ),
-                ),
-                Expanded(
-                  child: _SummaryMetric(
-                    label: '本金',
-                    value: _formatMoney(summary.totalPrincipal),
-                  ),
-                ),
-              ],
-            ),
-            if (summary.nextPaymentName.isNotEmpty) ...[
-              const SizedBox(height: 14),
+              ),
               Text(
-                summary.daysUntilNext == 0
-                    ? '今天还款：${summary.nextPaymentName}'
-                    : '${summary.daysUntilNext} 天后还款：${summary.nextPaymentName}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onPrimaryContainer,
+                '${summary.progress.toStringAsFixed(1)}%',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: colorScheme.primary,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          LinearProgressIndicator(
+            value: progress,
+            minHeight: 10,
+            borderRadius: BorderRadius.circular(999),
+            backgroundColor: colorScheme.surfaceContainerHighest,
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              MetricPill(
+                label: '待还',
+                value: _formatMoney(summary.totalDebt),
+                icon: Icons.account_balance_outlined,
+                color: colorScheme.error,
+              ),
+              MetricPill(
+                label: '已还',
+                value: _formatMoney(summary.totalPaid),
+                icon: Icons.task_alt_outlined,
+                color: colorScheme.primary,
+              ),
+              MetricPill(
+                label: '本金',
+                value: _formatMoney(summary.totalPrincipal),
+                icon: Icons.savings_outlined,
+                color: colorScheme.secondary,
+              ),
+            ],
+          ),
+          if (summary.nextPaymentName.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _NextPaymentBanner(summary: summary),
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({required this.label, required this.value});
+class _NextPaymentBanner extends StatelessWidget {
+  const _NextPaymentBanner({required this.summary});
 
-  final String label;
-  final String value;
+  final DebtSummary summary;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.event_available_outlined, color: colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              summary.daysUntilNext == 0
+                  ? '今天还款：${summary.nextPaymentName}'
+                  : '${summary.daysUntilNext} 天后还款：${summary.nextPaymentName}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -610,134 +617,145 @@ class _ReminderCard extends StatelessWidget {
         busyAction == 'toggle-${reminder.id}' ||
         busyAction == 'delete-${reminder.id}' ||
         busyAction == 'payment-${reminder.id}';
+    final accentColor = days <= reminder.advanceDays
+        ? Colors.orange
+        : colorScheme.primary;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Icon(_loanTypeIcon(reminder.loanType)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        reminder.displayName,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        days == 0
-                            ? '今天还款'
-                            : '每月 ${reminder.paymentDay} 日，$days 天后',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: days <= reminder.advanceDays
-                              ? Colors.orange
-                              : colorScheme.outline,
-                        ),
-                      ),
-                      if (reminder.accountName.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          reminder.accountName,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.outline),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (busy)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else
-                  PopupMenuButton<_ReminderMenuAction>(
-                    tooltip: '更多操作',
-                    onSelected: (action) {
-                      switch (action) {
-                        case _ReminderMenuAction.payment:
-                          onRecordPayment();
-                        case _ReminderMenuAction.edit:
-                          onEdit();
-                        case _ReminderMenuAction.toggle:
-                          onToggle();
-                        case _ReminderMenuAction.delete:
-                          onDelete();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      if (!readOnly && reminder.principal != null)
-                        const PopupMenuItem(
-                          value: _ReminderMenuAction.payment,
-                          child: Text('记录还款'),
-                        ),
-                      if (!readOnly)
-                        const PopupMenuItem(
-                          value: _ReminderMenuAction.edit,
-                          child: Text('编辑'),
-                        ),
-                      PopupMenuItem(
-                        value: _ReminderMenuAction.toggle,
-                        child: Text(reminder.isEnabled ? '暂停提醒' : '启用提醒'),
-                      ),
-                      const PopupMenuItem(
-                        value: _ReminderMenuAction.delete,
-                        child: Text('删除'),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-            if (reminder.principal != null) ...[
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: LinearProgressIndicator(
-                      value: reminder.progress / 100,
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(999),
-                      backgroundColor: colorScheme.surfaceContainerHighest,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text('${reminder.progress.toStringAsFixed(0)}%'),
-                ],
+    return PremiumSurface(
+      accentColor: accentColor,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: _loanTypeIcon(reminder.loanType),
+                color: accentColor,
+                size: 46,
+                iconSize: 23,
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      reminder.displayName,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      days == 0
+                          ? '今天还款'
+                          : '每月 ${reminder.paymentDay} 日，$days 天后',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: accentColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (reminder.accountName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        reminder.accountName,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (busy)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                PopupMenuButton<_ReminderMenuAction>(
+                  tooltip: '更多操作',
+                  onSelected: (action) {
+                    switch (action) {
+                      case _ReminderMenuAction.payment:
+                        onRecordPayment();
+                      case _ReminderMenuAction.edit:
+                        onEdit();
+                      case _ReminderMenuAction.toggle:
+                        onToggle();
+                      case _ReminderMenuAction.delete:
+                        onDelete();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (!readOnly && reminder.principal != null)
+                      const PopupMenuItem(
+                        value: _ReminderMenuAction.payment,
+                        child: Text('记录还款'),
+                      ),
+                    if (!readOnly)
+                      const PopupMenuItem(
+                        value: _ReminderMenuAction.edit,
+                        child: Text('编辑'),
+                      ),
+                    PopupMenuItem(
+                      value: _ReminderMenuAction.toggle,
+                      child: Text(reminder.isEnabled ? '暂停提醒' : '启用提醒'),
+                    ),
+                    const PopupMenuItem(
+                      value: _ReminderMenuAction.delete,
+                      child: Text('删除'),
+                    ),
+                  ],
+                ),
             ],
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+          ),
+          if (reminder.principal != null) ...[
+            const SizedBox(height: 14),
+            Row(
               children: [
-                if (reminder.principal != null)
-                  _InfoChip(
-                    label: '本金',
-                    value: _formatMoney(reminder.principal!),
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: reminder.progress / 100,
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(999),
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                    color: accentColor,
                   ),
-                if (reminder.currentBalance != null)
-                  _InfoChip(
-                    label: '待还',
-                    value: _formatMoney(reminder.currentBalance!),
-                  ),
-                if (reminder.amount != null)
-                  _InfoChip(label: '月供', value: _formatMoney(reminder.amount!)),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${reminder.progress.toStringAsFixed(0)}%',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
               ],
             ),
           ],
-        ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (reminder.principal != null)
+                _InfoChip(
+                  label: '本金',
+                  value: _formatMoney(reminder.principal!),
+                ),
+              if (reminder.currentBalance != null)
+                _InfoChip(
+                  label: '待还',
+                  value: _formatMoney(reminder.currentBalance!),
+                ),
+              if (reminder.amount != null)
+                _InfoChip(label: '月供', value: _formatMoney(reminder.amount!)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -765,14 +783,12 @@ class _EmptyReminderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-        child: AppEmptyView(
-          title: '暂无负债提醒',
-          message: '添加分期或还款计划后，可以在这里跟踪上岸进度。',
-          icon: Icons.notifications_none_outlined,
-        ),
+    return const PremiumSurface(
+      padding: EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      child: AppEmptyView(
+        title: '暂无负债提醒',
+        message: '添加分期或还款计划后，可以在这里跟踪上岸进度。',
+        icon: Icons.notifications_none_outlined,
       ),
     );
   }
