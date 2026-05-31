@@ -1007,6 +1007,8 @@ class _CreateTokenCard extends StatelessWidget {
             color: colorScheme.secondary,
           ),
           const SizedBox(height: 16),
+          _TokenIssuancePreview(expiryDays: expiryDays),
+          const SizedBox(height: 16),
           TextField(
             key: const ValueKey('api-token-name'),
             controller: nameController,
@@ -1043,6 +1045,165 @@ class _CreateTokenCard extends StatelessWidget {
             onPressed: submitting ? null : onCreate,
             icon: const Icon(Icons.add),
             label: Text(submitting ? '处理中...' : '创建令牌'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TokenIssuancePreview extends StatelessWidget {
+  const _TokenIssuancePreview({required this.expiryDays});
+
+  final int expiryDays;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final expiryColor = expiryDays == 0
+        ? financeColors.warning
+        : financeColors.income;
+    return AnimatedContainer(
+      key: const ValueKey('api-token-issuance-preview'),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.secondary.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colorScheme.secondary.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.fact_check_outlined, color: colorScheme.secondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '令牌发行策略',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _TokenChannelStatusPill(
+                label: expiryDays == 0 ? '需巡检' : '限期',
+                color: expiryColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _TokenIssuanceTile(
+                  icon: Icons.badge_outlined,
+                  label: '名称',
+                  value: '必填',
+                  color: colorScheme.secondary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TokenIssuanceTile(
+                  icon: Icons.event_available_outlined,
+                  label: '有效期',
+                  value: _expiryLabel(expiryDays),
+                  color: expiryColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TokenIssuanceTile(
+                  icon: Icons.visibility_off_outlined,
+                  label: '暴露面',
+                  value: '一次可见',
+                  color: financeColors.asset,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _expiryLabel(int days) {
+    return switch (days) {
+      30 => '30 天',
+      90 => '90 天',
+      365 => '1 年',
+      _ => '永久',
+    };
+  }
+}
+
+class _TokenIssuanceTile extends StatelessWidget {
+  const _TokenIssuanceTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),

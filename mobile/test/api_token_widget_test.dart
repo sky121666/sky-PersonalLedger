@@ -39,6 +39,17 @@ void main() {
       expect(find.text('限期凭证'), findsOneWidget);
       expect(find.text('可撤销'), findsOneWidget);
       expect(find.text('完整密钥不落入列表，建议定期清理永久凭证'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('api-token-issuance-preview')),
+        findsOneWidget,
+      );
+      expect(find.text('令牌发行策略'), findsOneWidget);
+      expect(find.text('名称'), findsOneWidget);
+      expect(find.text('必填'), findsOneWidget);
+      expect(find.text('有效期'), findsWidgets);
+      expect(find.text('永久'), findsOneWidget);
+      expect(find.text('暴露面'), findsOneWidget);
+      expect(find.text('一次可见'), findsOneWidget);
       expect(find.text('1 个访问凭证正在管理中'), findsOneWidget);
       expect(find.text('我的手机'), findsOneWidget);
       expect(find.text('前缀 abcd1234...'), findsOneWidget);
@@ -100,6 +111,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('90 天').last);
       await tester.pumpAndSettle();
+      expect(find.text('限期'), findsWidgets);
       await tester.tap(find.text('创建令牌'));
       await tester.pumpAndSettle();
 
