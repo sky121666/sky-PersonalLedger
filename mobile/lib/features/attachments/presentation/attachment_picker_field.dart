@@ -95,6 +95,13 @@ class AttachmentPickerField extends ConsumerWidget {
             accent: accent,
           ),
           const SizedBox(height: 12),
+          _AttachmentEvidenceMatrix(
+            uploadedCount: attachments.length,
+            pendingCount: pendingFiles.length,
+            canAdd: canAdd,
+            accent: accent,
+          ),
+          const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
@@ -307,6 +314,191 @@ class AttachmentPickerField extends ConsumerWidget {
         ).showSnackBar(SnackBar(content: Text('下载失败：$error')));
       }
     }
+  }
+}
+
+class _AttachmentEvidenceMatrix extends StatelessWidget {
+  const _AttachmentEvidenceMatrix({
+    required this.uploadedCount,
+    required this.pendingCount,
+    required this.canAdd,
+    required this.accent,
+  });
+
+  final int uploadedCount;
+  final int pendingCount;
+  final bool canAdd;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return Container(
+      key: const ValueKey('attachment-evidence-matrix'),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.10
+                : 0.045,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.route_outlined, size: 18, color: accent),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '凭证链路矩阵',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _AttachmentMatrixPill(
+                label: canAdd ? '可继续补充' : '容量已满',
+                color: canAdd ? financeColors.income : financeColors.warning,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _AttachmentMatrixTile(
+                  icon: Icons.add_to_photos_outlined,
+                  label: '采集入口',
+                  value: canAdd ? '本机选择' : '已锁定',
+                  color: accent,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AttachmentMatrixTile(
+                  icon: Icons.hourglass_top_rounded,
+                  label: '待同步',
+                  value: '$pendingCount',
+                  color: financeColors.warning,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AttachmentMatrixTile(
+                  icon: Icons.verified_outlined,
+                  label: '已留存',
+                  value: '$uploadedCount',
+                  color: financeColors.income,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentMatrixTile extends StatelessWidget {
+  const _AttachmentMatrixTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.15
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentMatrixPill extends StatelessWidget {
+  const _AttachmentMatrixPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.11),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
   }
 }
 

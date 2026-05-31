@@ -22,7 +22,16 @@ void main() {
         find.byKey(const ValueKey('attachment-signal-deck')),
         findsOneWidget,
       );
-      expect(find.text('已留存'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('attachment-evidence-matrix')),
+        findsOneWidget,
+      );
+      expect(find.text('凭证链路矩阵'), findsOneWidget);
+      expect(find.text('采集入口'), findsOneWidget);
+      expect(find.text('本机选择'), findsOneWidget);
+      expect(find.text('待同步'), findsOneWidget);
+      expect(find.text('可继续补充'), findsOneWidget);
+      expect(find.text('已留存'), findsAtLeastNWidgets(1));
       expect(find.text('待上传'), findsAtLeastNWidgets(1));
       expect(find.text('剩余'), findsOneWidget);
       expect(find.text('文件凭证'), findsOneWidget);
