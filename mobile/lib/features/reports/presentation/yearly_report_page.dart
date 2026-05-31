@@ -508,22 +508,32 @@ class _AnnualHighlightsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _AnnualSignalTile(
+                  icon: Icons.receipt_long_outlined,
+                  label: '交易笔数',
+                  value: '${report.transactionCount}',
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _AnnualSignalTile(
+                  icon: Icons.event_available_outlined,
+                  label: '活跃天数',
+                  value: '${report.activeDays}',
+                  color: financeColors.income,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
-              MetricPill(
-                label: '交易笔数',
-                value: '${report.transactionCount} 笔',
-                icon: Icons.receipt_long_outlined,
-                color: financeColors.asset,
-              ),
-              MetricPill(
-                label: '活跃天数',
-                value: '${report.activeDays} 天',
-                icon: Icons.event_available_outlined,
-                color: financeColors.income,
-              ),
               MetricPill(
                 label: '月均收入',
                 value: _formatCurrency(report.averageIncome),
@@ -546,6 +556,70 @@ class _AnnualHighlightsCard extends StatelessWidget {
           ),
           if (report.maxExpenseRemark.isNotEmpty)
             _HighlightLine(label: '最大支出说明', value: report.maxExpenseRemark),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnnualSignalTile extends StatelessWidget {
+  const _AnnualSignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
