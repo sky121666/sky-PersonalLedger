@@ -61,6 +61,10 @@ void main() {
       expect(find.text('资产账户'), findsOneWidget);
       expect(find.text('负债账户'), findsOneWidget);
       expect(find.text('2 个'), findsOneWidget);
+      expect(find.text('支持排序'), findsOneWidget);
+      expect(find.text('资产类'), findsAtLeastNWidgets(1));
+      expect(find.text('负债类'), findsOneWidget);
+      expect(find.text('正常'), findsAtLeastNWidgets(1));
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
     });
 

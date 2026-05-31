@@ -260,6 +260,9 @@ void main() {
         expect(find.text('账户'), findsOneWidget);
         expect(find.text('资产概览'), findsOneWidget);
         expect(find.text('正常账户'), findsOneWidget);
+        expect(find.text('支持排序'), findsOneWidget);
+        expect(find.text('资产类'), findsAtLeastNWidgets(1));
+        expect(find.text('负债类'), findsOneWidget);
         expect(find.text('招商银行'), findsOneWidget);
         expect(find.text('住房贷款'), findsOneWidget);
         _expectStableVisualFrame(tester);

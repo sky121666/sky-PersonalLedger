@@ -464,6 +464,7 @@ class _AccountSection extends StatelessWidget {
             icon: title == '已归档账户'
                 ? Icons.archive_outlined
                 : Icons.account_balance_wallet_outlined,
+            sortable: sortable,
           ),
         ),
         const SizedBox(height: 8),
@@ -557,13 +558,35 @@ class _AccountListTile extends ConsumerWidget {
                               ],
                             ],
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            _accountTypeLabel(account.type),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
+                          const SizedBox(height: 7),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              _AccountInfoChip(
+                                icon: _accountIconData(account),
+                                label: _accountTypeLabel(account.type),
+                                color: color,
+                              ),
+                              _AccountInfoChip(
+                                icon: isDebt
+                                    ? Icons.request_quote_outlined
+                                    : Icons.savings_outlined,
+                                label: isDebt ? '负债类' : '资产类',
+                                color: isDebt
+                                    ? financeColors.expense
+                                    : financeColors.income,
+                              ),
+                              _AccountInfoChip(
+                                icon: account.isArchived
+                                    ? Icons.inventory_2_outlined
+                                    : Icons.verified_outlined,
+                                label: account.isArchived ? '归档' : '正常',
+                                color: account.isArchived
+                                    ? Theme.of(context).colorScheme.outline
+                                    : Theme.of(context).colorScheme.primary,
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -1429,50 +1452,61 @@ class _SectionHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.sortable,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
+  final bool sortable;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        IconBadge(
-          icon: icon,
-          color: Theme.of(context).colorScheme.primary,
-          size: 34,
-          iconSize: 18,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
-            ],
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: icon,
+            color: colorScheme.primary,
+            size: 34,
+            iconSize: 18,
           ),
-        ),
-      ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _SectionModePill(
+            icon: sortable ? Icons.swap_vert_rounded : Icons.lock_outline,
+            label: sortable ? '支持排序' : '归档区',
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _AccountInfoChip extends StatelessWidget {
-  const _AccountInfoChip({required this.icon, required this.label});
+class _SectionModePill extends StatelessWidget {
+  const _SectionModePill({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -1481,22 +1515,66 @@ class _AccountInfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+        color: colorScheme.primary.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colorScheme.outlineVariant),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.20)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: colorScheme.outline),
+          Icon(icon, size: 15, color: colorScheme.primary),
           const SizedBox(width: 5),
           Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: colorScheme.outline),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountInfoChip extends StatelessWidget {
+  const _AccountInfoChip({required this.icon, required this.label, this.color});
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final chipColor = color ?? colorScheme.outline;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          chipColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: chipColor.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: chipColor),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: chipColor,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
