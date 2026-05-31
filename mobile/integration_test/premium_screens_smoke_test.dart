@@ -595,6 +595,14 @@ void main() {
 
         expect(find.text('账号安全'), findsOneWidget);
         expect(find.text('修改密码'), findsOneWidget);
+        expect(find.text('验证旧密码'), findsOneWidget);
+        expect(find.text('自动退出'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('安全入口'),
+          240,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         expect(find.text('安全入口'), findsOneWidget);
         expect(find.text('当前入口：/ledger'), findsOneWidget);
         expect(

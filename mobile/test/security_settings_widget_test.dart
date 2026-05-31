@@ -26,6 +26,11 @@ void main() {
       expect(find.text('安全入口'), findsOneWidget);
       expect(find.text('/ledger'), findsWidgets);
       expect(find.text('当前入口：/ledger'), findsOneWidget);
+      expect(find.text('验证旧密码'), findsOneWidget);
+      expect(find.text('自动退出'), findsOneWidget);
+      expect(find.text('入口模式'), findsOneWidget);
+      expect(find.text('隔离'), findsOneWidget);
+      expect(find.text('需确认'), findsOneWidget);
     });
 
     testWidgets('保存入口路径时提交当前输入', (tester) async {

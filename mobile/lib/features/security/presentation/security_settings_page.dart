@@ -477,6 +477,29 @@ class _PasswordCard extends StatelessWidget {
             title: '修改密码',
             subtitle: '修改后会退出当前登录态',
           ),
+          const SizedBox(height: 12),
+          _SecurityFlowStrip(
+            items: [
+              _SecurityFlowItem(
+                icon: Icons.password_outlined,
+                label: '验证旧密码',
+                value: '当前态',
+                color: financeColors.asset,
+              ),
+              _SecurityFlowItem(
+                icon: Icons.enhanced_encryption_outlined,
+                label: '设置新密码',
+                value: '8 位以上',
+                color: financeColors.expense,
+              ),
+              _SecurityFlowItem(
+                icon: Icons.logout_outlined,
+                label: '会话处理',
+                value: '自动退出',
+                color: colorScheme.tertiary,
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           _SecurityPasswordField(
             keyValue: 'security-old-password',
@@ -574,6 +597,93 @@ class _SecurityPasswordField extends StatelessWidget {
   }
 }
 
+class _SecurityFlowItem {
+  const _SecurityFlowItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+}
+
+class _SecurityFlowStrip extends StatelessWidget {
+  const _SecurityFlowStrip({required this.items});
+
+  final List<_SecurityFlowItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var index = 0; index < items.length; index++) ...[
+          Expanded(child: _SecurityFlowTile(item: items[index])),
+          if (index != items.length - 1) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _SecurityFlowTile extends StatelessWidget {
+  const _SecurityFlowTile({required this.item});
+
+  final _SecurityFlowItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          item.color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: item.color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(item.icon, size: 17, color: item.color),
+          const SizedBox(height: 6),
+          Text(
+            item.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            item.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EntryPathCard extends StatelessWidget {
   const _EntryPathCard({
     required this.entryPath,
@@ -618,6 +728,31 @@ class _EntryPathCard extends StatelessWidget {
               Switch(
                 value: entryPath.enabled,
                 onChanged: submitting ? null : onToggle,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _SecurityFlowStrip(
+            items: [
+              _SecurityFlowItem(
+                icon: Icons.route_outlined,
+                label: '入口模式',
+                value: entryPath.enabled ? '隔离' : '直达',
+                color: stateColor,
+              ),
+              _SecurityFlowItem(
+                icon: Icons.auto_fix_high_outlined,
+                label: '生成策略',
+                value: '随机',
+                color: financeColors.asset,
+              ),
+              _SecurityFlowItem(
+                icon: Icons.block_outlined,
+                label: '关闭保护',
+                value: entryPath.enabled ? '需确认' : '已关闭',
+                color: entryPath.enabled
+                    ? colorScheme.error
+                    : colorScheme.outline,
               ),
             ],
           ),
