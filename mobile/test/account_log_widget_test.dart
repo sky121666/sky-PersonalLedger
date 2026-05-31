@@ -22,7 +22,7 @@ void main() {
       expect(find.text('现金流水'), findsOneWidget);
       expect(find.text('当前余额 ¥1280.00'), findsOneWidget);
       expect(find.text('收入'), findsOneWidget);
-      expect(find.text('+¥500.00'), findsOneWidget);
+      expect(find.text('+¥500.00'), findsAtLeastNWidgets(1));
       expect(find.text('工资入账'), findsOneWidget);
     });
 
@@ -64,6 +64,12 @@ void main() {
       expect(find.text('记录 · 共 2 条流水记录'), findsOneWidget);
       expect(find.text('分组 · 1 天'), findsOneWidget);
       expect(find.text('状态 · 已同步'), findsOneWidget);
+      expect(find.text('净变动'), findsOneWidget);
+      expect(find.text('+¥420.00'), findsOneWidget);
+      expect(find.text('流入'), findsOneWidget);
+      expect(find.text('¥500.00'), findsOneWidget);
+      expect(find.text('流出'), findsOneWidget);
+      expect(find.text('¥80.00'), findsOneWidget);
       expect(find.text('2 条'), findsOneWidget);
     });
 
@@ -192,7 +198,7 @@ void main() {
       expect(repository.listPages, [1, 1]);
       expect(find.text('工资入账'), findsNothing);
       expect(find.text('午餐'), findsOneWidget);
-      expect(find.text('-¥80.00'), findsOneWidget);
+      expect(find.text('-¥80.00'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('账户流水图标跟随主题色模板', (tester) async {

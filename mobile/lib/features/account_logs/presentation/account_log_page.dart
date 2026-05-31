@@ -177,6 +177,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
           StaggeredEntrance(
             index: account == null ? 0 : 1,
             child: _LogOverviewCard(
+              logs: _logs,
               total: _total,
               groupCount: groups.length,
               hasMore: _hasMore,
@@ -340,12 +341,14 @@ class _AccountSummaryCard extends StatelessWidget {
 
 class _LogOverviewCard extends StatelessWidget {
   const _LogOverviewCard({
+    required this.logs,
     required this.total,
     required this.groupCount,
     required this.hasMore,
     required this.account,
   });
 
+  final List<AccountLogItem> logs;
   final int total;
   final int groupCount;
   final bool hasMore;
@@ -357,6 +360,15 @@ class _LogOverviewCard extends StatelessWidget {
     final accent = account == null
         ? financeColors.asset
         : _parseColor(account!.color, financeColors.asset);
+    final inflow = logs.fold<double>(
+      0,
+      (sum, log) => log.balanceChange > 0 ? sum + log.balanceChange : sum,
+    );
+    final outflow = logs.fold<double>(
+      0,
+      (sum, log) => log.balanceChange < 0 ? sum + log.balanceChange.abs() : sum,
+    );
+    final netChange = inflow - outflow;
     return PremiumSurface(
       accentColor: accent,
       padding: const EdgeInsets.all(14),
@@ -370,31 +382,143 @@ class _LogOverviewCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SummaryPill(
-                  icon: Icons.format_list_numbered,
-                  label: '记录',
-                  value: '共 $total 条流水记录',
-                  color: accent,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _FlowSignalTile(
+                        icon: Icons.account_balance_wallet_outlined,
+                        label: '净变动',
+                        value: _formatSignedMoney(netChange),
+                        color: netChange >= 0
+                            ? financeColors.income
+                            : financeColors.expense,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _FlowSignalTile(
+                        icon: Icons.call_received,
+                        label: '流入',
+                        value: _formatMoney(inflow),
+                        color: financeColors.income,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _FlowSignalTile(
+                        icon: Icons.call_made,
+                        label: '流出',
+                        value: _formatMoney(outflow),
+                        color: financeColors.expense,
+                      ),
+                    ),
+                  ],
                 ),
-                _SummaryPill(
-                  icon: Icons.calendar_month_outlined,
-                  label: '分组',
-                  value: '$groupCount 天',
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                _SummaryPill(
-                  icon: hasMore
-                      ? Icons.more_horiz_outlined
-                      : Icons.check_circle_outline,
-                  label: '状态',
-                  value: hasMore ? '可继续加载' : '已同步',
-                  color: hasMore ? financeColors.warning : financeColors.income,
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _SummaryPill(
+                      icon: Icons.format_list_numbered,
+                      label: '记录',
+                      value: '共 $total 条流水记录',
+                      color: accent,
+                    ),
+                    _SummaryPill(
+                      icon: Icons.calendar_month_outlined,
+                      label: '分组',
+                      value: '$groupCount 天',
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    _SummaryPill(
+                      icon: hasMore
+                          ? Icons.more_horiz_outlined
+                          : Icons.check_circle_outline,
+                      label: '状态',
+                      value: hasMore ? '可继续加载' : '已同步',
+                      color: hasMore
+                          ? financeColors.warning
+                          : financeColors.income,
+                    ),
+                  ],
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FlowSignalTile extends StatelessWidget {
+  const _FlowSignalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.20
+                : 0.10,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ],
