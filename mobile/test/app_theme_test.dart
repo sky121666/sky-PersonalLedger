@@ -202,6 +202,21 @@ void main() {
       expect(popupMenuTheme.shape, isA<RoundedRectangleBorder>());
     });
 
+    test('进度反馈和分隔线使用主题化数据质感', () {
+      final theme = AppTheme.lightTheme(AppThemePalette.aurora);
+      final progressTheme = theme.progressIndicatorTheme;
+      final dividerTheme = theme.dividerTheme;
+
+      expect(progressTheme.color, AppThemePalette.aurora.seedColor);
+      expect(progressTheme.linearMinHeight, 7);
+      expect(progressTheme.strokeWidth, 3);
+      expect(progressTheme.strokeCap, StrokeCap.round);
+      expect(progressTheme.borderRadius, BorderRadius.circular(999));
+      expect(dividerTheme.thickness, 1);
+      expect(dividerTheme.space, 1);
+      expect(dividerTheme.radius, BorderRadius.circular(999));
+    });
+
     test('主题模板标识唯一并覆盖高端色板', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
       final labels = AppThemePalette.values.map((palette) => palette.label);

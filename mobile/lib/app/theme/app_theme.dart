@@ -195,6 +195,8 @@ class AppTheme {
       ),
       listTileTheme: _listTileTheme(colorScheme, palette),
       popupMenuTheme: _popupMenuTheme(colorScheme, palette),
+      progressIndicatorTheme: _progressIndicatorTheme(colorScheme, palette),
+      dividerTheme: _dividerTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -241,6 +243,8 @@ class AppTheme {
       ),
       listTileTheme: _listTileTheme(colorScheme, palette),
       popupMenuTheme: _popupMenuTheme(colorScheme, palette),
+      progressIndicatorTheme: _progressIndicatorTheme(colorScheme, palette),
+      dividerTheme: _dividerTheme(colorScheme, palette),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
@@ -911,6 +915,48 @@ class AppTheme {
             ? SystemMouseCursors.basic
             : SystemMouseCursors.click;
       }),
+    );
+  }
+
+  static ProgressIndicatorThemeData _progressIndicatorTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final trackColor = Color.alphaBlend(
+      palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.08),
+      colorScheme.surfaceContainerHighest,
+    );
+    return ProgressIndicatorThemeData(
+      color: palette.seedColor,
+      linearTrackColor: trackColor,
+      circularTrackColor: trackColor,
+      refreshBackgroundColor: colorScheme.surface,
+      linearMinHeight: 7,
+      strokeWidth: 3,
+      strokeCap: StrokeCap.round,
+      borderRadius: BorderRadius.circular(999),
+      stopIndicatorColor: palette.seedColor,
+      stopIndicatorRadius: 3,
+      trackGap: 3,
+      circularTrackPadding: const EdgeInsets.all(1),
+    );
+  }
+
+  static DividerThemeData _dividerTheme(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    return DividerThemeData(
+      color: Color.alphaBlend(
+        palette.seedColor.withValues(
+          alpha: colorScheme.brightness == Brightness.dark ? 0.16 : 0.08,
+        ),
+        colorScheme.outlineVariant,
+      ),
+      space: 1,
+      thickness: 1,
+      radius: BorderRadius.circular(999),
     );
   }
 }
