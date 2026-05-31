@@ -53,6 +53,7 @@ import 'package:personal_ledger/features/reports/data/yearly_report_repository.d
 import 'package:personal_ledger/features/reports/presentation/yearly_report_page.dart';
 import 'package:personal_ledger/features/security/data/security_repository.dart';
 import 'package:personal_ledger/features/security/presentation/security_settings_page.dart';
+import 'package:personal_ledger/features/server_config/presentation/server_config_page.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
 import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
@@ -185,6 +186,59 @@ void main() {
           binding,
           tester,
           'auth-setup-entry-${variant.name}',
+        );
+      });
+
+      testWidgets('renders premium server topology entry (${variant.name})', (
+        tester,
+      ) async {
+        await _prepareScreenshotCapture(binding);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+              authControllerProvider.overrideWith((ref) {
+                return _PreviewAuthController(
+                  ref,
+                  state: const AuthState(stage: AuthStage.serverRequired),
+                );
+              }),
+            ],
+            child: _screenshotHost(
+              _premiumApp(
+                themeMode: variant.themeMode,
+                home: const ServerConfigPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('连接服务器'), findsOneWidget);
+        expect(find.text('自托管入口'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('server-topology-preview')),
+          findsOneWidget,
+        );
+        expect(find.text('部署拓扑预览'), findsOneWidget);
+        expect(find.text('等待输入服务地址'), findsOneWidget);
+        expect(find.text('Web'), findsOneWidget);
+        expect(find.text('iOS'), findsOneWidget);
+        expect(find.text('Android'), findsOneWidget);
+
+        await tester.enterText(
+          find.widgetWithText(TextField, '服务器地址'),
+          'https://ledger.example.com',
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('https://ledger.example.com'), findsWidgets);
+        expect(find.text('地址就绪'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+        await _capturePremiumScreenshot(
+          binding,
+          tester,
+          'server-topology-entry-${variant.name}',
         );
       });
 

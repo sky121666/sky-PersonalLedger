@@ -14,6 +14,7 @@ void main() {
     testWidgets('空服务器地址会展示基础校验错误', (tester) async {
       final controller = await _pumpPage(tester);
 
+      await _scrollIntoTapArea(tester, find.text('连接'));
       await tester.tap(find.text('连接'));
       await tester.pumpAndSettle();
 
@@ -30,6 +31,16 @@ void main() {
       expect(find.text('家庭'), findsOneWidget);
       expect(find.text('AI'), findsOneWidget);
       expect(find.text('备份'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('server-topology-preview')),
+        findsOneWidget,
+      );
+      expect(find.text('部署拓扑预览'), findsOneWidget);
+      expect(find.text('等待输入服务地址'), findsOneWidget);
+      expect(find.text('待完善'), findsOneWidget);
+      expect(find.text('Web'), findsOneWidget);
+      expect(find.text('iOS'), findsOneWidget);
+      expect(find.text('Android'), findsOneWidget);
     });
 
     testWidgets('提交服务器地址时调用连接流程', (tester) async {
@@ -39,6 +50,10 @@ void main() {
         find.widgetWithText(TextField, '服务器地址'),
         'ledger.example.com:8080',
       );
+      await tester.pumpAndSettle();
+      expect(find.text('ledger.example.com:8080'), findsWidgets);
+      expect(find.text('地址就绪'), findsOneWidget);
+      await _scrollIntoTapArea(tester, find.text('连接'));
       await tester.tap(find.text('连接'));
       await tester.pumpAndSettle();
 
@@ -70,6 +85,23 @@ Future<_TestAuthController> _pumpPage(WidgetTester tester) async {
   );
   await tester.pumpAndSettle();
   return controller;
+}
+
+Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    220,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  final center = tester.getCenter(finder);
+  if (center.dy > 520) {
+    await tester.drag(
+      find.byType(Scrollable).first,
+      Offset(0, -(center.dy - 440)),
+    );
+    await tester.pumpAndSettle();
+  }
 }
 
 class _TestAuthController extends AuthController {

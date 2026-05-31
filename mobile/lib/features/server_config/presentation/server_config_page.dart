@@ -69,6 +69,11 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
         ),
         const SizedBox(height: 14),
         const _ServerCapabilityGrid(),
+        const SizedBox(height: 14),
+        _ServerTopologyPreview(
+          isLoading: isLoading,
+          serverUrlController: _serverUrlController,
+        ),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: isLoading ? null : _submitServerUrl,
@@ -325,6 +330,254 @@ class _ServerCapabilityTile extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerTopologyPreview extends StatelessWidget {
+  const _ServerTopologyPreview({
+    required this.isLoading,
+    required this.serverUrlController,
+  });
+
+  final bool isLoading;
+  final TextEditingController serverUrlController;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return AnimatedBuilder(
+      animation: serverUrlController,
+      builder: (context, _) {
+        final serverUrl = serverUrlController.text.trim();
+        final target = serverUrl.isEmpty ? '等待输入服务地址' : serverUrl;
+        final protocolReady =
+            serverUrl.startsWith('https://') ||
+            serverUrl.startsWith('http://') ||
+            serverUrl.contains('.');
+        return AnimatedContainer(
+          key: const ValueKey('server-topology-preview'),
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              financeColors.asset.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.16
+                    : 0.08,
+              ),
+              colorScheme.surface,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: financeColors.asset.withValues(alpha: 0.18),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: Icons.hub_outlined,
+                    color: financeColors.asset,
+                    size: 40,
+                    iconSize: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '部署拓扑预览',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  _TopologyStatusPill(
+                    icon: isLoading
+                        ? Icons.sync_outlined
+                        : protocolReady
+                        ? Icons.verified_outlined
+                        : Icons.edit_location_alt_outlined,
+                    label: isLoading
+                        ? '验证中'
+                        : protocolReady
+                        ? '地址就绪'
+                        : '待完善',
+                    color: isLoading
+                        ? colorScheme.tertiary
+                        : protocolReady
+                        ? financeColors.income
+                        : colorScheme.outline,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _TopologyEndpoint(url: target, color: financeColors.asset),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _TopologyClientTile(
+                      icon: Icons.language_outlined,
+                      label: 'Web',
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _TopologyClientTile(
+                      icon: Icons.phone_iphone_outlined,
+                      label: 'iOS',
+                      color: financeColors.income,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _TopologyClientTile(
+                      icon: Icons.android_outlined,
+                      label: 'Android',
+                      color: financeColors.asset,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TopologyEndpoint extends StatelessWidget {
+  const _TopologyEndpoint({required this.url, required this.color});
+
+  final String url;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.10),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.api_outlined, color: color, size: 19),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              url,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopologyClientTile extends StatelessWidget {
+  const _TopologyClientTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 62),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopologyStatusPill extends StatelessWidget {
+  const _TopologyStatusPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),
