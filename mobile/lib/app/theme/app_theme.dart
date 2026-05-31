@@ -95,7 +95,7 @@ class AppTheme {
     final colorScheme = ColorScheme.fromSeed(seedColor: palette.seedColor);
     return ThemeData(
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+      scaffoldBackgroundColor: _scaffoldBackgroundColor(colorScheme, palette),
       extensions: [AppFinanceColors.fromPalette(palette)],
       useMaterial3: true,
       pageTransitionsTheme: const PageTransitionsTheme(
@@ -134,7 +134,7 @@ class AppTheme {
     );
     return ThemeData(
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: const Color(0xFF020617),
+      scaffoldBackgroundColor: _scaffoldBackgroundColor(colorScheme, palette),
       extensions: [AppFinanceColors.fromPalette(palette)],
       useMaterial3: true,
       pageTransitionsTheme: const PageTransitionsTheme(
@@ -168,6 +168,20 @@ class AppTheme {
   static AppFinanceColors financeColors(BuildContext context) {
     return Theme.of(context).extension<AppFinanceColors>() ??
         AppFinanceColors.fromPalette(AppThemePalette.teal);
+  }
+
+  static Color _scaffoldBackgroundColor(
+    ColorScheme colorScheme,
+    AppThemePalette palette,
+  ) {
+    final tintAlpha = colorScheme.brightness == Brightness.dark ? 0.10 : 0.05;
+    final baseColor = colorScheme.brightness == Brightness.dark
+        ? colorScheme.surface
+        : colorScheme.surfaceContainerLowest;
+    return Color.alphaBlend(
+      palette.seedColor.withValues(alpha: tintAlpha),
+      baseColor,
+    );
   }
 }
 
