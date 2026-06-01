@@ -115,29 +115,29 @@ class _HomeContent extends StatelessWidget {
             const SizedBox(height: 16),
             _entry(
               2,
-              _RecentTransactionsCard(items: summary.recentTransactions),
-            ),
-            const SizedBox(height: 16),
-            _entry(
-              3,
-              _DateTransactionsCard(
-                selectedDate: selectedDate,
-                state: dateTransactionsState,
-                onSelectDate: onSelectDate,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _entry(4, FamilyHomeSummaryCard(summary: summary.familySummary)),
-            const SizedBox(height: 16),
-            _entry(
-              5,
               _AccountOverviewCard(
                 accounts: visibleAccounts,
                 totalCount: accounts.length,
               ),
             ),
             const SizedBox(height: 16),
-            _entry(6, _BudgetSummaryCard(summary: summary.budgetSummary)),
+            _entry(3, _BudgetSummaryCard(summary: summary.budgetSummary)),
+            const SizedBox(height: 16),
+            _entry(4, FamilyHomeSummaryCard(summary: summary.familySummary)),
+            const SizedBox(height: 16),
+            _entry(
+              5,
+              _RecentTransactionsCard(items: summary.recentTransactions),
+            ),
+            const SizedBox(height: 16),
+            _entry(
+              6,
+              _DateTransactionsCard(
+                selectedDate: selectedDate,
+                state: dateTransactionsState,
+                onSelectDate: onSelectDate,
+              ),
+            ),
           ],
         ),
       ),

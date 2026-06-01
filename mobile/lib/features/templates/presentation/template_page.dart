@@ -233,7 +233,6 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
               padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
               child: AppEmptyView(
                 title: '暂无快捷模板',
-                message: '暂无数据',
                 icon: Icons.bolt_outlined,
                 action: FilledButton.icon(
                   onPressed:

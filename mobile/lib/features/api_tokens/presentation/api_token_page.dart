@@ -228,7 +228,6 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
                     padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),
                     child: AppEmptyView(
                       title: '暂无令牌',
-                      message: '暂无数据',
                       icon: Icons.vpn_key_outlined,
                     ),
                   )

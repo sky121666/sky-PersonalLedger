@@ -527,13 +527,6 @@ class _AIProviderSetupSurface extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                '支持 DeepSeek、OpenAI 和兼容服务。API Key 保存后不会回显。',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-              ),
               const SizedBox(height: 12),
               if (setup.providers.isEmpty)
                 Text(
@@ -1378,14 +1371,6 @@ class _AIReportsEmptyState extends StatelessWidget {
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '配置 AI 服务后，可选择周期生成聚合后的财务洞察。',
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
             ),
             const SizedBox(height: 18),
             FilledButton.icon(

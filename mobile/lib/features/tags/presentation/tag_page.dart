@@ -218,7 +218,6 @@ class _TagPageState extends ConsumerState<TagPage> {
         index: 0,
         child: AppEmptyView(
           title: '暂无标签',
-          message: '暂无数据',
           icon: Icons.label_outline,
           action: FilledButton.icon(
             onPressed: _submitting ? null : () => _openTagForm(),

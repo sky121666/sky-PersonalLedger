@@ -632,7 +632,6 @@ class _TotalBudgetCard extends StatelessWidget {
                   child: _SectionTitle(
                     icon: Icons.account_balance_wallet_outlined,
                     title: '月度总预算',
-                    subtitle: '控制本月总体支出上限',
                   ),
                 ),
                 FilledButton.tonalIcon(
@@ -679,7 +678,7 @@ class _CategoryBudgetHeader extends StatelessWidget {
           child: _SectionTitle(
             icon: Icons.pie_chart_outline,
             title: '分类预算',
-            subtitle: '$count 个分类已监控，$availableCount 个分类可添加',
+            subtitle: '$count / ${count + availableCount}',
           ),
         ),
         FilledButton.icon(
@@ -702,7 +701,6 @@ class _EmptyCategoryBudgetCard extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: 18),
         child: AppEmptyView(
           title: '暂无分类预算',
-          message: '暂无数据',
           icon: Icons.track_changes_outlined,
         ),
       ),
@@ -849,7 +847,7 @@ class _MemberBudgetHeader extends StatelessWidget {
           child: _SectionTitle(
             icon: Icons.family_restroom_outlined,
             title: '家庭成员预算',
-            subtitle: '$count 个成员预算正在跟踪，$availableMemberCount 个成员可选择',
+            subtitle: '$count / ${count + availableMemberCount}',
           ),
         ),
         FilledButton.tonalIcon(
@@ -872,7 +870,6 @@ class _EmptyMemberBudgetCard extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: 18),
         child: AppEmptyView(
           title: '暂无成员预算',
-          message: '为家庭成员设置独立预算后，Family Hub 会展示成员额度进度。',
           icon: Icons.family_restroom_outlined,
         ),
       ),
@@ -1042,15 +1039,11 @@ class _CompactBudgetMetric extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+  const _SectionTitle({required this.icon, required this.title, this.subtitle});
 
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1070,13 +1063,15 @@ class _SectionTitle extends StatelessWidget {
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle!,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                ),
+              ],
             ],
           ),
         ),

@@ -29,13 +29,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.scrollUntilVisible(find.text('快速记账'), 320);
+        await tester.scrollUntilVisible(find.text('最近交易'), 320);
         await tester.pumpAndSettle();
-        final surfaceLabels = tester
-            .widgetList<PremiumSurface>(find.byType(PremiumSurface))
-            .map((surface) => surface.semanticLabel)
-            .whereType<String>();
-        expect(surfaceLabels, contains('快速记账'));
+        expect(find.text('最近交易'), findsOneWidget);
 
         await tester.scrollUntilVisible(find.text('家庭支出'), 320);
         await tester.pumpAndSettle();
@@ -73,8 +69,17 @@ void main() {
         expect(find.text('金额'), findsAtLeastNWidgets(1));
         expect(find.text('账户'), findsAtLeastNWidgets(1));
         expect(find.text('分类'), findsAtLeastNWidgets(1));
-        expect(find.text('成员'), findsOneWidget);
         _expectMinTapTarget(tester, find.byTooltip('关闭记一笔表单'));
+
+        await tester.scrollUntilVisible(
+          find.text('更多选项'),
+          240,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('更多选项'));
+        await tester.pumpAndSettle();
+        expect(find.text('成员'), findsOneWidget);
 
         await tester.drag(find.byType(ListView).first, const Offset(0, -1000));
         await tester.pumpAndSettle();

@@ -139,7 +139,6 @@ class _AccountContent extends ConsumerWidget {
         index: 0,
         child: AppEmptyView(
           title: '暂无账户',
-          message: '暂无数据',
           icon: Icons.account_balance_wallet_outlined,
           action: FilledButton.icon(
             onPressed: () => _openAccountForm(context),

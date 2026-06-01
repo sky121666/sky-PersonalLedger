@@ -495,7 +495,6 @@ class _LendingList extends StatelessWidget {
               _LendingTab.borrowIn => '暂无借入记录',
               _LendingTab.settled => '暂无已结清记录',
             },
-            message: '可以先从上方按钮新增一笔借贷往来。',
             icon: Icons.handshake_outlined,
           ),
         ),
@@ -891,7 +890,6 @@ class _LendingRecordsDialog extends ConsumerWidget {
             if (records.isEmpty) {
               return const AppEmptyView(
                 title: '暂无还款记录',
-                message: '记录还款后会在这里展示明细。',
                 icon: Icons.receipt_long_outlined,
               );
             }

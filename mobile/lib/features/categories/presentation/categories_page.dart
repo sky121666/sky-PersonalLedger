@@ -173,7 +173,6 @@ class _CategoryLibraryView extends ConsumerWidget {
                   index: 1,
                   child: AppEmptyView(
                     title: '暂无${state.type.label}分类',
-                    message: '暂无数据',
                     icon: Icons.category_outlined,
                     action: FilledButton.icon(
                       onPressed: () => _openCategoryForm(context, state.type),

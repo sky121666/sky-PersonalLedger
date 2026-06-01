@@ -151,7 +151,6 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
               index: 0,
               child: AppEmptyView(
                 title: '暂无流水记录',
-                message: '暂无数据',
                 icon: Icons.receipt_long_outlined,
               ),
             ),

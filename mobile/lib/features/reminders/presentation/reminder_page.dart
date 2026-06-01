@@ -948,7 +948,6 @@ class _EmptyReminderCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 32, horizontal: 16),
       child: AppEmptyView(
         title: '暂无负债提醒',
-        message: '暂无数据',
         icon: Icons.notifications_none_outlined,
       ),
     );
