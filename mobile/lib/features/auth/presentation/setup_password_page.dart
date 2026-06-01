@@ -80,6 +80,13 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
           confirmPasswordController: _confirmPasswordController,
           accentColor: accentColor,
         ),
+        const SizedBox(height: 14),
+        _SetupSubmissionEvidenceRail(
+          passwordController: _passwordController,
+          confirmPasswordController: _confirmPasswordController,
+          serverUrl: authState.serverUrl,
+          accentColor: accentColor,
+        ),
         const SizedBox(height: 16),
         TextField(
           controller: _passwordController,
@@ -90,6 +97,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.password_outlined),
             suffixIcon: IconButton(
+              tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
               onPressed: () => setState(() {
                 _obscurePassword = !_obscurePassword;
               }),
@@ -111,6 +119,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
             errorText: errorText,
             prefixIcon: const Icon(Icons.verified_user_outlined),
             suffixIcon: IconButton(
+              tooltip: _obscureConfirmPassword ? '显示确认密码' : '隐藏确认密码',
               onPressed: () => setState(() {
                 _obscureConfirmPassword = !_obscureConfirmPassword;
               }),
@@ -236,6 +245,194 @@ class _SetupInitializationMatrix extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _SetupSubmissionEvidenceRail extends StatelessWidget {
+  const _SetupSubmissionEvidenceRail({
+    required this.passwordController,
+    required this.confirmPasswordController,
+    required this.serverUrl,
+    required this.accentColor,
+  });
+
+  final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
+  final String? serverUrl;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        passwordController,
+        confirmPasswordController,
+      ]),
+      builder: (context, _) {
+        final password = passwordController.text;
+        final confirm = confirmPasswordController.text;
+        final lengthReady = password.length >= 8;
+        final matched =
+            password.isNotEmpty && confirm.isNotEmpty && password == confirm;
+        final serverBound = (serverUrl ?? '').trim().isNotEmpty;
+        final readyCount = [
+          lengthReady,
+          matched,
+          serverBound,
+        ].where((ready) => ready).length;
+        final ready = readyCount == 3;
+        final stateColor = ready ? financeColors.income : accentColor;
+        final entries = [
+          _SetupEvidenceEntry(
+            icon: Icons.password_outlined,
+            label: '长度证据',
+            value: lengthReady ? '达标' : '${password.length}/8',
+            ready: lengthReady,
+          ),
+          _SetupEvidenceEntry(
+            icon: Icons.verified_user_outlined,
+            label: '确认一致',
+            value: matched ? '一致' : '待确认',
+            ready: matched,
+          ),
+          _SetupEvidenceEntry(
+            icon: Icons.dns_outlined,
+            label: '服务器绑定',
+            value: serverBound ? '已绑定' : '待选择',
+            ready: serverBound,
+          ),
+        ];
+        return PremiumSurface(
+          key: const ValueKey('setup-submission-evidence-rail'),
+          accentColor: stateColor,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconBadge(
+                    icon: ready
+                        ? Icons.task_alt_outlined
+                        : Icons.fact_check_outlined,
+                    color: stateColor,
+                    size: 38,
+                    iconSize: 19,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '提交证据',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          ready ? '首次初始化证据已齐全' : '补齐密码和服务器证据后提交',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _SetupMatrixPill(
+                    label: '证据 $readyCount/3',
+                    color: stateColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final entry in entries)
+                    _SetupEvidenceChip(
+                      entry: entry,
+                      color: entry.ready ? financeColors.income : accentColor,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SetupEvidenceEntry {
+  const _SetupEvidenceEntry({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.ready,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool ready;
+}
+
+class _SetupEvidenceChip extends StatelessWidget {
+  const _SetupEvidenceChip({required this.entry, required this.color});
+
+  final _SetupEvidenceEntry entry;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 34, minWidth: 108),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(entry.icon, color: color, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            entry.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            entry.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

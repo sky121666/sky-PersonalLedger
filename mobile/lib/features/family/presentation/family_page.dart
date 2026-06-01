@@ -385,6 +385,33 @@ class _FamilyCollaborationHub extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            key: const ValueKey('family-ai-collaboration-rail'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _FamilyGovernancePill(
+                label: '成员协作',
+                icon: Icons.groups_2_outlined,
+                color: enabledCount > 0
+                    ? financeColors.income
+                    : colorScheme.outline,
+              ),
+              _FamilyGovernancePill(
+                label: '预算联动',
+                icon: Icons.account_tree_outlined,
+                color: budgetAmount > 0
+                    ? financeColors.asset
+                    : colorScheme.outline,
+              ),
+              _FamilyGovernancePill(
+                label: 'AI 预留',
+                icon: Icons.auto_awesome_outlined,
+                color: colorScheme.tertiary,
+              ),
+            ],
+          ),
         ],
       ),
     );

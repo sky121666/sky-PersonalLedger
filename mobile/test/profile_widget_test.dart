@@ -54,6 +54,14 @@ void main() {
     expect(find.text('AI 周报'), findsOneWidget);
     expect(find.text('安全中心'), findsOneWidget);
     expect(find.text('数据资产'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile-route-governance-rail')),
+      findsOneWidget,
+    );
+    expect(find.text('路由入口 16'), findsOneWidget);
+    expect(find.text('本机操作 1'), findsOneWidget);
+    expect(find.text('主题模板 16'), findsOneWidget);
+    expect(find.text('入口治理'), findsOneWidget);
 
     for (final label in _entryLabels) {
       final labelFinder = find.text(label);
@@ -144,6 +152,18 @@ void main() {
       find.byKey(const ValueKey('profile-featured-theme-aurora')),
     );
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('profile-featured-selected-aurora')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-theme-selected-aurora')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-theme-selected-roles-aurora')),
+      findsOneWidget,
+    );
 
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);

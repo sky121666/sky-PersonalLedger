@@ -40,6 +40,13 @@ void main() {
       expect(find.text('可撤销'), findsOneWidget);
       expect(find.text('完整密钥不落入列表，建议定期清理永久凭证'), findsOneWidget);
       expect(
+        find.byKey(const ValueKey('api-token-governance-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('列表只存前缀'), findsOneWidget);
+      expect(find.text('创建后一次可见'), findsOneWidget);
+      expect(find.text('撤销入口 1'), findsOneWidget);
+      expect(
         find.byKey(const ValueKey('api-token-issuance-preview')),
         findsOneWidget,
       );
@@ -88,12 +95,7 @@ void main() {
             .first,
       );
       final successBadge = tester.widget<IconBadge>(
-        find
-            .ancestor(
-              of: find.byIcon(Icons.check_circle_outline),
-              matching: find.byType(IconBadge),
-            )
-            .first,
+        find.byKey(const ValueKey('api-token-created-success-icon')),
       );
       expect(successSurface.accentColor, AppThemePalette.graphite.incomeColor);
       expect(successBadge.color, AppThemePalette.graphite.incomeColor);
@@ -124,7 +126,7 @@ void main() {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('删除令牌'));
+      await tester.tap(find.byTooltip('删除令牌 我的手机'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();

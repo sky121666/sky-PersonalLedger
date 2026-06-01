@@ -26,8 +26,21 @@ void main() {
       expect(find.text('安全入口'), findsOneWidget);
       expect(find.text('/ledger'), findsWidgets);
       expect(find.text('当前入口：/ledger'), findsOneWidget);
+      final entrySwitchSemantics = tester.widget<Semantics>(
+        find.byKey(const ValueKey('security-entry-enabled-semantics')),
+      );
+      expect(entrySwitchSemantics.properties.label, '启用安全入口');
       expect(find.text('验证旧密码'), findsOneWidget);
       expect(find.text('自动退出'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('security-password-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('改密证据 0/3'), findsOneWidget);
+      expect(find.text('旧密待填'), findsOneWidget);
+      expect(find.text('新密未达标'), findsOneWidget);
+      expect(find.text('确认待匹配'), findsOneWidget);
+      expect(find.text('成功后退出'), findsOneWidget);
       expect(find.text('入口模式'), findsOneWidget);
       expect(find.text('隔离'), findsOneWidget);
       expect(find.text('需确认'), findsWidgets);
@@ -92,6 +105,11 @@ void main() {
         find.byKey(const ValueKey('security-confirm-password')),
         'new-password',
       );
+      await tester.pumpAndSettle();
+      expect(find.text('改密证据 3/3'), findsOneWidget);
+      expect(find.text('旧密已填'), findsOneWidget);
+      expect(find.text('新密达标'), findsOneWidget);
+      expect(find.text('确认一致'), findsOneWidget);
       await tester.tap(
         find.byKey(const ValueKey('security-change-password-submit')),
       );
@@ -149,7 +167,7 @@ void main() {
         enabled: true,
       );
 
-      await tester.tap(find.byTooltip('刷新'));
+      await tester.tap(find.byTooltip('刷新安全入口'));
       await tester.pumpAndSettle();
 
       expect(find.text('/server'), findsWidgets);

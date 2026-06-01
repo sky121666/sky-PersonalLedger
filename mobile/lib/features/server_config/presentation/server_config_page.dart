@@ -575,9 +575,16 @@ class _ServerReleaseReadinessPanel extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Wrap(
+                key: const ValueKey('server-connection-evidence-rail'),
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  _ServerReadinessChip(
+                    key: const ValueKey('server-connection-evidence-chip'),
+                    icon: Icons.fact_check_outlined,
+                    label: '连接证据 $completed/4',
+                    color: readinessColor,
+                  ),
                   _ServerReadinessChip(
                     icon: isValidScope
                         ? Icons.enhanced_encryption_outlined
@@ -618,6 +625,7 @@ class _ServerReleaseReadinessPanel extends StatelessWidget {
 
 class _ServerReadinessChip extends StatelessWidget {
   const _ServerReadinessChip({
+    super.key,
     required this.icon,
     required this.label,
     required this.color,

@@ -43,7 +43,7 @@ class _YearlyReportPageState extends ConsumerState<YearlyReportPage> {
             onPressed: () =>
                 ref.invalidate(yearlyReportDashboardProvider(_selectedYear)),
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新年度报表',
           ),
         ],
       ),
@@ -350,6 +350,24 @@ class _YearlyInsightDeck extends StatelessWidget {
                   color: financeColors.asset,
                 ),
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _YearlyDeckMetric(
+                  key: const ValueKey('yearly-evidence-rail'),
+                  icon: Icons.auto_graph_outlined,
+                  label: 'AI 输入',
+                  value:
+                      report.transactionCount > 0 &&
+                          report.monthlyData.isNotEmpty
+                      ? '可分析'
+                      : '待积累',
+                  color:
+                      report.transactionCount > 0 &&
+                          report.monthlyData.isNotEmpty
+                      ? financeColors.income
+                      : colorScheme.outline,
+                ),
+              ),
             ],
           ),
         ],
@@ -402,6 +420,7 @@ class _YearlyInsightBadge extends StatelessWidget {
 
 class _YearlyDeckMetric extends StatelessWidget {
   const _YearlyDeckMetric({
+    super.key,
     required this.icon,
     required this.label,
     required this.value,

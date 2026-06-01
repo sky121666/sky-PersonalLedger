@@ -90,6 +90,8 @@ class _BootstrapPageState extends State<BootstrapPage> {
                       ),
                       const SizedBox(height: 18),
                       const _BootstrapProgressRail(),
+                      const SizedBox(height: 12),
+                      const _BootstrapReadinessRail(),
                       const SizedBox(height: 16),
                       LinearProgressIndicator(
                         minHeight: 7,
@@ -103,6 +105,81 @@ class _BootstrapPageState extends State<BootstrapPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _BootstrapReadinessRail extends StatelessWidget {
+  const _BootstrapReadinessRail();
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    return Wrap(
+      key: const ValueKey('bootstrap-readiness-rail'),
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _BootstrapReadinessPill(
+          icon: Icons.fact_check_outlined,
+          label: '启动检查 3/3',
+          color: financeColors.income,
+        ),
+        _BootstrapReadinessPill(
+          icon: Icons.route_outlined,
+          label: '下一步服务器',
+          color: financeColors.asset,
+        ),
+        _BootstrapReadinessPill(
+          icon: Icons.verified_user_outlined,
+          label: '安全上下文预备',
+          color: financeColors.warning,
+        ),
+      ],
+    );
+  }
+}
+
+class _BootstrapReadinessPill extends StatelessWidget {
+  const _BootstrapReadinessPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.10),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }

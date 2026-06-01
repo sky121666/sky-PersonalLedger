@@ -43,7 +43,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.auto_awesome_outlined),
-            tooltip: '生成报告',
+            tooltip: '生成 AI 财务报告',
           ),
         ],
       ),
@@ -627,6 +627,33 @@ class _AIReportCommandCenter extends StatelessWidget {
                       ? colorScheme.secondary
                       : colorScheme.primary,
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            key: const ValueKey('ai-runtime-contract-rail'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AIProviderSignalPill(
+                icon: Icons.privacy_tip_outlined,
+                label: '数据脱敏',
+                color: financeColors.asset,
+              ),
+              _AIProviderSignalPill(
+                icon: Icons.history_edu_outlined,
+                label: '本地留痕',
+                color: completedCount > 0
+                    ? financeColors.income
+                    : colorScheme.outline,
+              ),
+              _AIProviderSignalPill(
+                icon: Icons.touch_app_outlined,
+                label: schedule?.enabled == true ? '自动触发' : '人工触发',
+                color: schedule?.enabled == true
+                    ? financeColors.income
+                    : colorScheme.primary,
               ),
             ],
           ),
@@ -1607,31 +1634,37 @@ class _AIProviderSetupSurface extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                TextButton.icon(
-                                  key: ValueKey(
-                                    'ai-provider-edit-${provider.id}',
+                                Tooltip(
+                                  message: '编辑 Provider ${provider.name}',
+                                  child: TextButton.icon(
+                                    key: ValueKey(
+                                      'ai-provider-edit-${provider.id}',
+                                    ),
+                                    onPressed: () => onEdit(setup, provider),
+                                    icon: const Icon(Icons.edit_outlined),
+                                    label: const Text('编辑'),
                                   ),
-                                  onPressed: () => onEdit(setup, provider),
-                                  icon: const Icon(Icons.edit_outlined),
-                                  label: const Text('编辑'),
                                 ),
                                 const SizedBox(width: 4),
-                                OutlinedButton.icon(
-                                  key: ValueKey(
-                                    'ai-provider-test-${provider.id}',
+                                Tooltip(
+                                  message: '测试 Provider ${provider.name}',
+                                  child: OutlinedButton.icon(
+                                    key: ValueKey(
+                                      'ai-provider-test-${provider.id}',
+                                    ),
+                                    onPressed: testingProviderId == null
+                                        ? () => onTest(provider)
+                                        : null,
+                                    icon: testingProviderId == provider.id
+                                        ? const SizedBox.square(
+                                            dimension: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.bolt_outlined),
+                                    label: const Text('测试'),
                                   ),
-                                  onPressed: testingProviderId == null
-                                      ? () => onTest(provider)
-                                      : null,
-                                  icon: testingProviderId == provider.id
-                                      ? const SizedBox.square(
-                                          dimension: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.bolt_outlined),
-                                  label: const Text('测试'),
                                 ),
                                 const SizedBox(width: 4),
                                 IconButton(
@@ -1640,7 +1673,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                                   ),
                                   onPressed: () => onDelete(provider),
                                   icon: const Icon(Icons.delete_outline),
-                                  tooltip: '删除 Provider',
+                                  tooltip: '删除 Provider ${provider.name}',
                                 ),
                               ],
                             ),
@@ -2378,7 +2411,16 @@ class _AIScheduleEnablePanel extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Switch(value: value, onChanged: enabled ? onChanged : null),
+              Semantics(
+                key: const ValueKey('ai-schedule-enabled-semantics'),
+                label: '启用自动生成 AI 报告',
+                toggled: value,
+                enabled: enabled,
+                child: Switch(
+                  value: value,
+                  onChanged: enabled ? onChanged : null,
+                ),
+              ),
             ],
           ),
         ),

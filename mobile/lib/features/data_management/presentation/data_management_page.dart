@@ -122,6 +122,14 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             const SizedBox(height: 12),
             StaggeredEntrance(
               index: 6,
+              child: _DataRestoreEvidenceRail(
+                autoBackupEnabled: _autoBackupSettings.enabled,
+                backupCount: _autoBackupFiles.length,
+              ),
+            ),
+            const SizedBox(height: 12),
+            StaggeredEntrance(
+              index: 7,
               child: _ActionCard(
                 icon: Icons.backup_outlined,
                 accentColor: financeColors.asset,
@@ -136,7 +144,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 7,
+              index: 8,
               child: _ActionCard(
                 icon: Icons.table_view_outlined,
                 accentColor: financeColors.income,
@@ -151,7 +159,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 8,
+              index: 9,
               child: _ActionCard(
                 icon: Icons.restore_outlined,
                 accentColor: colorScheme.error,
@@ -167,7 +175,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 9,
+              index: 10,
               child: _AutoBackupCard(
                 settings: _autoBackupSettings,
                 files: _autoBackupFiles,
@@ -698,6 +706,65 @@ class _DataRecoveryMatrixTile extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           _DataMatrixPill(label: data.caption, color: data.color),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataRestoreEvidenceRail extends StatelessWidget {
+  const _DataRestoreEvidenceRail({
+    required this.autoBackupEnabled,
+    required this.backupCount,
+  });
+
+  final bool autoBackupEnabled;
+  final int backupCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final protectionReady = autoBackupEnabled && backupCount > 0;
+    return PremiumSurface(
+      key: const ValueKey('data-restore-evidence-rail'),
+      accentColor: protectionReady
+          ? financeColors.income
+          : financeColors.warning,
+      padding: const EdgeInsets.all(12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _DataVaultHealthPill(
+            label: protectionReady ? '恢复前有备份' : '恢复前建议备份',
+            icon: protectionReady
+                ? Icons.verified_outlined
+                : Icons.warning_amber_outlined,
+            color: protectionReady
+                ? financeColors.income
+                : financeColors.warning,
+          ),
+          _DataVaultHealthPill(
+            label: 'JSON 来源校验',
+            icon: Icons.data_object_outlined,
+            color: financeColors.asset,
+          ),
+          _DataVaultHealthPill(
+            label: '覆盖二次确认',
+            icon: Icons.gpp_maybe_outlined,
+            color: colorScheme.error,
+          ),
+          _DataVaultHealthPill(
+            label: backupCount == 0 ? '服务器备份 0' : '服务器备份 $backupCount',
+            icon: Icons.cloud_done_outlined,
+            color: backupCount == 0 ? colorScheme.outline : financeColors.asset,
+          ),
+          _DataVaultHealthPill(
+            label: '本机文件不入库',
+            icon: Icons.devices_outlined,
+            color: colorScheme.tertiary,
+          ),
         ],
       ),
     );
@@ -1751,7 +1818,16 @@ class _SwitchPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              Switch(value: value, onChanged: enabled ? onChanged : null),
+              Semantics(
+                key: const ValueKey('auto-backup-enabled-semantics'),
+                label: '启用自动备份',
+                toggled: value,
+                enabled: enabled,
+                child: Switch(
+                  value: value,
+                  onChanged: enabled ? onChanged : null,
+                ),
+              ),
             ],
           ),
         ),

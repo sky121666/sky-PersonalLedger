@@ -29,6 +29,11 @@ void main() {
       expect(find.text('流水审计中枢'), findsOneWidget);
       expect(find.text('个人控制中枢 · 静谧墨绿'), findsNothing);
       expect(find.text('静谧墨绿 · 现金 · 1 天'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('account-log-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('审计样本 1 · 同步完成'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('工资入账'),
         220,
@@ -84,6 +89,7 @@ void main() {
       expect(find.text('无校准'), findsOneWidget);
       expect(find.text('分组 · 1 天'), findsOneWidget);
       expect(find.text('状态 · 已同步'), findsOneWidget);
+      expect(find.text('审计样本 2 · 同步完成'), findsOneWidget);
       expect(find.text('净变动'), findsAtLeastNWidgets(1));
       expect(find.text('+¥420.00'), findsAtLeastNWidgets(1));
       expect(find.text('流入'), findsOneWidget);
@@ -223,7 +229,7 @@ void main() {
 
       expect(find.text('工资入账'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('刷新'));
+      await tester.tap(find.byTooltip('刷新账户流水'));
       await tester.pumpAndSettle();
 
       expect(repository.listPages, [1, 1]);

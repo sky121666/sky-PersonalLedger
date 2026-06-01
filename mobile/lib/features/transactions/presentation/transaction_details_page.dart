@@ -62,7 +62,7 @@ class _TransactionDetailsPageState
             : IconButton(
                 onPressed: _clearSelection,
                 icon: const Icon(Icons.close),
-                tooltip: '退出选择',
+                tooltip: '退出选择，已选择 ${_selectedIds.length} 笔',
               ),
         title: Text(
           _selectedIds.isEmpty ? '明细' : '已选择 ${_selectedIds.length} 笔',
@@ -81,12 +81,12 @@ class _TransactionDetailsPageState
                       ? null
                       : () => _selectCurrentPage(state.items),
                   icon: const Icon(Icons.select_all),
-                  tooltip: '全选当前页',
+                  tooltip: '全选当前页 ${state.items.length} 笔交易',
                 ),
                 IconButton(
                   onPressed: _confirmBatchDelete,
                   icon: const Icon(Icons.delete_outline),
-                  tooltip: '删除选中交易',
+                  tooltip: '删除已选择 ${_selectedIds.length} 笔交易',
                 ),
               ],
       ),
@@ -793,6 +793,7 @@ class _TransactionInsightRail extends StatelessWidget {
                 ),
               ),
               _TransactionSignalPill(
+                key: const ValueKey('transaction-net-flow-pill'),
                 icon: net >= 0 ? Icons.trending_up : Icons.trending_down,
                 label: net >= 0 ? '净流入' : '净流出',
                 color: dominantColor,
@@ -801,6 +802,7 @@ class _TransactionInsightRail extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           GridView.count(
+            key: const ValueKey('transaction-evidence-rail'),
             crossAxisCount: 2,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
@@ -832,7 +834,7 @@ class _TransactionInsightRail extends StatelessWidget {
                 icon: Icons.sell_outlined,
                 label: '标签覆盖',
                 value: '$coverage%',
-                caption: '$tagged/${state.items.length} 笔已标记',
+                caption: '证据覆盖 $coverage%',
                 color: colorScheme.secondary,
               ),
               _InsightRailTile(
@@ -1282,6 +1284,7 @@ class _TransactionCompositionTile extends StatelessWidget {
 
 class _TransactionSignalPill extends StatelessWidget {
   const _TransactionSignalPill({
+    super.key,
     required this.icon,
     required this.label,
     required this.color,
@@ -1430,7 +1433,7 @@ class _TransactionFilterWorkbench extends ConsumerWidget {
                       : IconButton(
                           onPressed: onClear,
                           icon: const Icon(Icons.close),
-                          tooltip: '清空搜索',
+                          tooltip: '清空交易搜索',
                         ),
                 ),
                 onChanged: onChanged,
@@ -1689,10 +1692,18 @@ class _TransactionListTile extends StatelessWidget {
                     if (selectionMode)
                       Padding(
                         padding: const EdgeInsets.only(top: 3),
-                        child: Checkbox(
-                          key: ValueKey('transaction-select-${item.id}'),
-                          value: selected,
-                          onChanged: (_) => onSelectionToggle(),
+                        child: Semantics(
+                          key: ValueKey(
+                            'transaction-select-semantics-${item.id}',
+                          ),
+                          label: '选择交易 ${item.displayTitle}',
+                          checked: selected,
+                          enabled: true,
+                          child: Checkbox(
+                            key: ValueKey('transaction-select-${item.id}'),
+                            value: selected,
+                            onChanged: (_) => onSelectionToggle(),
+                          ),
                         ),
                       )
                     else
@@ -1791,6 +1802,7 @@ class _TransactionListTile extends StatelessWidget {
                     ),
                     if (!selectionMode)
                       PopupMenuButton<String>(
+                        tooltip: '更多交易操作 ${item.displayTitle}',
                         onSelected: (value) {
                           if (value == 'edit') {
                             onTap();

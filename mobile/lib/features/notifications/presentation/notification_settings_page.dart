@@ -22,7 +22,7 @@ class NotificationSettingsPage extends ConsumerWidget {
           IconButton(
             onPressed: () => ref.invalidate(notificationSettingsProvider),
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新通知设置',
           ),
         ],
       ),
@@ -969,6 +969,32 @@ class _NotificationOverviewCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Wrap(
+            key: const ValueKey('notification-delivery-governance-rail'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _NotificationStatePill(
+                key: const ValueKey('notification-channel-coverage-pill'),
+                label: '通道覆盖 $coveragePercent%',
+                color: coveragePercent > 0
+                    ? financeColors.asset
+                    : colorScheme.outline,
+                active: coveragePercent > 0,
+              ),
+              _NotificationStatePill(
+                label: '规则启用 $activeRules',
+                color: financeColors.warning,
+                active: activeRules > 0,
+              ),
+              _NotificationStatePill(
+                label: '提前 $advanceDays 天',
+                color: colorScheme.tertiary,
+                active: enabled,
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1580,7 +1606,13 @@ class _NotificationSwitchRow extends StatelessWidget {
             ),
             const SizedBox(width: 10),
           ],
-          Switch(key: switchKey, value: value, onChanged: onChanged),
+          Semantics(
+            key: ValueKey('notification-switch-semantics-$title'),
+            label: title,
+            toggled: value,
+            enabled: onChanged != null,
+            child: Switch(key: switchKey, value: value, onChanged: onChanged),
+          ),
         ],
       ),
     );
@@ -1589,6 +1621,7 @@ class _NotificationSwitchRow extends StatelessWidget {
 
 class _NotificationStatePill extends StatelessWidget {
   const _NotificationStatePill({
+    super.key,
     required this.label,
     required this.color,
     required this.active,

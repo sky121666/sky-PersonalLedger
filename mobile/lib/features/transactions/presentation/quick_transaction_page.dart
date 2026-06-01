@@ -152,6 +152,9 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                           accountName: _selectedAccountName,
                           targetName: _selectedTargetName,
                           familyName: _selectedFamilyMemberName,
+                          attachmentCount:
+                              _attachments.length +
+                              _pendingAttachmentFiles.length,
                           hasAccount: _accountId != null,
                           hasTarget: _type == TransactionType.transfer
                               ? _toAccountId != null
@@ -325,7 +328,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close),
-                    tooltip: '关闭',
+                    tooltip: _isEditing ? '关闭编辑交易表单' : '关闭记一笔表单',
                   ),
                 ],
               ),
@@ -570,7 +573,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
             IconButton.filledTonal(
               onPressed: _addCustomTag,
               icon: const Icon(Icons.add),
-              tooltip: '添加标签',
+              tooltip: '添加自定义标签',
             ),
           ],
         ),
@@ -1054,6 +1057,7 @@ class _QuickEntryReadinessPanel extends StatelessWidget {
     required this.accountName,
     required this.targetName,
     required this.familyName,
+    required this.attachmentCount,
     required this.hasAccount,
     required this.hasTarget,
     required this.hasFamilyContext,
@@ -1064,6 +1068,7 @@ class _QuickEntryReadinessPanel extends StatelessWidget {
   final String accountName;
   final String targetName;
   final String familyName;
+  final int attachmentCount;
   final bool hasAccount;
   final bool hasTarget;
   final bool hasFamilyContext;
@@ -1193,6 +1198,39 @@ class _QuickEntryReadinessPanel extends StatelessWidget {
                           ? colorScheme.tertiary
                           : colorScheme.secondary,
                     ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                key: const ValueKey('quick-entry-evidence-rail'),
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _QuickEntrySignalPill(
+                    icon: hasAmount
+                        ? Icons.price_check_outlined
+                        : Icons.edit_note_outlined,
+                    label: hasAmount ? '金额就绪' : '金额待填',
+                    color: hasAmount ? accentColor : colorScheme.outline,
+                  ),
+                  _QuickEntrySignalPill(
+                    icon: type == TransactionType.transfer
+                        ? Icons.swap_horiz_outlined
+                        : Icons.category_outlined,
+                    label: hasTarget
+                        ? '${type == TransactionType.transfer ? '流向' : '分类'}就绪'
+                        : '${type == TransactionType.transfer ? '流向' : '分类'}待选',
+                    color: hasTarget ? accentColor : colorScheme.outline,
+                  ),
+                  _QuickEntrySignalPill(
+                    icon: attachmentCount > 0
+                        ? Icons.task_outlined
+                        : Icons.attach_file_outlined,
+                    label: attachmentCount > 0 ? '凭证 $attachmentCount' : '凭证待补',
+                    color: attachmentCount > 0
+                        ? colorScheme.tertiary
+                        : colorScheme.secondary,
                   ),
                 ],
               ),

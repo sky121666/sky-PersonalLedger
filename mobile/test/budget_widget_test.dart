@@ -29,6 +29,13 @@ void main() {
       );
       expect(find.text('预算控制台'), findsOneWidget);
       expect(find.text('1 项预警'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('budget-ai-guardrail-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('AI 预算输入'), findsOneWidget);
+      expect(find.text('家庭联动'), findsOneWidget);
+      expect(find.text('提醒线 80%'), findsWidgets);
       expect(find.text('分类覆盖'), findsWidgets);
       expect(find.text('家庭额度'), findsOneWidget);
       expect(find.text('预算风险雷达'), findsOneWidget);
@@ -141,7 +148,10 @@ void main() {
       final budgetRepository = _FakeBudgetRepository();
       await _pumpPage(tester, budgetRepository);
 
-      await tester.tap(find.byTooltip('删除预算'));
+      final deleteButton = find.byTooltip('删除预算 餐饮');
+      await tester.ensureVisible(deleteButton);
+      await tester.pumpAndSettle();
+      await tester.tap(deleteButton);
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
@@ -175,6 +185,12 @@ void main() {
       expect(find.text('预算风险雷达'), findsOneWidget);
       expect(find.text('预算稳态'), findsOneWidget);
       expect(find.text('等待总预算、分类预算和家庭预算接入'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('budget-ai-guardrail-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('家庭预留'), findsOneWidget);
+      expect(find.text('提醒线预留'), findsOneWidget);
       expect(find.text('还没有设置总预算'), findsOneWidget);
       expect(find.text('暂无分类预算'), findsOneWidget);
       expect(find.text('给高频支出分类设置独立预算后，可以更早发现超支风险。'), findsOneWidget);

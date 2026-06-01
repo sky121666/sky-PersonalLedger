@@ -39,7 +39,7 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
           IconButton(
             onPressed: _isBusy ? null : _refresh,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新预算数据',
           ),
         ],
       ),
@@ -578,6 +578,33 @@ class _BudgetCommandCenter extends StatelessWidget {
                   value: '${budgetList.memberBudgets.length} 项',
                   color: financeColors.asset,
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            key: const ValueKey('budget-ai-guardrail-rail'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _BudgetSignalPill(
+                icon: Icons.auto_awesome_outlined,
+                label: 'AI 预算输入',
+                color: colorScheme.tertiary,
+              ),
+              _BudgetSignalPill(
+                icon: Icons.account_tree_outlined,
+                label: budgetList.memberBudgets.isEmpty ? '家庭预留' : '家庭联动',
+                color: budgetList.memberBudgets.isEmpty
+                    ? colorScheme.outline
+                    : financeColors.asset,
+              ),
+              _BudgetSignalPill(
+                icon: Icons.notifications_active_outlined,
+                label: totalBudget == null
+                    ? '提醒线预留'
+                    : '提醒线 ${totalBudget.alertThreshold.toStringAsFixed(0)}%',
+                color: statusColor,
               ),
             ],
           ),
@@ -1817,7 +1844,7 @@ class _CategoryBudgetCard extends StatelessWidget {
                         )
                       : const Icon(Icons.delete_outline),
                   color: colorScheme.error,
-                  tooltip: '删除预算',
+                  tooltip: '删除预算 ${budget.categoryName}',
                 ),
               ],
             ),
@@ -1996,7 +2023,7 @@ class _MemberBudgetCard extends StatelessWidget {
                         )
                       : const Icon(Icons.delete_outline),
                   color: colorScheme.error,
-                  tooltip: '删除成员预算',
+                  tooltip: '删除成员预算 ${budget.memberName}',
                 ),
               ],
             ),
@@ -2085,9 +2112,9 @@ class _BudgetGuardrailMatrix extends StatelessWidget {
               Expanded(
                 child: Text(
                   '预算守卫矩阵',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
               ),
               _BudgetGuardrailPill(

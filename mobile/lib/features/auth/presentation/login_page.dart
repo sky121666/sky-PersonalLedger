@@ -80,6 +80,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             errorText: errorText,
             prefixIcon: const Icon(Icons.password_outlined),
             suffixIcon: IconButton(
+              tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
               onPressed: () => setState(() {
                 _obscurePassword = !_obscurePassword;
               }),
@@ -156,6 +157,7 @@ class _LoginAccessMatrix extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                key: const ValueKey('login-session-evidence-rail'),
                 children: [
                   IconBadge(
                     icon: Icons.grid_view_rounded,
@@ -398,7 +400,7 @@ class _LoginSessionSignalDeck extends StatelessWidget {
                     child: _LoginSignalTile(
                       icon: Icons.devices_other_outlined,
                       label: '登录范围',
-                      value: '本设备',
+                      value: '本设备会话',
                       color: financeColors.asset,
                     ),
                   ),

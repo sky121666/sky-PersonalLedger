@@ -59,8 +59,13 @@ void main() {
         find.byKey(const ValueKey('server-release-readiness-panel')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('server-connection-evidence-rail')),
+        findsOneWidget,
+      );
       expect(find.text('部署就绪检查'), findsOneWidget);
       expect(find.text('待输入'), findsOneWidget);
+      expect(find.text('连接证据 2/4'), findsOneWidget);
       expect(find.text('地址待确认'), findsOneWidget);
       expect(find.text('初始化只一次'), findsOneWidget);
       expect(find.text('等待跨端绑定'), findsOneWidget);
@@ -81,6 +86,7 @@ void main() {
       expect(find.text('公开域名'), findsOneWidget);
       expect(find.text('部署就绪检查'), findsOneWidget);
       expect(find.text('需加固'), findsOneWidget);
+      expect(find.text('连接证据 3/4'), findsOneWidget);
       expect(find.text('跨端可复用'), findsOneWidget);
       expect(find.text('统一入口'), findsOneWidget);
       expect(find.text('单点服务'), findsWidgets);

@@ -108,8 +108,19 @@ void main() {
         find.byKey(const ValueKey('account-balance-bank-card')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('account-balance-matrix-bank-card')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('account-balance-matrix-mortgage')),
+        findsOneWidget,
+      );
       expect(find.text('当前余额'), findsAtLeastNWidgets(1));
       expect(find.text('剩余负债'), findsOneWidget);
+      expect(find.text('账户态势'), findsAtLeastNWidgets(1));
+      expect(find.text('资产增值'), findsAtLeastNWidgets(1));
+      expect(find.text('负债追踪'), findsOneWidget);
       expect(find.text('资产轨道'), findsAtLeastNWidgets(1));
       expect(find.text('偿还进度'), findsOneWidget);
       expect(find.text('期初对比'), findsAtLeastNWidgets(1));
@@ -210,7 +221,10 @@ void main() {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byIcon(Icons.more_vert).at(1));
+      final mortgageMenu = find.byTooltip('更多账户操作 住房贷款');
+      await tester.ensureVisible(mortgageMenu);
+      await tester.pumpAndSettle();
+      await tester.tap(mortgageMenu);
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
@@ -238,7 +252,10 @@ void main() {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byIcon(Icons.more_vert).at(1));
+      final mortgageMenu = find.byTooltip('更多账户操作 住房贷款');
+      await tester.ensureVisible(mortgageMenu);
+      await tester.pumpAndSettle();
+      await tester.tap(mortgageMenu);
       await tester.pumpAndSettle();
       await tester.tap(find.text('上移'));
       await tester.pumpAndSettle();

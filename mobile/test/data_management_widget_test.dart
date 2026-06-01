@@ -47,6 +47,15 @@ void main() {
       expect(find.text('表格复盘'), findsOneWidget);
       expect(find.text('恢复闸门'), findsOneWidget);
       expect(find.text('覆盖前阻断'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('data-restore-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('恢复前建议备份'), findsOneWidget);
+      expect(find.text('JSON 来源校验'), findsOneWidget);
+      expect(find.text('覆盖二次确认'), findsOneWidget);
+      expect(find.text('服务器备份 1'), findsOneWidget);
+      expect(find.text('本机文件不入库'), findsOneWidget);
       expect(find.text('导出、恢复和迁移数据前先确认目标文件来源。'), findsOneWidget);
       await tester.tap(find.text('下载备份'));
       await tester.pumpAndSettle();
@@ -87,6 +96,10 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
+      final backupSwitchSemantics = tester.widget<Semantics>(
+        find.byKey(const ValueKey('auto-backup-enabled-semantics')),
+      );
+      expect(backupSwitchSemantics.properties.label, '启用自动备份');
       await tester.tap(find.text('启用自动备份').last);
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(

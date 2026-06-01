@@ -49,6 +49,13 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('现金流正向'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('statistics-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('5 笔交易'), findsOneWidget);
+      expect(find.text('趋势就绪'), findsOneWidget);
+      expect(find.text('AI 输入'), findsOneWidget);
       expect(find.text('交易活跃'), findsOneWidget);
       expect(find.text('本月现金流稳健'), findsAtLeastNWidgets(1));
       expect(find.text('结余率'), findsAtLeastNWidgets(1));
@@ -95,6 +102,12 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('周期指挥台'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('statistics-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('0 笔交易'), findsOneWidget);
+      expect(find.text('AI 输入'), findsOneWidget);
       expect(find.text('现金流驾驶舱'), findsOneWidget);
       expect(find.text('支出压力'), findsOneWidget);
       expect(find.text('首要分类'), findsOneWidget);
@@ -140,8 +153,14 @@ void main() {
 
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('¥400.00'), findsWidgets);
+      final now = DateTime.now();
+      final previousMonth = DateTime(now.year, now.month - 1);
+      expect(
+        find.byTooltip('切换到 ${previousMonth.year}年${previousMonth.month}月'),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.byTooltip('刷新'));
+      await tester.tap(find.byTooltip('刷新统计数据'));
       await tester.pumpAndSettle();
 
       expect(repository.dashboardCalls, 2);

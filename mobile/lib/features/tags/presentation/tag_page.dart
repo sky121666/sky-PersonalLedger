@@ -192,7 +192,7 @@ class _TagPageState extends ConsumerState<TagPage> {
           IconButton(
             onPressed: _submitting ? null : _loadTags,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新标签列表',
           ),
         ],
       ),
@@ -896,10 +896,17 @@ class _TagCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     _TagSignalPanel(
+                      tagId: tag.id,
                       color: color,
                       icon: _tagIconData(tag.icon),
                       title: tag.usedCount >= 5 ? '高频标签' : '场景标签',
                       caption: tag.isSystem ? '系统预设' : '用户维护',
+                      sourceLabel: tag.sourceLabel,
+                      usageLabel: tag.usedCount >= 5
+                          ? '高频'
+                          : tag.usedCount > 0
+                          ? '活跃'
+                          : '待使用',
                     ),
                   ],
                 ),
@@ -907,12 +914,12 @@ class _TagCard extends StatelessWidget {
               IconButton(
                 onPressed: busy ? null : onEdit,
                 icon: const Icon(Icons.edit_outlined),
-                tooltip: '编辑标签',
+                tooltip: '编辑标签 ${tag.name}',
               ),
               IconButton(
                 onPressed: busy || tag.isSystem ? null : onDelete,
                 icon: const Icon(Icons.delete_outline),
-                tooltip: tag.isSystem ? '系统标签不能删除' : '删除标签',
+                tooltip: tag.isSystem ? '系统标签不能删除' : '删除标签 ${tag.name}',
               ),
             ],
           ),
@@ -924,22 +931,28 @@ class _TagCard extends StatelessWidget {
 
 class _TagSignalPanel extends StatelessWidget {
   const _TagSignalPanel({
+    required this.tagId,
     required this.color,
     required this.icon,
     required this.title,
     required this.caption,
+    required this.sourceLabel,
+    required this.usageLabel,
   });
 
+  final String tagId;
   final Color color;
   final IconData icon;
   final String title;
   final String caption;
+  final String sourceLabel;
+  final String usageLabel;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return AnimatedContainer(
-      key: ValueKey('tag-signal-$title'),
+      key: ValueKey('tag-governance-matrix-$tagId'),
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       width: double.infinity,
@@ -986,7 +999,47 @@ class _TagSignalPanel extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          _TagSignalChip(label: '$sourceLabel · $usageLabel', color: color),
         ],
+      ),
+    );
+  }
+}
+
+class _TagSignalChip extends StatelessWidget {
+  const _TagSignalChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 26, minWidth: 64),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

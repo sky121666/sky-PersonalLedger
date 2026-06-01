@@ -80,7 +80,7 @@ class CategoriesPage extends ConsumerWidget {
             onPressed: () =>
                 ref.read(categoryListControllerProvider.notifier).load(),
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新分类列表',
           ),
         ],
       ),
@@ -169,18 +169,20 @@ class _CategoryLibraryView extends ConsumerWidget {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           if (state.categories.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: StaggeredEntrance(
-                index: 1,
-                child: AppEmptyView(
-                  title: '暂无${state.type.label}分类',
-                  message: '添加分类后，记账时可以快速归类。',
-                  icon: Icons.category_outlined,
-                  action: FilledButton.icon(
-                    onPressed: () => _openCategoryForm(context, state.type),
-                    icon: const Icon(Icons.add),
-                    label: const Text('新增分类'),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: MediaQuery.sizeOf(context).height * 0.58,
+                child: StaggeredEntrance(
+                  index: 1,
+                  child: AppEmptyView(
+                    title: '暂无${state.type.label}分类',
+                    message: '添加分类后，记账时可以快速归类。',
+                    icon: Icons.category_outlined,
+                    action: FilledButton.icon(
+                      onPressed: () => _openCategoryForm(context, state.type),
+                      icon: const Icon(Icons.add),
+                      label: const Text('新增分类'),
+                    ),
                   ),
                 ),
               ),
@@ -687,6 +689,7 @@ class _CategoryCard extends ConsumerWidget {
                       const Spacer(),
                       _CategoryStatusDot(color: color),
                       PopupMenuButton<_CategoryAction>(
+                        tooltip: '更多分类操作 ${category.name}',
                         onSelected: (action) =>
                             _handleAction(context, ref, action),
                         itemBuilder: (context) => const [
@@ -734,10 +737,13 @@ class _CategoryCard extends ConsumerWidget {
                   ),
                   const Spacer(),
                   _CategorySignalPanel(
+                    categoryId: category.id,
                     color: color,
                     icon: _categoryIconData(category.icon),
                     title: category.isSystem ? '稳定基础' : '个性归类',
                     caption: category.isSystem ? '系统预设' : '用户维护',
+                    typeLabel: category.type.label,
+                    maintenanceLabel: category.isSystem ? '预设' : '可调',
                   ),
                 ],
               ),
@@ -827,22 +833,28 @@ class _CategoryStatusDot extends StatelessWidget {
 
 class _CategorySignalPanel extends StatelessWidget {
   const _CategorySignalPanel({
+    required this.categoryId,
     required this.color,
     required this.icon,
     required this.title,
     required this.caption,
+    required this.typeLabel,
+    required this.maintenanceLabel,
   });
 
+  final String categoryId;
   final Color color;
   final IconData icon;
   final String title;
   final String caption;
+  final String typeLabel;
+  final String maintenanceLabel;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return AnimatedContainer(
-      key: ValueKey('category-signal-$title'),
+      key: ValueKey('category-governance-matrix-$categoryId'),
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       width: double.infinity,
@@ -889,7 +901,49 @@ class _CategorySignalPanel extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          _CategorySignalChip(label: typeLabel, color: color),
+          const SizedBox(width: 6),
+          _CategorySignalChip(label: maintenanceLabel, color: color),
         ],
+      ),
+    );
+  }
+}
+
+class _CategorySignalChip extends StatelessWidget {
+  const _CategorySignalChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 26, minWidth: 38),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

@@ -102,6 +102,16 @@ class AttachmentPickerField extends ConsumerWidget {
             accent: accent,
           ),
           const SizedBox(height: 12),
+          _AttachmentSaveEvidenceRail(
+            totalCount: totalCount,
+            maxFiles: maxFiles,
+            uploadedCount: attachments.length,
+            pendingCount: pendingFiles.length,
+            uploadProgress: uploadProgress,
+            enabled: enabled,
+            accent: accent,
+          ),
+          const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
@@ -317,6 +327,179 @@ class AttachmentPickerField extends ConsumerWidget {
   }
 }
 
+class _AttachmentSaveEvidenceRail extends StatelessWidget {
+  const _AttachmentSaveEvidenceRail({
+    required this.totalCount,
+    required this.maxFiles,
+    required this.uploadedCount,
+    required this.pendingCount,
+    required this.uploadProgress,
+    required this.enabled,
+    required this.accent,
+  });
+
+  final int totalCount;
+  final int maxFiles;
+  final int uploadedCount;
+  final int pendingCount;
+  final List<AttachmentUploadProgress> uploadProgress;
+  final bool enabled;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final withinCapacity = maxFiles > 0 && totalCount <= maxFiles;
+    final hasSource = totalCount > 0;
+    final hasActiveUploads = uploadProgress.any((progress) {
+      return !progress.completed && progress.progress < 1;
+    });
+    final syncReady = pendingCount == 0 && !hasActiveUploads;
+    final completed = [
+      withinCapacity,
+      hasSource,
+      syncReady,
+    ].where((item) => item).length;
+    final ready = completed == 3;
+    final stateColor = ready ? financeColors.income : accent;
+    return Container(
+      key: const ValueKey('attachment-save-evidence-rail'),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          stateColor.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.14
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: stateColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                ready ? Icons.task_alt_outlined : Icons.fact_check_outlined,
+                color: stateColor,
+                size: 18,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '保存证据',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _AttachmentMatrixPill(
+                label: '证据 $completed/3',
+                color: stateColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AttachmentEvidenceChip(
+                icon: Icons.inventory_2_outlined,
+                label: withinCapacity ? '容量合规' : '容量超限',
+                value: '$totalCount/$maxFiles',
+                color: withinCapacity ? financeColors.income : accent,
+              ),
+              _AttachmentEvidenceChip(
+                icon: enabled
+                    ? Icons.add_to_photos_outlined
+                    : Icons.lock_outline,
+                label: hasSource ? '来源已选' : '来源待选',
+                value: uploadedCount > 0 ? '已留存' : '本机',
+                color: hasSource ? financeColors.income : accent,
+              ),
+              _AttachmentEvidenceChip(
+                icon: syncReady
+                    ? Icons.cloud_done_outlined
+                    : Icons.cloud_upload_outlined,
+                label: syncReady ? '同步完成' : '待同步',
+                value: pendingCount > 0 ? '$pendingCount 个' : '0 个',
+                color: syncReady ? financeColors.income : financeColors.warning,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentEvidenceChip extends StatelessWidget {
+  const _AttachmentEvidenceChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 34, minWidth: 102),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.15
+                : 0.07,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AttachmentEvidenceMatrix extends StatelessWidget {
   const _AttachmentEvidenceMatrix({
     required this.uploadedCount,
@@ -359,9 +542,9 @@ class _AttachmentEvidenceMatrix extends StatelessWidget {
               Expanded(
                 child: Text(
                   '凭证链路矩阵',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
               ),
               _AttachmentMatrixPill(
@@ -861,19 +1044,19 @@ class _AttachmentTile extends StatelessWidget {
                 IconButton(
                   onPressed: onPreview,
                   icon: const Icon(Icons.visibility_outlined),
-                  tooltip: '预览',
+                  tooltip: '预览 $title',
                 ),
                 if (onDownload != null)
                   IconButton(
                     onPressed: onDownload,
                     icon: const Icon(Icons.download_outlined),
-                    tooltip: '下载',
+                    tooltip: '下载 $title',
                   ),
                 if (onRemove != null)
                   IconButton(
                     onPressed: onRemove,
                     icon: const Icon(Icons.close),
-                    tooltip: '移除',
+                    tooltip: '移除 $title',
                   ),
               ],
             ),

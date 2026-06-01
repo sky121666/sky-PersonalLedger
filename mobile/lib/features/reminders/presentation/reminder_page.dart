@@ -46,7 +46,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
           IconButton(
             onPressed: _isBusy ? null : _refresh,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新负债提醒',
           ),
         ],
       ),
@@ -789,6 +789,34 @@ class _RepaymentRhythmRadar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+          Wrap(
+            key: const ValueKey('reminder-evidence-rail'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _DebtRadarPill(
+                key: const ValueKey('reminder-evidence-coverage-pill'),
+                icon: Icons.fact_check_outlined,
+                label: '证据覆盖 $evidenceCoverage%',
+                color: evidenceCoverage >= 80
+                    ? financeColors.income
+                    : colorScheme.tertiary,
+              ),
+              _DebtRadarPill(
+                icon: Icons.schedule_send_outlined,
+                label: dueSoon > 0 ? '临近待办 $dueSoon' : '提醒节奏稳定',
+                color: accent,
+              ),
+              _DebtRadarPill(
+                icon: Icons.timeline_outlined,
+                label: '上岸均值 $averageProgress%',
+                color: averageProgress >= 60
+                    ? financeColors.income
+                    : financeColors.warning,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Container(
             constraints: const BoxConstraints(minHeight: 56),
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
@@ -915,6 +943,7 @@ class _DebtRadarMetric extends StatelessWidget {
 
 class _DebtRadarPill extends StatelessWidget {
   const _DebtRadarPill({
+    super.key,
     required this.icon,
     required this.label,
     required this.color,
@@ -1244,7 +1273,7 @@ class _ReminderCard extends StatelessWidget {
                   )
                 else
                   PopupMenuButton<_ReminderMenuAction>(
-                    tooltip: '更多操作',
+                    tooltip: '更多操作 ${reminder.displayName}',
                     onSelected: (action) {
                       switch (action) {
                         case _ReminderMenuAction.payment:

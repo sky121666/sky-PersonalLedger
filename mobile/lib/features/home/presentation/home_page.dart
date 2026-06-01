@@ -31,7 +31,7 @@ class HomePage extends ConsumerWidget {
           IconButton(
             onPressed: () => ref.invalidate(homeSummaryProvider),
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新首页概览',
           ),
           IconButton(
             onPressed: () => ref.read(authControllerProvider.notifier).logout(),
@@ -417,6 +417,39 @@ class _HomeActionOrchestrationPanel extends StatelessWidget {
                 label: familyActive ? '家庭数据在线' : '私人账本',
                 icon: Icons.home_work_outlined,
                 color: familyActive ? colorScheme.tertiary : palette.assetColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            key: const ValueKey('home-decision-evidence-rail'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _HomeActionStatusPill(
+                label: '${summary.overview.transactionCount} 笔记录',
+                icon: transactionActive
+                    ? Icons.receipt_long_outlined
+                    : Icons.post_add_outlined,
+                color: transactionActive
+                    ? palette.seedColor
+                    : colorScheme.outline,
+              ),
+              _HomeActionStatusPill(
+                label: budgetActive ? '预算输入' : '预算缺口',
+                icon: budgetActive
+                    ? Icons.fact_check_outlined
+                    : Icons.rule_folder_outlined,
+                color: budgetActive
+                    ? financeColors.warning
+                    : colorScheme.outline,
+              ),
+              _HomeActionStatusPill(
+                label: cashFlowHealthy ? 'AI 输入就绪' : 'AI 风险输入',
+                icon: Icons.auto_graph_outlined,
+                color: cashFlowHealthy
+                    ? financeColors.income
+                    : financeColors.expense,
               ),
             ],
           ),

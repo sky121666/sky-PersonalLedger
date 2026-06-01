@@ -26,30 +26,44 @@ void main() {
         find.byKey(const ValueKey('attachment-evidence-matrix')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('attachment-save-evidence-rail')),
+        findsOneWidget,
+      );
       expect(find.text('凭证链路矩阵'), findsOneWidget);
+      expect(find.text('保存证据'), findsOneWidget);
+      expect(find.text('证据 2/3'), findsOneWidget);
+      expect(find.text('容量合规'), findsOneWidget);
+      expect(find.text('来源已选'), findsOneWidget);
+      expect(find.text('待同步'), findsAtLeastNWidgets(1));
       expect(find.text('采集入口'), findsOneWidget);
       expect(find.text('本机选择'), findsOneWidget);
-      expect(find.text('待同步'), findsOneWidget);
+      expect(find.text('待同步'), findsAtLeastNWidgets(1));
       expect(find.text('可继续补充'), findsOneWidget);
       expect(find.text('已留存'), findsAtLeastNWidgets(1));
       expect(find.text('待上传'), findsAtLeastNWidgets(1));
       expect(find.text('剩余'), findsOneWidget);
       expect(find.text('文件凭证'), findsOneWidget);
       expect(find.text('图片凭证'), findsOneWidget);
-      expect(find.text('2/5'), findsOneWidget);
+      expect(find.text('2/5'), findsAtLeastNWidgets(1));
+      expect(find.byTooltip('预览 invoice.pdf'), findsOneWidget);
+      expect(find.byTooltip('下载 invoice.pdf'), findsOneWidget);
+      expect(find.byTooltip('移除 invoice.pdf'), findsOneWidget);
+      expect(find.byTooltip('预览 receipt.jpg'), findsOneWidget);
+      expect(find.byTooltip('移除 receipt.jpg'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('移除').first);
+      await tester.tap(find.byTooltip('移除 invoice.pdf'));
       await tester.pumpAndSettle();
 
       expect(find.text('invoice.pdf'), findsNothing);
       expect(find.text('receipt.jpg'), findsOneWidget);
-      expect(find.text('1/5'), findsOneWidget);
+      expect(find.text('1/5'), findsAtLeastNWidgets(1));
 
-      await tester.tap(find.byTooltip('移除'));
+      await tester.tap(find.byTooltip('移除 receipt.jpg'));
       await tester.pumpAndSettle();
 
       expect(find.text('receipt.jpg'), findsNothing);
-      expect(find.text('0/5'), findsOneWidget);
+      expect(find.text('0/5'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('选择文件时按剩余容量追加待上传附件', (tester) async {
@@ -71,6 +85,12 @@ void main() {
         ),
       );
 
+      await tester.scrollUntilVisible(
+        find.text('添加附件'),
+        240,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('添加附件'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('选择文件'));
@@ -79,7 +99,7 @@ void main() {
       expect(find.text('invoice.pdf'), findsOneWidget);
       expect(find.text('a.jpg'), findsOneWidget);
       expect(find.text('b.jpg'), findsNothing);
-      expect(find.text('2/2'), findsOneWidget);
+      expect(find.text('2/2'), findsAtLeastNWidgets(1));
       expect(find.text('添加附件'), findsNothing);
     });
 
@@ -126,13 +146,15 @@ Future<void> _pumpField(
       ],
       child: MaterialApp(
         home: Scaffold(
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: _AttachmentFieldHarness(
-              attachments: attachments,
-              pendingFiles: pendingFiles,
-              uploadProgress: uploadProgress,
-              maxFiles: maxFiles,
+          body: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: _AttachmentFieldHarness(
+                attachments: attachments,
+                pendingFiles: pendingFiles,
+                uploadProgress: uploadProgress,
+                maxFiles: maxFiles,
+              ),
             ),
           ),
         ),

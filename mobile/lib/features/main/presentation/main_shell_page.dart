@@ -275,19 +275,29 @@ class _PremiumBottomNavigation extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (final entry in destinations.indexed) ...[
-                Expanded(
-                  child: _PremiumBottomNavigationItem(
-                    destination: entry.$2,
-                    selected: selectedIndex == entry.$1,
-                    onTap: () => onDestinationSelected(entry.$1),
-                  ),
-                ),
-                if (entry.$1 != destinations.length - 1)
-                  const SizedBox(width: 6),
-              ],
+              _ShellRouteEvidenceRail(
+                destinations: destinations,
+                selectedIndex: selectedIndex,
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  for (final entry in destinations.indexed) ...[
+                    Expanded(
+                      child: _PremiumBottomNavigationItem(
+                        destination: entry.$2,
+                        selected: selectedIndex == entry.$1,
+                        onTap: () => onDestinationSelected(entry.$1),
+                      ),
+                    ),
+                    if (entry.$1 != destinations.length - 1)
+                      const SizedBox(width: 6),
+                  ],
+                ],
+              ),
             ],
           ),
         ),
@@ -296,20 +306,93 @@ class _PremiumBottomNavigation extends StatelessWidget {
   }
 }
 
-class _ShellDestination {
-  const _ShellDestination({
+class _ShellRouteEvidenceRail extends StatelessWidget {
+  const _ShellRouteEvidenceRail({
+    required this.destinations,
+    required this.selectedIndex,
+  });
+
+  final List<_ShellDestination> destinations;
+  final int selectedIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final selected = destinations[selectedIndex];
+    return Wrap(
+      key: const ValueKey('main-shell-route-evidence-rail'),
+      alignment: WrapAlignment.center,
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        _ShellEvidencePill(
+          icon: Icons.route_outlined,
+          label: '入口 ${destinations.length}',
+          color: colorScheme.primary,
+        ),
+        _ShellEvidencePill(
+          icon: selected.selectedIcon,
+          label: '当前 ${selected.label}',
+          color: selected.color,
+        ),
+        _ShellEvidencePill(
+          icon: Icons.add_circle_outline,
+          label: '快速记账就绪',
+          color: colorScheme.tertiary,
+        ),
+      ],
+    );
+  }
+}
+
+class _ShellEvidencePill extends StatelessWidget {
+  const _ShellEvidencePill({
     required this.icon,
-    required this.selectedIcon,
     required this.label,
-    required this.keyValue,
     required this.color,
   });
 
   final IconData icon;
-  final IconData selectedIcon;
   final String label;
-  final String keyValue;
   final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.16
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PremiumBottomNavigationItem extends StatelessWidget {
@@ -420,6 +503,22 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
   }
 }
 
+class _ShellDestination {
+  const _ShellDestination({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.keyValue,
+    required this.color,
+  });
+
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final String keyValue;
+  final Color color;
+}
+
 class _PremiumNavigationRail extends StatelessWidget {
   const _PremiumNavigationRail({
     required this.selectedIndex,
@@ -457,17 +556,33 @@ class _PremiumNavigationRail extends StatelessWidget {
               labelType: NavigationRailLabelType.all,
               leading: Padding(
                 padding: const EdgeInsets.only(top: 10, bottom: 14),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: financeColors.asset.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    Icons.account_balance_wallet_outlined,
-                    color: financeColors.asset,
-                  ),
+                child: Column(
+                  key: const ValueKey('main-shell-wide-route-evidence'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: financeColors.asset.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        Icons.account_balance_wallet_outlined,
+                        color: financeColors.asset,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '4入口',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               destinations: [

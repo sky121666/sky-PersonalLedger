@@ -31,6 +31,11 @@ void main() {
       expect(find.text('关系稳定'), findsOneWidget);
       expect(find.text('活跃 2'), findsAtLeastNWidgets(1));
       expect(find.text('凭证 1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('lending-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('证据覆盖 50%'), findsOneWidget);
       expect(find.byKey(const ValueKey('lending-risk-radar')), findsOneWidget);
       expect(find.text('回款风险雷达'), findsOneWidget);
       expect(find.text('凭证覆盖'), findsOneWidget);
@@ -102,7 +107,7 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('记录还款').first);
+      await tester.tap(find.byTooltip('记录还款 张三'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('lending-repayment-amount')),
@@ -120,7 +125,7 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('查看还款记录').first);
+      await tester.tap(find.byTooltip('查看还款记录 张三'));
       await tester.pumpAndSettle();
 
       expect(lendingRepository.recordCalls, ['lend-1']);
@@ -140,7 +145,7 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('编辑借贷记录').first);
+      await tester.tap(find.byTooltip('编辑借贷记录 张三'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '保存'));
       await tester.pumpAndSettle();
@@ -161,9 +166,12 @@ void main() {
         attachmentRepository: attachmentRepository,
       );
 
-      await tester.tap(find.byTooltip('编辑借贷记录').first);
+      await tester.tap(find.byTooltip('编辑借贷记录 张三'));
       await tester.pumpAndSettle();
-      final removeButton = find.byTooltip('移除', skipOffstage: false);
+      final removeButton = find.byTooltip(
+        '移除 contract.pdf',
+        skipOffstage: false,
+      );
       await tester.ensureVisible(removeButton);
       await tester.pumpAndSettle();
       await tester.tap(removeButton);
@@ -195,7 +203,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('编辑借贷记录').first);
+      await tester.tap(find.byTooltip('编辑借贷记录 张三'));
       await tester.pumpAndSettle();
       final addAttachmentButton = find.text('添加附件', skipOffstage: false);
       await tester.ensureVisible(addAttachmentButton);
@@ -221,7 +229,7 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('删除借贷记录').first);
+      await tester.tap(find.byTooltip('删除借贷记录 张三'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('账本交易会保留'), findsOneWidget);
@@ -324,7 +332,7 @@ void main() {
         ..repaymentError = '还款失败';
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('记录还款').first);
+      await tester.tap(find.byTooltip('记录还款 张三'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('lending-repayment-amount')),
@@ -402,7 +410,7 @@ class _FakeLendingRepository implements LendingRepository {
       currentBalance: 800,
       totalRepaid: 200,
       lendDate: DateTime(2026, 5, 1, 9),
-      dueDate: DateTime(2026, 6, 1, 9),
+      dueDate: DateTime.now().add(const Duration(days: 30)),
       remark: '朋友周转',
       evidence: '["1/lendings/lend-1/contract.pdf"]',
     ),

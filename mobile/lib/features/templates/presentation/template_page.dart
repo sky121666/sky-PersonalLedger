@@ -199,7 +199,7 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
           IconButton(
             onPressed: _submitting ? null : _loadData,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新快捷模板',
           ),
         ],
       ),
@@ -438,7 +438,19 @@ class _TemplateOrchestrationPanel extends StatelessWidget {
                   ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
               ),
-              _TemplateStatusPill(label: stageLabel, color: stageColor),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                alignment: WrapAlignment.end,
+                children: [
+                  _TemplateStatusPill(label: stageLabel, color: stageColor),
+                  _TemplateStatusPill(
+                    key: const ValueKey('template-execution-evidence-pill'),
+                    label: ready ? '可一键执行' : '缺少通道',
+                    color: ready ? financeColors.income : colorScheme.outline,
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1049,7 +1061,11 @@ class _TemplateExecutionTile extends StatelessWidget {
 }
 
 class _TemplateStatusPill extends StatelessWidget {
-  const _TemplateStatusPill({required this.label, required this.color});
+  const _TemplateStatusPill({
+    super.key,
+    required this.label,
+    required this.color,
+  });
 
   final String label;
   final Color color;
@@ -1177,16 +1193,19 @@ class _TemplateCard extends StatelessWidget {
                 color: amountColor,
               ),
               const Spacer(),
-              TextButton.icon(
-                key: const ValueKey('template-apply'),
-                onPressed: busy ? null : onApply,
-                icon: const Icon(Icons.play_arrow_outlined),
-                label: const Text('套用'),
+              Tooltip(
+                message: '套用模板 ${template.name}',
+                child: TextButton.icon(
+                  key: ValueKey('template-apply-${template.id}'),
+                  onPressed: busy ? null : onApply,
+                  icon: const Icon(Icons.play_arrow_outlined),
+                  label: const Text('套用'),
+                ),
               ),
               IconButton.filledTonal(
                 onPressed: busy ? null : onDelete,
                 icon: const Icon(Icons.delete_outline),
-                tooltip: '删除模板',
+                tooltip: '删除模板 ${template.name}',
               ),
             ],
           ),
@@ -1240,9 +1259,9 @@ class _TemplateExecutionMatrix extends StatelessWidget {
               Expanded(
                 child: Text(
                   '模板执行矩阵',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
               ),
               _TemplateMatrixPill(label: reuseLabel, color: color),

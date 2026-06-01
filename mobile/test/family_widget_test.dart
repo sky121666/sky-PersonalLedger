@@ -115,6 +115,13 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const ValueKey('family-ai-collaboration-rail')),
+      findsOneWidget,
+    );
+    expect(find.text('成员协作'), findsOneWidget);
+    expect(find.text('预算联动'), findsOneWidget);
+    expect(find.text('AI 预留'), findsOneWidget);
+    expect(
       find.byKey(const ValueKey('family-governance-surface')),
       findsOneWidget,
     );

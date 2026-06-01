@@ -171,7 +171,7 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
           IconButton(
             onPressed: _loadTokens,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新 API 令牌',
           ),
         ],
       ),
@@ -781,6 +781,28 @@ class _TokenExposureRadar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+          Wrap(
+            key: const ValueKey('api-token-governance-rail'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TokenChannelStatusPill(
+                label: '列表只存前缀',
+                color: financeColors.asset,
+              ),
+              _TokenChannelStatusPill(
+                label: hasPendingToken ? '待复制保存' : '创建后一次可见',
+                color: hasPendingToken
+                    ? colorScheme.tertiary
+                    : financeColors.income,
+              ),
+              _TokenChannelStatusPill(
+                label: '撤销入口 ${tokens.length}',
+                color: financeColors.expense,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               Icon(
@@ -885,12 +907,14 @@ class _PanelHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.color,
+    this.iconKey,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final Color color;
+  final Key? iconKey;
 
   @override
   Widget build(BuildContext context) {
@@ -898,7 +922,13 @@ class _PanelHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        IconBadge(icon: icon, color: color, size: 42, iconSize: 21),
+        IconBadge(
+          key: iconKey,
+          icon: icon,
+          color: color,
+          size: 42,
+          iconSize: 21,
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1229,6 +1259,7 @@ class _CreatedTokenCard extends StatelessWidget {
         children: [
           _PanelHeader(
             icon: Icons.check_circle_outline,
+            iconKey: const ValueKey('api-token-created-success-icon'),
             title: '令牌创建成功',
             subtitle: '请立即复制并保存，此令牌只显示一次。',
             color: successColor,
@@ -1436,7 +1467,7 @@ class _TokenTile extends StatelessWidget {
             IconButton.filledTonal(
               onPressed: deleting ? null : onDelete,
               icon: const Icon(Icons.delete_outline),
-              tooltip: deleting ? '正在处理' : '删除令牌',
+              tooltip: deleting ? '正在处理' : '删除令牌 ${token.name}',
               style: IconButton.styleFrom(
                 foregroundColor: financeColors.expense,
                 backgroundColor: financeColors.expense.withValues(alpha: 0.10),

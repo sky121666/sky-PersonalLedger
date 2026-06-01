@@ -90,7 +90,7 @@ class AccountsPage extends ConsumerWidget {
             onPressed: () =>
                 ref.read(accountListControllerProvider.notifier).load(),
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新账户列表',
           ),
         ],
       ),
@@ -1528,6 +1528,7 @@ class _AccountListTile extends ConsumerWidget {
                         ],
                       ),
                       PopupMenuButton<_AccountAction>(
+                        tooltip: '更多账户操作 ${account.name}',
                         onSelected: (action) =>
                             _handleAction(context, ref, action),
                         itemBuilder: (context) => [
@@ -1754,9 +1755,9 @@ class _AccountOperationsRail extends StatelessWidget {
               Expanded(
                 child: Text(
                   '账户操作轨道',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
               ),
               _AccountRailPill(
@@ -1923,7 +1924,16 @@ class _AccountBalanceSignal extends StatelessWidget {
     final deltaLabel = delta == 0
         ? '无变化'
         : '${delta > 0 ? '+' : ''}${_formatMoney(delta)}';
+    final postureLabel = isDebt
+        ? '负债追踪'
+        : delta > 0
+        ? '资产增值'
+        : delta < 0
+        ? '资产回落'
+        : '资产稳定';
+    final postureColor = isDebt ? balanceColor : deltaColor;
     return AnimatedContainer(
+      key: ValueKey('account-balance-matrix-${account.id}'),
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(12),
@@ -1942,6 +1952,22 @@ class _AccountBalanceSignal extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Icon(Icons.insights_outlined, size: 17, color: accentColor),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '账户态势',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              _AccountRailPill(label: postureLabel, color: postureColor),
+            ],
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               _AccountSignalMetric(

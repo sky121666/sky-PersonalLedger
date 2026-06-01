@@ -46,7 +46,7 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
           IconButton(
             onPressed: () => ref.invalidate(statisticsDashboardProvider(query)),
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新统计数据',
           ),
         ],
       ),
@@ -291,7 +291,8 @@ class _MonthHeader extends StatelessWidget {
               IconButton.filledTonal(
                 onPressed: onPreviousMonth,
                 icon: const Icon(Icons.chevron_left),
-                tooltip: '上个月',
+                tooltip:
+                    '切换到 ${_formatMonthLabel(DateTime(selectedMonth.year, selectedMonth.month - 1))}',
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -305,7 +306,8 @@ class _MonthHeader extends StatelessWidget {
               IconButton.filledTonal(
                 onPressed: onNextMonth,
                 icon: const Icon(Icons.chevron_right),
-                tooltip: '下个月',
+                tooltip:
+                    '切换到 ${_formatMonthLabel(DateTime(selectedMonth.year, selectedMonth.month + 1))}',
               ),
             ],
           ),
@@ -339,6 +341,84 @@ class _MonthHeader extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            key: const ValueKey('statistics-evidence-rail'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatisticsEvidencePill(
+                icon: Icons.receipt_long_outlined,
+                label: '${overview.transactionCount} 笔交易',
+                color: overview.transactionCount > 0
+                    ? financeColors.asset
+                    : colorScheme.outline,
+              ),
+              _StatisticsEvidencePill(
+                icon: Icons.timeline_outlined,
+                label: '趋势就绪',
+                color: balanceColor,
+              ),
+              _StatisticsEvidencePill(
+                icon: Icons.auto_awesome_outlined,
+                label: 'AI 输入',
+                color: palette.seedColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsEvidencePill extends StatelessWidget {
+  const _StatisticsEvidencePill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 32, maxWidth: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
         ],
       ),

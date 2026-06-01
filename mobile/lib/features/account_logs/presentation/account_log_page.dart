@@ -126,7 +126,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
           IconButton(
             onPressed: _loadFirstPage,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: account == null ? '刷新账户流水' : '刷新${account.name}流水',
           ),
         ],
       ),
@@ -588,6 +588,7 @@ class _AccountLogAuditCenter extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Wrap(
+            key: const ValueKey('account-log-evidence-rail'),
             spacing: 8,
             runSpacing: 8,
             children: [
@@ -607,6 +608,15 @@ class _AccountLogAuditCenter extends StatelessWidget {
                 icon: Icons.palette_outlined,
                 label: palette.signature,
                 color: palette.seedColor,
+              ),
+              _AuditStatusPill(
+                icon: total > 0
+                    ? Icons.fact_check_outlined
+                    : Icons.playlist_add_check_outlined,
+                label: total > 0
+                    ? '审计样本 $total · ${hasMore ? '分页待拉取' : '同步完成'}'
+                    : '等待流水 · ${account == null ? '全账户范围' : '单账户范围'}',
+                color: total > 0 ? scopedColor : colorScheme.outline,
               ),
             ],
           ),

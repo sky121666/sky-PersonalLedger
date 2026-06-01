@@ -42,7 +42,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
           IconButton(
             onPressed: _isBusy ? null : _refresh,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新借贷记录',
           ),
         ],
       ),
@@ -378,6 +378,9 @@ class _LendingRelationshipHub extends StatelessWidget {
     final evidenceCount = dashboard.lendings
         .where((item) => item.evidence.trim().isNotEmpty)
         .length;
+    final evidenceCoverage = activeCount == 0
+        ? 0
+        : ((evidenceCount / activeCount) * 100).round();
     final overdueCount = dashboard.lendings
         .where((item) => item.isOverdue)
         .length;
@@ -467,6 +470,7 @@ class _LendingRelationshipHub extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Wrap(
+            key: const ValueKey('lending-evidence-rail'),
             spacing: 8,
             runSpacing: 8,
             children: [
@@ -486,6 +490,13 @@ class _LendingRelationshipHub extends StatelessWidget {
                 color: evidenceCount > 0
                     ? colorScheme.tertiary
                     : colorScheme.secondary,
+              ),
+              _LendingHubPill(
+                icon: Icons.fact_check_outlined,
+                label: activeCount == 0 ? '证据待积累' : '证据覆盖 $evidenceCoverage%',
+                color: evidenceCoverage >= 80
+                    ? financeColors.income
+                    : colorScheme.tertiary,
               ),
               _LendingHubPill(
                 icon: Icons.palette_outlined,
@@ -1475,22 +1486,22 @@ class _LendingCard extends StatelessWidget {
                         IconButton.filledTonal(
                           onPressed: onRepay,
                           icon: const Icon(Icons.payments_outlined),
-                          tooltip: '记录还款',
+                          tooltip: '记录还款 ${item.contactName}',
                         ),
                       IconButton.filledTonal(
                         onPressed: onRecords,
                         icon: const Icon(Icons.receipt_long_outlined),
-                        tooltip: '查看还款记录',
+                        tooltip: '查看还款记录 ${item.contactName}',
                       ),
                       IconButton.filledTonal(
                         onPressed: onEdit,
                         icon: const Icon(Icons.edit_outlined),
-                        tooltip: '编辑借贷记录',
+                        tooltip: '编辑借贷记录 ${item.contactName}',
                       ),
                       IconButton.filledTonal(
                         onPressed: onDelete,
                         icon: const Icon(Icons.delete_outline),
-                        tooltip: '删除借贷记录',
+                        tooltip: '删除借贷记录 ${item.contactName}',
                       ),
                     ],
                   ),

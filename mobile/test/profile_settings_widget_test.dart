@@ -18,6 +18,15 @@ void main() {
       expect(find.text('Sky'), findsWidgets);
       expect(find.text('用户名：admin'), findsOneWidget);
       expect(find.text('创建时间：2026-05-01'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-draft-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('草稿覆盖 3/4'), findsOneWidget);
+      expect(find.text('昵称就绪'), findsOneWidget);
+      expect(find.text('邮箱有效'), findsOneWidget);
+      expect(find.text('头像可选'), findsOneWidget);
+      expect(find.text('简介已填'), findsOneWidget);
     });
 
     testWidgets('个人资料摘要和表单使用高级表面与入场动效', (tester) async {
@@ -81,6 +90,10 @@ void main() {
       await tester.pumpAndSettle();
       var preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('app_theme_palette'), 'indigo');
+      expect(
+        find.byKey(const ValueKey('profile-settings-template-selected-indigo')),
+        findsOneWidget,
+      );
       expect(find.text('深海靛蓝'), findsWidgets);
       expect(
         find.byKey(const ValueKey('profile-settings-theme-semantic-preview')),
@@ -115,6 +128,10 @@ void main() {
       await tester.pumpAndSettle();
       preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('app_theme_palette'), 'plasma');
+      expect(
+        find.byKey(const ValueKey('profile-settings-featured-selected-plasma')),
+        findsOneWidget,
+      );
       expect(find.text('电浆蓝'), findsWidgets);
       expect(find.text('高动效'), findsOneWidget);
       expect(find.text('跨端高频'), findsWidgets);
@@ -203,6 +220,8 @@ void main() {
         'https://example.com/new.png',
       );
       await tester.enterText(find.byKey(const ValueKey('profile-bio')), '继续记账');
+      expect(find.text('草稿覆盖 4/4'), findsOneWidget);
+      expect(find.text('头像已填'), findsOneWidget);
       await tester.ensureVisible(find.byKey(const ValueKey('profile-save')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-save')));
@@ -279,7 +298,7 @@ void main() {
       );
       repository.profile = _profile(nickname: 'Server Sky');
 
-      await tester.tap(find.byTooltip('刷新'));
+      await tester.tap(find.byTooltip('刷新个人资料'));
       await tester.pumpAndSettle();
 
       expect(find.text('Server Sky'), findsWidgets);

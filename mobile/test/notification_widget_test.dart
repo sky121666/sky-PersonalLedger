@@ -19,6 +19,13 @@ void main() {
       expect(find.text('推送中'), findsOneWidget);
       expect(find.text('通道覆盖率'), findsOneWidget);
       expect(find.text('25%'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('notification-delivery-governance-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('通道覆盖 25%'), findsOneWidget);
+      expect(find.text('规则启用 4'), findsOneWidget);
+      expect(find.text('提前 3 天'), findsOneWidget);
       expect(find.text('可测试'), findsOneWidget);
       expect(find.text('通道类型'), findsOneWidget);
       expect(find.text('密钥策略'), findsOneWidget);
@@ -38,9 +45,17 @@ void main() {
       expect(find.text('Webhook'), findsAtLeastNWidgets(1));
       expect(find.text('可发送'), findsOneWidget);
       expect(find.text('启用通知'), findsOneWidget);
+      final notificationEnabledSemantics = tester.widget<Semantics>(
+        find.byKey(const ValueKey('notification-switch-semantics-启用通知')),
+      );
+      expect(notificationEnabledSemantics.properties.label, '启用通知');
       expect(find.text('企业微信'), findsWidgets);
       expect(find.text('推送'), findsAtLeastNWidgets(1));
       expect(find.text('还款日提醒'), findsOneWidget);
+      final reminderSemantics = tester.widget<Semantics>(
+        find.byKey(const ValueKey('notification-switch-semantics-还款日提醒')),
+      );
+      expect(reminderSemantics.properties.label, '还款日提醒');
       expect(find.text('提前 3 天提醒'), findsOneWidget);
     });
 

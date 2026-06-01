@@ -32,6 +32,17 @@ void main() {
       expect(find.text('个性归类'), findsOneWidget);
       expect(find.text('系统预设'), findsOneWidget);
       expect(find.text('用户维护'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('category-governance-matrix-cat-food')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('category-governance-matrix-cat-traffic')),
+        findsOneWidget,
+      );
+      expect(find.text('支出'), findsAtLeastNWidgets(1));
+      expect(find.text('预设'), findsOneWidget);
+      expect(find.text('可调'), findsOneWidget);
     });
 
     testWidgets('分类头部和卡片使用分段入场动效', (tester) async {
@@ -104,7 +115,8 @@ void main() {
       final repository = _FakeCategoryRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byIcon(Icons.more_vert).last);
+      expect(find.byTooltip('更多分类操作 交通'), findsOneWidget);
+      await tester.tap(find.byTooltip('更多分类操作 交通'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -178,7 +190,7 @@ void main() {
       final repository = _FakeCategoryRepository()..deleteError = '删除分类失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byIcon(Icons.more_vert).last);
+      await tester.tap(find.byTooltip('更多分类操作 交通'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();

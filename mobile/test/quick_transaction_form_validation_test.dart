@@ -172,7 +172,7 @@ void main() {
 
       await tester.drag(find.byType(ListView), const Offset(0, -800));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('移除'));
+      await tester.tap(find.byTooltip('移除 old.pdf'));
       await tester.pumpAndSettle();
       await _tapSaveButton(tester, label: '保存修改');
       await tester.pumpAndSettle();
@@ -296,6 +296,13 @@ void main() {
       expect(find.text('凭证状态'), findsOneWidget);
       expect(find.text('待补齐'), findsOneWidget);
       expect(find.text('待输入'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('quick-entry-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('金额待填'), findsOneWidget);
+      expect(find.text('分类待选'), findsOneWidget);
+      expect(find.text('凭证待补'), findsOneWidget);
       expect(find.text('静谧墨绿'), findsOneWidget);
       expect(find.text('现金'), findsAtLeastNWidgets(1));
       expect(find.text('分类 待选分类'), findsOneWidget);
@@ -327,7 +334,9 @@ void main() {
 
       expect(find.text('¥66.60'), findsOneWidget);
       expect(find.text('支出 · ¥66.60'), findsOneWidget);
-      expect(find.text('金额就绪'), findsOneWidget);
+      expect(find.text('金额就绪'), findsAtLeastNWidgets(1));
+      expect(find.text('分类待选'), findsOneWidget);
+      expect(find.text('凭证待补'), findsOneWidget);
 
       await tester.tap(find.text('收入'));
       await tester.pumpAndSettle();

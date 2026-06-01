@@ -19,6 +19,12 @@ void main() {
       expect(find.text('年度正结余'), findsOneWidget);
       expect(find.text('交易活跃'), findsOneWidget);
       expect(
+        find.byKey(const ValueKey('yearly-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('AI 输入'), findsOneWidget);
+      expect(find.text('可分析'), findsOneWidget);
+      expect(
         find.byKey(const ValueKey('yearly-narrative-radar')),
         findsOneWidget,
       );
@@ -98,6 +104,11 @@ void main() {
       expect(find.text('年度叙事雷达'), findsOneWidget);
       expect(find.text('月度样本'), findsOneWidget);
       expect(find.text('分类样本'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('yearly-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('待积累'), findsOneWidget);
       expect(find.text('暂无主导支出分类'), findsOneWidget);
       expect(find.text('暂无月度数据'), findsAtLeastNWidgets(1));
       await tester.scrollUntilVisible(

@@ -36,6 +36,11 @@ void main() {
       expect(find.text('最大金额'), findsOneWidget);
       expect(find.text('标签覆盖'), findsAtLeastNWidgets(1));
       expect(
+        find.byKey(const ValueKey('transaction-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('证据覆盖 100%'), findsOneWidget);
+      expect(
         find.byKey(const ValueKey('transaction-composition-matrix')),
         findsOneWidget,
       );
@@ -64,6 +69,7 @@ void main() {
         find.byKey(const ValueKey('transaction-amount-transaction-1')),
         findsOneWidget,
       );
+      expect(find.byTooltip('更多交易操作 餐饮'), findsOneWidget);
       expect(
         find.ancestor(
           of: find.byKey(const ValueKey('transaction-item-transaction-1')),
@@ -98,7 +104,7 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.tap(find.byTooltip('更多交易操作 餐饮'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -130,6 +136,12 @@ void main() {
         find.byKey(const ValueKey('transaction-item-transaction-1')),
       );
       await tester.pumpAndSettle();
+      final transactionSelectSemantics = tester.widget<Semantics>(
+        find.byKey(
+          const ValueKey('transaction-select-semantics-transaction-1'),
+        ),
+      );
+      expect(transactionSelectSemantics.properties.label, '选择交易 餐饮');
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('transaction-select-transaction-2')),
         260,
@@ -139,7 +151,9 @@ void main() {
         find.byKey(const ValueKey('transaction-select-transaction-2')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('删除选中交易'));
+      expect(find.byTooltip('退出选择，已选择 2 笔'), findsOneWidget);
+      expect(find.byTooltip('全选当前页 2 笔交易'), findsOneWidget);
+      await tester.tap(find.byTooltip('删除已选择 2 笔交易'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();

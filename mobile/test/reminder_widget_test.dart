@@ -30,6 +30,12 @@ void main() {
       expect(find.text('还款节奏雷达'), findsOneWidget);
       expect(find.text('凭证覆盖'), findsOneWidget);
       expect(find.text('100%'), findsAtLeastNWidgets(1));
+      expect(
+        find.byKey(const ValueKey('reminder-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('证据覆盖 100%'), findsOneWidget);
+      expect(find.text('提醒节奏稳定'), findsOneWidget);
       expect(find.text('最大待还'), findsOneWidget);
       expect(find.text('房贷 · ¥80000.00'), findsOneWidget);
       expect(find.text('房贷'), findsAtLeastNWidgets(1));
@@ -78,7 +84,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('暂停提醒'));
       await tester.pumpAndSettle();
@@ -90,7 +96,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('记录还款'));
       await tester.pumpAndSettle();
@@ -108,7 +114,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('记录还款'));
       await tester.pumpAndSettle();
@@ -144,7 +150,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
@@ -161,7 +167,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
@@ -184,11 +190,14 @@ void main() {
         attachmentRepository: attachmentRepository,
       );
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
-      final removeButton = find.byTooltip('移除', skipOffstage: false);
+      final removeButton = find.byTooltip(
+        '移除 contract.pdf',
+        skipOffstage: false,
+      );
       await tester.ensureVisible(removeButton);
       await tester.pumpAndSettle();
       await tester.tap(removeButton);
@@ -220,7 +229,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
@@ -248,7 +257,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -318,7 +327,7 @@ void main() {
       final repository = _FakeReminderRepository()..toggleError = '暂停失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('暂停提醒'));
       await tester.pumpAndSettle();
@@ -334,7 +343,7 @@ void main() {
       final repository = _FakeReminderRepository()..paymentError = '还款失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作'));
+      await tester.tap(find.byTooltip('更多操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('记录还款'));
       await tester.pumpAndSettle();

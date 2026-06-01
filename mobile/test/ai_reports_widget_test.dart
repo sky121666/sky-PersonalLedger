@@ -54,18 +54,26 @@ void main() {
       find.byKey(const ValueKey('ai-provider-orchestration-panel')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const ValueKey('ai-gateway-contract-panel')),
-      findsOneWidget,
-    );
     expect(find.text('AI 分析控制台'), findsOneWidget);
     expect(find.text('分析就绪'), findsOneWidget);
     expect(find.text('报告总数'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('ai-runtime-contract-rail')),
+      findsOneWidget,
+    );
+    expect(find.text('数据脱敏'), findsOneWidget);
+    expect(find.text('本地留痕'), findsOneWidget);
+    expect(find.text('人工触发'), findsOneWidget);
     expect(find.text('AI 模型编排'), findsOneWidget);
     expect(find.text('待接入'), findsWidgets);
     expect(find.text('静谧墨绿'), findsOneWidget);
     expect(find.text('周报未启用'), findsOneWidget);
     expect(find.text('Key 不回显'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('OpenAI-compatible 网关契约'));
+    expect(
+      find.byKey(const ValueKey('ai-gateway-contract-panel')),
+      findsOneWidget,
+    );
     expect(find.text('OpenAI-compatible 网关契约'), findsOneWidget);
     expect(find.text('兼容接口'), findsOneWidget);
     expect(find.text('DeepSeek 预留'), findsOneWidget);
@@ -212,8 +220,9 @@ void main() {
 
     expect(find.text('AI 分析控制台'), findsOneWidget);
     expect(find.text('AI 模型编排'), findsOneWidget);
-    expect(find.text('OpenAI-compatible 网关契约'), findsOneWidget);
     expect(find.text('等待生成'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('OpenAI-compatible 网关契约'));
+    expect(find.text('OpenAI-compatible 网关契约'), findsOneWidget);
     await _scrollIntoTapArea(tester, find.text('AI 生产就绪层'));
     expect(find.text('AI 生产就绪层'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('暂无 AI 报告'), 300);
@@ -281,7 +290,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('生成报告'));
+    await tester.tap(find.byTooltip('生成 AI 财务报告'));
     await tester.pumpAndSettle();
     expect(find.text('生成 AI 报告'), findsOneWidget);
     expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
@@ -306,7 +315,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('生成报告'));
+    await tester.tap(find.byTooltip('生成 AI 财务报告'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('ai-report-start-date')),
@@ -340,6 +349,10 @@ void main() {
     expect(find.text('聚合快照'), findsOneWidget);
 
     await _scrollIntoTapArea(tester, find.text('启用自动生成'));
+    final scheduleSwitchSemantics = tester.widget<Semantics>(
+      find.byKey(const ValueKey('ai-schedule-enabled-semantics')),
+    );
+    expect(scheduleSwitchSemantics.properties.label, '启用自动生成 AI 报告');
     await tester.tap(find.text('启用自动生成'));
     await tester.pumpAndSettle();
 
@@ -393,6 +406,7 @@ void main() {
       tester,
       find.byKey(const ValueKey('ai-provider-test-provider-1')),
     );
+    expect(find.byTooltip('测试 Provider DeepSeek'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ai-provider-test-provider-1')));
     await tester.pumpAndSettle();
 
@@ -405,6 +419,7 @@ void main() {
       tester,
       find.byKey(const ValueKey('ai-provider-edit-provider-1')),
     );
+    expect(find.byTooltip('编辑 Provider DeepSeek'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ai-provider-edit-provider-1')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(2), 'deepseek-reasoner');
@@ -418,13 +433,9 @@ void main() {
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await _scrollIntoTapArea(
-      tester,
-      find.byKey(const ValueKey('ai-provider-delete-provider-1')),
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('ai-provider-delete-provider-1')),
-    );
+    await _scrollIntoTapArea(tester, find.byTooltip('删除 Provider DeepSeek'));
+    expect(find.byTooltip('删除 Provider DeepSeek'), findsOneWidget);
+    await tester.tap(find.byTooltip('删除 Provider DeepSeek'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();

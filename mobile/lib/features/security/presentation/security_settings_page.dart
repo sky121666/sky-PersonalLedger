@@ -211,7 +211,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
           IconButton(
             onPressed: _isBusy ? null : _loadEntryPath,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新安全入口',
           ),
         ],
       ),
@@ -478,6 +478,12 @@ class _PasswordCard extends StatelessWidget {
             subtitle: '修改后会退出当前登录态',
           ),
           const SizedBox(height: 12),
+          _PasswordEvidenceRail(
+            oldPasswordController: oldPasswordController,
+            newPasswordController: newPasswordController,
+            confirmPasswordController: confirmPasswordController,
+          ),
+          const SizedBox(height: 12),
           _SecurityFlowStrip(
             items: [
               _SecurityFlowItem(
@@ -558,6 +564,129 @@ class _PasswordCard extends StatelessWidget {
             label: Text(submitting ? '修改中...' : '确认修改'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PasswordEvidenceRail extends StatelessWidget {
+  const _PasswordEvidenceRail({
+    required this.oldPasswordController,
+    required this.newPasswordController,
+    required this.confirmPasswordController,
+  });
+
+  final TextEditingController oldPasswordController;
+  final TextEditingController newPasswordController;
+  final TextEditingController confirmPasswordController;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        oldPasswordController,
+        newPasswordController,
+        confirmPasswordController,
+      ]),
+      builder: (context, _) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final financeColors = AppTheme.financeColors(context);
+        final hasOldPassword = oldPasswordController.text.isNotEmpty;
+        final newPasswordReady = newPasswordController.text.length >= 8;
+        final confirmReady =
+            confirmPasswordController.text.isNotEmpty &&
+            confirmPasswordController.text == newPasswordController.text;
+        final completed = [
+          hasOldPassword,
+          newPasswordReady,
+          confirmReady,
+        ].where((ready) => ready).length;
+        return Wrap(
+          key: const ValueKey('security-password-evidence-rail'),
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _SecurityEvidencePill(
+              icon: Icons.fact_check_outlined,
+              label: '改密证据 $completed/3',
+              color: completed == 3
+                  ? financeColors.income
+                  : financeColors.warning,
+            ),
+            _SecurityEvidencePill(
+              icon: Icons.password_outlined,
+              label: hasOldPassword ? '旧密已填' : '旧密待填',
+              color: hasOldPassword ? financeColors.asset : colorScheme.outline,
+            ),
+            _SecurityEvidencePill(
+              icon: Icons.enhanced_encryption_outlined,
+              label: newPasswordReady ? '新密达标' : '新密未达标',
+              color: newPasswordReady
+                  ? financeColors.income
+                  : financeColors.warning,
+            ),
+            _SecurityEvidencePill(
+              icon: Icons.verified_user_outlined,
+              label: confirmReady ? '确认一致' : '确认待匹配',
+              color: confirmReady ? colorScheme.tertiary : colorScheme.outline,
+            ),
+            _SecurityEvidencePill(
+              icon: Icons.logout_outlined,
+              label: '成功后退出',
+              color: colorScheme.error,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SecurityEvidencePill extends StatelessWidget {
+  const _SecurityEvidencePill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 15),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -725,9 +854,15 @@ class _EntryPathCard extends StatelessWidget {
                   subtitle: entryPath.enabled ? entryPath.entryPath : '未启用',
                 ),
               ),
-              Switch(
-                value: entryPath.enabled,
-                onChanged: submitting ? null : onToggle,
+              Semantics(
+                key: const ValueKey('security-entry-enabled-semantics'),
+                label: '启用安全入口',
+                toggled: entryPath.enabled,
+                enabled: !submitting,
+                child: Switch(
+                  value: entryPath.enabled,
+                  onChanged: submitting ? null : onToggle,
+                ),
               ),
             ],
           ),

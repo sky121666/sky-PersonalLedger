@@ -37,6 +37,14 @@ class ProfilePage extends ConsumerWidget {
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 1,
+              child: _ProfileRouteGovernanceRail(
+                palette: themeSettings.palette,
+                actionColor: financeColors.warning,
+              ),
+            ),
+            const SizedBox(height: 16),
+            StaggeredEntrance(
+              index: 2,
               child: _SettingsSection(
                 title: '资产配置',
                 children: [
@@ -87,7 +95,7 @@ class ProfilePage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 2,
+              index: 3,
               child: _SettingsSection(
                 title: '能力中心',
                 children: [
@@ -138,7 +146,7 @@ class ProfilePage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 3,
+              index: 4,
               child: _SettingsSection(
                 title: '系统设置',
                 children: [
@@ -182,7 +190,7 @@ class ProfilePage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 4,
+              index: 5,
               child: _AppearancePanel(
                 settings: themeSettings,
                 onModeChanged: (value) => _setThemeMode(ref, value),
@@ -358,6 +366,52 @@ class _ProfileHero extends StatelessWidget {
                 color: financeColors.asset,
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileRouteGovernanceRail extends StatelessWidget {
+  const _ProfileRouteGovernanceRail({
+    required this.palette,
+    required this.actionColor,
+  });
+
+  final AppThemePalette palette;
+  final Color actionColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      key: const ValueKey('profile-route-governance-rail'),
+      accentColor: palette.seedColor,
+      padding: const EdgeInsets.all(12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _ProfileCommandPill(
+            icon: Icons.route_outlined,
+            label: '路由入口 16',
+            color: palette.seedColor,
+          ),
+          _ProfileCommandPill(
+            icon: Icons.admin_panel_settings_outlined,
+            label: '本机操作 1',
+            color: actionColor,
+          ),
+          _ProfileCommandPill(
+            icon: Icons.palette_outlined,
+            label: '主题模板 16',
+            color: palette.assetColor,
+          ),
+          _ProfileCommandPill(
+            icon: Icons.fact_check_outlined,
+            label: '入口治理',
+            color: colorScheme.tertiary,
           ),
         ],
       ),
@@ -1393,7 +1447,11 @@ class _ThemeFeaturedOption extends StatelessWidget {
                             selected
                                 ? Icons.check_circle
                                 : Icons.add_circle_outline,
-                            key: ValueKey(selected),
+                            key: ValueKey(
+                              selected
+                                  ? 'profile-featured-selected-${palette.id}'
+                                  : 'profile-featured-unselected-${palette.id}',
+                            ),
                             color: selected
                                 ? palette.seedColor
                                 : colorScheme.outline,
@@ -2117,12 +2175,16 @@ class _ThemePaletteOption extends StatelessWidget {
                         child: selected
                             ? Icon(
                                 Icons.check_circle,
-                                key: const ValueKey('selected'),
+                                key: ValueKey(
+                                  'profile-theme-selected-${palette.id}',
+                                ),
                                 color: palette.seedColor,
                               )
                             : Icon(
                                 Icons.radio_button_unchecked,
-                                key: const ValueKey('unselected'),
+                                key: ValueKey(
+                                  'profile-theme-unselected-${palette.id}',
+                                ),
                                 color: colorScheme.outline,
                               ),
                       ),
@@ -2191,12 +2253,16 @@ class _ThemePaletteOption extends StatelessWidget {
                     switchOutCurve: Curves.easeInCubic,
                     child: selected
                         ? Padding(
-                            key: const ValueKey('selected-palette-roles'),
+                            key: ValueKey(
+                              'profile-theme-selected-roles-${palette.id}',
+                            ),
                             padding: const EdgeInsets.only(top: 12),
                             child: _PaletteRoleLegend(palette: palette),
                           )
-                        : const SizedBox.shrink(
-                            key: ValueKey('unselected-palette-roles'),
+                        : SizedBox.shrink(
+                            key: ValueKey(
+                              'profile-theme-unselected-roles-${palette.id}',
+                            ),
                           ),
                   ),
                 ],

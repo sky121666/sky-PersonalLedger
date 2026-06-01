@@ -22,6 +22,11 @@ void main() {
 
       expect(repository.summaryCalls, 2);
       expect(find.text('净资产'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('现金'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('现金'), findsOneWidget);
     });
 
@@ -37,9 +42,27 @@ void main() {
       expect(find.text('私人模式'), findsWidgets);
       expect(find.text('行动编排层'), findsOneWidget);
       expect(find.text('首笔记录'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('quick-home-action-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('入口证据'), findsOneWidget);
+      expect(find.text('三类交易'), findsOneWidget);
       expect(find.text('预算待设置'), findsAtLeastNWidgets(1));
       expect(find.text('AI 周报'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-decision-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('0 笔记录'), findsOneWidget);
+      expect(find.text('预算缺口'), findsOneWidget);
+      expect(find.text('AI 输入就绪'), findsOneWidget);
       expect(find.text('现金流稳定'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('暂无账户，请先创建账户'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('暂无账户，请先创建账户'), findsOneWidget);
       expect(find.text('本月已记 0 笔'), findsOneWidget);
       expect(find.text('暂无现金流'), findsAtLeastNWidgets(1));
@@ -62,14 +85,24 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
+      await tester.scrollUntilVisible(
+        find.text('现金'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('现金'), findsOneWidget);
       expect(find.text('¥1280.00'), findsWidgets);
 
-      await tester.tap(find.byTooltip('刷新'));
+      await tester.tap(find.byTooltip('刷新首页概览'));
       await tester.pumpAndSettle();
 
       expect(repository.summaryCalls, 2);
       expect(find.text('现金'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('储蓄卡'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('储蓄卡'), findsOneWidget);
       expect(find.text('¥2600.00'), findsWidgets);
     });
@@ -99,13 +132,32 @@ void main() {
       expect(find.text('1 人'), findsOneWidget);
       expect(find.text('AI 周报'), findsOneWidget);
       expect(find.text('可分析'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-decision-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('5 笔记录'), findsOneWidget);
+      expect(find.text('预算输入'), findsOneWidget);
+      expect(find.text('AI 输入就绪'), findsOneWidget);
       expect(find.text('家庭数据在线'), findsOneWidget);
       expect(find.text('本月现金流'), findsOneWidget);
       expect(find.text('现金流充沛'), findsAtLeastNWidgets(1));
       expect(find.text('结余率 60%'), findsOneWidget);
       expect(find.text('本月趋势已同步'), findsOneWidget);
       expect(find.text('快速记账'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('quick-home-action-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('入口证据'), findsOneWidget);
+      expect(find.text('三类交易'), findsOneWidget);
       expect(find.text('家庭支出'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('family-home-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('家庭证据 3/3'), findsOneWidget);
+      expect(find.text('1 人在线'), findsOneWidget);
       expect(find.text('家庭协同中'), findsOneWidget);
       expect(find.text('成员A'), findsOneWidget);
       expect(find.text('¥320.00'), findsWidgets);

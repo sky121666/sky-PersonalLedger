@@ -69,6 +69,11 @@ void main() {
       );
       expect(find.text('模板编排面板'), findsOneWidget);
       expect(find.text('高频自动化'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('template-execution-evidence-pill')),
+        findsOneWidget,
+      );
+      expect(find.text('可一键执行'), findsOneWidget);
       expect(find.text('模板池'), findsOneWidget);
       expect(find.text('账户通道'), findsAtLeastNWidgets(1));
       expect(find.text('复用强度'), findsOneWidget);
@@ -107,7 +112,8 @@ void main() {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byKey(const ValueKey('template-apply')));
+      expect(find.byTooltip('套用模板 午餐'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('template-apply-tpl-1')));
       await tester.pumpAndSettle();
 
       expect(repository.applyCalls, hasLength(1));
@@ -121,7 +127,7 @@ void main() {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('删除模板'));
+      await tester.tap(find.byTooltip('删除模板 午餐'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
@@ -209,7 +215,8 @@ void main() {
       final repository = _FakeTemplateRepository()..applyError = '套用模板失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byKey(const ValueKey('template-apply')));
+      expect(find.byTooltip('套用模板 午餐'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('template-apply-tpl-1')));
       await tester.pumpAndSettle();
 
       expect(repository.applyCalls, hasLength(1));
@@ -222,7 +229,7 @@ void main() {
       final repository = _FakeTemplateRepository()..deleteError = '删除模板失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('删除模板'));
+      await tester.tap(find.byTooltip('删除模板 午餐'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();

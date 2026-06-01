@@ -129,7 +129,7 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
           IconButton(
             onPressed: _submitting ? null : _loadProfile,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '刷新个人资料',
           ),
         ],
       ),
@@ -1005,7 +1005,11 @@ class _ProfileFeaturedThemeCard extends StatelessWidget {
                           selected
                               ? Icons.check_circle
                               : Icons.add_circle_outline,
-                          key: ValueKey(selected),
+                          key: ValueKey(
+                            selected
+                                ? 'profile-settings-featured-selected-${palette.id}'
+                                : 'profile-settings-featured-unselected-${palette.id}',
+                          ),
                           color: selected
                               ? palette.seedColor
                               : colorScheme.outline,
@@ -1492,7 +1496,11 @@ class _ProfileThemeTemplateTile extends StatelessWidget {
                       selected
                           ? Icons.check_circle_rounded
                           : Icons.radio_button_unchecked,
-                      key: ValueKey(selected),
+                      key: ValueKey(
+                        selected
+                            ? 'profile-settings-template-selected-${item.targetPalette.id}'
+                            : 'profile-settings-template-unselected-${item.targetPalette.id}',
+                      ),
                       size: 20,
                       color: selected
                           ? item.targetPalette.seedColor
@@ -2280,6 +2288,13 @@ class _ProfileFormCard extends StatelessWidget {
             emailController: emailController,
             avatarController: avatarController,
           ),
+          const SizedBox(height: 12),
+          _ProfileDraftEvidenceRail(
+            nicknameController: nicknameController,
+            emailController: emailController,
+            avatarController: avatarController,
+            bioController: bioController,
+          ),
           const SizedBox(height: 16),
           TextField(
             key: const ValueKey('profile-nickname'),
@@ -2337,6 +2352,131 @@ class _ProfileFormCard extends StatelessWidget {
             label: Text(submitting ? '保存中...' : '保存资料'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileDraftEvidenceRail extends StatelessWidget {
+  const _ProfileDraftEvidenceRail({
+    required this.nicknameController,
+    required this.emailController,
+    required this.avatarController,
+    required this.bioController,
+  });
+
+  final TextEditingController nicknameController;
+  final TextEditingController emailController;
+  final TextEditingController avatarController;
+  final TextEditingController bioController;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        nicknameController,
+        emailController,
+        avatarController,
+        bioController,
+      ]),
+      builder: (context, _) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final financeColors = AppTheme.financeColors(context);
+        final nicknameReady = nicknameController.text.trim().isNotEmpty;
+        final email = emailController.text.trim();
+        final emailReady = email.isNotEmpty && email.contains('@');
+        final avatarReady = avatarController.text.trim().isNotEmpty;
+        final bioReady = bioController.text.trim().isNotEmpty;
+        final completed = [
+          nicknameReady,
+          emailReady,
+          avatarReady,
+          bioReady,
+        ].where((ready) => ready).length;
+        return Wrap(
+          key: const ValueKey('profile-draft-evidence-rail'),
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _ProfileDraftEvidencePill(
+              icon: Icons.fact_check_outlined,
+              label: '草稿覆盖 $completed/4',
+              color: completed >= 3
+                  ? financeColors.income
+                  : financeColors.warning,
+            ),
+            _ProfileDraftEvidencePill(
+              icon: Icons.badge_outlined,
+              label: nicknameReady ? '昵称就绪' : '昵称待补',
+              color: nicknameReady ? colorScheme.primary : colorScheme.outline,
+            ),
+            _ProfileDraftEvidencePill(
+              icon: Icons.alternate_email_outlined,
+              label: emailReady ? '邮箱有效' : '邮箱待校验',
+              color: emailReady ? financeColors.asset : financeColors.warning,
+            ),
+            _ProfileDraftEvidencePill(
+              icon: Icons.image_outlined,
+              label: avatarReady ? '头像已填' : '头像可选',
+              color: avatarReady ? colorScheme.tertiary : colorScheme.outline,
+            ),
+            _ProfileDraftEvidencePill(
+              icon: Icons.notes_outlined,
+              label: bioReady ? '简介已填' : '简介待补',
+              color: bioReady ? financeColors.income : colorScheme.outline,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ProfileDraftEvidencePill extends StatelessWidget {
+  const _ProfileDraftEvidencePill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.17
+                : 0.08,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 15),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
