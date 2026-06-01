@@ -1,12 +1,9 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_route_paths.dart';
 import '../../../app/theme/app_theme.dart';
-import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -53,7 +50,6 @@ class _TransactionDetailsPageState
   Widget build(BuildContext context) {
     final state = ref.watch(transactionListControllerProvider);
     final controller = ref.read(transactionListControllerProvider.notifier);
-    final themeSettings = ref.watch(themeControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -91,11 +87,7 @@ class _TransactionDetailsPageState
               ],
       ),
       body: AdaptivePageContainer(
-        child: _buildContent(
-          state: state,
-          controller: controller,
-          palette: themeSettings.palette,
-        ),
+        child: _buildContent(state: state, controller: controller),
       ),
     );
   }
@@ -103,7 +95,6 @@ class _TransactionDetailsPageState
   Widget _buildContent({
     required TransactionListState state,
     required TransactionListController controller,
-    required AppThemePalette palette,
   }) {
     if (state.isLoading && state.items.isEmpty) {
       return const AppLoadingView(message: '加载交易中...');
@@ -122,7 +113,7 @@ class _TransactionDetailsPageState
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 18),
         children: [
-          ..._buildHeaderWidgets(state, controller, palette),
+          ..._buildHeaderWidgets(state, controller),
           const SizedBox(height: 8),
           AppEmptyView(
             title: state.hasActiveFilter ? '没有匹配的交易' : '暂无交易明细',
@@ -143,52 +134,13 @@ class _TransactionDetailsPageState
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 18),
-        itemCount: state.items.length + 6,
+        itemCount: state.items.length + 2,
         itemBuilder: (context, index) {
           if (index == 0) {
-            return StaggeredEntrance(
-              index: 0,
-              child: _TransactionOverviewCard(state: state),
-            );
-          }
-          if (index == 1) {
-            return Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: StaggeredEntrance(
-                index: 1,
-                child: _TransactionLedgerSignalStrip(
-                  state: state,
-                  palette: palette,
-                ),
-              ),
-            );
-          }
-          if (index == 2) {
-            return Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: StaggeredEntrance(
-                index: 2,
-                child: _TransactionInsightRail(state: state, palette: palette),
-              ),
-            );
-          }
-          if (index == 3) {
-            return Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: StaggeredEntrance(
-                index: 3,
-                child: _TransactionCompositionMatrix(
-                  state: state,
-                  palette: palette,
-                ),
-              ),
-            );
-          }
-          if (index == 4) {
             return Padding(
               padding: const EdgeInsets.only(top: 8, bottom: 8),
               child: StaggeredEntrance(
-                index: 4,
+                index: 0,
                 child: _TransactionFilterWorkbench(
                   state: state,
                   controller: _searchController,
@@ -202,10 +154,10 @@ class _TransactionDetailsPageState
               ),
             );
           }
-          if (index == state.items.length + 5) {
+          if (index == state.items.length + 1) {
             return _LoadMoreIndicator(state: state);
           }
-          final itemIndex = index - 5;
+          final itemIndex = index - 1;
           final item = state.items[itemIndex];
           return StaggeredEntrance(
             index: itemIndex.clamp(0, 5),
@@ -228,31 +180,10 @@ class _TransactionDetailsPageState
   List<Widget> _buildHeaderWidgets(
     TransactionListState state,
     TransactionListController controller,
-    AppThemePalette palette,
   ) {
     return [
       StaggeredEntrance(
         index: 0,
-        child: _TransactionOverviewCard(state: state),
-      ),
-      const SizedBox(height: 8),
-      StaggeredEntrance(
-        index: 1,
-        child: _TransactionLedgerSignalStrip(state: state, palette: palette),
-      ),
-      const SizedBox(height: 8),
-      StaggeredEntrance(
-        index: 2,
-        child: _TransactionInsightRail(state: state, palette: palette),
-      ),
-      const SizedBox(height: 8),
-      StaggeredEntrance(
-        index: 3,
-        child: _TransactionCompositionMatrix(state: state, palette: palette),
-      ),
-      const SizedBox(height: 8),
-      StaggeredEntrance(
-        index: 4,
         child: _TransactionFilterWorkbench(
           state: state,
           controller: _searchController,
@@ -364,978 +295,6 @@ class _TransactionDetailsPageState
   }
 }
 
-class _TransactionOverviewCard extends StatelessWidget {
-  const _TransactionOverviewCard({required this.state});
-
-  final TransactionListState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
-    final colorScheme = Theme.of(context).colorScheme;
-    final income = _sumByType(TransactionType.income);
-    final expense = _sumByType(TransactionType.expense);
-    final net = income - expense;
-    final accent = net >= 0 ? financeColors.income : financeColors.expense;
-    final averageAmount = state.items.isEmpty
-        ? 0.0
-        : state.items.fold<double>(0, (sum, item) => sum + item.amount) /
-              state.items.length;
-
-    return PremiumSurface(
-      accentColor: accent,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.receipt_long_outlined,
-                color: accent,
-                size: 44,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      state.hasActiveFilter ? '筛选结果概览' : '交易明细总览',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '当前列表 ${state.items.length} 笔 · 共 ${state.total} 笔',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _OverviewDeltaBadge(value: net, color: accent),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _OverviewMetric(
-                  label: '收入',
-                  value: income,
-                  color: financeColors.income,
-                  icon: Icons.south_west,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _OverviewMetric(
-                  label: '支出',
-                  value: expense,
-                  color: financeColors.expense,
-                  icon: Icons.north_east,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _OverviewMetric(
-                  label: '均笔',
-                  value: averageAmount,
-                  color: colorScheme.primary,
-                  icon: Icons.analytics_outlined,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  double _sumByType(TransactionType type) {
-    return state.items
-        .where((item) => item.type == type)
-        .fold(0, (total, item) => total + item.amount);
-  }
-}
-
-class _OverviewDeltaBadge extends StatelessWidget {
-  const _OverviewDeltaBadge({required this.value, required this.color});
-
-  final double value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final sign = value >= 0 ? '+' : '-';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Text(
-        '$sign¥${value.abs().toStringAsFixed(2)}',
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w900,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
-  }
-}
-
-class _OverviewMetric extends StatelessWidget {
-  const _OverviewMetric({
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.icon,
-  });
-
-  final String label;
-  final double value;
-  final Color color;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return _OverviewMetricShell(
-      label: label,
-      value: '¥${value.toStringAsFixed(2)}',
-      color: color,
-      icon: icon,
-    );
-  }
-}
-
-class _OverviewMetricShell extends StatelessWidget {
-  const _OverviewMetricShell({
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 68),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransactionLedgerSignalStrip extends StatelessWidget {
-  const _TransactionLedgerSignalStrip({
-    required this.state,
-    required this.palette,
-  });
-
-  final TransactionListState state;
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final incomeCount = state.items
-        .where((item) => item.type == TransactionType.income)
-        .length;
-    final expenseCount = state.items
-        .where((item) => item.type == TransactionType.expense)
-        .length;
-    final transferCount = state.items
-        .where((item) => item.type == TransactionType.transfer)
-        .length;
-    final taggedCount = state.items
-        .where((item) => item.tags.isNotEmpty)
-        .length;
-    final activeFilterCount = [
-      state.keyword.trim().isNotEmpty,
-      state.type != null,
-      state.accountId != null && state.accountId!.isNotEmpty,
-      state.categoryId != null && state.categoryId!.isNotEmpty,
-    ].where((active) => active).length;
-    final signalColor = state.hasActiveFilter
-        ? palette.assetColor
-        : expenseCount > incomeCount
-        ? financeColors.expense
-        : financeColors.income;
-    final densityLabel = state.items.isEmpty
-        ? '等待记录'
-        : state.items.length >= 20
-        ? '高频'
-        : '轻量';
-
-    return PremiumSurface(
-      key: const ValueKey('transaction-ledger-signal-strip'),
-      accentColor: signalColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(
-                icon: Icons.analytics_outlined,
-                color: signalColor,
-                size: 42,
-                iconSize: 21,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '流水信号带',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      state.hasActiveFilter
-                          ? '筛选视图 · $activeFilterCount 项条件'
-                          : '全量视图 · ${state.total} 笔记录',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _TransactionSignalPill(
-                icon: Icons.palette_outlined,
-                label: palette.label,
-                color: palette.seedColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _TransactionSignalPill(
-                icon: Icons.south_west,
-                label: '收入 $incomeCount',
-                color: financeColors.income,
-              ),
-              _TransactionSignalPill(
-                icon: Icons.north_east,
-                label: '支出 $expenseCount',
-                color: financeColors.expense,
-              ),
-              _TransactionSignalPill(
-                icon: Icons.swap_horiz,
-                label: '转账 $transferCount',
-                color: palette.assetColor,
-              ),
-              _TransactionSignalPill(
-                icon: taggedCount > 0
-                    ? Icons.label_important_outline
-                    : Icons.label_outline,
-                label: taggedCount > 0 ? '标签 $taggedCount' : '无标签',
-                color: colorScheme.secondary,
-              ),
-              _TransactionSignalPill(
-                icon: Icons.speed_outlined,
-                label: densityLabel,
-                color: palette.warningColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransactionInsightRail extends StatelessWidget {
-  const _TransactionInsightRail({required this.state, required this.palette});
-
-  final TransactionListState state;
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final largest = state.items.fold<TransactionItem?>(
-      null,
-      (current, item) =>
-          current == null || item.amount > current.amount ? item : current,
-    );
-    final latest = state.items.fold<TransactionItem?>(
-      null,
-      (current, item) =>
-          current == null ||
-              item.transactionDate.isAfter(current.transactionDate)
-          ? item
-          : current,
-    );
-    final tagged = state.items.where((item) => item.tags.isNotEmpty).length;
-    final transfer = state.items
-        .where((item) => item.type == TransactionType.transfer)
-        .length;
-    final income = state.items
-        .where((item) => item.type == TransactionType.income)
-        .fold<double>(0, (sum, item) => sum + item.amount);
-    final expense = state.items
-        .where((item) => item.type == TransactionType.expense)
-        .fold<double>(0, (sum, item) => sum + item.amount);
-    final net = income - expense;
-    final dominantColor = net >= 0
-        ? financeColors.income
-        : financeColors.expense;
-    final coverage = state.items.isEmpty
-        ? 0
-        : ((tagged / state.items.length) * 100).round();
-    final title = state.hasActiveFilter ? '筛选洞察轨道' : '交易洞察轨道';
-    final subtitle = state.hasActiveFilter
-        ? '当前条件下的金额、标签和最近交易'
-        : '从全量列表提炼高频判断信号';
-
-    return PremiumSurface(
-      key: const ValueKey('transaction-insight-rail'),
-      accentColor: dominantColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.route_outlined,
-                color: dominantColor,
-                size: 42,
-                iconSize: 21,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _TransactionSignalPill(
-                key: const ValueKey('transaction-net-flow-pill'),
-                icon: net >= 0 ? Icons.trending_up : Icons.trending_down,
-                label: net >= 0 ? '净流入' : '净流出',
-                color: dominantColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          GridView.count(
-            key: const ValueKey('transaction-evidence-rail'),
-            crossAxisCount: 2,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 1.8,
-            children: [
-              _InsightRailTile(
-                icon: Icons.bolt_outlined,
-                label: '最大金额',
-                value: largest == null
-                    ? '¥0.00'
-                    : '¥${largest.amount.toStringAsFixed(2)}',
-                caption: largest?.displayTitle ?? '暂无记录',
-                color: largest == null
-                    ? colorScheme.outline
-                    : _typeColor(context, largest.type),
-              ),
-              _InsightRailTile(
-                icon: Icons.schedule_outlined,
-                label: '最近一笔',
-                value: latest == null ? '--' : latest.displayTitle,
-                caption: latest == null
-                    ? '等待同步'
-                    : _formatDateTime(latest.transactionDate),
-                color: palette.assetColor,
-              ),
-              _InsightRailTile(
-                icon: Icons.sell_outlined,
-                label: '标签覆盖',
-                value: '$coverage%',
-                caption: '证据覆盖 $coverage%',
-                color: colorScheme.secondary,
-              ),
-              _InsightRailTile(
-                icon: Icons.swap_calls_outlined,
-                label: '转账轨迹',
-                value: '$transfer 笔',
-                caption: transfer > 0 ? '需要留意账户联动' : '暂无账户迁移',
-                color: palette.warningColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InsightRailTile extends StatelessWidget {
-  const _InsightRailTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.caption,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String caption;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 19, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  caption,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransactionCompositionMatrix extends StatelessWidget {
-  const _TransactionCompositionMatrix({
-    required this.state,
-    required this.palette,
-  });
-
-  final TransactionListState state;
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final incomeCount = _countByType(TransactionType.income);
-    final expenseCount = _countByType(TransactionType.expense);
-    final transferCount = _countByType(TransactionType.transfer);
-    final taggedCount = state.items
-        .where((item) => item.tags.isNotEmpty)
-        .length;
-    final totalCount = state.items.length;
-    final classifiedCount = incomeCount + expenseCount + transferCount;
-    final tagCoverage = totalCount == 0 ? 0.0 : taggedCount / totalCount;
-    final filterHitRatio = state.total == 0
-        ? 0.0
-        : state.items.length / state.total;
-    final accentColor = state.hasActiveFilter
-        ? palette.assetColor
-        : expenseCount > incomeCount
-        ? financeColors.expense
-        : financeColors.income;
-    final statusLabel = state.hasActiveFilter ? '筛选构成' : '全量构成';
-
-    return PremiumSurface(
-      key: const ValueKey('transaction-composition-matrix'),
-      accentColor: accentColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(
-                icon: Icons.hub_outlined,
-                color: accentColor,
-                size: 42,
-                iconSize: 21,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '流水构成矩阵',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      totalCount == 0
-                          ? '等待交易数据接入'
-                          : '$classifiedCount 笔流水 · 标签覆盖 ${(tagCoverage * 100).toStringAsFixed(0)}%',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _TransactionSignalPill(
-                icon: state.hasActiveFilter
-                    ? Icons.filter_alt_outlined
-                    : Icons.grid_view_outlined,
-                label: statusLabel,
-                color: accentColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _TransactionCompositionBar(
-            incomeCount: incomeCount,
-            expenseCount: expenseCount,
-            transferCount: transferCount,
-            incomeColor: financeColors.income,
-            expenseColor: financeColors.expense,
-            transferColor: palette.assetColor,
-          ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth >= 420
-                  ? (constraints.maxWidth - 8) / 2
-                  : constraints.maxWidth;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _TransactionCompositionTile(
-                    width: itemWidth,
-                    icon: Icons.south_west,
-                    label: '收入占比',
-                    value: _ratioLabel(incomeCount, totalCount),
-                    meta: '$incomeCount 笔',
-                    color: financeColors.income,
-                  ),
-                  _TransactionCompositionTile(
-                    width: itemWidth,
-                    icon: Icons.north_east,
-                    label: '支出占比',
-                    value: _ratioLabel(expenseCount, totalCount),
-                    meta: '$expenseCount 笔',
-                    color: financeColors.expense,
-                  ),
-                  _TransactionCompositionTile(
-                    width: itemWidth,
-                    icon: Icons.sell_outlined,
-                    label: '标签覆盖',
-                    value: '${(tagCoverage * 100).toStringAsFixed(0)}%',
-                    meta: '$taggedCount/$totalCount 笔',
-                    color: colorScheme.secondary,
-                  ),
-                  _TransactionCompositionTile(
-                    width: itemWidth,
-                    icon: Icons.manage_search_outlined,
-                    label: '筛选命中',
-                    value: '${(filterHitRatio * 100).toStringAsFixed(0)}%',
-                    meta: '${state.items.length}/${state.total} 笔',
-                    color: palette.warningColor,
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _countByType(TransactionType type) {
-    return state.items.where((item) => item.type == type).length;
-  }
-
-  String _ratioLabel(int count, int total) {
-    if (total == 0) {
-      return '0%';
-    }
-    return '${(count / total * 100).toStringAsFixed(0)}%';
-  }
-}
-
-class _TransactionCompositionBar extends StatelessWidget {
-  const _TransactionCompositionBar({
-    required this.incomeCount,
-    required this.expenseCount,
-    required this.transferCount,
-    required this.incomeColor,
-    required this.expenseColor,
-    required this.transferColor,
-  });
-
-  final int incomeCount;
-  final int expenseCount;
-  final int transferCount;
-  final Color incomeColor;
-  final Color expenseColor;
-  final Color transferColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final total = incomeCount + expenseCount + transferCount;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.38),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _CompositionLegend(label: '收入', color: incomeColor),
-              const SizedBox(width: 12),
-              _CompositionLegend(label: '支出', color: expenseColor),
-              const SizedBox(width: 12),
-              _CompositionLegend(label: '转账', color: transferColor),
-              const Spacer(),
-              Text(
-                total == 0 ? '待接入' : '$total 笔',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w900,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 9),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: SizedBox(
-              height: 12,
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: total == 0 ? 1 : math.max(1, incomeCount),
-                    child: ColoredBox(color: incomeColor),
-                  ),
-                  Expanded(
-                    flex: total == 0 ? 1 : math.max(1, expenseCount),
-                    child: ColoredBox(color: expenseColor),
-                  ),
-                  Expanded(
-                    flex: total == 0 ? 1 : math.max(1, transferCount),
-                    child: ColoredBox(color: transferColor),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CompositionLegend extends StatelessWidget {
-  const _CompositionLegend({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TransactionCompositionTile extends StatelessWidget {
-  const _TransactionCompositionTile({
-    required this.width,
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.meta,
-    required this.color,
-  });
-
-  final double width;
-  final IconData icon;
-  final String label;
-  final String value;
-  final String meta;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      width: width,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 82),
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  meta,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransactionSignalPill extends StatelessWidget {
-  const _TransactionSignalPill({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 34, maxWidth: 180),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TransactionFilterWorkbench extends ConsumerWidget {
   const _TransactionFilterWorkbench({
     required this.state,
@@ -1362,7 +321,6 @@ class _TransactionFilterWorkbench extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
     final activeCount = [
       state.keyword.trim().isNotEmpty,
       state.type != null,
@@ -1378,7 +336,6 @@ class _TransactionFilterWorkbench extends ConsumerWidget {
         future: ref.read(transactionRepositoryProvider).listAccounts(),
         builder: (context, snapshot) {
           final accounts = snapshot.data ?? const <LedgerAccount>[];
-          final accountLabel = _selectedAccountLabel(accounts);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1396,15 +353,15 @@ class _TransactionFilterWorkbench extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '交易筛选工作台',
+                          '筛选',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w900),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           state.hasActiveFilter
-                              ? '已启用 $activeCount 项条件 · 命中 ${state.items.length}/${state.total} 笔'
-                              : '快速定位备注、类型和账户流水',
+                              ? '$activeCount 项条件 · ${state.items.length}/${state.total} 笔'
+                              : '搜索备注、标签或账户',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodySmall
@@ -1439,35 +396,6 @@ class _TransactionFilterWorkbench extends ConsumerWidget {
                 onChanged: onChanged,
               ),
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _FilterStatusPill(
-                    icon: Icons.segment_outlined,
-                    label: state.type?.label ?? '类型不限',
-                    color: _typeColor(context, state.type),
-                    selected: state.type != null,
-                  ),
-                  _FilterStatusPill(
-                    icon: Icons.account_balance_wallet_outlined,
-                    label: accountLabel,
-                    color: financeColors.asset,
-                    selected:
-                        state.accountId != null && state.accountId!.isNotEmpty,
-                  ),
-                  _FilterStatusPill(
-                    icon: Icons.search_rounded,
-                    label: state.keyword.trim().isEmpty
-                        ? '未输入关键词'
-                        : '关键词 ${state.keyword.trim()}',
-                    color: colorScheme.secondary,
-                    selected: state.keyword.trim().isNotEmpty,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
               _TransactionFilterControls(
                 state: state,
                 accounts: accounts,
@@ -1480,69 +408,6 @@ class _TransactionFilterWorkbench extends ConsumerWidget {
     );
   }
 
-  String _selectedAccountLabel(List<LedgerAccount> accounts) {
-    final accountId = state.accountId;
-    if (accountId == null || accountId.isEmpty) {
-      return '账户不限';
-    }
-    for (final account in accounts) {
-      if (account.id == accountId) {
-        return account.name;
-      }
-    }
-    return '指定账户';
-  }
-}
-
-class _FilterStatusPill extends StatelessWidget {
-  const _FilterStatusPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.selected,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final background = selected
-        ? color.withValues(alpha: 0.13)
-        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.62);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 36),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: selected
-              ? color.withValues(alpha: 0.28)
-              : colorScheme.outlineVariant.withValues(alpha: 0.55),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: selected ? color : colorScheme.outline),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: selected ? color : colorScheme.onSurfaceVariant,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _TransactionFilterControls extends StatelessWidget {
@@ -1611,17 +476,6 @@ class _TransactionFilterControls extends StatelessWidget {
       ),
     );
   }
-}
-
-Color _typeColor(BuildContext context, TransactionType? type) {
-  final colorScheme = Theme.of(context).colorScheme;
-  final financeColors = AppTheme.financeColors(context);
-  return switch (type) {
-    TransactionType.income => financeColors.income,
-    TransactionType.expense => financeColors.expense,
-    TransactionType.transfer => colorScheme.primary,
-    null => colorScheme.primary,
-  };
 }
 
 IconData _typeIcon(TransactionType type) {
@@ -1744,27 +598,16 @@ class _TransactionListTile extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 7,
-                            runSpacing: 7,
-                            children: [
-                              _TransactionMetaPill(
-                                icon: _typeIcon(item.type),
-                                label: item.typeLabel,
-                                color: amountColor,
-                              ),
-                              _TransactionMetaPill(
-                                icon: Icons.account_balance_wallet_outlined,
-                                label: accountLabel,
-                                color: colorScheme.primary,
-                              ),
-                              _TransactionMetaPill(
-                                icon: Icons.schedule_outlined,
-                                label: _formatDateTime(item.transactionDate),
-                                color: colorScheme.outline,
-                              ),
-                            ],
+                          const SizedBox(height: 6),
+                          Text(
+                            '${item.typeLabel} · $accountLabel · ${_formatDateTime(item.transactionDate)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                           if (item.remark.isNotEmpty) ...[
                             const SizedBox(height: 8),
@@ -1966,53 +809,6 @@ class _ReceiptRailConnector extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 7),
       child: Icon(Icons.chevron_right_rounded, color: color, size: 18),
-    );
-  }
-}
-
-class _TransactionMetaPill extends StatelessWidget {
-  const _TransactionMetaPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 26, maxWidth: 180),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(alpha: 0.09),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 13),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

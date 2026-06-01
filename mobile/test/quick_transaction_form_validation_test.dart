@@ -132,6 +132,7 @@ void main() {
             ?.text,
         '18.00',
       );
+      await _expandMoreOptions(tester);
       expect(find.text('日常'), findsOneWidget);
 
       await tester.enterText(
@@ -170,6 +171,7 @@ void main() {
         ),
       );
 
+      await _expandMoreOptions(tester);
       await tester.drag(find.byType(ListView), const Offset(0, -800));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('移除 old.pdf'));
@@ -211,6 +213,7 @@ void main() {
         '45',
       );
       await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _expandMoreOptions(tester);
       await tester.drag(find.byType(ListView), const Offset(0, -800));
       await tester.pumpAndSettle();
       await tester.tap(find.text('添加附件'));
@@ -258,6 +261,7 @@ void main() {
         '88',
       );
       await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _expandMoreOptions(tester);
       await _selectDropdownItem(tester, fieldLabel: '成员', itemText: '成员A');
       await _tapSaveButton(tester);
       await tester.pumpAndSettle();
@@ -267,7 +271,7 @@ void main() {
       expect(repository.createCalls.single.paidByMemberId, 'member-1');
     });
 
-    testWidgets('嵌入式快速记账使用高级表单结构', (tester) async {
+    testWidgets('嵌入式快速记账使用纯表单结构', (tester) async {
       final repository = _FakeTransactionRepository();
       await _pumpTransactionPage(
         tester,
@@ -276,39 +280,16 @@ void main() {
       );
 
       expect(find.text('记一笔'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('quick-entry-command-strip')),
-        findsOneWidget,
-      );
-      expect(find.text('记账指挥条'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('quick-entry-readiness-panel')),
-        findsOneWidget,
-      );
-      expect(find.text('录入质量层'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('quick-entry-flow-panel')),
-        findsOneWidget,
-      );
-      expect(find.text('记账动线'), findsOneWidget);
-      expect(find.text('等待金额'), findsOneWidget);
-      expect(find.text('家庭归属'), findsOneWidget);
-      expect(find.text('凭证状态'), findsOneWidget);
-      expect(find.text('待补齐'), findsOneWidget);
-      expect(find.text('待输入'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('quick-entry-evidence-rail')),
-        findsOneWidget,
-      );
-      expect(find.text('金额待填'), findsOneWidget);
-      expect(find.text('分类待选'), findsOneWidget);
-      expect(find.text('凭证待补'), findsOneWidget);
-      expect(find.text('静谧墨绿'), findsOneWidget);
-      expect(find.text('现金'), findsAtLeastNWidgets(1));
-      expect(find.text('分类 待选分类'), findsOneWidget);
       expect(find.byKey(const ValueKey('transaction-amount')), findsOneWidget);
-      expect(find.text('选择支出分类'), findsOneWidget);
-      expect(find.text('金额、账户和分类是保存前的关键字段'), findsOneWidget);
+      expect(find.text('账户'), findsOneWidget);
+      expect(find.text('分类'), findsOneWidget);
+      expect(find.text('时间'), findsOneWidget);
+      expect(find.text('备注'), findsOneWidget);
+      expect(find.text('更多选项'), findsOneWidget);
+      expect(find.text('记账指挥条'), findsNothing);
+      expect(find.text('录入质量层'), findsNothing);
+      expect(find.text('记账动线'), findsNothing);
+      expect(find.text('等待金额'), findsNothing);
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('transaction-save')),
         260,
@@ -318,12 +299,11 @@ void main() {
       expect(find.byType(PremiumSurface), findsWidgets);
     });
 
-    testWidgets('金额工作台会随输入和类型切换更新', (tester) async {
+    testWidgets('类型切换保留纯表单字段', (tester) async {
       final repository = _FakeTransactionRepository();
       await _pumpTransactionPage(tester, repository: repository);
 
-      expect(find.text('支出金额'), findsOneWidget);
-      expect(find.text('¥0.00'), findsOneWidget);
+      expect(find.byKey(const ValueKey('transaction-amount')), findsOneWidget);
       expect(find.byType(SegmentedButton<TransactionType>), findsNothing);
 
       await tester.enterText(
@@ -332,49 +312,50 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('¥66.60'), findsOneWidget);
-      expect(find.text('支出 · ¥66.60'), findsOneWidget);
-      expect(find.text('金额就绪'), findsAtLeastNWidgets(1));
-      expect(find.text('分类待选'), findsOneWidget);
-      expect(find.text('凭证待补'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const ValueKey('transaction-amount')),
+            )
+            .controller
+            ?.text,
+        '66.60',
+      );
 
       await tester.tap(find.text('收入'));
       await tester.pumpAndSettle();
 
-      expect(find.text('收入金额'), findsOneWidget);
-      expect(find.text('收入 · ¥66.60'), findsOneWidget);
-      expect(find.text('记录收入来源'), findsOneWidget);
+      expect(find.text('分类'), findsOneWidget);
+      expect(find.text('记录收入来源'), findsNothing);
 
       await tester.tap(find.text('转账'));
       await tester.pumpAndSettle();
 
-      expect(find.text('转账金额'), findsOneWidget);
-      expect(find.text('转账 · ¥66.60'), findsOneWidget);
-      expect(find.text('转账动线'), findsOneWidget);
-      expect(find.text('流向 待选转入'), findsOneWidget);
-      expect(find.text('确认转入账户'), findsOneWidget);
-      expect(find.text('转出账户和转入账户不能相同'), findsOneWidget);
+      expect(find.text('转入账户'), findsOneWidget);
+      expect(find.text('转账动线'), findsNothing);
+      expect(find.text('确认转入账户'), findsNothing);
     });
 
-    testWidgets('录入质量层会随金额和分类选择进入可保存状态', (tester) async {
+    testWidgets('纯表单通过字段校验进入可保存状态', (tester) async {
       final repository = _FakeTransactionRepository();
       await _pumpTransactionPage(tester, repository: repository);
 
-      expect(find.text('录入质量层'), findsOneWidget);
-      expect(find.text('待补齐'), findsOneWidget);
+      expect(find.text('录入质量层'), findsNothing);
+      expect(find.text('待补齐'), findsNothing);
 
       await tester.enterText(
         find.byKey(const ValueKey('transaction-amount')),
         '66.60',
       );
       await tester.pump();
-      expect(find.text('已输入'), findsOneWidget);
-      expect(find.text('待补齐'), findsOneWidget);
+      expect(find.text('已输入'), findsNothing);
 
       await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
 
-      expect(find.text('可保存'), findsOneWidget);
-      expect(find.text('餐饮'), findsWidgets);
+      expect(repository.createCalls, hasLength(1));
+      expect(find.text('可保存'), findsNothing);
     });
 
     testWidgets('账户区域跟随主题色模板', (tester) async {
@@ -447,6 +428,19 @@ Future<void> _tapSaveButton(WidgetTester tester, {String label = '保存'}) asyn
   await tester.pumpAndSettle();
 
   await tester.tap(find.widgetWithText(FilledButton, label));
+}
+
+Future<void> _expandMoreOptions(WidgetTester tester) async {
+  final more = find.text('更多选项');
+  if (more.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      more,
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
+  await tester.tap(more);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _selectDropdownItem(
