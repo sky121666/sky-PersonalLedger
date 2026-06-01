@@ -6,6 +6,7 @@ import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
+import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -137,6 +138,10 @@ void main() {
       expect(find.text('AI 输入就绪'), findsNothing);
       expect(find.text('家庭数据在线'), findsNothing);
       expect(find.text('本月现金流'), findsOneWidget);
+      expect(find.text('最近交易'), findsOneWidget);
+      expect(find.text('日期交易'), findsOneWidget);
+      expect(find.text('餐饮'), findsWidgets);
+      expect(find.text('-¥28.00'), findsWidgets);
       expect(find.text('现金流充沛'), findsNothing);
       expect(find.text('结余率 60%'), findsNothing);
       expect(find.text('本月趋势已同步'), findsNothing);
@@ -316,6 +321,7 @@ class _FakeHomeRepository implements HomeRepository {
   final List<HomeSummary> summaries;
   var summaryCalls = 0;
   var summaryErrors = 0;
+  var dateTransactionCalls = 0;
 
   @override
   Future<HomeSummary> getSummary() async {
@@ -326,6 +332,17 @@ class _FakeHomeRepository implements HomeRepository {
     }
     final index = (summaryCalls - 1).clamp(0, summaries.length - 1);
     return summaries[index];
+  }
+
+  @override
+  Future<List<TransactionItem>> listRecentTransactions() async {
+    return summaries.first.recentTransactions;
+  }
+
+  @override
+  Future<List<TransactionItem>> listTransactionsForDate(DateTime date) async {
+    dateTransactionCalls += 1;
+    return summaries.first.recentTransactions;
   }
 }
 
@@ -384,5 +401,22 @@ HomeSummary _summary({
             ]
           : const [],
     ),
+    recentTransactions: [
+      TransactionItem(
+        id: 'tx-1',
+        type: TransactionType.expense,
+        amount: 28,
+        accountId: 'account-1',
+        categoryId: 'category-food',
+        transactionDate: DateTime(2026, 5, 20),
+        remark: '午餐',
+        account: const LedgerAccount(id: 'account-1', name: '现金', type: 'cash'),
+        category: const LedgerCategory(
+          id: 'category-food',
+          name: '餐饮',
+          type: 'expense',
+        ),
+      ),
+    ],
   );
 }

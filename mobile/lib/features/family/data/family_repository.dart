@@ -42,6 +42,39 @@ class FamilyRepository {
         const [];
   }
 
+  Future<FamilyMember> createMember(FamilyMemberRequest request) async {
+    final result = await _apiClient.post<FamilyMember>(
+      '/family/members',
+      data: request.toJson(),
+      fromJsonT: (json) =>
+          FamilyMember.fromJson(json as Map<String, dynamic>? ?? const {}),
+    );
+    if (result == null) {
+      throw const FormatException('创建家庭成员响应为空');
+    }
+    return result;
+  }
+
+  Future<FamilyMember> updateMember(
+    String id,
+    FamilyMemberRequest request,
+  ) async {
+    final result = await _apiClient.put<FamilyMember>(
+      '/family/members/$id',
+      data: request.toJson(),
+      fromJsonT: (json) =>
+          FamilyMember.fromJson(json as Map<String, dynamic>? ?? const {}),
+    );
+    if (result == null) {
+      throw const FormatException('更新家庭成员响应为空');
+    }
+    return result;
+  }
+
+  Future<void> deleteMember(String id) async {
+    await _apiClient.delete<void>('/family/members/$id');
+  }
+
   Future<FamilySummary> getSummary({String? month}) async {
     return await _apiClient.get<FamilySummary>(
           '/family/summary',
@@ -76,11 +109,13 @@ class FamilyMember {
     required this.color,
     required this.isDefault,
     required this.isEnabled,
+    this.avatar = '',
   });
 
   final String id;
   final String name;
   final String relationship;
+  final String avatar;
   final String color;
   final bool isDefault;
   final bool isEnabled;
@@ -90,10 +125,43 @@ class FamilyMember {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       relationship: json['relationship'] as String? ?? '',
+      avatar: json['avatar'] as String? ?? '',
       color: json['color'] as String? ?? '',
       isDefault: json['is_default'] as bool? ?? false,
       isEnabled: json['is_enabled'] as bool? ?? true,
     );
+  }
+}
+
+class FamilyMemberRequest {
+  const FamilyMemberRequest({
+    required this.name,
+    this.relationship = '',
+    this.avatar = '',
+    this.color = '#2563EB',
+    this.sortOrder,
+    this.isDefault = false,
+    this.isEnabled = true,
+  });
+
+  final String name;
+  final String relationship;
+  final String avatar;
+  final String color;
+  final int? sortOrder;
+  final bool isDefault;
+  final bool isEnabled;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      if (relationship.isNotEmpty) 'relationship': relationship,
+      if (avatar.isNotEmpty) 'avatar': avatar,
+      if (color.isNotEmpty) 'color': color,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      'is_default': isDefault,
+      'is_enabled': isEnabled,
+    };
   }
 }
 

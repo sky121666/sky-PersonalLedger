@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/app_route_paths.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
@@ -9,16 +11,40 @@ import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../../app/widgets/staggered_entrance.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../transactions/data/transaction_models.dart';
 import '../data/home_repository.dart';
 import 'widgets/home_dashboard_widgets.dart';
 
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
+
+  @override
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  DateTime _selectedDate = _dateOnly(DateTime.now());
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => _selectedDate = _dateOnly(picked));
+  }
 
   /// 构建首页概览页面。
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final summaryState = ref.watch(homeSummaryProvider);
+    final dateTransactionsState = ref.watch(
+      homeDateTransactionsProvider(_selectedDate),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -45,6 +71,9 @@ class HomePage extends ConsumerWidget {
         ),
         data: (summary) => _HomeContent(
           summary: summary,
+          selectedDate: _selectedDate,
+          dateTransactionsState: dateTransactionsState,
+          onSelectDate: _selectDate,
           onRefresh: () => ref.refresh(homeSummaryProvider.future),
         ),
       ),
@@ -55,10 +84,16 @@ class HomePage extends ConsumerWidget {
 class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.summary,
+    required this.selectedDate,
+    required this.dateTransactionsState,
+    required this.onSelectDate,
     required this.onRefresh,
   });
 
   final HomeSummary summary;
+  final DateTime selectedDate;
+  final AsyncValue<List<TransactionItem>> dateTransactionsState;
+  final VoidCallback onSelectDate;
   final Future<void> Function() onRefresh;
 
   /// 构建首页数据内容。
@@ -78,17 +113,31 @@ class _HomeContent extends StatelessWidget {
             const SizedBox(height: 16),
             _entry(1, _MonthlyOverviewCard(overview: summary.overview)),
             const SizedBox(height: 16),
-            _entry(2, FamilyHomeSummaryCard(summary: summary.familySummary)),
+            _entry(
+              2,
+              _RecentTransactionsCard(items: summary.recentTransactions),
+            ),
             const SizedBox(height: 16),
             _entry(
               3,
+              _DateTransactionsCard(
+                selectedDate: selectedDate,
+                state: dateTransactionsState,
+                onSelectDate: onSelectDate,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _entry(4, FamilyHomeSummaryCard(summary: summary.familySummary)),
+            const SizedBox(height: 16),
+            _entry(
+              5,
               _AccountOverviewCard(
                 accounts: visibleAccounts,
                 totalCount: accounts.length,
               ),
             ),
             const SizedBox(height: 16),
-            _entry(4, _BudgetSummaryCard(summary: summary.budgetSummary)),
+            _entry(6, _BudgetSummaryCard(summary: summary.budgetSummary)),
           ],
         ),
       ),
@@ -97,6 +146,190 @@ class _HomeContent extends StatelessWidget {
 
   Widget _entry(int index, Widget child) {
     return StaggeredEntrance(index: index, child: child);
+  }
+}
+
+class _RecentTransactionsCard extends StatelessWidget {
+  const _RecentTransactionsCard({required this.items});
+
+  final List<TransactionItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    return PremiumSurface(
+      accentColor: financeColors.asset,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.receipt_long_outlined, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '最近交易',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push(AppRoutePaths.transactions),
+                child: const Text('全部'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (items.isEmpty)
+            const _HomeEmptyLine(text: '暂无交易')
+          else
+            ...items.map((item) => _HomeTransactionRow(item: item)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DateTransactionsCard extends StatelessWidget {
+  const _DateTransactionsCard({
+    required this.selectedDate,
+    required this.state,
+    required this.onSelectDate,
+  });
+
+  final DateTime selectedDate;
+  final AsyncValue<List<TransactionItem>> state;
+  final VoidCallback onSelectDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    return PremiumSurface(
+      accentColor: financeColors.income,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.calendar_month_outlined, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '日期交易',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onSelectDate,
+                icon: const Icon(Icons.edit_calendar_outlined, size: 18),
+                label: Text(_formatDateLabel(selectedDate)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          state.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: LinearProgressIndicator(),
+            ),
+            error: (error, stackTrace) => Text(
+              '加载失败：$error',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            data: (items) => items.isEmpty
+                ? const _HomeEmptyLine(text: '当日暂无交易')
+                : Column(
+                    children: [
+                      for (final item in items) _HomeTransactionRow(item: item),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeTransactionRow extends StatelessWidget {
+  const _HomeTransactionRow({required this.item});
+
+  final TransactionItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final color = switch (item.type) {
+      TransactionType.income => financeColors.income,
+      TransactionType.transfer => Theme.of(context).colorScheme.primary,
+      TransactionType.expense => financeColors.expense,
+    };
+    return InkWell(
+      onTap: () => context.push(AppRoutePaths.quickTransaction, extra: item),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(
+          children: [
+            Icon(_transactionIcon(item.type), color: color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.displayTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (item.remark.isNotEmpty)
+                    Text(
+                      item.remark,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Text(
+              _formatSignedTransactionAmount(item),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeEmptyLine extends StatelessWidget {
+  const _HomeEmptyLine({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Theme.of(context).colorScheme.outline,
+        ),
+      ),
+    );
   }
 }
 
@@ -256,9 +489,9 @@ class _CashFlowBar extends StatelessWidget {
     if (totalFlow <= 0) {
       return Text(
         '暂无现金流',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: colorScheme.outline,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
       );
     }
 
@@ -881,4 +1114,29 @@ class _EmptyCardLine extends StatelessWidget {
 /// 格式化人民币金额。
 String _formatCurrency(double value) {
   return '¥${value.toStringAsFixed(2)}';
+}
+
+DateTime _dateOnly(DateTime date) {
+  return DateTime(date.year, date.month, date.day);
+}
+
+String _formatDateLabel(DateTime date) {
+  return '${date.month}月${date.day}日';
+}
+
+IconData _transactionIcon(TransactionType type) {
+  return switch (type) {
+    TransactionType.income => Icons.south_west_rounded,
+    TransactionType.transfer => Icons.swap_horiz_rounded,
+    TransactionType.expense => Icons.north_east_rounded,
+  };
+}
+
+String _formatSignedTransactionAmount(TransactionItem item) {
+  final prefix = switch (item.type) {
+    TransactionType.income => '+',
+    TransactionType.expense => '-',
+    TransactionType.transfer => '',
+  };
+  return '$prefix${_formatCurrency(item.amount)}';
 }

@@ -280,6 +280,16 @@ class _FakeHomeRepository implements HomeRepository {
       ),
     );
   }
+
+  @override
+  Future<List<TransactionItem>> listRecentTransactions() async {
+    return const [];
+  }
+
+  @override
+  Future<List<TransactionItem>> listTransactionsForDate(DateTime date) async {
+    return const [];
+  }
 }
 
 class _FakeTransactionRepository implements TransactionRepository {

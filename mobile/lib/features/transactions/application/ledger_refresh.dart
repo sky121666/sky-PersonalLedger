@@ -9,5 +9,6 @@ extension LedgerRefresh on WidgetRef {
     invalidate(transactionListControllerProvider);
     invalidate(accountListControllerProvider);
     invalidate(homeSummaryProvider);
+    invalidate(homeDateTransactionsProvider);
   }
 }

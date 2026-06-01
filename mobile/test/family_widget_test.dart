@@ -18,6 +18,7 @@ void main() {
                 id: 'member-1',
                 name: '成员A',
                 relationship: '家人',
+                avatar: '',
                 color: '#2563EB',
                 isDefault: true,
                 isEnabled: true,
@@ -26,6 +27,7 @@ void main() {
                 id: 'member-2',
                 name: '成员B',
                 relationship: '子女',
+                avatar: '',
                 color: '#059669',
                 isDefault: false,
                 isEnabled: false,
@@ -176,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('还没有家庭成员'), findsOneWidget);
-    expect(find.text('添加成员'), findsOneWidget);
+    expect(find.text('添加成员'), findsWidgets);
   });
 
   testWidgets('FamilyPage 空态跟随主题色模板', (tester) async {
@@ -200,4 +202,140 @@ void main() {
     );
     expect(surface.accentColor, AppThemePalette.graphite.assetColor);
   });
+
+  testWidgets('FamilyPage 可以新增、编辑并停用成员', (tester) async {
+    final repository = _FakeFamilyRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          familyRepositoryProvider.overrideWithValue(repository),
+          memberBudgetsProvider.overrideWith((ref) async => const []),
+        ],
+        child: const MaterialApp(home: FamilyPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('添加成员').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('family-member-name')),
+      '成员C',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('family-member-relationship')),
+      '家人',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createdRequests, hasLength(1));
+    expect(repository.createdRequests.single.name, '成员C');
+    expect(find.text('成员C'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('编辑成员 成员C'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('family-member-name')),
+      '成员C改',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(repository.updatedRequests, hasLength(1));
+    expect(repository.updatedRequests.single.$1, 'member-2');
+    expect(repository.updatedRequests.single.$2.name, '成员C改');
+    expect(find.text('成员C改'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('停用成员 成员C改'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '停用'));
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedIds, ['member-2']);
+    expect(find.text('成员C改'), findsNothing);
+  });
+}
+
+class _FakeFamilyRepository implements FamilyRepository {
+  final members = <FamilyMember>[
+    const FamilyMember(
+      id: 'member-1',
+      name: '成员A',
+      relationship: '家人',
+      avatar: '',
+      color: '#2563EB',
+      isDefault: true,
+      isEnabled: true,
+    ),
+  ];
+
+  final createdRequests = <FamilyMemberRequest>[];
+  final updatedRequests = <(String, FamilyMemberRequest)>[];
+  final deletedIds = <String>[];
+
+  @override
+  Future<List<FamilyMember>> listMembers() async => List.of(members);
+
+  @override
+  Future<FamilyMember> createMember(FamilyMemberRequest request) async {
+    createdRequests.add(request);
+    final member = FamilyMember(
+      id: 'member-${members.length + 1}',
+      name: request.name,
+      relationship: request.relationship,
+      avatar: request.avatar,
+      color: request.color,
+      isDefault: request.isDefault,
+      isEnabled: request.isEnabled,
+    );
+    members.add(member);
+    return member;
+  }
+
+  @override
+  Future<FamilyMember> updateMember(
+    String id,
+    FamilyMemberRequest request,
+  ) async {
+    updatedRequests.add((id, request));
+    final index = members.indexWhere((member) => member.id == id);
+    final member = FamilyMember(
+      id: id,
+      name: request.name,
+      relationship: request.relationship,
+      avatar: request.avatar,
+      color: request.color,
+      isDefault: request.isDefault,
+      isEnabled: request.isEnabled,
+    );
+    if (index >= 0) {
+      members[index] = member;
+    }
+    return member;
+  }
+
+  @override
+  Future<void> deleteMember(String id) async {
+    deletedIds.add(id);
+    members.removeWhere((member) => member.id == id);
+  }
+
+  @override
+  Future<FamilySummary> getSummary({String? month}) async {
+    return FamilySummary(
+      month: month ?? '2026-05',
+      totalExpense: 0,
+      members: const [],
+    );
+  }
+
+  @override
+  Future<FamilyStatistics> getStatistics({String? month}) async {
+    return FamilyStatistics(
+      month: month ?? '2026-05',
+      totalExpense: 0,
+      members: const [],
+    );
+  }
 }

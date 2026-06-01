@@ -9,11 +9,100 @@ import '../../../app/widgets/staggered_entrance.dart';
 import '../../budgets/data/budget_repository.dart';
 import '../data/family_repository.dart';
 
-class FamilyPage extends ConsumerWidget {
+class FamilyPage extends ConsumerStatefulWidget {
   const FamilyPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FamilyPage> createState() => _FamilyPageState();
+}
+
+class _FamilyPageState extends ConsumerState<FamilyPage> {
+  var _submittingMember = false;
+
+  void _invalidateFamilyData() {
+    ref
+      ..invalidate(familyMembersProvider)
+      ..invalidate(familySummaryProvider)
+      ..invalidate(familyStatisticsProvider)
+      ..invalidate(memberBudgetsProvider);
+  }
+
+  Future<void> _showMemberSheet([FamilyMember? member]) async {
+    final request = await showModalBottomSheet<FamilyMemberRequest>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _FamilyMemberFormSheet(member: member),
+    );
+    if (request == null || !mounted) {
+      return;
+    }
+
+    setState(() => _submittingMember = true);
+    try {
+      final repository = ref.read(familyRepositoryProvider);
+      if (member == null) {
+        await repository.createMember(request);
+      } else {
+        await repository.updateMember(member.id, request);
+      }
+      _invalidateFamilyData();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(member == null ? '成员已添加' : '成员已保存')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submittingMember = false);
+      }
+    }
+  }
+
+  Future<void> _disableMember(FamilyMember member) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '停用成员',
+      message: '停用后历史交易归属会保留。',
+      confirmText: '停用',
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    setState(() => _submittingMember = true);
+    try {
+      await ref.read(familyRepositoryProvider).deleteMember(member.id);
+      _invalidateFamilyData();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('成员已停用')));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submittingMember = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final membersState = ref.watch(familyMembersProvider);
     final summaryState = ref.watch(familySummaryProvider);
     final memberBudgetsState = ref.watch(memberBudgetsProvider);
@@ -22,16 +111,16 @@ class FamilyPage extends ConsumerWidget {
         title: const Text('家庭成员'),
         actions: [
           IconButton(
-            onPressed: () {
-              ref.invalidate(familyMembersProvider);
-              ref.invalidate(familySummaryProvider);
-              ref.invalidate(familyStatisticsProvider);
-              ref.invalidate(memberBudgetsProvider);
-            },
+            onPressed: _invalidateFamilyData,
             icon: const Icon(Icons.refresh_outlined),
             tooltip: '刷新家庭数据',
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _submittingMember ? null : () => _showMemberSheet(),
+        icon: const Icon(Icons.add),
+        label: const Text('添加成员'),
       ),
       body: AdaptivePageContainer(
         child: membersState.when(
@@ -42,7 +131,9 @@ class FamilyPage extends ConsumerWidget {
           ),
           data: (members) {
             if (members.isEmpty) {
-              return const _FamilyEmptyState();
+              return _FamilyEmptyState(
+                onAdd: _submittingMember ? null : () => _showMemberSheet(),
+              );
             }
             final summary = summaryState.valueOrNull;
             final statisticsState = ref.watch(familyStatisticsProvider);
@@ -110,7 +201,14 @@ class FamilyPage extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: StaggeredEntrance(
                       index: index + 7,
-                      child: _FamilyMemberCard(member: member),
+                      child: _FamilyMemberCard(
+                        member: member,
+                        submitting: _submittingMember,
+                        onEdit: () => _showMemberSheet(member),
+                        onDisable: member.isEnabled
+                            ? () => _disableMember(member)
+                            : null,
+                      ),
                     ),
                   );
                 }),
@@ -124,7 +222,9 @@ class FamilyPage extends ConsumerWidget {
 }
 
 class _FamilyEmptyState extends StatelessWidget {
-  const _FamilyEmptyState();
+  const _FamilyEmptyState({required this.onAdd});
+
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +258,7 @@ class _FamilyEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             FilledButton.icon(
-              onPressed: null,
+              onPressed: onAdd,
               icon: const Icon(Icons.add_outlined),
               label: const Text('添加成员'),
             ),
@@ -606,9 +706,17 @@ class _FamilyRankingRow extends StatelessWidget {
 }
 
 class _FamilyMemberCard extends StatelessWidget {
-  const _FamilyMemberCard({required this.member});
+  const _FamilyMemberCard({
+    required this.member,
+    required this.submitting,
+    required this.onEdit,
+    required this.onDisable,
+  });
 
   final FamilyMember member;
+  final bool submitting;
+  final VoidCallback onEdit;
+  final VoidCallback? onDisable;
 
   @override
   Widget build(BuildContext context) {
@@ -665,29 +773,242 @@ class _FamilyMemberCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            alignment: WrapAlignment.end,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (member.isDefault)
-                _MemberStateChip(
-                  label: '默认',
-                  icon: Icons.check_circle_outline,
-                  color: financeColors.income,
-                ),
-              _MemberStateChip(
-                label: member.isEnabled ? '启用' : '停用',
-                icon: member.isEnabled
-                    ? Icons.person_outline
-                    : Icons.person_off_outlined,
-                color: member.isEnabled
-                    ? financeColors.asset
-                    : colorScheme.outline,
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                alignment: WrapAlignment.end,
+                children: [
+                  if (member.isDefault)
+                    _MemberStateChip(
+                      label: '默认',
+                      icon: Icons.check_circle_outline,
+                      color: financeColors.income,
+                    ),
+                  _MemberStateChip(
+                    label: member.isEnabled ? '启用' : '停用',
+                    icon: member.isEnabled
+                        ? Icons.person_outline
+                        : Icons.person_off_outlined,
+                    color: member.isEnabled
+                        ? financeColors.asset
+                        : colorScheme.outline,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: submitting ? null : onEdit,
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: '编辑成员 ${member.name}',
+                  ),
+                  IconButton(
+                    onPressed: submitting ? null : onDisable,
+                    icon: const Icon(Icons.person_off_outlined),
+                    tooltip: '停用成员 ${member.name}',
+                  ),
+                ],
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FamilyMemberFormSheet extends StatefulWidget {
+  const _FamilyMemberFormSheet({this.member});
+
+  final FamilyMember? member;
+
+  @override
+  State<_FamilyMemberFormSheet> createState() => _FamilyMemberFormSheetState();
+}
+
+class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _relationshipController;
+  late final TextEditingController _avatarController;
+  late String _color;
+  late bool _isDefault;
+  late bool _isEnabled;
+
+  static const _colors = [
+    '#2563EB',
+    '#059669',
+    '#F97316',
+    '#DC2626',
+    '#7C3AED',
+    '#0891B2',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final member = widget.member;
+    _nameController = TextEditingController(text: member?.name ?? '');
+    _relationshipController = TextEditingController(
+      text: member?.relationship ?? '',
+    );
+    _avatarController = TextEditingController(text: member?.avatar ?? '');
+    _color = member?.color.isNotEmpty == true ? member!.color : _colors.first;
+    _isDefault = member?.isDefault ?? false;
+    _isEnabled = member?.isEnabled ?? true;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _relationshipController.dispose();
+    _avatarController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    Navigator.of(context).pop(
+      FamilyMemberRequest(
+        name: _nameController.text.trim(),
+        relationship: _relationshipController.text.trim(),
+        avatar: _avatarController.text.trim(),
+        color: _color,
+        isDefault: _isDefault,
+        isEnabled: _isEnabled,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.member == null ? '添加成员' : '编辑成员',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                    tooltip: '关闭',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const ValueKey('family-member-name'),
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: '成员名称',
+                  border: OutlineInputBorder(),
+                ),
+                textInputAction: TextInputAction.next,
+                validator: (value) =>
+                    value == null || value.trim().isEmpty ? '请输入成员名称' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const ValueKey('family-member-relationship'),
+                controller: _relationshipController,
+                decoration: const InputDecoration(
+                  labelText: '关系',
+                  border: OutlineInputBorder(),
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const ValueKey('family-member-avatar'),
+                controller: _avatarController,
+                decoration: const InputDecoration(
+                  labelText: '头像地址',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.done,
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final color in _colors)
+                    InkResponse(
+                      onTap: () => setState(() => _color = color),
+                      radius: 22,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: _memberColor(context, color),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _color == color
+                                ? colorScheme.onSurface
+                                : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                        child: SizedBox.square(
+                          dimension: 34,
+                          child: _color == color
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 18,
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _isDefault,
+                onChanged: (value) => setState(() => _isDefault = value),
+                title: const Text('默认成员'),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _isEnabled,
+                onChanged: (value) => setState(() => _isEnabled = value),
+                title: const Text('启用'),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _submit,
+                  child: const Text('保存'),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

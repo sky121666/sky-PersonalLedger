@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../transactions/data/transaction_models.dart';
 
 const debtAccountTypes = <String>{
   'credit',
@@ -176,12 +177,14 @@ class HomeSummary {
     required this.accounts,
     required this.overview,
     required this.budgetSummary,
+    this.recentTransactions = const [],
     this.familySummary = const FamilyHomeSummary.empty(),
   });
 
   final AccountListResponse accounts;
   final StatisticsOverview overview;
   final BudgetSummary budgetSummary;
+  final List<TransactionItem> recentTransactions;
   final FamilyHomeSummary familySummary;
 }
 
@@ -252,7 +255,7 @@ class HomeRepository {
 
   final ApiClient _apiClient;
 
-  /// 获取首页需要的账户、统计和预算摘要数据。
+  /// 获取首页需要的账户、统计、预算和最近交易数据。
   Future<HomeSummary> getSummary() async {
     final results = await Future.wait<Object?>([
       _apiClient.get<AccountListResponse>(
@@ -272,6 +275,7 @@ class HomeRepository {
         '/family/summary',
         fromJsonT: FamilyHomeSummary.fromJson,
       ),
+      listRecentTransactions(),
     ]);
 
     return HomeSummary(
@@ -303,7 +307,35 @@ class HomeRepository {
           ),
       familySummary:
           results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
+      recentTransactions:
+          results[4] as List<TransactionItem>? ?? const <TransactionItem>[],
     );
+  }
+
+  Future<List<TransactionItem>> listRecentTransactions() async {
+    final result = await _apiClient.get<TransactionListResult>(
+      '/transactions',
+      queryParameters: const {'page': 1, 'page_size': 5},
+      fromJsonT: (json) =>
+          TransactionListResult.fromJson(json as Map<String, dynamic>? ?? {}),
+    );
+    return result?.list ?? const [];
+  }
+
+  Future<List<TransactionItem>> listTransactionsForDate(DateTime date) async {
+    final dateText = _formatDate(date);
+    final result = await _apiClient.get<TransactionListResult>(
+      '/transactions',
+      queryParameters: {
+        'page': 1,
+        'page_size': 50,
+        'start_date': dateText,
+        'end_date': dateText,
+      },
+      fromJsonT: (json) =>
+          TransactionListResult.fromJson(json as Map<String, dynamic>? ?? {}),
+    );
+    return result?.list ?? const [];
   }
 }
 
@@ -315,6 +347,11 @@ final homeSummaryProvider = FutureProvider.autoDispose<HomeSummary>((ref) {
   return ref.watch(homeRepositoryProvider).getSummary();
 });
 
+final homeDateTransactionsProvider = FutureProvider.autoDispose
+    .family<List<TransactionItem>, DateTime>((ref, date) {
+      return ref.watch(homeRepositoryProvider).listTransactionsForDate(date);
+    });
+
 /// 将动态数值转换为 double。
 double _toDouble(Object? value) {
   if (value is num) {
@@ -324,4 +361,10 @@ double _toDouble(Object? value) {
     return double.tryParse(value) ?? 0;
   }
   return 0;
+}
+
+String _formatDate(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }
