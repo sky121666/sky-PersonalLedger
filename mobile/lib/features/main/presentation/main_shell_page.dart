@@ -123,8 +123,8 @@ class _QuickTransactionFab extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: onPressed,
         child: Ink(
-          width: 56,
-          height: 56,
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
             color: colorScheme.primary,
             borderRadius: BorderRadius.circular(999),
@@ -134,15 +134,15 @@ class _QuickTransactionFab extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: colorScheme.primary.withValues(alpha: 0.20),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Icon(
             Icons.add_rounded,
             color: colorScheme.onPrimary,
-            size: 30,
+            size: 28,
           ),
         ),
       ),
@@ -200,8 +200,8 @@ class _PremiumBottomNavigation extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
-          constraints: const BoxConstraints(minHeight: 74),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          constraints: const BoxConstraints(minHeight: 64),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           decoration: BoxDecoration(
             color: Color.alphaBlend(
               colorScheme.primary.withValues(
@@ -211,7 +211,7 @@ class _PremiumBottomNavigation extends StatelessWidget {
               ),
               colorScheme.surface,
             ),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: colorScheme.outlineVariant),
             boxShadow: [
               BoxShadow(
@@ -220,8 +220,8 @@ class _PremiumBottomNavigation extends StatelessWidget {
                       ? 0.28
                       : 0.10,
                 ),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
+                blurRadius: 14,
+                offset: const Offset(0, 7),
               ),
             ],
           ),
@@ -236,7 +236,7 @@ class _PremiumBottomNavigation extends StatelessWidget {
                   ),
                 ),
                 if (entry.$1 != destinations.length - 1)
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 3),
               ],
             ],
           ),
@@ -270,28 +270,24 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
         type: MaterialType.transparency,
         child: InkWell(
           key: ValueKey('main-shell-tab-${destination.keyValue}'),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            constraints: const BoxConstraints(minHeight: 58),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            constraints: const BoxConstraints(minHeight: 50),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
             decoration: BoxDecoration(
               color: selected
                   ? Color.alphaBlend(
-                      activeColor.withValues(
-                        alpha: Theme.of(context).brightness == Brightness.dark
-                            ? 0.22
-                            : 0.14,
-                      ),
+                      activeColor.withValues(alpha: 0.10),
                       colorScheme.surface,
                     )
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: selected
-                    ? activeColor.withValues(alpha: 0.26)
+                    ? activeColor.withValues(alpha: 0.18)
                     : Colors.transparent,
               ),
             ),
@@ -302,8 +298,8 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOutCubic,
-                  width: selected ? 22 : 5,
-                  height: 4,
+                  width: selected ? 18 : 5,
+                  height: 3,
                   decoration: BoxDecoration(
                     color: selected
                         ? activeColor
@@ -311,18 +307,18 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 AnimatedScale(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOutCubic,
-                  scale: selected ? 1.08 : 1,
+                  scale: selected ? 1.02 : 1,
                   child: Icon(
                     selected ? destination.selectedIcon : destination.icon,
                     color: foreground,
-                    size: 22,
+                    size: 21,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOutCubic,
@@ -330,14 +326,14 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
                       Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: foreground,
                         fontWeight: selected
-                            ? FontWeight.w900
-                            : FontWeight.w600,
+                            ? FontWeight.w800
+                            : FontWeight.w500,
                       ) ??
                       TextStyle(
                         color: foreground,
                         fontWeight: selected
-                            ? FontWeight.w900
-                            : FontWeight.w600,
+                            ? FontWeight.w800
+                            : FontWeight.w500,
                       ),
                   child: Text(
                     destination.label,

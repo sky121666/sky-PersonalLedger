@@ -46,7 +46,7 @@ void main() {
       );
       expect(find.text('入口证据'), findsNothing);
       expect(find.text('三类交易'), findsNothing);
-      expect(find.text('预算待设置'), findsAtLeastNWidgets(1));
+      expect(find.text('未设置'), findsAtLeastNWidgets(1));
       expect(find.text('AI 周报'), findsNothing);
       expect(
         find.byKey(const ValueKey('home-decision-evidence-rail')),
@@ -57,12 +57,12 @@ void main() {
       expect(find.text('AI 输入就绪'), findsNothing);
       expect(find.text('现金流稳定'), findsNothing);
       await tester.scrollUntilVisible(
-        find.text('暂无账户，请先创建账户'),
+        find.text('暂无账户'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('暂无账户，请先创建账户'), findsOneWidget);
-      expect(find.text('本月已记 0 笔'), findsOneWidget);
+      expect(find.text('暂无账户'), findsOneWidget);
+      expect(find.text('0 笔'), findsOneWidget);
       expect(find.text('暂无现金流'), findsAtLeastNWidgets(1));
       expect(find.text('等待首笔记录'), findsNothing);
       await tester.scrollUntilVisible(
@@ -122,7 +122,7 @@ void main() {
       expect(find.text('行动编排层'), findsNothing);
       expect(find.text('把记账、预算、家庭和 AI 周报串成一个可执行的首页工作流。'), findsNothing);
       expect(find.text('快速记账'), findsNothing);
-      expect(find.text('5 笔'), findsNothing);
+      expect(find.text('5 笔'), findsOneWidget);
       expect(find.text('预算守护'), findsNothing);
       expect(find.text('40%'), findsOneWidget);
       expect(find.text('家庭协同'), findsNothing);
@@ -178,7 +178,7 @@ void main() {
         find.byKey(const ValueKey('home-budget-summary-card')),
         findsOneWidget,
       );
-      expect(find.text('预算运行中'), findsOneWidget);
+      expect(find.text('已设置'), findsOneWidget);
       expect(find.text('剩余预算'), findsOneWidget);
       expect(find.text('日可用'), findsOneWidget);
       expect(find.text('剩余天数'), findsOneWidget);

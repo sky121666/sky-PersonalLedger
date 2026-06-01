@@ -143,14 +143,12 @@ class ProfilePage extends ConsumerWidget {
                     icon: Icons.notifications_none_outlined,
                     color: colorScheme.secondary,
                     title: '通知设置',
-                    subtitle: '配置提醒通道和通知类型',
                     onTap: () => context.push(AppRoutePaths.notifications),
                   ),
                   _SettingsEntry(
                     icon: Icons.security_outlined,
                     color: financeColors.expense,
                     title: '账号安全',
-                    subtitle: '修改密码和登录保护',
                     onTap: () => context.push(AppRoutePaths.securitySettings),
                   ),
                   _SettingsEntry(
@@ -335,14 +333,14 @@ class _SettingsEntry extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.onTap,
   });
 
   final IconData icon;
   final Color color;
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final VoidCallback onTap;
 
   @override
@@ -352,7 +350,7 @@ class _SettingsEntry extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       child: Semantics(
         button: true,
-        label: '$title，$subtitle',
+        label: subtitle == null ? title : '$title，$subtitle',
         child: Material(
           key: ValueKey('profile-entry-$title'),
           color: Color.alphaBlend(
@@ -398,17 +396,19 @@ class _SettingsEntry extends StatelessWidget {
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w900),
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

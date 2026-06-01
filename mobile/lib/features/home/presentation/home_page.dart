@@ -431,7 +431,7 @@ class _MonthlyOverviewCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '本月已记 ${overview.transactionCount} 笔',
+                '${overview.transactionCount} 笔',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: Theme.of(context).colorScheme.outline,
                 ),
@@ -611,7 +611,7 @@ class _BudgetSummaryCard extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         _BudgetStatusPill(
-                          label: hasBudget ? '预算运行中' : '预算待设置',
+                          label: hasBudget ? '已设置' : '未设置',
                           color: hasBudget
                               ? financeColors.warning
                               : colorScheme.outline,
@@ -815,7 +815,7 @@ class _AccountOverviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           if (accounts.isEmpty)
-            const _EmptyCardLine(text: '暂无账户，请先创建账户')
+            const _EmptyCardLine(text: '暂无账户')
           else
             ...accounts.map(
               (account) => Padding(

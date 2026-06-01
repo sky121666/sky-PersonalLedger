@@ -31,7 +31,7 @@ class FinanceHeroCard extends StatelessWidget {
       label: semanticLabel,
       child: PremiumSurface(
         accentColor: effectiveAccentColor,
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -40,6 +40,8 @@ class FinanceHeroCard extends StatelessWidget {
                 IconBadge(
                   icon: Icons.account_balance_wallet_outlined,
                   color: effectiveAccentColor,
+                  size: 38,
+                  iconSize: 20,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -53,15 +55,15 @@ class FinanceHeroCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
             AnimatedMoneyText(
               amount: amount,
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 fontWeight: FontWeight.w800,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -102,8 +104,8 @@ class MetricPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final content = Container(
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.all(14),
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           color.withValues(
@@ -113,14 +115,14 @@ class MetricPill extends StatelessWidget {
           ),
           colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
-          const SizedBox(width: 10),
+          IconBadge(icon: icon, color: color, size: 30, iconSize: 16),
+          const SizedBox(width: 8),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

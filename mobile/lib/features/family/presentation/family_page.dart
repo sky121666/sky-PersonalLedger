@@ -248,14 +248,6 @@ class _FamilyEmptyState extends StatelessWidget {
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 8),
-            Text(
-              '暂无数据',
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
-            ),
             const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: onAdd,

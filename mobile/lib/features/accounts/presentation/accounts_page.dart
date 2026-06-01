@@ -792,14 +792,6 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.w900),
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              isEditing ? '更新账户展示、提醒和扩展信息' : '创建可用于记账和资产统计的账户',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
                           ],
                         ),
                       ),
