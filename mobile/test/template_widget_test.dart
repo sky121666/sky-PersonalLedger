@@ -19,64 +19,51 @@ void main() {
       expect(find.text('午餐'), findsOneWidget);
       expect(find.text('支出 · 现金 · 餐饮'), findsOneWidget);
       expect(find.text('已用 3 次'), findsOneWidget);
-      expect(find.text('账户'), findsOneWidget);
-      expect(find.text('分类'), findsOneWidget);
-      expect(find.text('复用'), findsAtLeastNWidgets(1));
-      expect(find.text('高频'), findsAtLeastNWidgets(1));
+      expect(find.text('套用'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('template-execution-matrix-tpl-1')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('模板执行矩阵'), findsOneWidget);
-      expect(find.text('交易方向'), findsOneWidget);
-      expect(find.text('账户通道'), findsAtLeastNWidgets(1));
-      expect(find.text('分类节点'), findsOneWidget);
+      expect(find.text('模板执行矩阵'), findsNothing);
+      expect(find.text('交易方向'), findsNothing);
+      expect(find.text('账户通道'), findsNothing);
+      expect(find.text('分类节点'), findsNothing);
     });
 
     testWidgets('快捷模板列表使用分段入场动效', (tester) async {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('快捷模板头部展示复用效率信号', (tester) async {
+    testWidgets('快捷模板页不展示复用效率和说明头部', (tester) async {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('模板数'), findsOneWidget);
-      expect(find.text('累计使用'), findsOneWidget);
-      expect(find.text('可用账户'), findsOneWidget);
-      expect(find.text('复用效率雷达'), findsOneWidget);
-      expect(find.text('平均复用'), findsOneWidget);
-      expect(find.text('高复用'), findsOneWidget);
-      expect(find.text('每个模板平均复用 3 次'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('template-reuse-radar')),
-        findsOneWidget,
-      );
-      expect(find.text('模板执行流水线'), findsOneWidget);
-      expect(find.text('1 个模板'), findsOneWidget);
-      expect(find.text('可一键记账'), findsOneWidget);
-      expect(find.text('已复用 3 次'), findsOneWidget);
+      expect(find.text('快捷模板库'), findsNothing);
+      expect(find.text('把高频收支做成可复用模板，减少重复录入。'), findsNothing);
+      expect(find.text('模板数'), findsNothing);
+      expect(find.text('累计使用'), findsNothing);
+      expect(find.text('可用账户'), findsNothing);
+      expect(find.text('复用效率雷达'), findsNothing);
+      expect(find.text('平均复用'), findsNothing);
+      expect(find.byKey(const ValueKey('template-reuse-radar')), findsNothing);
+      expect(find.text('模板执行流水线'), findsNothing);
       expect(
         find.byKey(const ValueKey('template-automation-strip')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('template-orchestration-panel')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('模板编排面板'), findsOneWidget);
-      expect(find.text('高频自动化'), findsOneWidget);
+      expect(find.text('模板编排面板'), findsNothing);
+      expect(find.text('高频自动化'), findsNothing);
       expect(
         find.byKey(const ValueKey('template-execution-evidence-pill')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('可一键执行'), findsOneWidget);
-      expect(find.text('模板池'), findsOneWidget);
-      expect(find.text('账户通道'), findsAtLeastNWidgets(1));
-      expect(find.text('复用强度'), findsOneWidget);
     });
 
     testWidgets('新增模板时提交表单字段并刷新列表', (tester) async {
@@ -156,7 +143,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无快捷模板'), findsOneWidget);
-      expect(find.text('保存常用收支后，可以一键按模板记账。'), findsOneWidget);
+      expect(find.text('暂无数据'), findsOneWidget);
       expect(find.text('新增模板'), findsWidgets);
     });
 

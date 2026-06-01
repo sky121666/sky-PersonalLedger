@@ -128,30 +128,20 @@ class _ReportContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 1,
-              child: _YearlyInsightDeck(report: report),
-            ),
-            const SizedBox(height: 12),
+            StaggeredEntrance(index: 1, child: _SummaryCard(report: report)),
+            const SizedBox(height: 16),
             StaggeredEntrance(
               index: 2,
-              child: _YearlyNarrativeRadar(report: report),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(index: 3, child: _SummaryCard(report: report)),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 4,
               child: _AnnualHighlightsCard(report: report),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 5,
+              index: 3,
               child: _MonthlyTrendCard(items: report.monthlyData),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 6,
+              index: 4,
               child: _CategoryRankCard(
                 title: '年度支出 Top',
                 items: report.topExpenses,
@@ -160,7 +150,7 @@ class _ReportContent extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 7,
+              index: 5,
               child: _CategoryRankCard(
                 title: '年度收入 Top',
                 items: report.topIncomes,
@@ -240,503 +230,6 @@ class _YearSelector extends StatelessWidget {
   }
 }
 
-class _YearlyInsightDeck extends StatelessWidget {
-  const _YearlyInsightDeck({required this.report});
-
-  final YearlyReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final savingsColor = report.netSavings >= 0
-        ? financeColors.income
-        : colorScheme.error;
-    final categoryCount = report.topExpenses.length + report.topIncomes.length;
-
-    return PremiumSurface(
-      key: const ValueKey('yearly-insight-deck'),
-      accentColor: savingsColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.auto_awesome_motion_outlined,
-                color: savingsColor,
-                size: 44,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '年度洞察台',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${_yearlySignalLabel(report.netSavings)} · 储蓄率 ${report.savingsRate.toStringAsFixed(1)}%',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _YearlyInsightBadge(
-                label: report.netSavings >= 0 ? '年度正结余' : '年度承压',
-                color: savingsColor,
-                positive: report.netSavings >= 0,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _YearlyDeckMetric(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: '净结余',
-                  value: _formatCurrency(report.netSavings),
-                  color: savingsColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _YearlyDeckMetric(
-                  icon: Icons.savings_outlined,
-                  label: '储蓄率',
-                  value: '${report.savingsRate.toStringAsFixed(1)}%',
-                  color: savingsColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _YearlyDeckMetric(
-                  icon: Icons.receipt_long_outlined,
-                  label: '交易活跃',
-                  value: '${report.transactionCount} 笔',
-                  color: colorScheme.primary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _YearlyDeckMetric(
-                  icon: Icons.calendar_month_outlined,
-                  label: '月度样本',
-                  value: '${report.monthlyData.length} 月',
-                  color: colorScheme.secondary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _YearlyDeckMetric(
-                  icon: Icons.donut_large_outlined,
-                  label: '分类样本',
-                  value: '$categoryCount 类',
-                  color: financeColors.asset,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _YearlyDeckMetric(
-                  key: const ValueKey('yearly-evidence-rail'),
-                  icon: Icons.auto_graph_outlined,
-                  label: 'AI 输入',
-                  value:
-                      report.transactionCount > 0 &&
-                          report.monthlyData.isNotEmpty
-                      ? '可分析'
-                      : '待积累',
-                  color:
-                      report.transactionCount > 0 &&
-                          report.monthlyData.isNotEmpty
-                      ? financeColors.income
-                      : colorScheme.outline,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _YearlyInsightBadge extends StatelessWidget {
-  const _YearlyInsightBadge({
-    required this.label,
-    required this.color,
-    required this.positive,
-  });
-
-  final String label;
-  final Color color;
-  final bool positive;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            positive ? Icons.verified_outlined : Icons.priority_high_outlined,
-            color: color,
-            size: 16,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _YearlyDeckMetric extends StatelessWidget {
-  const _YearlyDeckMetric({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 72),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _YearlyNarrativeRadar extends StatelessWidget {
-  const _YearlyNarrativeRadar({required this.report});
-
-  final YearlyReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final bestMonth = report.monthlyData.fold<MonthlyReportData?>(
-      null,
-      (current, item) =>
-          current == null || item.balance > current.balance ? item : current,
-    );
-    final peakExpense = report.monthlyData.fold<MonthlyReportData?>(
-      null,
-      (current, item) =>
-          current == null || item.expense > current.expense ? item : current,
-    );
-    final topExpense = report.topExpenses.isEmpty
-        ? null
-        : report.topExpenses.first;
-    final accent = report.netSavings >= 0
-        ? financeColors.income
-        : financeColors.expense;
-    final rhythmLabel = report.transactionCount == 0
-        ? '暂无年度样本'
-        : report.activeDays >= 180
-        ? '高频账本'
-        : report.activeDays >= 60
-        ? '稳定记录'
-        : '轻量记录';
-
-    return PremiumSurface(
-      key: const ValueKey('yearly-narrative-radar'),
-      accentColor: accent,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.radar_outlined,
-                color: accent,
-                size: 42,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '年度叙事雷达',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '把峰值、节奏、分类和单笔异常压缩成年度故事线',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _YearlyInsightBadge(
-                label: rhythmLabel,
-                color: accent,
-                positive: report.netSavings >= 0,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _NarrativeRadarMetric(
-                  icon: Icons.emoji_events_outlined,
-                  label: '最佳结余',
-                  value: bestMonth?.month ?? '-',
-                  caption: bestMonth == null
-                      ? '暂无月度数据'
-                      : _formatCurrency(bestMonth.balance),
-                  color: financeColors.income,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _NarrativeRadarMetric(
-                  icon: Icons.local_fire_department_outlined,
-                  label: '支出峰值',
-                  value: peakExpense?.month ?? '-',
-                  caption: peakExpense == null
-                      ? '暂无月度数据'
-                      : _formatCurrency(peakExpense.expense),
-                  color: financeColors.expense,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _NarrativeRadarMetric(
-                  icon: Icons.calendar_today_outlined,
-                  label: '日均支出',
-                  value: _formatCurrency(report.dailyAvgExpense),
-                  caption: '${report.activeDays} 天活跃',
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _NarrativeRadarMetric(
-                  icon: Icons.bolt_outlined,
-                  label: '最大单笔',
-                  value: _formatCurrency(report.maxSingleExpense),
-                  caption: report.maxExpenseRemark.isEmpty
-                      ? topExpense?.categoryName ?? '暂无备注'
-                      : report.maxExpenseRemark,
-                  color: colorScheme.tertiary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            constraints: const BoxConstraints(minHeight: 54),
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                accent.withValues(
-                  alpha: Theme.of(context).brightness == Brightness.dark
-                      ? 0.18
-                      : 0.08,
-                ),
-                colorScheme.surface,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: accent.withValues(alpha: 0.16)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.category_outlined, size: 19, color: accent),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    topExpense == null
-                        ? '暂无主导支出分类'
-                        : '主导支出 · ${topExpense.categoryName} · ${topExpense.percentage.toStringAsFixed(1)}%',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NarrativeRadarMetric extends StatelessWidget {
-  const _NarrativeRadarMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.caption,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String caption;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.17
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 19, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  caption,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.report});
 
@@ -765,27 +258,14 @@ class _SummaryCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      '净结余',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    _YearlySignalPill(
-                      label: _yearlySignalLabel(report.netSavings),
-                      color: savingsColor,
-                      positive: report.netSavings >= 0,
-                    ),
-                  ],
+                child: Text(
+                  '净结余',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              _SavingsRatePill(rate: report.savingsRate, color: savingsColor),
             ],
           ),
           const SizedBox(height: 14),
@@ -842,83 +322,6 @@ class _SummaryCard extends StatelessWidget {
             },
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _YearlySignalPill extends StatelessWidget {
-  const _YearlySignalPill({
-    required this.label,
-    required this.color,
-    required this.positive,
-  });
-
-  final String label;
-  final Color color;
-  final bool positive;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            positive ? Icons.verified_outlined : Icons.priority_high_outlined,
-            color: color,
-            size: 14,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SavingsRatePill extends StatelessWidget {
-  const _SavingsRatePill({required this.rate, required this.color});
-
-  final double rate;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '${rate.toStringAsFixed(1)}%',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w800,
-        ),
       ),
     );
   }
@@ -1018,7 +421,7 @@ class _AnnualHighlightsCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _AnnualSignalTile(
+                child: _AnnualStatTile(
                   icon: Icons.receipt_long_outlined,
                   label: '交易笔数',
                   value: '${report.transactionCount}',
@@ -1027,7 +430,7 @@ class _AnnualHighlightsCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _AnnualSignalTile(
+                child: _AnnualStatTile(
                   icon: Icons.event_available_outlined,
                   label: '活跃天数',
                   value: '${report.activeDays}',
@@ -1036,41 +439,28 @@ class _AnnualHighlightsCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              MetricPill(
-                label: '月均收入',
-                value: _formatCurrency(report.averageIncome),
-                icon: Icons.south_west,
-                color: financeColors.income,
-              ),
-              MetricPill(
-                label: '月均支出',
-                value: _formatCurrency(report.averageExpense),
-                icon: Icons.north_east,
-                color: financeColors.expense,
-              ),
-            ],
-          ),
           const SizedBox(height: 14),
+          _HighlightLine(
+            label: '月均收入',
+            value: _formatCurrency(report.averageIncome),
+          ),
+          _HighlightLine(
+            label: '月均支出',
+            value: _formatCurrency(report.averageExpense),
+          ),
           _HighlightLine(label: '最佳结余月', value: report.bestSavingsMonth),
           _HighlightLine(
             label: '最大单笔支出',
             value: _formatCurrency(report.maxSingleExpense),
           ),
-          if (report.maxExpenseRemark.isNotEmpty)
-            _HighlightLine(label: '最大支出说明', value: report.maxExpenseRemark),
         ],
       ),
     );
   }
 }
 
-class _AnnualSignalTile extends StatelessWidget {
-  const _AnnualSignalTile({
+class _AnnualStatTile extends StatelessWidget {
+  const _AnnualStatTile({
     required this.icon,
     required this.label,
     required this.value,
@@ -1193,11 +583,6 @@ class _MonthlyTrendCard extends StatelessWidget {
       (current, item) =>
           current == null || item.balance > current.balance ? item : current,
     );
-    final peakExpense = items.fold<MonthlyReportData?>(
-      null,
-      (current, item) =>
-          current == null || item.expense > current.expense ? item : current,
-    );
     final netBalance = totalIncome - totalExpense;
     final netColor = netBalance >= 0
         ? financeColors.income
@@ -1222,12 +607,6 @@ class _MonthlyTrendCard extends StatelessWidget {
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
-              const SizedBox(width: 8),
-              _TrendLegendPill(
-                icon: Icons.graphic_eq_outlined,
-                label: '年度节奏',
-                color: financeColors.income,
-              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1236,9 +615,8 @@ class _MonthlyTrendCard extends StatelessWidget {
               Expanded(
                 child: _MonthlyPulseTile(
                   icon: Icons.south_west_rounded,
-                  label: '全年收入',
+                  label: '收入',
                   value: _formatCurrency(totalIncome),
-                  caption: '${items.length} 月样本',
                   color: financeColors.income,
                 ),
               ),
@@ -1246,11 +624,8 @@ class _MonthlyTrendCard extends StatelessWidget {
               Expanded(
                 child: _MonthlyPulseTile(
                   icon: Icons.north_east_rounded,
-                  label: '全年支出',
+                  label: '支出',
                   value: _formatCurrency(totalExpense),
-                  caption: peakExpense == null
-                      ? '暂无峰值'
-                      : '峰值 ${peakExpense.month}',
                   color: financeColors.expense,
                 ),
               ),
@@ -1261,35 +636,12 @@ class _MonthlyTrendCard extends StatelessWidget {
             icon: netBalance >= 0
                 ? Icons.savings_outlined
                 : Icons.warning_amber_rounded,
-            label: '结余峰值',
+            label: '最高结余',
             value: bestMonth == null
                 ? _formatCurrency(netBalance)
                 : '${bestMonth.month} ${_formatCurrency(bestMonth.balance)}',
-            caption: netBalance >= 0 ? '年度净结余为正' : '年度净结余承压',
             color: netColor,
             horizontal: true,
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _TrendLegendPill(
-                icon: Icons.arrow_downward_rounded,
-                label: '收入',
-                color: financeColors.income,
-              ),
-              _TrendLegendPill(
-                icon: Icons.arrow_upward_rounded,
-                label: '支出',
-                color: financeColors.expense,
-              ),
-              _TrendLegendPill(
-                icon: Icons.show_chart_rounded,
-                label: '结余轨迹',
-                color: colorScheme.primary,
-              ),
-            ],
           ),
           const SizedBox(height: 14),
           if (items.isEmpty)
@@ -1333,7 +685,6 @@ class _MonthlyPulseTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    required this.caption,
     required this.color,
     this.horizontal = false,
   });
@@ -1341,7 +692,6 @@ class _MonthlyPulseTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  final String caption;
   final Color color;
   final bool horizontal;
 
@@ -1371,15 +721,6 @@ class _MonthlyPulseTile extends StatelessWidget {
             fontWeight: FontWeight.w900,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
-        ),
-        const SizedBox(height: 1),
-        Text(
-          caption,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
         ),
       ],
     );
@@ -1416,53 +757,6 @@ class _MonthlyPulseTile extends StatelessWidget {
                 textContent,
               ],
             ),
-    );
-  }
-}
-
-class _TrendLegendPill extends StatelessWidget {
-  const _TrendLegendPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 28),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 13),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1729,14 +1023,4 @@ class _EmptyLine extends StatelessWidget {
 
 String _formatCurrency(double value) {
   return '¥${value.toStringAsFixed(2)}';
-}
-
-String _yearlySignalLabel(double netSavings) {
-  if (netSavings > 0) {
-    return '年度现金流稳健';
-  }
-  if (netSavings < 0) {
-    return '年度现金流承压';
-  }
-  return '年度现金流持平';
 }

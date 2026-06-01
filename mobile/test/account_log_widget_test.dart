@@ -21,19 +21,13 @@ void main() {
       );
 
       expect(find.text('现金流水'), findsOneWidget);
-      expect(find.text('当前余额 ¥1280.00'), findsOneWidget);
+      expect(find.text('现金 · 当前余额 ¥1280.00'), findsNothing);
+      expect(find.text('现金'), findsAtLeastNWidgets(1));
+      expect(find.text('流水审计中枢'), findsNothing);
       expect(
         find.byKey(const ValueKey('account-log-audit-center')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('流水审计中枢'), findsOneWidget);
-      expect(find.text('个人控制中枢 · 静谧墨绿'), findsNothing);
-      expect(find.text('静谧墨绿 · 现金 · 1 天'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('account-log-evidence-rail')),
-        findsOneWidget,
-      );
-      expect(find.text('审计样本 1 · 同步完成'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('工资入账'),
         220,
@@ -59,7 +53,7 @@ void main() {
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
-    testWidgets('账户流水概览展示记录数量和分组状态', (tester) async {
+    testWidgets('账户流水直接展示分组和记录', (tester) async {
       final repository = _FakeAccountLogRepository(
         pages: {
           1: AccountLogListResult(
@@ -82,20 +76,12 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      expect(find.text('记录 · 共 2 条流水记录'), findsOneWidget);
-      expect(find.text('2 条流水'), findsOneWidget);
-      expect(find.text('流入笔数'), findsOneWidget);
-      expect(find.text('流出笔数'), findsOneWidget);
-      expect(find.text('无校准'), findsOneWidget);
-      expect(find.text('分组 · 1 天'), findsOneWidget);
-      expect(find.text('状态 · 已同步'), findsOneWidget);
-      expect(find.text('审计样本 2 · 同步完成'), findsOneWidget);
-      expect(find.text('净变动'), findsAtLeastNWidgets(1));
-      expect(find.text('+¥420.00'), findsAtLeastNWidgets(1));
-      expect(find.text('流入'), findsOneWidget);
-      expect(find.text('¥500.00'), findsOneWidget);
-      expect(find.text('流出'), findsOneWidget);
-      expect(find.text('¥80.00'), findsOneWidget);
+      expect(find.text('流水审计中枢'), findsNothing);
+      expect(find.text('记录 · 共 2 条流水记录'), findsNothing);
+      expect(find.text('流入笔数'), findsNothing);
+      expect(find.text('流出笔数'), findsNothing);
+      expect(find.text('+¥500.00'), findsAtLeastNWidgets(1));
+      expect(find.text('-¥80.00'), findsAtLeastNWidgets(1));
       expect(find.text('2 条'), findsOneWidget);
     });
 
@@ -167,7 +153,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无流水记录'), findsOneWidget);
-      expect(find.text('交易、还款或余额调整后会自动生成账户流水。'), findsOneWidget);
+      expect(find.text('暂无数据'), findsOneWidget);
     });
 
     testWidgets('加载更多失败时展示错误且保留已有流水', (tester) async {

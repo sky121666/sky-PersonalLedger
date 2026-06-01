@@ -21,23 +21,9 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('负债管理'), findsOneWidget);
-      expect(find.text('上岸进度'), findsAtLeastNWidgets(1));
-      expect(find.text('稳步推进'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('repayment-rhythm-radar')),
-        findsOneWidget,
-      );
-      expect(find.text('还款节奏雷达'), findsOneWidget);
-      expect(find.text('凭证覆盖'), findsOneWidget);
-      expect(find.text('100%'), findsAtLeastNWidgets(1));
-      expect(
-        find.byKey(const ValueKey('reminder-evidence-rail')),
-        findsOneWidget,
-      );
-      expect(find.text('证据覆盖 100%'), findsOneWidget);
-      expect(find.text('提醒节奏稳定'), findsOneWidget);
-      expect(find.text('最大待还'), findsOneWidget);
-      expect(find.text('房贷 · ¥80000.00'), findsOneWidget);
+      expect(find.text('还款进度'), findsOneWidget);
+      expect(find.text('上岸进度'), findsNothing);
+      expect(find.text('稳步推进'), findsNothing);
       expect(find.text('房贷'), findsAtLeastNWidgets(1));
       expect(find.text('待还 ¥80000.00'), findsOneWidget);
       expect(
@@ -46,37 +32,44 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey('reminder-debt-panel-reminder-1')),
-        findsOneWidget,
+        findsNothing,
       );
+      expect(find.textContaining('本金'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('月供'), findsAtLeastNWidgets(1));
+      expect(find.text('贷款账户'), findsOneWidget);
+
+      expect(
+        find.byKey(const ValueKey('repayment-rhythm-radar')),
+        findsNothing,
+      );
+      expect(find.text('还款节奏雷达'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('reminder-evidence-rail')),
+        findsNothing,
+      );
+      expect(find.text('证据覆盖 100%'), findsNothing);
       expect(
         find.byKey(const ValueKey('reminder-guardrail-matrix-reminder-1')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('还款守护矩阵'), findsOneWidget);
-      expect(find.text('待还压力'), findsOneWidget);
-      expect(find.text('上岸进度'), findsAtLeastNWidgets(1));
-      expect(find.text('凭证状态'), findsOneWidget);
-      expect(find.text('已留存'), findsOneWidget);
-      expect(find.text('凭证已留存'), findsOneWidget);
-      expect(find.text('进度 33%'), findsOneWidget);
-      expect(find.text('贷款账户'), findsOneWidget);
-      expect(find.text('月供'), findsAtLeastNWidgets(1));
+      expect(find.text('还款守护矩阵'), findsNothing);
+      expect(find.text('凭证状态'), findsNothing);
     });
 
     testWidgets('上岸进度和提醒卡片使用分段入场动效', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
     });
 
-    testWidgets('负债状态概览展示提醒分组数量', (tester) async {
+    testWidgets('负债页面不展示额外状态概览网格', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
       expect(find.text('进行中'), findsWidgets);
-      expect(find.text('已暂停'), findsOneWidget);
-      expect(find.text('已还清'), findsOneWidget);
+      expect(find.text('已暂停'), findsNothing);
+      expect(find.text('已还清'), findsNothing);
       expect(find.byType(PremiumSurface), findsWidgets);
     });
 
@@ -291,7 +284,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无负债提醒'), findsOneWidget);
-      expect(find.text('添加分期或还款计划后，可以在这里跟踪上岸进度。'), findsOneWidget);
+      expect(find.text('暂无数据'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
     });
 

@@ -53,53 +53,16 @@ void main() {
       expect(find.text('Apple Pay'), findsOneWidget);
     });
 
-    testWidgets('账户概览和账户卡片使用分段入场动效', (tester) async {
+    testWidgets('账户概览和账户卡片保留核心信息并移除态势层', (tester) async {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('负债承压'), findsAtLeastNWidgets(1));
-      expect(
-        find.byKey(const ValueKey('account-portfolio-control-strip')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('account-portfolio-matrix-panel')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('account-health-score-panel')),
-        findsOneWidget,
-      );
-      expect(find.text('资产控制中枢'), findsOneWidget);
-      expect(find.text('静谧墨绿'), findsOneWidget);
-      expect(find.text('活跃 3 个'), findsOneWidget);
-      expect(find.text('无归档'), findsOneWidget);
-      expect(find.text('流动账户'), findsOneWidget);
-      expect(find.text('负债暴露'), findsAtLeastNWidgets(1));
-      expect(find.text('资产路径'), findsOneWidget);
-      expect(find.text('账户资产矩阵'), findsOneWidget);
-      expect(find.text('流动优先'), findsOneWidget);
-      expect(find.text('资产池'), findsOneWidget);
-      expect(find.text('负债池'), findsOneWidget);
-      expect(find.text('主资产账户'), findsOneWidget);
+      expect(find.text('资产概览'), findsNothing);
+      expect(find.text('净资产'), findsOneWidget);
       expect(find.text('手机钱包'), findsOneWidget);
-      expect(find.text('主要负债'), findsOneWidget);
-      expect(find.text('账户覆盖'), findsAtLeastNWidgets(1));
-      expect(find.text('3 个活跃'), findsOneWidget);
-      expect(find.text('2 资产 / 1 负债'), findsAtLeastNWidgets(1));
-      expect(find.text('结构比例'), findsOneWidget);
-      expect(find.text('资产占比'), findsOneWidget);
-      expect(find.text('负债占比'), findsOneWidget);
-      expect(find.text('资产账户'), findsOneWidget);
-      expect(find.text('负债账户'), findsOneWidget);
-      expect(find.text('资产健康评分'), findsOneWidget);
-      expect(find.text('承压'), findsOneWidget);
-      expect(find.text('风险分'), findsOneWidget);
-      expect(find.text('2 / 4'), findsOneWidget);
-      expect(find.text('资产安全垫'), findsAtLeastNWidgets(1));
-      expect(find.text('100% 占用'), findsOneWidget);
-      expect(find.text('3 个账户'), findsAtLeastNWidgets(1));
-      expect(find.text('2 个'), findsAtLeastNWidgets(1));
+      expect(find.text('住房贷款'), findsOneWidget);
+      expect(find.text('资产账户'), findsNothing);
+      expect(find.text('负债账户'), findsNothing);
       expect(
         find.byKey(const ValueKey('account-card-bank-card')),
         findsOneWidget,
@@ -108,38 +71,38 @@ void main() {
         find.byKey(const ValueKey('account-balance-bank-card')),
         findsOneWidget,
       );
-      expect(
-        find.byKey(const ValueKey('account-balance-matrix-bank-card')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('account-balance-matrix-mortgage')),
-        findsOneWidget,
-      );
       expect(find.text('当前余额'), findsAtLeastNWidgets(1));
       expect(find.text('剩余负债'), findsOneWidget);
-      expect(find.text('账户态势'), findsAtLeastNWidgets(1));
-      expect(find.text('资产增值'), findsAtLeastNWidgets(1));
-      expect(find.text('负债追踪'), findsOneWidget);
-      expect(find.text('资产轨道'), findsAtLeastNWidgets(1));
-      expect(find.text('偿还进度'), findsOneWidget);
-      expect(find.text('期初对比'), findsAtLeastNWidgets(1));
-      expect(
-        find.byKey(const ValueKey('account-operations-rail-bank-card')),
-        findsOneWidget,
-      );
-      expect(find.text('账户操作轨道'), findsAtLeastNWidgets(1));
-      expect(find.text('流水入口'), findsAtLeastNWidgets(1));
-      expect(find.text('账户参数'), findsAtLeastNWidgets(1));
-      expect(find.text('排序轨道'), findsAtLeastNWidgets(1));
-      expect(find.text('一键追踪'), findsAtLeastNWidgets(1));
-      expect(find.text('可编辑'), findsAtLeastNWidgets(1));
-      expect(find.text('可管理'), findsAtLeastNWidgets(1));
-      expect(find.text('支持排序'), findsAtLeastNWidgets(1));
       expect(find.text('资产类'), findsAtLeastNWidgets(1));
       expect(find.text('负债类'), findsOneWidget);
       expect(find.text('正常'), findsAtLeastNWidgets(1));
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+
+      expect(
+        find.byKey(const ValueKey('account-portfolio-control-strip')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('account-portfolio-matrix-panel')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('account-health-score-panel')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('account-balance-matrix-bank-card')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('account-operations-rail-bank-card')),
+        findsNothing,
+      );
+      expect(find.text('资产控制中枢'), findsNothing);
+      expect(find.text('账户资产矩阵'), findsNothing);
+      expect(find.text('资产健康评分'), findsNothing);
+      expect(find.text('账户态势'), findsNothing);
+      expect(find.text('账户操作'), findsNothing);
     });
 
     testWidgets('账户表单使用高级分区和可视化标识选择', (tester) async {

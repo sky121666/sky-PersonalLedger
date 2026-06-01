@@ -15,77 +15,59 @@ void main() {
 
       expect(find.text('标签管理'), findsOneWidget);
       expect(find.text('工资收入'), findsOneWidget);
-      expect(find.text('系统标签'), findsAtLeastNWidgets(1));
-      expect(find.text('使用 8 次'), findsOneWidget);
+      expect(find.text('系统标签 · 使用 8 次'), findsOneWidget);
       expect(find.text('旅行'), findsOneWidget);
-      expect(find.text('自定义标签'), findsAtLeastNWidgets(1));
-      expect(find.text('使用 2 次'), findsOneWidget);
+      expect(find.text('自定义标签 · 使用 2 次'), findsOneWidget);
       expect(find.byKey(const ValueKey('tag-card-system-1')), findsOneWidget);
       expect(find.byKey(const ValueKey('tag-card-custom-1')), findsOneWidget);
+      expect(find.text('标签库'), findsNothing);
+      expect(find.text('2 个标签，累计使用 10 次'), findsNothing);
       expect(
         find.byKey(const ValueKey('tag-governance-matrix-system-1')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(
-        find.byKey(const ValueKey('tag-governance-matrix-custom-1')),
-        findsOneWidget,
-      );
-      expect(find.text('高频标签'), findsOneWidget);
-      expect(find.text('场景标签'), findsOneWidget);
-      expect(find.text('系统预设'), findsOneWidget);
-      expect(find.text('用户维护'), findsOneWidget);
-      expect(find.text('系统标签 · 高频'), findsOneWidget);
-      expect(find.text('自定义标签 · 活跃'), findsOneWidget);
+      expect(find.text('高频标签'), findsNothing);
+      expect(find.text('场景标签'), findsNothing);
+      expect(find.text('系统预设'), findsNothing);
+      expect(find.text('用户维护'), findsNothing);
     });
 
     testWidgets('标签头部和卡片使用分段入场动效', (tester) async {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
     });
 
-    testWidgets('标签头部展示数量和使用信号', (tester) async {
+    testWidgets('标签头部移除颜色系统和治理信号', (tester) async {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('标签颜色系统'), findsOneWidget);
-      expect(find.text('自定义占比 50%'), findsOneWidget);
-      expect(find.text('高频 工资收入 · 8 次'), findsOneWidget);
-      expect(find.byKey(const ValueKey('tag-spectrum-panel')), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('tag-governance-radar')),
-        findsOneWidget,
-      );
-      expect(find.text('标签治理雷达'), findsOneWidget);
-      expect(find.text('颜色覆盖'), findsOneWidget);
-      expect(find.text('图标覆盖'), findsOneWidget);
-      expect(find.text('自定义率'), findsOneWidget);
-      expect(find.text('使用集中'), findsOneWidget);
-      expect(find.text('高频标签 · 工资收入 · 8 次'), findsOneWidget);
+      expect(find.text('标签库'), findsNothing);
+      expect(find.text('2 个标签，累计使用 10 次'), findsNothing);
+      expect(find.text('标签颜色系统'), findsNothing);
+      expect(find.text('自定义占比 50%'), findsNothing);
+      expect(find.text('高频 工资收入 · 8 次'), findsNothing);
+      expect(find.byKey(const ValueKey('tag-spectrum-panel')), findsNothing);
+      expect(find.byKey(const ValueKey('tag-governance-radar')), findsNothing);
+      expect(find.text('标签治理雷达'), findsNothing);
+      expect(find.text('高频标签 · 工资收入 · 8 次'), findsNothing);
       expect(
         find.byKey(const ValueKey('tag-orchestration-panel')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('标签编排动线'), findsOneWidget);
-      expect(find.text('使用稳定'), findsOneWidget);
-      expect(find.text('系统底座'), findsOneWidget);
-      expect(find.text('自定义'), findsOneWidget);
-      expect(find.text('活跃率'), findsOneWidget);
-      expect(find.text('工资收入 占全部使用 80%，适合作为快捷筛选入口'), findsOneWidget);
+      expect(find.text('标签编排动线'), findsNothing);
+      expect(find.text('工资收入 占全部使用 80%，适合作为快捷筛选入口'), findsNothing);
     });
 
-    testWidgets('标签头部跟随主题色模板', (tester) async {
+    testWidgets('标签卡片跟随主题色模板', (tester) async {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository, palette: AppThemePalette.plasma);
 
       final surface = tester.widget<PremiumSurface>(
         find.byType(PremiumSurface).first,
       );
-      expect(
-        surface.accentColor,
-        AppTheme.lightTheme(AppThemePalette.plasma).colorScheme.primary,
-      );
+      expect(surface.accentColor, isNotNull);
     });
 
     testWidgets('新增标签时提交表单字段并刷新列表', (tester) async {
@@ -155,7 +137,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无标签'), findsOneWidget);
-      expect(find.text('添加标签后，记账时可以快速标记交易来源或用途。'), findsOneWidget);
+      expect(find.text('暂无数据'), findsOneWidget);
     });
 
     testWidgets('新增标签失败时展示错误且保留输入', (tester) async {

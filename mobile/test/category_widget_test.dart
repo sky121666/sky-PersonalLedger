@@ -17,9 +17,9 @@ void main() {
 
       expect(find.text('分类'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
-      expect(find.text('系统分类'), findsOneWidget);
+      expect(find.text('支出 · 系统分类'), findsOneWidget);
       expect(find.text('交通'), findsOneWidget);
-      expect(find.text('自定义分类'), findsOneWidget);
+      expect(find.text('支出 · 自定义分类'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('category-card-cat-food')),
         findsOneWidget,
@@ -28,21 +28,18 @@ void main() {
         find.byKey(const ValueKey('category-card-cat-traffic')),
         findsOneWidget,
       );
-      expect(find.text('稳定基础'), findsOneWidget);
-      expect(find.text('个性归类'), findsOneWidget);
-      expect(find.text('系统预设'), findsOneWidget);
-      expect(find.text('用户维护'), findsOneWidget);
+      expect(find.text('支出'), findsAtLeastNWidgets(1));
+      expect(find.text('支出分类库'), findsNothing);
+      expect(find.text('支出分类'), findsOneWidget);
+      expect(find.text('2 个分类用于快速归集交易'), findsNothing);
+      expect(find.text('稳定基础'), findsNothing);
+      expect(find.text('个性归类'), findsNothing);
+      expect(find.text('系统预设'), findsNothing);
+      expect(find.text('用户维护'), findsNothing);
       expect(
         find.byKey(const ValueKey('category-governance-matrix-cat-food')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(
-        find.byKey(const ValueKey('category-governance-matrix-cat-traffic')),
-        findsOneWidget,
-      );
-      expect(find.text('支出'), findsAtLeastNWidgets(1));
-      expect(find.text('预设'), findsOneWidget);
-      expect(find.text('可调'), findsOneWidget);
     });
 
     testWidgets('分类头部和卡片使用分段入场动效', (tester) async {
@@ -52,27 +49,27 @@ void main() {
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
-    testWidgets('分类头部展示系统和自定义分类信号', (tester) async {
+    testWidgets('分类头部移除颜色系统和治理信号', (tester) async {
       final repository = _FakeCategoryRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('分类颜色系统'), findsOneWidget);
-      expect(find.text('自定义占比 50%'), findsOneWidget);
+      expect(find.text('支出分类库'), findsNothing);
+      expect(find.text('支出分类'), findsOneWidget);
+      expect(find.text('2 个分类用于快速归集交易'), findsNothing);
+      expect(find.text('分类颜色系统'), findsNothing);
+      expect(find.text('自定义占比 50%'), findsNothing);
       expect(
         find.byKey(const ValueKey('category-library-radar')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('分类治理雷达'), findsOneWidget);
-      expect(find.text('颜色覆盖'), findsOneWidget);
-      expect(find.text('图标覆盖'), findsOneWidget);
-      expect(find.text('自定义率'), findsOneWidget);
-      expect(find.text('重点自定义 · 交通'), findsOneWidget);
-      expect(find.text('支出模式'), findsOneWidget);
-      expect(find.text('系统 1'), findsOneWidget);
-      expect(find.text('自定义 1'), findsOneWidget);
+      expect(find.text('分类治理雷达'), findsNothing);
+      expect(find.text('重点自定义 · 交通'), findsNothing);
+      expect(find.text('支出模式'), findsNothing);
+      expect(find.text('系统 1'), findsNothing);
+      expect(find.text('自定义 1'), findsNothing);
       expect(
         find.byKey(const ValueKey('category-spectrum-panel')),
-        findsOneWidget,
+        findsNothing,
       );
     });
 
@@ -148,7 +145,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无支出分类'), findsOneWidget);
-      expect(find.text('添加分类后，记账时可以快速归类。'), findsOneWidget);
+      expect(find.text('暂无数据'), findsOneWidget);
     });
 
     testWidgets('新增分类失败时展示错误且保留输入', (tester) async {

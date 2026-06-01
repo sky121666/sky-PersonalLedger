@@ -18,62 +18,31 @@ void main() {
       await _pumpPage(tester, budgetRepository);
 
       expect(find.text('预算管理'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('budget-command-center')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const ValueKey('budget-risk-radar')), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('budget-family-hub-panel')),
-        findsOneWidget,
-      );
-      expect(find.text('预算控制台'), findsOneWidget);
-      expect(find.text('1 项预警'), findsWidgets);
-      expect(
-        find.byKey(const ValueKey('budget-ai-guardrail-rail')),
-        findsOneWidget,
-      );
-      expect(find.text('AI 预算输入'), findsOneWidget);
-      expect(find.text('家庭联动'), findsOneWidget);
-      expect(find.text('提醒线 80%'), findsWidgets);
-      expect(find.text('分类覆盖'), findsWidgets);
-      expect(find.text('家庭额度'), findsOneWidget);
-      expect(find.text('预算风险雷达'), findsOneWidget);
-      expect(find.text('家庭预算 Hub'), findsOneWidget);
-      expect(find.text('家庭稳态'), findsOneWidget);
-      expect(find.text('家庭额度池'), findsOneWidget);
-      expect(find.text('家庭剩余额度'), findsOneWidget);
-      expect(find.text('成员覆盖率'), findsOneWidget);
-      expect(find.text('家庭燃烧率'), findsWidgets);
-      expect(find.text('家庭燃烧'), findsOneWidget);
-      expect(find.text('成员覆盖'), findsOneWidget);
+      expect(find.text('本月预算总览'), findsOneWidget);
       expect(find.text('¥1200.00'), findsAtLeastNWidgets(1));
-      expect(find.text('¥780.00'), findsAtLeastNWidgets(1));
-      expect(find.text('100%'), findsAtLeastNWidgets(1));
-      expect(find.text('35%'), findsAtLeastNWidgets(1));
-      expect(find.text('稳定项'), findsOneWidget);
-      expect(find.text('预警项'), findsOneWidget);
-      expect(find.text('风险项'), findsOneWidget);
-      expect(find.text('家庭规则'), findsOneWidget);
-      expect(find.text('剩余额度'), findsOneWidget);
-      expect(find.text('50%'), findsOneWidget);
-      expect(find.text('1 项已监控'), findsOneWidget);
-      expect(find.text('1 个成员可选'), findsOneWidget);
-      expect(find.text('节奏健康'), findsWidgets);
-      expect(find.text('预算燃烧节奏正常'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('budget-guardrail-matrix-budget-food')),
-        findsOneWidget,
-      );
-      expect(find.text('预算守卫矩阵'), findsAtLeastNWidgets(1));
-      expect(find.text('燃烧率'), findsAtLeastNWidgets(1));
-      expect(find.text('剩余缓冲'), findsAtLeastNWidgets(1));
-      expect(find.text('分类范围'), findsOneWidget);
-      expect(find.text('提醒线 80%'), findsWidgets);
-      expect(find.text('40% 已使用'), findsOneWidget);
       expect(find.text('¥1800.00'), findsAtLeastNWidgets(1));
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('87%'), findsAtLeastNWidgets(1));
+
+      expect(find.byKey(const ValueKey('budget-command-center')), findsNothing);
+      expect(find.byKey(const ValueKey('budget-risk-radar')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('budget-family-hub-panel')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('budget-ai-guardrail-rail')),
+        findsNothing,
+      );
+      expect(find.text('预算控制台'), findsNothing);
+      expect(find.text('预算风险雷达'), findsNothing);
+      expect(find.text('家庭预算 Hub'), findsNothing);
+      expect(find.text('预算守卫矩阵'), findsNothing);
+      expect(find.text('预算燃烧节奏正常'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('budget-guardrail-matrix-budget-food')),
+        findsNothing,
+      );
 
       await tester.scrollUntilVisible(find.text('家庭成员预算'), 300);
       await tester.pumpAndSettle();
@@ -83,9 +52,9 @@ void main() {
         find.byKey(
           const ValueKey('budget-guardrail-matrix-member-budget-family'),
         ),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('成员范围'), findsOneWidget);
+      expect(find.text('成员范围'), findsNothing);
     });
 
     testWidgets('预算总览和预算卡片使用分段入场动效', (tester) async {
@@ -182,18 +151,18 @@ void main() {
         );
       await _pumpPage(tester, budgetRepository);
 
-      expect(find.text('预算风险雷达'), findsOneWidget);
-      expect(find.text('预算稳态'), findsOneWidget);
-      expect(find.text('等待总预算、分类预算和家庭预算接入'), findsOneWidget);
+      expect(find.text('预算风险雷达'), findsNothing);
+      expect(find.text('预算稳态'), findsNothing);
+      expect(find.text('等待总预算、分类预算和家庭预算接入'), findsNothing);
       expect(
         find.byKey(const ValueKey('budget-ai-guardrail-rail')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('家庭预留'), findsOneWidget);
-      expect(find.text('提醒线预留'), findsOneWidget);
+      expect(find.text('家庭预留'), findsNothing);
+      expect(find.text('提醒线预留'), findsNothing);
       expect(find.text('还没有设置总预算'), findsOneWidget);
       expect(find.text('暂无分类预算'), findsOneWidget);
-      expect(find.text('给高频支出分类设置独立预算后，可以更早发现超支风险。'), findsOneWidget);
+      expect(find.text('暂无数据'), findsOneWidget);
     });
 
     testWidgets('保存总预算失败时展示错误面板', (tester) async {

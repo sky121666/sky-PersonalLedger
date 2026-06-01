@@ -96,7 +96,6 @@ class CategoriesPage extends ConsumerWidget {
             children: [
               _CategoryHeader(
                 selectedType: selectedType,
-                categories: state.valueOrNull?.categories ?? const [],
                 onTypeChanged: (type) => ref
                     .read(categoryListControllerProvider.notifier)
                     .setType(type),
@@ -109,7 +108,6 @@ class CategoriesPage extends ConsumerWidget {
             children: [
               _CategoryHeader(
                 selectedType: selectedType,
-                categories: state.valueOrNull?.categories ?? const [],
                 onTypeChanged: (type) => ref
                     .read(categoryListControllerProvider.notifier)
                     .setType(type),
@@ -160,7 +158,6 @@ class _CategoryLibraryView extends ConsumerWidget {
               index: 0,
               child: _CategoryHeader(
                 selectedType: state.type,
-                categories: state.categories,
                 onTypeChanged: (type) => ref
                     .read(categoryListControllerProvider.notifier)
                     .setType(type),
@@ -176,7 +173,7 @@ class _CategoryLibraryView extends ConsumerWidget {
                   index: 1,
                   child: AppEmptyView(
                     title: '暂无${state.type.label}分类',
-                    message: '添加分类后，记账时可以快速归类。',
+                    message: '暂无数据',
                     icon: Icons.category_outlined,
                     action: FilledButton.icon(
                       onPressed: () => _openCategoryForm(context, state.type),
@@ -227,26 +224,18 @@ class _CategoryLibraryView extends ConsumerWidget {
 class _CategoryHeader extends StatelessWidget {
   const _CategoryHeader({
     required this.selectedType,
-    required this.categories,
     required this.onTypeChanged,
   });
 
   final CategoryType selectedType;
-  final List<Category> categories;
   final ValueChanged<CategoryType> onTypeChanged;
 
   @override
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
-    final colorScheme = Theme.of(context).colorScheme;
     final accentColor = selectedType == CategoryType.expense
         ? financeColors.expense
         : financeColors.income;
-    final systemCount = categories
-        .where((category) => category.isSystem)
-        .length;
-    final customCount = categories.length - systemCount;
-    final palettePreview = categories.take(8).toList();
     return PremiumSurface(
       accentColor: accentColor,
       padding: const EdgeInsets.all(18),
@@ -263,43 +252,14 @@ class _CategoryHeader extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${selectedType.label}分类库',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${categories.length} 个分类用于快速归集交易',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  '${selectedType.label}分类',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          _CategorySpectrumPanel(
-            selectedType: selectedType,
-            categories: categories,
-            systemCount: systemCount,
-            customCount: customCount,
-            palettePreview: palettePreview,
-            accentColor: accentColor,
-          ),
-          const SizedBox(height: 16),
-          _CategoryLibraryRadar(
-            selectedType: selectedType,
-            categories: categories,
-            accentColor: accentColor,
-            systemCount: systemCount,
-            customCount: customCount,
           ),
           const SizedBox(height: 16),
           SegmentedButton<CategoryType>(
@@ -324,328 +284,6 @@ class _CategoryHeader extends StatelessWidget {
   }
 }
 
-class _CategorySpectrumPanel extends StatelessWidget {
-  const _CategorySpectrumPanel({
-    required this.selectedType,
-    required this.categories,
-    required this.systemCount,
-    required this.customCount,
-    required this.palettePreview,
-    required this.accentColor,
-  });
-
-  final CategoryType selectedType;
-  final List<Category> categories;
-  final int systemCount;
-  final int customCount;
-  final List<Category> palettePreview;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final total = categories.isEmpty ? 1 : categories.length;
-    final customRatio = (customCount / total).clamp(0.0, 1.0);
-    return Container(
-      key: const ValueKey('category-spectrum-panel'),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '分类颜色系统',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              Text(
-                '自定义占比 ${(customRatio * 100).round()}%',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              for (final entry in palettePreview.indexed) ...[
-                Expanded(
-                  child: Container(
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: _parseColor(entry.$2.color, accentColor),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                if (entry.$1 != palettePreview.length - 1)
-                  const SizedBox(width: 4),
-              ],
-              if (palettePreview.isEmpty)
-                Expanded(
-                  child: Container(
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: colorScheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _CategoryMetaChip(
-                label: '${selectedType.label}模式',
-                color: accentColor,
-              ),
-              _CategoryMetaChip(
-                label: '系统 $systemCount',
-                color: colorScheme.primary,
-              ),
-              _CategoryMetaChip(
-                label: '自定义 $customCount',
-                color: colorScheme.tertiary,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryLibraryRadar extends StatelessWidget {
-  const _CategoryLibraryRadar({
-    required this.selectedType,
-    required this.categories,
-    required this.accentColor,
-    required this.systemCount,
-    required this.customCount,
-  });
-
-  final CategoryType selectedType;
-  final List<Category> categories;
-  final Color accentColor;
-  final int systemCount;
-  final int customCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final colorCount = categories
-        .map((category) => category.color.trim().toLowerCase())
-        .where((color) => color.isNotEmpty)
-        .toSet()
-        .length;
-    final iconCount = categories
-        .map((category) => _normalizeCategoryIcon(category.icon))
-        .where((icon) => icon.isNotEmpty)
-        .toSet()
-        .length;
-    final total = categories.isEmpty ? 1 : categories.length;
-    final customRatio = ((customCount / total) * 100).round();
-    final featuredCustom = categories
-        .where((category) => !category.isSystem)
-        .cast<Category?>()
-        .firstWhere((category) => category != null, orElse: () => null);
-    final radarLabel = categories.isEmpty
-        ? '等待配置'
-        : customRatio >= 50
-        ? '高自定义'
-        : '标准库';
-
-    return Container(
-      key: const ValueKey('category-library-radar'),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          accentColor.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.07,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accentColor.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.radar_outlined, size: 19, color: accentColor),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '分类治理雷达',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              _CategoryMetaChip(label: radarLabel, color: accentColor),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _CategoryRadarMetric(
-                icon: Icons.palette_outlined,
-                label: '颜色覆盖',
-                value: '$colorCount 色',
-                color: accentColor,
-              ),
-              _CategoryRadarMetric(
-                icon: Icons.auto_awesome_mosaic_outlined,
-                label: '图标覆盖',
-                value: '$iconCount 枚',
-                color: colorScheme.primary,
-              ),
-              _CategoryRadarMetric(
-                icon: Icons.tune_outlined,
-                label: '自定义率',
-                value: '$customRatio%',
-                color: customCount > systemCount
-                    ? financeColors.income
-                    : financeColors.asset,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.account_tree_outlined, size: 18, color: accentColor),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  featuredCustom == null
-                      ? '${selectedType.label}库暂无自定义分类'
-                      : '重点自定义 · ${featuredCustom.name}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryRadarMetric extends StatelessWidget {
-  const _CategoryRadarMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 7),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryMetaChip extends StatelessWidget {
-  const _CategoryMetaChip({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
 class _CategoryCard extends ConsumerWidget {
   const _CategoryCard({required this.category});
 
@@ -656,9 +294,6 @@ class _CategoryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = _parseColor(category.color, colorScheme.primary);
-    final typeColor = category.type == CategoryType.expense
-        ? AppTheme.financeColors(context).expense
-        : AppTheme.financeColors(context).income;
     return Semantics(
       label:
           '${category.name}，${category.type.label}分类，${category.isSystem ? '系统分类' : '自定义分类'}',
@@ -686,8 +321,6 @@ class _CategoryCard extends ConsumerWidget {
                         size: 42,
                         iconSize: 22,
                       ),
-                      const Spacer(),
-                      _CategoryStatusDot(color: color),
                       PopupMenuButton<_CategoryAction>(
                         tooltip: '更多分类操作 ${category.name}',
                         onSelected: (action) =>
@@ -715,35 +348,14 @@ class _CategoryCard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      _CategoryCardPill(
-                        icon: category.type == CategoryType.expense
-                            ? Icons.remove_circle_outline
-                            : Icons.add_circle_outline,
-                        label: category.type.label,
-                        color: typeColor,
-                      ),
-                      _CategoryCardPill(
-                        icon: category.isSystem
-                            ? Icons.verified_outlined
-                            : Icons.tune_outlined,
-                        label: category.isSystem ? '系统分类' : '自定义分类',
-                        color: color,
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  _CategorySignalPanel(
-                    categoryId: category.id,
-                    color: color,
-                    icon: _categoryIconData(category.icon),
-                    title: category.isSystem ? '稳定基础' : '个性归类',
-                    caption: category.isSystem ? '系统预设' : '用户维护',
-                    typeLabel: category.type.label,
-                    maintenanceLabel: category.isSystem ? '预设' : '可调',
+                  Text(
+                    '${category.type.label} · ${category.isSystem ? '系统分类' : '自定义分类'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -805,203 +417,6 @@ class _CategoryCard extends ConsumerWidget {
   }
 }
 
-class _CategoryStatusDot extends StatelessWidget {
-  const _CategoryStatusDot({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 9,
-      height: 9,
-      margin: const EdgeInsets.only(top: 12, right: 2),
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.35),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategorySignalPanel extends StatelessWidget {
-  const _CategorySignalPanel({
-    required this.categoryId,
-    required this.color,
-    required this.icon,
-    required this.title,
-    required this.caption,
-    required this.typeLabel,
-    required this.maintenanceLabel,
-  });
-
-  final String categoryId;
-  final Color color;
-  final IconData icon;
-  final String title;
-  final String caption;
-  final String typeLabel;
-  final String maintenanceLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      key: ValueKey('category-governance-matrix-$categoryId'),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.17
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 17, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  caption,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          _CategorySignalChip(label: typeLabel, color: color),
-          const SizedBox(width: 6),
-          _CategorySignalChip(label: maintenanceLabel, color: color),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategorySignalChip extends StatelessWidget {
-  const _CategorySignalChip({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 26, minWidth: 38),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryCardPill extends StatelessWidget {
-  const _CategoryCardPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 28, maxWidth: 150),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.17
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _CategoryFormSheet extends ConsumerStatefulWidget {
   const _CategoryFormSheet({required this.type, this.category});
 
@@ -1045,10 +460,6 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.category != null;
-    final previewColor = _parseColor(
-      _color,
-      AppTheme.financeColors(context).asset,
-    );
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -1063,13 +474,11 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _CategoryFormPreview(
-                title: isEditing ? '编辑分类' : '新增${widget.type.label}分类',
-                name: _nameController.text.trim().isEmpty
-                    ? '未命名分类'
-                    : _nameController.text.trim(),
-                icon: _categoryIconData(_iconController.text),
-                color: previewColor,
+              Text(
+                isEditing ? '编辑分类' : '新增${widget.type.label}分类',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 16),
               Text(
@@ -1212,58 +621,6 @@ class _CategoryIconOption {
   final String value;
   final String label;
   final IconData icon;
-}
-
-class _CategoryFormPreview extends StatelessWidget {
-  const _CategoryFormPreview({
-    required this.title,
-    required this.name,
-    required this.icon,
-    required this.color,
-  });
-
-  final String title;
-  final String name;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return PremiumSurface(
-      accentColor: color,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          IconBadge(icon: icon, color: color, size: 46, iconSize: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '当前名称：$name',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _CategoryIconChoice extends StatelessWidget {

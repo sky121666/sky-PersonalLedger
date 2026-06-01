@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +5,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_route_paths.dart';
 import '../../../app/theme/app_theme.dart';
-import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -137,13 +134,12 @@ class _AccountContent extends ConsumerWidget {
   /// 构建账户汇总和列表内容。
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeSettings = ref.watch(themeControllerProvider);
     if (result.accounts.isEmpty) {
       return StaggeredEntrance(
         index: 0,
         child: AppEmptyView(
           title: '暂无账户',
-          message: '添加现金、银行卡或支付账户后即可开始记账。',
+          message: '暂无数据',
           icon: Icons.account_balance_wallet_outlined,
           action: FilledButton.icon(
             onPressed: () => _openAccountForm(context),
@@ -169,43 +165,19 @@ class _AccountContent extends ConsumerWidget {
             index: 0,
             child: _AccountSummaryCard(result: result),
           ),
-          const SizedBox(height: 12),
-          StaggeredEntrance(
-            index: 1,
-            child: _AccountPortfolioControlStrip(
-              result: result,
-              themePalette: themeSettings.palette,
-            ),
-          ),
-          const SizedBox(height: 12),
-          StaggeredEntrance(
-            index: 2,
-            child: _AccountPortfolioMatrixPanel(
-              result: result,
-              themePalette: themeSettings.palette,
-            ),
-          ),
-          const SizedBox(height: 12),
-          StaggeredEntrance(
-            index: 3,
-            child: _AccountHealthScorePanel(
-              result: result,
-              themePalette: themeSettings.palette,
-            ),
-          ),
           const SizedBox(height: 16),
           _AccountSection(
             title: '正常账户',
             accounts: activeAccounts,
             sortable: true,
-            startIndex: 4,
+            startIndex: 1,
           ),
           if (archivedAccounts.isNotEmpty) ...[
             const SizedBox(height: 16),
             _AccountSection(
               title: '已归档账户',
               accounts: archivedAccounts,
-              startIndex: activeAccounts.length + 4,
+              startIndex: activeAccounts.length + 1,
             ),
           ],
         ],
@@ -235,13 +207,6 @@ class _AccountSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
     final colorScheme = Theme.of(context).colorScheme;
-    final activeCount = result.accounts
-        .where((item) => !item.isArchived)
-        .length;
-    final activeDebtCount = result.accounts
-        .where((item) => !item.isArchived && _isDebtAccount(item.type))
-        .length;
-    final activeAssetCount = activeCount - activeDebtCount;
     return Semantics(
       label: '净资产 ${_formatMoney(result.netAssets)}',
       child: PremiumSurface(
@@ -259,14 +224,13 @@ class _AccountSummaryCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '资产概览',
+                    '净资产',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                _AssetHealthPill(result: result),
               ],
             ),
             const SizedBox(height: 18),
@@ -278,37 +242,16 @@ class _AccountSummaryCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _AssetMixStrip(result: result),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                MetricPill(
-                  label: '总资产',
-                  value: _formatMoney(result.totalAssets),
-                  icon: Icons.trending_up,
-                  color: financeColors.income,
-                ),
-                MetricPill(
-                  label: '总负债',
-                  value: _formatMoney(result.totalLiabilities),
-                  icon: Icons.trending_down,
-                  color: financeColors.expense,
-                ),
-                MetricPill(
-                  label: '资产账户',
-                  value: '$activeAssetCount 个',
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: colorScheme.primary,
-                ),
-                MetricPill(
-                  label: '负债账户',
-                  value: '$activeDebtCount 个',
-                  icon: Icons.request_quote_outlined,
-                  color: financeColors.expense,
-                ),
-              ],
+            _AccountSummaryLine(
+              label: '总资产',
+              value: _formatMoney(result.totalAssets),
+              color: financeColors.income,
+            ),
+            const SizedBox(height: 8),
+            _AccountSummaryLine(
+              label: '总负债',
+              value: _formatMoney(result.totalLiabilities),
+              color: financeColors.expense,
             ),
           ],
         ),
@@ -317,1006 +260,40 @@ class _AccountSummaryCard extends StatelessWidget {
   }
 }
 
-class _AssetHealthPill extends StatelessWidget {
-  const _AssetHealthPill({required this.result});
-
-  final AccountListResult result;
-
-  @override
-  Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
-    final colorScheme = Theme.of(context).colorScheme;
-    final color = result.netAssets >= 0
-        ? financeColors.income
-        : financeColors.expense;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Text(
-        result.netAssets >= 0 ? '资产安全垫' : '负债承压',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _AssetMixStrip extends StatelessWidget {
-  const _AssetMixStrip({required this.result});
-
-  final AccountListResult result;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final total = result.totalAssets.abs() + result.totalLiabilities.abs();
-    final assetRatio = total > 0 ? result.totalAssets.abs() / total : 0.0;
-    final debtRatio = total > 0 ? result.totalLiabilities.abs() / total : 0.0;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          financeColors.asset.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: financeColors.asset.withValues(alpha: 0.14)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _AssetMixLegend(label: '资产占比', color: financeColors.income),
-              const SizedBox(width: 12),
-              _AssetMixLegend(label: '负债占比', color: financeColors.expense),
-              const Spacer(),
-              Text(
-                total > 0
-                    ? '${(assetRatio * 100).toStringAsFixed(0)}% / ${(debtRatio * 100).toStringAsFixed(0)}%'
-                    : '-- / --',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w900,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: SizedBox(
-              height: 10,
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: math.max(1, (assetRatio * 100).round()),
-                    child: ColoredBox(color: financeColors.income),
-                  ),
-                  Expanded(
-                    flex: math.max(1, (debtRatio * 100).round()),
-                    child: ColoredBox(color: financeColors.expense),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AssetMixLegend extends StatelessWidget {
-  const _AssetMixLegend({required this.label, required this.color});
+class _AccountSummaryLine extends StatelessWidget {
+  const _AccountSummaryLine({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   final String label;
+  final String value;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AccountPortfolioControlStrip extends StatelessWidget {
-  const _AccountPortfolioControlStrip({
-    required this.result,
-    required this.themePalette,
-  });
-
-  final AccountListResult result;
-  final AppThemePalette themePalette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final activeAccounts = result.accounts
-        .where((account) => !account.isArchived)
-        .toList();
-    final archivedCount = result.accounts.length - activeAccounts.length;
-    final debtAccounts = activeAccounts
-        .where((account) => _isDebtAccount(account.type))
-        .toList();
-    final liquidAccounts = activeAccounts
-        .where((account) => !_isDebtAccount(account.type))
-        .toList();
-    final debtRatio = result.totalAssets.abs() <= 0
-        ? 0.0
-        : result.totalLiabilities.abs() / result.totalAssets.abs();
-    final debtExposureLabel = debtRatio > 1
-        ? '高风险'
-        : '${(debtRatio * 100).toStringAsFixed(0)}%';
-    final primaryAccount = liquidAccounts.isEmpty
-        ? null
-        : liquidAccounts.reduce(
-            (a, b) => a.currentBalance >= b.currentBalance ? a : b,
-          );
-    final healthColor = result.netAssets >= 0
-        ? financeColors.income
-        : financeColors.expense;
-
-    return PremiumSurface(
-      key: const ValueKey('account-portfolio-control-strip'),
-      accentColor: themePalette.assetColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(
-                icon: Icons.dashboard_customize_outlined,
-                color: themePalette.assetColor,
-                size: 44,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '资产控制中枢',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      primaryAccount == null
-                          ? '等待建立主要资产账户'
-                          : '${primaryAccount.name} · ${_formatMoney(primaryAccount.currentBalance)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _AccountControlPill(
-                icon: result.netAssets >= 0
-                    ? Icons.verified_outlined
-                    : Icons.warning_amber_rounded,
-                label: result.netAssets >= 0 ? '净资产为正' : '负债承压',
-                color: healthColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _AccountControlPill(
-                icon: Icons.palette_outlined,
-                label: themePalette.label,
-                color: themePalette.seedColor,
-              ),
-              _AccountControlPill(
-                icon: Icons.account_balance_wallet_outlined,
-                label: '活跃 ${activeAccounts.length} 个',
-                color: themePalette.assetColor,
-              ),
-              _AccountControlPill(
-                icon: archivedCount > 0
-                    ? Icons.inventory_2_outlined
-                    : Icons.inventory_outlined,
-                label: archivedCount > 0 ? '归档 $archivedCount 个' : '无归档',
-                color: archivedCount > 0
-                    ? colorScheme.outline
-                    : financeColors.income,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth >= 420
-                  ? (constraints.maxWidth - 16) / 3
-                  : constraints.maxWidth;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _AccountControlMetric(
-                    width: itemWidth,
-                    icon: Icons.savings_outlined,
-                    label: '流动账户',
-                    value: '${liquidAccounts.length} 个',
-                    color: financeColors.income,
-                  ),
-                  _AccountControlMetric(
-                    width: itemWidth,
-                    icon: Icons.request_quote_outlined,
-                    label: '负债暴露',
-                    value: debtExposureLabel,
-                    color: debtAccounts.isEmpty
-                        ? colorScheme.outline
-                        : financeColors.expense,
-                  ),
-                  _AccountControlMetric(
-                    width: itemWidth,
-                    icon: Icons.route_outlined,
-                    label: '资产路径',
-                    value: result.netAssets >= 0 ? '稳健' : '收缩',
-                    color: themePalette.warningColor,
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountControlPill extends StatelessWidget {
-  const _AccountControlPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Text(
+        Expanded(
+          child: Text(
             label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountControlMetric extends StatelessWidget {
-  const _AccountControlMetric({
-    required this.width,
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final double width;
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      width: width,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 74),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountPortfolioMatrixPanel extends StatelessWidget {
-  const _AccountPortfolioMatrixPanel({
-    required this.result,
-    required this.themePalette,
-  });
-
-  final AccountListResult result;
-  final AppThemePalette themePalette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final activeAccounts = result.accounts
-        .where((account) => !account.isArchived)
-        .toList();
-    final assetAccounts = activeAccounts
-        .where((account) => !_isDebtAccount(account.type))
-        .toList();
-    final debtAccounts = activeAccounts
-        .where((account) => _isDebtAccount(account.type))
-        .toList();
-    final primaryAsset = assetAccounts.isEmpty
-        ? null
-        : assetAccounts.reduce(
-            (a, b) => a.currentBalance >= b.currentBalance ? a : b,
-          );
-    final primaryDebt = debtAccounts.isEmpty
-        ? null
-        : debtAccounts.reduce(
-            (a, b) => a.currentBalance.abs() >= b.currentBalance.abs() ? a : b,
-          );
-    final totalExposure =
-        result.totalAssets.abs() + result.totalLiabilities.abs();
-    final assetShare = totalExposure <= 0
-        ? 0.0
-        : result.totalAssets.abs() / totalExposure;
-    final debtShare = totalExposure <= 0
-        ? 0.0
-        : result.totalLiabilities.abs() / totalExposure;
-    final liquidityLabel = assetAccounts.length >= debtAccounts.length
-        ? '流动优先'
-        : '负债优先';
-    final matrixColor = result.netAssets >= 0
-        ? themePalette.assetColor
-        : financeColors.expense;
-
-    return PremiumSurface(
-      key: const ValueKey('account-portfolio-matrix-panel'),
-      accentColor: matrixColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(
-                icon: Icons.grid_view_outlined,
-                color: matrixColor,
-                size: 44,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '账户资产矩阵',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      primaryAsset == null
-                          ? '等待创建可用于记账的流动账户'
-                          : '${primaryAsset.name} 是当前主要流动账户',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _AccountControlPill(
-                icon: Icons.account_tree_outlined,
-                label: liquidityLabel,
-                color: matrixColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _AccountExposureBar(
-            assetShare: assetShare,
-            debtShare: debtShare,
-            assetColor: financeColors.income,
-            debtColor: financeColors.expense,
-          ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth >= 420
-                  ? (constraints.maxWidth - 8) / 2
-                  : constraints.maxWidth;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _AccountMatrixTile(
-                    width: itemWidth,
-                    icon: Icons.savings_outlined,
-                    label: '主资产账户',
-                    value: primaryAsset?.name ?? '未建立',
-                    meta: primaryAsset == null
-                        ? '0 份'
-                        : _formatMoney(primaryAsset.currentBalance),
-                    color: financeColors.income,
-                  ),
-                  _AccountMatrixTile(
-                    width: itemWidth,
-                    icon: Icons.request_quote_outlined,
-                    label: '主要负债',
-                    value: primaryDebt?.name ?? '无负债',
-                    meta: primaryDebt == null
-                        ? '0 份'
-                        : _formatMoney(primaryDebt.currentBalance),
-                    color: primaryDebt == null
-                        ? colorScheme.outline
-                        : financeColors.expense,
-                  ),
-                  _AccountMatrixTile(
-                    width: itemWidth,
-                    icon: Icons.account_balance_wallet_outlined,
-                    label: '账户覆盖',
-                    value: '${activeAccounts.length} 个活跃',
-                    meta:
-                        '${assetAccounts.length} 资产 / ${debtAccounts.length} 负债',
-                    color: themePalette.assetColor,
-                  ),
-                  _AccountMatrixTile(
-                    width: itemWidth,
-                    icon: Icons.auto_graph_outlined,
-                    label: '结构比例',
-                    value:
-                        '${(assetShare * 100).toStringAsFixed(0)}% / ${(debtShare * 100).toStringAsFixed(0)}%',
-                    meta: '资产 / 负债',
-                    color: themePalette.warningColor,
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountExposureBar extends StatelessWidget {
-  const _AccountExposureBar({
-    required this.assetShare,
-    required this.debtShare,
-    required this.assetColor,
-    required this.debtColor,
-  });
-
-  final double assetShare;
-  final double debtShare;
-  final Color assetColor;
-  final Color debtColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _AssetMixLegend(label: '资产池', color: assetColor),
-            const SizedBox(width: 12),
-            _AssetMixLegend(label: '负债池', color: debtColor),
-            const Spacer(),
-            Text(
-              '矩阵占比',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: SizedBox(
-            height: 12,
-            child: Row(
-              children: [
-                Expanded(
-                  flex: math.max(1, (assetShare * 100).round()),
-                  child: ColoredBox(color: assetColor),
-                ),
-                Expanded(
-                  flex: math.max(1, (debtShare * 100).round()),
-                  child: ColoredBox(color: debtColor),
-                ),
-              ],
-            ),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
-    );
-  }
-}
-
-class _AccountMatrixTile extends StatelessWidget {
-  const _AccountMatrixTile({
-    required this.width,
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.meta,
-    required this.color,
-  });
-
-  final double width;
-  final IconData icon;
-  final String label;
-  final String value;
-  final String meta;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      width: width,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      constraints: const BoxConstraints(minHeight: 92),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 21, color: color),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  meta,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountHealthScorePanel extends StatelessWidget {
-  const _AccountHealthScorePanel({
-    required this.result,
-    required this.themePalette,
-  });
-
-  final AccountListResult result;
-  final AppThemePalette themePalette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final activeAccounts = result.accounts
-        .where((account) => !account.isArchived)
-        .toList();
-    final assetAccounts = activeAccounts
-        .where((account) => !_isDebtAccount(account.type))
-        .toList();
-    final debtAccounts = activeAccounts
-        .where((account) => _isDebtAccount(account.type))
-        .toList();
-    final exposureRatio = result.totalAssets.abs() <= 0
-        ? 1.0
-        : (result.totalLiabilities.abs() / result.totalAssets.abs()).clamp(
-            0.0,
-            1.0,
-          );
-    final positiveNet = result.netAssets >= 0;
-    final hasAssetBase = result.totalAssets > 0;
-    final controlledDebt =
-        result.totalAssets <= 0 ||
-        result.totalLiabilities.abs() <= result.totalAssets.abs();
-    final hasActiveAccounts = activeAccounts.isNotEmpty;
-    final score = [
-      positiveNet,
-      hasAssetBase,
-      controlledDebt,
-      hasActiveAccounts,
-    ].where((item) => item).length;
-    final scoreRatio = score / 4;
-    final scoreColor = score >= 3
-        ? financeColors.income
-        : score >= 2
-        ? themePalette.warningColor
-        : financeColors.expense;
-
-    return PremiumSurface(
-      key: const ValueKey('account-health-score-panel'),
-      accentColor: scoreColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(
-                icon: Icons.health_and_safety_outlined,
-                color: scoreColor,
-                size: 44,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '资产健康评分',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      positiveNet ? '净资产形成正向安全垫' : '优先压低负债暴露，恢复资产安全垫',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _AccountControlPill(
-                icon: positiveNet
-                    ? Icons.shield_outlined
-                    : Icons.priority_high_rounded,
-                label: positiveNet ? '安全垫' : '承压',
-                color: scoreColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                scoreColor.withValues(
-                  alpha: Theme.of(context).brightness == Brightness.dark
-                      ? 0.18
-                      : 0.10,
-                ),
-                colorScheme.surface,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: scoreColor.withValues(alpha: 0.16)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      '风险分',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '$score / 4',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: scoreColor,
-                        fontWeight: FontWeight.w900,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    minHeight: 10,
-                    value: scoreRatio,
-                    color: scoreColor,
-                    backgroundColor: colorScheme.outlineVariant.withValues(
-                      alpha: 0.34,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth >= 420
-                  ? (constraints.maxWidth - 8) / 2
-                  : constraints.maxWidth;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _AccountHealthMetric(
-                    width: itemWidth,
-                    icon: Icons.account_balance_outlined,
-                    label: '资产安全垫',
-                    value: _formatMoney(result.netAssets),
-                    color: positiveNet
-                        ? financeColors.income
-                        : financeColors.expense,
-                  ),
-                  _AccountHealthMetric(
-                    width: itemWidth,
-                    icon: Icons.radar_outlined,
-                    label: '负债暴露',
-                    value: '${(exposureRatio * 100).toStringAsFixed(0)}% 占用',
-                    color: debtAccounts.isEmpty
-                        ? colorScheme.outline
-                        : financeColors.expense,
-                  ),
-                  _AccountHealthMetric(
-                    width: itemWidth,
-                    icon: Icons.hub_outlined,
-                    label: '账户覆盖',
-                    value: '${activeAccounts.length} 个账户',
-                    color: themePalette.assetColor,
-                  ),
-                  _AccountHealthMetric(
-                    width: itemWidth,
-                    icon: Icons.account_tree_outlined,
-                    label: '资产结构',
-                    value:
-                        '${assetAccounts.length} 资产 / ${debtAccounts.length} 负债',
-                    color: themePalette.warningColor,
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountHealthMetric extends StatelessWidget {
-  const _AccountHealthMetric({
-    required this.width,
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final double width;
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      width: width,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 82),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.15
-                : 0.07,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 21, color: color),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1352,7 +329,6 @@ class _AccountSection extends StatelessWidget {
             icon: title == '已归档账户'
                 ? Icons.archive_outlined
                 : Icons.account_balance_wallet_outlined,
-            sortable: sortable,
           ),
         ),
         const SizedBox(height: 8),
@@ -1398,12 +374,6 @@ class _AccountListTile extends ConsumerWidget {
     final balanceColor = isDebt
         ? financeColors.expense
         : account.currentBalance >= 0
-        ? financeColors.income
-        : Theme.of(context).colorScheme.error;
-    final delta = account.currentBalance - account.initialBalance;
-    final deltaColor = isDebt
-        ? financeColors.expense
-        : delta >= 0
         ? financeColors.income
         : Theme.of(context).colorScheme.error;
     final statusLabel = account.isArchived
@@ -1565,21 +535,6 @@ class _AccountListTile extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  _AccountBalanceSignal(
-                    account: account,
-                    isDebt: isDebt,
-                    accentColor: color,
-                    balanceColor: balanceColor,
-                    deltaColor: deltaColor,
-                  ),
-                  const SizedBox(height: 12),
-                  _AccountOperationsRail(
-                    account: account,
-                    canSort: canSort,
-                    isDebt: isDebt,
-                    accentColor: color,
-                  ),
                   if (isDebt || account.remark.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Wrap(
@@ -1705,367 +660,6 @@ class _AccountListTile extends ConsumerWidget {
         ).showSnackBar(SnackBar(content: Text('排序失败：$error')));
       }
     }
-  }
-}
-
-class _AccountOperationsRail extends StatelessWidget {
-  const _AccountOperationsRail({
-    required this.account,
-    required this.canSort,
-    required this.isDebt,
-    required this.accentColor,
-  });
-
-  final Account account;
-  final bool canSort;
-  final bool isDebt;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final stateColor = account.isArchived
-        ? colorScheme.outline
-        : isDebt
-        ? financeColors.expense
-        : financeColors.income;
-    return Container(
-      key: ValueKey('account-operations-rail-${account.id}'),
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          colorScheme.primary.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.10
-                : 0.045,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.hub_outlined, size: 17, color: accentColor),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  '账户操作轨道',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              _AccountRailPill(
-                label: account.isArchived ? '归档态' : '可管理',
-                color: stateColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _AccountOperationTile(
-                  icon: Icons.receipt_long_outlined,
-                  label: '流水入口',
-                  value: '一键追踪',
-                  color: accentColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AccountOperationTile(
-                  icon: Icons.tune_outlined,
-                  label: '账户参数',
-                  value: '可编辑',
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AccountOperationTile(
-                  icon: canSort
-                      ? Icons.swap_vert_rounded
-                      : Icons.lock_outline_rounded,
-                  label: canSort ? '排序轨道' : '排序状态',
-                  value: canSort ? '支持排序' : '锁定',
-                  color: canSort ? financeColors.asset : colorScheme.outline,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountOperationTile extends StatelessWidget {
-  const _AccountOperationTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 66),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.15
-                : 0.07,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 17),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 1),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountRailPill extends StatelessWidget {
-  const _AccountRailPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(alpha: 0.11),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountBalanceSignal extends StatelessWidget {
-  const _AccountBalanceSignal({
-    required this.account,
-    required this.isDebt,
-    required this.accentColor,
-    required this.balanceColor,
-    required this.deltaColor,
-  });
-
-  final Account account;
-  final bool isDebt;
-  final Color accentColor;
-  final Color balanceColor;
-  final Color deltaColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final baseline = account.initialBalance.abs();
-    final current = account.currentBalance.abs();
-    final progress = baseline <= 0 ? 1.0 : (current / baseline).clamp(0.0, 1.0);
-    final delta = account.currentBalance - account.initialBalance;
-    final deltaLabel = delta == 0
-        ? '无变化'
-        : '${delta > 0 ? '+' : ''}${_formatMoney(delta)}';
-    final postureLabel = isDebt
-        ? '负债追踪'
-        : delta > 0
-        ? '资产增值'
-        : delta < 0
-        ? '资产回落'
-        : '资产稳定';
-    final postureColor = isDebt ? balanceColor : deltaColor;
-    return AnimatedContainer(
-      key: ValueKey('account-balance-matrix-${account.id}'),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          accentColor.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.14
-                : 0.07,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accentColor.withValues(alpha: 0.14)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.insights_outlined, size: 17, color: accentColor),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  '账户态势',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              _AccountRailPill(label: postureLabel, color: postureColor),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _AccountSignalMetric(
-                icon: isDebt ? Icons.route_outlined : Icons.monitor_heart,
-                label: isDebt ? '偿还进度' : '资产轨道',
-                value: isDebt
-                    ? '${(progress * 100).toStringAsFixed(0)}%'
-                    : _formatMoney(account.initialBalance),
-                color: accentColor,
-              ),
-              const SizedBox(width: 8),
-              _AccountSignalMetric(
-                icon: delta >= 0
-                    ? Icons.trending_up_rounded
-                    : Icons.trending_down_rounded,
-                label: '期初对比',
-                value: deltaLabel,
-                color: deltaColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: SizedBox(
-              height: 8,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ColoredBox(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.45),
-                  ),
-                  FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: progress,
-                    child: ColoredBox(color: balanceColor),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountSignalMetric extends StatelessWidget {
-  const _AccountSignalMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Row(
-        children: [
-          Icon(icon, size: 17, color: color),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -2757,13 +1351,11 @@ class _SectionHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.sortable,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
-  final bool sortable;
 
   @override
   Widget build(BuildContext context) {
@@ -2798,44 +1390,6 @@ class _SectionHeader extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-          _SectionModePill(
-            icon: sortable ? Icons.swap_vert_rounded : Icons.lock_outline,
-            label: sortable ? '支持排序' : '归档区',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionModePill extends StatelessWidget {
-  const _SectionModePill({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.20)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: colorScheme.primary),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.primary,
-              fontWeight: FontWeight.w900,
             ),
           ),
         ],

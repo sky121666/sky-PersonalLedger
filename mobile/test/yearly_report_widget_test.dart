@@ -14,36 +14,37 @@ void main() {
 
       expect(find.text('年度报告'), findsWidgets);
       expect(find.text('2026 年账本汇总'), findsOneWidget);
-      expect(find.byKey(const ValueKey('yearly-insight-deck')), findsOneWidget);
-      expect(find.text('年度洞察台'), findsOneWidget);
-      expect(find.text('年度正结余'), findsOneWidget);
-      expect(find.text('交易活跃'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('yearly-evidence-rail')),
-        findsOneWidget,
-      );
-      expect(find.text('AI 输入'), findsOneWidget);
-      expect(find.text('可分析'), findsOneWidget);
+      expect(find.byKey(const ValueKey('yearly-insight-deck')), findsNothing);
+      expect(find.text('年度洞察台'), findsNothing);
+      expect(find.text('年度正结余'), findsNothing);
+      expect(find.text('交易活跃'), findsNothing);
+      expect(find.byKey(const ValueKey('yearly-evidence-rail')), findsNothing);
+      expect(find.text('AI 输入'), findsNothing);
+      expect(find.text('可分析'), findsNothing);
       expect(
         find.byKey(const ValueKey('yearly-narrative-radar')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('年度叙事雷达'), findsOneWidget);
-      expect(find.text('最佳结余'), findsOneWidget);
-      expect(find.text('支出峰值'), findsOneWidget);
-      expect(find.text('主导支出 · 餐饮 · 50.0%'), findsOneWidget);
-      expect(find.text('年度现金流稳健'), findsOneWidget);
+      expect(find.text('年度叙事雷达'), findsNothing);
+      expect(find.text('最佳结余月'), findsOneWidget);
+      expect(find.text('最大单笔支出'), findsOneWidget);
+      expect(find.text('年度现金流稳健'), findsNothing);
       expect(find.text('¥600.00'), findsWidgets);
       expect(find.text('交易笔数'), findsOneWidget);
       expect(find.text('活跃天数'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('年度节奏'),
+        find.text('月度收支'),
         260,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('全年收入'), findsOneWidget);
-      expect(find.text('全年支出'), findsOneWidget);
-      expect(find.text('结余峰值'), findsOneWidget);
+      expect(find.text('年度节奏'), findsNothing);
+      expect(find.text('全年收入'), findsNothing);
+      expect(find.text('全年支出'), findsNothing);
+      expect(find.text('结余峰值'), findsNothing);
+      expect(find.text('收入'), findsAtLeastNWidgets(1));
+      expect(find.text('支出'), findsAtLeastNWidgets(1));
+      expect(find.text('最高结余'), findsOneWidget);
+      expect(find.text('结余轨迹'), findsNothing);
       expect(find.text('1月 ¥600.00'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('餐饮'),
@@ -100,16 +101,13 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('2026 年账本汇总'), findsOneWidget);
-      expect(find.text('年度洞察台'), findsOneWidget);
-      expect(find.text('年度叙事雷达'), findsOneWidget);
-      expect(find.text('月度样本'), findsOneWidget);
-      expect(find.text('分类样本'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('yearly-evidence-rail')),
-        findsOneWidget,
-      );
-      expect(find.text('待积累'), findsOneWidget);
-      expect(find.text('暂无主导支出分类'), findsOneWidget);
+      expect(find.text('年度洞察台'), findsNothing);
+      expect(find.text('年度叙事雷达'), findsNothing);
+      expect(find.text('月度样本'), findsNothing);
+      expect(find.text('分类样本'), findsNothing);
+      expect(find.byKey(const ValueKey('yearly-evidence-rail')), findsNothing);
+      expect(find.text('待积累'), findsNothing);
+      expect(find.text('暂无主导支出分类'), findsNothing);
       expect(find.text('暂无月度数据'), findsAtLeastNWidgets(1));
       await tester.scrollUntilVisible(
         find.text('本年暂无支出分类数据'),

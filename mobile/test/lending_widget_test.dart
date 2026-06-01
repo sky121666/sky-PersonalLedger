@@ -22,55 +22,37 @@ void main() {
       await _pumpPage(tester, lendingRepository);
 
       expect(find.text('借贷往来'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('lending-relationship-hub')),
-        findsOneWidget,
-      );
-      expect(find.text('往来关系中枢'), findsOneWidget);
-      expect(find.textContaining('静谧墨绿'), findsOneWidget);
-      expect(find.text('关系稳定'), findsOneWidget);
-      expect(find.text('活跃 2'), findsAtLeastNWidgets(1));
-      expect(find.text('凭证 1'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('lending-evidence-rail')),
-        findsOneWidget,
-      );
-      expect(find.text('证据覆盖 50%'), findsOneWidget);
-      expect(find.byKey(const ValueKey('lending-risk-radar')), findsOneWidget);
-      expect(find.text('回款风险雷达'), findsOneWidget);
-      expect(find.text('凭证覆盖'), findsOneWidget);
-      expect(find.text('50%'), findsOneWidget);
-      expect(find.text('最大敞口'), findsOneWidget);
-      expect(find.text('张三 · ¥800.00'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('lending-recovery-flow-panel')),
-        findsOneWidget,
-      );
-      expect(find.text('回款动线'), findsOneWidget);
-      expect(find.text('流转中'), findsOneWidget);
-      expect(find.text('建档'), findsOneWidget);
-      expect(find.text('凭证'), findsAtLeastNWidgets(1));
-      expect(find.text('还款'), findsOneWidget);
-      expect(find.text('结清'), findsAtLeastNWidgets(1));
-      expect(find.text('2 笔'), findsOneWidget);
-      expect(find.text('1 份'), findsOneWidget);
       expect(find.text('应收'), findsAtLeastNWidgets(1));
       expect(find.text('¥1,200.00'), findsAtLeastNWidgets(1));
-      expect(find.text('结清率'), findsOneWidget);
-      expect(find.text('0%'), findsOneWidget);
+      expect(find.text('结清率'), findsNothing);
       expect(find.text('张三'), findsOneWidget);
       expect(find.text('剩余 ¥800.00'), findsOneWidget);
       expect(find.byKey(const ValueKey('lending-card-lend-1')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('lending-progress-lend-1')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.text('凭证已留存'), findsOneWidget);
       expect(find.text('待补凭证'), findsNothing);
-      expect(find.text('本金'), findsAtLeastNWidgets(1));
-      expect(find.text('已还'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('本金'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('已还'), findsAtLeastNWidgets(1));
       expect(find.text('进度 20%'), findsOneWidget);
       expect(find.text('备注'), findsOneWidget);
+
+      expect(
+        find.byKey(const ValueKey('lending-relationship-hub')),
+        findsNothing,
+      );
+      expect(find.text('往来关系中枢'), findsNothing);
+      expect(find.byKey(const ValueKey('lending-evidence-rail')), findsNothing);
+      expect(find.text('证据覆盖 50%'), findsNothing);
+      expect(find.byKey(const ValueKey('lending-risk-radar')), findsNothing);
+      expect(find.text('回款风险雷达'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('lending-recovery-flow-panel')),
+        findsNothing,
+      );
+      expect(find.text('回款动线'), findsNothing);
     });
 
     testWidgets('借贷总览和借贷卡片使用分段入场动效', (tester) async {
@@ -273,12 +255,10 @@ void main() {
         palette: AppThemePalette.graphite,
       );
 
-      expect(find.textContaining('石墨蓝'), findsOneWidget);
-      expect(find.text('冷静仪表'), findsOneWidget);
       final overviewSurface = tester.widget<PremiumSurface>(
         find
             .ancestor(
-              of: find.text('借贷往来总览'),
+              of: find.text('往来金额'),
               matching: find.byType(PremiumSurface),
             )
             .first,
