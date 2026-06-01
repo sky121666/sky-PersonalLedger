@@ -25,20 +25,26 @@ void main() {
     expect(find.text('自托管入口'), findsOneWidget);
     expect(find.textContaining('连接后会自动判断是否需要首次初始化'), findsOneWidget);
 
-    await tester.tap(find.text('连接'));
-    await tester.pumpAndSettle();
+    await _tapConnectButton(tester);
     expect(find.text('请输入服务器地址'), findsOneWidget);
 
     await tester.enterText(
       find.widgetWithText(TextField, '服务器地址'),
       'ledger.example.com:8080',
     );
-    await tester.tap(find.text('连接'));
-    await tester.pumpAndSettle();
+    await _tapConnectButton(tester);
 
     expect(find.text('欢迎回来'), findsOneWidget);
     expect(find.text('ledger.example.com:8080'), findsOneWidget);
   });
+}
+
+Future<void> _tapConnectButton(WidgetTester tester) async {
+  final finder = find.text('连接');
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
 }
 
 class _TestAuthController extends AuthController {

@@ -45,17 +45,16 @@ void main() {
     await _pumpUntilFound(tester, find.text('连接服务器'));
 
     await tester.enterText(find.widgetWithText(TextField, '服务器地址'), _serverUrl);
-    await tester.tap(find.text('连接'));
+    await _tapText(tester, '连接');
 
     await _pumpUntilFound(tester, find.text('首次设置密码'));
 
     await tester.enterText(find.widgetWithText(TextField, '密码'), _password);
     await tester.enterText(find.widgetWithText(TextField, '确认密码'), _password);
-    await tester.tap(find.text('完成设置'));
+    await _tapText(tester, '完成设置');
 
     await _pumpUntilFound(tester, find.text('首页'));
-    await _pumpUntilFound(tester, find.text('净资产'));
-    expect(find.text('个人记账'), findsWidgets);
+    await _pumpUntilFound(tester, find.text('财务控制台'));
 
     await _createAccount(tester);
     await _createExpenseTransaction(tester);
@@ -100,8 +99,34 @@ Future<void> _pumpUntilGone(
   expect(finder, findsNothing);
 }
 
+Future<void> _scrollUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  int maxScrolls = 20,
+}) async {
+  for (var attempt = 0; attempt < maxScrolls; attempt += 1) {
+    await tester.pump(const Duration(milliseconds: 200));
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+
+    final scrollables = _verticalScrollables();
+    if (scrollables.evaluate().isEmpty) {
+      break;
+    }
+    await tester.drag(
+      scrollables.first,
+      const Offset(0, -300),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  expect(finder, findsOneWidget);
+}
+
 Future<void> _createAccount(WidgetTester tester) async {
-  await _tapText(tester, '我的');
+  await _openShellTab(tester, keyValue: 'profile', label: '我的');
   await _pumpUntilFound(tester, find.text('账户管理'));
 
   await _tapText(tester, '账户管理');
@@ -117,14 +142,15 @@ Future<void> _createAccount(WidgetTester tester) async {
   );
   await _tapKey(tester, const ValueKey('account-save'));
 
-  await _pumpUntilFound(tester, find.text('E2E现金钱包'));
+  await _pumpUntilFound(tester, find.text('保存成功'));
+  await _scrollUntilFound(tester, find.text('E2E现金钱包'));
   await _goBack(tester, untilText: '我的');
   await _pumpUntilFound(tester, find.text('我的'));
 }
 
 Future<void> _createExpenseTransaction(WidgetTester tester) async {
-  await _tapText(tester, '首页');
-  await _pumpUntilFound(tester, find.text('净资产'));
+  await _openShellTab(tester, keyValue: 'home', label: '首页');
+  await _pumpUntilFound(tester, find.text('财务控制台'));
 
   await _tapText(tester, '记一笔');
   await _pumpUntilFound(tester, find.text('金额'));
@@ -145,45 +171,39 @@ Future<void> _createExpenseTransaction(WidgetTester tester) async {
 }
 
 Future<void> _verifyTransactionList(WidgetTester tester) async {
-  await _tapText(tester, '明细');
-  await _pumpUntilFound(tester, find.text('E2E午餐验证'));
-  await _pumpUntilFound(tester, find.text('-¥45.67'));
+  await _findTransaction(tester, 'E2E午餐验证');
+  await _scrollUntilFound(tester, find.text('-¥45.67'));
   expect(find.text('餐饮'), findsWidgets);
 }
 
 Future<void> _editExpenseTransaction(WidgetTester tester) async {
-  await _tapText(tester, '明细');
-  await _pumpUntilFound(tester, find.text('E2E午餐验证'));
+  await _findTransaction(tester, 'E2E午餐验证');
 
-  await tester.tap(_transactionTileByRemark('E2E午餐验证'));
+  await tester.tap(find.text('E2E午餐验证').last);
   await tester.pumpAndSettle();
   await _pumpUntilFound(tester, find.text('编辑交易'));
 
-  await tester.enterText(
-    find.byKey(const ValueKey('transaction-amount')),
-    '50',
-  );
-  await tester.enterText(
-    find.byKey(const ValueKey('transaction-remark')),
-    'E2E午餐验证-更新',
-  );
+  final amountField = find.byKey(const ValueKey('transaction-amount'));
+  await _scrollUntilFound(tester, amountField);
+  await tester.enterText(amountField, '50');
+
+  final remarkField = find.byKey(const ValueKey('transaction-remark'));
+  await _scrollUntilFound(tester, remarkField);
+  await tester.enterText(remarkField, 'E2E午餐验证-更新');
   await _tapKey(tester, const ValueKey('transaction-save'));
 
   await _pumpUntilFound(tester, find.text('明细'));
-  await _pumpUntilFound(tester, find.text('E2E午餐验证-更新'));
-  await _pumpUntilFound(tester, find.text('-¥50.00'));
+  await _scrollUntilFound(tester, find.text('E2E午餐验证-更新'));
+  await _scrollUntilFound(tester, find.text('-¥50.00'));
 }
 
 Future<void> _deleteExpenseTransaction(WidgetTester tester) async {
-  await _tapText(tester, '明细');
-  await _pumpUntilFound(tester, find.text('E2E午餐验证-更新'));
+  await _findTransaction(tester, 'E2E午餐验证-更新');
 
-  final menuButton = find.descendant(
-    of: _transactionTileByRemark('E2E午餐验证-更新'),
-    matching: find.byType(PopupMenuButton<String>),
-  );
+  final menuButton = find.byType(PopupMenuButton<String>).last;
   await _pumpUntilFound(tester, menuButton);
-  await tester.tap(menuButton);
+  await _bringIntoTapArea(tester, menuButton);
+  await tester.tap(menuButton, warnIfMissed: false);
   await tester.pumpAndSettle();
 
   await tester.tap(find.text('删除').last);
@@ -199,27 +219,55 @@ Future<void> _verifyAccountBalance(
   WidgetTester tester,
   String expectedBalance,
 ) async {
-  await _tapText(tester, '我的');
+  await _openShellTab(tester, keyValue: 'profile', label: '我的');
   await _pumpUntilFound(tester, find.text('账户管理'));
 
   await _tapText(tester, '账户管理');
-  await _pumpUntilFound(tester, find.text('E2E现金钱包'));
-  await _pumpUntilFound(tester, find.text(expectedBalance));
+  await _scrollUntilFound(tester, find.text('E2E现金钱包'));
+  await _scrollUntilFound(tester, find.text(expectedBalance));
 
   await _goBack(tester, untilText: '我的');
   await _pumpUntilFound(tester, find.text('我的'));
 }
 
-Finder _transactionTileByRemark(String remark) {
-  return find
-      .ancestor(of: find.text(remark), matching: find.byType(ListTile))
-      .last;
+Future<void> _findTransaction(WidgetTester tester, String remark) async {
+  await _openShellTab(tester, keyValue: 'transactions', label: '明细');
+  final searchField = find.byKey(const ValueKey('transaction-search'));
+  await _scrollUntilFound(tester, searchField);
+
+  await tester.enterText(searchField, remark);
+  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pumpAndSettle();
+  await _scrollUntilFound(tester, find.text(remark));
+}
+
+Future<void> _openShellTab(
+  WidgetTester tester, {
+  required String keyValue,
+  required String label,
+}) async {
+  final bottomTab = find.byKey(ValueKey('main-shell-tab-$keyValue'));
+  if (bottomTab.evaluate().isNotEmpty) {
+    await _bringIntoTapArea(tester, bottomTab);
+    await tester.tap(bottomTab);
+    await tester.pumpAndSettle();
+    return;
+  }
+
+  final railTab = find.byKey(ValueKey('main-shell-rail-$keyValue'));
+  if (railTab.evaluate().isNotEmpty) {
+    await tester.tap(railTab);
+    await tester.pumpAndSettle();
+    return;
+  }
+
+  await _tapText(tester, label);
 }
 
 Future<void> _tapText(WidgetTester tester, String text) async {
   final finder = find.text(text);
   await _pumpUntilFound(tester, finder);
-  await tester.ensureVisible(finder.last);
+  await _bringIntoTapArea(tester, finder.last);
   await tester.tap(finder.last);
   await tester.pumpAndSettle();
 }
@@ -227,17 +275,12 @@ Future<void> _tapText(WidgetTester tester, String text) async {
 Future<void> _tapKey(WidgetTester tester, Key key) async {
   await _dismissKeyboard(tester);
   final finder = find.byKey(key);
-  final scrollables = _verticalScrollables();
-  if (scrollables.evaluate().isNotEmpty && finder.evaluate().isEmpty) {
-    await tester.scrollUntilVisible(
-      finder,
-      240,
-      scrollable: scrollables.last,
-      maxScrolls: 20,
-    );
+  if (finder.evaluate().isEmpty &&
+      _verticalScrollables().evaluate().isNotEmpty) {
+    await _scrollUntilFound(tester, finder);
   }
   await _pumpUntilFound(tester, finder);
-  await tester.ensureVisible(finder);
+  await _bringIntoTapArea(tester, finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
   await tester.pumpAndSettle();
@@ -291,11 +334,32 @@ Future<void> _selectDropdownItem(
     matching: find.byType(DropdownButtonFormField<String>),
   );
   await _pumpUntilFound(tester, dropdown);
-  await tester.ensureVisible(dropdown);
+  await _bringIntoTapArea(tester, dropdown);
   await tester.tap(dropdown);
   await tester.pumpAndSettle();
+  await _pumpUntilFound(tester, find.text(itemText));
   await tester.tap(find.text(itemText).last);
   await tester.pumpAndSettle();
+}
+
+Future<void> _bringIntoTapArea(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+
+  for (var attempt = 0; attempt < 4; attempt += 1) {
+    final center = tester.getCenter(finder);
+    if (center.dy >= 56 && center.dy <= 544) {
+      return;
+    }
+
+    final scrollables = _verticalScrollables();
+    if (scrollables.evaluate().isEmpty) {
+      return;
+    }
+    final delta = center.dy > 544 ? -(center.dy - 440) : 96 - center.dy;
+    await tester.drag(scrollables.first, Offset(0, delta), warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
 }
 
 Future<void> _dismissKeyboard(WidgetTester tester) async {

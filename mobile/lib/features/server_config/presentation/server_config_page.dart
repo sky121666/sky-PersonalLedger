@@ -88,6 +88,7 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
         ),
         const SizedBox(height: 16),
         FilledButton(
+          key: const ValueKey('server-connect-button'),
           onPressed: isLoading ? null : _submitServerUrl,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

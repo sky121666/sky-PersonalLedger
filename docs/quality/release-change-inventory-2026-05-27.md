@@ -109,6 +109,8 @@ docs/architecture/ai-analysis.md
 Flutter premium foundation, screens, and tests:
 
 ```text
+mobile/integration_test/app_real_backend_e2e_test.dart
+mobile/integration_test/app_smoke_test.dart
 mobile/integration_test/premium_screens_smoke_test.dart
 mobile/lib/app/router/app_route_paths.dart
 mobile/lib/app/router/app_router.dart

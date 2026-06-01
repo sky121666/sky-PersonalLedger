@@ -13,9 +13,10 @@ void main() {
   group('ServerConfigPage', () {
     testWidgets('空服务器地址会展示基础校验错误', (tester) async {
       final controller = await _pumpPage(tester);
+      final connectButton = find.byKey(const ValueKey('server-connect-button'));
 
-      await _scrollIntoTapArea(tester, find.text('连接'));
-      await tester.tap(find.text('连接'));
+      await _scrollIntoTapArea(tester, connectButton);
+      await tester.tap(connectButton);
       await tester.pumpAndSettle();
 
       expect(controller.connectCalls, ['']);
@@ -74,6 +75,7 @@ void main() {
 
     testWidgets('提交服务器地址时调用连接流程', (tester) async {
       final controller = await _pumpPage(tester);
+      final connectButton = find.byKey(const ValueKey('server-connect-button'));
 
       await tester.enterText(
         find.widgetWithText(TextField, '服务器地址'),
@@ -90,8 +92,8 @@ void main() {
       expect(find.text('跨端可复用'), findsOneWidget);
       expect(find.text('统一入口'), findsOneWidget);
       expect(find.text('单点服务'), findsWidgets);
-      await _scrollIntoTapArea(tester, find.text('连接'));
-      await tester.tap(find.text('连接'));
+      await _scrollIntoTapArea(tester, connectButton);
+      await tester.tap(connectButton);
       await tester.pumpAndSettle();
 
       expect(controller.connectCalls, ['ledger.example.com:8080']);
