@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../app/theme/theme_mode_controller.dart';
@@ -28,6 +29,7 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
   UserProfile? _profile;
   var _loading = true;
   var _submitting = false;
+  var _avatarUploading = false;
   Object? _error;
 
   @override
@@ -103,6 +105,37 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
     }
   }
 
+  Future<void> _pickAndUploadAvatar() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: false,
+    );
+    final files = result?.files ?? const <PlatformFile>[];
+    final file = files.isEmpty ? null : files.single;
+    if (file == null) {
+      return;
+    }
+
+    setState(() => _avatarUploading = true);
+    try {
+      final url = await ref.read(profileRepositoryProvider).uploadAvatar(file);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _avatarController.text = url);
+      _showMessage('头像已上传');
+    } catch (error) {
+      if (mounted) {
+        _showMessage(error.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _avatarUploading = false);
+      }
+    }
+  }
+
   void _applyProfile(UserProfile profile) {
     setState(() {
       _profile = profile;
@@ -170,6 +203,8 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
             avatarController: _avatarController,
             bioController: _bioController,
             submitting: _submitting,
+            avatarUploading: _avatarUploading,
+            onUploadAvatar: _pickAndUploadAvatar,
             onSubmit: _saveProfile,
           ),
         ),
@@ -476,6 +511,8 @@ class _ProfileFormCard extends StatelessWidget {
     required this.avatarController,
     required this.bioController,
     required this.submitting,
+    required this.avatarUploading,
+    required this.onUploadAvatar,
     required this.onSubmit,
   });
 
@@ -484,6 +521,8 @@ class _ProfileFormCard extends StatelessWidget {
   final TextEditingController avatarController;
   final TextEditingController bioController;
   final bool submitting;
+  final bool avatarUploading;
+  final VoidCallback onUploadAvatar;
   final VoidCallback onSubmit;
 
   @override
@@ -543,6 +582,21 @@ class _ProfileFormCard extends StatelessWidget {
             decoration: const InputDecoration(
               labelText: '头像 URL',
               border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const ValueKey('profile-avatar-upload'),
+              onPressed: submitting || avatarUploading ? null : onUploadAvatar,
+              icon: avatarUploading
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.upload_outlined),
+              label: Text(avatarUploading ? '上传中...' : '上传头像'),
             ),
           ),
           const SizedBox(height: 12),

@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
@@ -33,6 +35,26 @@ class ProfileRepository {
       throw const FormatException('个人资料保存响应为空');
     }
     return result;
+  }
+
+  Future<String> uploadAvatar(PlatformFile file) async {
+    final filePath = file.path;
+    if (filePath == null || filePath.isEmpty) {
+      throw const FormatException('请选择可读取的头像文件');
+    }
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath, filename: file.name),
+    });
+    final result = await _apiClient.postMultipart<Map<String, dynamic>>(
+      '/upload/avatar',
+      data: formData,
+      fromJsonT: (json) => json as Map<String, dynamic>? ?? const {},
+    );
+    final url = result?['url'] as String? ?? '';
+    if (url.isEmpty) {
+      throw const FormatException('头像上传响应为空');
+    }
+    return url;
   }
 }
 

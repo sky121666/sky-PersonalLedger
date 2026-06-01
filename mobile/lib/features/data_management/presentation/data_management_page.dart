@@ -103,9 +103,11 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                 accentColor: financeColors.income,
                 title: '交易 CSV',
                 buttonLabel: '导出 CSV',
+                secondaryLabel: '筛选导出',
                 busy: _busyAction == 'csv',
                 enabled: !_isBusy,
                 onPressed: _exportTransactionsCsv,
+                onSecondaryPressed: _showCsvExportSheet,
               ),
             ),
             const SizedBox(height: 12),
@@ -175,6 +177,25 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     await _runFileAction(
       action: 'csv',
       request: ref.read(dataManagementRepositoryProvider).exportTransactionsCsv,
+      successMessage: (result) => 'CSV 已保存：${result.filename}',
+    );
+  }
+
+  Future<void> _showCsvExportSheet() async {
+    final filter = await showModalBottomSheet<ExportTransactionsFilter>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => const _CsvExportFilterSheet(),
+    );
+    if (filter == null || !mounted) {
+      return;
+    }
+    await _runFileAction(
+      action: 'csv',
+      request: () => ref
+          .read(dataManagementRepositoryProvider)
+          .exportTransactionsCsv(filter: filter),
       successMessage: (result) => 'CSV 已保存：${result.filename}',
     );
   }
@@ -815,6 +836,8 @@ class _ActionCard extends StatelessWidget {
     required this.busy,
     required this.enabled,
     required this.onPressed,
+    this.secondaryLabel,
+    this.onSecondaryPressed,
     this.isDanger = false,
   });
 
@@ -825,6 +848,8 @@ class _ActionCard extends StatelessWidget {
   final bool busy;
   final bool enabled;
   final VoidCallback onPressed;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondaryPressed;
   final bool isDanger;
 
   @override
@@ -875,7 +900,136 @@ class _ActionCard extends StatelessWidget {
                     label: Text(busy ? '处理中...' : buttonLabel),
                   ),
           ),
+          if (secondaryLabel != null && onSecondaryPressed != null) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: enabled ? onSecondaryPressed : null,
+                icon: const Icon(Icons.filter_alt_outlined),
+                label: Text(secondaryLabel!),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _CsvExportFilterSheet extends StatefulWidget {
+  const _CsvExportFilterSheet();
+
+  @override
+  State<_CsvExportFilterSheet> createState() => _CsvExportFilterSheetState();
+}
+
+class _CsvExportFilterSheetState extends State<_CsvExportFilterSheet> {
+  final _startController = TextEditingController();
+  final _endController = TextEditingController();
+  String _type = '';
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _startController.dispose();
+    _endController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    DateTime? parseDate(String value) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) {
+        return null;
+      }
+      return DateTime.tryParse(trimmed);
+    }
+
+    final start = parseDate(_startController.text);
+    final end = parseDate(_endController.text);
+    if (_startController.text.trim().isNotEmpty && start == null ||
+        _endController.text.trim().isNotEmpty && end == null) {
+      setState(() => _errorText = '日期格式应为 YYYY-MM-DD');
+      return;
+    }
+    if (start != null && end != null && start.isAfter(end)) {
+      setState(() => _errorText = '开始日期不能晚于结束日期');
+      return;
+    }
+    Navigator.of(context).pop(
+      ExportTransactionsFilter(
+        startDate: start,
+        endDate: end,
+        type: _type.isEmpty ? null : _type,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '筛选导出',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: '', label: Text('全部')),
+                ButtonSegment(value: 'expense', label: Text('支出')),
+                ButtonSegment(value: 'income', label: Text('收入')),
+                ButtonSegment(value: 'transfer', label: Text('转账')),
+              ],
+              selected: {_type},
+              onSelectionChanged: (values) =>
+                  setState(() => _type = values.first),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('csv-export-start-date'),
+              controller: _startController,
+              decoration: const InputDecoration(
+                labelText: '开始日期',
+                hintText: '2026-05-01',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.datetime,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('csv-export-end-date'),
+              controller: _endController,
+              decoration: InputDecoration(
+                labelText: '结束日期',
+                hintText: '2026-05-31',
+                errorText: _errorText,
+                border: const OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.datetime,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const ValueKey('csv-export-filter-submit'),
+                onPressed: _submit,
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('导出'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

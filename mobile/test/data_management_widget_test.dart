@@ -50,6 +50,31 @@ void main() {
       expect(find.textContaining('/tmp/transactions.csv'), findsOneWidget);
     });
 
+    testWidgets('筛选导出 CSV 时提交日期和类型参数', (tester) async {
+      final repository = _FakeDataManagementRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.text('筛选导出'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('支出'));
+      await tester.enterText(
+        find.byKey(const ValueKey('csv-export-start-date')),
+        '2026-05-01',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('csv-export-end-date')),
+        '2026-05-31',
+      );
+      await tester.tap(find.byKey(const ValueKey('csv-export-filter-submit')));
+      await tester.pumpAndSettle();
+
+      expect(repository.exportCsvCalls, 1);
+      expect(repository.exportFilters, hasLength(1));
+      expect(repository.exportFilters.single?.type, 'expense');
+      expect(repository.exportFilters.single?.startDate, DateTime(2026, 5, 1));
+      expect(repository.exportFilters.single?.endDate, DateTime(2026, 5, 31));
+    });
+
     testWidgets('备份下载失败时展示错误信息', (tester) async {
       final repository = _FakeDataManagementRepository()
         ..downloadBackupError = '网络失败';
@@ -216,6 +241,7 @@ Future<void> _pumpPage(
 class _FakeDataManagementRepository implements DataManagementRepository {
   int downloadBackupCalls = 0;
   int exportCsvCalls = 0;
+  final exportFilters = <ExportTransactionsFilter?>[];
   int restoreBackupCalls = 0;
   int getAutoBackupOverviewCalls = 0;
   int getAutoBackupSettingsCalls = 0;
@@ -254,8 +280,11 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   }
 
   @override
-  Future<DataFileResult> exportTransactionsCsv() async {
+  Future<DataFileResult> exportTransactionsCsv({
+    ExportTransactionsFilter? filter,
+  }) async {
     exportCsvCalls += 1;
+    exportFilters.add(filter);
     return const DataFileResult(
       filename: 'transactions.csv',
       path: '/tmp/transactions.csv',

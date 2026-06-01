@@ -23,6 +23,8 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
   var _savingSchedule = false;
   var _triggeringSchedule = false;
   String? _testingProviderId;
+  String? _deletingReportId;
+  final _deletedReportIds = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +55,9 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
             onRetry: () => ref.invalidate(aiReportsProvider),
           ),
           data: (reports) {
+            final visibleReports = reports
+                .where((report) => !_deletedReportIds.contains(report.id))
+                .toList();
             final providerSurface = _AIProviderSetupSurface(
               state: providerState,
               testingProviderId: _testingProviderId,
@@ -69,7 +74,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               onChanged: _saveSchedule,
               onTrigger: _triggerSchedule,
             );
-            if (reports.isEmpty) {
+            if (visibleReports.isEmpty) {
               return ListView(
                 children: [
                   providerSurface,
@@ -84,7 +89,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               );
             }
             return ListView.separated(
-              itemCount: reports.length + (_generating ? 1 : 0) + 2,
+              itemCount: visibleReports.length + (_generating ? 1 : 0) + 2,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 if (index == 0) {
@@ -97,7 +102,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                   return const _AIReportGeneratingSurface();
                 }
                 final reportIndex = index - 2 - (_generating ? 1 : 0);
-                final report = reports[reportIndex];
+                final report = visibleReports[reportIndex];
                 return StaggeredEntrance(
                   index: index,
                   child: _AIReportCard(
@@ -106,6 +111,8 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                     statusText: _statusText(report.status),
                     period:
                         '${_formatDate(report.periodStart)} - ${_formatDate(report.periodEnd)}',
+                    deleting: _deletingReportId == report.id,
+                    onDelete: () => _deleteReport(report),
                     onRegenerate: report.status == 'failed'
                         ? _showGenerateReportSheet
                         : null,
@@ -292,6 +299,41 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
     }
   }
 
+  Future<void> _deleteReport(AIReportSummary report) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '删除 AI 报告',
+      message: '删除后不会影响账本数据。',
+      confirmText: '删除',
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    setState(() => _deletingReportId = report.id);
+    try {
+      await ref.read(aiReportRepositoryProvider).deleteReport(report.id);
+      setState(() => _deletedReportIds.add(report.id));
+      final _ = await ref.refresh(aiReportsProvider.future);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('AI 报告已删除')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除 AI 报告失败：$error')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _deletingReportId = null);
+      }
+    }
+  }
+
   Future<void> _saveSchedule(AIReportScheduleSettings settings) async {
     setState(() => _savingSchedule = true);
     try {
@@ -423,7 +465,9 @@ class _AIReportScheduleSurface extends StatelessWidget {
       ),
     );
   }
-}class _AIProviderSetupSurface extends StatelessWidget {
+}
+
+class _AIProviderSetupSurface extends StatelessWidget {
   const _AIProviderSetupSurface({
     required this.state,
     required this.testingProviderId,
@@ -1423,6 +1467,8 @@ class _AIReportCard extends StatelessWidget {
     required this.title,
     required this.statusText,
     required this.period,
+    required this.deleting,
+    required this.onDelete,
     this.onRegenerate,
   });
 
@@ -1430,6 +1476,8 @@ class _AIReportCard extends StatelessWidget {
   final String title;
   final String statusText;
   final String period;
+  final bool deleting;
+  final VoidCallback onDelete;
   final VoidCallback? onRegenerate;
 
   @override
@@ -1503,21 +1551,41 @@ class _AIReportCard extends StatelessWidget {
             ],
             if (isFailed && onRegenerate != null) ...[
               const SizedBox(height: 14),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.tonalIcon(
-                  onPressed: onRegenerate,
-                  icon: const Icon(Icons.refresh_outlined),
-                  label: const Text('重新生成'),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: onRegenerate,
+                    icon: const Icon(Icons.refresh_outlined),
+                    label: const Text('重新生成'),
+                  ),
+                ],
               ),
             ],
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: deleting ? null : onDelete,
+                  icon: deleting
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_outline),
+                  label: const Text('删除报告'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
-}class _AIReportAccountChanges extends StatelessWidget {
+}
+
+class _AIReportAccountChanges extends StatelessWidget {
   const _AIReportAccountChanges({required this.changes});
 
   final List<AIReportAccountChangeData> changes;

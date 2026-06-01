@@ -31,9 +31,12 @@ class DataManagementRepository {
     return _saveBytes(filename, response.data ?? const <int>[]);
   }
 
-  Future<DataFileResult> exportTransactionsCsv() async {
+  Future<DataFileResult> exportTransactionsCsv({
+    ExportTransactionsFilter? filter,
+  }) async {
     final response = await _apiClient.dio.get<List<int>>(
       '/export/transactions/csv',
+      queryParameters: filter?.toQueryParameters(),
       options: Options(responseType: ResponseType.bytes),
     );
     final filename = safeDownloadFilename(
@@ -122,6 +125,29 @@ class DataManagementRepository {
       path: file.path,
       size: bytes.length,
     );
+  }
+}
+
+class ExportTransactionsFilter {
+  const ExportTransactionsFilter({
+    this.startDate,
+    this.endDate,
+    this.type,
+    this.accountId,
+  });
+
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String? type;
+  final String? accountId;
+
+  Map<String, dynamic> toQueryParameters() {
+    return {
+      if (startDate != null) 'start_date': _formatDate(startDate!),
+      if (endDate != null) 'end_date': _formatDate(endDate!),
+      if (type != null && type!.isNotEmpty) 'type': type,
+      if (accountId != null && accountId!.isNotEmpty) 'account_id': accountId,
+    };
   }
 }
 
@@ -296,4 +322,10 @@ int _clampInt(int value, {required int min, required int max}) {
     return max;
   }
   return value;
+}
+
+String _formatDate(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }

@@ -61,6 +61,10 @@ class AIReportRepository {
     return report;
   }
 
+  Future<void> deleteReport(String id) async {
+    await _apiClient.delete<void>('/ai/reports/$id');
+  }
+
   Future<AIReportScheduleSettings> getScheduleSettings() async {
     final settings = await _apiClient.get<AIReportScheduleSettings>(
       '/ai/schedule/settings',

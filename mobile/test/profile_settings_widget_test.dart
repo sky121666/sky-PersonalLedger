@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
@@ -74,6 +75,10 @@ void main() {
       expect(find.text('资料完整度'), findsNothing);
       expect(find.byKey(const ValueKey('profile-nickname')), findsOneWidget);
       expect(find.byKey(const ValueKey('profile-email')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-avatar-upload')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('资料完整度根据缺失字段降级展示', (tester) async {
@@ -247,6 +252,11 @@ class _FakeProfileRepository implements ProfileRepository {
       lastLoginAt: profile.lastLoginAt,
     );
     return profile;
+  }
+
+  @override
+  Future<String> uploadAvatar(PlatformFile file) async {
+    return 'https://example.com/avatar.png';
   }
 }
 

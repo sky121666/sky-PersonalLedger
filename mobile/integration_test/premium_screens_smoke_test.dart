@@ -2150,7 +2150,9 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   }
 
   @override
-  Future<DataFileResult> exportTransactionsCsv() async {
+  Future<DataFileResult> exportTransactionsCsv({
+    ExportTransactionsFilter? filter,
+  }) async {
     return const DataFileResult(
       filename: 'transactions.csv',
       path: '/tmp/transactions.csv',
@@ -2277,6 +2279,16 @@ class _FakeHomeRepository implements HomeRepository {
         ],
       ),
     );
+  }
+
+  @override
+  Future<List<TransactionItem>> listRecentTransactions() async {
+    return const [];
+  }
+
+  @override
+  Future<List<TransactionItem>> listTransactionsForDate(DateTime date) async {
+    return const [];
   }
 }
 
@@ -2941,6 +2953,11 @@ class _FakeProfileRepository implements ProfileRepository {
       lastLoginAt: profile.lastLoginAt,
     );
     return profile;
+  }
+
+  @override
+  Future<String> uploadAvatar(PlatformFile file) async {
+    return 'https://example.com/avatar.png';
   }
 }
 

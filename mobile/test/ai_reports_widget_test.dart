@@ -278,6 +278,44 @@ void main() {
     expect(find.text('AI 报告已生成'), findsOneWidget);
   });
 
+  testWidgets('AIReportsPage 可删除历史报告', (tester) async {
+    final repository = _FakeAIReportRepository()
+      ..reports.add(
+        const AIReportSummary(
+          id: 'report-delete',
+          reportType: 'weekly',
+          status: 'completed',
+          periodStart: '2026-05-18',
+          periodEnd: '2026-05-24',
+          providerName: 'DeepSeek',
+          model: 'deepseek-v4-flash',
+          contentJson: '{"summary":"支出可控"}',
+        ),
+      );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [aiReportRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: AIReportsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _scrollIntoTapArea(tester, find.text('每周总结'));
+    await tester.tap(find.text('每周总结').last);
+    await tester.pumpAndSettle();
+    await _scrollIntoTapArea(tester, find.text('删除报告'));
+    await tester.tap(find.text('删除报告'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedReportIds, ['report-delete']);
+    expect(find.text('AI 报告已删除'), findsOneWidget);
+    expect(find.text('支出可控'), findsNothing);
+  });
+
   testWidgets('AIReportsPage 校验报告周期', (tester) async {
     final repository = _FakeAIReportRepository();
     await tester.pumpWidget(
@@ -466,6 +504,7 @@ class _FakeAIReportRepository implements AIReportRepository {
   final List<String> updatedProviderIds = [];
   final List<String> deletedProviderIds = [];
   final List<String> testProviderIds = [];
+  final List<String> deletedReportIds = [];
   var triggerCalls = 0;
   var savedSchedule = const AIReportScheduleSettings();
   final reports = <AIReportSummary>[];
@@ -492,6 +531,12 @@ class _FakeAIReportRepository implements AIReportRepository {
   @override
   Future<List<AIReportSummary>> listReports() async {
     return reports;
+  }
+
+  @override
+  Future<void> deleteReport(String id) async {
+    deletedReportIds.add(id);
+    reports.removeWhere((report) => report.id == id);
   }
 
   @override
