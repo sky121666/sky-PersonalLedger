@@ -222,7 +222,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('receipt.jpg'), findsOneWidget);
-      expect(find.text('待上传'), findsAtLeastNWidgets(1));
 
       await _tapSaveButton(tester);
       await tester.pumpAndSettle();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -109,7 +111,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                         TextFormField(
                           key: const ValueKey('transaction-amount'),
                           controller: _amountController,
-                          autofocus: widget.embedded && !_isEditing,
+                          autofocus: false,
                           decoration: InputDecoration(
                             labelText: '金额',
                             prefixText: '¥ ',
@@ -530,20 +532,17 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       final results = await Future.wait([
         repository.listAccounts(),
         repository.listCategories(),
-        repository.listTags(),
       ]);
-      final familyMembers = await _loadFamilyMembers();
       if (!mounted) {
         return;
       }
       setState(() {
         _accounts = results[0] as List<LedgerAccount>;
         _categories = results[1] as List<LedgerCategory>;
-        _tags = results[2] as List<LedgerTag>;
-        _familyMembers = familyMembers;
         _accountId ??= _accounts.isNotEmpty ? _accounts.first.id : null;
         _loading = false;
       });
+      unawaited(_loadSecondaryFormData());
     } catch (error) {
       if (!mounted) {
         return;
@@ -676,6 +675,25 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       return await ref.read(familyMembersProvider.future);
     } catch (_) {
       return const [];
+    }
+  }
+
+  Future<void> _loadSecondaryFormData() async {
+    try {
+      final repository = ref.read(transactionRepositoryProvider);
+      final results = await Future.wait([
+        repository.listTags(),
+        _loadFamilyMembers(),
+      ]);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _tags = results[0] as List<LedgerTag>;
+        _familyMembers = results[1] as List<FamilyMember>;
+      });
+    } catch (_) {
+      // Optional fields should not block the primary transaction form.
     }
   }
 
