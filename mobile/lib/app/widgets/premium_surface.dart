@@ -43,9 +43,9 @@ class PremiumSurface extends StatelessWidget {
         border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.06),
-            blurRadius: isDark ? 28 : 22,
-            offset: const Offset(0, 14),
+            color: Colors.black.withValues(alpha: isDark ? 0.10 : 0.035),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),

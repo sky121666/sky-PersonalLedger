@@ -6,23 +6,17 @@ import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 
 void main() {
-  testWidgets('AppLoadingView 使用高级加载面板', (tester) async {
+  testWidgets('AppLoadingView 只展示加载信息', (tester) async {
     await _pump(tester, const AppLoadingView(message: '正在加载数据...'));
 
     expect(find.text('正在加载数据...'), findsOneWidget);
-    expect(find.text('本地缓存'), findsOneWidget);
-    expect(find.text('接口连通'), findsOneWidget);
-    expect(find.text('主题渲染'), findsOneWidget);
-    expect(find.text('预热中'), findsOneWidget);
-    expect(find.textContaining('连接'), findsOneWidget);
-    expect(find.textContaining('同步'), findsWidgets);
-    expect(find.textContaining('界面'), findsOneWidget);
+    expect(find.text('本地缓存'), findsNothing);
+    expect(find.text('接口连通'), findsNothing);
+    expect(find.text('主题渲染'), findsNothing);
     expect(
       find.byKey(const ValueKey('state-loading-evidence-rail')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('加载证据'), findsOneWidget);
-    expect(find.text('缓存、接口、主题同步中'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
@@ -41,17 +35,15 @@ void main() {
 
     expect(find.text('暂无数据'), findsOneWidget);
     expect(find.text('稍后再来查看。'), findsOneWidget);
-    expect(find.text('内容状态'), findsOneWidget);
-    expect(find.text('下一步'), findsOneWidget);
+    expect(find.text('内容状态'), findsNothing);
+    expect(find.text('下一步'), findsNothing);
     expect(find.text('创建'), findsWidgets);
-    expect(find.textContaining('暂无内容'), findsOneWidget);
-    expect(find.text('操作 · 可创建'), findsOneWidget);
+    expect(find.textContaining('暂无内容'), findsNothing);
+    expect(find.text('操作 · 可创建'), findsNothing);
     expect(
       find.byKey(const ValueKey('state-empty-evidence-rail')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('空态证据'), findsOneWidget);
-    expect(find.text('内容为空，可创建'), findsOneWidget);
     expect(find.byType(IconBadge), findsWidgets);
     expect(find.byType(PremiumSurface), findsOneWidget);
   });
@@ -70,17 +62,13 @@ void main() {
 
     expect(find.text('出错了'), findsOneWidget);
     expect(find.text('加载失败'), findsOneWidget);
-    expect(find.text('异常状态'), findsOneWidget);
-    expect(find.text('恢复动作'), findsOneWidget);
-    expect(find.text('已捕获'), findsOneWidget);
-    expect(find.textContaining('异常'), findsWidgets);
-    expect(find.textContaining('可重试'), findsWidgets);
+    expect(find.text('异常状态'), findsNothing);
+    expect(find.text('恢复动作'), findsNothing);
+    expect(find.text('已捕获'), findsNothing);
     expect(
       find.byKey(const ValueKey('state-error-evidence-rail')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('恢复证据'), findsOneWidget);
-    expect(find.text('异常已捕获，可重试'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('state-error-retry-button')),
       findsOneWidget,
@@ -120,8 +108,8 @@ void main() {
 
     expect(find.text('删除交易'), findsOneWidget);
     expect(find.text('删除后账户余额会同步回滚。'), findsOneWidget);
-    expect(find.textContaining('高风险'), findsOneWidget);
-    expect(find.textContaining('需手动确认'), findsOneWidget);
+    expect(find.textContaining('高风险'), findsNothing);
+    expect(find.textContaining('需手动确认'), findsNothing);
     expect(
       find.byWidgetPredicate(
         (widget) =>

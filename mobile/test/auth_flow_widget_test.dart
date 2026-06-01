@@ -27,8 +27,7 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), '123');
-      await _scrollIntoTapArea(tester, find.text('登录'));
-      await tester.tap(find.text('登录'));
+      await tester.tap(find.text('登录').last);
       await tester.pump();
 
       expect(find.text('密码至少需要 6 位'), findsOneWidget);
@@ -51,15 +50,13 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), '123456');
-      await _scrollIntoTapArea(tester, find.text('登录'));
-      await tester.tap(find.text('登录'));
+      await tester.tap(find.text('登录').last);
       await tester.pump();
 
       expect(repository.loginCalls, ['123456']);
       expect(controller.debugState.stage, AuthStage.authenticated);
-      expect(find.text('安全登录'), findsOneWidget);
-      expect(find.text('会话解锁信号'), findsOneWidget);
-      expect(find.text('可登录'), findsAtLeastNWidgets(1));
+      expect(find.text('欢迎回来'), findsOneWidget);
+      expect(find.text('登录'), findsAtLeastNWidgets(1));
       expect(find.byTooltip('显示密码'), findsOneWidget);
       await tester.tap(find.byTooltip('显示密码'));
       await tester.pump();
@@ -67,38 +64,28 @@ void main() {
       expect(
         find.byWidgetPredicate(
           (widget) =>
-              widget is Semantics && widget.properties.label == '欢迎回来，安全登录',
+              widget is Semantics && widget.properties.label == '欢迎回来，登录',
         ),
         findsOneWidget,
       );
       expect(
         find.byWidgetPredicate(
           (widget) =>
-              widget is Semantics && widget.properties.label == '安全登录 表单',
+              widget is Semantics && widget.properties.label == '登录 表单',
         ),
         findsOneWidget,
       );
       expect(
         find.byKey(const ValueKey('login-session-evidence-rail')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('本设备会话'), findsOneWidget);
-      expect(find.byKey(const ValueKey('login-access-matrix')), findsOneWidget);
-      expect(find.text('访问控制矩阵'), findsOneWidget);
-      expect(find.text('私有服务'), findsAtLeastNWidgets(1));
-      expect(find.text('独立数据源'), findsOneWidget);
-      expect(find.text('会话解锁'), findsOneWidget);
-      expect(find.text('本机安全态'), findsOneWidget);
-      expect(find.text('密码闸门'), findsOneWidget);
-      expect(find.text('输入校验'), findsOneWidget);
-      expect(find.text('默认隐藏'), findsOneWidget);
-      expect(find.text('本设备'), findsAtLeastNWidgets(1));
-      expect(find.text('私有部署'), findsOneWidget);
-      expect(find.text('设备会话'), findsOneWidget);
-      expect(find.text('财务数据'), findsOneWidget);
+      expect(find.byKey(const ValueKey('login-access-matrix')), findsNothing);
+      expect(find.text('访问控制矩阵'), findsNothing);
+      expect(find.text('会话解锁信号'), findsNothing);
+      expect(find.text('密码闸门'), findsNothing);
       expect(
         find.byKey(const ValueKey('auth-experience-deck')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byWidgetPredicate(
@@ -107,13 +94,12 @@ void main() {
               widget.properties.label ==
                   '跨端安全控制台，私有服务，iOS 动效，Android 状态层，主题色联动',
         ),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('跨端安全控制台'), findsOneWidget);
-      expect(find.text('iOS 动效'), findsOneWidget);
-      expect(find.text('Android 状态层'), findsOneWidget);
-      expect(find.text('主题色联动'), findsOneWidget);
-      expect(find.text('私有服务'), findsAtLeastNWidgets(1));
+      expect(find.text('跨端安全控制台'), findsNothing);
+      expect(find.text('iOS 动效'), findsNothing);
+      expect(find.text('Android 状态层'), findsNothing);
+      expect(find.text('主题色联动'), findsNothing);
     });
   });
 
@@ -189,8 +175,9 @@ void main() {
 
       expect(repository.initCalls, ['12345678']);
       expect(controller.debugState.stage, AuthStage.authenticated);
-      expect(find.text('初始化保护'), findsOneWidget);
-      expect(find.text('初始化密钥策略'), findsOneWidget);
+      expect(find.text('首次设置密码'), findsOneWidget);
+      expect(find.text('初始化保护'), findsAtLeastNWidgets(1));
+      expect(find.text('初始化密钥策略'), findsNothing);
       expect(find.byTooltip('显示密码'), findsOneWidget);
       expect(find.byTooltip('显示确认密码'), findsOneWidget);
       await tester.tap(find.byTooltip('显示密码'));
@@ -212,43 +199,26 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('已达标'), findsAtLeastNWidgets(1));
-      expect(find.text('一致'), findsAtLeastNWidgets(1));
       expect(
         find.byKey(const ValueKey('setup-submission-evidence-rail')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('提交证据'), findsOneWidget);
-      expect(find.text('证据 3/3'), findsOneWidget);
-      expect(find.text('首次初始化证据已齐全'), findsOneWidget);
-      expect(find.text('长度证据'), findsOneWidget);
-      expect(find.text('服务器绑定'), findsOneWidget);
-      expect(find.text('已绑定'), findsOneWidget);
+      expect(find.text('提交证据'), findsNothing);
+      expect(find.text('长度证据'), findsNothing);
       expect(
         find.byKey(const ValueKey('setup-initialization-matrix')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('初始化控制矩阵'), findsOneWidget);
-      expect(find.text('可初始化'), findsOneWidget);
-      expect(find.text('初始化边界'), findsOneWidget);
-      expect(find.text('创建后锁定'), findsOneWidget);
-      expect(find.text('密码强度'), findsOneWidget);
-      expect(find.text('至少 8 位'), findsOneWidget);
-      expect(find.text('二次确认'), findsOneWidget);
-      expect(find.text('阻断误设'), findsOneWidget);
-      expect(find.text('一次性'), findsAtLeastNWidgets(1));
-      expect(find.text('只初始化一次'), findsOneWidget);
-      expect(find.text('管理员保护'), findsOneWidget);
-      expect(find.text('改密退出'), findsOneWidget);
+      expect(find.text('初始化控制矩阵'), findsNothing);
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
       expect(
         find.byKey(const ValueKey('auth-experience-deck')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('跨端安全控制台'), findsOneWidget);
-      expect(find.text('iOS 动效'), findsOneWidget);
-      expect(find.text('Android 状态层'), findsOneWidget);
-      expect(find.text('主题色联动'), findsOneWidget);
+      expect(find.text('跨端安全控制台'), findsNothing);
+      expect(find.text('iOS 动效'), findsNothing);
+      expect(find.text('Android 状态层'), findsNothing);
+      expect(find.text('主题色联动'), findsNothing);
     });
   });
 

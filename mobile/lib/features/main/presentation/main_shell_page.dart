@@ -15,7 +15,7 @@ class MainShellPage extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
   final WidgetBuilder? quickTransactionBuilder;
 
-  /// 构建移动端主框架，包含底部导航和快速记账入口。
+  /// 构建移动端主框架，包含底部导航和快速记账按钮。
   @override
   Widget build(BuildContext context) {
     final isWideLayout = MediaQuery.sizeOf(context).width >= 720;
@@ -40,7 +40,7 @@ class MainShellPage extends StatelessWidget {
       ),
       floatingActionButtonLocation: isWideLayout
           ? FloatingActionButtonLocation.endFloat
-          : FloatingActionButtonLocation.centerDocked,
+          : FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: isWideLayout
           ? null
           : _PremiumBottomNavigation(
@@ -117,82 +117,32 @@ class _QuickTransactionFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(999),
         onTap: onPressed,
         child: Ink(
-          padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
+          width: 56,
+          height: 56,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                colorScheme.primary,
-                Color.alphaBlend(
-                  financeColors.asset.withValues(alpha: isDark ? 0.42 : 0.30),
-                  colorScheme.primary,
-                ),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(22),
+            color: colorScheme.primary,
+            borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: colorScheme.onPrimary.withValues(alpha: 0.22),
             ),
             boxShadow: [
               BoxShadow(
-                color: colorScheme.primary.withValues(
-                  alpha: isDark ? 0.34 : 0.24,
-                ),
-                blurRadius: 22,
-                offset: const Offset(0, 10),
+                color: colorScheme.primary.withValues(alpha: 0.20),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: colorScheme.onPrimary.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: colorScheme.onPrimary.withValues(alpha: 0.18),
-                  ),
-                ),
-                child: Icon(
-                  Icons.add_rounded,
-                  color: colorScheme.onPrimary,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: 9),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '记一笔',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    '快速入口',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onPrimary.withValues(alpha: 0.74),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          child: Icon(
+            Icons.add_rounded,
+            color: colorScheme.onPrimary,
+            size: 30,
           ),
         ),
       ),
@@ -275,120 +225,21 @@ class _PremiumBottomNavigation extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              _ShellRouteEvidenceRail(
-                destinations: destinations,
-                selectedIndex: selectedIndex,
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  for (final entry in destinations.indexed) ...[
-                    Expanded(
-                      child: _PremiumBottomNavigationItem(
-                        destination: entry.$2,
-                        selected: selectedIndex == entry.$1,
-                        onTap: () => onDestinationSelected(entry.$1),
-                      ),
-                    ),
-                    if (entry.$1 != destinations.length - 1)
-                      const SizedBox(width: 6),
-                  ],
-                ],
-              ),
+              for (final entry in destinations.indexed) ...[
+                Expanded(
+                  child: _PremiumBottomNavigationItem(
+                    destination: entry.$2,
+                    selected: selectedIndex == entry.$1,
+                    onTap: () => onDestinationSelected(entry.$1),
+                  ),
+                ),
+                if (entry.$1 != destinations.length - 1)
+                  const SizedBox(width: 6),
+              ],
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ShellRouteEvidenceRail extends StatelessWidget {
-  const _ShellRouteEvidenceRail({
-    required this.destinations,
-    required this.selectedIndex,
-  });
-
-  final List<_ShellDestination> destinations;
-  final int selectedIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final selected = destinations[selectedIndex];
-    return Wrap(
-      key: const ValueKey('main-shell-route-evidence-rail'),
-      alignment: WrapAlignment.center,
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        _ShellEvidencePill(
-          icon: Icons.route_outlined,
-          label: '入口 ${destinations.length}',
-          color: colorScheme.primary,
-        ),
-        _ShellEvidencePill(
-          icon: selected.selectedIcon,
-          label: '当前 ${selected.label}',
-          color: selected.color,
-        ),
-        _ShellEvidencePill(
-          icon: Icons.add_circle_outline,
-          label: '快速记账就绪',
-          color: colorScheme.tertiary,
-        ),
-      ],
-    );
-  }
-}
-
-class _ShellEvidencePill extends StatelessWidget {
-  const _ShellEvidencePill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -556,33 +407,17 @@ class _PremiumNavigationRail extends StatelessWidget {
               labelType: NavigationRailLabelType.all,
               leading: Padding(
                 padding: const EdgeInsets.only(top: 10, bottom: 14),
-                child: Column(
-                  key: const ValueKey('main-shell-wide-route-evidence'),
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: financeColors.asset.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        Icons.account_balance_wallet_outlined,
-                        color: financeColors.asset,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '4入口',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: financeColors.asset.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: financeColors.asset,
+                  ),
                 ),
               ),
               destinations: [

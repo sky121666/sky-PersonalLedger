@@ -53,7 +53,7 @@ class ThemeController extends StateNotifier<AppThemeSettings> {
     await _save(_modeKey, mode.name);
   }
 
-  /// 切换应用主题色模板。
+  /// 切换应用主题色。
   Future<void> setPalette(AppThemePalette palette) async {
     state = state.copyWith(palette: palette);
     await _save(_paletteKey, palette.id);
