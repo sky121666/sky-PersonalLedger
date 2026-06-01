@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
-import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -30,7 +29,6 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
     final state = ref.watch(aiReportsProvider);
     final scheduleState = ref.watch(aiReportScheduleProvider);
     final providerState = ref.watch(aiProviderSetupProvider);
-    final themeSettings = ref.watch(themeControllerProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('AI 财务报告'),
@@ -71,49 +69,9 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               onChanged: _saveSchedule,
               onTrigger: _triggerSchedule,
             );
-            final commandCenter = _AIReportCommandCenter(
-              reports: reports,
-              providerSetup: providerState.valueOrNull,
-              schedule: scheduleState.valueOrNull,
-              generating: _generating,
-            );
-            final orchestrationPanel = _AIProviderOrchestrationPanel(
-              reports: reports,
-              providerSetup: providerState.valueOrNull,
-              schedule: scheduleState.valueOrNull,
-              themePalette: themeSettings.palette,
-            );
-            final gatewayContractPanel = _AIGatewayContractPanel(
-              reports: reports,
-              providerSetup: providerState.valueOrNull,
-              schedule: scheduleState.valueOrNull,
-              themePalette: themeSettings.palette,
-            );
-            final productionReadinessPanel = _AIProductionReadinessPanel(
-              reports: reports,
-              providerSetup: providerState.valueOrNull,
-              schedule: scheduleState.valueOrNull,
-              themePalette: themeSettings.palette,
-            );
-            final insightQualityPanel = _AIInsightQualityPanel(
-              reports: reports,
-              providerSetup: providerState.valueOrNull,
-              schedule: scheduleState.valueOrNull,
-              themePalette: themeSettings.palette,
-            );
             if (reports.isEmpty) {
               return ListView(
                 children: [
-                  commandCenter,
-                  const SizedBox(height: 12),
-                  orchestrationPanel,
-                  const SizedBox(height: 12),
-                  gatewayContractPanel,
-                  const SizedBox(height: 12),
-                  productionReadinessPanel,
-                  const SizedBox(height: 12),
-                  insightQualityPanel,
-                  const SizedBox(height: 12),
                   providerSurface,
                   const SizedBox(height: 12),
                   scheduleSurface,
@@ -126,34 +84,19 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               );
             }
             return ListView.separated(
-              itemCount: reports.length + (_generating ? 1 : 0) + 7,
+              itemCount: reports.length + (_generating ? 1 : 0) + 2,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return commandCenter;
-                }
-                if (index == 1) {
-                  return orchestrationPanel;
-                }
-                if (index == 2) {
-                  return gatewayContractPanel;
-                }
-                if (index == 3) {
-                  return productionReadinessPanel;
-                }
-                if (index == 4) {
-                  return insightQualityPanel;
-                }
-                if (index == 5) {
                   return providerSurface;
                 }
-                if (index == 6) {
+                if (index == 1) {
                   return scheduleSurface;
                 }
-                if (_generating && index == 7) {
+                if (_generating && index == 2) {
                   return const _AIReportGeneratingSurface();
                 }
-                final reportIndex = index - 7 - (_generating ? 1 : 0);
+                final reportIndex = index - 2 - (_generating ? 1 : 0);
                 final report = reports[reportIndex];
                 return StaggeredEntrance(
                   index: index,
@@ -217,16 +160,14 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       ref.invalidate(aiProviderSetupProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(provider == null ? 'Provider 已保存' : 'Provider 已更新'),
-          ),
+          SnackBar(content: Text(provider == null ? 'AI 服务已保存' : 'AI 服务已更新')),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('保存 Provider 失败：$error')));
+        ).showSnackBar(SnackBar(content: Text('保存 AI 服务失败：$error')));
       }
     }
   }
@@ -235,7 +176,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除 Provider'),
+        title: const Text('删除 AI 服务'),
         content: Text('删除「${provider.name}」？已生成报告不会删除。'),
         actions: [
           TextButton(
@@ -258,13 +199,13 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Provider 已删除')));
+        ).showSnackBar(const SnackBar(content: Text('AI 服务已删除')));
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('删除 Provider 失败：$error')));
+        ).showSnackBar(SnackBar(content: Text('删除 AI 服务失败：$error')));
       }
     }
   }
@@ -299,7 +240,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Provider 配置加载失败：$error')));
+        ).showSnackBar(SnackBar(content: Text('AI 服务配置加载失败：$error')));
       }
       return;
     }
@@ -482,1016 +423,7 @@ class _AIReportScheduleSurface extends StatelessWidget {
       ),
     );
   }
-}
-
-class _AIReportCommandCenter extends StatelessWidget {
-  const _AIReportCommandCenter({
-    required this.reports,
-    required this.providerSetup,
-    required this.schedule,
-    required this.generating,
-  });
-
-  final List<AIReportSummary> reports;
-  final AIProviderSetupData? providerSetup;
-  final AIReportScheduleSettings? schedule;
-  final bool generating;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final completedCount = reports
-        .where((report) => report.status == 'completed')
-        .length;
-    final failedCount = reports
-        .where((report) => report.status == 'failed')
-        .length;
-    final enabledProviders =
-        providerSetup?.providers.where((provider) => provider.enabled).length ??
-        0;
-    final accentColor = failedCount > 0
-        ? colorScheme.error
-        : completedCount > 0
-        ? financeColors.income
-        : colorScheme.primary;
-    final latestReport = reports.isEmpty ? null : reports.first;
-    final latestModel = latestReport == null
-        ? '等待生成'
-        : '${latestReport.providerName} / ${latestReport.model}';
-
-    return PremiumSurface(
-      key: const ValueKey('ai-report-command-center'),
-      accentColor: accentColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.psychology_alt_outlined,
-                color: accentColor,
-                size: 44,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AI 分析控制台',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      latestModel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _AICommandSignalPill(
-                icon: failedCount > 0
-                    ? Icons.warning_amber_rounded
-                    : Icons.verified_outlined,
-                label: failedCount > 0 ? '$failedCount 个失败' : '分析就绪',
-                color: failedCount > 0 ? colorScheme.error : accentColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.description_outlined,
-                  label: '报告总数',
-                  value: '${reports.length} 份',
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.task_alt_outlined,
-                  label: '已完成',
-                  value: '$completedCount 份',
-                  color: financeColors.income,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.key_outlined,
-                  label: 'Provider',
-                  value: '$enabledProviders 个',
-                  color: financeColors.asset,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _AICommandMetric(
-                  icon: schedule?.enabled == true
-                      ? Icons.event_repeat_outlined
-                      : Icons.event_busy_outlined,
-                  label: '自动报告',
-                  value: schedule?.enabled == true
-                      ? '${schedule!.hour}:00'
-                      : '未启用',
-                  color: schedule?.enabled == true
-                      ? financeColors.income
-                      : colorScheme.outline,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: generating
-                      ? Icons.autorenew_outlined
-                      : Icons.auto_awesome_outlined,
-                  label: '生成状态',
-                  value: generating ? '生成中' : '空闲',
-                  color: generating
-                      ? colorScheme.secondary
-                      : colorScheme.primary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            key: const ValueKey('ai-runtime-contract-rail'),
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _AIProviderSignalPill(
-                icon: Icons.privacy_tip_outlined,
-                label: '数据脱敏',
-                color: financeColors.asset,
-              ),
-              _AIProviderSignalPill(
-                icon: Icons.history_edu_outlined,
-                label: '本地留痕',
-                color: completedCount > 0
-                    ? financeColors.income
-                    : colorScheme.outline,
-              ),
-              _AIProviderSignalPill(
-                icon: Icons.touch_app_outlined,
-                label: schedule?.enabled == true ? '自动触发' : '人工触发',
-                color: schedule?.enabled == true
-                    ? financeColors.income
-                    : colorScheme.primary,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AICommandSignalPill extends StatelessWidget {
-  const _AICommandSignalPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AICommandMetric extends StatelessWidget {
-  const _AICommandMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 72),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AIProviderOrchestrationPanel extends StatelessWidget {
-  const _AIProviderOrchestrationPanel({
-    required this.reports,
-    required this.providerSetup,
-    required this.schedule,
-    required this.themePalette,
-  });
-
-  final List<AIReportSummary> reports;
-  final AIProviderSetupData? providerSetup;
-  final AIReportScheduleSettings? schedule;
-  final AppThemePalette themePalette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final providers = providerSetup?.providers ?? const <AIProviderSummary>[];
-    final enabledProviders = providers
-        .where((provider) => provider.enabled)
-        .toList();
-    final defaultProvider = enabledProviders.isNotEmpty
-        ? enabledProviders.first
-        : null;
-    final compatibleCount = enabledProviders
-        .where((provider) => provider.providerType == 'openai_compatible')
-        .length;
-    final generatedCount = reports
-        .where((report) => report.status == 'completed')
-        .length;
-    final failedCount = reports
-        .where((report) => report.status == 'failed')
-        .length;
-    final activeColor = compatibleCount > 0
-        ? themePalette.assetColor
-        : colorScheme.outline;
-
-    return PremiumSurface(
-      key: const ValueKey('ai-provider-orchestration-panel'),
-      accentColor: activeColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(
-                icon: Icons.hub_outlined,
-                color: activeColor,
-                size: 44,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AI 模型编排',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      defaultProvider == null
-                          ? '等待启用 DeepSeek / OpenAI-compatible Provider'
-                          : '${defaultProvider.name} · ${defaultProvider.model}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _AICommandSignalPill(
-                icon: compatibleCount > 0
-                    ? Icons.api_outlined
-                    : Icons.link_off_outlined,
-                label: compatibleCount > 0 ? 'OpenAI-compatible' : '待接入',
-                color: activeColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _AIProviderSignalPill(
-                icon: Icons.palette_outlined,
-                label: themePalette.label,
-                color: themePalette.seedColor,
-              ),
-              _AIProviderSignalPill(
-                icon: schedule?.enabled == true
-                    ? Icons.event_available_outlined
-                    : Icons.event_busy_outlined,
-                label: schedule?.enabled == true
-                    ? '周报 ${schedule!.hour}:00'
-                    : '周报未启用',
-                color: schedule?.enabled == true
-                    ? financeColors.income
-                    : colorScheme.outline,
-              ),
-              _AIProviderSignalPill(
-                icon: Icons.security_outlined,
-                label: 'Key 不回显',
-                color: themePalette.assetColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.memory_outlined,
-                  label: '兼容网关',
-                  value: '$compatibleCount 个',
-                  color: activeColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.fact_check_outlined,
-                  label: '已产出',
-                  value: '$generatedCount 份',
-                  color: financeColors.income,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: failedCount > 0
-                      ? Icons.warning_amber_rounded
-                      : Icons.data_object_outlined,
-                  label: '报告队列',
-                  value: failedCount > 0
-                      ? '$failedCount 失败'
-                      : '${reports.length} 份',
-                  color: failedCount > 0
-                      ? colorScheme.error
-                      : themePalette.warningColor,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AIProductionReadinessPanel extends StatelessWidget {
-  const _AIProductionReadinessPanel({
-    required this.reports,
-    required this.providerSetup,
-    required this.schedule,
-    required this.themePalette,
-  });
-
-  final List<AIReportSummary> reports;
-  final AIProviderSetupData? providerSetup;
-  final AIReportScheduleSettings? schedule;
-  final AppThemePalette themePalette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final providers = providerSetup?.providers ?? const <AIProviderSummary>[];
-    final enabledProviders = providers
-        .where((provider) => provider.enabled)
-        .toList();
-    final hasOpenAICompatible = enabledProviders.any(
-      (provider) => provider.providerType == 'openai_compatible',
-    );
-    final completedReports = reports
-        .where((report) => report.status == 'completed')
-        .length;
-    final failedReports = reports.where((report) => report.status == 'failed');
-    final isScheduleReady = schedule?.enabled == true;
-    final hasEvidence = completedReports > 0;
-    final readinessScore =
-        (hasOpenAICompatible ? 35 : 0) +
-        (isScheduleReady ? 25 : 0) +
-        20 +
-        (hasEvidence ? 20 : 0);
-    final readinessColor = readinessScore >= 80
-        ? financeColors.income
-        : readinessScore >= 55
-        ? themePalette.warningColor
-        : colorScheme.outline;
-    final deepSeekReady = enabledProviders.any(
-      (provider) =>
-          provider.name.toLowerCase().contains('deepseek') ||
-          provider.baseUrl.toLowerCase().contains('deepseek'),
-    );
-    final statusText = readinessScore >= 80
-        ? '生产可用'
-        : readinessScore >= 55
-        ? '接近就绪'
-        : '待补齐';
-
-    return PremiumSurface(
-      key: const ValueKey('ai-production-readiness-panel'),
-      accentColor: readinessColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(
-                icon: Icons.verified_outlined,
-                color: readinessColor,
-                size: 44,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AI 生产就绪层',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Provider、周报、脱敏和报告证据的发布前检查',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _AICommandSignalPill(
-                icon: readinessScore >= 80
-                    ? Icons.rocket_launch_outlined
-                    : Icons.pending_actions_outlined,
-                label: statusText,
-                color: readinessColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.speed_outlined,
-                  label: '就绪度',
-                  value: '$readinessScore%',
-                  color: readinessColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.route_outlined,
-                  label: 'Provider',
-                  value: hasOpenAICompatible ? '已接入' : '待接入',
-                  color: hasOpenAICompatible
-                      ? themePalette.assetColor
-                      : colorScheme.outline,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.dataset_outlined,
-                  label: '证据',
-                  value: '$completedReports 份',
-                  color: hasEvidence
-                      ? financeColors.income
-                      : colorScheme.outline,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _AIProviderSignalPill(
-                icon: Icons.api_outlined,
-                label: hasOpenAICompatible ? 'OpenAI-compatible' : '网关待接入',
-                color: hasOpenAICompatible
-                    ? themePalette.assetColor
-                    : colorScheme.outline,
-              ),
-              _AIProviderSignalPill(
-                icon: deepSeekReady
-                    ? Icons.auto_awesome_outlined
-                    : Icons.extension_outlined,
-                label: deepSeekReady ? 'DeepSeek 就绪' : 'DeepSeek 可接入',
-                color: deepSeekReady
-                    ? themePalette.seedColor
-                    : colorScheme.outline,
-              ),
-              _AIProviderSignalPill(
-                icon: isScheduleReady
-                    ? Icons.event_repeat_outlined
-                    : Icons.touch_app_outlined,
-                label: isScheduleReady ? '周报自动化' : '手动周报',
-                color: isScheduleReady
-                    ? financeColors.income
-                    : colorScheme.outline,
-              ),
-              _AIProviderSignalPill(
-                icon: Icons.visibility_off_outlined,
-                label: '密钥不出屏',
-                color: themePalette.assetColor,
-              ),
-              _AIProviderSignalPill(
-                icon: failedReports.isEmpty
-                    ? Icons.task_alt_outlined
-                    : Icons.report_problem_outlined,
-                label: failedReports.isEmpty
-                    ? '报告留痕'
-                    : '${failedReports.length} 个失败',
-                color: failedReports.isEmpty
-                    ? financeColors.income
-                    : colorScheme.error,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AIGatewayContractPanel extends StatelessWidget {
-  const _AIGatewayContractPanel({
-    required this.reports,
-    required this.providerSetup,
-    required this.schedule,
-    required this.themePalette,
-  });
-
-  final List<AIReportSummary> reports;
-  final AIProviderSetupData? providerSetup;
-  final AIReportScheduleSettings? schedule;
-  final AppThemePalette themePalette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final providers = providerSetup?.providers ?? const <AIProviderSummary>[];
-    final enabledProviders = providers
-        .where((provider) => provider.enabled)
-        .toList();
-    final compatibleProviders = enabledProviders
-        .where((provider) => provider.providerType == 'openai_compatible')
-        .toList();
-    final primaryProvider = compatibleProviders.isNotEmpty
-        ? compatibleProviders.first
-        : enabledProviders.firstOrNull;
-    final hasDeepSeek = enabledProviders.any(
-      (provider) =>
-          provider.name.toLowerCase().contains('deepseek') ||
-          provider.baseUrl.toLowerCase().contains('deepseek'),
-    );
-    final completedReports = reports
-        .where((report) => report.status == 'completed')
-        .length;
-    final contractScore = [
-      compatibleProviders.isNotEmpty,
-      primaryProvider?.baseUrl.trim().isNotEmpty == true,
-      primaryProvider?.model.trim().isNotEmpty == true,
-      schedule?.enabled == true || completedReports > 0,
-    ].where((ready) => ready).length;
-    final contractColor = contractScore >= 3
-        ? financeColors.income
-        : contractScore >= 2
-        ? themePalette.warningColor
-        : colorScheme.outline;
-    final contractLabel = contractScore >= 3
-        ? '接口可用'
-        : contractScore >= 2
-        ? '待验证'
-        : '待配置';
-
-    return PremiumSurface(
-      key: const ValueKey('ai-gateway-contract-panel'),
-      accentColor: contractColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(
-                icon: Icons.api_outlined,
-                color: contractColor,
-                size: 44,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'OpenAI-compatible 网关契约',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      primaryProvider == null
-                          ? '等待配置 DeepSeek 或兼容 OpenAI API 的 Provider'
-                          : '${primaryProvider.baseUrl} · ${primaryProvider.model}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _AICommandSignalPill(
-                icon: contractScore >= 3
-                    ? Icons.verified_outlined
-                    : Icons.pending_actions_outlined,
-                label: contractLabel,
-                color: contractColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.hub_outlined,
-                  label: '兼容接口',
-                  value: '${compatibleProviders.length} 个',
-                  color: compatibleProviders.isNotEmpty
-                      ? themePalette.assetColor
-                      : colorScheme.outline,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.memory_outlined,
-                  label: '模型',
-                  value: primaryProvider?.model.isNotEmpty == true
-                      ? '已选择'
-                      : '待选择',
-                  color: primaryProvider?.model.isNotEmpty == true
-                      ? financeColors.income
-                      : colorScheme.outline,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.event_repeat_outlined,
-                  label: '周报链路',
-                  value: schedule?.enabled == true
-                      ? '${schedule!.hour}:00'
-                      : '手动',
-                  color: schedule?.enabled == true
-                      ? financeColors.income
-                      : themePalette.warningColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _AIProviderSignalPill(
-                icon: hasDeepSeek
-                    ? Icons.auto_awesome_outlined
-                    : Icons.extension_outlined,
-                label: hasDeepSeek ? 'DeepSeek 已适配' : 'DeepSeek 预留',
-                color: hasDeepSeek
-                    ? themePalette.seedColor
-                    : colorScheme.outline,
-              ),
-              _AIProviderSignalPill(
-                icon: compatibleProviders.isNotEmpty
-                    ? Icons.route_outlined
-                    : Icons.link_off_outlined,
-                label: compatibleProviders.isNotEmpty
-                    ? 'OpenAPI 兼容'
-                    : 'OpenAPI 待接入',
-                color: compatibleProviders.isNotEmpty
-                    ? themePalette.assetColor
-                    : colorScheme.outline,
-              ),
-              _AIProviderSignalPill(
-                icon: Icons.visibility_off_outlined,
-                label: '密钥保护',
-                color: themePalette.assetColor,
-              ),
-              _AIProviderSignalPill(
-                icon: completedReports > 0
-                    ? Icons.dataset_outlined
-                    : Icons.note_add_outlined,
-                label: completedReports > 0 ? '报告样本 $completedReports' : '等待样本',
-                color: completedReports > 0
-                    ? financeColors.income
-                    : colorScheme.outline,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AIInsightQualityPanel extends StatelessWidget {
-  const _AIInsightQualityPanel({
-    required this.reports,
-    required this.providerSetup,
-    required this.schedule,
-    required this.themePalette,
-  });
-
-  final List<AIReportSummary> reports;
-  final AIProviderSetupData? providerSetup;
-  final AIReportScheduleSettings? schedule;
-  final AppThemePalette themePalette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final completedReports = reports
-        .where((report) => report.status == 'completed')
-        .toList();
-    final activeProviders =
-        providerSetup?.providers.where((provider) => provider.enabled).length ??
-        0;
-    final insightCount = completedReports.fold<int>(
-      0,
-      (sum, report) =>
-          sum + _countReportItems(report.contentJson, 'highlights'),
-    );
-    final riskCount = completedReports.fold<int>(
-      0,
-      (sum, report) => sum + _countReportItems(report.contentJson, 'risks'),
-    );
-    final suggestionCount = completedReports.fold<int>(
-      0,
-      (sum, report) =>
-          sum + _countReportItems(report.contentJson, 'suggestions'),
-    );
-    final coverage = reports.isEmpty
-        ? 0
-        : (completedReports.length / reports.length * 100).round();
-    final qualityColor = completedReports.isEmpty
-        ? colorScheme.outline
-        : riskCount > suggestionCount
-        ? financeColors.warning
-        : financeColors.income;
-
-    return PremiumSurface(
-      key: const ValueKey('ai-insight-quality-panel'),
-      accentColor: qualityColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.analytics_outlined,
-                color: qualityColor,
-                size: 42,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AI 洞察质量层',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${themePalette.signature} · 报告覆盖、风险、建议和脱敏状态',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _AICommandSignalPill(
-                icon: activeProviders > 0
-                    ? Icons.verified_user_outlined
-                    : Icons.shield_outlined,
-                label: activeProviders > 0 ? 'Provider 就绪' : 'Provider 待接入',
-                color: activeProviders > 0
-                    ? themePalette.assetColor
-                    : colorScheme.outline,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.radar_outlined,
-                  label: '覆盖率',
-                  value: '$coverage%',
-                  color: qualityColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.trending_up_outlined,
-                  label: '重点',
-                  value: '$insightCount 条',
-                  color: financeColors.income,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AICommandMetric(
-                  icon: Icons.warning_amber_outlined,
-                  label: '风险',
-                  value: '$riskCount 条',
-                  color: riskCount > 0
-                      ? financeColors.warning
-                      : colorScheme.outline,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _AIProviderSignalPill(
-                icon: Icons.tips_and_updates_outlined,
-                label: '建议 $suggestionCount 条',
-                color: suggestionCount > 0
-                    ? themePalette.seedColor
-                    : colorScheme.outline,
-              ),
-              _AIProviderSignalPill(
-                icon: Icons.visibility_off_outlined,
-                label: '默认脱敏',
-                color: themePalette.assetColor,
-              ),
-              _AIProviderSignalPill(
-                icon: schedule?.enabled == true
-                    ? Icons.event_available_outlined
-                    : Icons.event_busy_outlined,
-                label: schedule?.enabled == true ? '每周自动' : '手动生成',
-                color: schedule?.enabled == true
-                    ? financeColors.income
-                    : colorScheme.outline,
-              ),
-              _AIProviderSignalPill(
-                icon: Icons.api_outlined,
-                label: 'OpenAI API',
-                color: activeProviders > 0
-                    ? themePalette.assetColor
-                    : colorScheme.outline,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _countReportItems(String? contentJson, String key) {
-    if (contentJson == null || contentJson.trim().isEmpty) {
-      return 0;
-    }
-    try {
-      final decoded = jsonDecode(contentJson);
-      if (decoded is! Map<String, dynamic>) {
-        return 0;
-      }
-      final value = decoded[key];
-      if (value is List) {
-        return value.length;
-      }
-    } catch (_) {
-      return 0;
-    }
-    return 0;
-  }
-}
-
-class _AIProviderSetupSurface extends StatelessWidget {
+}class _AIProviderSetupSurface extends StatelessWidget {
   const _AIProviderSetupSurface({
     required this.state,
     required this.testingProviderId,
@@ -1519,12 +451,12 @@ class _AIProviderSetupSurface extends StatelessWidget {
             dimension: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          title: Text('正在加载 Provider 配置'),
+          title: Text('正在加载 AI 服务配置'),
         ),
       ),
       error: (error, stackTrace) => PremiumSurface(
         accentColor: colorScheme.error,
-        child: Text('Provider 配置加载失败：$error'),
+        child: Text('AI 服务配置加载失败：$error'),
       ),
       data: (setup) {
         return PremiumSurface(
@@ -1538,7 +470,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Provider 配置',
+                      'AI 服务配置',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -1547,23 +479,21 @@ class _AIProviderSetupSurface extends StatelessWidget {
                   FilledButton.tonalIcon(
                     onPressed: () => onAdd(setup),
                     icon: const Icon(Icons.add_outlined),
-                    label: const Text('添加 Provider'),
+                    label: const Text('添加 AI 服务'),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
-                '支持 DeepSeek、OpenAI 和 OpenAI-compatible 网关。API Key 保存后不会回显。',
+                '支持 DeepSeek、OpenAI 和兼容服务。API Key 保存后不会回显。',
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
               const SizedBox(height: 12),
-              _AIProviderSignalStrip(setup: setup),
-              const SizedBox(height: 12),
               if (setup.providers.isEmpty)
                 Text(
-                  '暂无 Provider',
+                  '暂无 AI 服务',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
@@ -1635,7 +565,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 Tooltip(
-                                  message: '编辑 Provider ${provider.name}',
+                                  message: '编辑 AI 服务 ${provider.name}',
                                   child: TextButton.icon(
                                     key: ValueKey(
                                       'ai-provider-edit-${provider.id}',
@@ -1647,7 +577,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Tooltip(
-                                  message: '测试 Provider ${provider.name}',
+                                  message: '测试 AI 服务 ${provider.name}',
                                   child: OutlinedButton.icon(
                                     key: ValueKey(
                                       'ai-provider-test-${provider.id}',
@@ -1673,7 +603,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                                   ),
                                   onPressed: () => onDelete(provider),
                                   icon: const Icon(Icons.delete_outline),
-                                  tooltip: '删除 Provider ${provider.name}',
+                                  tooltip: '删除 AI 服务 ${provider.name}',
                                 ),
                               ],
                             ),
@@ -1687,92 +617,6 @@ class _AIProviderSetupSurface extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _AIProviderSignalStrip extends StatelessWidget {
-  const _AIProviderSignalStrip({required this.setup});
-
-  final AIProviderSetupData setup;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final enabledProviders = setup.providers
-        .where((provider) => provider.enabled)
-        .length;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        _AIProviderSignalPill(
-          icon: Icons.bolt_outlined,
-          label: '$enabledProviders 个启用',
-          color: enabledProviders > 0
-              ? financeColors.income
-              : colorScheme.outline,
-        ),
-        _AIProviderSignalPill(
-          icon: Icons.extension_outlined,
-          label: '${setup.presets.length} 个预设',
-          color: colorScheme.secondary,
-        ),
-        _AIProviderSignalPill(
-          icon: Icons.enhanced_encryption_outlined,
-          label: 'Key 已保护',
-          color: financeColors.asset,
-        ),
-      ],
-    );
-  }
-}
-
-class _AIProviderSignalPill extends StatelessWidget {
-  const _AIProviderSignalPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1843,7 +687,7 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.provider == null ? '添加 Provider' : '编辑 Provider',
+                widget.provider == null ? '添加 AI 服务' : '编辑 AI 服务',
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -1911,7 +755,7 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
                   key: const ValueKey('ai-provider-save'),
                   onPressed: _submit,
                   icon: const Icon(Icons.save_outlined),
-                  label: const Text('保存 Provider'),
+                  label: const Text('保存 AI 服务'),
                 ),
               ),
             ],
@@ -1932,7 +776,7 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
         (widget.provider == null && apiKey.isEmpty)) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('请完整填写 Provider 信息')));
+      ).showSnackBar(const SnackBar(content: Text('请完整填写 AI 服务信息')));
       return;
     }
     Navigator.of(context).pop(
@@ -2026,11 +870,11 @@ class _AIReportGenerateSheetState extends State<_AIReportGenerateSheet> {
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: _providerId,
-                decoration: const InputDecoration(labelText: 'Provider'),
+                decoration: const InputDecoration(labelText: 'AI 服务'),
                 items: [
                   const DropdownMenuItem(
                     value: '',
-                    child: Text('自动选择启用 Provider'),
+                    child: Text('自动选择启用的 AI 服务'),
                   ),
                   for (final provider in widget.providers)
                     DropdownMenuItem(
@@ -2071,7 +915,7 @@ class _AIReportGenerateSheetState extends State<_AIReportGenerateSheet> {
                 contentPadding: EdgeInsets.zero,
                 value: _maskNames,
                 title: const Text('遮蔽成员和账户名称'),
-                subtitle: const Text('发送给 Provider 前替换为成员1、账户1等匿名标签。'),
+                subtitle: const Text('生成报告前替换为成员1、账户1等匿名标签。'),
                 onChanged: (value) => setState(() => _maskNames = value),
               ),
               const SizedBox(height: 14),
@@ -2190,7 +1034,7 @@ class _AIReportScheduleForm extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _AIScheduleMetric(
-                  label: '隐私策略',
+                  label: '隐私设置',
                   value: '聚合快照',
                   icon: Icons.privacy_tip_outlined,
                   color: financeColors.asset,
@@ -2493,7 +1337,7 @@ class _AIReportsEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '配置 OpenAI 兼容 Provider 后，可选择周期生成聚合后的财务洞察。',
+              '配置 AI 服务后，可选择周期生成聚合后的财务洞察。',
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
@@ -2652,8 +1496,6 @@ class _AIReportCard extends StatelessWidget {
             label: statusText,
           ),
           children: [
-            _AIReportInsightMeter(data: parsed),
-            const SizedBox(height: 12),
             _AIReportContent(data: parsed),
             if (snapshot.accountChanges.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -2675,162 +1517,7 @@ class _AIReportCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _AIReportInsightMeter extends StatelessWidget {
-  const _AIReportInsightMeter({required this.data});
-
-  final AIReportContentData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
-    final segments = [
-      _AIReportInsightSegment(
-        label: '重点',
-        count: data.highlights.length,
-        icon: Icons.trending_up_outlined,
-        color: financeColors.income,
-      ),
-      _AIReportInsightSegment(
-        label: '风险',
-        count: data.risks.length,
-        icon: Icons.warning_amber_outlined,
-        color: financeColors.warning,
-      ),
-      _AIReportInsightSegment(
-        label: '建议',
-        count: data.suggestions.length,
-        icon: Icons.lightbulb_outline,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-    ];
-    final total = segments.fold<int>(0, (sum, segment) => sum + segment.count);
-    if (total == 0) {
-      return const SizedBox.shrink();
-    }
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.stacked_line_chart_outlined,
-                  size: 16,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '洞察构成',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const Spacer(),
-                Text(
-                  '$total 条',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: SizedBox(
-                height: 9,
-                child: Row(
-                  children: [
-                    for (final segment in segments)
-                      if (segment.count > 0)
-                        Expanded(
-                          flex: segment.count,
-                          child: ColoredBox(color: segment.color),
-                        ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final segment in segments)
-                  _AIReportInsightToken(segment: segment),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AIReportInsightSegment {
-  const _AIReportInsightSegment({
-    required this.label,
-    required this.count,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final int count;
-  final IconData icon;
-  final Color color;
-}
-
-class _AIReportInsightToken extends StatelessWidget {
-  const _AIReportInsightToken({required this.segment});
-
-  final _AIReportInsightSegment segment;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final active = segment.count > 0;
-    final color = active ? segment.color : colorScheme.outline;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: active ? 0.12 : 0.08),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(segment.icon, size: 14, color: color),
-            const SizedBox(width: 5),
-            Text(
-              '${segment.label} ${segment.count}',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AIReportAccountChanges extends StatelessWidget {
+}class _AIReportAccountChanges extends StatelessWidget {
   const _AIReportAccountChanges({required this.changes});
 
   final List<AIReportAccountChangeData> changes;

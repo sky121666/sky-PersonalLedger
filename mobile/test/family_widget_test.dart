@@ -104,51 +104,38 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('家庭成员'), findsOneWidget);
-    expect(find.text('协同中'), findsOneWidget);
-    expect(find.text('已汇总'), findsOneWidget);
+    expect(find.text('协同中'), findsNothing);
+    expect(find.text('已汇总'), findsNothing);
     expect(find.text('2026-05 家庭支出'), findsOneWidget);
     expect(find.text('¥320.00'), findsAtLeastNWidgets(1));
-    expect(find.text('家庭协同中枢'), findsOneWidget);
-    expect(find.textContaining('成员、预算、分类归属统一展示'), findsOneWidget);
+    expect(find.text('家庭协同中枢'), findsNothing);
+    expect(find.textContaining('成员、预算、分类归属统一展示'), findsNothing);
     expect(
       find.byKey(const ValueKey('family-collaboration-hub')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey('family-ai-collaboration-rail')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('成员协作'), findsOneWidget);
-    expect(find.text('预算联动'), findsOneWidget);
-    expect(find.text('AI 预留'), findsOneWidget);
+    expect(find.text('成员协作'), findsNothing);
+    expect(find.text('预算联动'), findsNothing);
+    expect(find.text('AI 预留'), findsNothing);
     expect(
       find.byKey(const ValueKey('family-governance-surface')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('家庭治理预留'), findsOneWidget);
-    expect(find.textContaining('角色、权限、预算规则分层接入'), findsOneWidget);
-    expect(find.text('角色入口'), findsOneWidget);
-    expect(find.text('已指定'), findsOneWidget);
-    expect(find.text('预算规则'), findsOneWidget);
-    expect(find.text('1 项'), findsOneWidget);
-    expect(find.text('权限预留'), findsOneWidget);
-    expect(find.text('1/2'), findsOneWidget);
-    expect(find.text('32%'), findsOneWidget);
-    expect(find.text('1 类'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('family-readiness-surface')),
-      260,
-    );
-    await tester.pumpAndSettle();
+    expect(find.text('家庭治理预留'), findsNothing);
+    expect(find.textContaining('角色、权限、预算规则分层接入'), findsNothing);
     expect(
       find.byKey(const ValueKey('family-readiness-surface')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('家庭功能成熟度'), findsOneWidget);
-    expect(find.text('阶段可用'), findsOneWidget);
-    expect(find.text('成员启用'), findsOneWidget);
-    expect(find.text('默认成员'), findsOneWidget);
-    expect(find.text('分类统计'), findsOneWidget);
+    expect(find.text('家庭功能成熟度'), findsNothing);
+    expect(find.text('阶段可用'), findsNothing);
+    expect(find.text('成员启用'), findsNothing);
+    expect(find.text('默认成员'), findsNothing);
+    expect(find.text('分类统计'), findsNothing);
     await tester.scrollUntilVisible(find.text('家庭预算'), 260);
     await tester.pumpAndSettle();
     expect(find.text('家庭预算'), findsAtLeastNWidgets(1));
@@ -157,8 +144,8 @@ void main() {
     await tester.scrollUntilVisible(find.text('成员支出排行'), 300);
     await tester.pumpAndSettle();
     expect(find.text('成员支出排行'), findsOneWidget);
-    expect(find.text('支出集中度'), findsOneWidget);
-    expect(find.text('成员A 63%'), findsOneWidget);
+    expect(find.text('支出集中度'), findsNothing);
+    expect(find.text('成员A 63%'), findsNothing);
     expect(find.text('¥200.00 · 3 笔'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('成员分类拆分'), 300);
     await tester.pumpAndSettle();

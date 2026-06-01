@@ -17,43 +17,40 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('账号安全'), findsOneWidget);
-      expect(find.text('安全控制台'), findsOneWidget);
-      expect(find.text('Protected'), findsOneWidget);
-      expect(find.text('安全态势'), findsOneWidget);
-      expect(find.textContaining('已隔离'), findsOneWidget);
-      expect(find.textContaining('改密退出'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      expect(find.text('安全入口'), findsOneWidget);
+      expect(find.text('安全控制台'), findsNothing);
+      expect(find.text('Protected'), findsNothing);
+      expect(find.text('安全态势'), findsNothing);
+      expect(find.text('修改密码'), findsOneWidget);
+      expect(find.text('登录保护'), findsOneWidget);
       expect(find.text('/ledger'), findsWidgets);
-      expect(find.text('当前入口：/ledger'), findsOneWidget);
       final entrySwitchSemantics = tester.widget<Semantics>(
         find.byKey(const ValueKey('security-entry-enabled-semantics')),
       );
-      expect(entrySwitchSemantics.properties.label, '启用安全入口');
-      expect(find.text('验证旧密码'), findsOneWidget);
-      expect(find.text('自动退出'), findsOneWidget);
+      expect(entrySwitchSemantics.properties.label, '启用登录保护');
+      expect(find.text('验证旧密码'), findsNothing);
+      expect(find.text('自动退出'), findsNothing);
       expect(
         find.byKey(const ValueKey('security-password-evidence-rail')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('改密证据 0/3'), findsOneWidget);
-      expect(find.text('旧密待填'), findsOneWidget);
-      expect(find.text('新密未达标'), findsOneWidget);
-      expect(find.text('确认待匹配'), findsOneWidget);
-      expect(find.text('成功后退出'), findsOneWidget);
-      expect(find.text('入口模式'), findsOneWidget);
-      expect(find.text('隔离'), findsOneWidget);
-      expect(find.text('需确认'), findsWidgets);
+      expect(find.text('改密证据 0/3'), findsNothing);
       expect(
         find.byKey(const ValueKey('security-entry-guardrail-panel')),
+        findsNothing,
+      );
+      expect(find.text('入口守护策略'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('security-old-password')),
         findsOneWidget,
       );
-      expect(find.text('入口守护策略'), findsOneWidget);
-      expect(find.text('隔离中'), findsOneWidget);
-      expect(find.text('入口路径'), findsAtLeastNWidgets(1));
-      expect(find.text('生成方式'), findsOneWidget);
-      expect(find.text('随机可换'), findsOneWidget);
-      expect(find.text('关闭影响'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('security-new-password')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('security-confirm-password')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('保存入口路径时提交当前输入', (tester) async {
@@ -68,8 +65,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.setEntryPathCalls, ['/private']);
-      expect(find.text('当前入口：/private'), findsOneWidget);
-      expect(find.text('安全入口已保存'), findsOneWidget);
+      expect(find.text('/private'), findsWidgets);
+      expect(find.text('登录保护已保存'), findsOneWidget);
     });
 
     testWidgets('随机生成入口后刷新文本框和状态', (tester) async {
@@ -81,7 +78,7 @@ void main() {
 
       expect(repository.generateCalls, 1);
       expect(find.text('/generated'), findsWidgets);
-      expect(find.text('已生成随机入口'), findsOneWidget);
+      expect(find.text('已生成随机访问路径'), findsOneWidget);
     });
 
     testWidgets('修改密码成功后退出当前登录态', (tester) async {
@@ -106,10 +103,7 @@ void main() {
         'new-password',
       );
       await tester.pumpAndSettle();
-      expect(find.text('改密证据 3/3'), findsOneWidget);
-      expect(find.text('旧密已填'), findsOneWidget);
-      expect(find.text('新密达标'), findsOneWidget);
-      expect(find.text('确认一致'), findsOneWidget);
+      expect(find.text('改密证据 3/3'), findsNothing);
       await tester.tap(
         find.byKey(const ValueKey('security-change-password-submit')),
       );
@@ -133,7 +127,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
 
-      expect(find.text('当前入口：/ledger'), findsOneWidget);
+      expect(find.text('/ledger'), findsWidgets);
       expect(repository.getEntryPathCalls, 2);
     });
 
@@ -150,7 +144,7 @@ void main() {
 
       expect(repository.setEntryPathCalls, ['/private']);
       expect(find.text('/private'), findsOneWidget);
-      expect(find.text('当前入口：/ledger'), findsOneWidget);
+      expect(find.text('/ledger'), findsWidgets);
       expect(find.textContaining('保存失败'), findsOneWidget);
     });
 
@@ -167,11 +161,11 @@ void main() {
         enabled: true,
       );
 
-      await tester.tap(find.byTooltip('刷新安全入口'));
+      await tester.tap(find.byTooltip('刷新登录保护'));
       await tester.pumpAndSettle();
 
       expect(find.text('/server'), findsWidgets);
-      expect(find.text('当前入口：/server'), findsOneWidget);
+      expect(find.text('/server'), findsWidgets);
       expect(repository.getEntryPathCalls, 2);
     });
 
@@ -231,8 +225,8 @@ void main() {
       final repository = _FakeSecurityRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
     });
   });
 }

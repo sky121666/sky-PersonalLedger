@@ -121,19 +121,19 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
   Future<void> _saveEntryPath() async {
     final value = _entryPathController.text.trim();
     if (value.isEmpty) {
-      _showMessage('请输入入口路径，或点击禁用入口');
+      _showMessage('请输入访问路径，或点击关闭保护');
       return;
     }
     await _runEntryPathAction(
       () => ref.read(securityRepositoryProvider).setEntryPath(value),
-      '安全入口已保存',
+      '登录保护已保存',
     );
   }
 
   Future<void> _generateEntryPath() async {
     await _runEntryPathAction(
       ref.read(securityRepositoryProvider).generateEntryPath,
-      '已生成随机入口',
+      '已生成随机访问路径',
     );
   }
 
@@ -144,7 +144,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
     }
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '禁用安全入口',
+      title: '禁用登录保护',
       message: '禁用后可直接访问登录页。确认继续？',
       confirmText: '禁用',
       isDanger: true,
@@ -154,7 +154,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
     }
     await _runEntryPathAction(
       ref.read(securityRepositoryProvider).disableEntryPath,
-      '安全入口已禁用',
+      '登录保护已禁用',
     );
   }
 
@@ -211,7 +211,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
           IconButton(
             onPressed: _isBusy ? null : _loadEntryPath,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新安全入口',
+            tooltip: '刷新登录保护',
           ),
         ],
       ),
@@ -231,11 +231,6 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
-        StaggeredEntrance(
-          index: 0,
-          child: _SecurityOverviewCard(entryPath: _entryPath),
-        ),
-        const SizedBox(height: 16),
         StaggeredEntrance(
           index: 1,
           child: _PasswordCard(
@@ -264,189 +259,6 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
   }
 }
 
-class _SecurityOverviewCard extends StatelessWidget {
-  const _SecurityOverviewCard({required this.entryPath});
-
-  final SecurityEntryPath entryPath;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final accent = entryPath.enabled
-        ? financeColors.asset
-        : financeColors.warning;
-    final securityPosture = entryPath.enabled ? 1.0 : 0.5;
-    return PremiumSurface(
-      accentColor: accent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.admin_panel_settings_outlined,
-                color: accent,
-                size: 46,
-                iconSize: 24,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '安全控制台',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      entryPath.enabled ? '安全入口已启用' : '安全入口未启用',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: Color.alphaBlend(
-                    accent.withValues(alpha: 0.14),
-                    colorScheme.surface,
-                  ),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: accent.withValues(alpha: 0.22)),
-                ),
-                child: Text(
-                  entryPath.enabled ? 'Protected' : 'Open',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: accent,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _SecurityMetric(
-                  icon: Icons.route_outlined,
-                  label: '入口路径',
-                  value: entryPath.enabled ? entryPath.displayPath : '未启用',
-                  color: accent,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _SecurityMetric(
-                  icon: Icons.password_outlined,
-                  label: '密码策略',
-                  value: '8 位以上',
-                  color: financeColors.expense,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _SecurityMetric(
-                  icon: Icons.radar_outlined,
-                  label: '安全态势',
-                  value: entryPath.enabled ? '已隔离 · 改密退出' : '待启用 · 改密退出',
-                  color: colorScheme.tertiary,
-                  progress: securityPosture,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SecurityMetric extends StatelessWidget {
-  const _SecurityMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-    this.progress,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  final double? progress;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 72),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          if (progress != null) ...[
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress!.clamp(0, 1),
-                minHeight: 5,
-                color: color,
-                backgroundColor: color.withValues(alpha: 0.12),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _PasswordCard extends StatelessWidget {
   const _PasswordCard({
     required this.oldPasswordController,
@@ -464,7 +276,6 @@ class _PasswordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: financeColors.expense,
@@ -475,36 +286,6 @@ class _PasswordCard extends StatelessWidget {
             icon: Icons.lock_outline,
             color: financeColors.expense,
             title: '修改密码',
-            subtitle: '修改后会退出当前登录态',
-          ),
-          const SizedBox(height: 12),
-          _PasswordEvidenceRail(
-            oldPasswordController: oldPasswordController,
-            newPasswordController: newPasswordController,
-            confirmPasswordController: confirmPasswordController,
-          ),
-          const SizedBox(height: 12),
-          _SecurityFlowStrip(
-            items: [
-              _SecurityFlowItem(
-                icon: Icons.password_outlined,
-                label: '验证旧密码',
-                value: '当前态',
-                color: financeColors.asset,
-              ),
-              _SecurityFlowItem(
-                icon: Icons.enhanced_encryption_outlined,
-                label: '设置新密码',
-                value: '8 位以上',
-                color: financeColors.expense,
-              ),
-              _SecurityFlowItem(
-                icon: Icons.logout_outlined,
-                label: '会话处理',
-                value: '自动退出',
-                color: colorScheme.tertiary,
-              ),
-            ],
           ),
           const SizedBox(height: 16),
           _SecurityPasswordField(
@@ -528,28 +309,6 @@ class _PasswordCard extends StatelessWidget {
             label: '确认新密码',
             onSubmitted: (_) => submitting ? null : onSubmit(),
           ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: colorScheme.errorContainer.withValues(alpha: 0.44),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.logout_outlined, color: colorScheme.error),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '密码修改成功后会立即退出登录，需要使用新密码重新进入。',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 16),
           FilledButton.icon(
             key: const ValueKey('security-change-password-submit'),
@@ -564,129 +323,6 @@ class _PasswordCard extends StatelessWidget {
             label: Text(submitting ? '修改中...' : '确认修改'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PasswordEvidenceRail extends StatelessWidget {
-  const _PasswordEvidenceRail({
-    required this.oldPasswordController,
-    required this.newPasswordController,
-    required this.confirmPasswordController,
-  });
-
-  final TextEditingController oldPasswordController;
-  final TextEditingController newPasswordController;
-  final TextEditingController confirmPasswordController;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([
-        oldPasswordController,
-        newPasswordController,
-        confirmPasswordController,
-      ]),
-      builder: (context, _) {
-        final colorScheme = Theme.of(context).colorScheme;
-        final financeColors = AppTheme.financeColors(context);
-        final hasOldPassword = oldPasswordController.text.isNotEmpty;
-        final newPasswordReady = newPasswordController.text.length >= 8;
-        final confirmReady =
-            confirmPasswordController.text.isNotEmpty &&
-            confirmPasswordController.text == newPasswordController.text;
-        final completed = [
-          hasOldPassword,
-          newPasswordReady,
-          confirmReady,
-        ].where((ready) => ready).length;
-        return Wrap(
-          key: const ValueKey('security-password-evidence-rail'),
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _SecurityEvidencePill(
-              icon: Icons.fact_check_outlined,
-              label: '改密证据 $completed/3',
-              color: completed == 3
-                  ? financeColors.income
-                  : financeColors.warning,
-            ),
-            _SecurityEvidencePill(
-              icon: Icons.password_outlined,
-              label: hasOldPassword ? '旧密已填' : '旧密待填',
-              color: hasOldPassword ? financeColors.asset : colorScheme.outline,
-            ),
-            _SecurityEvidencePill(
-              icon: Icons.enhanced_encryption_outlined,
-              label: newPasswordReady ? '新密达标' : '新密未达标',
-              color: newPasswordReady
-                  ? financeColors.income
-                  : financeColors.warning,
-            ),
-            _SecurityEvidencePill(
-              icon: Icons.verified_user_outlined,
-              label: confirmReady ? '确认一致' : '确认待匹配',
-              color: confirmReady ? colorScheme.tertiary : colorScheme.outline,
-            ),
-            _SecurityEvidencePill(
-              icon: Icons.logout_outlined,
-              label: '成功后退出',
-              color: colorScheme.error,
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SecurityEvidencePill extends StatelessWidget {
-  const _SecurityEvidencePill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.17
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 15),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -726,93 +362,6 @@ class _SecurityPasswordField extends StatelessWidget {
   }
 }
 
-class _SecurityFlowItem {
-  const _SecurityFlowItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-}
-
-class _SecurityFlowStrip extends StatelessWidget {
-  const _SecurityFlowStrip({required this.items});
-
-  final List<_SecurityFlowItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var index = 0; index < items.length; index++) ...[
-          Expanded(child: _SecurityFlowTile(item: items[index])),
-          if (index != items.length - 1) const SizedBox(width: 8),
-        ],
-      ],
-    );
-  }
-}
-
-class _SecurityFlowTile extends StatelessWidget {
-  const _SecurityFlowTile({required this.item});
-
-  final _SecurityFlowItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 68),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          item.color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: item.color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(item.icon, size: 17, color: item.color),
-          const SizedBox(height: 6),
-          Text(
-            item.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 1),
-          Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _EntryPathCard extends StatelessWidget {
   const _EntryPathCard({
     required this.entryPath,
@@ -834,8 +383,8 @@ class _EntryPathCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final stateColor = entryPath.enabled
         ? financeColors.asset
         : colorScheme.outline;
@@ -850,13 +399,12 @@ class _EntryPathCard extends StatelessWidget {
                 child: _SecuritySectionHeader(
                   icon: Icons.shield_outlined,
                   color: stateColor,
-                  title: '安全入口',
-                  subtitle: entryPath.enabled ? entryPath.entryPath : '未启用',
+                  title: '登录保护',
                 ),
               ),
               Semantics(
                 key: const ValueKey('security-entry-enabled-semantics'),
-                label: '启用安全入口',
+                label: '启用登录保护',
                 toggled: entryPath.enabled,
                 enabled: !submitting,
                 child: Switch(
@@ -866,33 +414,6 @@ class _EntryPathCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _SecurityFlowStrip(
-            items: [
-              _SecurityFlowItem(
-                icon: Icons.route_outlined,
-                label: '入口模式',
-                value: entryPath.enabled ? '隔离' : '直达',
-                color: stateColor,
-              ),
-              _SecurityFlowItem(
-                icon: Icons.auto_fix_high_outlined,
-                label: '生成策略',
-                value: '随机',
-                color: financeColors.asset,
-              ),
-              _SecurityFlowItem(
-                icon: Icons.block_outlined,
-                label: '关闭保护',
-                value: entryPath.enabled ? '需确认' : '已关闭',
-                color: entryPath.enabled
-                    ? colorScheme.error
-                    : colorScheme.outline,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _EntryGuardrailPanel(entryPath: entryPath),
           const SizedBox(height: 14),
           TextField(
             key: const ValueKey('security-entry-path'),
@@ -900,9 +421,8 @@ class _EntryPathCard extends StatelessWidget {
             enabled: !submitting,
             inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
             decoration: InputDecoration(
-              labelText: '入口路径',
+              labelText: '访问路径',
               hintText: '/ledger',
-              helperText: '启用后，登录页需要先经过该入口路径。',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -923,7 +443,7 @@ class _EntryPathCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.save_outlined),
-                label: Text(submitting ? '保存中...' : '保存入口'),
+                label: Text(submitting ? '保存中...' : '保存'),
               ),
               OutlinedButton.icon(
                 key: const ValueKey('security-entry-generate'),
@@ -935,233 +455,11 @@ class _EntryPathCard extends StatelessWidget {
                 key: const ValueKey('security-entry-disable'),
                 onPressed: submitting || !entryPath.enabled ? null : onDisable,
                 icon: const Icon(Icons.block_outlined),
-                label: const Text('禁用入口'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                stateColor.withValues(alpha: entryPath.enabled ? 0.12 : 0.08),
-                colorScheme.surface,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: stateColor.withValues(alpha: 0.18)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  entryPath.enabled
-                      ? Icons.verified_user_outlined
-                      : Icons.info_outline,
-                  color: stateColor,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    entryPath.enabled
-                        ? '当前入口：${entryPath.displayPath}'
-                        : '安全入口未启用',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EntryGuardrailPanel extends StatelessWidget {
-  const _EntryGuardrailPanel({required this.entryPath});
-
-  final SecurityEntryPath entryPath;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final accent = entryPath.enabled
-        ? financeColors.asset
-        : colorScheme.outline;
-    return AnimatedContainer(
-      key: const ValueKey('security-entry-guardrail-panel'),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          accent.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.075,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.security_update_good_outlined,
-                color: accent,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '入口守护策略',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              _EntryGuardrailPill(
-                label: entryPath.enabled ? '隔离中' : '未隔离',
-                color: accent,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _EntryGuardrailTile(
-                  icon: Icons.route_outlined,
-                  label: '入口路径',
-                  value: entryPath.enabled ? entryPath.displayPath : '直达登录',
-                  color: accent,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _EntryGuardrailTile(
-                  icon: Icons.auto_fix_high_outlined,
-                  label: '生成方式',
-                  value: '随机可换',
-                  color: financeColors.asset,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _EntryGuardrailTile(
-                  icon: Icons.privacy_tip_outlined,
-                  label: '关闭影响',
-                  value: entryPath.enabled ? '需确认' : '开放',
-                  color: entryPath.enabled
-                      ? colorScheme.error
-                      : financeColors.warning,
-                ),
+                label: const Text('关闭保护'),
               ),
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _EntryGuardrailTile extends StatelessWidget {
-  const _EntryGuardrailTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 70),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EntryGuardrailPill extends StatelessWidget {
-  const _EntryGuardrailPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 28, maxWidth: 118),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w900,
-        ),
       ),
     );
   }
@@ -1172,13 +470,11 @@ class _SecuritySectionHeader extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.title,
-    required this.subtitle,
   });
 
   final IconData icon;
   final Color color;
   final String title;
-  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1195,13 +491,6 @@ class _SecuritySectionHeader extends StatelessWidget {
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
               ),
             ],
           ),

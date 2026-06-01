@@ -13,50 +13,25 @@ void main() {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('数据保险库'), findsOneWidget);
-      expect(find.text('传输路径'), findsOneWidget);
-      expect(find.text('覆盖确认'), findsWidgets);
-      expect(find.text('备份留存'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('data-vault-health-panel')),
-        findsOneWidget,
-      );
-      expect(find.text('保险库健康层'), findsOneWidget);
-      expect(find.text('手动保护'), findsWidgets);
-      expect(find.text('服务器备份'), findsWidgets);
-      expect(find.text('留存水位'), findsOneWidget);
-      expect(find.text('10%'), findsOneWidget);
-      expect(find.text('JSON 全量'), findsAtLeastNWidgets(1));
-      expect(find.text('CSV 分析'), findsOneWidget);
-      expect(find.text('恢复二次确认'), findsOneWidget);
-      expect(find.text('本机保存'), findsAtLeastNWidgets(1));
-      expect(find.text('数据操作链路'), findsOneWidget);
-      expect(find.text('手动保护'), findsWidgets);
-      expect(find.text('1 个备份'), findsOneWidget);
-      expect(find.text('CSV 明细'), findsOneWidget);
-      expect(find.byKey(const ValueKey('data-operation-rail')), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('data-recovery-matrix')),
-        findsOneWidget,
-      );
-      expect(find.text('灾备矩阵'), findsOneWidget);
-      expect(find.text('手动链路'), findsOneWidget);
+      expect(find.text('数据保险库'), findsNothing);
+      expect(find.text('服务器备份'), findsNothing);
+      expect(find.text('保留设置'), findsNothing);
       expect(find.text('完整备份'), findsAtLeastNWidgets(1));
-      expect(find.text('JSON 可恢复'), findsOneWidget);
-      expect(find.text('交易分析'), findsOneWidget);
-      expect(find.text('表格复盘'), findsOneWidget);
-      expect(find.text('恢复闸门'), findsOneWidget);
-      expect(find.text('覆盖前阻断'), findsOneWidget);
+      expect(find.text('交易 CSV'), findsOneWidget);
+      expect(find.text('下载备份'), findsOneWidget);
+      expect(find.text('导出 CSV'), findsOneWidget);
+      expect(find.text('恢复备份'), findsOneWidget);
+      expect(find.text('数据操作链路'), findsNothing);
+      expect(find.byKey(const ValueKey('data-operation-rail')), findsNothing);
+      expect(find.byKey(const ValueKey('data-recovery-matrix')), findsNothing);
+      expect(find.text('灾备矩阵'), findsNothing);
       expect(
         find.byKey(const ValueKey('data-restore-evidence-rail')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('恢复前建议备份'), findsOneWidget);
-      expect(find.text('JSON 来源校验'), findsOneWidget);
-      expect(find.text('覆盖二次确认'), findsOneWidget);
-      expect(find.text('服务器备份 1'), findsOneWidget);
-      expect(find.text('本机文件不入库'), findsOneWidget);
-      expect(find.text('导出、恢复和迁移数据前先确认目标文件来源。'), findsOneWidget);
+      expect(find.text('恢复前建议备份'), findsNothing);
+      expect(find.text('用备份 JSON 覆盖当前账户下的数据。'), findsNothing);
+      expect(find.text('导出、恢复和迁移数据前先确认目标文件来源。'), findsNothing);
       await tester.tap(find.text('下载备份'));
       await tester.pumpAndSettle();
 
@@ -201,24 +176,18 @@ void main() {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository, physicalSize: const Size(1200, 4000));
 
-      expect(find.text('JSON 全量'), findsAtLeastNWidgets(1));
-      expect(find.text('表格分析'), findsOneWidget);
-      expect(find.text('覆盖恢复'), findsOneWidget);
+      expect(find.text('完整备份'), findsAtLeastNWidgets(1));
+      expect(find.text('交易 CSV'), findsOneWidget);
+      expect(find.text('恢复备份'), findsWidgets);
       expect(
         find.byKey(const ValueKey('auto-backup-orchestration-panel')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('自动备份编排'), findsOneWidget);
-      expect(find.text('待启用'), findsAtLeastNWidgets(1));
-      expect(find.text('频率'), findsOneWidget);
-      expect(find.text('执行'), findsOneWidget);
-      expect(find.text('留存'), findsOneWidget);
-      expect(find.text('1/10'), findsOneWidget);
-      expect(find.text('风险控制'), findsAtLeastNWidgets(1));
-      expect(find.text('安全导出'), findsAtLeastNWidgets(1));
-      expect(find.text('服务器留存'), findsOneWidget);
-      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(5));
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(7));
+      expect(find.text('自动备份编排'), findsNothing);
+      expect(find.text('风险控制'), findsNothing);
+      expect(find.text('服务器留存'), findsNothing);
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(4));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
     });
   });
 }

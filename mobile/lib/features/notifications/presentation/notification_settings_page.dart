@@ -142,33 +142,21 @@ class _NotificationSettingsFormState
       child: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
-          StaggeredEntrance(
-            index: 0,
-            child: _NotificationOverviewCard(
-              enabled: _enabled,
-              enabledChannels: _enabledChannelCount,
-              activeRules: _activeRuleCount,
-              advanceDays: _advanceDays,
-            ),
-          ),
           if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 1,
+              index: 0,
               child: _ErrorBanner(message: _errorMessage!),
             ),
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 12),
           StaggeredEntrance(
-            index: 2,
+            index: 1,
             child: PremiumSurface(
               accentColor: enabledAccent,
               child: _NotificationSwitchRow(
                 icon: Icons.notifications_active_outlined,
                 color: enabledAccent,
                 title: '启用通知',
-                subtitle: '开启后按下方通道和提醒选项发送消息。',
-                statusLabel: _enabled ? '推送中' : '已暂停',
                 value: _enabled,
                 switchKey: const ValueKey('notification-enabled'),
                 onChanged: _isBusy
@@ -179,23 +167,7 @@ class _NotificationSettingsFormState
           ),
           const SizedBox(height: 16),
           StaggeredEntrance(
-            index: 3,
-            child: _ChannelRouteMatrix(
-              selectedChannel: _channel,
-              enabledChannels: {
-                _NotificationChannel.wecom: _wecomEnabled,
-                _NotificationChannel.dingtalk: _dingtalkEnabled,
-                _NotificationChannel.email: _emailEnabled,
-                _NotificationChannel.webhook: _webhookEnabled,
-              },
-              onChannelSelected: _isBusy
-                  ? null
-                  : (channel) => setState(() => _channel = channel),
-            ),
-          ),
-          const SizedBox(height: 12),
-          StaggeredEntrance(
-            index: 4,
+            index: 2,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SegmentedButton<_NotificationChannel>(
@@ -229,10 +201,10 @@ class _NotificationSettingsFormState
             ),
           ),
           const SizedBox(height: 12),
-          StaggeredEntrance(index: 5, child: _buildChannelCard()),
+          StaggeredEntrance(index: 3, child: _buildChannelCard()),
           const SizedBox(height: 16),
           StaggeredEntrance(
-            index: 6,
+            index: 4,
             child: _OptionsCard(
               paymentDue: _notifyPaymentDue,
               budgetAlert: _notifyBudgetAlert,
@@ -254,7 +226,7 @@ class _NotificationSettingsFormState
           ),
           const SizedBox(height: 16),
           StaggeredEntrance(
-            index: 7,
+            index: 5,
             child: FilledButton.icon(
               onPressed: _isBusy ? null : _save,
               icon: _busyAction == 'save'
@@ -269,24 +241,6 @@ class _NotificationSettingsFormState
         ],
       ),
     );
-  }
-
-  int get _enabledChannelCount {
-    return [
-      _wecomEnabled,
-      _dingtalkEnabled,
-      _emailEnabled,
-      _webhookEnabled,
-    ].where((enabled) => enabled).length;
-  }
-
-  int get _activeRuleCount {
-    return [
-      _notifyPaymentDue,
-      _notifyBudgetAlert,
-      _notifyLendingDue,
-      _notifyAnnualReport,
-    ].where((enabled) => enabled).length;
   }
 
   Widget _buildChannelCard() {
@@ -605,476 +559,6 @@ class _NotificationSettingsFormState
 
 enum _NotificationChannel { wecom, dingtalk, email, webhook }
 
-class _ChannelRouteMatrix extends StatelessWidget {
-  const _ChannelRouteMatrix({
-    required this.selectedChannel,
-    required this.enabledChannels,
-    required this.onChannelSelected,
-  });
-
-  final _NotificationChannel selectedChannel;
-  final Map<_NotificationChannel, bool> enabledChannels;
-  final ValueChanged<_NotificationChannel>? onChannelSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      key: const ValueKey('notification-channel-route-matrix'),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.route_outlined,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '通道路由矩阵',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              _ChannelRoutePill(
-                label:
-                    '${enabledChannels.values.where((value) => value).length}/4 已启用',
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final twoColumn = constraints.maxWidth >= 460;
-              final gap = twoColumn ? 10.0 : 8.0;
-              final width = twoColumn
-                  ? (constraints.maxWidth - gap) / 2
-                  : constraints.maxWidth;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final channel in _NotificationChannel.values)
-                    SizedBox(
-                      width: width,
-                      child: _ChannelRouteTile(
-                        channel: channel,
-                        selected: selectedChannel == channel,
-                        enabled: enabledChannels[channel] ?? false,
-                        onTap: onChannelSelected == null
-                            ? null
-                            : () => onChannelSelected!(channel),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChannelRouteTile extends StatelessWidget {
-  const _ChannelRouteTile({
-    required this.channel,
-    required this.selected,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final _NotificationChannel channel;
-  final bool selected;
-  final bool enabled;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final accent = selected
-        ? colorScheme.primary
-        : enabled
-        ? financeColors.income
-        : colorScheme.outline;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: '${_channelLabel(channel)} 通道路由，${enabled ? '已启用' : '未启用'}',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          key: ValueKey('notification-channel-route-${channel.name}'),
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            constraints: const BoxConstraints(minHeight: 80),
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                accent.withValues(
-                  alpha: selected
-                      ? (Theme.of(context).brightness == Brightness.dark
-                            ? 0.20
-                            : 0.11)
-                      : (Theme.of(context).brightness == Brightness.dark
-                            ? 0.13
-                            : 0.06),
-                ),
-                colorScheme.surface,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: selected
-                    ? colorScheme.primary
-                    : accent.withValues(alpha: 0.16),
-                width: selected ? 1.5 : 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                IconBadge(
-                  icon: _channelRouteIcon(channel),
-                  color: accent,
-                  size: 38,
-                  iconSize: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _channelLabel(channel),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _channelRouteCaption(channel),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _ChannelRoutePill(label: enabled ? '在线' : '待配', color: accent),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  IconData _channelRouteIcon(_NotificationChannel channel) {
-    return switch (channel) {
-      _NotificationChannel.wecom => Icons.chat_outlined,
-      _NotificationChannel.dingtalk => Icons.forum_outlined,
-      _NotificationChannel.email => Icons.mail_outline,
-      _NotificationChannel.webhook => Icons.webhook_outlined,
-    };
-  }
-
-  String _channelRouteCaption(_NotificationChannel channel) {
-    return switch (channel) {
-      _NotificationChannel.wecom => '企业群机器人',
-      _NotificationChannel.dingtalk => '签名机器人',
-      _NotificationChannel.email => 'SMTP 邮件',
-      _NotificationChannel.webhook => '自定义回调',
-    };
-  }
-}
-
-class _ChannelRoutePill extends StatelessWidget {
-  const _ChannelRoutePill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 28, maxWidth: 118),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-String _channelLabel(_NotificationChannel channel) {
-  return switch (channel) {
-    _NotificationChannel.wecom => '企业微信',
-    _NotificationChannel.dingtalk => '钉钉',
-    _NotificationChannel.email => '邮箱',
-    _NotificationChannel.webhook => 'Webhook',
-  };
-}
-
-class _NotificationOverviewCard extends StatelessWidget {
-  const _NotificationOverviewCard({
-    required this.enabled,
-    required this.enabledChannels,
-    required this.activeRules,
-    required this.advanceDays,
-  });
-
-  final bool enabled;
-  final int enabledChannels;
-  final int activeRules;
-  final int advanceDays;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final accent = enabled ? financeColors.income : financeColors.warning;
-    final coverageRatio = enabledChannels / 4;
-    final coveragePercent = (coverageRatio.clamp(0, 1) * 100).round();
-    return PremiumSurface(
-      accentColor: accent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: enabled
-                    ? Icons.notifications_active_outlined
-                    : Icons.notifications_paused_outlined,
-                color: accent,
-                size: 48,
-                iconSize: 24,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '通知控制台',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      enabled ? '关键财务事件会按规则推送' : '通知已暂停，规则仍会保留',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: Color.alphaBlend(
-                    accent.withValues(alpha: 0.14),
-                    colorScheme.surface,
-                  ),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: accent.withValues(alpha: 0.22)),
-                ),
-                child: Text(
-                  enabled ? 'Active' : 'Paused',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: accent,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _NotificationMetric(
-                  icon: Icons.radar_outlined,
-                  label: '通道覆盖率',
-                  value: '$coveragePercent%',
-                  color: financeColors.asset,
-                  progress: coverageRatio,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _NotificationMetric(
-                  icon: Icons.rule_outlined,
-                  label: '提醒规则',
-                  value: '$activeRules 项',
-                  color: financeColors.warning,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _NotificationMetric(
-                  icon: Icons.event_available_outlined,
-                  label: '提前提醒',
-                  value: '$advanceDays 天',
-                  color: colorScheme.tertiary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            key: const ValueKey('notification-delivery-governance-rail'),
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _NotificationStatePill(
-                key: const ValueKey('notification-channel-coverage-pill'),
-                label: '通道覆盖 $coveragePercent%',
-                color: coveragePercent > 0
-                    ? financeColors.asset
-                    : colorScheme.outline,
-                active: coveragePercent > 0,
-              ),
-              _NotificationStatePill(
-                label: '规则启用 $activeRules',
-                color: financeColors.warning,
-                active: activeRules > 0,
-              ),
-              _NotificationStatePill(
-                label: '提前 $advanceDays 天',
-                color: colorScheme.tertiary,
-                active: enabled,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationMetric extends StatelessWidget {
-  const _NotificationMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-    this.progress,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  final double? progress;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 70),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          if (progress != null) ...[
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress!.clamp(0, 1),
-                minHeight: 5,
-                color: color,
-                backgroundColor: color.withValues(alpha: 0.12),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _ChannelCard extends StatelessWidget {
   const _ChannelCard({
     required this.title,
@@ -1110,17 +594,10 @@ class _ChannelCard extends StatelessWidget {
             color: accentColor,
             title: title,
             subtitle: enabledLabel,
-            statusLabel: enabled ? '可测试' : '已停用',
             value: enabled,
             onChanged: onEnabledChanged,
           ),
           const SizedBox(height: 12),
-          _ChannelDeliveryStrip(
-            channel: title,
-            enabled: enabled,
-            color: accentColor,
-          ),
-          const SizedBox(height: 14),
           ...children,
           const SizedBox(height: 12),
           OutlinedButton.icon(
@@ -1186,21 +663,11 @@ class _OptionsCard extends StatelessWidget {
             icon: Icons.tune_outlined,
             color: financeColors.warning,
             title: '通知选项',
-            subtitle: '选择要主动推送的财务事件和提前提醒天数',
           ),
-          const SizedBox(height: 12),
-          _NotificationRuleMatrix(
-            paymentDue: paymentDue,
-            budgetAlert: budgetAlert,
-            lendingDue: lendingDue,
-            annualReport: annualReport,
-          ),
-          const SizedBox(height: 10),
           _NotificationSwitchRow(
             icon: Icons.credit_card_outlined,
             color: financeColors.warning,
             title: '还款日提醒',
-            statusLabel: paymentDue ? '启用' : '关闭',
             value: paymentDue,
             onChanged: enabled ? onPaymentDueChanged : null,
           ),
@@ -1209,7 +676,6 @@ class _OptionsCard extends StatelessWidget {
             icon: Icons.savings_outlined,
             color: financeColors.expense,
             title: '预算超支提醒',
-            statusLabel: budgetAlert ? '启用' : '关闭',
             value: budgetAlert,
             switchKey: const ValueKey('notification-budget-alert'),
             onChanged: enabled ? onBudgetAlertChanged : null,
@@ -1219,7 +685,6 @@ class _OptionsCard extends StatelessWidget {
             icon: Icons.handshake_outlined,
             color: financeColors.asset,
             title: '借款到期提醒',
-            statusLabel: lendingDue ? '启用' : '关闭',
             value: lendingDue,
             onChanged: enabled ? onLendingDueChanged : null,
           ),
@@ -1228,7 +693,6 @@ class _OptionsCard extends StatelessWidget {
             icon: Icons.summarize_outlined,
             color: financeColors.income,
             title: '年度报告通知',
-            statusLabel: annualReport ? '启用' : '关闭',
             value: annualReport,
             onChanged: enabled ? onAnnualReportChanged : null,
           ),
@@ -1244,267 +708,16 @@ class _OptionsCard extends StatelessWidget {
   }
 }
 
-class _ChannelDeliveryStrip extends StatelessWidget {
-  const _ChannelDeliveryStrip({
-    required this.channel,
-    required this.enabled,
-    required this.color,
-  });
-
-  final String channel;
-  final bool enabled;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    return Semantics(
-      label:
-          '$channel 投递链路，${enabled ? '已启用' : '已停用'}，${_secretPolicy(channel)}',
-      child: Row(
-        children: [
-          _ChannelSignalTile(
-            icon: _deliveryIcon(channel),
-            label: '通道类型',
-            value: channel,
-            color: color,
-          ),
-          const SizedBox(width: 8),
-          _ChannelSignalTile(
-            icon: Icons.key_outlined,
-            label: '密钥策略',
-            value: _secretPolicy(channel),
-            color: channel == '企业微信'
-                ? financeColors.asset
-                : colorScheme.tertiary,
-          ),
-          const SizedBox(width: 8),
-          _ChannelSignalTile(
-            icon: enabled ? Icons.outgoing_mail : Icons.pause_circle_outline,
-            label: '测试状态',
-            value: enabled ? '可发送' : '先启用',
-            color: enabled ? financeColors.income : colorScheme.outline,
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _deliveryIcon(String channel) {
-    return switch (channel) {
-      '企业微信' => Icons.chat_outlined,
-      '钉钉' => Icons.forum_outlined,
-      '邮箱' => Icons.mail_outline,
-      _ => Icons.webhook_outlined,
-    };
-  }
-
-  String _secretPolicy(String channel) {
-    return switch (channel) {
-      '企业微信' => 'Webhook',
-      '邮箱' => '授权码',
-      _ => '签名密钥',
-    };
-  }
-}
-
-class _ChannelSignalTile extends StatelessWidget {
-  const _ChannelSignalTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        constraints: const BoxConstraints(minHeight: 66),
-        padding: const EdgeInsets.all(9),
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            color.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.16
-                  : 0.08,
-            ),
-            colorScheme.surface,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.16)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Icon(icon, size: 17, color: color),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationRuleMatrix extends StatelessWidget {
-  const _NotificationRuleMatrix({
-    required this.paymentDue,
-    required this.budgetAlert,
-    required this.lendingDue,
-    required this.annualReport,
-  });
-
-  final bool paymentDue;
-  final bool budgetAlert;
-  final bool lendingDue;
-  final bool annualReport;
-
-  @override
-  Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
-    return Column(
-      children: [
-        Row(
-          children: [
-            _RuleSignalTile(
-              icon: Icons.credit_card_outlined,
-              label: '还款',
-              enabled: paymentDue,
-              color: financeColors.warning,
-            ),
-            const SizedBox(width: 8),
-            _RuleSignalTile(
-              icon: Icons.savings_outlined,
-              label: '预算',
-              enabled: budgetAlert,
-              color: financeColors.expense,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _RuleSignalTile(
-              icon: Icons.handshake_outlined,
-              label: '借贷',
-              enabled: lendingDue,
-              color: financeColors.asset,
-            ),
-            const SizedBox(width: 8),
-            _RuleSignalTile(
-              icon: Icons.summarize_outlined,
-              label: '年报',
-              enabled: annualReport,
-              color: financeColors.income,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _RuleSignalTile extends StatelessWidget {
-  const _RuleSignalTile({
-    required this.icon,
-    required this.label,
-    required this.enabled,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool enabled;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final foreground = enabled ? color : colorScheme.outline;
-    return Expanded(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        constraints: const BoxConstraints(minHeight: 56),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            foreground.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.15
-                  : 0.08,
-            ),
-            colorScheme.surface,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: foreground.withValues(alpha: 0.16)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: foreground),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
-              ),
-            ),
-            _NotificationStatePill(
-              label: enabled ? '推送' : '关闭',
-              color: foreground,
-              active: enabled,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _NotificationPanelHeader extends StatelessWidget {
   const _NotificationPanelHeader({
     required this.icon,
     required this.color,
     required this.title,
-    required this.subtitle,
   });
 
   final IconData icon;
   final Color color;
   final String title;
-  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1522,13 +735,6 @@ class _NotificationPanelHeader extends StatelessWidget {
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
             ],
           ),
         ),
@@ -1545,7 +751,6 @@ class _NotificationSwitchRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.subtitle,
-    this.statusLabel,
     this.switchKey,
   });
 
@@ -1553,7 +758,6 @@ class _NotificationSwitchRow extends StatelessWidget {
   final Color color;
   final String title;
   final String? subtitle;
-  final String? statusLabel;
   final bool value;
   final ValueChanged<bool>? onChanged;
   final Key? switchKey;
@@ -1598,14 +802,6 @@ class _NotificationSwitchRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          if (statusLabel != null) ...[
-            _NotificationStatePill(
-              label: statusLabel!,
-              color: color,
-              active: value,
-            ),
-            const SizedBox(width: 10),
-          ],
           Semantics(
             key: ValueKey('notification-switch-semantics-$title'),
             label: title,
@@ -1614,47 +810,6 @@ class _NotificationSwitchRow extends StatelessWidget {
             child: Switch(key: switchKey, value: value, onChanged: onChanged),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NotificationStatePill extends StatelessWidget {
-  const _NotificationStatePill({
-    super.key,
-    required this.label,
-    required this.color,
-    required this.active,
-  });
-
-  final String label;
-  final Color color;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final foreground = active ? color : colorScheme.outline;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          foreground.withValues(alpha: active ? 0.14 : 0.08),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: foreground.withValues(alpha: 0.18)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w900,
-        ),
       ),
     );
   }

@@ -45,23 +45,21 @@ void main() {
       find.byKey(const ValueKey('profile-command-center')),
       findsOneWidget,
     );
-    expect(find.text('个人控制中枢 · 静谧墨绿'), findsOneWidget);
-    expect(find.text('主题模板'), findsAtLeastNWidgets(1));
-    expect(find.text('默认稳健'), findsAtLeastNWidgets(1));
-    expect(find.text('显示模式'), findsOneWidget);
-    expect(find.text('能力入口'), findsOneWidget);
-    expect(find.text('家庭账本'), findsOneWidget);
-    expect(find.text('AI 周报'), findsOneWidget);
-    expect(find.text('安全中心'), findsOneWidget);
-    expect(find.text('数据资产'), findsOneWidget);
+    expect(find.text('个人记账'), findsOneWidget);
+    expect(find.text('管理账户、分类、预算和数据安全'), findsOneWidget);
+    expect(find.text('资产配置'), findsOneWidget);
+    expect(find.text('个人控制中枢 · 静谧墨绿'), findsNothing);
+    expect(find.text('主题模板'), findsNothing);
+    expect(find.text('能力入口'), findsNothing);
+    expect(find.text('AI 周报'), findsNothing);
     expect(
       find.byKey(const ValueKey('profile-route-governance-rail')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('路由入口 16'), findsOneWidget);
-    expect(find.text('本机操作 1'), findsOneWidget);
-    expect(find.text('主题模板 16'), findsOneWidget);
-    expect(find.text('入口治理'), findsOneWidget);
+    expect(find.text('路由入口 16'), findsNothing);
+    expect(find.text('本机操作 1'), findsNothing);
+    expect(find.text('主题模板 16'), findsNothing);
+    expect(find.text('入口治理'), findsNothing);
 
     for (final label in _entryLabels) {
       final labelFinder = find.text(label);
@@ -140,92 +138,55 @@ void main() {
     await tester.tap(find.text('深色模式'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('profile-featured-theme-aurora')),
+      find.text('主题色'),
       220,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('profile-featured-theme-aurora')),
-    );
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('profile-featured-theme-aurora')),
-    );
+    await tester.tap(find.text('静谧墨绿').last);
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('profile-featured-selected-aurora')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('profile-theme-selected-aurora')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('profile-theme-selected-roles-aurora')),
-      findsOneWidget,
-    );
+    await tester.tap(find.text('极光青').last);
+    await tester.pumpAndSettle();
+    expect(find.text('极光青'), findsOneWidget);
 
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
     expect(preferences.getString('app_theme_palette'), 'aurora');
     await tester.drag(find.byType(ListView), const Offset(0, 3000));
     await tester.pumpAndSettle();
-    expect(find.text('个人控制中枢 · 极光青'), findsOneWidget);
-    expect(find.text('前卫清透'), findsAtLeastNWidgets(1));
-    expect(find.text('当前已应用：极光青'), findsOneWidget);
-    expect(find.text('模板矩阵'), findsOneWidget);
-    expect(find.text('16 套'), findsOneWidget);
-    expect(find.text('当前模板'), findsOneWidget);
-    expect(find.text('体验定位'), findsOneWidget);
+    expect(find.text('个人控制中枢 · 极光青'), findsNothing);
+    expect(find.text('前卫清透'), findsNothing);
+    expect(find.text('当前已应用：极光青'), findsNothing);
+    expect(find.text('模板矩阵'), findsNothing);
+    expect(find.text('16 套'), findsNothing);
+    expect(find.text('体验定位'), findsNothing);
     expect(
       find.byKey(const ValueKey('profile-theme-constellation')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('主题星图'), findsOneWidget);
-    expect(find.text('16 套模板'), findsOneWidget);
-    expect(find.text('收入 / 资产 / 支出'), findsOneWidget);
-    expect(find.text('模式控制'), findsOneWidget);
-    expect(find.text('财务语义'), findsOneWidget);
-    expect(find.text('4 色'), findsOneWidget);
+    expect(find.text('主题星图'), findsNothing);
+    expect(find.text('模式控制'), findsNothing);
+    expect(find.text('财务语义'), findsNothing);
     expect(
       find.byKey(const ValueKey('profile-theme-curation-rail')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('推荐主题策展'), findsOneWidget);
-    expect(find.text('快速切换'), findsOneWidget);
-    expect(find.text('旗舰夜间使用'), findsOneWidget);
-    expect(find.text('前卫数据流'), findsOneWidget);
+    expect(find.text('推荐主题策展'), findsNothing);
+    expect(find.text('快速切换'), findsNothing);
+    expect(find.text('旗舰夜间使用'), findsNothing);
+    expect(find.text('前卫数据流'), findsNothing);
     expect(
       find.ancestor(
         of: find.byKey(const ValueKey('profile-featured-theme-aurora')),
         matching: find.byType(Semantics),
       ),
-      findsWidgets,
+      findsNothing,
     );
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('profile-theme-option-aurora')),
-      260,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(
-      find.ancestor(
-        of: find.byKey(const ValueKey('profile-theme-option-aurora')),
-        matching: find.byType(Semantics),
-      ),
-      findsWidgets,
-    );
-    expect(find.text('动效先锋界面'), findsOneWidget);
-    expect(find.text('跨端体验预览'), findsOneWidget);
-    expect(find.text('iOS 原生感'), findsAtLeastNWidgets(1));
-    expect(find.text('Android 动效'), findsAtLeastNWidgets(1));
-    expect(find.text('数据看板'), findsAtLeastNWidgets(1));
-    expect(find.text('AI 报告'), findsAtLeastNWidgets(1));
-    expect(find.text('收入色'), findsOneWidget);
-    expect(find.text('资产色'), findsOneWidget);
-    expect(find.text('支出色'), findsOneWidget);
-    expect(find.text('警示色'), findsOneWidget);
-    expect(find.text('预算洞察输入框'), findsOneWidget);
-    expect(find.text('分析'), findsOneWidget);
+    expect(find.text('动效先锋界面'), findsNothing);
+    expect(find.text('跨端体验预览'), findsNothing);
+    expect(find.text('iOS 原生感'), findsNothing);
+    expect(find.text('Android 动效'), findsNothing);
+    expect(find.text('预算洞察输入框'), findsNothing);
   });
 
   testWidgets('ProfilePage 设置入口跟随主题色模板', (tester) async {
@@ -305,23 +266,7 @@ const _entryLabels = [
   '年度报告',
   '更换服务器',
   '外观模式',
-  '主题色模板',
-  '模板矩阵',
-  '模式控制',
-  '财务语义',
-  '预算洞察输入框',
-  '静谧墨绿',
-  '石墨蓝',
-  '冰川青',
-  '星云紫',
-  '曜石玫瑰',
-  '钛金灰',
-  '极光青',
-  '黑曜蓝',
-  '电浆蓝',
-  '前卫清透',
-  '旗舰暗色',
-  '动效先锋',
+  '主题色',
 ];
 
 const _targetPaths = [

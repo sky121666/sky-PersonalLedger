@@ -13,44 +13,35 @@ void main() {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('通知设置'), findsOneWidget);
-      expect(find.text('通知控制台'), findsOneWidget);
-      expect(find.text('Active'), findsOneWidget);
-      expect(find.text('推送中'), findsOneWidget);
-      expect(find.text('通道覆盖率'), findsOneWidget);
-      expect(find.text('25%'), findsOneWidget);
+      expect(find.text('通知设置'), findsWidgets);
+      expect(find.text('通知控制台'), findsNothing);
+      expect(find.text('Active'), findsNothing);
+      expect(find.text('推送中'), findsNothing);
+      expect(find.text('通道覆盖率'), findsNothing);
+      expect(find.text('25%'), findsNothing);
       expect(
         find.byKey(const ValueKey('notification-delivery-governance-rail')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('通道覆盖 25%'), findsOneWidget);
-      expect(find.text('规则启用 4'), findsOneWidget);
-      expect(find.text('提前 3 天'), findsOneWidget);
-      expect(find.text('可测试'), findsOneWidget);
-      expect(find.text('通道类型'), findsOneWidget);
-      expect(find.text('密钥策略'), findsOneWidget);
-      expect(find.text('测试状态'), findsOneWidget);
+      expect(find.text('通道覆盖 25%'), findsNothing);
+      expect(find.text('可测试'), findsNothing);
+      expect(find.text('通道类型'), findsNothing);
+      expect(find.text('密钥策略'), findsNothing);
+      expect(find.text('测试状态'), findsNothing);
       expect(
         find.byKey(const ValueKey('notification-channel-route-matrix')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('通道路由矩阵'), findsOneWidget);
-      expect(find.text('1/4 已启用'), findsOneWidget);
-      expect(find.text('企业群机器人'), findsOneWidget);
-      expect(find.text('签名机器人'), findsOneWidget);
-      expect(find.text('SMTP 邮件'), findsOneWidget);
-      expect(find.text('自定义回调'), findsOneWidget);
-      expect(find.text('在线'), findsOneWidget);
-      expect(find.text('待配'), findsWidgets);
+      expect(find.text('通道路由矩阵'), findsNothing);
       expect(find.text('Webhook'), findsAtLeastNWidgets(1));
-      expect(find.text('可发送'), findsOneWidget);
+      expect(find.text('可发送'), findsNothing);
       expect(find.text('启用通知'), findsOneWidget);
       final notificationEnabledSemantics = tester.widget<Semantics>(
         find.byKey(const ValueKey('notification-switch-semantics-启用通知')),
       );
       expect(notificationEnabledSemantics.properties.label, '启用通知');
       expect(find.text('企业微信'), findsWidgets);
-      expect(find.text('推送'), findsAtLeastNWidgets(1));
+      expect(find.text('推送'), findsNothing);
       expect(find.text('还款日提醒'), findsOneWidget);
       final reminderSemantics = tester.widget<Semantics>(
         find.byKey(const ValueKey('notification-switch-semantics-还款日提醒')),
@@ -169,18 +160,14 @@ void main() {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(
-        find.byKey(const ValueKey('notification-channel-route-dingtalk')),
-      );
+      await tester.tap(find.text('钉钉'));
       await tester.pumpAndSettle();
       final dingtalkSecret = tester.widget<TextField>(
         find.byKey(const ValueKey('notification-dingtalk-secret')),
       );
       expect(dingtalkSecret.obscureText, isTrue);
 
-      await tester.tap(
-        find.byKey(const ValueKey('notification-channel-route-webhook')),
-      );
+      await tester.tap(find.text('Webhook').last);
       await tester.pumpAndSettle();
       final webhookSecret = tester.widget<TextField>(
         find.byKey(const ValueKey('notification-webhook-secret')),
@@ -188,21 +175,17 @@ void main() {
       expect(webhookSecret.obscureText, isTrue);
     });
 
-    testWidgets('通知通道路由矩阵可切换当前通道', (tester) async {
+    testWidgets('通知通道分段按钮可切换当前通道', (tester) async {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(
-        find.byKey(const ValueKey('notification-channel-route-email')),
-      );
+      await tester.tap(find.text('邮箱'));
       await tester.pumpAndSettle();
 
       expect(find.text('启用邮箱'), findsOneWidget);
       expect(find.text('SMTP 服务器'), findsOneWidget);
 
-      await tester.tap(
-        find.byKey(const ValueKey('notification-channel-route-webhook')),
-      );
+      await tester.tap(find.text('Webhook').last);
       await tester.pumpAndSettle();
 
       expect(find.text('启用 Webhook'), findsOneWidget);
@@ -229,8 +212,8 @@ void main() {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository, physicalSize: const Size(1200, 2600));
 
-      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(4));
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(6));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
     });
 
     test('空通知密钥不会进入更新请求 JSON', () {

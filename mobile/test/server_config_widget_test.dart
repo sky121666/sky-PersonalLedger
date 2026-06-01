@@ -22,55 +22,35 @@ void main() {
       expect(controller.connectCalls, ['']);
       expect(find.text('请输入服务器地址'), findsOneWidget);
       expect(find.text('连接服务器'), findsOneWidget);
-      expect(find.text('自托管入口'), findsOneWidget);
+      expect(find.text('输入服务地址。'), findsOneWidget);
+      expect(find.text('自托管入口'), findsNothing);
       expect(find.byType(AuthFlowShell), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
-      expect(find.text('私有服务连接'), findsOneWidget);
-      expect(find.text('连接策略'), findsOneWidget);
-      expect(find.text('HTTPS'), findsOneWidget);
-      expect(find.text('初始化一次'), findsOneWidget);
-      expect(find.text('只执行一次'), findsOneWidget);
-      expect(find.text('跨端同步'), findsOneWidget);
-      expect(find.text('家庭'), findsOneWidget);
-      expect(find.text('AI'), findsOneWidget);
-      expect(find.text('备份'), findsOneWidget);
+      expect(find.text('私有服务连接'), findsNothing);
+      expect(find.text('连接策略'), findsNothing);
+      expect(find.text('HTTPS'), findsNothing);
+      expect(find.text('初始化一次'), findsNothing);
+      expect(find.text('跨端同步'), findsNothing);
       expect(
         find.byKey(const ValueKey('server-distribution-matrix')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('跨端分发矩阵'), findsOneWidget);
-      expect(find.text('等待地址'), findsOneWidget);
-      expect(find.text('待绑定'), findsWidgets);
-      expect(find.text('浏览器入口'), findsOneWidget);
-      expect(find.text('原生客户端'), findsOneWidget);
-      expect(find.text('Material 体验'), findsOneWidget);
-      expect(find.text('一处部署'), findsOneWidget);
-      expect(find.text('数据统一'), findsOneWidget);
+      expect(find.text('跨端分发矩阵'), findsNothing);
       expect(
         find.byKey(const ValueKey('server-topology-preview')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('部署拓扑预览'), findsOneWidget);
-      expect(find.text('等待输入服务地址'), findsOneWidget);
-      expect(find.text('待完善'), findsOneWidget);
-      expect(find.text('Web'), findsAtLeastNWidgets(1));
-      expect(find.text('iOS'), findsAtLeastNWidgets(1));
-      expect(find.text('Android'), findsAtLeastNWidgets(1));
+      expect(find.text('部署拓扑预览'), findsNothing);
       expect(
         find.byKey(const ValueKey('server-release-readiness-panel')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('server-connection-evidence-rail')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('部署就绪检查'), findsOneWidget);
-      expect(find.text('待输入'), findsOneWidget);
-      expect(find.text('连接证据 2/4'), findsOneWidget);
-      expect(find.text('地址待确认'), findsOneWidget);
-      expect(find.text('初始化只一次'), findsOneWidget);
-      expect(find.text('等待跨端绑定'), findsOneWidget);
-      expect(find.text('备份恢复预留'), findsOneWidget);
+      expect(find.text('部署就绪检查'), findsNothing);
+      expect(find.text('连接证据 2/4'), findsNothing);
     });
 
     testWidgets('提交服务器地址时调用连接流程', (tester) async {
@@ -83,15 +63,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('ledger.example.com:8080'), findsWidgets);
-      expect(find.text('地址就绪'), findsOneWidget);
-      expect(find.text('需 HTTPS'), findsOneWidget);
-      expect(find.text('公开域名'), findsOneWidget);
-      expect(find.text('部署就绪检查'), findsOneWidget);
-      expect(find.text('需加固'), findsOneWidget);
-      expect(find.text('连接证据 3/4'), findsOneWidget);
-      expect(find.text('跨端可复用'), findsOneWidget);
-      expect(find.text('统一入口'), findsOneWidget);
-      expect(find.text('单点服务'), findsWidgets);
+      expect(find.text('地址就绪'), findsNothing);
+      expect(find.text('需 HTTPS'), findsNothing);
+      expect(find.text('公开域名'), findsNothing);
+      expect(find.text('部署就绪检查'), findsNothing);
+      expect(find.text('连接证据 3/4'), findsNothing);
       await _scrollIntoTapArea(tester, connectButton);
       await tester.tap(connectButton);
       await tester.pumpAndSettle();

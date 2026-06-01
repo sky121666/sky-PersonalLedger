@@ -55,28 +55,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
-            StaggeredEntrance(
-              index: 0,
-              child: _DataManagementHero(
-                isBusy: _isBusy,
-                autoBackupEnabled: _autoBackupSettings.enabled,
-                backupCount: _autoBackupFiles.length,
-                maxBackups: _autoBackupSettings.maxBackups,
-              ),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 1,
-              child: _DataVaultHealthPanel(
-                settings: _autoBackupSettings,
-                files: _autoBackupFiles,
-                loading: _autoBackupLoading,
-              ),
-            ),
             if (_errorMessage != null) ...[
-              const SizedBox(height: 12),
               StaggeredEntrance(
-                index: 2,
+                index: 0,
                 child: _MessagePanel(
                   icon: Icons.error_outline,
                   message: _errorMessage!,
@@ -85,9 +66,8 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               ),
             ],
             if (_lastSavedPath != null) ...[
-              const SizedBox(height: 12),
               StaggeredEntrance(
-                index: 2,
+                index: 0,
                 child: _MessagePanel(
                   icon: Icons.folder_outlined,
                   message: '文件已保存到 $_lastSavedPath',
@@ -96,46 +76,19 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ],
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 3,
+              index: 1,
               child: const _DataSectionHeader(
                 icon: Icons.output_outlined,
-                title: '数据出口',
-                subtitle: '导出、恢复和迁移数据前先确认目标文件来源。',
+                title: '数据管理',
               ),
             ),
             const SizedBox(height: 10),
             StaggeredEntrance(
-              index: 4,
-              child: _DataOperationRail(
-                backupCount: _autoBackupFiles.length,
-                autoBackupEnabled: _autoBackupSettings.enabled,
-              ),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 5,
-              child: _DataRecoveryMatrix(
-                autoBackupEnabled: _autoBackupSettings.enabled,
-                backupCount: _autoBackupFiles.length,
-              ),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 6,
-              child: _DataRestoreEvidenceRail(
-                autoBackupEnabled: _autoBackupSettings.enabled,
-                backupCount: _autoBackupFiles.length,
-              ),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 7,
+              index: 2,
               child: _ActionCard(
                 icon: Icons.backup_outlined,
                 accentColor: financeColors.asset,
                 title: '完整备份',
-                statusLabel: 'JSON 全量',
-                subtitle: '导出账户、分类、交易、预算、提醒、借贷、标签和个人资料。',
                 buttonLabel: '下载备份',
                 busy: _busyAction == 'backup',
                 enabled: !_isBusy,
@@ -144,13 +97,11 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 8,
+              index: 3,
               child: _ActionCard(
                 icon: Icons.table_view_outlined,
                 accentColor: financeColors.income,
                 title: '交易 CSV',
-                statusLabel: '表格分析',
-                subtitle: '导出当前全部交易明细，方便用表格软件继续分析。',
                 buttonLabel: '导出 CSV',
                 busy: _busyAction == 'csv',
                 enabled: !_isBusy,
@@ -159,13 +110,11 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 9,
+              index: 4,
               child: _ActionCard(
                 icon: Icons.restore_outlined,
                 accentColor: colorScheme.error,
                 title: '恢复备份',
-                statusLabel: '覆盖恢复',
-                subtitle: '用备份 JSON 覆盖当前账户下的数据。恢复前建议先下载一份最新备份。',
                 buttonLabel: '选择备份恢复',
                 busy: _busyAction == 'restore',
                 enabled: !_isBusy,
@@ -175,7 +124,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 10,
+              index: 5,
               child: _AutoBackupCard(
                 settings: _autoBackupSettings,
                 files: _autoBackupFiles,
@@ -234,7 +183,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '恢复备份',
-      message: '恢复会覆盖当前账户下的数据。建议先下载最新备份后再继续。',
+      message: '恢复会覆盖当前账户下的数据。',
       confirmText: '继续恢复',
       isDanger: true,
     );
@@ -425,666 +374,11 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   }
 }
 
-class _DataOperationRail extends StatelessWidget {
-  const _DataOperationRail({
-    required this.backupCount,
-    required this.autoBackupEnabled,
-  });
-
-  final int backupCount;
-  final bool autoBackupEnabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    return Container(
-      key: const ValueKey('data-operation-rail'),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.schema_outlined,
-                color: colorScheme.primary,
-                size: 38,
-                iconSize: 19,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '数据操作链路',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              Text(
-                autoBackupEnabled ? '自动保护中' : '手动保护',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: autoBackupEnabled
-                      ? colorScheme.primary
-                      : colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _DataOperationNode(
-                  icon: Icons.archive_outlined,
-                  label: '封存',
-                  value: backupCount == 0 ? '无服务器备份' : '$backupCount 个备份',
-                  color: financeColors.asset,
-                ),
-              ),
-              _DataOperationArrow(color: colorScheme.outline),
-              Expanded(
-                child: _DataOperationNode(
-                  icon: Icons.table_chart_outlined,
-                  label: '分析',
-                  value: 'CSV 明细',
-                  color: financeColors.income,
-                ),
-              ),
-              _DataOperationArrow(color: colorScheme.outline),
-              Expanded(
-                child: _DataOperationNode(
-                  icon: Icons.restore_page_outlined,
-                  label: '恢复',
-                  value: '覆盖确认',
-                  color: colorScheme.error,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DataRecoveryMatrix extends StatelessWidget {
-  const _DataRecoveryMatrix({
-    required this.autoBackupEnabled,
-    required this.backupCount,
-  });
-
-  final bool autoBackupEnabled;
-  final int backupCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final protectionColor = autoBackupEnabled && backupCount > 0
-        ? financeColors.income
-        : financeColors.warning;
-    return PremiumSurface(
-      key: const ValueKey('data-recovery-matrix'),
-      accentColor: protectionColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.grid_view_rounded,
-                color: protectionColor,
-                size: 40,
-                iconSize: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '灾备矩阵',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '把导出、分析、恢复拆成可判断的安全路径',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _DataMatrixPill(
-                label: autoBackupEnabled ? '自动链路' : '手动链路',
-                color: protectionColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final threeColumn = constraints.maxWidth >= 560;
-              final twoColumn = constraints.maxWidth >= 380;
-              final gap = threeColumn ? 10.0 : 8.0;
-              final width = threeColumn
-                  ? (constraints.maxWidth - gap * 2) / 3
-                  : twoColumn
-                  ? (constraints.maxWidth - gap) / 2
-                  : constraints.maxWidth;
-              final tiles = [
-                _DataRecoveryMatrixTileData(
-                  icon: Icons.data_object_outlined,
-                  title: '完整备份',
-                  value: backupCount == 0 ? '待生成' : '$backupCount 份',
-                  caption: 'JSON 可恢复',
-                  color: financeColors.asset,
-                ),
-                _DataRecoveryMatrixTileData(
-                  icon: Icons.query_stats_outlined,
-                  title: '交易分析',
-                  value: 'CSV',
-                  caption: '表格复盘',
-                  color: financeColors.income,
-                ),
-                _DataRecoveryMatrixTileData(
-                  icon: Icons.gpp_maybe_outlined,
-                  title: '恢复闸门',
-                  value: '二次确认',
-                  caption: '覆盖前阻断',
-                  color: colorScheme.error,
-                ),
-              ];
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final tile in tiles)
-                    SizedBox(
-                      width: width,
-                      child: _DataRecoveryMatrixTile(data: tile),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DataRecoveryMatrixTileData {
-  const _DataRecoveryMatrixTileData({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.caption,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String title;
-  final String value;
-  final String caption;
-  final Color color;
-}
-
-class _DataRecoveryMatrixTile extends StatelessWidget {
-  const _DataRecoveryMatrixTile({required this.data});
-
-  final _DataRecoveryMatrixTileData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 96),
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          data.color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: data.color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(data.icon, color: data.color, size: 19),
-              const Spacer(),
-              Icon(
-                Icons.arrow_outward_rounded,
-                color: data.color.withValues(alpha: 0.78),
-                size: 17,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            data.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            data.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          _DataMatrixPill(label: data.caption, color: data.color),
-        ],
-      ),
-    );
-  }
-}
-
-class _DataRestoreEvidenceRail extends StatelessWidget {
-  const _DataRestoreEvidenceRail({
-    required this.autoBackupEnabled,
-    required this.backupCount,
-  });
-
-  final bool autoBackupEnabled;
-  final int backupCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final protectionReady = autoBackupEnabled && backupCount > 0;
-    return PremiumSurface(
-      key: const ValueKey('data-restore-evidence-rail'),
-      accentColor: protectionReady
-          ? financeColors.income
-          : financeColors.warning,
-      padding: const EdgeInsets.all(12),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _DataVaultHealthPill(
-            label: protectionReady ? '恢复前有备份' : '恢复前建议备份',
-            icon: protectionReady
-                ? Icons.verified_outlined
-                : Icons.warning_amber_outlined,
-            color: protectionReady
-                ? financeColors.income
-                : financeColors.warning,
-          ),
-          _DataVaultHealthPill(
-            label: 'JSON 来源校验',
-            icon: Icons.data_object_outlined,
-            color: financeColors.asset,
-          ),
-          _DataVaultHealthPill(
-            label: '覆盖二次确认',
-            icon: Icons.gpp_maybe_outlined,
-            color: colorScheme.error,
-          ),
-          _DataVaultHealthPill(
-            label: backupCount == 0 ? '服务器备份 0' : '服务器备份 $backupCount',
-            icon: Icons.cloud_done_outlined,
-            color: backupCount == 0 ? colorScheme.outline : financeColors.asset,
-          ),
-          _DataVaultHealthPill(
-            label: '本机文件不入库',
-            icon: Icons.devices_outlined,
-            color: colorScheme.tertiary,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DataMatrixPill extends StatelessWidget {
-  const _DataMatrixPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 28, maxWidth: 132),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _DataVaultHealthPanel extends StatelessWidget {
-  const _DataVaultHealthPanel({
-    required this.settings,
-    required this.files,
-    required this.loading,
-  });
-
-  final AutoBackupSettings settings;
-  final List<AutoBackupFile> files;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final latestFile = files.isEmpty ? null : files.first;
-    final retentionRatio = settings.maxBackups <= 0
-        ? 0.0
-        : (files.length / settings.maxBackups).clamp(0.0, 1.0).toDouble();
-    final healthColor = loading
-        ? colorScheme.secondary
-        : settings.enabled && files.isNotEmpty
-        ? financeColors.income
-        : financeColors.warning;
-    return PremiumSurface(
-      key: const ValueKey('data-vault-health-panel'),
-      accentColor: healthColor,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.health_and_safety_outlined,
-                color: healthColor,
-                size: 42,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '保险库健康层',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      loading
-                          ? '正在同步服务器备份状态'
-                          : latestFile == null
-                          ? '建议开启自动备份并生成第一份服务器备份'
-                          : '最近备份：${latestFile.createdAt}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _DataVaultHealthPill(
-                label: settings.enabled ? '自动保护' : '手动保护',
-                icon: settings.enabled
-                    ? Icons.verified_outlined
-                    : Icons.pan_tool_alt_outlined,
-                color: settings.enabled
-                    ? financeColors.income
-                    : colorScheme.outline,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _DataVaultHealthPill(
-                label: '服务器备份',
-                icon: Icons.cloud_done_outlined,
-                color: files.isEmpty
-                    ? colorScheme.outline
-                    : financeColors.asset,
-              ),
-              _DataVaultHealthPill(
-                label: '${files.length} 个',
-                icon: latestFile == null
-                    ? Icons.pending_actions_outlined
-                    : Icons.cloud_done_outlined,
-                color: files.isEmpty
-                    ? colorScheme.outline
-                    : financeColors.asset,
-              ),
-              _DataVaultHealthPill(
-                label: '留存水位',
-                icon: Icons.inventory_2_outlined,
-                color: retentionRatio >= 0.9
-                    ? financeColors.warning
-                    : financeColors.income,
-              ),
-              _DataVaultHealthPill(
-                label: '${(retentionRatio * 100).round()}%',
-                icon: Icons.speed_outlined,
-                color: retentionRatio >= 0.9
-                    ? financeColors.warning
-                    : financeColors.income,
-              ),
-              _DataVaultHealthPill(
-                label: 'JSON 全量',
-                icon: Icons.data_object_outlined,
-                color: financeColors.asset,
-              ),
-              _DataVaultHealthPill(
-                label: 'CSV 分析',
-                icon: Icons.table_chart_outlined,
-                color: financeColors.income,
-              ),
-              _DataVaultHealthPill(
-                label: '恢复二次确认',
-                icon: Icons.verified_user_outlined,
-                color: colorScheme.error,
-              ),
-              _DataVaultHealthPill(
-                label: '本机保存',
-                icon: Icons.devices_outlined,
-                color: colorScheme.tertiary,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DataVaultHealthPill extends StatelessWidget {
-  const _DataVaultHealthPill({
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 32, maxWidth: 156),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 15),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DataOperationNode extends StatelessWidget {
-  const _DataOperationNode({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: Color.alphaBlend(
-              color.withValues(
-                alpha: Theme.of(context).brightness == Brightness.dark
-                    ? 0.18
-                    : 0.1,
-              ),
-              colorScheme.surface,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.18)),
-          ),
-          child: Icon(icon, color: color, size: 21),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
-        ),
-      ],
-    );
-  }
-}
-
-class _DataOperationArrow extends StatelessWidget {
-  const _DataOperationArrow({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 34),
-      child: Icon(Icons.chevron_right_rounded, color: color, size: 22),
-    );
-  }
-}
-
 class _DataSectionHeader extends StatelessWidget {
-  const _DataSectionHeader({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+  const _DataSectionHeader({required this.icon, required this.title});
 
   final IconData icon;
   final String title;
-  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1107,13 +401,6 @@ class _DataSectionHeader extends StatelessWidget {
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
               ),
             ],
           ),
@@ -1207,9 +494,7 @@ class _AutoBackupCard extends StatelessWidget {
             enabled: enabled && !loading,
             onChanged: onEnabledChanged,
           ),
-          const SizedBox(height: 14),
-          _AutoBackupOrchestrationPanel(settings: settings, files: files),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: SegmentedButton<String>(
@@ -1342,427 +627,6 @@ class _AutoBackupCard extends StatelessWidget {
   }
 }
 
-class _AutoBackupOrchestrationPanel extends StatelessWidget {
-  const _AutoBackupOrchestrationPanel({
-    required this.settings,
-    required this.files,
-  });
-
-  final AutoBackupSettings settings;
-  final List<AutoBackupFile> files;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final retentionRatio = settings.maxBackups <= 0
-        ? 0.0
-        : (files.length / settings.maxBackups).clamp(0.0, 1.0).toDouble();
-    final accent = settings.enabled ? financeColors.asset : colorScheme.outline;
-    return AnimatedContainer(
-      key: const ValueKey('auto-backup-orchestration-panel'),
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          accent.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.075,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.account_tree_outlined, color: accent, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '自动备份编排',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              _AutoBackupStatusPill(
-                label: settings.enabled ? '计划运行' : '待启用',
-                color: accent,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _AutoBackupOrchestrationTile(
-                  icon: Icons.event_repeat_outlined,
-                  label: '频率',
-                  value: _frequencyLabel(settings.frequency),
-                  color: financeColors.asset,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AutoBackupOrchestrationTile(
-                  icon: Icons.access_time_filled_outlined,
-                  label: '执行',
-                  value: '${settings.hour.toString().padLeft(2, '0')}:00',
-                  color: colorScheme.tertiary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AutoBackupOrchestrationTile(
-                  icon: Icons.inventory_2_outlined,
-                  label: '留存',
-                  value: '${files.length}/${settings.maxBackups}',
-                  color: retentionRatio >= 0.9
-                      ? financeColors.warning
-                      : financeColors.income,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              minHeight: 7,
-              value: retentionRatio,
-              color: retentionRatio >= 0.9
-                  ? financeColors.warning
-                  : financeColors.income,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _frequencyLabel(String frequency) {
-    return switch (frequency) {
-      'weekly' => '每周',
-      'monthly' => '每月',
-      _ => '每天',
-    };
-  }
-}
-
-class _AutoBackupOrchestrationTile extends StatelessWidget {
-  const _AutoBackupOrchestrationTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 72),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AutoBackupStatusPill extends StatelessWidget {
-  const _AutoBackupStatusPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 28, maxWidth: 118),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _DataManagementHero extends StatelessWidget {
-  const _DataManagementHero({
-    required this.isBusy,
-    required this.autoBackupEnabled,
-    required this.backupCount,
-    required this.maxBackups,
-  });
-
-  final bool isBusy;
-  final bool autoBackupEnabled;
-  final int backupCount;
-  final int maxBackups;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final statusColor = isBusy ? colorScheme.tertiary : colorScheme.primary;
-    return PremiumSurface(
-      accentColor: statusColor,
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(
-                icon: isBusy ? Icons.sync_outlined : Icons.shield_moon_outlined,
-                color: statusColor,
-                size: 50,
-                iconSize: 25,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '数据保险库',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      isBusy ? '数据操作正在执行，请不要关闭应用。' : '恢复备份会覆盖当前数据，请确认备份来源可信。',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              MetricPill(
-                label: '自动备份',
-                value: autoBackupEnabled ? '已启用' : '未启用',
-                icon: autoBackupEnabled
-                    ? Icons.verified_outlined
-                    : Icons.pause_circle_outline,
-                color: autoBackupEnabled
-                    ? colorScheme.primary
-                    : colorScheme.outline,
-              ),
-              MetricPill(
-                label: '服务器备份',
-                value: '$backupCount 个',
-                icon: Icons.cloud_done_outlined,
-                color: colorScheme.tertiary,
-              ),
-              MetricPill(
-                label: '保留策略',
-                value: '$maxBackups 份',
-                icon: Icons.inventory_2_outlined,
-                color: colorScheme.secondary,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _DataTrustRail(
-            autoBackupEnabled: autoBackupEnabled,
-            maxBackups: maxBackups,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DataTrustRail extends StatelessWidget {
-  const _DataTrustRail({
-    required this.autoBackupEnabled,
-    required this.maxBackups,
-  });
-
-  final bool autoBackupEnabled;
-  final int maxBackups;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    return Row(
-      children: [
-        Expanded(
-          child: _DataTrustTile(
-            icon: Icons.download_done_outlined,
-            label: '传输路径',
-            value: '本机保存',
-            color: financeColors.asset,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _DataTrustTile(
-            icon: Icons.verified_user_outlined,
-            label: '覆盖确认',
-            value: '二次确认',
-            color: colorScheme.error,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _DataTrustTile(
-            icon: autoBackupEnabled
-                ? Icons.cloud_sync_outlined
-                : Icons.cloud_off_outlined,
-            label: '备份留存',
-            value: autoBackupEnabled ? '$maxBackups 份' : '待启用',
-            color: autoBackupEnabled
-                ? colorScheme.primary
-                : colorScheme.outline,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DataTrustTile extends StatelessWidget {
-  const _DataTrustTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 78),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SwitchPanel extends StatelessWidget {
   const _SwitchPanel({
     required this.value,
@@ -1887,27 +751,14 @@ class _BackupFileRow extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      _BackupFileSignal(
-                        icon: Icons.storage_outlined,
-                        label: _formatFileSize(file.size),
-                        color: financeColors.asset,
-                      ),
-                      _BackupFileSignal(
-                        icon: Icons.schedule_outlined,
-                        label: file.createdAt,
-                        color: colorScheme.tertiary,
-                      ),
-                      _BackupFileSignal(
-                        icon: Icons.verified_outlined,
-                        label: '服务器留存',
-                        color: financeColors.income,
-                      ),
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_formatFileSize(file.size)} · ${file.createdAt}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -1915,163 +766,6 @@ class _BackupFileRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _BackupFileSignal extends StatelessWidget {
-  const _BackupFileSignal({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 28, maxWidth: 176),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.15
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionCardSignal extends StatelessWidget {
-  const _ActionCardSignal({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        constraints: const BoxConstraints(minHeight: 64),
-        padding: const EdgeInsets.all(9),
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            color.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.15
-                  : 0.08,
-            ),
-            colorScheme.surface,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.16)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Icon(icon, size: 17, color: color),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionControlStrip extends StatelessWidget {
-  const _ActionControlStrip({required this.color, required this.isDanger});
-
-  final Color color;
-  final bool isDanger;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    return Row(
-      children: [
-        _ActionCardSignal(
-          icon: isDanger
-              ? Icons.warning_amber_outlined
-              : Icons.verified_user_outlined,
-          label: '风险控制',
-          value: isDanger ? '覆盖确认' : '安全导出',
-          color: isDanger ? colorScheme.error : financeColors.income,
-        ),
-        const SizedBox(width: 8),
-        _ActionCardSignal(
-          icon: isDanger ? Icons.upload_file_outlined : Icons.download_outlined,
-          label: '操作路径',
-          value: isDanger ? '本机选择' : '本机保存',
-          color: color,
-        ),
-        const SizedBox(width: 8),
-        _ActionCardSignal(
-          icon: isDanger ? Icons.restore_page_outlined : Icons.bolt_outlined,
-          label: '执行方式',
-          value: isDanger ? '恢复' : '即时',
-          color: isDanger ? colorScheme.error : colorScheme.tertiary,
-        ),
-      ],
     );
   }
 }
@@ -2117,8 +811,6 @@ class _ActionCard extends StatelessWidget {
     required this.icon,
     required this.accentColor,
     required this.title,
-    required this.statusLabel,
-    required this.subtitle,
     required this.buttonLabel,
     required this.busy,
     required this.enabled,
@@ -2129,8 +821,6 @@ class _ActionCard extends StatelessWidget {
   final IconData icon;
   final Color accentColor;
   final String title;
-  final String statusLabel;
-  final String subtitle;
   final String buttonLabel;
   final bool busy;
   final bool enabled;
@@ -2162,23 +852,11 @@ class _ActionCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 7),
-                    _ActionStatusPill(label: statusLabel, color: iconColor),
-                    const SizedBox(height: 5),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.35,
-                      ),
-                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          _ActionControlStrip(color: iconColor, isDanger: isDanger),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -2217,37 +895,6 @@ class _ButtonIcon extends StatelessWidget {
     return const SizedBox.square(
       dimension: 18,
       child: CircularProgressIndicator(strokeWidth: 2),
-    );
-  }
-}
-
-class _ActionStatusPill extends StatelessWidget {
-  const _ActionStatusPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
     );
   }
 }

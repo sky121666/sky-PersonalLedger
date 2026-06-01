@@ -48,67 +48,44 @@ void main() {
     expect(find.text('AI 财务报告'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('ai-report-command-center')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey('ai-provider-orchestration-panel')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('AI 分析控制台'), findsOneWidget);
-    expect(find.text('分析就绪'), findsOneWidget);
-    expect(find.text('报告总数'), findsOneWidget);
+    expect(find.text('AI 分析控制台'), findsNothing);
+    expect(find.text('报告总数'), findsNothing);
     expect(
       find.byKey(const ValueKey('ai-runtime-contract-rail')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('数据脱敏'), findsOneWidget);
-    expect(find.text('本地留痕'), findsOneWidget);
-    expect(find.text('人工触发'), findsOneWidget);
-    expect(find.text('AI 模型编排'), findsOneWidget);
-    expect(find.text('待接入'), findsWidgets);
-    expect(find.text('静谧墨绿'), findsOneWidget);
-    expect(find.text('周报未启用'), findsOneWidget);
-    expect(find.text('Key 不回显'), findsOneWidget);
-    await _scrollIntoTapArea(tester, find.text('OpenAI-compatible 网关契约'));
-    expect(
-      find.byKey(const ValueKey('ai-gateway-contract-panel')),
-      findsOneWidget,
-    );
-    expect(find.text('OpenAI-compatible 网关契约'), findsOneWidget);
-    expect(find.text('兼容接口'), findsOneWidget);
-    expect(find.text('DeepSeek 预留'), findsOneWidget);
-    expect(find.text('OpenAPI 待接入'), findsOneWidget);
-    expect(find.text('密钥保护'), findsOneWidget);
-    await _scrollIntoTapArea(tester, find.text('AI 生产就绪层'));
+    expect(find.text('数据脱敏'), findsNothing);
+    expect(find.text('本地留痕'), findsNothing);
+    expect(find.text('人工触发'), findsNothing);
+    expect(find.text('待接入'), findsNothing);
+    expect(find.text('静谧墨绿'), findsNothing);
+    expect(find.text('周报未启用'), findsNothing);
+    expect(find.text('Key 不回显'), findsNothing);
+    await _scrollIntoTapArea(tester, find.text('AI 服务配置'));
+    expect(find.text('AI 服务配置'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('ai-production-readiness-panel')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('AI 生产就绪层'), findsOneWidget);
-    expect(find.text('待补齐'), findsOneWidget);
-    expect(find.text('就绪度'), findsOneWidget);
-    expect(find.text('40%'), findsOneWidget);
-    expect(find.text('DeepSeek 可接入'), findsOneWidget);
-    expect(find.text('密钥不出屏'), findsOneWidget);
-    expect(find.text('报告留痕'), findsOneWidget);
-    await _scrollIntoTapArea(tester, find.text('AI 洞察质量层'));
+    expect(find.text('AI 生产就绪层'), findsNothing);
     expect(
       find.byKey(const ValueKey('ai-insight-quality-panel')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('AI 洞察质量层'), findsOneWidget);
-    expect(find.text('Provider 待接入'), findsOneWidget);
-    expect(find.text('覆盖率'), findsOneWidget);
-    expect(find.text('100%'), findsOneWidget);
-    expect(find.text('重点'), findsOneWidget);
-    expect(find.text('风险'), findsOneWidget);
-    expect(find.text('建议 1 条'), findsOneWidget);
-    expect(find.text('默认脱敏'), findsOneWidget);
-    expect(find.text('手动生成'), findsOneWidget);
-    expect(find.text('OpenAI API'), findsOneWidget);
-    await _scrollIntoTapArea(tester, find.text('Provider 配置'));
-    expect(find.text('0 个启用'), findsOneWidget);
-    expect(find.text('Key 已保护'), findsOneWidget);
+    expect(find.text('AI 洞察质量层'), findsNothing);
+    expect(find.text('重点'), findsNothing);
+    expect(find.text('风险'), findsNothing);
+    expect(find.text('建议 1 条'), findsNothing);
+    expect(find.text('默认脱敏'), findsNothing);
+    expect(find.text('手动生成'), findsNothing);
+    expect(find.text('OpenAI API'), findsNothing);
+    await _scrollIntoTapArea(tester, find.text('AI 服务配置'));
     await _scrollIntoTapArea(tester, find.text('每周总结'));
     expect(find.text('每周总结'), findsWidgets);
     expect(find.text('已完成'), findsOneWidget);
@@ -119,11 +96,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('支出可控'), findsWidgets);
-    expect(find.text('洞察构成'), findsOneWidget);
-    expect(find.text('3 条'), findsOneWidget);
-    expect(find.text('重点 1'), findsOneWidget);
-    expect(find.text('风险 1'), findsOneWidget);
-    expect(find.text('建议 1'), findsOneWidget);
+    expect(find.text('洞察构成'), findsNothing);
+    expect(find.text('3 条'), findsNothing);
+    expect(find.text('重点 1'), findsNothing);
+    expect(find.text('风险 1'), findsNothing);
+    expect(find.text('建议 1'), findsNothing);
     expect(find.text('• 净现金流为正'), findsOneWidget);
     expect(find.text('• 预算偏高'), findsOneWidget);
     expect(find.text('• 继续记录'), findsOneWidget);
@@ -173,7 +150,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('石墨蓝'), findsOneWidget);
+    expect(find.text('石墨蓝'), findsNothing);
     await _scrollIntoTapArea(tester, find.text('每周总结'));
     final surfaces = tester.widgetList<PremiumSurface>(
       find.byType(PremiumSurface),
@@ -218,13 +195,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('AI 分析控制台'), findsOneWidget);
-    expect(find.text('AI 模型编排'), findsOneWidget);
-    expect(find.text('等待生成'), findsOneWidget);
-    await _scrollIntoTapArea(tester, find.text('OpenAI-compatible 网关契约'));
-    expect(find.text('OpenAI-compatible 网关契约'), findsOneWidget);
-    await _scrollIntoTapArea(tester, find.text('AI 生产就绪层'));
-    expect(find.text('AI 生产就绪层'), findsOneWidget);
+    expect(find.text('AI 分析控制台'), findsNothing);
+    expect(find.text('AI 模型编排'), findsNothing);
+    expect(find.text('等待生成'), findsNothing);
     await tester.scrollUntilVisible(find.text('暂无 AI 报告'), 300);
     expect(find.text('暂无 AI 报告'), findsOneWidget);
     expect(find.text('生成报告'), findsWidgets);
@@ -379,14 +352,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _scrollIntoTapArea(tester, find.text('Provider 配置'));
-    expect(find.text('Provider 配置'), findsOneWidget);
-    expect(find.text('暂无 Provider'), findsOneWidget);
-    expect(find.text('0 个启用'), findsOneWidget);
-    expect(find.text('Key 已保护'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('AI 服务配置'));
+    expect(find.text('AI 服务配置'), findsOneWidget);
+    expect(find.text('暂无 AI 服务'), findsOneWidget);
 
-    await _scrollIntoTapArea(tester, find.text('添加 Provider'));
-    await tester.tap(find.text('添加 Provider').last);
+    await _scrollIntoTapArea(tester, find.text('添加 AI 服务'));
+    await tester.tap(find.text('添加 AI 服务').last);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('ai-provider-api-key')),
@@ -398,7 +369,7 @@ void main() {
     expect(repository.createdProviders, hasLength(1));
     expect(repository.createdProviders.single.name, 'DeepSeek');
     expect(repository.createdProviders.single.apiKey, 'sk-mobile-test');
-    expect(find.text('Provider 已保存'), findsOneWidget);
+    expect(find.text('AI 服务已保存'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
@@ -406,7 +377,7 @@ void main() {
       tester,
       find.byKey(const ValueKey('ai-provider-test-provider-1')),
     );
-    expect(find.byTooltip('测试 Provider DeepSeek'), findsOneWidget);
+    expect(find.byTooltip('测试 AI 服务 DeepSeek'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ai-provider-test-provider-1')));
     await tester.pumpAndSettle();
 
@@ -419,7 +390,7 @@ void main() {
       tester,
       find.byKey(const ValueKey('ai-provider-edit-provider-1')),
     );
-    expect(find.byTooltip('编辑 Provider DeepSeek'), findsOneWidget);
+    expect(find.byTooltip('编辑 AI 服务 DeepSeek'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ai-provider-edit-provider-1')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(2), 'deepseek-reasoner');
@@ -429,20 +400,20 @@ void main() {
     expect(repository.updatedProviderIds, ['provider-1']);
     expect(repository.updatedProviders.single.apiKey, isEmpty);
     expect(repository.providers.single.model, 'deepseek-reasoner');
-    expect(find.text('Provider 已更新'), findsOneWidget);
+    expect(find.text('AI 服务已更新'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await _scrollIntoTapArea(tester, find.byTooltip('删除 Provider DeepSeek'));
-    expect(find.byTooltip('删除 Provider DeepSeek'), findsOneWidget);
-    await tester.tap(find.byTooltip('删除 Provider DeepSeek'));
+    await _scrollIntoTapArea(tester, find.byTooltip('删除 AI 服务 DeepSeek'));
+    expect(find.byTooltip('删除 AI 服务 DeepSeek'), findsOneWidget);
+    await tester.tap(find.byTooltip('删除 AI 服务 DeepSeek'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();
 
     expect(repository.deletedProviderIds, ['provider-1']);
     expect(repository.providers, isEmpty);
-    expect(find.text('Provider 已删除'), findsOneWidget);
+    expect(find.text('AI 服务已删除'), findsOneWidget);
   });
 
   test('空 AI Provider API Key 不会进入移动端请求 JSON', () {

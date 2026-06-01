@@ -15,53 +15,37 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('API Token'), findsOneWidget);
-      expect(find.text('API 安全访问'), findsOneWidget);
-      expect(find.text('显示策略 · 隐藏'), findsOneWidget);
-      expect(find.text('列表保护 · 仅前缀'), findsOneWidget);
-      expect(find.text('失效控制 · 可撤销'), findsOneWidget);
+      expect(find.text('API 安全访问'), findsNothing);
+      expect(find.text('完整令牌只会在创建成功后显示一次，请立即保存。'), findsNothing);
       expect(
         find.byKey(const ValueKey('api-token-channel-console')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('接口通道控制台'), findsOneWidget);
-      expect(find.text('移动端'), findsOneWidget);
-      expect(find.text('OpenAPI'), findsOneWidget);
-      expect(find.text('AI/自动化'), findsOneWidget);
-      expect(find.text('脚本隔离'), findsOneWidget);
-      expect(find.text('完整 Token 不进入列表，仅保留前缀和撤销入口'), findsOneWidget);
+      expect(find.text('接口通道控制台'), findsNothing);
+      expect(find.text('AI/自动化'), findsNothing);
+      expect(find.text('脚本隔离'), findsNothing);
       expect(
         find.byKey(const ValueKey('api-token-exposure-radar')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('授权暴露面雷达'), findsOneWidget);
-      expect(find.text('永久凭证'), findsOneWidget);
-      expect(find.text('未使用'), findsWidgets);
-      expect(find.text('限期凭证'), findsOneWidget);
-      expect(find.text('可撤销'), findsOneWidget);
-      expect(find.text('完整密钥不落入列表，建议定期清理永久凭证'), findsOneWidget);
+      expect(find.text('授权暴露面雷达'), findsNothing);
+      expect(find.text('未使用'), findsNothing);
+      expect(find.text('完整密钥不落入列表，建议定期清理永久凭证'), findsNothing);
       expect(
         find.byKey(const ValueKey('api-token-governance-rail')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('列表只存前缀'), findsOneWidget);
-      expect(find.text('创建后一次可见'), findsOneWidget);
-      expect(find.text('撤销入口 1'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('api-token-issuance-preview')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('令牌发行策略'), findsOneWidget);
-      expect(find.text('名称'), findsOneWidget);
-      expect(find.text('必填'), findsOneWidget);
+      expect(find.text('令牌发行策略'), findsNothing);
       expect(find.text('有效期'), findsWidgets);
-      expect(find.text('永久'), findsOneWidget);
-      expect(find.text('暴露面'), findsOneWidget);
-      expect(find.text('一次可见'), findsOneWidget);
-      expect(find.text('1 个访问凭证正在管理中'), findsOneWidget);
+      expect(find.text('1 个'), findsOneWidget);
       expect(find.text('我的手机'), findsOneWidget);
-      expect(find.text('前缀 abcd1234...'), findsOneWidget);
+      expect(find.text('前缀 abcd1234...'), findsNothing);
       expect(find.text('abcd1234... · 未使用 · 永不过期'), findsOneWidget);
-      expect(find.text('需巡检'), findsAtLeastNWidgets(1));
+      expect(find.text('永不过期'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('创建令牌后显示完整 token 且刷新列表', (tester) async {
@@ -84,8 +68,10 @@ void main() {
       );
       expect(find.text('full-token-value'), findsOneWidget);
       expect(find.text('iPhone'), findsOneWidget);
-      expect(find.text('待保存'), findsWidgets);
-      expect(find.text('完整 Token 正在等待复制保存'), findsOneWidget);
+      expect(find.text('待保存'), findsNothing);
+      expect(find.text('完整 Token 正在等待复制保存'), findsNothing);
+      expect(find.text('一次性密钥保险箱'), findsNothing);
+      expect(find.text('仅本次可见'), findsNothing);
       final successSurface = tester.widget<PremiumSurface>(
         find
             .ancestor(
@@ -113,7 +99,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('90 天').last);
       await tester.pumpAndSettle();
-      expect(find.text('限期'), findsWidgets);
       await tester.tap(find.text('创建令牌'));
       await tester.pumpAndSettle();
 
@@ -140,7 +125,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无令牌'), findsOneWidget);
-      expect(find.text('创建令牌后可用于 App 或 API 访问。'), findsOneWidget);
+      expect(find.text('暂无数据'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('初始加载失败时展示错误并可重试', (tester) async {
@@ -161,8 +146,8 @@ void main() {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
-      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
     });
   });
 }

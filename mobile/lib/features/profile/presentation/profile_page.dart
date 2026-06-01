@@ -16,7 +16,7 @@ import '../../auth/application/auth_controller.dart';
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
-  /// 构建我的页和主题设置入口。
+  /// 构建我的页和主题设置。
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeSettings = ref.watch(themeControllerProvider);
@@ -29,22 +29,11 @@ class ProfilePage extends ConsumerWidget {
           children: [
             StaggeredEntrance(
               index: 0,
-              child: _ProfileHero(
-                settings: themeSettings,
-                onLogout: () => _confirmLogout(context, ref),
-              ),
+              child: _ProfileHero(onLogout: () => _confirmLogout(context, ref)),
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
               index: 1,
-              child: _ProfileRouteGovernanceRail(
-                palette: themeSettings.palette,
-                actionColor: financeColors.warning,
-              ),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 2,
               child: _SettingsSection(
                 title: '资产配置',
                 children: [
@@ -95,9 +84,9 @@ class ProfilePage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 3,
+              index: 2,
               child: _SettingsSection(
-                title: '能力中心',
+                title: '常用功能',
                 children: [
                   _SettingsEntry(
                     icon: Icons.savings_outlined,
@@ -110,7 +99,7 @@ class ProfilePage extends ConsumerWidget {
                     icon: Icons.notifications_active_outlined,
                     color: financeColors.warning,
                     title: '负债管理',
-                    subtitle: '查看还款提醒和上岸进度',
+                    subtitle: '查看还款提醒和还款记录',
                     onTap: () => context.push(AppRoutePaths.reminders),
                   ),
                   _SettingsEntry(
@@ -146,7 +135,7 @@ class ProfilePage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 4,
+              index: 3,
               child: _SettingsSection(
                 title: '系统设置',
                 children: [
@@ -161,7 +150,7 @@ class ProfilePage extends ConsumerWidget {
                     icon: Icons.security_outlined,
                     color: financeColors.expense,
                     title: '账号安全',
-                    subtitle: '修改密码和配置安全入口',
+                    subtitle: '修改密码和登录保护',
                     onTap: () => context.push(AppRoutePaths.securitySettings),
                   ),
                   _SettingsEntry(
@@ -190,7 +179,7 @@ class ProfilePage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             StaggeredEntrance(
-              index: 5,
+              index: 4,
               child: _AppearancePanel(
                 settings: themeSettings,
                 onModeChanged: (value) => _setThemeMode(ref, value),
@@ -212,7 +201,7 @@ class ProfilePage extends ConsumerWidget {
     ref.read(themeControllerProvider.notifier).setThemeMode(value);
   }
 
-  /// 更新主题色模板。
+  /// 更新主题色。
   void _setThemePalette(WidgetRef ref, AppThemePalette? value) {
     if (value == null) {
       return;
@@ -253,19 +242,16 @@ class ProfilePage extends ConsumerWidget {
 }
 
 class _ProfileHero extends StatelessWidget {
-  const _ProfileHero({required this.settings, required this.onLogout});
+  const _ProfileHero({required this.onLogout});
 
-  final AppThemeSettings settings;
   final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
-    final palette = settings.palette;
     final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       key: const ValueKey('profile-command-center'),
-      accentColor: palette.seedColor,
+      accentColor: colorScheme.primary,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,8 +259,8 @@ class _ProfileHero extends StatelessWidget {
           Row(
             children: [
               IconBadge(
-                icon: Icons.space_dashboard_outlined,
-                color: palette.seedColor,
+                icon: Icons.account_balance_wallet_outlined,
+                color: colorScheme.primary,
                 size: 48,
                 iconSize: 25,
               ),
@@ -291,7 +277,7 @@ class _ProfileHero extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '个人控制中枢 · ${palette.label}',
+                      '管理账户、分类、预算和数据安全',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -309,238 +295,10 @@ class _ProfileHero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _ProfileCommandMetric(
-                  icon: Icons.palette_outlined,
-                  label: '主题模板',
-                  value: palette.signature,
-                  color: palette.seedColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ProfileCommandMetric(
-                  icon: Icons.contrast_outlined,
-                  label: '显示模式',
-                  value: _themeModeShortLabel(settings.mode),
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ProfileCommandMetric(
-                  icon: Icons.hub_outlined,
-                  label: '能力入口',
-                  value: '16 项',
-                  color: financeColors.asset,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _ProfileCommandPill(
-                icon: Icons.diversity_3_outlined,
-                label: '家庭账本',
-                color: colorScheme.tertiary,
-              ),
-              _ProfileCommandPill(
-                icon: Icons.auto_awesome_outlined,
-                label: 'AI 周报',
-                color: palette.seedColor,
-              ),
-              _ProfileCommandPill(
-                icon: Icons.security_outlined,
-                label: '安全中心',
-                color: financeColors.expense,
-              ),
-              _ProfileCommandPill(
-                icon: Icons.storage_outlined,
-                label: '数据资产',
-                color: financeColors.asset,
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
-}
-
-class _ProfileRouteGovernanceRail extends StatelessWidget {
-  const _ProfileRouteGovernanceRail({
-    required this.palette,
-    required this.actionColor,
-  });
-
-  final AppThemePalette palette;
-  final Color actionColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return PremiumSurface(
-      key: const ValueKey('profile-route-governance-rail'),
-      accentColor: palette.seedColor,
-      padding: const EdgeInsets.all(12),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _ProfileCommandPill(
-            icon: Icons.route_outlined,
-            label: '路由入口 16',
-            color: palette.seedColor,
-          ),
-          _ProfileCommandPill(
-            icon: Icons.admin_panel_settings_outlined,
-            label: '本机操作 1',
-            color: actionColor,
-          ),
-          _ProfileCommandPill(
-            icon: Icons.palette_outlined,
-            label: '主题模板 16',
-            color: palette.assetColor,
-          ),
-          _ProfileCommandPill(
-            icon: Icons.fact_check_outlined,
-            label: '入口治理',
-            color: colorScheme.tertiary,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileCommandMetric extends StatelessWidget {
-  const _ProfileCommandMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 66),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileCommandPill extends StatelessWidget {
-  const _ProfileCommandPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 34, maxWidth: 160),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 15),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _themeModeShortLabel(AppThemeMode mode) {
-  return switch (mode) {
-    AppThemeMode.system => '系统',
-    AppThemeMode.light => '浅色',
-    AppThemeMode.dark => '深色',
-  };
 }
 
 class _SettingsSection extends StatelessWidget {
@@ -684,33 +442,33 @@ class _AppearancePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
     return PremiumSurface(
       key: const ValueKey('profile-appearance-panel'),
       accentColor: settings.palette.seedColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ThemeControlHero(settings: settings),
-          const SizedBox(height: 18),
-          _ThemeLivePreview(
-            palette: settings.palette,
-            financeColors: financeColors,
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.contrast_outlined,
+                color: settings.palette.seedColor,
+                size: 42,
+                iconSize: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '外观',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          _AppliedThemeStrip(palette: settings.palette),
-          const SizedBox(height: 12),
-          _ThemeConstellation(palette: settings.palette),
-          const SizedBox(height: 12),
-          _ThemeCapabilityMatrix(settings: settings),
-          const SizedBox(height: 12),
-          _ThemeCurationRail(
-            selectedPalette: settings.palette,
-            onPaletteChanged: onPaletteChanged,
-          ),
-          const SizedBox(height: 18),
-          _ThemeExperienceDeck(palette: settings.palette),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Text(
             '外观模式',
             style: Theme.of(
@@ -745,1594 +503,50 @@ class _AppearancePanel extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            '主题模板',
+            '主题色',
             style: Theme.of(
               context,
             ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final twoColumn = constraints.maxWidth >= 520;
-              final gap = twoColumn ? 12.0 : 10.0;
-              final cardWidth = twoColumn
-                  ? (constraints.maxWidth - gap) / 2
-                  : constraints.maxWidth;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final palette in AppThemePalette.values)
-                    SizedBox(
-                      width: cardWidth,
-                      child: _ThemePaletteOption(
-                        palette: palette,
-                        selected: settings.palette == palette,
-                        onTap: () => onPaletteChanged(palette),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeControlHero extends StatelessWidget {
-  const _ThemeControlHero({required this.settings});
-
-  final AppThemeSettings settings;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final palette = settings.palette;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.alphaBlend(
-              palette.seedColor.withValues(alpha: isDark ? 0.24 : 0.15),
-              colorScheme.surface,
-            ),
-            Color.alphaBlend(
-              palette.assetColor.withValues(alpha: isDark ? 0.16 : 0.10),
-              colorScheme.surface,
-            ),
-          ],
-        ),
-        border: Border.all(color: palette.seedColor.withValues(alpha: 0.22)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.palette_outlined,
-                color: palette.seedColor,
-                size: 44,
-                iconSize: 23,
+          DropdownButtonFormField<AppThemePalette>(
+            initialValue: settings.palette,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.55,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '主题色模板',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '移动端仪表盘、AI 报告和家庭账本共用一套高级视觉语言',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: colorScheme.outlineVariant),
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _ThemeHeroMetric(
-                  label: '当前模板',
-                  value: palette.label,
-                  color: palette.seedColor,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ThemeHeroMetric(
-                  label: '体验定位',
-                  value: palette.signature,
-                  color: palette.assetColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _ThemeHeroSwatch(color: palette.seedColor, label: '主色'),
-              const SizedBox(width: 8),
-              _ThemeHeroSwatch(color: palette.assetColor, label: '资产'),
-              const SizedBox(width: 8),
-              _ThemeHeroSwatch(color: palette.incomeColor, label: '收入'),
-              const SizedBox(width: 8),
-              _ThemeHeroSwatch(color: palette.expenseColor, label: '支出'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeHeroMetric extends StatelessWidget {
-  const _ThemeHeroMetric({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 58),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeHeroSwatch extends StatelessWidget {
-  const _ThemeHeroSwatch({required this.color, required this.label});
-
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 34),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            color.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.18
-                  : 0.10,
-            ),
-            colorScheme.surface,
-          ),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: color.withValues(alpha: 0.18)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w800,
-                ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: colorScheme.outlineVariant),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AppliedThemeStrip extends StatelessWidget {
-  const _AppliedThemeStrip({required this.palette});
-
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          palette.seedColor.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: palette.seedColor.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.done_all_outlined, color: palette.seedColor, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '当前已应用：${palette.label}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          _PaletteSignaturePill(palette: palette),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeConstellation extends StatelessWidget {
-  const _ThemeConstellation({required this.palette});
-
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return AnimatedContainer(
-      key: const ValueKey('profile-theme-constellation'),
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          palette.seedColor.withValues(alpha: isDark ? 0.16 : 0.07),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: palette.seedColor.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.hub_outlined, color: palette.seedColor, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '主题星图',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              _ThemeCurationPill(
-                label: '${AppThemePalette.values.length} 套模板',
-                color: palette.seedColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final dotSize = constraints.maxWidth >= 520 ? 34.0 : 28.0;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final option in AppThemePalette.values)
-                    _ThemeConstellationDot(
-                      palette: option,
-                      selected: option == palette,
-                      size: dotSize,
-                    ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _ThemeConstellationRole(
-                  label: '当前',
-                  value: palette.platformCue,
-                  color: palette.seedColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ThemeConstellationRole(
-                  label: '语义',
-                  value: '收入 / 资产 / 支出',
-                  color: palette.assetColor,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeConstellationDot extends StatelessWidget {
-  const _ThemeConstellationDot({
-    required this.palette,
-    required this.selected,
-    required this.size,
-  });
-
-  final AppThemePalette palette;
-  final bool selected;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Semantics(
-      selected: selected,
-      label: '主题模板 ${palette.label}',
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        width: size,
-        height: size,
-        padding: EdgeInsets.all(selected ? 3 : 4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: colorScheme.surface,
-          border: Border.all(
-            color: selected ? palette.seedColor : colorScheme.outlineVariant,
-            width: selected ? 2 : 1,
-          ),
-          boxShadow: [
-            if (selected)
-              BoxShadow(
-                color: palette.seedColor.withValues(alpha: 0.20),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-          ],
-        ),
-        child: ClipOval(
-          child: Row(
-            children: [
-              Expanded(child: ColoredBox(color: palette.seedColor)),
-              Expanded(child: ColoredBox(color: palette.assetColor)),
-              Expanded(child: ColoredBox(color: palette.incomeColor)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ThemeConstellationRole extends StatelessWidget {
-  const _ThemeConstellationRole({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 58),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeCapabilityMatrix extends StatelessWidget {
-  const _ThemeCapabilityMatrix({required this.settings});
-
-  final AppThemeSettings settings;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    return Row(
-      children: [
-        Expanded(
-          child: _ThemeCapabilityTile(
-            icon: Icons.grid_view_outlined,
-            label: '模板矩阵',
-            value: '${AppThemePalette.values.length} 套',
-            color: settings.palette.seedColor,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _ThemeCapabilityTile(
-            icon: Icons.contrast_outlined,
-            label: '模式控制',
-            value: _themeModeLabel(settings.mode),
-            color: colorScheme.primary,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _ThemeCapabilityTile(
-            icon: Icons.auto_graph_outlined,
-            label: '财务语义',
-            value: '4 色',
-            color: financeColors.asset,
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _themeModeLabel(AppThemeMode mode) {
-    return switch (mode) {
-      AppThemeMode.system => '系统',
-      AppThemeMode.light => '浅色',
-      AppThemeMode.dark => '深色',
-    };
-  }
-}
-
-const _profilePageFeaturedPalettes = [
-  AppThemePalette.obsidian,
-  AppThemePalette.aurora,
-  AppThemePalette.plasma,
-];
-
-class _ThemeCurationRail extends StatelessWidget {
-  const _ThemeCurationRail({
-    required this.selectedPalette,
-    required this.onPaletteChanged,
-  });
-
-  final AppThemePalette selectedPalette;
-  final ValueChanged<AppThemePalette?> onPaletteChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      key: const ValueKey('profile-theme-curation-rail'),
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.auto_awesome_mosaic_outlined,
-                color: colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '推荐主题策展',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              _ThemeCurationPill(label: '快速切换', color: colorScheme.primary),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final palette in _profilePageFeaturedPalettes) ...[
-                  _ThemeFeaturedOption(
-                    palette: palette,
-                    selected: selectedPalette == palette,
-                    onTap: () => onPaletteChanged(palette),
-                  ),
-                  if (palette != _profilePageFeaturedPalettes.last)
-                    const SizedBox(width: 10),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeFeaturedOption extends StatelessWidget {
-  const _ThemeFeaturedOption({
-    required this.palette,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final AppThemePalette palette;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: 214,
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: '推荐主题：${palette.label}，${palette.sceneLabel}',
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: onTap,
-            child: AnimatedScale(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              scale: selected ? 1 : 0.985,
-              child: AnimatedContainer(
-                key: ValueKey('profile-featured-theme-${palette.id}'),
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                constraints: const BoxConstraints(minHeight: 112),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color.alphaBlend(
-                        palette.seedColor.withValues(
-                          alpha: selected ? 0.22 : 0.11,
-                        ),
-                        colorScheme.surface,
-                      ),
-                      Color.alphaBlend(
-                        palette.assetColor.withValues(
-                          alpha: selected ? 0.18 : 0.08,
-                        ),
-                        colorScheme.surface,
-                      ),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: selected
-                        ? palette.seedColor
-                        : colorScheme.outlineVariant,
-                    width: selected ? 1.6 : 1,
-                  ),
-                  boxShadow: [
-                    if (selected)
-                      BoxShadow(
-                        color: palette.seedColor.withValues(alpha: 0.18),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _ThemeFeaturedSwatches(palette: palette),
-                        const Spacer(),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 160),
-                          child: Icon(
-                            selected
-                                ? Icons.check_circle
-                                : Icons.add_circle_outline,
-                            key: ValueKey(
-                              selected
-                                  ? 'profile-featured-selected-${palette.id}'
-                                  : 'profile-featured-unselected-${palette.id}',
-                            ),
-                            color: selected
-                                ? palette.seedColor
-                                : colorScheme.outline,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      palette.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      palette.sceneLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _ThemeCurationPill(
-                          label: palette.platformCue,
-                          color: palette.seedColor,
-                        ),
-                        _ThemeCurationPill(
-                          label: palette.signature,
-                          color: palette.assetColor,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ThemeFeaturedSwatches extends StatelessWidget {
-  const _ThemeFeaturedSwatches({required this.palette});
-
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 72,
-      height: 26,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            child: _ThemeFeaturedDot(color: palette.seedColor),
-          ),
-          Positioned(
-            left: 16,
-            child: _ThemeFeaturedDot(color: palette.assetColor),
-          ),
-          Positioned(
-            left: 32,
-            child: _ThemeFeaturedDot(color: palette.incomeColor),
-          ),
-          Positioned(
-            left: 48,
-            child: _ThemeFeaturedDot(color: palette.expenseColor),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeFeaturedDot extends StatelessWidget {
-  const _ThemeFeaturedDot({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 1,
-        ),
-      ),
-    );
-  }
-}
-
-class _ThemeCurationPill extends StatelessWidget {
-  const _ThemeCurationPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 28, maxWidth: 118),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _ThemeExperienceDeck extends StatelessWidget {
-  const _ThemeExperienceDeck({required this.palette});
-
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final financeColors = AppFinanceColors.fromPalette(palette);
-    final cards = [
-      _ThemeExperienceCardData(
-        icon: Icons.phone_iphone_outlined,
-        title: 'iOS 原生感',
-        subtitle: '轻表面 / 弹层 / 大标题',
-        accent: palette.seedColor,
-        bars: [0.72, 0.46, 0.88],
-      ),
-      _ThemeExperienceCardData(
-        icon: Icons.android_outlined,
-        title: 'Android 动效',
-        subtitle: '状态层 / Ripple',
-        accent: financeColors.asset,
-        bars: [0.52, 0.82, 0.64],
-      ),
-      _ThemeExperienceCardData(
-        icon: Icons.query_stats_outlined,
-        title: '数据看板',
-        subtitle: '图表 / 进度 / 财务语义',
-        accent: financeColors.income,
-        bars: [0.86, 0.58, 0.42],
-      ),
-      _ThemeExperienceCardData(
-        icon: Icons.auto_awesome_outlined,
-        title: 'AI 报告',
-        subtitle: '洞察 / 周报 / 家庭分析',
-        accent: financeColors.warning,
-        bars: [0.44, 0.78, 0.92],
-      ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '跨端体验预览',
-          style: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            const gap = 10.0;
-            final twoColumn = constraints.maxWidth >= 360;
-            final cardWidth = twoColumn
-                ? (constraints.maxWidth - gap) / 2
-                : constraints.maxWidth;
-            return Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: [
-                for (final card in cards)
-                  SizedBox(
-                    width: cardWidth,
-                    child: _ThemeExperienceCard(data: card),
-                  ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _ThemeExperienceCardData {
-  const _ThemeExperienceCardData({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.accent,
-    required this.bars,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color accent;
-  final List<double> bars;
-}
-
-class _ThemeExperienceCard extends StatelessWidget {
-  const _ThemeExperienceCard({required this.data});
-
-  final _ThemeExperienceCardData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 132),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          data.accent.withValues(alpha: isDark ? 0.16 : 0.08),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: data.accent.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: data.icon,
-                color: data.accent,
-                size: 36,
-                iconSize: 19,
-              ),
-              const Spacer(),
-              Icon(
-                Icons.arrow_outward_rounded,
-                size: 18,
-                color: data.accent.withValues(alpha: 0.82),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            data.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            data.subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              for (final entry in data.bars.indexed) ...[
-                Expanded(
-                  child: _ThemeExperienceBar(
-                    progress: entry.$2,
-                    color: data.accent,
-                  ),
-                ),
-                if (entry.$1 != data.bars.length - 1) const SizedBox(width: 6),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeExperienceBar extends StatelessWidget {
-  const _ThemeExperienceBar({required this.progress, required this.color});
-
-  final double progress;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: SizedBox(
-        height: 7,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ColoredBox(
-              color: Color.alphaBlend(
-                color.withValues(alpha: 0.10),
-                colorScheme.surfaceContainerHighest,
-              ),
-            ),
-            FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: progress,
-              child: ColoredBox(color: color),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ThemeCapabilityTile extends StatelessWidget {
-  const _ThemeCapabilityTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 82),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemeLivePreview extends StatelessWidget {
-  const _ThemeLivePreview({required this.palette, required this.financeColors});
-
-  final AppThemePalette palette;
-  final AppFinanceColors financeColors;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.alphaBlend(
-              palette.seedColor.withValues(alpha: 0.22),
-              colorScheme.surface,
-            ),
-            Color.alphaBlend(
-              palette.assetColor.withValues(alpha: 0.16),
-              colorScheme.surface,
-            ),
-            Color.alphaBlend(
-              palette.warningColor.withValues(alpha: 0.10),
-              colorScheme.surface,
-            ),
-          ],
-        ),
-        border: Border.all(color: palette.seedColor.withValues(alpha: 0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.space_dashboard_outlined,
-                color: palette.seedColor,
-                size: 38,
-                iconSize: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${palette.label} 预览',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              Text(
-                '+12.8%',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: financeColors.income,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            '¥12,840.00',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _PreviewMetric(
-                  label: '资产',
-                  value: '8.4w',
-                  color: financeColors.asset,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _PreviewMetric(
-                  label: '提醒',
-                  value: '3 项',
-                  color: financeColors.warning,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _PreviewMetric(
-                  label: '支出',
-                  value: '2.1w',
-                  color: financeColors.expense,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _PreviewInputToken(palette: palette),
-        ],
-      ),
-    );
-  }
-}
-
-class _PreviewInputToken extends StatelessWidget {
-  const _PreviewInputToken({required this.palette});
-
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 52),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          palette.seedColor.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.14
-                : 0.07,
-          ),
-          colorScheme.surfaceContainerHighest,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.seedColor.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.manage_search_outlined,
-            color: palette.seedColor,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '预算洞察输入框',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: palette.seedColor,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '分析',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onPrimary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PreviewMetric extends StatelessWidget {
-  const _PreviewMetric({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 64),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ThemePaletteOption extends StatelessWidget {
-  const _ThemePaletteOption({
-    required this.palette,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final AppThemePalette palette;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: '主题模板：${palette.label}，${palette.signature}',
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          key: ValueKey('profile-theme-option-${palette.id}'),
-          borderRadius: BorderRadius.circular(22),
-          onTap: onTap,
-          child: AnimatedScale(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            scale: selected ? 1 : 0.985,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              constraints: const BoxConstraints(minHeight: 154),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color.alphaBlend(
-                      palette.seedColor.withValues(
-                        alpha: selected ? 0.18 : 0.08,
-                      ),
-                      colorScheme.surface,
-                    ),
-                    Color.alphaBlend(
-                      palette.assetColor.withValues(
-                        alpha: selected ? 0.14 : 0.06,
-                      ),
-                      colorScheme.surface,
-                    ),
-                  ],
-                ),
-                border: Border.all(
-                  color: selected
-                      ? palette.seedColor
-                      : colorScheme.outlineVariant.withValues(alpha: 0.72),
-                  width: selected ? 1.6 : 1,
-                ),
-                boxShadow: [
-                  if (selected)
-                    BoxShadow(
-                      color: palette.seedColor.withValues(alpha: 0.18),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
-                    ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            items: [
+              for (final palette in AppThemePalette.values)
+                DropdownMenuItem(
+                  value: palette,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _ThemePalettePreview(palette: palette),
-                      const Spacer(),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        child: selected
-                            ? Icon(
-                                Icons.check_circle,
-                                key: ValueKey(
-                                  'profile-theme-selected-${palette.id}',
-                                ),
-                                color: palette.seedColor,
-                              )
-                            : Icon(
-                                Icons.radio_button_unchecked,
-                                key: ValueKey(
-                                  'profile-theme-unselected-${palette.id}',
-                                ),
-                                color: colorScheme.outline,
-                              ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
+                      _ThemePaletteDot(palette: palette),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        fit: FlexFit.loose,
                         child: Text(
                           palette.label,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _PaletteSignaturePill(palette: palette),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    palette.description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PaletteSignalBar(
-                          color: palette.incomeColor,
-                          height: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _PaletteSignalBar(
-                          color: palette.assetColor,
-                          height: 30,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _PaletteSignalBar(
-                          color: palette.expenseColor,
-                          height: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _PaletteSignalBar(
-                          color: palette.warningColor,
-                          height: 26,
                         ),
                       ),
                     ],
                   ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    child: selected
-                        ? Padding(
-                            key: ValueKey(
-                              'profile-theme-selected-roles-${palette.id}',
-                            ),
-                            padding: const EdgeInsets.only(top: 12),
-                            child: _PaletteRoleLegend(palette: palette),
-                          )
-                        : SizedBox.shrink(
-                            key: ValueKey(
-                              'profile-theme-unselected-roles-${palette.id}',
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaletteRoleLegend extends StatelessWidget {
-  const _PaletteRoleLegend({required this.palette});
-
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        _PaletteRoleChip(label: '收入色', color: palette.incomeColor),
-        _PaletteRoleChip(label: '资产色', color: palette.assetColor),
-        _PaletteRoleChip(label: '支出色', color: palette.expenseColor),
-        _PaletteRoleChip(label: '警示色', color: palette.warningColor),
-      ],
-    );
-  }
-}
-
-class _PaletteRoleChip extends StatelessWidget {
-  const _PaletteRoleChip({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.20
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w800,
-            ),
+                ),
+            ],
+            onChanged: onPaletteChanged,
           ),
         ],
       ),
@@ -2340,113 +554,38 @@ class _PaletteRoleChip extends StatelessWidget {
   }
 }
 
-class _PaletteSignaturePill extends StatelessWidget {
-  const _PaletteSignaturePill({required this.palette});
-
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          palette.seedColor.withValues(alpha: 0.10),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: palette.seedColor.withValues(alpha: 0.16)),
-      ),
-      child: Text(
-        palette.signature,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: palette.seedColor,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _PaletteSignalBar extends StatelessWidget {
-  const _PaletteSignalBar({required this.color, required this.height});
-
-  final Color color;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        height: height,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.22),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ThemePalettePreview extends StatelessWidget {
-  const _ThemePalettePreview({required this.palette});
+class _ThemePaletteDot extends StatelessWidget {
+  const _ThemePaletteDot({required this.palette});
 
   final AppThemePalette palette;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 86,
-      height: 42,
+      width: 24,
+      height: 24,
       child: Stack(
-        alignment: Alignment.centerLeft,
         children: [
-          Positioned(left: 0, child: _PaletteDot(color: palette.seedColor)),
-          Positioned(left: 18, child: _PaletteDot(color: palette.assetColor)),
-          Positioned(left: 36, child: _PaletteDot(color: palette.incomeColor)),
-          Positioned(left: 54, child: _PaletteDot(color: palette.warningColor)),
-        ],
-      ),
-    );
-  }
-}
-
-class _PaletteDot extends StatelessWidget {
-  const _PaletteDot({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.24),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
+          for (var index = 0; index < 3; index += 1)
+            Positioned(
+              left: index * 7,
+              child: Container(
+                width: 14,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: [
+                    palette.seedColor,
+                    palette.assetColor,
+                    palette.incomeColor,
+                  ][index],
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.surface,
+                    width: 1,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
