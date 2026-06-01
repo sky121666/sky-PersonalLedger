@@ -70,6 +70,7 @@ class AuthFlowShell extends StatelessWidget {
                           index: 2,
                           child: PremiumSurface(
                             accentColor: accentColor,
+                            semanticLabel: '$primaryLabel 表单',
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: children,
@@ -122,6 +123,7 @@ class _AuthHeroPanel extends StatelessWidget {
     final financeColors = AppTheme.financeColors(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return PremiumSurface(
+      semanticLabel: '$title，$primaryLabel',
       accentColor: accentColor,
       padding: EdgeInsets.zero,
       child: AnimatedContainer(
@@ -265,6 +267,7 @@ class _AuthExperienceDeck extends StatelessWidget {
     ];
     return PremiumSurface(
       key: const ValueKey('auth-experience-deck'),
+      semanticLabel: '跨端安全控制台，$_serverLabel，iOS 动效，Android 状态层，主题色联动',
       accentColor: accentColor,
       padding: const EdgeInsets.all(14),
       child: Column(

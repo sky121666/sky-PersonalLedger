@@ -65,7 +65,7 @@ class _PressableScaleState extends State<PressableScale> {
         : (_hovered || _focused)
         ? 0.98
         : 1.0;
-    final child = AnimatedScale(
+    final animatedChild = AnimatedScale(
       scale: scale,
       duration: MotionTokens.instant,
       curve: MotionTokens.curveStandard,
@@ -76,9 +76,16 @@ class _PressableScaleState extends State<PressableScale> {
         child: widget.child,
       ),
     );
+    final child = interactive
+        ? ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            child: animatedChild,
+          )
+        : animatedChild;
 
     return Semantics(
       button: interactive,
+      enabled: interactive,
       label: widget.semanticLabel,
       child: FocusableActionDetector(
         enabled: interactive,

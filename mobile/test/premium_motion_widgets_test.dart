@@ -28,6 +28,26 @@ void main() {
     expect(tapped, isTrue);
   });
 
+  testWidgets('PremiumSurface exposes noninteractive card semantics', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: PremiumSurface(semanticLabel: '资产摘要卡片', child: Text('资产摘要')),
+        ),
+      ),
+    );
+
+    expect(find.text('资产摘要'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.label == '资产摘要卡片',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('PressableScale renders child and handles tap', (tester) async {
     var tapped = false;
 
@@ -78,6 +98,43 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tapped, isTrue);
+  });
+
+  testWidgets('PressableScale exposes button semantics and touch target', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: PressableScale(
+              semanticLabel: '打开详情',
+              onTap: () {},
+              child: const SizedBox(width: 12, height: 12),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final target = tester.getSize(find.byType(PressableScale));
+    expect(target.width, greaterThanOrEqualTo(44));
+    expect(target.height, greaterThanOrEqualTo(44));
+    expect(
+      tester.getSemantics(find.byType(PressableScale)),
+      matchesSemantics(
+        label: '打开详情',
+        isButton: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        isFocusable: true,
+        hasTapAction: true,
+        hasFocusAction: true,
+      ),
+    );
+    semantics.dispose();
   });
 
   testWidgets('StaggeredEntrance renders child after settling', (tester) async {

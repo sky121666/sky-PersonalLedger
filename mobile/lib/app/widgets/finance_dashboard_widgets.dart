@@ -230,38 +230,55 @@ class RoundedBarChart extends StatelessWidget {
     required this.items,
     required this.maxValue,
     this.height = 164,
+    this.semanticLabel,
     super.key,
   });
 
   final List<RoundedBarChartItem> items;
   final double maxValue;
   final double height;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
       return const SizedBox.shrink();
     }
-    return SizedBox(
-      height: height,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            for (final item in items)
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: _RoundedBarChartColumn(
-                  item: item,
-                  maxValue: maxValue,
-                  height: height,
+    return Semantics(
+      container: true,
+      label: semanticLabel ?? _defaultSemanticLabel,
+      child: SizedBox(
+        height: height,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (final item in items)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: _RoundedBarChartColumn(
+                    item: item,
+                    maxValue: maxValue,
+                    height: height,
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  String get _defaultSemanticLabel {
+    final values = items
+        .map((item) {
+          final primary = item.primaryValue.toStringAsFixed(0);
+          final secondary = item.secondaryValue.toStringAsFixed(0);
+          return '${item.label}，主值 $primary，副值 $secondary';
+        })
+        .join('；');
+    return '柱状图，$values';
   }
 }
 

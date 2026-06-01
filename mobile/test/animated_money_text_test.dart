@@ -4,6 +4,8 @@ import 'package:personal_ledger/app/widgets/animated_money_text.dart';
 
 void main() {
   testWidgets('AnimatedMoneyText renders a formatted amount', (tester) async {
+    final semantics = tester.ensureSemantics();
+
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(body: AnimatedMoneyText(amount: 1280.5)),
@@ -12,9 +14,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('¥1280.50'), findsOneWidget);
+    expect(find.bySemanticsLabel('¥1280.50'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('AnimatedMoneyText updates when amount changes', (tester) async {
+    final semantics = tester.ensureSemantics();
+
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: AnimatedMoneyText(amount: 100))),
     );
@@ -27,9 +33,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('¥250.00'), findsOneWidget);
+    expect(find.bySemanticsLabel('¥250.00'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('AnimatedMoneyText respects disabled animations', (tester) async {
+    final semantics = tester.ensureSemantics();
+
     await tester.pumpWidget(
       const MaterialApp(
         home: MediaQuery(
@@ -42,5 +52,29 @@ void main() {
     await tester.pump();
 
     expect(find.text('¥88.80'), findsOneWidget);
+    expect(find.bySemanticsLabel('¥88.80'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  testWidgets('AnimatedMoneyText exposes final amount while animating', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AnimatedMoneyText(
+            amount: 320,
+            duration: Duration(milliseconds: 300),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(find.bySemanticsLabel('¥320.00'), findsOneWidget);
+    semantics.dispose();
   });
 }

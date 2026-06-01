@@ -23,14 +23,20 @@ class AnimatedMoneyText extends StatelessWidget {
         MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final effectiveStyle = (style ?? Theme.of(context).textTheme.titleLarge)
         ?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+    final semanticValue = _formatMoney(amount);
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: amount),
-      duration: disableAnimations ? Duration.zero : duration,
-      curve: curve,
-      builder: (context, value, child) {
-        return Text(_formatMoney(value), style: effectiveStyle);
-      },
+    return Semantics(
+      label: semanticValue,
+      child: ExcludeSemantics(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(end: amount),
+          duration: disableAnimations ? Duration.zero : duration,
+          curve: curve,
+          builder: (context, value, child) {
+            return Text(_formatMoney(value), style: effectiveStyle);
+          },
+        ),
+      ),
     );
   }
 

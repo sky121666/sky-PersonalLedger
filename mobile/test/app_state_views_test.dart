@@ -17,6 +17,12 @@ void main() {
     expect(find.textContaining('连接'), findsOneWidget);
     expect(find.textContaining('同步'), findsWidgets);
     expect(find.textContaining('界面'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('state-loading-evidence-rail')),
+      findsOneWidget,
+    );
+    expect(find.text('加载证据'), findsOneWidget);
+    expect(find.text('缓存、接口、主题同步中'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
@@ -39,7 +45,13 @@ void main() {
     expect(find.text('下一步'), findsOneWidget);
     expect(find.text('创建'), findsWidgets);
     expect(find.textContaining('暂无内容'), findsOneWidget);
-    expect(find.textContaining('可创建'), findsOneWidget);
+    expect(find.text('操作 · 可创建'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('state-empty-evidence-rail')),
+      findsOneWidget,
+    );
+    expect(find.text('空态证据'), findsOneWidget);
+    expect(find.text('内容为空，可创建'), findsOneWidget);
     expect(find.byType(IconBadge), findsWidgets);
     expect(find.byType(PremiumSurface), findsOneWidget);
   });
@@ -63,9 +75,18 @@ void main() {
     expect(find.text('已捕获'), findsOneWidget);
     expect(find.textContaining('异常'), findsWidgets);
     expect(find.textContaining('可重试'), findsWidgets);
-    expect(find.byIcon(Icons.refresh), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('state-error-evidence-rail')),
+      findsOneWidget,
+    );
+    expect(find.text('恢复证据'), findsOneWidget);
+    expect(find.text('异常已捕获，可重试'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('state-error-retry-button')),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.text('重试'));
+    await tester.tap(find.byKey(const ValueKey('state-error-retry-button')));
     await tester.pump();
 
     expect(retryCount, 1);
@@ -101,6 +122,14 @@ void main() {
     expect(find.text('删除后账户余额会同步回滚。'), findsOneWidget);
     expect(find.textContaining('高风险'), findsOneWidget);
     expect(find.textContaining('需手动确认'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == '删除交易，高风险操作，需手动确认',
+      ),
+      findsAtLeastNWidgets(1),
+    );
     expect(find.byType(PremiumSurface), findsWidgets);
 
     await tester.tap(find.widgetWithText(OutlinedButton, '取消'));

@@ -61,6 +61,15 @@ class AppLoadingView extends StatelessWidget {
               color: colorScheme.primary,
             ),
             const SizedBox(height: 12),
+            _StateEvidenceRail(
+              key: const ValueKey('state-loading-evidence-rail'),
+              icon: Icons.sync_outlined,
+              title: '加载证据',
+              value: '3/3',
+              caption: '缓存、接口、主题同步中',
+              color: colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
@@ -148,6 +157,15 @@ class AppEmptyView extends StatelessWidget {
               ],
               color: accentColor,
             ),
+            const SizedBox(height: 12),
+            _StateEvidenceRail(
+              key: const ValueKey('state-empty-evidence-rail'),
+              icon: Icons.rule_folder_outlined,
+              title: '空态证据',
+              value: action == null ? '1/2' : '2/2',
+              caption: action == null ? '内容为空，等待数据' : '内容为空，可创建',
+              color: accentColor,
+            ),
             if (action != null) ...[const SizedBox(height: 18), action!],
           ],
         ),
@@ -229,9 +247,19 @@ class AppErrorView extends StatelessWidget {
               ],
               color: colorScheme.error,
             ),
+            const SizedBox(height: 12),
+            _StateEvidenceRail(
+              key: const ValueKey('state-error-evidence-rail'),
+              icon: Icons.health_and_safety_outlined,
+              title: '恢复证据',
+              value: onRetry == null ? '1/2' : '2/2',
+              caption: onRetry == null ? '异常已捕获，等待恢复' : '异常已捕获，可重试',
+              color: colorScheme.error,
+            ),
             if (onRetry != null) ...[
               const SizedBox(height: 18),
               FilledButton(
+                key: const ValueKey('state-error-retry-button'),
                 onPressed: onRetry,
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -244,6 +272,110 @@ class AppErrorView extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StateEvidenceRail extends StatelessWidget {
+  const _StateEvidenceRail({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.caption,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String caption;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.15
+                : 0.075,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _StateEvidencePill(label: value, color: color),
+        ],
+      ),
+    );
+  }
+}
+
+class _StateEvidencePill extends StatelessWidget {
+  const _StateEvidencePill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.10),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w900,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
     );
@@ -503,83 +635,92 @@ class AppConfirmDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final accentColor = isDanger ? colorScheme.error : colorScheme.primary;
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      backgroundColor: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: PremiumSurface(
-          accentColor: accentColor,
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  IconBadge(
-                    icon: isDanger
-                        ? Icons.warning_amber_rounded
-                        : Icons.help_outline,
-                    color: accentColor,
-                    size: 48,
-                    iconSize: 25,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
+    final riskLabel = isDanger ? '高风险操作' : '确认操作';
+    final dialogSemanticLabel = '$title，$riskLabel，需手动确认';
+    return Semantics(
+      container: true,
+      scopesRoute: true,
+      namesRoute: true,
+      explicitChildNodes: true,
+      label: dialogSemanticLabel,
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        backgroundColor: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: PremiumSurface(
+            semanticLabel: dialogSemanticLabel,
+            accentColor: accentColor,
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    IconBadge(
+                      icon: isDanger
+                          ? Icons.warning_amber_rounded
+                          : Icons.help_outline,
+                      color: accentColor,
+                      size: 48,
+                      iconSize: 25,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(
-                message,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.45,
+                  ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              _StateSignalStrip(
-                items: [
-                  _StateSignalItem(
-                    label: '操作',
-                    value: isDanger ? '高风险' : '待确认',
+                const SizedBox(height: 14),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.45,
                   ),
-                  _StateSignalItem(label: '结果', value: '需手动确认'),
-                ],
-                color: accentColor,
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text(cancelText),
+                ),
+                const SizedBox(height: 14),
+                _StateSignalStrip(
+                  items: [
+                    _StateSignalItem(
+                      label: '操作',
+                      value: isDanger ? '高风险' : '待确认',
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      style: isDanger
-                          ? FilledButton.styleFrom(
-                              backgroundColor: colorScheme.error,
-                              foregroundColor: colorScheme.onError,
-                            )
-                          : null,
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: Text(confirmText),
+                    _StateSignalItem(label: '结果', value: '需手动确认'),
+                  ],
+                  color: accentColor,
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text(cancelText),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        style: isDanger
+                            ? FilledButton.styleFrom(
+                                backgroundColor: colorScheme.error,
+                                foregroundColor: colorScheme.onError,
+                              )
+                            : null,
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: Text(confirmText),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

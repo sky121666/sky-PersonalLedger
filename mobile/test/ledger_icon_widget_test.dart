@@ -29,5 +29,40 @@ void main() {
 
       expect(find.text('💳'), findsOneWidget);
     });
+
+    testWidgets('exposes explicit semantics for standalone icons', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: LedgerIcon(icon: 'wallet', semanticLabel: '现金账户'),
+        ),
+      );
+
+      expect(
+        find.byIcon(Icons.account_balance_wallet_outlined),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('现金账户'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('LedgerIconLabel exposes label semantics once', (tester) async {
+      final semantics = tester.ensureSemantics();
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: LedgerIconLabel(icon: '💳', label: '信用卡还款'),
+        ),
+      );
+
+      expect(find.text('信用卡还款'), findsOneWidget);
+      expect(find.text('💳'), findsOneWidget);
+      expect(find.bySemanticsLabel('信用卡还款'), findsOneWidget);
+      expect(find.bySemanticsLabel('💳'), findsNothing);
+      semantics.dispose();
+    });
   });
 }

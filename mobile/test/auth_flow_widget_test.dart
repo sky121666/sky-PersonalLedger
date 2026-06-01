@@ -60,6 +60,29 @@ void main() {
       expect(find.text('安全登录'), findsOneWidget);
       expect(find.text('会话解锁信号'), findsOneWidget);
       expect(find.text('可登录'), findsAtLeastNWidgets(1));
+      expect(find.byTooltip('显示密码'), findsOneWidget);
+      await tester.tap(find.byTooltip('显示密码'));
+      await tester.pump();
+      expect(find.byTooltip('隐藏密码'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == '欢迎回来，安全登录',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == '安全登录 表单',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('login-session-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('本设备会话'), findsOneWidget);
       expect(find.byKey(const ValueKey('login-access-matrix')), findsOneWidget);
       expect(find.text('访问控制矩阵'), findsOneWidget);
       expect(find.text('私有服务'), findsAtLeastNWidgets(1));
@@ -75,6 +98,15 @@ void main() {
       expect(find.text('财务数据'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('auth-experience-deck')),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics &&
+              widget.properties.label ==
+                  '跨端安全控制台，私有服务，iOS 动效，Android 状态层，主题色联动',
+        ),
         findsOneWidget,
       );
       expect(find.text('跨端安全控制台'), findsOneWidget);
@@ -159,8 +191,39 @@ void main() {
       expect(controller.debugState.stage, AuthStage.authenticated);
       expect(find.text('初始化保护'), findsOneWidget);
       expect(find.text('初始化密钥策略'), findsOneWidget);
+      expect(find.byTooltip('显示密码'), findsOneWidget);
+      expect(find.byTooltip('显示确认密码'), findsOneWidget);
+      await tester.tap(find.byTooltip('显示密码'));
+      await tester.tap(find.byTooltip('显示确认密码'));
+      await tester.pump();
+      expect(find.byTooltip('隐藏密码'), findsOneWidget);
+      expect(find.byTooltip('隐藏确认密码'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == '首次设置密码，初始化保护',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == '初始化保护 表单',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('已达标'), findsAtLeastNWidgets(1));
       expect(find.text('一致'), findsAtLeastNWidgets(1));
+      expect(
+        find.byKey(const ValueKey('setup-submission-evidence-rail')),
+        findsOneWidget,
+      );
+      expect(find.text('提交证据'), findsOneWidget);
+      expect(find.text('证据 3/3'), findsOneWidget);
+      expect(find.text('首次初始化证据已齐全'), findsOneWidget);
+      expect(find.text('长度证据'), findsOneWidget);
+      expect(find.text('服务器绑定'), findsOneWidget);
+      expect(find.text('已绑定'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('setup-initialization-matrix')),
         findsOneWidget,

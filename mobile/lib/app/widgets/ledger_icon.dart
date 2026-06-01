@@ -7,24 +7,40 @@ class LedgerIcon extends StatelessWidget {
     this.size = 20,
     this.color,
     this.fallback = Icons.account_balance_wallet_outlined,
+    this.semanticLabel,
   });
 
   final String icon;
   final double size;
   final Color? color;
   final IconData fallback;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final value = icon.trim();
+    final Widget iconWidget;
     if (_isEmojiIcon(value)) {
-      return Text(
+      iconWidget = Text(
         value,
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: size, height: 1),
       );
+    } else {
+      iconWidget = Icon(
+        _ledgerIconData(value, fallback),
+        size: size,
+        color: color,
+      );
     }
-    return Icon(_ledgerIconData(value, fallback), size: size, color: color);
+    final label = semanticLabel?.trim();
+    if (label == null || label.isEmpty) {
+      return iconWidget;
+    }
+    return Semantics(
+      label: label,
+      child: ExcludeSemantics(child: iconWidget),
+    );
   }
 }
 
@@ -34,21 +50,31 @@ class LedgerIconLabel extends StatelessWidget {
     required this.label,
     super.key,
     this.fallback = Icons.category_outlined,
+    this.semanticLabel,
   });
 
   final String icon;
   final String label;
   final IconData fallback;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        LedgerIcon(icon: icon, size: 18, fallback: fallback),
-        const SizedBox(width: 8),
-        Text(label, overflow: TextOverflow.ellipsis),
-      ],
+    final effectiveLabel = semanticLabel?.trim().isNotEmpty == true
+        ? semanticLabel!.trim()
+        : label;
+    return Semantics(
+      label: effectiveLabel,
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LedgerIcon(icon: icon, size: 18, fallback: fallback),
+            const SizedBox(width: 8),
+            Text(label, overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
     );
   }
 }

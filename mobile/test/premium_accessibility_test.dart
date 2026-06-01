@@ -44,9 +44,9 @@ void main() {
             .map((surface) => surface.semanticLabel)
             .whereType<String>();
         expect(visibleSurfaceLabels, contains('查看家庭支出详情'));
-        expect(find.byTooltip('刷新'), findsOneWidget);
+        expect(find.byTooltip('刷新首页概览'), findsOneWidget);
         expect(find.byTooltip('退出登录'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('刷新'));
+        _expectMinTapTarget(tester, find.byTooltip('刷新首页概览'));
         _expectMinTapTarget(tester, find.byTooltip('退出登录'));
       });
     });
@@ -69,17 +69,23 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('记一笔'), findsOneWidget);
-        expect(find.byTooltip('关闭'), findsOneWidget);
+        expect(find.byTooltip('关闭记一笔表单'), findsOneWidget);
         expect(find.text('金额'), findsAtLeastNWidgets(1));
         expect(find.text('账户'), findsAtLeastNWidgets(1));
         expect(find.text('分类'), findsAtLeastNWidgets(1));
         expect(find.text('成员'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('关闭'));
+        _expectMinTapTarget(tester, find.byTooltip('关闭记一笔表单'));
 
         await tester.drag(find.byType(ListView).first, const Offset(0, -1000));
         await tester.pumpAndSettle();
-        expect(find.byTooltip('添加标签'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('添加标签'));
+        expect(find.byTooltip('添加自定义标签'), findsOneWidget);
+        _expectMinTapTarget(tester, find.byTooltip('添加自定义标签'));
+        await tester.scrollUntilVisible(
+          find.widgetWithText(FilledButton, '保存'),
+          240,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         _expectMinTapTarget(tester, find.widgetWithText(FilledButton, '保存'));
       });
     });
@@ -99,7 +105,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('AI 财务报告'), findsOneWidget);
-        expect(find.byTooltip('生成报告'), findsOneWidget);
+        expect(find.byTooltip('生成 AI 财务报告'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('已完成'), 240);
         expect(find.text('已完成'), findsOneWidget);
         await tester.scrollUntilVisible(
@@ -107,7 +113,7 @@ void main() {
           240,
         );
         expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('生成报告'));
+        _expectMinTapTarget(tester, find.byTooltip('生成 AI 财务报告'));
       });
     });
 

@@ -23,6 +23,7 @@ class PremiumSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trimmedSemanticLabel = semanticLabel?.trim();
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tint = accentColor ?? colorScheme.primary;
@@ -51,11 +52,21 @@ class PremiumSurface extends StatelessWidget {
       child: Padding(padding: padding, child: child),
     );
 
-    if (onTap == null) return surface;
+    if (onTap == null) {
+      if (trimmedSemanticLabel == null || trimmedSemanticLabel.isEmpty) {
+        return surface;
+      }
+
+      return Semantics(
+        container: true,
+        label: trimmedSemanticLabel,
+        child: surface,
+      );
+    }
 
     return PressableScale(
       onTap: onTap,
-      semanticLabel: semanticLabel,
+      semanticLabel: trimmedSemanticLabel,
       child: surface,
     );
   }
