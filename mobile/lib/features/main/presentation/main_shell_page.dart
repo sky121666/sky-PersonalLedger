@@ -75,15 +75,8 @@ class MainShellPage extends StatelessWidget {
       builder: (context) => DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           border: Border.all(color: colorScheme.outlineVariant),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 32,
-              offset: const Offset(0, -12),
-            ),
-          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -133,9 +126,9 @@ class _QuickTransactionFab extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: colorScheme.primary.withValues(alpha: 0.20),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+                color: colorScheme.primary.withValues(alpha: 0.12),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -197,9 +190,7 @@ class _PremiumBottomNavigation extends StatelessWidget {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
+        child: Container(
           constraints: const BoxConstraints(minHeight: 64),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           decoration: BoxDecoration(
@@ -213,17 +204,6 @@ class _PremiumBottomNavigation extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: colorScheme.outlineVariant),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: Theme.of(context).brightness == Brightness.dark
-                      ? 0.28
-                      : 0.10,
-                ),
-                blurRadius: 14,
-                offset: const Offset(0, 7),
-              ),
-            ],
           ),
           child: Row(
             children: [
@@ -272,9 +252,7 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
           key: ValueKey('main-shell-tab-${destination.keyValue}'),
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
+          child: Container(
             constraints: const BoxConstraints(minHeight: 50),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
             decoration: BoxDecoration(
@@ -295,9 +273,7 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
+                Container(
                   width: selected ? 18 : 5,
                   height: 3,
                   decoration: BoxDecoration(
@@ -308,20 +284,16 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                AnimatedScale(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  scale: selected ? 1.02 : 1,
-                  child: Icon(
-                    selected ? destination.selectedIcon : destination.icon,
-                    color: foreground,
-                    size: 21,
-                  ),
+                Icon(
+                  selected ? destination.selectedIcon : destination.icon,
+                  color: foreground,
+                  size: 21,
                 ),
                 const SizedBox(height: 3),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
+                Text(
+                  destination.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style:
                       Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: foreground,
@@ -335,11 +307,6 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
                             ? FontWeight.w800
                             : FontWeight.w500,
                       ),
-                  child: Text(
-                    destination.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                 ),
               ],
             ),

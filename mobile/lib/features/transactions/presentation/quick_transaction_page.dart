@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../../app/widgets/staggered_entrance.dart';
 import '../../attachments/data/attachment_cleanup.dart';
@@ -55,6 +54,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   final Set<String> _selectedTags = {};
   bool _loading = true;
   bool _submitting = false;
+  bool _showMoreOptions = false;
   String? _errorMessage;
 
   bool get _isEditing => widget.editingTransaction != null;
@@ -94,6 +94,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                   index: 0,
                   child: PremiumSurface(
                     accentColor: _typeColor(context, _type),
+                    padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -107,7 +108,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                             });
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         TextFormField(
                           key: const ValueKey('transaction-amount'),
                           controller: _amountController,
@@ -134,68 +135,84 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 StaggeredEntrance(
                   index: 1,
                   child: PremiumSurface(
                     accentColor: AppTheme.financeColors(context).asset,
+                    padding: const EdgeInsets.all(14),
                     child: Column(
                       children: [
                         _buildAccountPicker(),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         if (_type == TransactionType.transfer)
                           _buildToAccountPicker()
                         else
                           _buildCategoryPicker(),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         _buildDateTimePicker(),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 StaggeredEntrance(
                   index: 2,
-                  child: PremiumSurface(
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          key: const ValueKey('transaction-remark'),
-                          controller: _remarkController,
-                          decoration: const InputDecoration(
-                            labelText: '备注',
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => setState(
+                          () => _showMoreOptions = !_showMoreOptions,
                         ),
-                        const SizedBox(height: 12),
-                        ExpansionTile(
-                          tilePadding: EdgeInsets.zero,
-                          childrenPadding: EdgeInsets.zero,
-                          title: const Text('更多选项'),
-                          children: [
-                            if (_familyMembers.isNotEmpty) ...[
-                              _buildMemberPicker(),
-                              const SizedBox(height: 12),
+                        icon: Icon(
+                          _showMoreOptions
+                              ? Icons.expand_less
+                              : Icons.more_horiz,
+                        ),
+                        label: Text(_showMoreOptions ? '收起选项' : '更多选项'),
+                      ),
+                      if (_showMoreOptions) ...[
+                        const SizedBox(height: 8),
+                        PremiumSurface(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                key: const ValueKey('transaction-remark'),
+                                controller: _remarkController,
+                                decoration: const InputDecoration(
+                                  labelText: '备注',
+                                  border: OutlineInputBorder(),
+                                ),
+                                maxLines: 2,
+                              ),
+                              const SizedBox(height: 10),
+                              if (_familyMembers.isNotEmpty) ...[
+                                _buildMemberPicker(),
+                                const SizedBox(height: 10),
+                              ],
+                              _buildTagPicker(),
+                              const SizedBox(height: 10),
+                              AttachmentPickerField(
+                                attachments: _attachments,
+                                pendingFiles: _pendingAttachmentFiles,
+                                uploadProgress: _uploadProgress,
+                                enabled: !_submitting,
+                                onAttachmentsChanged: (attachments) {
+                                  setState(() => _attachments = attachments);
+                                },
+                                onPendingFilesChanged: (files) {
+                                  setState(
+                                    () => _pendingAttachmentFiles = files,
+                                  );
+                                },
+                              ),
                             ],
-                            _buildTagPicker(),
-                            const SizedBox(height: 12),
-                            AttachmentPickerField(
-                              attachments: _attachments,
-                              pendingFiles: _pendingAttachmentFiles,
-                              uploadProgress: _uploadProgress,
-                              enabled: !_submitting,
-                              onAttachmentsChanged: (attachments) {
-                                setState(() => _attachments = attachments);
-                              },
-                              onPendingFilesChanged: (files) {
-                                setState(() => _pendingAttachmentFiles = files);
-                              },
-                            ),
-                          ],
+                          ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -397,10 +414,8 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: _pickDateTime,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.all(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: Color.alphaBlend(
               accentColor.withValues(
@@ -415,13 +430,8 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           ),
           child: Row(
             children: [
-              IconBadge(
-                icon: Icons.calendar_month_outlined,
-                color: accentColor,
-                size: 38,
-                iconSize: 20,
-              ),
-              const SizedBox(width: 12),
+              Icon(Icons.calendar_month_outlined, color: accentColor, size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,6 +535,11 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       final attachmentPaths = decodeAttachmentPaths(transaction.images);
       _originalAttachmentPaths = attachmentPaths.toSet();
       _attachments = attachmentPaths.map(LedgerAttachment.fromPath).toList();
+      _showMoreOptions =
+          transaction.remark.trim().isNotEmpty ||
+          transaction.memberId != null ||
+          transaction.tags.isNotEmpty ||
+          attachmentPaths.isNotEmpty;
     }
 
     try {
@@ -823,11 +838,9 @@ class _TransactionTypeCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            constraints: const BoxConstraints(minHeight: 74),
-            padding: const EdgeInsets.all(10),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: selected
                   ? Color.alphaBlend(
@@ -847,15 +860,15 @@ class _TransactionTypeCard extends StatelessWidget {
                 width: selected ? 1.4 : 1,
               ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   _typeIcon(type),
                   color: selected ? accentColor : colorScheme.onSurfaceVariant,
-                  size: 21,
+                  size: 18,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(width: 6),
                 Text(
                   type.label,
                   maxLines: 1,

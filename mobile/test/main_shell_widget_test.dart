@@ -45,14 +45,7 @@ void main() {
       find.byKey(const ValueKey('main-shell-quick-transaction')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const ValueKey('main-shell-route-evidence-rail')),
-      findsOneWidget,
-    );
-    expect(find.text('入口 4'), findsOneWidget);
-    expect(find.text('当前 首页'), findsOneWidget);
-    expect(find.text('快速记账就绪'), findsOneWidget);
-    expect(find.text('快速入口'), findsOneWidget);
+    expect(find.byKey(const ValueKey('main-shell-tab-home')), findsOneWidget);
     expect(
       find.ancestor(
         of: find.byKey(const ValueKey('main-shell-tab-home')),
@@ -64,7 +57,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('main-shell-tab-transactions')));
     await tester.pumpAndSettle();
     expect(find.text('transactions-content'), findsOneWidget);
-    expect(find.text('当前 明细'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('main-shell-tab-statistics')));
     await tester.pumpAndSettle();
@@ -168,11 +160,6 @@ void main() {
       find.byKey(const ValueKey('main-shell-navigation-rail')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const ValueKey('main-shell-wide-route-evidence')),
-      findsOneWidget,
-    );
-    expect(find.text('4入口'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('main-shell-rail-statistics')),
       findsOneWidget,

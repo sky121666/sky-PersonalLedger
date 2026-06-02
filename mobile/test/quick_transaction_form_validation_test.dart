@@ -50,6 +50,7 @@ void main() {
         '12.34',
       );
       await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _expandMoreOptions(tester);
       await tester.enterText(
         find.byKey(const ValueKey('transaction-remark')),
         '午餐',
@@ -283,8 +284,10 @@ void main() {
       expect(find.text('账户'), findsOneWidget);
       expect(find.text('分类'), findsOneWidget);
       expect(find.text('时间'), findsOneWidget);
-      expect(find.text('备注'), findsOneWidget);
       expect(find.text('更多选项'), findsOneWidget);
+      expect(find.text('备注'), findsNothing);
+      await _expandMoreOptions(tester);
+      expect(find.text('备注'), findsOneWidget);
       expect(find.text('记账指挥条'), findsNothing);
       expect(find.text('录入质量层'), findsNothing);
       expect(find.text('记账动线'), findsNothing);
@@ -432,12 +435,13 @@ Future<void> _tapSaveButton(WidgetTester tester, {String label = '保存'}) asyn
 Future<void> _expandMoreOptions(WidgetTester tester) async {
   final more = find.text('更多选项');
   if (more.evaluate().isEmpty) {
-    await tester.scrollUntilVisible(
-      more,
-      240,
-      scrollable: find.byType(Scrollable).first,
-    );
+    return;
   }
+  await tester.scrollUntilVisible(
+    more,
+    240,
+    scrollable: find.byType(Scrollable).first,
+  );
   await tester.tap(more);
   await tester.pumpAndSettle();
 }

@@ -91,10 +91,11 @@ class AccountsPage extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
+        key: const ValueKey('account-add'),
         onPressed: () => _openAccountForm(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('新增账户'),
+        tooltip: '新增账户',
+        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(
         child: state.when(
@@ -671,6 +672,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   late String _icon;
   late String _color;
   bool _submitting = false;
+  bool _showVisualOptions = false;
 
   /// 初始化账户表单状态。
   @override
@@ -758,27 +760,20 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
                   child: Row(
                     children: [
-                      IconBadge(
-                        icon: _selectedFormIcon(),
-                        color: accentColor,
-                        size: 46,
-                        iconSize: 23,
-                      ),
-                      const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isEditing ? '编辑账户' : '新增账户',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                          ],
+                        child: Text(
+                          isEditing ? '编辑账户' : '新增账户',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
                         ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        tooltip: '关闭',
+                        icon: const Icon(Icons.close),
                       ),
                     ],
                   ),
@@ -853,48 +848,59 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        _AccountFormSection(
-                          title: '视觉标识',
-                          icon: Icons.auto_awesome_outlined,
-                          accentColor: accentColor,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final option in _accountIconOptions)
-                                    _AccountIconChoice(
-                                      option: option,
-                                      selected: _icon == option.value,
-                                      color: accentColor,
-                                      onSelected: () =>
-                                          setState(() => _icon = option.value),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  for (final color in _accountColors)
-                                    _AccountColorChoice(
-                                      color: _parseColor(
-                                        color,
-                                        AppTheme.financeColors(context).asset,
-                                      ),
-                                      selected: _color == color,
-                                      onSelected: () =>
-                                          setState(() => _color = color),
-                                    ),
-                                ],
-                              ),
-                            ],
+                        const SizedBox(height: 8),
+                        _VisualOptionsToggle(
+                          expanded: _showVisualOptions,
+                          color: accentColor,
+                          onPressed: () => setState(
+                            () => _showVisualOptions = !_showVisualOptions,
                           ),
                         ),
+                        if (_showVisualOptions) ...[
+                          const SizedBox(height: 10),
+                          _AccountFormSection(
+                            title: '外观',
+                            icon: Icons.tune_outlined,
+                            accentColor: accentColor,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final option in _accountIconOptions)
+                                      _AccountIconChoice(
+                                        option: option,
+                                        selected: _icon == option.value,
+                                        color: accentColor,
+                                        onSelected: () => setState(
+                                          () => _icon = option.value,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    for (final color in _accountColors)
+                                      _AccountColorChoice(
+                                        color: _parseColor(
+                                          color,
+                                          AppTheme.financeColors(context).asset,
+                                        ),
+                                        selected: _color == color,
+                                        onSelected: () =>
+                                            setState(() => _color = color),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (_isDebtAccount(_type)) ...[
                           const SizedBox(height: 12),
                           _AccountDebtFields(
@@ -933,38 +939,6 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
         ),
       ),
     );
-  }
-
-  IconData _selectedFormIcon() {
-    final normalized = (_icon.isEmpty ? _type : _icon).trim().toLowerCase();
-    return switch (normalized) {
-      'cash' || '现金' || '💰' => Icons.payments_outlined,
-      'bank_card' ||
-      'savings' ||
-      '银行卡' ||
-      '储蓄卡' ||
-      '💳' => Icons.credit_card_outlined,
-      'alipay' ||
-      'wechat' ||
-      'qq_pay' ||
-      'jd_pay' ||
-      'apple_pay' ||
-      '📱' => Icons.account_balance_wallet_outlined,
-      'credit' => Icons.credit_score_outlined,
-      'loan' ||
-      'mortgage' ||
-      'car_loan' ||
-      'consumer_loan' ||
-      'huabei' ||
-      'baitiao' ||
-      '🏠' => Icons.request_quote_outlined,
-      'investment' ||
-      'fund' ||
-      'stock' ||
-      'crypto' => Icons.show_chart_outlined,
-      'prepaid' => Icons.card_giftcard_outlined,
-      _ => Icons.grid_view_outlined,
-    };
   }
 
   /// 提交账户表单。
@@ -1088,6 +1062,40 @@ class _AccountFormSection extends StatelessWidget {
           const SizedBox(height: 14),
           child,
         ],
+      ),
+    );
+  }
+}
+
+class _VisualOptionsToggle extends StatelessWidget {
+  const _VisualOptionsToggle({
+    required this.expanded,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final bool expanded;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TextButton.icon(
+      onPressed: onPressed,
+      icon: Icon(expanded ? Icons.expand_less : Icons.tune_outlined, size: 18),
+      label: Text(expanded ? '收起外观' : '高级外观'),
+      style: TextButton.styleFrom(
+        foregroundColor: color,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        textStyle: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: colorScheme.outlineVariant),
+        ),
       ),
     );
   }

@@ -109,12 +109,17 @@ void main() {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('新增账户'));
+      await tester.tap(find.byKey(const ValueKey('account-add')));
       await tester.pumpAndSettle();
 
       expect(find.text('创建可用于记账和资产统计的账户'), findsNothing);
       expect(find.text('基础信息'), findsOneWidget);
-      expect(find.text('视觉标识'), findsOneWidget);
+      expect(find.text('视觉标识'), findsNothing);
+      expect(find.text('高级外观'), findsOneWidget);
+      expect(find.text('卡片'), findsNothing);
+      await tester.tap(find.text('高级外观'));
+      await tester.pumpAndSettle();
+      expect(find.text('外观'), findsOneWidget);
       expect(find.text('卡片'), findsOneWidget);
       expect(find.byType(IconBadge), findsWidgets);
       expect(find.byType(PremiumSurface), findsWidgets);
@@ -124,7 +129,7 @@ void main() {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('新增账户'));
+      await tester.tap(find.byKey(const ValueKey('account-add')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('account-name')), '房贷');
       await tester.tap(find.byKey(const ValueKey('account-type')));
