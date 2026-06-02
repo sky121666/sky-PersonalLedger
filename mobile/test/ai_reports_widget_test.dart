@@ -67,8 +67,8 @@ void main() {
     expect(find.text('静谧墨绿'), findsNothing);
     expect(find.text('周报未启用'), findsNothing);
     expect(find.text('Key 不回显'), findsNothing);
-    await _scrollIntoTapArea(tester, find.text('AI 服务配置'));
-    expect(find.text('AI 服务配置'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('报告来源'));
+    expect(find.text('报告来源'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('ai-production-readiness-panel')),
       findsNothing,
@@ -85,15 +85,21 @@ void main() {
     expect(find.text('默认脱敏'), findsNothing);
     expect(find.text('手动生成'), findsNothing);
     expect(find.text('OpenAI API'), findsNothing);
-    await _scrollIntoTapArea(tester, find.text('AI 服务配置'));
-    await _scrollIntoTapArea(tester, find.text('每周总结'));
+    await _scrollIntoTapArea(tester, find.text('报告来源'));
+    await _scrollIntoTapArea(
+      tester,
+      find.byKey(const ValueKey('ai-report-card-report-1')),
+    );
     expect(find.text('每周总结'), findsWidgets);
-    expect(find.text('已完成'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('ai-report-status-report-1')),
+      findsOneWidget,
+    );
     expect(find.byType(PremiumSurface), findsWidgets);
     expect(find.text('DeepSeek / deepseek-v4-flash'), findsNothing);
     expect(find.text('DeepSeek'), findsWidgets);
 
-    await tester.tap(find.text('每周总结').last);
+    await _tapReportTitle(tester, 'report-1');
     await tester.pumpAndSettle();
 
     expect(find.text('支出可控'), findsWidgets);
@@ -152,7 +158,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('石墨蓝'), findsNothing);
-    await _scrollIntoTapArea(tester, find.text('每周总结'));
+    await _scrollIntoTapArea(
+      tester,
+      find.byKey(const ValueKey('ai-report-card-report-1')),
+    );
     final surfaces = tester.widgetList<PremiumSurface>(
       find.byType(PremiumSurface),
     );
@@ -165,8 +174,7 @@ void main() {
       isTrue,
     );
 
-    await tester.tap(find.text('每周总结').last);
-    await tester.pumpAndSettle();
+    await _tapReportTitle(tester, 'report-1');
 
     final highlightIcon = tester.widget<Icon>(
       find.byIcon(Icons.trending_up_outlined).first,
@@ -199,8 +207,8 @@ void main() {
     expect(find.text('AI 分析控制台'), findsNothing);
     expect(find.text('AI 模型编排'), findsNothing);
     expect(find.text('等待生成'), findsNothing);
-    await tester.scrollUntilVisible(find.text('暂无 AI 报告'), 300);
-    expect(find.text('暂无 AI 报告'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('暂无报告'), 300);
+    expect(find.text('暂无报告'), findsOneWidget);
     expect(find.text('生成报告'), findsWidgets);
   });
 
@@ -235,11 +243,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _scrollIntoTapArea(tester, find.text('每周总结'));
-    expect(find.text('失败'), findsOneWidget);
+    await _scrollIntoTapArea(
+      tester,
+      find.byKey(const ValueKey('ai-report-card-report-failed')),
+    );
+    expect(
+      find.byKey(const ValueKey('ai-report-status-report-failed')),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.text('每周总结').last);
-    await tester.pumpAndSettle();
+    await _tapReportTitle(tester, 'report-failed');
 
     expect(find.text('enabled ai provider not found'), findsWidgets);
   });
@@ -301,7 +314,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _scrollIntoTapArea(tester, find.text('每周总结'));
+    await _scrollIntoTapArea(
+      tester,
+      find.byKey(const ValueKey('ai-report-card-report-delete')),
+    );
     await tester.tap(find.text('每周总结').last);
     await tester.pumpAndSettle();
     await _scrollIntoTapArea(tester, find.text('删除报告'));
@@ -391,12 +407,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _scrollIntoTapArea(tester, find.text('AI 服务配置'));
-    expect(find.text('AI 服务配置'), findsOneWidget);
-    expect(find.text('暂无 AI 服务'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('报告来源'));
+    expect(find.text('报告来源'), findsOneWidget);
+    expect(find.text('暂无可用来源'), findsOneWidget);
 
-    await _scrollIntoTapArea(tester, find.text('添加 AI 服务'));
-    await tester.tap(find.text('添加 AI 服务').last);
+    await _scrollIntoTapArea(tester, find.text('添加来源'));
+    await tester.tap(find.text('添加来源').last);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('ai-provider-api-key')),
@@ -470,17 +486,43 @@ void main() {
 }
 
 Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
-  await tester.scrollUntilVisible(finder, 300);
-  await tester.pumpAndSettle();
-  final target = finder.evaluate().length > 1 ? finder.last : finder;
-  final center = tester.getCenter(target);
-  if (center.dy > 500) {
-    await tester.drag(find.byType(ListView), Offset(0, -(center.dy - 420)));
+  var target = finder.evaluate().length > 1 ? finder.last : finder;
+  if (!_isInTapArea(tester, target)) {
+    final scrollable = find.byType(Scrollable);
+    if (scrollable.evaluate().isNotEmpty) {
+      await tester.scrollUntilVisible(finder, 300, scrollable: scrollable.first);
+    }
     await tester.pumpAndSettle();
   }
-  if (center.dy < 88) {
-    await tester.drag(find.byType(ListView), Offset(0, 112 - center.dy));
+  target = finder.evaluate().length > 1 ? finder.last : finder;
+  final center = tester.getCenter(target);
+  final listView = find.byType(ListView);
+  if (center.dy > 500 && listView.evaluate().isNotEmpty) {
+    await tester.drag(listView.first, Offset(0, -(center.dy - 420)));
     await tester.pumpAndSettle();
+  }
+  if (center.dy < 88 && listView.evaluate().isNotEmpty) {
+    await tester.drag(listView.first, Offset(0, 112 - center.dy));
+    await tester.pumpAndSettle();
+  }
+}
+
+Future<void> _tapReportTitle(WidgetTester tester, String reportId) async {
+  final card = find.byKey(ValueKey('ai-report-card-$reportId'));
+  final title = find.descendant(of: card, matching: find.text('每周总结'));
+  await tester.tap(title);
+  await tester.pumpAndSettle();
+}
+
+bool _isInTapArea(WidgetTester tester, Finder finder) {
+  if (finder.evaluate().isEmpty) {
+    return false;
+  }
+  try {
+    final center = tester.getCenter(finder);
+    return center.dy >= 88 && center.dy <= 500;
+  } catch (_) {
+    return false;
   }
 }
 

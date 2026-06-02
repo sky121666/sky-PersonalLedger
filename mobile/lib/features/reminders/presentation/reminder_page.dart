@@ -1119,7 +1119,6 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
                   controller: _nameController,
                   decoration: const InputDecoration(
                     labelText: '分期名称',
-                    hintText: '例如：房贷、花呗',
                     border: OutlineInputBorder(),
                   ),
                   validator: (value) {

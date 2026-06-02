@@ -117,7 +117,7 @@ class _TransactionDetailsPageState
           const SizedBox(height: 8),
           AppEmptyView(
             title: state.hasActiveFilter ? '没有匹配的交易' : '暂无交易明细',
-            message: state.hasActiveFilter ? '调整筛选条件后再试。' : '点击“记一笔”添加第一条收支记录。',
+            message: state.hasActiveFilter ? '调整筛选条件后再试。' : '还没有交易记录。',
             icon: Icons.receipt_long_outlined,
             action: FilledButton.tonal(
               onPressed: () => context.push(AppRoutePaths.quickTransaction),

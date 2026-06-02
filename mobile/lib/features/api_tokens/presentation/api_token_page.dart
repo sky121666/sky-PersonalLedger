@@ -166,12 +166,12 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('API Token'),
+        title: const Text('访问令牌'),
         actions: [
           IconButton(
             onPressed: _loadTokens,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新 API 令牌',
+            tooltip: '刷新访问令牌',
           ),
         ],
       ),
@@ -287,7 +287,7 @@ class _TokenListHeader extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                tokenCount == 0 ? '暂无数据' : '$tokenCount 个',
+                tokenCount == 0 ? '尚未创建' : '$tokenCount 个',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -379,7 +379,6 @@ class _CreateTokenCard extends StatelessWidget {
             controller: nameController,
             decoration: const InputDecoration(
               labelText: '令牌名称',
-              hintText: '例如：我的手机',
               border: OutlineInputBorder(),
             ),
           ),
@@ -493,22 +492,13 @@ class _TokenTile extends StatelessWidget {
     return Semantics(
       label: '${token.name}，${_tokenSubtitle(token)}',
       button: true,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
+      child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            colorScheme.primary.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.10
-                  : 0.05,
-            ),
-            colorScheme.surface,
-          ),
-          borderRadius: BorderRadius.circular(20),
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: colorScheme.primary.withValues(alpha: 0.12),
+            color: colorScheme.outlineVariant.withValues(alpha: 0.62),
           ),
         ),
         child: Row(

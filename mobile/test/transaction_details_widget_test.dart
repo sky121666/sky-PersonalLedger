@@ -215,7 +215,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无交易明细'), findsOneWidget);
-      expect(find.text('点击“记一笔”添加第一条收支记录。'), findsOneWidget);
+      expect(find.text('还没有交易记录。'), findsOneWidget);
 
       await tester.scrollUntilVisible(
         find.widgetWithText(FilledButton, '去记一笔'),

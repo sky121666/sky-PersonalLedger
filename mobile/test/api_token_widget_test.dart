@@ -14,7 +14,7 @@ void main() {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('API Token'), findsOneWidget);
+      expect(find.text('访问令牌'), findsOneWidget);
       expect(find.text('API 安全访问'), findsNothing);
       expect(find.text('完整令牌只会在创建成功后显示一次，请立即保存。'), findsNothing);
       expect(
@@ -125,7 +125,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无令牌'), findsOneWidget);
-      expect(find.text('暂无数据'), findsAtLeastNWidgets(1));
+      expect(find.text('暂无数据'), findsNothing);
+      expect(find.text('尚未创建'), findsOneWidget);
     });
 
     testWidgets('初始加载失败时展示错误并可重试', (tester) async {

@@ -107,7 +107,8 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('查看还款记录 张三'));
+      await _openLendingMoreMenu(tester, '张三');
+      await tester.tap(find.text('还款记录'));
       await tester.pumpAndSettle();
 
       expect(lendingRepository.recordCalls, ['lend-1']);
@@ -127,7 +128,8 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('编辑借贷记录 张三'));
+      await _openLendingMoreMenu(tester, '张三');
+      await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '保存'));
       await tester.pumpAndSettle();
@@ -148,7 +150,8 @@ void main() {
         attachmentRepository: attachmentRepository,
       );
 
-      await tester.tap(find.byTooltip('编辑借贷记录 张三'));
+      await _openLendingMoreMenu(tester, '张三');
+      await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
       final removeButton = find.byTooltip(
         '移除 contract.pdf',
@@ -185,7 +188,8 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('编辑借贷记录 张三'));
+      await _openLendingMoreMenu(tester, '张三');
+      await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
       final addAttachmentButton = find.text('添加附件', skipOffstage: false);
       await tester.ensureVisible(addAttachmentButton);
@@ -211,7 +215,8 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('删除借贷记录 张三'));
+      await _openLendingMoreMenu(tester, '张三');
+      await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('账本交易会保留'), findsOneWidget);
@@ -314,6 +319,11 @@ void main() {
       expect(find.text('剩余 ¥800.00'), findsOneWidget);
     });
   });
+}
+
+Future<void> _openLendingMoreMenu(WidgetTester tester, String contactName) async {
+  await tester.tap(find.byTooltip('更多借贷操作 $contactName'));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpPage(

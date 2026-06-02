@@ -154,8 +154,8 @@ class ProfilePage extends ConsumerWidget {
                   _SettingsEntry(
                     icon: Icons.vpn_key_outlined,
                     color: financeColors.income,
-                    title: 'API Token',
-                    subtitle: '管理 App 和外部 API 访问令牌',
+                    title: '访问令牌',
+                    subtitle: '管理 App 和外部接口授权',
                     onTap: () => context.push(AppRoutePaths.apiTokens),
                   ),
                   _SettingsEntry(

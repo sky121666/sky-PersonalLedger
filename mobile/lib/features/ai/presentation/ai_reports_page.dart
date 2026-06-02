@@ -247,7 +247,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('AI 服务配置加载失败：$error')));
+        ).showSnackBar(SnackBar(content: Text('报告来源加载失败：$error')));
       }
       return;
     }
@@ -495,12 +495,12 @@ class _AIProviderSetupSurface extends StatelessWidget {
             dimension: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          title: Text('正在加载 AI 服务配置'),
+          title: Text('正在加载报告来源'),
         ),
       ),
       error: (error, stackTrace) => PremiumSurface(
         accentColor: colorScheme.error,
-        child: Text('AI 服务配置加载失败：$error'),
+        child: Text('报告来源加载失败：$error'),
       ),
       data: (setup) {
         return PremiumSurface(
@@ -514,7 +514,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'AI 服务配置',
+                      '报告来源',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -523,14 +523,14 @@ class _AIProviderSetupSurface extends StatelessWidget {
                   FilledButton.tonalIcon(
                     onPressed: () => onAdd(setup),
                     icon: const Icon(Icons.add_outlined),
-                    label: const Text('添加 AI 服务'),
+                    label: const Text('添加来源'),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               if (setup.providers.isEmpty)
                 Text(
-                  '暂无 AI 服务',
+                  '暂无可用来源',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
@@ -1367,7 +1367,7 @@ class _AIReportsEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              '暂无 AI 报告',
+              '暂无报告',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -1417,7 +1417,7 @@ class _AIReportGeneratingSurface extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '正在生成 AI 洞察',
+                '正在生成报告',
                 style: Theme.of(
                   context,
                 ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -1473,6 +1473,7 @@ class _AIReportCard extends StatelessWidget {
     final snapshot = AIReportSnapshotData.parse(report.snapshotJson);
     final isFailed = report.status == 'failed';
     return PremiumSurface(
+      key: ValueKey('ai-report-card-${report.id}'),
       padding: EdgeInsets.zero,
       accentColor: isFailed ? colorScheme.error : financeColors.asset,
       child: Theme(
@@ -1525,6 +1526,7 @@ class _AIReportCard extends StatelessWidget {
             ),
           ),
           trailing: _AIReportStatusChip(
+            key: ValueKey('ai-report-status-${report.id}'),
             status: report.status,
             label: statusText,
           ),
@@ -1625,7 +1627,11 @@ class _AIReportAccountChanges extends StatelessWidget {
 }
 
 class _AIReportStatusChip extends StatelessWidget {
-  const _AIReportStatusChip({required this.status, required this.label});
+  const _AIReportStatusChip({
+    super.key,
+    required this.status,
+    required this.label,
+  });
 
   final String status;
   final String label;
@@ -1673,7 +1679,7 @@ class _AIReportContent extends StatelessWidget {
         data.suggestions.isEmpty) {
       return const Align(
         alignment: Alignment.centerLeft,
-        child: Text('暂无报告内容'),
+        child: Text('暂无内容'),
       );
     }
     return Column(

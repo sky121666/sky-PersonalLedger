@@ -691,21 +691,11 @@ class _LendingCard extends StatelessWidget {
                       tooltip: '记录还款 ${item.contactName}',
                       onPressed: onRepay,
                     ),
-                  _LendingActionButton(
-                    icon: Icons.receipt_long_outlined,
-                    tooltip: '查看还款记录 ${item.contactName}',
-                    onPressed: onRecords,
-                  ),
-                  _LendingActionButton(
-                    icon: Icons.edit_outlined,
-                    tooltip: '编辑借贷记录 ${item.contactName}',
-                    onPressed: onEdit,
-                  ),
-                  _LendingActionButton(
-                    icon: Icons.delete_outline,
-                    tooltip: '删除借贷记录 ${item.contactName}',
-                    onPressed: onDelete,
-                    color: colorScheme.error,
+                  _LendingMoreMenu(
+                    contactName: item.contactName,
+                    onRecords: onRecords,
+                    onEdit: onEdit,
+                    onDelete: onDelete,
                   ),
                 ],
               ],
@@ -760,26 +750,86 @@ class _LendingActionButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
-    this.color,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+      constraints: const BoxConstraints.tightFor(width: 44, height: 44),
       padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
       onPressed: onPressed,
-      icon: Icon(icon, size: 20, color: color),
+      icon: Icon(icon, size: 20),
       tooltip: tooltip,
     );
   }
 }
+
+class _LendingMoreMenu extends StatelessWidget {
+  const _LendingMoreMenu({
+    required this.contactName,
+    required this.onRecords,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final String contactName;
+  final VoidCallback onRecords;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_LendingMenuAction>(
+      tooltip: '更多借贷操作 $contactName',
+      icon: const Icon(Icons.more_horiz),
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: _LendingMenuAction.records,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.receipt_long_outlined),
+            title: Text('还款记录'),
+          ),
+        ),
+        PopupMenuItem(
+          value: _LendingMenuAction.edit,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.edit_outlined),
+            title: Text('编辑'),
+          ),
+        ),
+        PopupMenuItem(
+          value: _LendingMenuAction.delete,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.delete_outline),
+            title: Text('删除'),
+          ),
+        ),
+      ],
+      onSelected: (action) {
+        switch (action) {
+          case _LendingMenuAction.records:
+            onRecords();
+          case _LendingMenuAction.edit:
+            onEdit();
+          case _LendingMenuAction.delete:
+            onDelete();
+        }
+      },
+    );
+  }
+}
+
+enum _LendingMenuAction { records, edit, delete }
 
 class _LendingRecordsDialog extends ConsumerWidget {
   const _LendingRecordsDialog({required this.item});

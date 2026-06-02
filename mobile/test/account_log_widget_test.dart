@@ -33,10 +33,11 @@ void main() {
         220,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('收入'), findsOneWidget);
+      expect(find.textContaining('收入'), findsOneWidget);
       expect(find.text('余额增加'), findsOneWidget);
-      expect(find.text('变动前'), findsOneWidget);
-      expect(find.text('变动后'), findsOneWidget);
+      expect(find.text('变动前'), findsNothing);
+      expect(find.text('变动后'), findsNothing);
+      expect(find.text('余额 ¥780.00 → ¥1280.00'), findsOneWidget);
       expect(find.text('+¥500.00'), findsAtLeastNWidgets(1));
       expect(find.text('工资入账'), findsOneWidget);
     });
@@ -114,7 +115,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('账户流水'), findsOneWidget);
-      expect(find.text('现金'), findsOneWidget);
+      expect(find.textContaining('现金'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('加载更多'),
         220,
@@ -126,7 +127,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.listPages, [1, 2]);
-      expect(find.text('支出'), findsOneWidget);
+      expect(find.textContaining('支出'), findsOneWidget);
       expect(find.text('余额减少'), findsOneWidget);
       expect(find.text('-¥80.00'), findsOneWidget);
       expect(find.text('午餐'), findsOneWidget);

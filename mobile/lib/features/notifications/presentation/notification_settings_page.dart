@@ -259,7 +259,6 @@ class _NotificationSettingsFormState
             controller: _wecomWebhookController,
             decoration: const InputDecoration(
               labelText: 'Webhook 地址',
-              hintText: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send',
               prefixIcon: Icon(Icons.link_outlined),
             ),
           ),
@@ -288,7 +287,6 @@ class _NotificationSettingsFormState
             obscureText: true,
             decoration: const InputDecoration(
               labelText: '加签密钥',
-              hintText: '留空则使用已保存密钥',
               prefixIcon: Icon(Icons.key_outlined),
             ),
           ),
@@ -339,7 +337,6 @@ class _NotificationSettingsFormState
             obscureText: true,
             decoration: const InputDecoration(
               labelText: '密码/授权码',
-              hintText: '留空则使用已保存密码',
               prefixIcon: Icon(Icons.password_outlined),
             ),
           ),
@@ -384,7 +381,6 @@ class _NotificationSettingsFormState
             obscureText: true,
             decoration: const InputDecoration(
               labelText: '密钥',
-              hintText: '留空则使用已保存密钥',
               prefixIcon: Icon(Icons.key_outlined),
             ),
           ),
@@ -664,15 +660,15 @@ class _OptionsCard extends StatelessWidget {
             color: financeColors.warning,
             title: '通知选项',
           ),
-          _NotificationSwitchRow(
+          _NotificationOptionRow(
             icon: Icons.credit_card_outlined,
             color: financeColors.warning,
             title: '还款日提醒',
             value: paymentDue,
             onChanged: enabled ? onPaymentDueChanged : null,
           ),
-          const SizedBox(height: 8),
-          _NotificationSwitchRow(
+          _OptionDivider(),
+          _NotificationOptionRow(
             icon: Icons.savings_outlined,
             color: financeColors.expense,
             title: '预算超支提醒',
@@ -680,23 +676,23 @@ class _OptionsCard extends StatelessWidget {
             switchKey: const ValueKey('notification-budget-alert'),
             onChanged: enabled ? onBudgetAlertChanged : null,
           ),
-          const SizedBox(height: 8),
-          _NotificationSwitchRow(
+          _OptionDivider(),
+          _NotificationOptionRow(
             icon: Icons.handshake_outlined,
             color: financeColors.asset,
             title: '借款到期提醒',
             value: lendingDue,
             onChanged: enabled ? onLendingDueChanged : null,
           ),
-          const SizedBox(height: 8),
-          _NotificationSwitchRow(
+          _OptionDivider(),
+          _NotificationOptionRow(
             icon: Icons.summarize_outlined,
             color: financeColors.income,
             title: '年度报告通知',
             value: annualReport,
             onChanged: enabled ? onAnnualReportChanged : null,
           ),
-          const SizedBox(height: 8),
+          _OptionDivider(),
           _NotificationAdvanceRow(
             advanceDays: advanceDays,
             enabled: enabled,
@@ -704,6 +700,17 @@ class _OptionsCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OptionDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      indent: 50,
+      color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
     );
   }
 }
@@ -815,6 +822,53 @@ class _NotificationSwitchRow extends StatelessWidget {
   }
 }
 
+class _NotificationOptionRow extends StatelessWidget {
+  const _NotificationOptionRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.switchKey,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final Key? switchKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Semantics(
+            key: ValueKey('notification-switch-semantics-$title'),
+            label: title,
+            toggled: value,
+            enabled: onChanged != null,
+            child: Switch(key: switchKey, value: value, onChanged: onChanged),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NotificationAdvanceRow extends StatelessWidget {
   const _NotificationAdvanceRow({
     required this.advanceDays,
@@ -828,21 +882,16 @@ class _NotificationAdvanceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.44),
-        borderRadius: BorderRadius.circular(18),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           IconBadge(
             icon: Icons.event_available_outlined,
             color: financeColors.asset,
-            size: 38,
-            iconSize: 20,
+            size: 34,
+            iconSize: 18,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -855,6 +904,8 @@ class _NotificationAdvanceRow extends StatelessWidget {
           ),
           DropdownButton<int>(
             value: advanceDays,
+            underline: const SizedBox.shrink(),
+            borderRadius: BorderRadius.circular(12),
             items: const [
               DropdownMenuItem(value: 1, child: Text('1 天')),
               DropdownMenuItem(value: 2, child: Text('2 天')),
