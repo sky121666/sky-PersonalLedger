@@ -153,7 +153,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无流水记录'), findsOneWidget);
-      expect(find.text('暂无数据'), findsOneWidget);
+      expect(find.text('暂无数据'), findsNothing);
     });
 
     testWidgets('加载更多失败时展示错误且保留已有流水', (tester) async {

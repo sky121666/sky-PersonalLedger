@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../../app/widgets/staggered_entrance.dart';
 import '../../accounts/data/account.dart';
@@ -767,23 +766,17 @@ class _ReminderCard extends StatelessWidget {
       label:
           '${reminder.displayName}，${reminder.loanTypeLabel}，$statusLabel，待还${_formatMoney(reminder.currentBalance ?? 0)}，$dueText',
       button: false,
-      child: PremiumSurface(
+      child: Container(
         key: ValueKey('reminder-card-${reminder.id}'),
-        accentColor: accentColor,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconBadge(
-                  icon: _loanTypeIcon(reminder.loanType),
-                  color: accentColor,
-                  size: 46,
-                  iconSize: 23,
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -800,19 +793,43 @@ class _ReminderCard extends StatelessWidget {
                         [
                           reminder.loanTypeLabel,
                           dueText,
-                          statusLabel,
+                          if (statusLabel != '进行中') statusLabel,
                           if (hasEvidence) '凭证',
                         ].join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
+                          color: colorScheme.outline,
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '待还 ${_formatMoney(reminder.currentBalance ?? 0)}',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.w900,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    if (reminder.amount != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        '月供 ${_formatMoney(reminder.amount!)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(width: 4),
                 if (busy)
                   const SizedBox(
                     width: 20,
@@ -858,90 +875,23 @@ class _ReminderCard extends StatelessWidget {
               ],
             ),
             if (reminder.principal != null) ...[
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ReminderAmountStat(
-                      label: '本金',
-                      value: _formatMoney(reminder.principal ?? 0),
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  Expanded(
-                    child: _ReminderAmountStat(
-                      label: '待还',
-                      value: _formatMoney(reminder.currentBalance ?? 0),
-                      color: statusColor,
-                    ),
-                  ),
-                  Expanded(
-                    child: _ReminderAmountStat(
-                      label: reminder.amount == null ? '进度' : '月供',
-                      value: reminder.amount == null
-                          ? '${reminder.progress.toStringAsFixed(0)}%'
-                          : _formatMoney(reminder.amount!),
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _ReminderProgressLine(
                 progress: reminder.progress,
                 color: accentColor,
               ),
-            ] else if (reminder.amount != null) ...[
-              const SizedBox(height: 12),
-              _ReminderAmountStat(
-                label: '月供',
-                value: _formatMoney(reminder.amount!),
-                color: accentColor,
+              const SizedBox(height: 6),
+              Text(
+                '本金 ${_formatMoney(reminder.principal ?? 0)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.outline,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ],
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ReminderAmountStat extends StatelessWidget {
-  const _ReminderAmountStat({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w900,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -989,8 +939,8 @@ class _EmptyReminderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const PremiumSurface(
-      padding: EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 18),
       child: AppEmptyView(
         title: '暂无负债提醒',
         icon: Icons.notifications_none_outlined,
@@ -1657,16 +1607,6 @@ String _loanTypeColor(String loanType) {
     'car_loan' => '#F59E0B',
     'consumer_loan' => '#8B5CF6',
     _ => '#6B7280',
-  };
-}
-
-IconData _loanTypeIcon(String loanType) {
-  return switch (loanType) {
-    'credit_card' => Icons.credit_card,
-    'mortgage' => Icons.house_outlined,
-    'car_loan' => Icons.directions_car_outlined,
-    'consumer_loan' => Icons.shopping_bag_outlined,
-    _ => Icons.account_balance_outlined,
   };
 }
 

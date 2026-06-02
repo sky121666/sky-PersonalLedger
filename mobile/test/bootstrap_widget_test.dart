@@ -22,17 +22,15 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    expect(find.text('正在准备账本环境'), findsOneWidget);
-    expect(find.text('本机配置'), findsOneWidget);
-    expect(find.text('连接入口'), findsOneWidget);
-    expect(find.text('安全上下文'), findsOneWidget);
+    expect(find.text('正在启动'), findsOneWidget);
+    expect(find.text('请稍候。'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('bootstrap-readiness-rail')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('启动检查 3/3'), findsOneWidget);
-    expect(find.text('下一步服务器'), findsOneWidget);
-    expect(find.text('安全上下文预备'), findsOneWidget);
+    expect(find.text('启动检查 3/3'), findsNothing);
+    expect(find.text('下一步服务器'), findsNothing);
+    expect(find.text('安全上下文预备'), findsNothing);
     expect(find.byType(PremiumSurface), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
 

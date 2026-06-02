@@ -25,8 +25,8 @@ void main() {
       expect(find.text('¥1,200.00'), findsAtLeastNWidgets(1));
       expect(find.text('结清率'), findsNothing);
       expect(find.text('张三'), findsOneWidget);
-      expect(find.text('剩余'), findsOneWidget);
-      expect(find.text('¥800.00'), findsOneWidget);
+      expect(find.textContaining('剩余'), findsOneWidget);
+      expect(find.text('剩余 ¥800.00'), findsOneWidget);
       expect(find.byKey(const ValueKey('lending-card-lend-1')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('lending-progress-lend-1')),
@@ -37,7 +37,7 @@ void main() {
       expect(find.textContaining('本金'), findsAtLeastNWidgets(1));
       expect(find.textContaining('已还'), findsAtLeastNWidgets(1));
       expect(find.text('20%'), findsOneWidget);
-      expect(find.text('备注'), findsOneWidget);
+      expect(find.textContaining('朋友周转'), findsOneWidget);
 
       expect(
         find.byKey(const ValueKey('lending-relationship-hub')),
@@ -310,8 +310,8 @@ void main() {
       expect(lendingRepository.repaymentCalls, hasLength(1));
       expect(find.textContaining('还款失败'), findsOneWidget);
       expect(find.text('还款已记录'), findsNothing);
-      expect(find.text('剩余'), findsOneWidget);
-      expect(find.text('¥800.00'), findsOneWidget);
+      expect(find.textContaining('剩余'), findsOneWidget);
+      expect(find.text('剩余 ¥800.00'), findsOneWidget);
     });
   });
 }

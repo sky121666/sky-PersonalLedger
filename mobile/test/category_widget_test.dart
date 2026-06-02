@@ -145,7 +145,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无支出分类'), findsOneWidget);
-      expect(find.text('暂无数据'), findsOneWidget);
+      expect(find.text('暂无数据'), findsNothing);
     });
 
     testWidgets('新增分类失败时展示错误且保留输入', (tester) async {

@@ -19,8 +19,8 @@ void main() {
 
       expect(find.text('预算管理'), findsOneWidget);
       expect(find.text('本月预算总览'), findsOneWidget);
-      expect(find.text('¥1200.00'), findsAtLeastNWidgets(1));
-      expect(find.text('¥1800.00'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('¥1200.00'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('¥1800.00'), findsAtLeastNWidgets(1));
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('87%'), findsAtLeastNWidgets(1));
 

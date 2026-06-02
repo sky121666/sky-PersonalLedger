@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
-import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
@@ -294,27 +293,10 @@ void main() {
         ..reminders = [_activeReminder(paymentDay: DateTime.now().day)];
       await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
 
-      final reminderSurface = tester.widget<PremiumSurface>(
-        find
-            .ancestor(
-              of: find.text('房贷'),
-              matching: find.byType(PremiumSurface),
-            )
-            .first,
+      final balanceText = tester.widget<Text>(
+        find.textContaining('待还 ¥80000.00').first,
       );
-      final reminderBadge = tester.widget<IconBadge>(
-        find
-            .ancestor(
-              of: find.byIcon(Icons.house_outlined),
-              matching: find.byType(IconBadge),
-            )
-            .first,
-      );
-      expect(
-        reminderSurface.accentColor,
-        AppThemePalette.graphite.warningColor,
-      );
-      expect(reminderBadge.color, AppThemePalette.graphite.warningColor);
+      expect(balanceText.style?.color, AppThemePalette.graphite.warningColor);
     });
 
     testWidgets('暂停提醒失败时展示错误且保留原状态', (tester) async {

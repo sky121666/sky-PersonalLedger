@@ -143,7 +143,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无快捷模板'), findsOneWidget);
-      expect(find.text('暂无数据'), findsOneWidget);
+      expect(find.text('暂无数据'), findsNothing);
       expect(find.text('新增模板'), findsWidgets);
     });
 

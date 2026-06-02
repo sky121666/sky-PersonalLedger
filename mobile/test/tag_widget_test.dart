@@ -137,7 +137,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无标签'), findsOneWidget);
-      expect(find.text('暂无数据'), findsOneWidget);
+      expect(find.text('暂无数据'), findsNothing);
     });
 
     testWidgets('新增标签失败时展示错误且保留输入', (tester) async {

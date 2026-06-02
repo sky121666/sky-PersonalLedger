@@ -644,14 +644,9 @@ class _EmptyCategoryBudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const PremiumSurface(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 18),
-        child: AppEmptyView(
-          title: '暂无分类预算',
-          icon: Icons.track_changes_outlined,
-        ),
-      ),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: AppEmptyView(title: '暂无分类预算', icon: Icons.track_changes_outlined),
     );
   }
 }
@@ -671,106 +666,90 @@ class _CategoryBudgetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final statusColor = _budgetStatusColor(context, budget.percentage);
+    final riskText = _budgetRiskText(budget);
 
-    return PremiumSurface(
-      accentColor: statusColor,
-      child: Padding(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IconBadge(
-                  icon: Icons.donut_small_outlined,
-                  color: statusColor,
-                  size: 38,
-                  iconSize: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        budget.categoryName.isEmpty
-                            ? '未命名分类'
-                            : budget.categoryName,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      budget.categoryName.isEmpty
+                          ? '未命名分类'
+                          : budget.categoryName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _budgetStatusText(budget),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: statusColor,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '${budget.percentage.toStringAsFixed(0)}%',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '已用 ${_formatMoney(budget.spent)} / ${_formatMoney(budget.amount)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${budget.percentage.toStringAsFixed(0)}%',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: busy ? null : onDelete,
+                icon: busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline),
+                color: colorScheme.error,
+                tooltip: '删除预算 ${budget.categoryName}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _BudgetProgressBar(percentage: budget.percentage),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  riskText ?? '剩余 ${_formatMoney(budget.remaining)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: riskText == null ? colorScheme.outline : statusColor,
+                    fontWeight: riskText == null ? null : FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-                IconButton(
-                  onPressed: busy ? null : onDelete,
-                  icon: busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.delete_outline),
-                  color: colorScheme.error,
-                  tooltip: '删除预算 ${budget.categoryName}',
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _CompactBudgetMetric(
-                  label: '预算',
-                  value: _formatMoney(budget.amount),
-                ),
-                _CompactBudgetMetric(
-                  label: '已用',
-                  value: _formatMoney(budget.spent),
-                ),
-                _CompactBudgetMetric(
-                  label: '剩余',
-                  value: _formatMoney(budget.remaining),
-                ),
-              ],
-            ),
-            _BudgetProgressBar(percentage: budget.percentage),
-            const SizedBox(height: 8),
-            Text(
-              '提醒线 ${budget.alertThreshold}%',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-            ),
-          ],
-        ),
+              ),
+              Text(
+                '提醒 ${budget.alertThreshold}%',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -813,13 +792,11 @@ class _EmptyMemberBudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const PremiumSurface(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 18),
-        child: AppEmptyView(
-          title: '暂无成员预算',
-          icon: Icons.family_restroom_outlined,
-        ),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: AppEmptyView(
+        title: '暂无成员预算',
+        icon: Icons.family_restroom_outlined,
       ),
     );
   }
@@ -844,141 +821,86 @@ class _MemberBudgetCard extends StatelessWidget {
         ? memberName
         : '$memberName · ${budget.categoryName}';
     final statusColor = _budgetStatusColor(context, budget.percentage);
+    final riskText = _budgetRiskText(budget);
 
-    return PremiumSurface(
-      accentColor: statusColor,
-      child: Padding(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IconBadge(
-                  icon: Icons.person_outline,
-                  color: statusColor,
-                  size: 38,
-                  iconSize: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _budgetStatusText(budget),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: statusColor,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '${budget.percentage.toStringAsFixed(0)}%',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: busy ? null : onDelete,
-                  icon: busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.delete_outline),
-                  color: colorScheme.error,
-                  tooltip: '删除成员预算 ${budget.memberName}',
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _CompactBudgetMetric(
-                  label: '预算',
-                  value: _formatMoney(budget.amount),
-                ),
-                _CompactBudgetMetric(
-                  label: '已用',
-                  value: _formatMoney(budget.spent),
-                ),
-                _CompactBudgetMetric(
-                  label: '剩余',
-                  value: _formatMoney(budget.remaining),
-                ),
-              ],
-            ),
-            _BudgetProgressBar(percentage: budget.percentage),
-            const SizedBox(height: 8),
-            Text(
-              '提醒线 ${budget.alertThreshold}%',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CompactBudgetMetric extends StatelessWidget {
-  const _CompactBudgetMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.54),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant),
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: colorScheme.outline),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '已用 ${_formatMoney(budget.spent)} / ${_formatMoney(budget.amount)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${budget.percentage.toStringAsFixed(0)}%',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: busy ? null : onDelete,
+                icon: busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline),
+                color: colorScheme.error,
+                tooltip: '删除成员预算 ${budget.memberName}',
+              ),
+            ],
           ),
-          const SizedBox(width: 6),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+          const SizedBox(height: 10),
+          _BudgetProgressBar(percentage: budget.percentage),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  riskText ?? '剩余 ${_formatMoney(budget.remaining)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: riskText == null ? colorScheme.outline : statusColor,
+                    fontWeight: riskText == null ? null : FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              Text(
+                '提醒 ${budget.alertThreshold}%',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+              ),
+            ],
           ),
         ],
       ),
@@ -1298,4 +1220,14 @@ String _budgetStatusText(BudgetItem budget) {
     return '接近预算上限';
   }
   return '控制良好';
+}
+
+String? _budgetRiskText(BudgetItem budget) {
+  if (budget.isOverBudget) {
+    return '已超出预算';
+  }
+  if (budget.isNearLimit) {
+    return '接近预算上限';
+  }
+  return null;
 }
