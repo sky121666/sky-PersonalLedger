@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
-import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
@@ -26,17 +25,18 @@ void main() {
       expect(find.text('¥1,200.00'), findsAtLeastNWidgets(1));
       expect(find.text('结清率'), findsNothing);
       expect(find.text('张三'), findsOneWidget);
-      expect(find.text('剩余 ¥800.00'), findsOneWidget);
+      expect(find.text('剩余'), findsOneWidget);
+      expect(find.text('¥800.00'), findsOneWidget);
       expect(find.byKey(const ValueKey('lending-card-lend-1')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('lending-progress-lend-1')),
         findsNothing,
       );
-      expect(find.text('凭证已留存'), findsOneWidget);
+      expect(find.textContaining('凭证'), findsOneWidget);
       expect(find.text('待补凭证'), findsNothing);
       expect(find.textContaining('本金'), findsAtLeastNWidgets(1));
       expect(find.textContaining('已还'), findsAtLeastNWidgets(1));
-      expect(find.text('进度 20%'), findsOneWidget);
+      expect(find.text('20%'), findsOneWidget);
       expect(find.text('备注'), findsOneWidget);
 
       expect(
@@ -243,7 +243,7 @@ void main() {
       await _pumpPage(tester, lendingRepository);
 
       expect(find.text('暂无借出记录'), findsOneWidget);
-      expect(find.text('可以先从上方按钮新增一笔借贷往来。'), findsOneWidget);
+      expect(find.text('可以先从上方按钮新增一笔借贷往来。'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });
 
@@ -263,24 +263,10 @@ void main() {
             )
             .first,
       );
-      final metrics = tester.widgetList<MetricPill>(find.byType(MetricPill));
       expect(overviewSurface.accentColor, AppThemePalette.graphite.incomeColor);
-      expect(
-        metrics.any(
-          (metric) =>
-              metric.label == '借出中' &&
-              metric.color == AppThemePalette.graphite.incomeColor,
-        ),
-        isTrue,
-      );
-      expect(
-        metrics.any(
-          (metric) =>
-              metric.label == '借入中' &&
-              metric.color == AppThemePalette.graphite.assetColor,
-        ),
-        isTrue,
-      );
+      expect(find.text('应收'), findsOneWidget);
+      expect(find.text('应付'), findsOneWidget);
+      expect(find.text('借出 1 笔 · 借入 1 笔 · 已结清 0 笔'), findsOneWidget);
     });
 
     testWidgets('新增借出失败时展示错误且保留列表', (tester) async {
@@ -324,7 +310,8 @@ void main() {
       expect(lendingRepository.repaymentCalls, hasLength(1));
       expect(find.textContaining('还款失败'), findsOneWidget);
       expect(find.text('还款已记录'), findsNothing);
-      expect(find.text('剩余 ¥800.00'), findsOneWidget);
+      expect(find.text('剩余'), findsOneWidget);
+      expect(find.text('¥800.00'), findsOneWidget);
     });
   });
 }
