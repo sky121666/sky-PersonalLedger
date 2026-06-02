@@ -34,8 +34,8 @@ void main() {
         find.byKey(const ValueKey('reminder-debt-panel-reminder-1')),
         findsNothing,
       );
-      expect(find.textContaining('本金'), findsAtLeastNWidgets(1));
-      expect(find.textContaining('月供'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('本金'), findsOneWidget);
+      expect(find.textContaining('月供'), findsNothing);
       expect(find.text('贷款账户'), findsNothing);
 
       expect(
@@ -124,7 +124,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('新增负债提醒'));
+      await tester.tap(find.byTooltip('新增负债'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).at(0), '花呗');
       await tester.enterText(find.byType(TextFormField).at(1), '15');

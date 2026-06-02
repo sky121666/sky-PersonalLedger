@@ -179,53 +179,30 @@ class _YearSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final sortedYears = {...years, selectedYear}.toList()
       ..sort((a, b) => b.compareTo(a));
-    return PremiumSurface(
-      padding: const EdgeInsets.all(18),
-      accentColor: Theme.of(context).colorScheme.primary,
-      child: Row(
-        children: [
-          IconBadge(
-            icon: Icons.insights_outlined,
-            color: Theme.of(context).colorScheme.primary,
-            size: 48,
-            iconSize: 25,
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$selectedYear 年账本汇总',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '年度报告',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$selectedYear 年账本汇总',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          DropdownMenu<int>(
-            initialSelection: selectedYear,
-            width: 128,
-            dropdownMenuEntries: [
-              for (final year in sortedYears)
-                DropdownMenuEntry(value: year, label: '$year 年'),
-            ],
-            onSelected: (value) {
-              if (value != null) {
-                onYearChanged(value);
-              }
-            },
-          ),
-        ],
-      ),
+        ),
+        DropdownMenu<int>(
+          initialSelection: selectedYear,
+          width: 128,
+          dropdownMenuEntries: [
+            for (final year in sortedYears)
+              DropdownMenuEntry(value: year, label: '$year 年'),
+          ],
+          onSelected: (value) {
+            if (value != null) {
+              onYearChanged(value);
+            }
+          },
+        ),
+      ],
     );
   }
 }

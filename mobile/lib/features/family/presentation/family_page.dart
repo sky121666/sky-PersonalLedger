@@ -117,10 +117,10 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: _submittingMember ? null : () => _showMemberSheet(),
-        icon: const Icon(Icons.add),
-        label: const Text('添加成员'),
+        tooltip: '添加成员',
+        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(
         child: membersState.when(
@@ -147,10 +147,35 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
                     loadingSummary: summaryState.isLoading,
                   ),
                 ),
+                const SizedBox(height: 18),
+                Text(
+                  '成员',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...members.indexed.map((entry) {
+                  final (index, member) = entry;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: StaggeredEntrance(
+                      index: index + 1,
+                      child: _FamilyMemberCard(
+                        member: member,
+                        submitting: _submittingMember,
+                        onEdit: () => _showMemberSheet(member),
+                        onDisable: member.isEnabled
+                            ? () => _disableMember(member)
+                            : null,
+                      ),
+                    ),
+                  );
+                }),
                 if (memberBudgetsState.valueOrNull?.isNotEmpty == true) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 1,
+                    index: members.length + 2,
                     child: _FamilyBudgetSurface(
                       budgets: memberBudgetsState.valueOrNull!,
                     ),
@@ -166,7 +191,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
                 if (summary != null && summary.members.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 2,
+                    index: members.length + 3,
                     child: _FamilyRankingSurface(summary: summary),
                   ),
                 ],
@@ -176,7 +201,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
                     )) ...[
                   const SizedBox(height: 12),
                   StaggeredEntrance(
-                    index: 3,
+                    index: members.length + 4,
                     child: _FamilyCategorySurface(statistics: statistics),
                   ),
                 ],
@@ -187,31 +212,6 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
                     child: const Text('家庭分类统计加载失败，其他家庭数据仍可查看。'),
                   ),
                 ],
-                const SizedBox(height: 18),
-                Text(
-                  '成员',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ...members.indexed.map((entry) {
-                  final (index, member) = entry;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: StaggeredEntrance(
-                      index: index + 7,
-                      child: _FamilyMemberCard(
-                        member: member,
-                        submitting: _submittingMember,
-                        onEdit: () => _showMemberSheet(member),
-                        onDisable: member.isEnabled
-                            ? () => _disableMember(member)
-                            : null,
-                      ),
-                    ),
-                  );
-                }),
               ],
             );
           },

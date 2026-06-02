@@ -138,6 +138,12 @@ void main() {
     expect(find.text('成员启用'), findsNothing);
     expect(find.text('默认成员'), findsNothing);
     expect(find.text('分类统计'), findsNothing);
+    expect(find.text('成员A'), findsWidgets);
+    expect(find.text('家人'), findsOneWidget);
+    expect(find.text('默认'), findsOneWidget);
+    expect(find.text('成员B'), findsWidgets);
+    expect(find.text('子女'), findsOneWidget);
+    expect(find.text('停用'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('家庭预算'), 260);
     await tester.pumpAndSettle();
     expect(find.text('家庭预算'), findsAtLeastNWidgets(1));
@@ -154,14 +160,6 @@ void main() {
     expect(find.text('成员分类拆分'), findsOneWidget);
     expect(find.text('餐饮'), findsOneWidget);
     expect(find.text('¥160.00'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('默认'), 300);
-    expect(find.text('成员A'), findsWidgets);
-    expect(find.text('家人'), findsOneWidget);
-    expect(find.text('默认'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('停用'), 300);
-    expect(find.text('成员B'), findsWidgets);
-    expect(find.text('子女'), findsOneWidget);
-    expect(find.text('停用'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsWidgets);
   });
 
@@ -216,7 +214,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('添加成员').first);
+    await tester.tap(find.byTooltip('添加成员'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('family-member-name')),

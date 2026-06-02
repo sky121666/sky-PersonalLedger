@@ -19,7 +19,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.dashboardCalls, 2);
-      expect(find.text('统计分析'), findsOneWidget);
+      expect(find.text('本月概览'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('statistics-period-command-center')),
         findsNothing,

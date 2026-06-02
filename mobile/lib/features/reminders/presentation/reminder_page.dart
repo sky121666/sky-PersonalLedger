@@ -38,16 +38,16 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
         title: const Text('负债'),
         actions: [
           IconButton(
-            onPressed: _isBusy ? null : () => _openReminderForm(),
-            icon: const Icon(Icons.add),
-            tooltip: '新增负债提醒',
-          ),
-          IconButton(
             onPressed: _isBusy ? null : _refresh,
             icon: const Icon(Icons.refresh),
             tooltip: '刷新负债提醒',
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _isBusy ? null : () => _openReminderForm(),
+        tooltip: '新增负债',
+        child: const Icon(Icons.add),
       ),
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载负债提醒...'),
@@ -745,7 +745,6 @@ class _ReminderCard extends StatelessWidget {
         ? financeColors.warning
         : colorScheme.primary;
     final reminderColor = _parseReminderColor(reminder.color, accentColor);
-    final hasEvidence = reminder.evidence.trim().isNotEmpty;
     final dueText = days == 0 ? '今天还款' : '每月 ${reminder.paymentDay} 日，$days 天后';
     final statusLabel = reminder.paidOffAt != null
         ? '已还清'
@@ -794,7 +793,6 @@ class _ReminderCard extends StatelessWidget {
                           reminder.loanTypeLabel,
                           dueText,
                           if (statusLabel != '进行中') statusLabel,
-                          if (hasEvidence) '凭证',
                         ].join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -817,16 +815,6 @@ class _ReminderCard extends StatelessWidget {
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
-                    if (reminder.amount != null) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        '月供 ${_formatMoney(reminder.amount!)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
                 const SizedBox(width: 4),
@@ -879,14 +867,6 @@ class _ReminderCard extends StatelessWidget {
               _ReminderProgressLine(
                 progress: reminder.progress,
                 color: accentColor,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '本金 ${_formatMoney(reminder.principal ?? 0)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.outline,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
               ),
             ],
           ],
