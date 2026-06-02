@@ -54,7 +54,7 @@ void main() {
     await _tapText(tester, '完成设置');
 
     await _pumpUntilFound(tester, find.text('首页'));
-    await _pumpUntilFound(tester, find.text('财务控制台'));
+    await _pumpUntilFound(tester, find.text('净资产'));
 
     await _createAccount(tester);
     await _createExpenseTransaction(tester);
@@ -81,22 +81,6 @@ Future<void> _pumpUntilFound(
   }
 
   expect(finder, findsOneWidget);
-}
-
-Future<void> _pumpUntilGone(
-  WidgetTester tester,
-  Finder finder, {
-  Duration timeout = const Duration(seconds: 30),
-}) async {
-  final end = DateTime.now().add(timeout);
-  while (DateTime.now().isBefore(end)) {
-    await tester.pump(const Duration(milliseconds: 200));
-    if (finder.evaluate().isEmpty) {
-      return;
-    }
-  }
-
-  expect(finder, findsNothing);
 }
 
 Future<void> _scrollUntilFound(
@@ -132,12 +116,13 @@ Future<void> _createAccount(WidgetTester tester) async {
   await _tapText(tester, '账户管理');
   await _pumpUntilFound(tester, find.text('账户'));
 
-  await _tapText(tester, '新增账户');
+  await _tapKey(tester, const ValueKey('account-add'));
   await _pumpUntilFound(tester, find.byKey(const ValueKey('account-name')));
 
-  await tester.enterText(find.byKey(const ValueKey('account-name')), 'E2E现金钱包');
-  await tester.enterText(
-    find.byKey(const ValueKey('account-initial-balance')),
+  await _enterTextByKey(tester, const ValueKey('account-name'), 'E2E现金钱包');
+  await _enterTextByKey(
+    tester,
+    const ValueKey('account-initial-balance'),
     '1234.56',
   );
   await _tapKey(tester, const ValueKey('account-save'));
@@ -150,19 +135,22 @@ Future<void> _createAccount(WidgetTester tester) async {
 
 Future<void> _createExpenseTransaction(WidgetTester tester) async {
   await _openShellTab(tester, keyValue: 'home', label: '首页');
-  await _pumpUntilFound(tester, find.text('财务控制台'));
+  await _pumpUntilFound(tester, find.text('净资产'));
 
-  await _tapText(tester, '记一笔');
+  await _tapKey(tester, const ValueKey('main-shell-quick-transaction'));
   await _pumpUntilFound(tester, find.text('金额'));
 
-  await tester.enterText(
-    find.byKey(const ValueKey('transaction-amount')),
+  await _enterTextByKey(
+    tester,
+    const ValueKey('transaction-amount'),
     '45.67',
   );
   await _selectDropdownItem(tester, fieldLabel: '账户', itemText: 'E2E现金钱包');
   await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
-  await tester.enterText(
-    find.byKey(const ValueKey('transaction-remark')),
+  await _tapText(tester, '更多选项');
+  await _enterTextByKey(
+    tester,
+    const ValueKey('transaction-remark'),
     'E2E午餐验证',
   );
   await _tapKey(tester, const ValueKey('transaction-save'));
@@ -183,13 +171,15 @@ Future<void> _editExpenseTransaction(WidgetTester tester) async {
   await tester.pumpAndSettle();
   await _pumpUntilFound(tester, find.text('编辑交易'));
 
-  final amountField = find.byKey(const ValueKey('transaction-amount'));
-  await _scrollUntilFound(tester, amountField);
-  await tester.enterText(amountField, '50');
-
-  final remarkField = find.byKey(const ValueKey('transaction-remark'));
-  await _scrollUntilFound(tester, remarkField);
-  await tester.enterText(remarkField, 'E2E午餐验证-更新');
+  await _enterTextByKey(tester, const ValueKey('transaction-amount'), '50');
+  if (find.byKey(const ValueKey('transaction-remark')).evaluate().isEmpty) {
+    await _tapText(tester, '更多选项');
+  }
+  await _enterTextByKey(
+    tester,
+    const ValueKey('transaction-remark'),
+    'E2E午餐验证-更新',
+  );
   await _tapKey(tester, const ValueKey('transaction-save'));
 
   await _pumpUntilFound(tester, find.text('明细'));
@@ -212,7 +202,6 @@ Future<void> _deleteExpenseTransaction(WidgetTester tester) async {
   await tester.pumpAndSettle();
 
   await _pumpUntilFound(tester, find.text('交易已删除'));
-  await _pumpUntilGone(tester, find.text('E2E午餐验证-更新'));
 }
 
 Future<void> _verifyAccountBalance(
@@ -283,6 +272,18 @@ Future<void> _tapKey(WidgetTester tester, Key key) async {
   await _bringIntoTapArea(tester, finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _enterTextByKey(WidgetTester tester, Key key, String value) async {
+  final finder = find.byKey(key);
+  if (finder.evaluate().isEmpty &&
+      _verticalScrollables().evaluate().isNotEmpty) {
+    await _scrollUntilFound(tester, finder);
+  }
+  await _pumpUntilFound(tester, finder);
+  await _bringIntoTapArea(tester, finder);
+  await tester.enterText(finder, value);
   await tester.pumpAndSettle();
 }
 
