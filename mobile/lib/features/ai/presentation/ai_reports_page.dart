@@ -505,13 +505,19 @@ class _AIProviderSetupSurface extends StatelessWidget {
       data: (setup) {
         return PremiumSurface(
           accentColor: colorScheme.secondary,
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.key_outlined, color: colorScheme.secondary),
-                  const SizedBox(width: 10),
+                  IconBadge(
+                    icon: Icons.key_outlined,
+                    color: colorScheme.secondary,
+                    size: 34,
+                    iconSize: 18,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '报告来源',
@@ -527,133 +533,154 @@ class _AIProviderSetupSurface extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               if (setup.providers.isEmpty)
-                Text(
-                  '暂无可用来源',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.42,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.link_off_outlined,
+                          size: 18,
+                          color: colorScheme.outline,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '暂无可用来源',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: colorScheme.outline),
+                        ),
+                      ],
+                    ),
+                  ),
                 )
               else
                 ...setup.providers.map(
-                  (provider) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.55,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor: colorScheme.secondary
-                                      .withValues(alpha: 0.12),
-                                  foregroundColor: colorScheme.secondary,
-                                  child: const Icon(Icons.smart_toy_outlined),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        provider.name,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        provider.providerType,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: colorScheme.outline,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                _AIReportStatusChip(
-                                  status: provider.enabled
-                                      ? 'completed'
-                                      : 'pending',
-                                  label: provider.enabled ? '启用' : '停用',
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Tooltip(
-                                  message: '编辑来源 ${provider.name}',
-                                  child: TextButton.icon(
-                                    key: ValueKey(
-                                      'ai-provider-edit-${provider.id}',
-                                    ),
-                                    onPressed: () => onEdit(setup, provider),
-                                    icon: const Icon(Icons.edit_outlined),
-                                    label: const Text('编辑'),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Tooltip(
-                                  message: '测试来源 ${provider.name}',
-                                  child: OutlinedButton.icon(
-                                    key: ValueKey(
-                                      'ai-provider-test-${provider.id}',
-                                    ),
-                                    onPressed: testingProviderId == null
-                                        ? () => onTest(provider)
-                                        : null,
-                                    icon: testingProviderId == provider.id
-                                        ? const SizedBox.square(
-                                            dimension: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : const Icon(Icons.bolt_outlined),
-                                    label: const Text('测试'),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                IconButton(
-                                  key: ValueKey(
-                                    'ai-provider-delete-${provider.id}',
-                                  ),
-                                  onPressed: () => onDelete(provider),
-                                  icon: const Icon(Icons.delete_outline),
-                                  tooltip: '删除来源 ${provider.name}',
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  (provider) => _AIProviderCompactRow(
+                    provider: provider,
+                    testing: testingProviderId == provider.id,
+                    disabled: testingProviderId != null,
+                    onEdit: () => onEdit(setup, provider),
+                    onDelete: () => onDelete(provider),
+                    onTest: () => onTest(provider),
                   ),
                 ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _AIProviderCompactRow extends StatelessWidget {
+  const _AIProviderCompactRow({
+    required this.provider,
+    required this.testing,
+    required this.disabled,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onTest,
+  });
+
+  final AIProviderSummary provider;
+  final bool testing;
+  final bool disabled;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onTest;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: colorScheme.secondary.withValues(alpha: 0.12),
+                foregroundColor: colorScheme.secondary,
+                child: const Icon(Icons.smart_toy_outlined, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            provider.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        _AIReportStatusChip(
+                          status: provider.enabled ? 'completed' : 'pending',
+                          label: provider.enabled ? '启用' : '停用',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      provider.model,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                key: ValueKey('ai-provider-edit-${provider.id}'),
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: '编辑来源 ${provider.name}',
+              ),
+              IconButton(
+                key: ValueKey('ai-provider-test-${provider.id}'),
+                onPressed: disabled && !testing ? null : onTest,
+                icon: testing
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.bolt_outlined),
+                tooltip: '测试来源 ${provider.name}',
+              ),
+              IconButton(
+                key: ValueKey('ai-provider-delete-${provider.id}'),
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline),
+                tooltip: '删除来源 ${provider.name}',
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -906,10 +933,7 @@ class _AIReportGenerateSheetState extends State<_AIReportGenerateSheet> {
                 initialValue: _providerId,
                 decoration: const InputDecoration(labelText: '来源'),
                 items: [
-                  const DropdownMenuItem(
-                    value: '',
-                    child: Text('自动选择启用来源'),
-                  ),
+                  const DropdownMenuItem(value: '', child: Text('自动选择启用来源')),
                   for (final provider in widget.providers)
                     DropdownMenuItem(
                       value: provider.id,
@@ -1029,17 +1053,22 @@ class _AIReportScheduleForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
     final normalizedHour = _normalizedHour(settings.hour);
     return PremiumSurface(
       accentColor: colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.event_repeat_outlined, color: colorScheme.primary),
-              const SizedBox(width: 10),
+              IconBadge(
+                icon: Icons.event_repeat_outlined,
+                color: colorScheme.primary,
+                size: 34,
+                iconSize: 18,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   '自动报告',
@@ -1054,39 +1083,45 @@ class _AIReportScheduleForm extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _AIScheduleMetric(
-                  label: '运行时间',
-                  value: '${normalizedHour.toString().padLeft(2, '0')}:00',
-                  icon: Icons.schedule_outlined,
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AIScheduleMetric(
-                  label: '隐私设置',
-                  value: '聚合快照',
-                  icon: Icons.privacy_tip_outlined,
-                  color: financeColors.asset,
-                ),
-              ),
-            ],
+          const SizedBox(height: 10),
+          _AIScheduleSummaryRow(
+            hour: normalizedHour,
+            weeklyEnabled: settings.weeklyEnabled,
+            monthlyEnabled: settings.monthlyEnabled,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _AIScheduleEnablePanel(
             value: settings.enabled,
             enabled: !saving,
             onChanged: (value) => onChanged(settings.copyWith(enabled: value)),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          const SizedBox(height: 10),
+          Row(
             children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  initialValue: normalizedHour,
+                  decoration: const InputDecoration(
+                    labelText: '运行时间',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (var hour = 0; hour < 24; hour++)
+                      DropdownMenuItem(
+                        value: hour,
+                        child: Text('${hour.toString().padLeft(2, '0')}:00'),
+                      ),
+                  ],
+                  onChanged: saving
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            onChanged(settings.copyWith(hour: value));
+                          }
+                        },
+                ),
+              ),
+              const SizedBox(width: 8),
               FilterChip(
                 selected: settings.weeklyEnabled,
                 label: const Text('每周总结'),
@@ -1095,6 +1130,7 @@ class _AIReportScheduleForm extends StatelessWidget {
                     : (value) =>
                           onChanged(settings.copyWith(weeklyEnabled: value)),
               ),
+              const SizedBox(width: 6),
               FilterChip(
                 selected: settings.monthlyEnabled,
                 label: const Text('月度总结'),
@@ -1106,48 +1142,6 @@ class _AIReportScheduleForm extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            initialValue: normalizedHour,
-            decoration: InputDecoration(
-              labelText: '运行小时',
-              border: const OutlineInputBorder(),
-              prefixIcon: Icon(
-                Icons.access_time_outlined,
-                color: colorScheme.primary,
-              ),
-            ),
-            items: [
-              for (var hour = 0; hour < 24; hour++)
-                DropdownMenuItem(
-                  value: hour,
-                  child: Text('${hour.toString().padLeft(2, '0')}:00'),
-                ),
-            ],
-            onChanged: saving
-                ? null
-                : (value) {
-                    if (value != null) {
-                      onChanged(settings.copyWith(hour: value));
-                    }
-                  },
-          ),
-          const SizedBox(height: 12),
-          _ScheduleAuditRow(
-            label: '周报上次检查',
-            value: settings.lastWeeklyRun.isEmpty
-                ? '无'
-                : settings.lastWeeklyRun,
-            icon: Icons.view_week_outlined,
-          ),
-          const SizedBox(height: 8),
-          _ScheduleAuditRow(
-            label: '月报上次检查',
-            value: settings.lastMonthlyRun.isEmpty
-                ? '无'
-                : settings.lastMonthlyRun,
-            icon: Icons.calendar_month_outlined,
-          ),
-          const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -1174,57 +1168,92 @@ class _AIReportScheduleForm extends StatelessWidget {
   }
 }
 
-class _AIScheduleMetric extends StatelessWidget {
-  const _AIScheduleMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
+class _AIScheduleSummaryRow extends StatelessWidget {
+  const _AIScheduleSummaryRow({
+    required this.hour,
+    required this.weeklyEnabled,
+    required this.monthlyEnabled,
   });
 
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
+  final int hour;
+  final bool weeklyEnabled;
+  final bool monthlyEnabled;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
+    final enabledTypes = [
+      if (weeklyEnabled) '每周总结',
+      if (monthlyEnabled) '月度总结',
+    ].join(' / ');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _AISchedulePill(
+            icon: Icons.schedule_outlined,
+            label: '执行',
+            value: '${hour.toString().padLeft(2, '0')}:00',
+          ),
+          _AISchedulePill(
+            icon: Icons.privacy_tip_outlined,
+            label: '聚合快照',
+            value: enabledTypes.isEmpty ? '未选择' : enabledTypes,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AISchedulePill extends StatelessWidget {
+  const _AISchedulePill({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: colorScheme.primary, size: 16),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-      ),
+        const SizedBox(width: 5),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 150),
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1303,37 +1332,6 @@ class _AIScheduleEnablePanel extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _ScheduleAuditRow extends StatelessWidget {
-  const _ScheduleAuditRow({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: colorScheme.outline),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            '$label：$value',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1674,10 +1672,7 @@ class _AIReportContent extends StatelessWidget {
         data.highlights.isEmpty &&
         data.risks.isEmpty &&
         data.suggestions.isEmpty) {
-      return const Align(
-        alignment: Alignment.centerLeft,
-        child: Text('暂无内容'),
-      );
+      return const Align(alignment: Alignment.centerLeft, child: Text('暂无内容'));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
