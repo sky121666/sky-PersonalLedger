@@ -58,6 +58,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   String? _errorMessage;
 
   bool get _isEditing => widget.editingTransaction != null;
+  bool get _isEmbedded => widget.embedded;
 
   /// 初始化交易表单基础数据。
   @override
@@ -79,20 +80,26 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   @override
   Widget build(BuildContext context) {
     final content = _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const SizedBox(
+            height: 360,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2.6)),
+          )
         : Form(
             key: _formKey,
             child: ListView(
               shrinkWrap: widget.embedded,
-              padding: EdgeInsets.zero,
+              physics: widget.embedded
+                  ? const ClampingScrollPhysics()
+                  : const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.only(bottom: widget.embedded ? 8 : 24),
               children: [
                 if (_errorMessage != null) ...[
                   _buildErrorSurface(),
                   const SizedBox(height: 12),
                 ],
-                StaggeredEntrance(
-                  index: 0,
-                  child: Column(
+                _buildEntrance(
+                  0,
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _TransactionTypeSelector(
@@ -105,36 +112,31 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                           });
                         },
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       TextFormField(
                         key: const ValueKey('transaction-amount'),
                         controller: _amountController,
                         autofocus: false,
-                        decoration: InputDecoration(
+                        decoration: _fieldDecoration(
                           labelText: '金额',
-                          prefixText: '¥ ',
-                          border: const OutlineInputBorder(),
-                          prefixIcon: Icon(_typeIcon(_type)),
-                        ),
+                          icon: _typeIcon(_type),
+                        ).copyWith(prefixText: '¥ '),
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                         validator: _validateAmount,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 10),
-                StaggeredEntrance(
-                  index: 1,
-                  child: Column(
+                _buildEntrance(
+                  1,
+                  Column(
                     children: [
                       _buildAccountPicker(),
                       const SizedBox(height: 10),
@@ -148,9 +150,9 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                StaggeredEntrance(
-                  index: 2,
-                  child: Column(
+                _buildEntrance(
+                  2,
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       TextButton.icon(
@@ -207,10 +209,16 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 FilledButton(
                   key: const ValueKey('transaction-save'),
                   onPressed: _submitting ? null : _submit,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -238,7 +246,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           padding: EdgeInsets.only(
             left: 16,
             right: 16,
-            bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+            bottom: MediaQuery.viewInsetsOf(context).bottom + 10,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -252,7 +260,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
@@ -270,6 +278,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
               Flexible(child: content),
             ],
           ),
@@ -290,13 +299,55 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     );
   }
 
+  Widget _buildEntrance(int index, Widget child) {
+    if (_isEmbedded) {
+      return child;
+    }
+    return StaggeredEntrance(index: index, child: child);
+  }
+
+  InputDecoration _fieldDecoration({
+    required String labelText,
+    required IconData icon,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InputDecoration(
+      labelText: labelText,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      labelStyle: TextStyle(
+        color: colorScheme.primary,
+        fontWeight: FontWeight.w800,
+      ),
+      filled: true,
+      fillColor: Color.alphaBlend(
+        colorScheme.primary.withValues(alpha: 0.035),
+        colorScheme.surface,
+      ),
+      prefixIcon: Icon(icon, size: 20),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: colorScheme.primary, width: 1.2),
+      ),
+    );
+  }
+
   Widget _buildAccountPicker() {
     return DropdownButtonFormField<String>(
       initialValue: _accountId,
-      decoration: const InputDecoration(
+      decoration: _fieldDecoration(
         labelText: '账户',
-        border: OutlineInputBorder(),
+        icon: Icons.account_balance_wallet_outlined,
       ),
+      menuMaxHeight: 360,
       items: _accounts
           .map(
             (account) =>
@@ -317,10 +368,11 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           selectableAccounts.any((account) => account.id == _toAccountId)
           ? _toAccountId
           : null,
-      decoration: const InputDecoration(
+      decoration: _fieldDecoration(
         labelText: '转入账户',
-        border: OutlineInputBorder(),
+        icon: Icons.move_down_outlined,
       ),
+      menuMaxHeight: 360,
       items: selectableAccounts
           .map(
             (account) =>
@@ -352,10 +404,11 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           selectableCategories.any((category) => category.id == _categoryId)
           ? _categoryId
           : null,
-      decoration: const InputDecoration(
+      decoration: _fieldDecoration(
         labelText: '分类',
-        border: OutlineInputBorder(),
+        icon: Icons.category_outlined,
       ),
+      menuMaxHeight: 360,
       items: selectableCategories
           .map(
             (category) => DropdownMenuItem(
@@ -379,10 +432,8 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       initialValue: _familyMembers.any((member) => member.id == _memberId)
           ? _memberId
           : null,
-      decoration: const InputDecoration(
-        labelText: '成员',
-        border: OutlineInputBorder(),
-      ),
+      decoration: _fieldDecoration(labelText: '成员', icon: Icons.group_outlined),
+      menuMaxHeight: 360,
       items: [
         const DropdownMenuItem(value: '', child: Text('不指定成员')),
         ..._familyMembers.map(
@@ -493,9 +544,9 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
               child: TextField(
                 key: const ValueKey('transaction-custom-tag'),
                 controller: _customTagController,
-                decoration: const InputDecoration(
+                decoration: _fieldDecoration(
                   labelText: '自定义标签',
-                  border: OutlineInputBorder(),
+                  icon: Icons.sell_outlined,
                 ),
                 onSubmitted: (_) => _addCustomTag(),
               ),

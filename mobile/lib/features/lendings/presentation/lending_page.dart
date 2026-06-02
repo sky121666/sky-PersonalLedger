@@ -608,7 +608,7 @@ class _LendingCard extends StatelessWidget {
       button: false,
       child: Container(
         key: ValueKey('lending-card-${item.id}'),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 11),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
         ),
@@ -648,17 +648,19 @@ class _LendingCard extends StatelessWidget {
                   children: [
                     Text(
                       '剩余 ${_formatMoney(item.currentBalance)}',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: statusColor,
                         fontWeight: FontWeight.w900,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       '已还 ${_formatMoney(item.totalRepaid)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
+                        color: colorScheme.onSurfaceVariant,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
@@ -666,9 +668,9 @@ class _LendingCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 9),
             _LendingProgressLine(progress: item.progress, color: accent),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Expanded(
@@ -691,7 +693,7 @@ class _LendingCard extends StatelessWidget {
                 ),
                 if (busy)
                   const SizedBox.square(
-                    dimension: 22,
+                    dimension: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 else ...[
@@ -769,10 +771,10 @@ class _LendingActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+      constraints: const BoxConstraints.tightFor(width: 38, height: 38),
       padding: EdgeInsets.zero,
       onPressed: onPressed,
-      icon: Icon(icon, size: 20),
+      icon: Icon(icon, size: 19),
       tooltip: tooltip,
     );
   }
@@ -793,48 +795,54 @@ class _LendingMoreMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<_LendingMenuAction>(
-      tooltip: '更多借贷操作 $contactName',
-      icon: const Icon(Icons.more_horiz),
-      itemBuilder: (context) => const [
-        PopupMenuItem(
-          value: _LendingMenuAction.records,
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.receipt_long_outlined),
-            title: Text('还款记录'),
+    return SizedBox(
+      width: 38,
+      height: 38,
+      child: PopupMenuButton<_LendingMenuAction>(
+        tooltip: '更多借贷操作 $contactName',
+        padding: EdgeInsets.zero,
+        icon: const Icon(Icons.more_horiz),
+        iconSize: 19,
+        itemBuilder: (context) => const [
+          PopupMenuItem(
+            value: _LendingMenuAction.records,
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.receipt_long_outlined),
+              title: Text('还款记录'),
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: _LendingMenuAction.edit,
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.edit_outlined),
-            title: Text('编辑'),
+          PopupMenuItem(
+            value: _LendingMenuAction.edit,
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.edit_outlined),
+              title: Text('编辑'),
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: _LendingMenuAction.delete,
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.delete_outline),
-            title: Text('删除'),
+          PopupMenuItem(
+            value: _LendingMenuAction.delete,
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.delete_outline),
+              title: Text('删除'),
+            ),
           ),
-        ),
-      ],
-      onSelected: (action) {
-        switch (action) {
-          case _LendingMenuAction.records:
-            onRecords();
-          case _LendingMenuAction.edit:
-            onEdit();
-          case _LendingMenuAction.delete:
-            onDelete();
-        }
-      },
+        ],
+        onSelected: (action) {
+          switch (action) {
+            case _LendingMenuAction.records:
+              onRecords();
+            case _LendingMenuAction.edit:
+              onEdit();
+            case _LendingMenuAction.delete:
+              onDelete();
+          }
+        },
+      ),
     );
   }
 }
