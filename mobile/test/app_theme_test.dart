@@ -49,12 +49,12 @@ void main() {
     });
 
     test('主题模板提供设置页策展语义', () {
-      expect(AppThemePalette.obsidian.sceneLabel, '旗舰夜间使用');
+      expect(AppThemePalette.obsidian.sceneLabel, '夜间深蓝');
       expect(AppThemePalette.aurora.sceneLabel, '前卫数据流');
-      expect(AppThemePalette.plasma.sceneLabel, '动效先锋界面');
+      expect(AppThemePalette.plasma.sceneLabel, '明亮蓝色');
       expect(AppThemePalette.obsidian.platformCue, '夜间');
-      expect(AppThemePalette.aurora.platformCue, '跨端');
-      expect(AppThemePalette.plasma.platformCue, '动效');
+      expect(AppThemePalette.aurora.platformCue, '清透');
+      expect(AppThemePalette.plasma.platformCue, '明亮');
     });
 
     test('主题切换动效使用统一高级节奏', () {
@@ -175,7 +175,7 @@ void main() {
       expect(fabTheme.backgroundColor, AppThemePalette.plasma.seedColor);
       expect(fabTheme.foregroundColor, theme.colorScheme.onPrimary);
       expect(fabTheme.enableFeedback, isTrue);
-      expect(fabTheme.elevation, 4);
+      expect(fabTheme.elevation, 1);
       expect(fabTheme.shape, isA<RoundedRectangleBorder>());
       expect(fabTheme.extendedTextStyle?.fontWeight, FontWeight.w900);
     });
@@ -355,7 +355,7 @@ void main() {
 
       expect(ids.length, AppThemePalette.values.length);
       expect(labels, containsAll(['冰川青', '星云紫', '曜石玫瑰', '钛金灰', '量子青橙', '鎏金黑']));
-      expect(AppThemePalette.kinetic.sceneLabel, '跨端高频交互');
+      expect(AppThemePalette.kinetic.sceneLabel, '青橙对比');
       expect(AppThemePalette.titanium.platformCue, '原生');
       expect(AppThemePalette.values.length, 16);
     });

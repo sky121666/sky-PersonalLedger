@@ -260,7 +260,7 @@ class AppTheme {
   static const Color expenseColor = Color(0xFFDC2626);
   static const Color assetColor = Color(0xFF2563EB);
   static const Color warningColor = Color(0xFFF59E0B);
-  static const double surfaceRadius = 20;
+  static const double surfaceRadius = 12;
   static const Duration themeAnimationDuration = MotionTokens.long;
   static const Curve themeAnimationCurve = MotionTokens.curveEmphasized;
 
@@ -927,12 +927,12 @@ class AppTheme {
       focusColor: palette.seedColor.withValues(alpha: 0.16),
       hoverColor: palette.seedColor.withValues(alpha: 0.12),
       splashColor: colorScheme.onPrimary.withValues(alpha: 0.16),
-      elevation: 4,
-      focusElevation: 6,
-      hoverElevation: 6,
-      highlightElevation: 8,
+      elevation: 1,
+      focusElevation: 2,
+      hoverElevation: 2,
+      highlightElevation: 2,
       disabledElevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       enableFeedback: true,
       iconSize: 24,
       extendedIconLabelSpacing: 10,

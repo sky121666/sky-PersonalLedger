@@ -41,13 +41,6 @@ class PremiumSurface extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.10 : 0.035),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Padding(padding: padding, child: child),
     );
