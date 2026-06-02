@@ -241,7 +241,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
             onSubmit: _changePassword,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         StaggeredEntrance(
           index: 2,
           child: _EntryPathCard(
@@ -279,6 +279,7 @@ class _PasswordCard extends StatelessWidget {
     final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: financeColors.expense,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -287,14 +288,14 @@ class _PasswordCard extends StatelessWidget {
             color: financeColors.expense,
             title: '修改密码',
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _SecurityPasswordField(
             keyValue: 'security-old-password',
             controller: oldPasswordController,
             label: '当前密码',
             textInputAction: TextInputAction.next,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _SecurityPasswordField(
             keyValue: 'security-new-password',
             controller: newPasswordController,
@@ -302,14 +303,14 @@ class _PasswordCard extends StatelessWidget {
             hint: '至少 8 位',
             textInputAction: TextInputAction.next,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _SecurityPasswordField(
             keyValue: 'security-confirm-password',
             controller: confirmPasswordController,
             label: '确认新密码',
             onSubmitted: (_) => submitting ? null : onSubmit(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           FilledButton.icon(
             key: const ValueKey('security-change-password-submit'),
             onPressed: submitting ? null : onSubmit,
@@ -390,6 +391,7 @@ class _EntryPathCard extends StatelessWidget {
         : colorScheme.outline;
     return PremiumSurface(
       accentColor: stateColor,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -414,7 +416,7 @@ class _EntryPathCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           TextField(
             key: const ValueKey('security-entry-path'),
             controller: controller,
@@ -428,7 +430,7 @@ class _EntryPathCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -481,8 +483,8 @@ class _SecuritySectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconBadge(icon: icon, color: color),
-        const SizedBox(width: 12),
+        IconBadge(icon: icon, color: color, size: 36, iconSize: 19),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

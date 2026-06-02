@@ -348,7 +348,7 @@ class _TemplateCard extends StatelessWidget {
     final amountColor = isIncome ? financeColors.income : colorScheme.error;
     return PremiumSurface(
       accentColor: amountColor,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -359,10 +359,10 @@ class _TemplateCard extends StatelessWidget {
                     ? Icons.trending_up_outlined
                     : Icons.trending_down_outlined,
                 color: amountColor,
-                size: 44,
-                iconSize: 22,
+                size: 36,
+                iconSize: 19,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,7 +375,7 @@ class _TemplateCard extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       '${template.typeLabel} · $accountName · $categoryName',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -388,6 +388,8 @@ class _TemplateCard extends StatelessWidget {
               ),
               Text(
                 '${isIncome ? '+' : '-'}¥${template.amount.toStringAsFixed(2)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: amountColor,
                   fontWeight: FontWeight.w900,
@@ -396,15 +398,17 @@ class _TemplateCard extends StatelessWidget {
             ],
           ),
           if (template.remark.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               template.remark,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             children: [
               _TemplateMetaPill(

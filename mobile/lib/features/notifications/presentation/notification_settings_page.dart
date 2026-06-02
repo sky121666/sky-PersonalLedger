@@ -153,7 +153,7 @@ class _NotificationSettingsFormState
             index: 1,
             child: PremiumSurface(
               accentColor: enabledAccent,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: _NotificationSwitchRow(
                 icon: Icons.notifications_active_outlined,
                 color: enabledAccent,
@@ -166,7 +166,7 @@ class _NotificationSettingsFormState
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           StaggeredEntrance(
             index: 2,
             child: SingleChildScrollView(
@@ -201,9 +201,9 @@ class _NotificationSettingsFormState
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           StaggeredEntrance(index: 3, child: _buildChannelCard()),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           StaggeredEntrance(
             index: 4,
             child: _OptionsCard(
@@ -225,7 +225,7 @@ class _NotificationSettingsFormState
                   setState(() => _advanceDays = value),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           StaggeredEntrance(
             index: 5,
             child: Align(
@@ -586,7 +586,7 @@ class _ChannelCard extends StatelessWidget {
     final accentColor = enabled ? financeColors.income : financeColors.asset;
     return PremiumSurface(
       accentColor: accentColor,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -597,9 +597,9 @@ class _ChannelCard extends StatelessWidget {
             value: enabled,
             onChanged: onEnabledChanged,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           ...children,
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
             child: OutlinedButton.icon(
@@ -660,7 +660,7 @@ class _OptionsCard extends StatelessWidget {
     final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: financeColors.warning,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
         children: [
           _NotificationPanelHeader(
@@ -781,19 +781,19 @@ class _NotificationSwitchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           color.withValues(alpha: value ? 0.10 : 0.04),
           colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: value ? 0.18 : 0.10)),
       ),
       child: Row(
         children: [
-          IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
-          const SizedBox(width: 10),
+          IconBadge(icon: icon, color: color, size: 32, iconSize: 17),
+          const SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

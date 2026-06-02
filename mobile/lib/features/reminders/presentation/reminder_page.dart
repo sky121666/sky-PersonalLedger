@@ -476,7 +476,7 @@ class _DebtSummaryCard extends StatelessWidget {
                   color: colorScheme.error,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: _DebtMiniStat(
                   label: '已还',
@@ -484,7 +484,7 @@ class _DebtSummaryCard extends StatelessWidget {
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: _DebtMiniStat(
                   label: '本金',
@@ -495,7 +495,7 @@ class _DebtSummaryCard extends StatelessWidget {
             ],
           ),
           if (summary.nextPaymentName.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _NextPaymentBanner(summary: summary),
           ],
         ],
@@ -519,14 +519,14 @@ class _DebtMiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
-          color.withValues(alpha: 0.07),
+          color.withValues(alpha: 0.06),
           colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -538,7 +538,7 @@ class _DebtMiniStat extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Text(
             value,
             maxLines: 1,
