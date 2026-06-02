@@ -248,7 +248,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('资产、负债与现金账户一屏扫读'), findsNothing);
-      expect(find.text('2 个账户'), findsOneWidget);
+      expect(find.text('2 个'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('home-account-line-cash-1')),
         findsOneWidget,
@@ -267,6 +267,80 @@ void main() {
           matching: find.byType(Semantics),
         ),
         findsWidgets,
+      );
+    });
+
+    testWidgets('首页账户概览优先展示非零余额账户', (tester) async {
+      final repository = _FakeHomeRepository(
+        summaries: [
+          _summary(
+            netAssets: 1000,
+            accounts: const [
+              Account(
+                id: 'empty-cash',
+                name: '现金',
+                type: 'cash',
+                icon: '💰',
+                color: '#10B981',
+                currentBalance: 0,
+                isArchived: false,
+              ),
+              Account(
+                id: 'living-cash',
+                name: '生活现金',
+                type: 'cash',
+                icon: '💰',
+                color: '#0EA5E9',
+                currentBalance: 1000,
+                isArchived: false,
+              ),
+              Account(
+                id: 'empty-bank',
+                name: '银行卡',
+                type: 'bank',
+                icon: '💳',
+                color: '#6366F1',
+                currentBalance: 0,
+                isArchived: false,
+              ),
+              Account(
+                id: 'loan',
+                name: '房贷',
+                type: 'loan',
+                icon: '🏦',
+                color: '#EF4444',
+                currentBalance: 300000,
+                isArchived: false,
+              ),
+            ],
+          ),
+        ],
+      );
+      await _pumpPage(tester, repository);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('home-account-overview-card')),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('4 个'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-account-line-living-cash')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-account-line-loan')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-account-line-empty-cash')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-account-line-empty-bank')),
+        findsNothing,
       );
     });
 

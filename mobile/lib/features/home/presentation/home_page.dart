@@ -100,7 +100,7 @@ class _HomeContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accounts = summary.accounts.activeAccounts;
-    final visibleAccounts = accounts.take(3).toList();
+    final visibleAccounts = _prioritizedHomeAccounts(accounts).take(3).toList();
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -904,7 +904,7 @@ class _HomeAccountCountPill extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.16)),
       ),
       child: Text(
-        '$totalCount 个账户',
+        '$totalCount 个',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1028,6 +1028,42 @@ class _AccountLine extends StatelessWidget {
       ),
     );
   }
+}
+
+List<Account> _prioritizedHomeAccounts(List<Account> accounts) {
+  final indexed = accounts.indexed.toList();
+  indexed.sort((left, right) {
+    final leftAccount = left.$2;
+    final rightAccount = right.$2;
+    final leftScore = _homeAccountPriority(leftAccount);
+    final rightScore = _homeAccountPriority(rightAccount);
+    final scoreCompare = rightScore.compareTo(leftScore);
+    if (scoreCompare != 0) {
+      return scoreCompare;
+    }
+    final balanceCompare = rightAccount.currentBalance.abs().compareTo(
+      leftAccount.currentBalance.abs(),
+    );
+    if (balanceCompare != 0) {
+      return balanceCompare;
+    }
+    return left.$1.compareTo(right.$1);
+  });
+  return indexed.map((entry) => entry.$2).toList();
+}
+
+int _homeAccountPriority(Account account) {
+  var score = 0;
+  if (account.currentBalance.abs() > 0.005) {
+    score += 4;
+  }
+  if (account.isDebt) {
+    score += 2;
+  }
+  if (account.type == 'cash' || account.type == 'bank') {
+    score += 1;
+  }
+  return score;
 }
 
 class _BudgetInfoItem extends StatelessWidget {
