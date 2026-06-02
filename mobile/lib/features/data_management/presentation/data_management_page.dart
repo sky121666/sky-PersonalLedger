@@ -422,7 +422,7 @@ class _AutoBackupCard extends StatelessWidget {
         : colorScheme.outline;
     return PremiumSurface(
       accentColor: statusColor,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -431,10 +431,10 @@ class _AutoBackupCard extends StatelessWidget {
               IconBadge(
                 icon: Icons.schedule_outlined,
                 color: statusColor,
-                size: 46,
-                iconSize: 23,
+                size: 38,
+                iconSize: 20,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,6 +458,8 @@ class _AutoBackupCard extends StatelessWidget {
                   ],
                 ),
               ),
+              _AutoBackupStatusPill(enabled: settings.enabled),
+              const SizedBox(width: 6),
               IconButton.filledTonal(
                 onPressed: enabled && !loading ? onReload : null,
                 icon: const Icon(Icons.refresh),
@@ -465,13 +467,13 @@ class _AutoBackupCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _SwitchPanel(
             value: settings.enabled,
             enabled: enabled && !loading,
             onChanged: onEnabledChanged,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: SegmentedButton<String>(
@@ -499,7 +501,7 @@ class _AutoBackupCard extends StatelessWidget {
                   : null,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -548,7 +550,7 @@ class _AutoBackupCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -604,6 +606,34 @@ class _AutoBackupCard extends StatelessWidget {
   }
 }
 
+class _AutoBackupStatusPill extends StatelessWidget {
+  const _AutoBackupStatusPill({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = enabled ? colorScheme.primary : colorScheme.outline;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Text(
+        enabled ? '已开启' : '关闭',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
 class _SwitchPanel extends StatelessWidget {
   const _SwitchPanel({
     required this.value,
@@ -624,39 +654,29 @@ class _SwitchPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         onTap: enabled ? () => onChanged(!value) : null,
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: colorScheme.outlineVariant),
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+            ),
           ),
           child: Row(
             children: [
               IconBadge(
                 icon: Icons.auto_awesome_motion_outlined,
                 color: value ? colorScheme.primary : colorScheme.outline,
-                size: 38,
-                iconSize: 19,
+                size: 34,
+                iconSize: 18,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '启用自动备份',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '按频率保留备份',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  '启用自动备份',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
               Semantics(

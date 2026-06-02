@@ -267,7 +267,7 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
                     ),
                   )
                 : PremiumSurface(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                     child: Column(
                       children: [
                         for (
@@ -528,12 +528,12 @@ class _TokenTile extends StatelessWidget {
       label: '${token.name}，${_tokenSubtitle(token)}',
       button: true,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
         decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.38),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.62),
+            color: colorScheme.outlineVariant.withValues(alpha: 0.46),
           ),
         ),
         child: Row(
@@ -541,10 +541,10 @@ class _TokenTile extends StatelessWidget {
             IconBadge(
               icon: Icons.smartphone_outlined,
               color: colorScheme.primary,
-              size: 42,
-              iconSize: 21,
+              size: 34,
+              iconSize: 18,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -562,7 +562,7 @@ class _TokenTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 3),
                   Text(
                     _tokenSubtitle(token),
                     maxLines: 1,
@@ -575,7 +575,7 @@ class _TokenTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             IconButton.filledTonal(
               onPressed: deleting ? null : onDelete,
               icon: const Icon(Icons.delete_outline),

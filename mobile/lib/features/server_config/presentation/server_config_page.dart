@@ -52,8 +52,12 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
         TextField(
           controller: _serverUrlController,
           enabled: !isLoading,
+          autocorrect: false,
+          enableSuggestions: false,
+          textCapitalization: TextCapitalization.none,
           decoration: InputDecoration(
             labelText: '服务器地址',
+            hintText: 'https://ledger.example.com',
             border: const OutlineInputBorder(),
             errorText: authState.errorMessage,
             prefixIcon: const Icon(Icons.dns_outlined),
