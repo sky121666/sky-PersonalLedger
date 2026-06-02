@@ -388,9 +388,7 @@ class _AccountLogTile extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
+      child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Color.alphaBlend(
@@ -403,13 +401,6 @@ class _AccountLogTile extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: typeStyle.color.withValues(alpha: 0.14)),
-          boxShadow: [
-            BoxShadow(
-              color: typeStyle.color.withValues(alpha: 0.08),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-            ),
-          ],
         ),
         child: Column(
           children: [

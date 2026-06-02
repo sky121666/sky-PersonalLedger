@@ -1302,9 +1302,7 @@ class _AccountColorChoice extends StatelessWidget {
     return InkResponse(
       onTap: onSelected,
       radius: 24,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
+      child: Container(
         width: 34,
         height: 34,
         decoration: BoxDecoration(
@@ -1314,13 +1312,6 @@ class _AccountColorChoice extends StatelessWidget {
             color: selected ? Theme.of(context).colorScheme.onSurface : color,
             width: selected ? 3 : 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: selected ? 0.36 : 0.16),
-              blurRadius: selected ? 16 : 8,
-              offset: const Offset(0, 6),
-            ),
-          ],
         ),
         child: selected
             ? const Icon(Icons.check, size: 18, color: Colors.white)

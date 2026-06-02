@@ -56,24 +56,18 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('AnimatedMoneyText exposes final amount while animating', (
+  testWidgets('AnimatedMoneyText exposes final amount immediately', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: AnimatedMoneyText(
-            amount: 320,
-            duration: Duration(milliseconds: 300),
-          ),
-        ),
-      ),
+      const MaterialApp(home: Scaffold(body: AnimatedMoneyText(amount: 320))),
     );
 
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump();
 
+    expect(find.text('¥320.00'), findsOneWidget);
     expect(find.bySemanticsLabel('¥320.00'), findsOneWidget);
     semantics.dispose();
   });

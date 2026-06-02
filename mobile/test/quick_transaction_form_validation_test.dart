@@ -360,7 +360,7 @@ void main() {
       expect(find.text('可保存'), findsNothing);
     });
 
-    testWidgets('账户区域跟随主题色模板', (tester) async {
+    testWidgets('核心表单首屏不依赖装饰卡片', (tester) async {
       final repository = _FakeTransactionRepository();
       await _pumpTransactionPage(
         tester,
@@ -368,16 +368,10 @@ void main() {
         palette: AppThemePalette.graphite,
       );
 
-      final surfaces = tester.widgetList<PremiumSurface>(
-        find.byType(PremiumSurface),
-      );
-      expect(
-        surfaces.any(
-          (surface) =>
-              surface.accentColor == AppThemePalette.graphite.assetColor,
-        ),
-        isTrue,
-      );
+      expect(find.byType(PremiumSurface), findsNothing);
+      expect(find.text('金额'), findsOneWidget);
+      expect(find.text('账户'), findsOneWidget);
+      expect(find.text('分类'), findsOneWidget);
     });
   });
 }

@@ -931,10 +931,8 @@ class _AccountLine extends StatelessWidget {
     return Semantics(
       label:
           '${account.name}，$typeLabel，余额${_formatCurrency(account.currentBalance)}',
-      child: AnimatedContainer(
+      child: Container(
         key: ValueKey('home-account-line-${account.id}'),
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
         constraints: const BoxConstraints(minHeight: 72),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -1049,9 +1047,7 @@ class _BudgetInfoItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+    return Container(
       constraints: const BoxConstraints(minHeight: 74),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(

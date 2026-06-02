@@ -92,67 +92,59 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                 ],
                 StaggeredEntrance(
                   index: 0,
-                  child: PremiumSurface(
-                    accentColor: _typeColor(context, _type),
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _TransactionTypeSelector(
-                          selectedType: _type,
-                          onSelected: (type) {
-                            setState(() {
-                              _type = type;
-                              _categoryId = null;
-                              _toAccountId = null;
-                            });
-                          },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _TransactionTypeSelector(
+                        selectedType: _type,
+                        onSelected: (type) {
+                          setState(() {
+                            _type = type;
+                            _categoryId = null;
+                            _toAccountId = null;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        key: const ValueKey('transaction-amount'),
+                        controller: _amountController,
+                        autofocus: false,
+                        decoration: InputDecoration(
+                          labelText: '金额',
+                          prefixText: '¥ ',
+                          border: const OutlineInputBorder(),
+                          prefixIcon: Icon(_typeIcon(_type)),
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          key: const ValueKey('transaction-amount'),
-                          controller: _amountController,
-                          autofocus: false,
-                          decoration: InputDecoration(
-                            labelText: '金额',
-                            prefixText: '¥ ',
-                            border: const OutlineInputBorder(),
-                            prefixIcon: Icon(_typeIcon(_type)),
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                          validator: _validateAmount,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                      ],
-                    ),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                        validator: _validateAmount,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 10),
                 StaggeredEntrance(
                   index: 1,
-                  child: PremiumSurface(
-                    accentColor: AppTheme.financeColors(context).asset,
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        _buildAccountPicker(),
-                        const SizedBox(height: 10),
-                        if (_type == TransactionType.transfer)
-                          _buildToAccountPicker()
-                        else
-                          _buildCategoryPicker(),
-                        const SizedBox(height: 10),
-                        _buildDateTimePicker(),
-                      ],
-                    ),
+                  child: Column(
+                    children: [
+                      _buildAccountPicker(),
+                      const SizedBox(height: 10),
+                      if (_type == TransactionType.transfer)
+                        _buildToAccountPicker()
+                      else
+                        _buildCategoryPicker(),
+                      const SizedBox(height: 10),
+                      _buildDateTimePicker(),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 10),
