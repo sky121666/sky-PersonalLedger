@@ -139,7 +139,7 @@ class _AccountContent extends ConsumerWidget {
       return StaggeredEntrance(
         index: 0,
         child: AppEmptyView(
-          title: '暂无账户',
+          title: '还没有账户',
           icon: Icons.account_balance_wallet_outlined,
           action: FilledButton.icon(
             onPressed: () => _openAccountForm(context),

@@ -19,7 +19,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('负债管理'), findsOneWidget);
+      expect(find.text('负债'), findsOneWidget);
       expect(find.text('还款进度'), findsOneWidget);
       expect(find.text('上岸进度'), findsNothing);
       expect(find.text('稳步推进'), findsNothing);

@@ -20,7 +20,7 @@ void main() {
       expect(find.text('交易 CSV'), findsOneWidget);
       expect(find.text('下载备份'), findsOneWidget);
       expect(find.text('导出 CSV'), findsOneWidget);
-      expect(find.text('恢复备份'), findsOneWidget);
+      expect(find.text('恢复数据'), findsOneWidget);
       expect(find.text('数据操作链路'), findsNothing);
       expect(find.byKey(const ValueKey('data-operation-rail')), findsNothing);
       expect(find.byKey(const ValueKey('data-recovery-matrix')), findsNothing);
@@ -203,7 +203,7 @@ void main() {
 
       expect(find.text('完整备份'), findsAtLeastNWidgets(1));
       expect(find.text('交易 CSV'), findsOneWidget);
-      expect(find.text('恢复备份'), findsWidgets);
+      expect(find.text('恢复数据'), findsWidgets);
       expect(
         find.byKey(const ValueKey('auto-backup-orchestration-panel')),
         findsNothing,

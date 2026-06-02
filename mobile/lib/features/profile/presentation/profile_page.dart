@@ -47,8 +47,8 @@ class ProfilePage extends ConsumerWidget {
                   _SettingsEntry(
                     icon: Icons.account_balance_wallet_outlined,
                     color: financeColors.asset,
-                    title: '账户管理',
-                    subtitle: '新增、编辑、归档和删除账户',
+                    title: '账户',
+                    subtitle: '新增、编辑和归档账户',
                     onTap: () => context.push(AppRoutePaths.accounts),
                   ),
                   _SettingsEntry(
@@ -61,14 +61,14 @@ class ProfilePage extends ConsumerWidget {
                   _SettingsEntry(
                     icon: Icons.category_outlined,
                     color: financeColors.expense,
-                    title: '分类管理',
+                    title: '分类',
                     subtitle: '维护收入和支出分类',
                     onTap: () => context.push(AppRoutePaths.categories),
                   ),
                   _SettingsEntry(
                     icon: Icons.label_outline,
                     color: financeColors.income,
-                    title: '标签管理',
+                    title: '标签',
                     subtitle: '维护交易标签和使用标记',
                     onTap: () => context.push(AppRoutePaths.tags),
                   ),
@@ -91,14 +91,14 @@ class ProfilePage extends ConsumerWidget {
                   _SettingsEntry(
                     icon: Icons.savings_outlined,
                     color: financeColors.income,
-                    title: '预算管理',
-                    subtitle: '设置总预算和分类预算提醒线',
+                    title: '预算',
+                    subtitle: '设置总预算和分类提醒线',
                     onTap: () => context.push(AppRoutePaths.budgets),
                   ),
                   _SettingsEntry(
                     icon: Icons.notifications_active_outlined,
                     color: financeColors.warning,
-                    title: '负债管理',
+                    title: '负债',
                     subtitle: '查看还款提醒和还款记录',
                     onTap: () => context.push(AppRoutePaths.reminders),
                   ),
@@ -106,14 +106,14 @@ class ProfilePage extends ConsumerWidget {
                     icon: Icons.handshake_outlined,
                     color: financeColors.asset,
                     title: '借贷往来',
-                    subtitle: '管理借出、借入和还款记录',
+                    subtitle: '借出、借入和还款记录',
                     onTap: () => context.push(AppRoutePaths.lendings),
                   ),
                   _SettingsEntry(
                     icon: Icons.diversity_3_outlined,
                     color: colorScheme.tertiary,
                     title: '家庭成员',
-                    subtitle: '管理家庭记账成员和支出归属',
+                    subtitle: '家庭记账成员和支出归属',
                     onTap: () => context.push(AppRoutePaths.family),
                   ),
                   _SettingsEntry(
@@ -161,7 +161,7 @@ class ProfilePage extends ConsumerWidget {
                   _SettingsEntry(
                     icon: Icons.storage_outlined,
                     color: financeColors.asset,
-                    title: '数据管理',
+                    title: '数据',
                     subtitle: '备份、恢复和导出交易数据',
                     onTap: () => context.push(AppRoutePaths.dataManagement),
                   ),

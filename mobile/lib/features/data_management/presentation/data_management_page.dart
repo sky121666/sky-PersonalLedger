@@ -50,7 +50,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('数据管理')),
+      appBar: AppBar(title: const Text('数据')),
       body: AdaptivePageContainer(
         child: ListView(
           padding: const EdgeInsets.only(bottom: 32),
@@ -79,7 +79,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               index: 1,
               child: const _DataSectionHeader(
                 icon: Icons.output_outlined,
-                title: '数据管理',
+                title: '数据',
               ),
             ),
             const SizedBox(height: 10),
@@ -116,8 +116,8 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               child: _ActionCard(
                 icon: Icons.restore_outlined,
                 accentColor: colorScheme.error,
-                title: '恢复备份',
-                buttonLabel: '选择备份恢复',
+                title: '恢复数据',
+                buttonLabel: '选择备份',
                 busy: _busyAction == 'restore',
                 enabled: !_isBusy,
                 isDanger: true,
@@ -203,8 +203,8 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   Future<void> _pickAndRestoreBackup() async {
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '恢复备份',
-      message: '恢复会覆盖当前账户下的数据。',
+      title: '恢复数据',
+      message: '将用所选备份覆盖当前账户数据。',
       confirmText: '继续恢复',
       isDanger: true,
     );

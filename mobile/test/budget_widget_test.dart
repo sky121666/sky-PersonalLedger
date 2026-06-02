@@ -17,7 +17,7 @@ void main() {
       final budgetRepository = _FakeBudgetRepository();
       await _pumpPage(tester, budgetRepository);
 
-      expect(find.text('预算管理'), findsOneWidget);
+      expect(find.text('预算'), findsOneWidget);
       expect(find.text('本月预算总览'), findsOneWidget);
       expect(find.textContaining('¥1200.00'), findsAtLeastNWidgets(1));
       expect(find.textContaining('¥1800.00'), findsAtLeastNWidgets(1));
@@ -44,9 +44,9 @@ void main() {
         findsNothing,
       );
 
-      await tester.scrollUntilVisible(find.text('家庭成员预算'), 300);
+      await tester.scrollUntilVisible(find.text('成员'), 300);
       await tester.pumpAndSettle();
-      expect(find.text('家庭成员预算'), findsOneWidget);
+      expect(find.text('成员'), findsOneWidget);
       expect(find.text('家人'), findsOneWidget);
       expect(
         find.byKey(
@@ -101,7 +101,7 @@ void main() {
       final budgetRepository = _FakeBudgetRepository();
       await _pumpPage(tester, budgetRepository);
 
-      await tester.scrollUntilVisible(find.text('家庭成员预算'), 300);
+      await tester.scrollUntilVisible(find.text('成员'), 300);
       await tester.tap(find.text('添加').last);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), '900');
@@ -138,7 +138,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
 
-      expect(find.text('预算管理'), findsOneWidget);
+      expect(find.text('预算'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
       expect(budgetRepository.getListCalls, 2);
     });
@@ -160,8 +160,8 @@ void main() {
       );
       expect(find.text('家庭预留'), findsNothing);
       expect(find.text('提醒线预留'), findsNothing);
-      expect(find.text('还没有设置总预算'), findsOneWidget);
-      expect(find.text('暂无分类预算'), findsOneWidget);
+      expect(find.text('未设置总预算'), findsOneWidget);
+      expect(find.text('未设置分类预算'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
     });
 

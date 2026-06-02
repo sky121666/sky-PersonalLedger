@@ -46,7 +46,7 @@ void main() {
       );
       expect(find.text('入口证据'), findsNothing);
       expect(find.text('三类交易'), findsNothing);
-      expect(find.text('未设置'), findsAtLeastNWidgets(1));
+      expect(find.text('未设置'), findsNothing);
       expect(find.text('AI 周报'), findsNothing);
       expect(
         find.byKey(const ValueKey('home-decision-evidence-rail')),
@@ -57,20 +57,20 @@ void main() {
       expect(find.text('AI 输入就绪'), findsNothing);
       expect(find.text('现金流稳定'), findsNothing);
       await tester.scrollUntilVisible(
-        find.text('暂无账户'),
+        find.text('还没有账户'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('暂无账户'), findsOneWidget);
+      expect(find.text('还没有账户'), findsOneWidget);
       expect(find.text('0 笔'), findsOneWidget);
-      expect(find.text('暂无现金流'), findsAtLeastNWidgets(1));
+      expect(find.text('本月无现金流'), findsAtLeastNWidgets(1));
       expect(find.text('等待首笔记录'), findsNothing);
       await tester.scrollUntilVisible(
-        find.text('本月暂未设置预算'),
+        find.text('本月未设置预算'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('本月暂未设置预算'), findsOneWidget);
+      expect(find.text('本月未设置预算'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
     });
 

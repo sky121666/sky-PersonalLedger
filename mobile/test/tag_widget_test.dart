@@ -13,7 +13,7 @@ void main() {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('标签管理'), findsOneWidget);
+      expect(find.text('标签'), findsOneWidget);
       expect(find.text('工资收入'), findsOneWidget);
       expect(find.text('系统标签 · 使用 8 次'), findsOneWidget);
       expect(find.text('旅行'), findsOneWidget);

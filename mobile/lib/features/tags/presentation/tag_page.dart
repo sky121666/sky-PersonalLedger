@@ -187,7 +187,7 @@ class _TagPageState extends ConsumerState<TagPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('标签管理'),
+        title: const Text('标签'),
         actions: [
           IconButton(
             onPressed: _submitting ? null : _loadTags,

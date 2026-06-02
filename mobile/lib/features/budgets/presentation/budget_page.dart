@@ -34,7 +34,7 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('预算管理'),
+        title: const Text('预算'),
         actions: [
           IconButton(
             onPressed: _isBusy ? null : _refresh,
@@ -494,7 +494,7 @@ class _BudgetSummaryCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       totalBudget == null
-                          ? '预算尚未启动'
+                          ? '还未设置'
                           : _budgetStatusText(totalBudget),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.outline,
@@ -522,7 +522,7 @@ class _BudgetSummaryCard extends StatelessWidget {
           const SizedBox(height: 14),
           if (totalBudget == null)
             Text(
-              '还没有设置总预算',
+              '未设置总预算',
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -625,7 +625,7 @@ class _CategoryBudgetHeader extends StatelessWidget {
         Expanded(
           child: _SectionTitle(
             icon: Icons.pie_chart_outline,
-            title: '分类预算',
+            title: '分类',
             subtitle: '$count / ${count + availableCount}',
           ),
         ),
@@ -646,7 +646,7 @@ class _EmptyCategoryBudgetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
-      child: AppEmptyView(title: '暂无分类预算', icon: Icons.track_changes_outlined),
+      child: AppEmptyView(title: '未设置分类预算', icon: Icons.track_changes_outlined),
     );
   }
 }
@@ -773,7 +773,7 @@ class _MemberBudgetHeader extends StatelessWidget {
         Expanded(
           child: _SectionTitle(
             icon: Icons.family_restroom_outlined,
-            title: '家庭成员预算',
+            title: '成员',
             subtitle: '$count / ${count + availableMemberCount}',
           ),
         ),
@@ -795,7 +795,7 @@ class _EmptyMemberBudgetCard extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
       child: AppEmptyView(
-        title: '暂无成员预算',
+        title: '未设置成员预算',
         icon: Icons.family_restroom_outlined,
       ),
     );

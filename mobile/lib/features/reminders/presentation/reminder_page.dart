@@ -35,7 +35,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('负债管理'),
+        title: const Text('负债'),
         actions: [
           IconButton(
             onPressed: _isBusy ? null : () => _openReminderForm(),

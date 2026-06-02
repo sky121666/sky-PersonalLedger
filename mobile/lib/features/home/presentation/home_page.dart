@@ -182,7 +182,7 @@ class _RecentTransactionsCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (items.isEmpty)
-            const _HomeEmptyLine(text: '暂无交易')
+            const _HomeEmptyLine(text: '还没有交易')
           else
             ...items.map((item) => _HomeTransactionRow(item: item)),
         ],
@@ -240,7 +240,7 @@ class _DateTransactionsCard extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             data: (items) => items.isEmpty
-                ? const _HomeEmptyLine(text: '当日暂无交易')
+                ? const _HomeEmptyLine(text: '当日无交易')
                 : Column(
                     children: [
                       for (final item in items) _HomeTransactionRow(item: item),
@@ -536,7 +536,7 @@ class _CashFlowBar extends StatelessWidget {
 
     if (totalFlow <= 0) {
       return Text(
-        '暂无现金流',
+        '本月无现金流',
         style: Theme.of(
           context,
         ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
@@ -659,7 +659,7 @@ class _BudgetSummaryCard extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         _BudgetStatusPill(
-                          label: hasBudget ? '已设置' : '未设置',
+                          label: hasBudget ? '已设置' : '未启用',
                           color: hasBudget
                               ? financeColors.warning
                               : colorScheme.outline,
@@ -667,7 +667,7 @@ class _BudgetSummaryCard extends StatelessWidget {
                         Text(
                           hasBudget
                               ? '${_formatCurrency(summary.totalSpent)} / ${_formatCurrency(summary.totalAmount)}'
-                              : '本月暂未设置预算',
+                              : '本月未设置预算',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
@@ -863,7 +863,7 @@ class _AccountOverviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           if (accounts.isEmpty)
-            const _EmptyCardLine(text: '暂无账户')
+            const _EmptyCardLine(text: '还没有账户')
           else
             ...accounts.map(
               (account) => Padding(
