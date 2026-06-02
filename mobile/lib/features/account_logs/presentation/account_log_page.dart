@@ -375,12 +375,6 @@ class _AccountLogTile extends StatelessWidget {
         ? financeColors.expense
         : Theme.of(context).colorScheme.outline;
     final colorScheme = Theme.of(context).colorScheme;
-    final directionLabel = change > 0
-        ? '余额增加'
-        : change < 0
-        ? '余额减少'
-        : '余额不变';
-
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
       child: Padding(
@@ -420,16 +414,6 @@ class _AccountLogTile extends StatelessWidget {
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    '余额 ${_formatMoney(log.balanceBefore)} → ${_formatMoney(log.balanceAfter)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.outline,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -443,14 +427,6 @@ class _AccountLogTile extends StatelessWidget {
                     color: changeColor,
                     fontWeight: FontWeight.w900,
                     fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  directionLabel,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],

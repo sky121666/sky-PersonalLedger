@@ -69,13 +69,13 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
     }
   }
 
-  Future<void> _createToken() async {
+  Future<bool> _createToken() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('请输入令牌名称')));
-      return;
+      return false;
     }
 
     setState(() {
@@ -90,7 +90,7 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
           );
       final tokens = await ref.read(apiTokenRepositoryProvider).list();
       if (!mounted) {
-        return;
+        return false;
       }
       setState(() {
         _createdToken = result.token;
@@ -100,17 +100,58 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('令牌创建成功，请立即复制保存')));
+      return true;
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(error.toString())));
       }
+      return false;
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
       }
     }
+  }
+
+  Future<void> _openCreateSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              0,
+              16,
+              16 + MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: _CreateTokenCard(
+              nameController: _nameController,
+              expiryDays: _expiryDays,
+              submitting: _submitting,
+              onExpiryChanged: (value) {
+                final next = value ?? _expiryDays;
+                setState(() => _expiryDays = next);
+                setSheetState(() {});
+              },
+              onCreate: () async {
+                final created = await _createToken();
+                if (created && sheetContext.mounted) {
+                  Navigator.of(sheetContext).pop();
+                } else {
+                  setSheetState(() {});
+                }
+              },
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _deleteToken(ApiTokenItem token) async {
@@ -175,6 +216,12 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        key: const ValueKey('api-token-add'),
+        onPressed: _submitting ? null : _openCreateSheet,
+        tooltip: '新增令牌',
+        child: const Icon(Icons.add),
+      ),
       body: AdaptivePageContainer(child: _buildBody()),
     );
   }
@@ -194,35 +241,23 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          StaggeredEntrance(
-            index: 0,
-            child: _CreateTokenCard(
-              nameController: _nameController,
-              expiryDays: _expiryDays,
-              submitting: _submitting,
-              onExpiryChanged: (value) =>
-                  setState(() => _expiryDays = value ?? _expiryDays),
-              onCreate: _createToken,
-            ),
-          ),
           if (_createdToken != null) ...[
-            const SizedBox(height: 12),
             StaggeredEntrance(
-              index: 1,
+              index: 0,
               child: _CreatedTokenCard(
                 token: _createdToken!,
                 onCopy: _copyCreatedToken,
               ),
             ),
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 12),
           StaggeredEntrance(
-            index: _createdToken == null ? 1 : 2,
+            index: _createdToken == null ? 0 : 1,
             child: _TokenListHeader(tokenCount: _tokens.length),
           ),
           const SizedBox(height: 8),
           StaggeredEntrance(
-            index: _createdToken == null ? 2 : 3,
+            index: _createdToken == null ? 1 : 2,
             child: _tokens.isEmpty
                 ? const PremiumSurface(
                     padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),

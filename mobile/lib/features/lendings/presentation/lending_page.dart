@@ -31,6 +31,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(lendingDashboardProvider);
+    final dashboard = dashboardState.asData?.value;
     return Scaffold(
       appBar: AppBar(
         title: const Text('借贷往来'),
@@ -42,6 +43,16 @@ class _LendingPageState extends ConsumerState<LendingPage> {
           ),
         ],
       ),
+      floatingActionButton: dashboard == null
+          ? null
+          : FloatingActionButton(
+              key: const ValueKey('lending-add'),
+              onPressed: _isBusy
+                  ? null
+                  : () => _openCreateChoice(dashboard.accounts),
+              tooltip: '新增借贷',
+              child: const Icon(Icons.add),
+            ),
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载借贷记录...'),
         error: (error, _) =>
@@ -60,18 +71,9 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                   index: 0,
                   child: _SummarySection(summary: dashboard.summary),
                 ),
-                const SizedBox(height: 12),
-                StaggeredEntrance(
-                  index: 1,
-                  child: _QuickActions(
-                    busy: _isBusy,
-                    onCreate: (type) =>
-                        _openCreateForm(type, dashboard.accounts),
-                  ),
-                ),
                 const SizedBox(height: 10),
                 StaggeredEntrance(
-                  index: 2,
+                  index: 1,
                   child: SegmentedButton<_LendingTab>(
                     segments: const [
                       ButtonSegment(
@@ -100,7 +102,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                 _LendingList(
                   lendings: _itemsForTab(dashboard),
                   tab: _tab,
-                  startIndex: 6,
+                  startIndex: 3,
                   busyAction: _busyAction,
                   onEdit: (item) => _openEditForm(item, dashboard.accounts),
                   onDelete: _deleteLending,
@@ -114,6 +116,42 @@ class _LendingPageState extends ConsumerState<LendingPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _openCreateChoice(List<Account> accounts) async {
+    final type = await showModalBottomSheet<LendingType>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                key: const ValueKey('lending-add-lend-out'),
+                leading: const Icon(Icons.north_east),
+                title: const Text('借出'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).pop(LendingType.lendOut),
+              ),
+              ListTile(
+                key: const ValueKey('lending-add-borrow-in'),
+                leading: const Icon(Icons.south_west),
+                title: const Text('借入'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).pop(LendingType.borrowIn),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (type == null || !mounted) {
+      return;
+    }
+    await _openCreateForm(type, accounts);
   }
 
   List<LendingItem> _itemsForTab(LendingDashboard dashboard) {
@@ -457,38 +495,6 @@ class _SummaryMiniStat extends StatelessWidget {
   }
 }
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.busy, required this.onCreate});
-
-  final bool busy;
-  final ValueChanged<LendingType> onCreate;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: FilledButton.icon(
-            key: const ValueKey('lending-add-lend-out'),
-            onPressed: busy ? null : () => onCreate(LendingType.lendOut),
-            icon: const Icon(Icons.north_east),
-            label: const Text('记一笔借出'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: FilledButton.tonalIcon(
-            key: const ValueKey('lending-add-borrow-in'),
-            onPressed: busy ? null : () => onCreate(LendingType.borrowIn),
-            icon: const Icon(Icons.south_west),
-            label: const Text('记一笔借入'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _LendingList extends StatelessWidget {
   const _LendingList({
     required this.lendings,
@@ -574,7 +580,6 @@ class _LendingCard extends StatelessWidget {
     final accent = item.type == LendingType.lendOut
         ? financeColors.income
         : financeColors.asset;
-    final hasEvidence = item.evidence.trim().isNotEmpty;
     final dueLabel = item.dueDate == null ? null : _formatDate(item.dueDate!);
     final statusLabel = item.isSettled
         ? '已结清'
@@ -619,7 +624,6 @@ class _LendingCard extends StatelessWidget {
                         [
                           item.typeLabel,
                           if (dueLabel != null) dueLabel,
-                          if (hasEvidence) '凭证',
                         ].join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -639,14 +643,6 @@ class _LendingCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: statusColor,
                         fontWeight: FontWeight.w900,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '本金 ${_formatMoney(item.principal)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),

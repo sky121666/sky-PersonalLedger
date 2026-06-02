@@ -32,9 +32,9 @@ void main() {
         find.byKey(const ValueKey('lending-progress-lend-1')),
         findsNothing,
       );
-      expect(find.textContaining('凭证'), findsOneWidget);
+      expect(find.textContaining('凭证'), findsNothing);
       expect(find.text('待补凭证'), findsNothing);
-      expect(find.textContaining('本金'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('本金'), findsNothing);
       expect(find.textContaining('已还'), findsAtLeastNWidgets(1));
       expect(find.text('20%'), findsOneWidget);
       expect(find.textContaining('朋友周转'), findsOneWidget);
@@ -59,13 +59,15 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
     });
 
     testWidgets('新增借出记录时提交联系人和本金', (tester) async {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
+      await tester.tap(find.byKey(const ValueKey('lending-add')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('lending-add-lend-out')));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -279,6 +281,8 @@ void main() {
         ..createError = '新增借出失败';
       await _pumpPage(tester, lendingRepository);
 
+      await tester.tap(find.byKey(const ValueKey('lending-add')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('lending-add-lend-out')));
       await tester.pumpAndSettle();
       await tester.enterText(

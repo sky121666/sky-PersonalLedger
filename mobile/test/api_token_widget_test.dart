@@ -40,18 +40,20 @@ void main() {
         findsNothing,
       );
       expect(find.text('令牌发行策略'), findsNothing);
-      expect(find.text('有效期'), findsWidgets);
+      expect(find.text('有效期'), findsNothing);
       expect(find.text('1 个'), findsOneWidget);
       expect(find.text('我的手机'), findsOneWidget);
       expect(find.text('前缀 abcd1234...'), findsNothing);
       expect(find.text('abcd1234... · 未使用 · 永不过期'), findsOneWidget);
-      expect(find.text('永不过期'), findsAtLeastNWidgets(1));
+      expect(find.text('永不过期'), findsNothing);
     });
 
     testWidgets('创建令牌后显示完整 token 且刷新列表', (tester) async {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
 
+      await tester.tap(find.byKey(const ValueKey('api-token-add')));
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('api-token-name')),
         'iPhone',
@@ -91,6 +93,8 @@ void main() {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
+      await tester.tap(find.byKey(const ValueKey('api-token-add')));
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('api-token-name')),
         '自动化脚本',
@@ -147,8 +151,8 @@ void main() {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
-      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
+      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
     });
   });
 }
