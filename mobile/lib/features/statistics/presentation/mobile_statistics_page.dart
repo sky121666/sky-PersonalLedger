@@ -212,7 +212,7 @@ class _MonthHeader extends StatelessWidget {
     return PremiumSurface(
       key: const ValueKey('statistics-period-header'),
       accentColor: palette.seedColor,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -251,6 +251,12 @@ class _MonthHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+          _StatisticsBalanceHero(
+            label: '结余',
+            value: _formatCurrency(overview.balance),
+            color: balanceColor,
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               IconButton.filledTonal(
@@ -279,7 +285,7 @@ class _MonthHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _StatisticsHeaderMetric(
+                child: _StatisticsAmountPill(
                   label: '收入',
                   value: _formatCurrency(overview.income),
                   icon: Icons.south_west_rounded,
@@ -288,20 +294,11 @@ class _MonthHeader extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _StatisticsHeaderMetric(
+                child: _StatisticsAmountPill(
                   label: '支出',
                   value: _formatCurrency(overview.expense),
                   icon: Icons.north_east_rounded,
                   color: financeColors.expense,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _StatisticsHeaderMetric(
-                  label: '结余',
-                  value: _formatCurrency(overview.balance),
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: balanceColor,
                 ),
               ),
             ],
@@ -313,10 +310,7 @@ class _MonthHeader extends StatelessWidget {
 }
 
 class _StatisticsPeriodCard extends StatelessWidget {
-  const _StatisticsPeriodCard({
-    required this.monthLabel,
-    required this.color,
-  });
+  const _StatisticsPeriodCard({required this.monthLabel, required this.color});
 
   final String monthLabel;
   final Color color;
@@ -359,8 +353,75 @@ class _StatisticsPeriodCard extends StatelessWidget {
   }
 }
 
-class _StatisticsHeaderMetric extends StatelessWidget {
-  const _StatisticsHeaderMetric({
+class _StatisticsBalanceHero extends StatelessWidget {
+  const _StatisticsBalanceHero({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(
+            alpha: Theme.of(context).brightness == Brightness.dark
+                ? 0.18
+                : 0.09,
+          ),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: Icons.account_balance_wallet_outlined,
+            color: color,
+            size: 38,
+            iconSize: 19,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Flexible(
+            flex: 2,
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatisticsAmountPill extends StatelessWidget {
+  const _StatisticsAmountPill({
     required this.label,
     required this.value,
     required this.icon,
@@ -378,8 +439,8 @@ class _StatisticsHeaderMetric extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 64),
-      padding: const EdgeInsets.all(9),
+      constraints: const BoxConstraints(minHeight: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           color.withValues(
@@ -392,12 +453,10 @@ class _StatisticsHeaderMetric extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
           Icon(icon, color: color, size: 17),
-          const SizedBox(height: 5),
+          const SizedBox(width: 7),
           Text(
             label,
             maxLines: 1,
@@ -407,14 +466,17 @@ class _StatisticsHeaderMetric extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 1),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ],

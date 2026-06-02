@@ -221,7 +221,7 @@ class _SummaryCard extends StatelessWidget {
         : colorScheme.error;
     return PremiumSurface(
       accentColor: savingsColor,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -248,55 +248,36 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             _formatCurrency(report.netSavings),
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
               color: savingsColor,
               fontWeight: FontWeight.w900,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(height: 18),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 560;
-              final tiles = [
-                _SummaryTile(
-                  label: '收入',
-                  value: _formatCurrency(report.totalIncome),
-                  color: financeColors.income,
-                  icon: Icons.south_west,
-                ),
-                _SummaryTile(
-                  label: '支出',
-                  value: _formatCurrency(report.totalExpense),
-                  color: financeColors.expense,
-                  icon: Icons.north_east,
-                ),
-                _SummaryTile(
-                  label: '储蓄率',
-                  value: '${report.savingsRate.toStringAsFixed(1)}%',
-                  color: savingsColor,
-                  icon: Icons.savings_outlined,
-                ),
-              ];
-              if (compact) {
-                return Column(
-                  children: [
-                    for (final tile in tiles) ...[
-                      tile,
-                      if (tile != tiles.last) const SizedBox(height: 10),
-                    ],
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  for (final tile in tiles) ...[
-                    Expanded(child: tile),
-                    if (tile != tiles.last) const SizedBox(width: 10),
-                  ],
-                ],
-              );
-            },
+          const SizedBox(height: 14),
+          _SummaryInlineRow(
+            items: [
+              _SummaryInlineItem(
+                label: '收入',
+                value: _formatCurrency(report.totalIncome),
+                color: financeColors.income,
+                icon: Icons.south_west,
+              ),
+              _SummaryInlineItem(
+                label: '支出',
+                value: _formatCurrency(report.totalExpense),
+                color: financeColors.expense,
+                icon: Icons.north_east,
+              ),
+              _SummaryInlineItem(
+                label: '储蓄率',
+                value: '${report.savingsRate.toStringAsFixed(1)}%',
+                color: savingsColor,
+                icon: Icons.savings_outlined,
+              ),
+            ],
           ),
         ],
       ),
@@ -304,8 +285,8 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _SummaryTile extends StatelessWidget {
-  const _SummaryTile({
+class _SummaryInlineItem {
+  const _SummaryInlineItem({
     required this.label,
     required this.value,
     required this.color,
@@ -316,48 +297,63 @@ class _SummaryTile extends StatelessWidget {
   final String value;
   final Color color;
   final IconData icon;
+}
+
+class _SummaryInlineRow extends StatelessWidget {
+  const _SummaryInlineRow({required this.items});
+
+  final List<_SummaryInlineItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [for (final item in items) _SummaryInlinePill(item: item)],
+    );
+  }
+}
+
+class _SummaryInlinePill extends StatelessWidget {
+  const _SummaryInlinePill({required this.item});
+
+  final _SummaryInlineItem item;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      constraints: const BoxConstraints(minHeight: 78),
-      padding: const EdgeInsets.all(12),
+      constraints: const BoxConstraints(minHeight: 42, minWidth: 102),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
-          color.withValues(alpha: 0.08),
+          item.color.withValues(alpha: 0.08),
           colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: item.color.withValues(alpha: 0.14)),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
+          Icon(item.icon, color: item.color, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            item.label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            item.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: item.color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
