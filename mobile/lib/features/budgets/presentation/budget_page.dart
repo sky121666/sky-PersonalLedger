@@ -474,15 +474,13 @@ class _BudgetSummaryCard extends StatelessWidget {
 
     return PremiumSurface(
       accentColor: statusColor,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconBadge(icon: Icons.savings_outlined, color: statusColor),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -501,13 +499,6 @@ class _BudgetSummaryCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.outline,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _BudgetStatusPill(
-                      label: totalBudget == null
-                          ? '等待设置'
-                          : _budgetRhythmLabel(totalBudget.percentage),
-                      color: statusColor,
                     ),
                   ],
                 ),
@@ -528,7 +519,7 @@ class _BudgetSummaryCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
           if (totalBudget == null)
             Text(
               '还没有设置总预算',
@@ -549,55 +540,12 @@ class _BudgetSummaryCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '剩余预算，已用 ${_formatMoney(used)} / ${_formatMoney(amount)}',
+              '已用 ${_formatMoney(used)} / ${_formatMoney(amount)}',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.outline,
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _BudgetStatusPill extends StatelessWidget {
-  const _BudgetStatusPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.speed_outlined, color: color, size: 14),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
         ],
       ),
     );
@@ -1350,14 +1298,4 @@ String _budgetStatusText(BudgetItem budget) {
     return '接近预算上限';
   }
   return '控制良好';
-}
-
-String _budgetRhythmLabel(double percentage) {
-  if (percentage >= 100) {
-    return '预算超速';
-  }
-  if (percentage >= 80) {
-    return '接近提醒线';
-  }
-  return '节奏健康';
 }

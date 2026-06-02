@@ -575,7 +575,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        '${provider.baseUrl} / ${provider.model}',
+                                        provider.providerType,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: Theme.of(context)
@@ -1508,7 +1508,7 @@ class _AIReportCard extends StatelessWidget {
                 Text(period),
                 const SizedBox(height: 4),
                 Text(
-                  '${report.providerName} / ${report.model}',
+                  report.providerName,
                   style: Theme.of(
                     context,
                   ).textTheme.labelMedium?.copyWith(color: colorScheme.outline),

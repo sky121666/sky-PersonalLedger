@@ -90,7 +90,8 @@ void main() {
     expect(find.text('每周总结'), findsWidgets);
     expect(find.text('已完成'), findsOneWidget);
     expect(find.byType(PremiumSurface), findsWidgets);
-    expect(find.text('DeepSeek / deepseek-v4-flash'), findsWidgets);
+    expect(find.text('DeepSeek / deepseek-v4-flash'), findsNothing);
+    expect(find.text('DeepSeek'), findsWidgets);
 
     await tester.tap(find.text('每周总结').last);
     await tester.pumpAndSettle();

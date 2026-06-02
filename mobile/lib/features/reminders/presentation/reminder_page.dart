@@ -437,24 +437,17 @@ class _DebtSummaryCard extends StatelessWidget {
 
     return PremiumSurface(
       accentColor: colorScheme.primary,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: Icons.track_changes_outlined,
-                color: colorScheme.primary,
-                size: 48,
-                iconSize: 24,
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   '还款进度',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
@@ -467,35 +460,38 @@ class _DebtSummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           LinearProgressIndicator(
             value: progress,
-            minHeight: 10,
+            minHeight: 6,
             borderRadius: BorderRadius.circular(999),
             backgroundColor: colorScheme.surfaceContainerHighest,
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          const SizedBox(height: 12),
+          Row(
             children: [
-              MetricPill(
-                label: '待还',
-                value: _formatMoney(summary.totalDebt),
-                icon: Icons.account_balance_outlined,
-                color: colorScheme.error,
+              Expanded(
+                child: _DebtMiniStat(
+                  label: '待还',
+                  value: _formatMoney(summary.totalDebt),
+                  color: colorScheme.error,
+                ),
               ),
-              MetricPill(
-                label: '已还',
-                value: _formatMoney(summary.totalPaid),
-                icon: Icons.task_alt_outlined,
-                color: colorScheme.primary,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _DebtMiniStat(
+                  label: '已还',
+                  value: _formatMoney(summary.totalPaid),
+                  color: colorScheme.primary,
+                ),
               ),
-              MetricPill(
-                label: '本金',
-                value: _formatMoney(summary.totalPrincipal),
-                icon: Icons.savings_outlined,
-                color: colorScheme.secondary,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _DebtMiniStat(
+                  label: '本金',
+                  value: _formatMoney(summary.totalPrincipal),
+                  color: colorScheme.secondary,
+                ),
               ),
             ],
           ),
@@ -503,6 +499,57 @@ class _DebtSummaryCard extends StatelessWidget {
             const SizedBox(height: 16),
             _NextPaymentBanner(summary: summary),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DebtMiniStat extends StatelessWidget {
+  const _DebtMiniStat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.07),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
@@ -748,33 +795,20 @@ class _ReminderCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w900),
                       ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          _ReminderMetaPill(
-                            icon: _loanTypeIcon(reminder.loanType),
-                            label: reminder.loanTypeLabel,
-                            color: reminderColor,
-                          ),
-                          _ReminderMetaPill(
-                            icon: days <= reminder.advanceDays
-                                ? Icons.notification_important_outlined
-                                : Icons.event_available_outlined,
-                            label: dueText,
-                            color: statusColor,
-                          ),
-                          _ReminderMetaPill(
-                            icon: hasEvidence
-                                ? Icons.verified_user_outlined
-                                : Icons.attach_file_outlined,
-                            label: hasEvidence ? '凭证已留存' : '待补凭证',
-                            color: hasEvidence
-                                ? financeColors.income
-                                : colorScheme.tertiary,
-                          ),
-                        ],
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          reminder.loanTypeLabel,
+                          dueText,
+                          statusLabel,
+                          if (hasEvidence) '凭证',
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -825,58 +859,44 @@ class _ReminderCard extends StatelessWidget {
             ),
             if (reminder.principal != null) ...[
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Row(
                 children: [
-                  _ReminderMetaPill(
-                    icon: Icons.account_balance_wallet_outlined,
-                    label: '本金 ${_formatMoney(reminder.principal ?? 0)}',
-                    color: accentColor,
-                  ),
-                  _ReminderMetaPill(
-                    icon: Icons.payments_outlined,
-                    label: '待还 ${_formatMoney(reminder.currentBalance ?? 0)}',
-                    color: statusColor,
-                  ),
-                  if (reminder.amount != null)
-                    _ReminderMetaPill(
-                      icon: Icons.calendar_month_outlined,
-                      label: '月供 ${_formatMoney(reminder.amount!)}',
-                      color: colorScheme.tertiary,
+                  Expanded(
+                    child: _ReminderAmountStat(
+                      label: '本金',
+                      value: _formatMoney(reminder.principal ?? 0),
+                      color: colorScheme.onSurface,
                     ),
-                  _ReminderMetaPill(
-                    icon: Icons.stacked_line_chart_outlined,
-                    label: '进度 ${reminder.progress.toStringAsFixed(0)}%',
-                    color: accentColor,
                   ),
-                  if (reminder.accountName.isNotEmpty)
-                    _ReminderMetaPill(
-                      icon: Icons.account_balance_wallet_outlined,
-                      label: reminder.accountName,
-                      color: colorScheme.primary,
+                  Expanded(
+                    child: _ReminderAmountStat(
+                      label: '待还',
+                      value: _formatMoney(reminder.currentBalance ?? 0),
+                      color: statusColor,
                     ),
+                  ),
+                  Expanded(
+                    child: _ReminderAmountStat(
+                      label: reminder.amount == null ? '进度' : '月供',
+                      value: reminder.amount == null
+                          ? '${reminder.progress.toStringAsFixed(0)}%'
+                          : _formatMoney(reminder.amount!),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
-            ] else ...[
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (reminder.amount != null)
-                    _ReminderMetaPill(
-                      icon: Icons.payments_outlined,
-                      label: '月供 ${_formatMoney(reminder.amount!)}',
-                      color: accentColor,
-                    ),
-                  if (reminder.accountName.isNotEmpty)
-                    _ReminderMetaPill(
-                      icon: Icons.account_balance_wallet_outlined,
-                      label: reminder.accountName,
-                      color: colorScheme.primary,
-                    ),
-                ],
+              _ReminderProgressLine(
+                progress: reminder.progress,
+                color: accentColor,
+              ),
+            ] else if (reminder.amount != null) ...[
+              const SizedBox(height: 12),
+              _ReminderAmountStat(
+                label: '月供',
+                value: _formatMoney(reminder.amount!),
+                color: accentColor,
               ),
             ],
           ],
@@ -886,55 +906,80 @@ class _ReminderCard extends StatelessWidget {
   }
 }
 
-class _ReminderMetaPill extends StatelessWidget {
-  const _ReminderMetaPill({
-    required this.icon,
+class _ReminderAmountStat extends StatelessWidget {
+  const _ReminderAmountStat({
     required this.label,
+    required this.value,
     required this.color,
   });
 
-  final IconData icon;
   final String label;
+  final String value;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minHeight: 28, maxWidth: 190),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.17
-                : 0.08,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
           ),
-          colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReminderProgressLine extends StatelessWidget {
+  const _ReminderProgressLine({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = (progress / 100).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: clamped,
+              minHeight: 5,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              color: color,
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          '${progress.toStringAsFixed(0)}%',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -113,11 +113,9 @@ void main() {
         expect(find.byTooltip('生成 AI 财务报告'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('已完成'), 240);
         expect(find.text('已完成'), findsOneWidget);
-        await tester.scrollUntilVisible(
-          find.text('DeepSeek / deepseek-v4-flash'),
-          240,
-        );
-        expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('DeepSeek'), 240);
+        expect(find.text('DeepSeek'), findsWidgets);
+        expect(find.text('DeepSeek / deepseek-v4-flash'), findsNothing);
         _expectMinTapTarget(tester, find.byTooltip('生成 AI 财务报告'));
       });
     });

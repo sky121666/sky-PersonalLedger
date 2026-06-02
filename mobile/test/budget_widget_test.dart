@@ -162,7 +162,7 @@ void main() {
       expect(find.text('提醒线预留'), findsNothing);
       expect(find.text('还没有设置总预算'), findsOneWidget);
       expect(find.text('暂无分类预算'), findsOneWidget);
-      expect(find.text('暂无数据'), findsOneWidget);
+      expect(find.text('暂无数据'), findsNothing);
     });
 
     testWidgets('保存总预算失败时展示错误面板', (tester) async {

@@ -308,12 +308,12 @@ class _SettingsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PremiumSurface(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 6),
             child: Text(
               title,
               style: Theme.of(
@@ -347,7 +347,7 @@ class _SettingsEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
       child: Semantics(
         button: true,
         label: subtitle == null ? title : '$title，$subtitle',
@@ -376,40 +376,22 @@ class _SettingsEntry extends StatelessWidget {
             splashColor: color.withValues(alpha: 0.10),
             highlightColor: color.withValues(alpha: 0.06),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 62),
+              constraints: const BoxConstraints(minHeight: 52),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
-                  vertical: 10,
+                  vertical: 8,
                 ),
                 child: Row(
                   children: [
-                    IconBadge(icon: icon, color: color, size: 40, iconSize: 21),
+                    IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            title,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          if (subtitle != null) ...[
-                            const SizedBox(height: 3),
-                            Text(
-                              subtitle!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                          ],
-                        ],
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),

@@ -73,9 +73,9 @@ void main() {
       );
       expect(find.text('当前余额'), findsAtLeastNWidgets(1));
       expect(find.text('剩余负债'), findsOneWidget);
-      expect(find.text('资产类'), findsAtLeastNWidgets(1));
-      expect(find.text('负债类'), findsOneWidget);
-      expect(find.text('正常'), findsAtLeastNWidgets(1));
+      expect(find.text('资产类'), findsNothing);
+      expect(find.text('负债类'), findsNothing);
+      expect(find.text('正常'), findsNothing);
       expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
 
       expect(
@@ -112,7 +112,7 @@ void main() {
       await tester.tap(find.text('新增账户'));
       await tester.pumpAndSettle();
 
-      expect(find.text('创建可用于记账和资产统计的账户'), findsOneWidget);
+      expect(find.text('创建可用于记账和资产统计的账户'), findsNothing);
       expect(find.text('基础信息'), findsOneWidget);
       expect(find.text('视觉标识'), findsOneWidget);
       expect(find.text('卡片'), findsOneWidget);

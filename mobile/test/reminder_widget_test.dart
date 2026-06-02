@@ -25,7 +25,8 @@ void main() {
       expect(find.text('上岸进度'), findsNothing);
       expect(find.text('稳步推进'), findsNothing);
       expect(find.text('房贷'), findsAtLeastNWidgets(1));
-      expect(find.text('待还 ¥80000.00'), findsOneWidget);
+      expect(find.text('待还'), findsAtLeastNWidgets(1));
+      expect(find.text('¥80000.00'), findsAtLeastNWidgets(1));
       expect(
         find.byKey(const ValueKey('reminder-card-reminder-1')),
         findsOneWidget,
@@ -36,7 +37,7 @@ void main() {
       );
       expect(find.textContaining('本金'), findsAtLeastNWidgets(1));
       expect(find.textContaining('月供'), findsAtLeastNWidgets(1));
-      expect(find.text('贷款账户'), findsOneWidget);
+      expect(find.text('贷款账户'), findsNothing);
 
       expect(
         find.byKey(const ValueKey('repayment-rhythm-radar')),
@@ -284,7 +285,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('暂无负债提醒'), findsOneWidget);
-      expect(find.text('暂无数据'), findsOneWidget);
+      expect(find.text('暂无数据'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });
 
@@ -347,7 +348,8 @@ void main() {
       expect(repository.paymentCalls, hasLength(1));
       expect(find.textContaining('还款失败'), findsOneWidget);
       expect(find.text('还款已记录'), findsNothing);
-      expect(find.text('待还 ¥80000.00'), findsOneWidget);
+      expect(find.text('待还'), findsAtLeastNWidgets(1));
+      expect(find.text('¥80000.00'), findsAtLeastNWidgets(1));
     });
   });
 }

@@ -434,35 +434,20 @@ class _AccountListTile extends ConsumerWidget {
                                 ],
                               ],
                             ),
-                            const SizedBox(height: 7),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                _AccountInfoChip(
-                                  icon: _accountIconData(account),
-                                  label: _accountTypeLabel(account.type),
-                                  color: color,
-                                ),
-                                _AccountInfoChip(
-                                  icon: isDebt
-                                      ? Icons.request_quote_outlined
-                                      : Icons.savings_outlined,
-                                  label: isDebt ? '负债类' : '资产类',
-                                  color: isDebt
-                                      ? financeColors.expense
-                                      : financeColors.income,
-                                ),
-                                _AccountInfoChip(
-                                  icon: account.isArchived
-                                      ? Icons.inventory_2_outlined
-                                      : Icons.verified_outlined,
-                                  label: account.isArchived ? '归档' : '正常',
-                                  color: account.isArchived
-                                      ? Theme.of(context).colorScheme.outline
-                                      : Theme.of(context).colorScheme.primary,
-                                ),
-                              ],
+                            const SizedBox(height: 5),
+                            Text(
+                              account.isArchived
+                                  ? '${_accountTypeLabel(account.type)} · 已归档'
+                                  : _accountTypeLabel(account.type),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                             ),
                           ],
                         ),
@@ -1390,16 +1375,15 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _AccountInfoChip extends StatelessWidget {
-  const _AccountInfoChip({required this.icon, required this.label, this.color});
+  const _AccountInfoChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final chipColor = color ?? colorScheme.outline;
+    final chipColor = colorScheme.outline;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(

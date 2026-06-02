@@ -100,7 +100,7 @@ class _HomeContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accounts = summary.accounts.activeAccounts;
-    final visibleAccounts = accounts.take(4).toList();
+    final visibleAccounts = accounts.take(3).toList();
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -110,9 +110,9 @@ class _HomeContent extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 96),
           children: [
             _entry(0, _NetAssetsCard(accounts: summary.accounts)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             _entry(1, _MonthlyOverviewCard(overview: summary.overview)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             _entry(
               2,
               _AccountOverviewCard(
@@ -120,16 +120,16 @@ class _HomeContent extends StatelessWidget {
                 totalCount: accounts.length,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             _entry(3, _BudgetSummaryCard(summary: summary.budgetSummary)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             _entry(4, FamilyHomeSummaryCard(summary: summary.familySummary)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             _entry(
               5,
               _RecentTransactionsCard(items: summary.recentTransactions),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             _entry(
               6,
               _DateTransactionsCard(
@@ -408,65 +408,113 @@ class _MonthlyOverviewCard extends StatelessWidget {
     final balanceColor = overview.balance >= 0
         ? Theme.of(context).colorScheme.primary
         : financeColors.expense;
+    final colorScheme = Theme.of(context).colorScheme;
     return PremiumSurface(
       accentColor: financeColors.income,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: Icons.payments_outlined,
-                color: financeColors.income,
-                size: 36,
-                iconSize: 18,
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   '本月现金流',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
               Text(
                 '${overview.transactionCount} 笔',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Row(
             children: [
-              MetricPill(
-                label: '收入',
-                value: _formatCurrency(overview.income),
-                icon: Icons.south_west,
-                color: financeColors.income,
-                expanded: true,
+              Expanded(
+                child: _MiniMoneyStat(
+                  label: '收入',
+                  value: _formatCurrency(overview.income),
+                  color: financeColors.income,
+                ),
               ),
               const SizedBox(width: 10),
-              MetricPill(
-                label: '支出',
-                value: _formatCurrency(overview.expense),
-                icon: Icons.north_east,
-                color: financeColors.expense,
-                expanded: true,
+              Expanded(
+                child: _MiniMoneyStat(
+                  label: '支出',
+                  value: _formatCurrency(overview.expense),
+                  color: financeColors.expense,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MiniMoneyStat(
+                  label: '结余',
+                  value: _formatCurrency(overview.balance),
+                  color: balanceColor,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          MetricPill(
-            label: '结余',
-            value: _formatCurrency(overview.balance),
-            icon: Icons.trending_up,
-            color: balanceColor,
-          ),
-          const SizedBox(height: 12),
           _CashFlowBar(overview: overview),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniMoneyStat extends StatelessWidget {
+  const _MiniMoneyStat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.07),
+          colorScheme.surface,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
@@ -939,18 +987,15 @@ class _AccountLine extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      _AccountStatusPill(label: typeLabel, color: accent),
-                      if (account.isArchived) ...[
-                        const SizedBox(width: 6),
-                        _AccountStatusPill(
-                          label: '已归档',
-                          color: colorScheme.outline,
-                        ),
-                      ],
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    account.isArchived ? '$typeLabel · 已归档' : typeLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -981,39 +1026,6 @@ class _AccountLine extends StatelessWidget {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountStatusPill extends StatelessWidget {
-  const _AccountStatusPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 24, maxWidth: 86),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(alpha: 0.09),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w900,
         ),
       ),
     );
