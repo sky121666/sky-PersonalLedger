@@ -70,7 +70,7 @@ void main() {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('新增模板'));
+      await tester.tap(find.byTooltip('新增模板'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('template-name')), '咖啡');
       await tester.enterText(
@@ -180,7 +180,7 @@ void main() {
       final repository = _FakeTemplateRepository()..createError = '新增模板失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('新增模板'));
+      await tester.tap(find.byTooltip('新增模板'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('template-name')), '咖啡');
       await tester.enterText(

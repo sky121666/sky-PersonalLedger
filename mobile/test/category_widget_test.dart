@@ -77,7 +77,7 @@ void main() {
       final repository = _FakeCategoryRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('新增分类'));
+      await tester.tap(find.byTooltip('新增分类'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('category-name')), '咖啡');
       await tester.enterText(find.byKey(const ValueKey('category-icon')), '☕');
@@ -152,7 +152,7 @@ void main() {
       final repository = _FakeCategoryRepository()..createError = '新增分类失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('新增分类'));
+      await tester.tap(find.byTooltip('新增分类'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('category-name')), '咖啡');
       await tester.enterText(find.byKey(const ValueKey('category-icon')), '☕');

@@ -74,14 +74,6 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                 ),
               ),
             ],
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 1,
-              child: const _DataSectionHeader(
-                icon: Icons.output_outlined,
-                title: '数据',
-              ),
-            ),
             const SizedBox(height: 10),
             StaggeredEntrance(
               index: 2,
@@ -392,42 +384,6 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(error.toString())));
-  }
-}
-
-class _DataSectionHeader extends StatelessWidget {
-  const _DataSectionHeader({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        IconBadge(
-          icon: icon,
-          color: colorScheme.primary,
-          size: 36,
-          iconSize: 18,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 }
 
@@ -858,59 +814,45 @@ class _ActionCard extends StatelessWidget {
     final iconColor = isDanger ? colorScheme.error : accentColor;
     return PremiumSurface(
       accentColor: iconColor,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconBadge(icon: icon, color: iconColor, size: 46, iconSize: 23),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: isDanger
-                ? FilledButton.tonalIcon(
-                    onPressed: enabled ? onPressed : null,
-                    icon: _ButtonIcon(busy: busy, fallback: Icons.upload_file),
-                    label: Text(busy ? '恢复中...' : buttonLabel),
-                  )
-                : FilledButton.icon(
-                    onPressed: enabled ? onPressed : null,
-                    icon: _ButtonIcon(
-                      busy: busy,
-                      fallback: Icons.download_outlined,
-                    ),
-                    label: Text(busy ? '处理中...' : buttonLabel),
-                  ),
-          ),
-          if (secondaryLabel != null && onSecondaryPressed != null) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                onPressed: enabled ? onSecondaryPressed : null,
-                icon: const Icon(Icons.filter_alt_outlined),
-                label: Text(secondaryLabel!),
-              ),
+          IconBadge(icon: icon, color: iconColor, size: 38, iconSize: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
             ),
+          ),
+          const SizedBox(width: 10),
+          if (secondaryLabel != null && onSecondaryPressed != null) ...[
+            TextButton.icon(
+              onPressed: enabled ? onSecondaryPressed : null,
+              icon: const Icon(Icons.filter_alt_outlined),
+              label: Text(secondaryLabel!),
+            ),
+            const SizedBox(width: 8),
           ],
+          isDanger
+              ? FilledButton.tonalIcon(
+                  onPressed: enabled ? onPressed : null,
+                  icon: _ButtonIcon(busy: busy, fallback: Icons.upload_file),
+                  label: Text(busy ? '恢复中...' : buttonLabel),
+                )
+              : FilledButton.icon(
+                  onPressed: enabled ? onPressed : null,
+                  icon: _ButtonIcon(
+                    busy: busy,
+                    fallback: Icons.download_outlined,
+                  ),
+                  label: Text(busy ? '处理中...' : buttonLabel),
+                ),
         ],
       ),
     );

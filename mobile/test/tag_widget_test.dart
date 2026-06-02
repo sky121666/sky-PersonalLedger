@@ -74,7 +74,7 @@ void main() {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('新增标签'));
+      await tester.tap(find.byTooltip('新增标签'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '周末');
       await tester.enterText(find.byKey(const ValueKey('tag-icon')), 'star');
@@ -144,7 +144,7 @@ void main() {
       final repository = _FakeTagRepository()..createError = '新增标签失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('新增标签'));
+      await tester.tap(find.byTooltip('新增标签'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '周末');
       await tester.enterText(find.byKey(const ValueKey('tag-icon')), 'star');

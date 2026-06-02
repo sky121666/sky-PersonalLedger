@@ -330,7 +330,7 @@ class _TransactionFilterWorkbench extends ConsumerWidget {
 
     return PremiumSurface(
       key: const ValueKey('transaction-filter-workbench'),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       accentColor: colorScheme.primary,
       child: FutureBuilder<List<LedgerAccount>>(
         future: ref.read(transactionRepositoryProvider).listAccounts(),
@@ -339,63 +339,31 @@ class _TransactionFilterWorkbench extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  IconBadge(
-                    icon: Icons.tune_rounded,
-                    color: colorScheme.primary,
-                    size: 42,
-                    iconSize: 21,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '筛选',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          state.hasActiveFilter
-                              ? '$activeCount 项条件 · ${state.items.length}/${state.total} 笔'
-                              : '搜索备注、标签或账户',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (state.hasActiveFilter)
-                    TextButton.icon(
-                      onPressed: onClear,
-                      icon: const Icon(Icons.filter_alt_off_outlined),
-                      label: const Text('清空'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
               TextField(
                 key: const ValueKey('transaction-search'),
                 controller: controller,
                 decoration: InputDecoration(
-                  hintText: '搜索备注、标签或交易说明',
+                  hintText: state.hasActiveFilter
+                      ? '$activeCount 项条件 · ${state.items.length}/${state.total} 笔'
+                      : '搜索备注、标签或账户',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: controller.text.isEmpty
-                      ? null
+                      ? state.hasActiveFilter
+                            ? IconButton(
+                                onPressed: onClear,
+                                icon: const Icon(Icons.filter_alt_off_outlined),
+                                tooltip: '清空筛选',
+                              )
+                            : null
                       : IconButton(
                           onPressed: onClear,
                           icon: const Icon(Icons.close),
                           tooltip: '清空交易搜索',
                         ),
-                ),
+                          ),
                 onChanged: onChanged,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _TransactionFilterControls(
                 state: state,
                 accounts: accounts,
@@ -619,12 +587,6 @@ class _TransactionListTile extends StatelessWidget {
                                   ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                           ],
-                          const SizedBox(height: 10),
-                          _TransactionReceiptRail(
-                            item: item,
-                            accountLabel: accountLabel,
-                            amountColor: amountColor,
-                          ),
                           if (item.tags.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Wrap(
@@ -674,142 +636,6 @@ class _TransactionListTile extends StatelessWidget {
       TransactionType.expense => Icons.north_east,
       TransactionType.transfer => Icons.swap_horiz,
     };
-  }
-}
-
-class _TransactionReceiptRail extends StatelessWidget {
-  const _TransactionReceiptRail({
-    required this.item,
-    required this.accountLabel,
-    required this.amountColor,
-  });
-
-  final TransactionItem item;
-  final String accountLabel;
-  final Color amountColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          amountColor.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.13
-                : 0.07,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: amountColor.withValues(alpha: 0.13)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _ReceiptRailNode(
-              icon: Icons.category_outlined,
-              label: '分类',
-              value: item.displayTitle,
-              color: amountColor,
-            ),
-          ),
-          _ReceiptRailConnector(color: amountColor),
-          Expanded(
-            child: _ReceiptRailNode(
-              icon: Icons.account_balance_wallet_outlined,
-              label: '账户',
-              value: accountLabel,
-              color: colorScheme.primary,
-            ),
-          ),
-          _ReceiptRailConnector(color: colorScheme.primary),
-          Expanded(
-            child: _ReceiptRailNode(
-              icon: Icons.event_available_outlined,
-              label: '入账',
-              value: _formatDateTime(item.transactionDate),
-              color: colorScheme.secondary,
-              alignEnd: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReceiptRailNode extends StatelessWidget {
-  const _ReceiptRailNode({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-    this.alignEnd = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  final bool alignEnd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: alignEnd
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: alignEnd
-              ? MainAxisAlignment.end
-              : MainAxisAlignment.start,
-          children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w900,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ReceiptRailConnector extends StatelessWidget {
-  const _ReceiptRailConnector({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 7),
-      child: Icon(Icons.chevron_right_rounded, color: color, size: 18),
-    );
   }
 }
 

@@ -153,6 +153,7 @@ class _NotificationSettingsFormState
             index: 1,
             child: PremiumSurface(
               accentColor: enabledAccent,
+              padding: const EdgeInsets.all(12),
               child: _NotificationSwitchRow(
                 icon: Icons.notifications_active_outlined,
                 color: enabledAccent,
@@ -227,15 +228,18 @@ class _NotificationSettingsFormState
           const SizedBox(height: 16),
           StaggeredEntrance(
             index: 5,
-            child: FilledButton.icon(
-              onPressed: _isBusy ? null : _save,
-              icon: _busyAction == 'save'
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: const Text('保存'),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: _isBusy ? null : _save,
+                icon: _busyAction == 'save'
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: const Text('保存'),
+              ),
             ),
           ),
         ],
@@ -582,29 +586,32 @@ class _ChannelCard extends StatelessWidget {
     final accentColor = enabled ? financeColors.income : financeColors.asset;
     return PremiumSurface(
       accentColor: accentColor,
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _NotificationSwitchRow(
             icon: _channelIcon(title),
             color: accentColor,
-            title: title,
-            subtitle: enabledLabel,
+            title: enabledLabel,
             value: enabled,
             onChanged: onEnabledChanged,
           ),
           const SizedBox(height: 12),
           ...children,
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: testing ? null : onTest,
-            icon: testing
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.send_outlined),
-            label: Text(testing ? '测试中...' : testButtonText),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: testing ? null : onTest,
+              icon: testing
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_outlined),
+              label: Text(testing ? '测试中...' : testButtonText),
+            ),
           ),
         ],
       ),
@@ -653,6 +660,7 @@ class _OptionsCard extends StatelessWidget {
     final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: financeColors.warning,
+      padding: const EdgeInsets.all(14),
       child: Column(
         children: [
           _NotificationPanelHeader(
@@ -710,7 +718,9 @@ class _OptionDivider extends StatelessWidget {
     return Divider(
       height: 1,
       indent: 50,
-      color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+      color: Theme.of(
+        context,
+      ).colorScheme.outlineVariant.withValues(alpha: 0.5),
     );
   }
 }
@@ -757,14 +767,12 @@ class _NotificationSwitchRow extends StatelessWidget {
     required this.title,
     required this.value,
     required this.onChanged,
-    this.subtitle,
     this.switchKey,
   });
 
   final IconData icon;
   final Color color;
   final String title;
-  final String? subtitle;
   final bool value;
   final ValueChanged<bool>? onChanged;
   final Key? switchKey;
@@ -773,7 +781,7 @@ class _NotificationSwitchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           color.withValues(alpha: value ? 0.10 : 0.04),
@@ -784,8 +792,8 @@ class _NotificationSwitchRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          IconBadge(icon: icon, color: color, size: 38, iconSize: 20),
-          const SizedBox(width: 12),
+          IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,19 +804,10 @@ class _NotificationSwitchRow extends StatelessWidget {
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Semantics(
             key: ValueKey('notification-switch-semantics-$title'),
             label: title,
@@ -842,11 +841,11 @@ class _NotificationOptionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
-          const SizedBox(width: 12),
+          IconBadge(icon: icon, color: color, size: 30, iconSize: 16),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               title,
@@ -855,7 +854,7 @@ class _NotificationOptionRow extends StatelessWidget {
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Semantics(
             key: ValueKey('notification-switch-semantics-$title'),
             label: title,
@@ -884,16 +883,16 @@ class _NotificationAdvanceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
           IconBadge(
             icon: Icons.event_available_outlined,
             color: financeColors.asset,
             size: 34,
-            iconSize: 18,
+            iconSize: 16,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               '提前 $advanceDays 天提醒',

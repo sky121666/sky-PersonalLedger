@@ -84,10 +84,10 @@ class CategoriesPage extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _openCategoryForm(context, selectedType),
-        icon: const Icon(Icons.add),
-        label: const Text('新增分类'),
+        tooltip: '新增分类',
+        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(
         child: state.when(

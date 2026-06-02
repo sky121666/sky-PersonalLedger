@@ -203,12 +203,12 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: _submitting || _accounts.isEmpty || _categories.isEmpty
             ? null
             : _openTemplateForm,
-        icon: const Icon(Icons.add),
-        label: const Text('新增模板'),
+        tooltip: '新增模板',
+        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(child: _buildBody()),
     );

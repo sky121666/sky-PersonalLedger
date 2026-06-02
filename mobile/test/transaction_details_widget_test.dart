@@ -21,19 +21,24 @@ void main() {
       expect(find.text('流水信号带'), findsNothing);
       expect(find.text('交易洞察轨道'), findsNothing);
       expect(find.text('流水构成矩阵'), findsNothing);
-      expect(find.text('筛选'), findsOneWidget);
+      expect(find.text('筛选'), findsNothing);
       expect(
         find.byKey(const ValueKey('transaction-filter-workbench')),
         findsOneWidget,
       );
-      expect(find.text('搜索备注、标签或账户'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(
+          find.byKey(const ValueKey('transaction-search')),
+        ).decoration?.hintText,
+        '搜索备注、标签或账户',
+      );
       expect(find.text('餐饮'), findsAtLeastNWidgets(1));
       expect(find.text('支出'), findsAtLeastNWidgets(1));
       expect(find.text('现金'), findsAtLeastNWidgets(1));
-      expect(find.text('2026-05-18 12:00'), findsAtLeastNWidgets(1));
-      expect(find.text('分类'), findsOneWidget);
-      expect(find.text('账户'), findsOneWidget);
-      expect(find.text('入账'), findsOneWidget);
+      expect(find.textContaining('2026-05-18 12:00'), findsAtLeastNWidgets(1));
+      expect(find.text('分类'), findsNothing);
+      expect(find.text('账户'), findsNothing);
+      expect(find.text('入账'), findsNothing);
       expect(
         find.byKey(const ValueKey('transaction-amount-transaction-1')),
         findsOneWidget,
@@ -172,7 +177,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilterChip, '支出'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('清空'));
+      await tester.tap(find.byTooltip('清空交易搜索'));
       await tester.pumpAndSettle();
 
       final field = tester.widget<TextField>(
@@ -181,7 +186,12 @@ void main() {
       expect(field.controller?.text, isEmpty);
       expect(repository.listQueries.last.keyword, isEmpty);
       expect(repository.listQueries.last.type, isNull);
-      expect(find.text('搜索备注、标签或账户'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(
+          find.byKey(const ValueKey('transaction-search')),
+        ).decoration?.hintText,
+        '搜索备注、标签或账户',
+      );
     });
 
     testWidgets('滚动到底部时加载下一页交易', (tester) async {

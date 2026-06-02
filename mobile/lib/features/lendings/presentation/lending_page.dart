@@ -581,6 +581,12 @@ class _LendingCard extends StatelessWidget {
         ? financeColors.income
         : financeColors.asset;
     final dueLabel = item.dueDate == null ? null : _formatDate(item.dueDate!);
+    final accountName = item.accountName?.trim();
+    final metaLabel = [
+      item.typeLabel,
+      if (dueLabel != null) dueLabel,
+      if (accountName != null && accountName.isNotEmpty) accountName,
+    ].join(' · ');
     final statusLabel = item.isSettled
         ? '已结清'
         : item.isOverdue
@@ -592,6 +598,10 @@ class _LendingCard extends StatelessWidget {
         : item.isOverdue
         ? financeColors.expense
         : accent;
+    final detailLabel = [
+      if (visibleStatus != null) visibleStatus,
+      if (item.remark.isNotEmpty) item.remark,
+    ].join(' · ');
     return Semantics(
       label:
           '${item.contactName}，${item.typeLabel}，本金${_formatMoney(item.principal)}，剩余${_formatMoney(item.currentBalance)}，$statusLabel',
@@ -606,6 +616,7 @@ class _LendingCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
@@ -621,10 +632,7 @@ class _LendingCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        [
-                          item.typeLabel,
-                          if (dueLabel != null) dueLabel,
-                        ].join(' · '),
+                        metaLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -646,6 +654,14 @@ class _LendingCard extends StatelessWidget {
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '已还 ${_formatMoney(item.totalRepaid)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -657,11 +673,9 @@ class _LendingCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    [
-                      '已还 ${_formatMoney(item.totalRepaid)}',
-                      if (visibleStatus != null) visibleStatus,
-                      if (item.remark.isNotEmpty) item.remark,
-                    ].join(' · '),
+                    detailLabel.isEmpty
+                        ? '进度 ${item.progress.toStringAsFixed(0)}%'
+                        : detailLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(

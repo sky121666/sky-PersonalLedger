@@ -297,12 +297,7 @@ class _BudgetContent extends StatelessWidget {
             ],
             StaggeredEntrance(
               index: 0,
-              child: _BudgetSummaryCard(budget: budgetList.totalBudget),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 1,
-              child: _TotalBudgetCard(
+              child: _BudgetSummaryCard(
                 budget: budgetList.totalBudget,
                 busy: busyAction == 'total',
                 onEdit: onEditTotal,
@@ -457,9 +452,15 @@ class _MessagePanel extends StatelessWidget {
 }
 
 class _BudgetSummaryCard extends StatelessWidget {
-  const _BudgetSummaryCard({required this.budget});
+  const _BudgetSummaryCard({
+    required this.budget,
+    required this.busy,
+    required this.onEdit,
+  });
 
   final BudgetItem? budget;
+  final bool busy;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -486,7 +487,7 @@ class _BudgetSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '本月预算总览',
+                      '本月预算',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -517,6 +518,17 @@ class _BudgetSummaryCard extends StatelessWidget {
                     ),
                   ),
                 ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                onPressed: busy ? null : onEdit,
+                icon: busy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(totalBudget == null ? Icons.add : Icons.edit),
+                tooltip: totalBudget == null ? '设置总预算' : '修改总预算',
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -552,61 +564,6 @@ class _BudgetSummaryCard extends StatelessWidget {
   }
 }
 
-class _TotalBudgetCard extends StatelessWidget {
-  const _TotalBudgetCard({
-    required this.budget,
-    required this.busy,
-    required this.onEdit,
-  });
-
-  final BudgetItem? budget;
-  final bool busy;
-  final VoidCallback onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    final totalBudget = budget;
-    final financeColors = AppTheme.financeColors(context);
-    return PremiumSurface(
-      accentColor: financeColors.asset,
-      child: Padding(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: _SectionTitle(
-                    icon: Icons.account_balance_wallet_outlined,
-                    title: '月度总预算',
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: busy ? null : onEdit,
-                  icon: busy
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.edit_outlined),
-                  label: Text(totalBudget == null ? '设置' : '修改'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (totalBudget == null)
-              const SizedBox.shrink()
-            else
-              _BudgetProgressBar(percentage: totalBudget.percentage),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _CategoryBudgetHeader extends StatelessWidget {
   const _CategoryBudgetHeader({
     required this.count,
@@ -629,10 +586,10 @@ class _CategoryBudgetHeader extends StatelessWidget {
             subtitle: '$count / ${count + availableCount}',
           ),
         ),
-        FilledButton.icon(
+        IconButton.filled(
           onPressed: availableCount == 0 ? null : onAdd,
           icon: const Icon(Icons.add),
-          label: const Text('添加'),
+          tooltip: '添加分类预算',
         ),
       ],
     );
@@ -777,10 +734,10 @@ class _MemberBudgetHeader extends StatelessWidget {
             subtitle: '$count / ${count + availableMemberCount}',
           ),
         ),
-        FilledButton.tonalIcon(
+        IconButton.filledTonal(
           onPressed: availableMemberCount == 0 ? null : onAdd,
           icon: const Icon(Icons.add),
-          label: const Text('添加'),
+          tooltip: '添加成员预算',
         ),
       ],
     );

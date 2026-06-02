@@ -429,11 +429,10 @@ class _EntryPathCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              FilledButton.icon(
+              IconButton.filled(
                 key: const ValueKey('security-entry-save'),
                 onPressed: submitting ? null : onSave,
                 icon: submitting
@@ -443,19 +442,21 @@ class _EntryPathCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.save_outlined),
-                label: Text(submitting ? '保存中...' : '保存'),
+                tooltip: submitting ? '保存中' : '保存登录保护',
               ),
-              OutlinedButton.icon(
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
                 key: const ValueKey('security-entry-generate'),
                 onPressed: submitting ? null : onGenerate,
                 icon: const Icon(Icons.auto_fix_high_outlined),
-                label: const Text('随机生成'),
+                tooltip: '随机生成访问路径',
               ),
-              OutlinedButton.icon(
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
                 key: const ValueKey('security-entry-disable'),
                 onPressed: submitting || !entryPath.enabled ? null : onDisable,
                 icon: const Icon(Icons.block_outlined),
-                label: const Text('关闭保护'),
+                tooltip: '关闭登录保护',
               ),
             ],
           ),

@@ -78,25 +78,9 @@ class MainShellPage extends StatelessWidget {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           border: Border.all(color: colorScheme.outlineVariant),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 44,
-              height: 5,
-              decoration: BoxDecoration(
-                color: colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-            Flexible(
-              child:
-                  quickTransactionBuilder?.call(context) ??
-                  const QuickTransactionPage(embedded: true),
-            ),
-          ],
-        ),
+        child:
+            quickTransactionBuilder?.call(context) ??
+            const QuickTransactionPage(embedded: true),
       ),
     );
   }

@@ -196,10 +196,10 @@ class _TagPageState extends ConsumerState<TagPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: _submitting ? null : () => _openTagForm(),
-        icon: const Icon(Icons.add),
-        label: const Text('新增标签'),
+        tooltip: '新增标签',
+        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(child: _buildBody()),
     );
