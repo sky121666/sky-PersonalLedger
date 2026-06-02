@@ -45,7 +45,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('AI 财务报告'), findsOneWidget);
+    expect(find.text('财务报告'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('ai-report-command-center')),
       findsNothing,
@@ -277,9 +277,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('生成 AI 财务报告'));
+    await tester.tap(find.byTooltip('生成财务报告'));
     await tester.pumpAndSettle();
-    expect(find.text('生成 AI 报告'), findsOneWidget);
+    expect(find.text('生成报告'), findsAtLeastNWidgets(1));
     expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('ai-report-generate-submit')));
@@ -289,7 +289,7 @@ void main() {
     expect(repository.generateCalls.single.reportType, 'weekly');
     expect(repository.generateCalls.single.providerId, 'provider-existing');
     expect(repository.generateCalls.single.maskNames, isTrue);
-    expect(find.text('AI 报告已生成'), findsOneWidget);
+    expect(find.text('报告已生成'), findsOneWidget);
   });
 
   testWidgets('AIReportsPage 可删除历史报告', (tester) async {
@@ -329,7 +329,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.deletedReportIds, ['report-delete']);
-    expect(find.text('AI 报告已删除'), findsOneWidget);
+    expect(find.text('报告已删除'), findsOneWidget);
     expect(find.text('支出可控'), findsNothing);
   });
 
@@ -343,7 +343,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('生成 AI 财务报告'));
+    await tester.tap(find.byTooltip('生成财务报告'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('ai-report-start-date')),
@@ -380,7 +380,7 @@ void main() {
     final scheduleSwitchSemantics = tester.widget<Semantics>(
       find.byKey(const ValueKey('ai-schedule-enabled-semantics')),
     );
-    expect(scheduleSwitchSemantics.properties.label, '启用自动生成 AI 报告');
+    expect(scheduleSwitchSemantics.properties.label, '启用自动生成报告');
     await tester.tap(find.text('启用自动生成'));
     await tester.pumpAndSettle();
 
@@ -424,7 +424,7 @@ void main() {
     expect(repository.createdProviders, hasLength(1));
     expect(repository.createdProviders.single.name, 'DeepSeek');
     expect(repository.createdProviders.single.apiKey, 'sk-mobile-test');
-    expect(find.text('AI 服务已保存'), findsOneWidget);
+    expect(find.text('来源已保存'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
@@ -432,7 +432,7 @@ void main() {
       tester,
       find.byKey(const ValueKey('ai-provider-test-provider-1')),
     );
-    expect(find.byTooltip('测试 AI 服务 DeepSeek'), findsOneWidget);
+    expect(find.byTooltip('测试来源 DeepSeek'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ai-provider-test-provider-1')));
     await tester.pumpAndSettle();
 
@@ -445,7 +445,7 @@ void main() {
       tester,
       find.byKey(const ValueKey('ai-provider-edit-provider-1')),
     );
-    expect(find.byTooltip('编辑 AI 服务 DeepSeek'), findsOneWidget);
+    expect(find.byTooltip('编辑来源 DeepSeek'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ai-provider-edit-provider-1')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(2), 'deepseek-reasoner');
@@ -455,20 +455,20 @@ void main() {
     expect(repository.updatedProviderIds, ['provider-1']);
     expect(repository.updatedProviders.single.apiKey, isEmpty);
     expect(repository.providers.single.model, 'deepseek-reasoner');
-    expect(find.text('AI 服务已更新'), findsOneWidget);
+    expect(find.text('来源已更新'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await _scrollIntoTapArea(tester, find.byTooltip('删除 AI 服务 DeepSeek'));
-    expect(find.byTooltip('删除 AI 服务 DeepSeek'), findsOneWidget);
-    await tester.tap(find.byTooltip('删除 AI 服务 DeepSeek'));
+    await _scrollIntoTapArea(tester, find.byTooltip('删除来源 DeepSeek'));
+    expect(find.byTooltip('删除来源 DeepSeek'), findsOneWidget);
+    await tester.tap(find.byTooltip('删除来源 DeepSeek'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();
 
     expect(repository.deletedProviderIds, ['provider-1']);
     expect(repository.providers, isEmpty);
-    expect(find.text('AI 服务已删除'), findsOneWidget);
+    expect(find.text('来源已删除'), findsOneWidget);
   });
 
   test('空 AI Provider API Key 不会进入移动端请求 JSON', () {

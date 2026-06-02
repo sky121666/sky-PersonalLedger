@@ -52,9 +52,9 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
     final accentColor = AppTheme.financeColors(context).warning;
     return AuthFlowShell(
       icon: Icons.admin_panel_settings_outlined,
-      title: '首次设置密码',
-      subtitle: '创建管理员密码。',
-      primaryLabel: '初始化保护',
+      title: '设置密码',
+      subtitle: '为账本开启保护。',
+      primaryLabel: '账本保护',
       serverUrl: authState.serverUrl,
       accentColor: accentColor,
       footer: TextButton.icon(

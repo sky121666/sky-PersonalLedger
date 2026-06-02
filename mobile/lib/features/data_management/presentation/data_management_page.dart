@@ -493,7 +493,7 @@ class _AutoBackupCard extends StatelessWidget {
                     Text(
                       settings.lastBackup == null ||
                               settings.lastBackup!.isEmpty
-                          ? '定时在服务器生成备份文件'
+                          ? '按频率保留备份'
                           : '上次备份：${settings.lastBackup}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
@@ -604,7 +604,7 @@ class _AutoBackupCard extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.save_outlined),
-                  label: Text(loading ? '处理中...' : '保存设置'),
+                  label: Text(loading ? '处理中...' : '保存'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -695,7 +695,7 @@ class _SwitchPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '按设定频率保留服务器端备份',
+                      '按频率保留备份',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),

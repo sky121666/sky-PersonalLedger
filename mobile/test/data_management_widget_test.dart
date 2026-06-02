@@ -103,12 +103,12 @@ void main() {
       await tester.tap(find.text('启用自动备份').last);
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
-        find.text('保存设置').last,
+        find.text('保存').last,
         240,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存设置').last);
+      await tester.tap(find.text('保存').last);
       await tester.pumpAndSettle();
 
       expect(repository.saveAutoBackupCalls, hasLength(1));
@@ -127,12 +127,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '200');
       await tester.scrollUntilVisible(
-        find.text('保存设置').last,
+        find.text('保存').last,
         240,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存设置').last);
+      await tester.tap(find.text('保存').last);
       await tester.pumpAndSettle();
 
       expect(repository.saveAutoBackupCalls, hasLength(1));

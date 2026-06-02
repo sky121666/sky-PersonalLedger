@@ -42,8 +42,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     return AuthFlowShell(
       icon: Icons.lock_outline,
-      title: '欢迎回来',
-      subtitle: '输入访问密码。',
+      title: '账本解锁',
+      subtitle: '验证后进入账本。',
       primaryLabel: '登录',
       serverUrl: authState.serverUrl ?? '个人记账',
       accentColor: AppTheme.financeColors(context).asset,

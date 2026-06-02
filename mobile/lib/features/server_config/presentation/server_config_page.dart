@@ -45,7 +45,7 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
     return AuthFlowShell(
       icon: Icons.account_balance_wallet_outlined,
       title: '连接服务器',
-      subtitle: '输入服务地址。',
+      subtitle: '连接你的账本服务。',
       primaryLabel: '个人账本',
       accentColor: accentColor,
       children: [
@@ -54,7 +54,6 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
           enabled: !isLoading,
           decoration: InputDecoration(
             labelText: '服务器地址',
-            hintText: 'http://192.168.1.10:8080',
             border: const OutlineInputBorder(),
             errorText: authState.errorMessage,
             prefixIcon: const Icon(Icons.dns_outlined),

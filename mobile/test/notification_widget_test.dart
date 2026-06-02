@@ -60,7 +60,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.drag(find.byType(ListView), const Offset(0, -900));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存设置'));
+      await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
       expect(repository.updateCalls, hasLength(1));
@@ -79,7 +79,7 @@ void main() {
       );
       await tester.drag(find.byType(ListView), const Offset(0, -400));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('发送测试消息'));
+      await tester.tap(find.text('测试发送'));
       await tester.pumpAndSettle();
 
       expect(repository.wecomTestCalls, [
@@ -109,7 +109,7 @@ void main() {
 
       await tester.drag(find.byType(ListView), const Offset(0, -900));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存设置'));
+      await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
       expect(repository.updateCalls, hasLength(1));
@@ -130,7 +130,7 @@ void main() {
       );
       await tester.drag(find.byType(ListView), const Offset(0, -400));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('发送测试消息'));
+      await tester.tap(find.text('测试发送'));
       await tester.pumpAndSettle();
 
       expect(repository.wecomTestCalls, [
@@ -149,7 +149,7 @@ void main() {
       );
       await tester.drag(find.byType(ListView), const Offset(0, -400));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('发送测试消息'));
+      await tester.tap(find.text('测试发送'));
       await tester.pumpAndSettle();
 
       expect(repository.wecomTestCalls, isEmpty);

@@ -55,7 +55,7 @@ void main() {
 
       expect(repository.loginCalls, ['123456']);
       expect(controller.debugState.stage, AuthStage.authenticated);
-      expect(find.text('欢迎回来'), findsOneWidget);
+      expect(find.text('账本解锁'), findsOneWidget);
       expect(find.text('登录'), findsAtLeastNWidgets(1));
       expect(find.byTooltip('显示密码'), findsOneWidget);
       await tester.tap(find.byTooltip('显示密码'));
@@ -64,7 +64,7 @@ void main() {
       expect(
         find.byWidgetPredicate(
           (widget) =>
-              widget is Semantics && widget.properties.label == '欢迎回来，登录',
+              widget is Semantics && widget.properties.label == '账本解锁，登录',
         ),
         findsOneWidget,
       );
@@ -175,8 +175,8 @@ void main() {
 
       expect(repository.initCalls, ['12345678']);
       expect(controller.debugState.stage, AuthStage.authenticated);
-      expect(find.text('首次设置密码'), findsOneWidget);
-      expect(find.text('初始化保护'), findsAtLeastNWidgets(1));
+      expect(find.text('设置密码'), findsOneWidget);
+      expect(find.text('账本保护'), findsAtLeastNWidgets(1));
       expect(find.text('初始化密钥策略'), findsNothing);
       expect(find.byTooltip('显示密码'), findsOneWidget);
       expect(find.byTooltip('显示确认密码'), findsOneWidget);
@@ -188,14 +188,14 @@ void main() {
       expect(
         find.byWidgetPredicate(
           (widget) =>
-              widget is Semantics && widget.properties.label == '首次设置密码，初始化保护',
+              widget is Semantics && widget.properties.label == '设置密码，账本保护',
         ),
         findsOneWidget,
       );
       expect(
         find.byWidgetPredicate(
           (widget) =>
-              widget is Semantics && widget.properties.label == '初始化保护 表单',
+              widget is Semantics && widget.properties.label == '账本保护 表单',
         ),
         findsOneWidget,
       );

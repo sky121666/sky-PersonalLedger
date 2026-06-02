@@ -22,7 +22,7 @@ void main() {
       expect(controller.connectCalls, ['']);
       expect(find.text('请输入服务器地址'), findsOneWidget);
       expect(find.text('连接服务器'), findsOneWidget);
-      expect(find.text('输入服务地址。'), findsOneWidget);
+      expect(find.text('连接你的账本服务。'), findsOneWidget);
       expect(find.text('自托管入口'), findsNothing);
       expect(find.byType(AuthFlowShell), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));

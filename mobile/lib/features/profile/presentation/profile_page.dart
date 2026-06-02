@@ -119,8 +119,8 @@ class ProfilePage extends ConsumerWidget {
                   _SettingsEntry(
                     icon: Icons.auto_awesome_outlined,
                     color: colorScheme.primary,
-                    title: 'AI 财务报告',
-                    subtitle: '查看每周总结和智能分析',
+                    title: '财务报告',
+                    subtitle: '查看每周总结和分析',
                     onTap: () => context.push(AppRoutePaths.aiReports),
                   ),
                   _SettingsEntry(

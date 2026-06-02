@@ -235,7 +235,7 @@ class _NotificationSettingsFormState
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.save_outlined),
-              label: const Text('保存设置'),
+              label: const Text('保存'),
             ),
           ),
         ],
@@ -250,7 +250,7 @@ class _NotificationSettingsFormState
         enabled: _wecomEnabled,
         enabledLabel: '启用企业微信',
         onEnabledChanged: (value) => setState(() => _wecomEnabled = value),
-        testButtonText: '发送测试消息',
+        testButtonText: '测试发送',
         testing: _busyAction == 'test-wecom',
         onTest: _testWecom,
         children: [
@@ -269,7 +269,7 @@ class _NotificationSettingsFormState
         enabled: _dingtalkEnabled,
         enabledLabel: '启用钉钉',
         onEnabledChanged: (value) => setState(() => _dingtalkEnabled = value),
-        testButtonText: '发送测试消息',
+        testButtonText: '测试发送',
         testing: _busyAction == 'test-dingtalk',
         onTest: _testDingtalk,
         children: [
@@ -297,7 +297,7 @@ class _NotificationSettingsFormState
         enabled: _emailEnabled,
         enabledLabel: '启用邮箱',
         onEnabledChanged: (value) => setState(() => _emailEnabled = value),
-        testButtonText: '发送测试邮件',
+        testButtonText: '测试发送',
         testing: _busyAction == 'test-email',
         onTest: _testEmail,
         children: [
@@ -363,7 +363,7 @@ class _NotificationSettingsFormState
         enabled: _webhookEnabled,
         enabledLabel: '启用 Webhook',
         onEnabledChanged: (value) => setState(() => _webhookEnabled = value),
-        testButtonText: '发送测试请求',
+        testButtonText: '测试请求',
         testing: _busyAction == 'test-webhook',
         onTest: _testWebhook,
         children: [
