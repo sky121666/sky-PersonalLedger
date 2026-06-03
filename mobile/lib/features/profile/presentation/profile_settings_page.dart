@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../app/theme/app_theme.dart';
@@ -9,7 +8,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../data/profile_repository.dart';
 
 class ProfileSettingsPage extends ConsumerStatefulWidget {
@@ -96,7 +94,7 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
       _showMessage('个人资料已保存');
     } catch (error) {
       if (mounted) {
-        _showMessage(error.toString());
+        _showMessage('个人资料保存失败');
       }
     } finally {
       if (mounted) {
@@ -124,10 +122,10 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
         return;
       }
       setState(() => _avatarController.text = url);
-      _showMessage('头像已上传');
+      _showMessage('头像已更新');
     } catch (error) {
       if (mounted) {
-        _showMessage(error.toString());
+        _showMessage('头像更新失败');
       }
     } finally {
       if (mounted) {
@@ -176,48 +174,52 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
     }
     final error = _error;
     if (error != null) {
-      return AppErrorView(message: error.toString(), onRetry: _loadProfile);
+      return AppErrorView(message: '个人资料加载失败', onRetry: _loadProfile);
     }
     final profile = _profile;
     if (profile == null) {
-      return const StaggeredEntrance(
-        index: 0,
-        child: AppEmptyView(
-          title: '暂无个人资料',
-          message: '刷新后重试。',
-          icon: Icons.manage_accounts_outlined,
-        ),
+      return const AppEmptyView(
+        title: '还没有个人资料',
+        icon: Icons.manage_accounts_outlined,
       );
     }
 
-    return ListView(
+    final rows = [
+      _ProfileSettingsRow(_ProfileHeader(profile: profile)),
+      _ProfileSettingsRow(
+        _ProfileFormCard(
+          nicknameController: _nicknameController,
+          emailController: _emailController,
+          avatarController: _avatarController,
+          bioController: _bioController,
+          submitting: _submitting,
+          avatarUploading: _avatarUploading,
+          onUploadAvatar: _pickAndUploadAvatar,
+          onSubmit: _saveProfile,
+        ),
+      ),
+      _ProfileSettingsRow(
+        _ProfileThemePanel(
+          settings: themeSettings,
+          onModeChanged: _setThemeMode,
+          onPaletteChanged: _setThemePalette,
+        ),
+        0,
+      ),
+    ];
+
+    return ListView.builder(
       padding: const EdgeInsets.only(bottom: 32),
-      children: [
-        StaggeredEntrance(index: 0, child: _ProfileHeader(profile: profile)),
-        const SizedBox(height: 16),
-        StaggeredEntrance(
-          index: 1,
-          child: _ProfileFormCard(
-            nicknameController: _nicknameController,
-            emailController: _emailController,
-            avatarController: _avatarController,
-            bioController: _bioController,
-            submitting: _submitting,
-            avatarUploading: _avatarUploading,
-            onUploadAvatar: _pickAndUploadAvatar,
-            onSubmit: _saveProfile,
+      itemCount: rows.length,
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
           ),
-        ),
-        const SizedBox(height: 16),
-        StaggeredEntrance(
-          index: 2,
-          child: _ProfileThemePanel(
-            settings: themeSettings,
-            onModeChanged: _setThemeMode,
-            onPaletteChanged: _setThemePalette,
-          ),
-        ),
-      ],
+          child: row.child,
+        );
+      },
     );
   }
 
@@ -225,7 +227,6 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
     if (mode == null) {
       return;
     }
-    HapticFeedback.selectionClick();
     ref.read(themeControllerProvider.notifier).setThemeMode(mode);
     _showMessage('外观模式已切换为${_profileSettingsThemeModeLabel(mode)}');
   }
@@ -234,10 +235,16 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
     if (palette == null) {
       return;
     }
-    HapticFeedback.selectionClick();
     ref.read(themeControllerProvider.notifier).setPalette(palette);
     _showMessage('主题色已切换为${palette.label}');
   }
+}
+
+class _ProfileSettingsRow {
+  const _ProfileSettingsRow(this.child, [this.bottomSpacing = 16]);
+
+  final Widget child;
+  final double bottomSpacing;
 }
 
 class _ProfileHeader extends StatelessWidget {
@@ -250,6 +257,7 @@ class _ProfileHeader extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return PremiumSurface(
       accentColor: colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -269,21 +277,24 @@ class _ProfileHeader extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '用户名：${profile.username}',
-                      style: TextStyle(color: colorScheme.onSurfaceVariant),
-                    ),
-                    if (profile.createdAt.isNotEmpty)
+                    if (profile.email.isNotEmpty) ...[
+                      const SizedBox(height: 4),
                       Text(
-                        '创建时间：${profile.createdAt}',
+                        profile.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: colorScheme.onSurfaceVariant),
                       ),
-                    if (profile.lastLoginAt?.isNotEmpty ?? false)
+                    ],
+                    if (profile.bio.isNotEmpty) ...[
+                      const SizedBox(height: 3),
                       Text(
-                        '上次登录：${profile.lastLoginAt}',
+                        profile.bio,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: colorScheme.onSurfaceVariant),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -313,6 +324,7 @@ class _ProfileThemePanel extends StatelessWidget {
     return PremiumSurface(
       key: const ValueKey('profile-settings-theme-panel'),
       accentColor: palette.seedColor,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -335,22 +347,19 @@ class _ProfileThemePanel extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '调整显示模式和主题色。',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+          Text(
+            '外观模式',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<AppThemeMode>(
@@ -376,10 +385,11 @@ class _ProfileThemePanel extends StatelessWidget {
                   onModeChanged(selection.firstOrNull),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           DropdownButtonFormField<AppThemePalette>(
             initialValue: settings.palette,
             decoration: InputDecoration(
+              labelText: '主题色',
               filled: true,
               fillColor: colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.55,
@@ -530,6 +540,7 @@ class _ProfileFormCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return PremiumSurface(
       accentColor: colorScheme.tertiary,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -574,41 +585,57 @@ class _ProfileFormCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            key: const ValueKey('profile-avatar'),
-            controller: avatarController,
-            keyboardType: TextInputType.url,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: '头像 URL',
-              border: OutlineInputBorder(),
+          ExpansionTile(
+            key: const ValueKey('profile-advanced-fields'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.tune_outlined),
+            title: Text(
+              '头像与简介',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              key: const ValueKey('profile-avatar-upload'),
-              onPressed: submitting || avatarUploading ? null : onUploadAvatar,
-              icon: avatarUploading
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.upload_outlined),
-              label: Text(avatarUploading ? '上传中...' : '上传头像'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            key: const ValueKey('profile-bio'),
-            controller: bioController,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: '简介',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
-            ),
+            children: [
+              TextField(
+                key: const ValueKey('profile-avatar'),
+                controller: avatarController,
+                keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: '头像链接',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('profile-avatar-upload'),
+                  onPressed: submitting || avatarUploading
+                      ? null
+                      : onUploadAvatar,
+                  icon: avatarUploading
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.upload_outlined),
+                  label: Text(avatarUploading ? '处理中' : '选择头像'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('profile-bio'),
+                controller: bioController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: '简介',
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -621,7 +648,7 @@ class _ProfileFormCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.save_outlined),
-            label: Text(submitting ? '保存中...' : '保存资料'),
+            label: Text(submitting ? '保存中' : '保存资料'),
           ),
         ],
       ),

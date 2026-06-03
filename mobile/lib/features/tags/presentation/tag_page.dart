@@ -6,7 +6,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../data/tag_repository.dart';
 
 const _tagColors = [
@@ -130,7 +129,7 @@ class _TagPageState extends ConsumerState<TagPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('标签保存失败')));
       }
       rethrow;
     } finally {
@@ -144,13 +143,13 @@ class _TagPageState extends ConsumerState<TagPage> {
     if (tag.isSystem) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('系统标签不能删除')));
+      ).showSnackBar(const SnackBar(content: Text('默认标签不能删除')));
       return;
     }
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除标签',
-      message: '删除后不会删除已有交易，但该标签将不能继续选择。',
+      message: '删除「${tag.name}」？',
       confirmText: '删除',
       isDanger: true,
     );
@@ -174,7 +173,7 @@ class _TagPageState extends ConsumerState<TagPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('标签删除失败')));
       }
     } finally {
       if (mounted) {
@@ -192,7 +191,7 @@ class _TagPageState extends ConsumerState<TagPage> {
           IconButton(
             onPressed: _submitting ? null : _loadTags,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新标签列表',
+            tooltip: '刷新标签',
           ),
         ],
       ),
@@ -211,42 +210,38 @@ class _TagPageState extends ConsumerState<TagPage> {
     }
     final error = _error;
     if (error != null) {
-      return AppErrorView(message: error.toString(), onRetry: _loadTags);
+      return AppErrorView(message: '标签加载失败', onRetry: _loadTags);
     }
     if (_tags.isEmpty) {
-      return StaggeredEntrance(
-        index: 0,
-        child: AppEmptyView(
-          title: '暂无标签',
-          icon: Icons.label_outline,
-          action: FilledButton.icon(
-            onPressed: _submitting ? null : () => _openTagForm(),
-            icon: const Icon(Icons.add),
-            label: const Text('新增标签'),
-          ),
+      return AppEmptyView(
+        title: '还没有标签',
+        icon: Icons.label_outline,
+        action: FilledButton.icon(
+          onPressed: _submitting ? null : () => _openTagForm(),
+          icon: const Icon(Icons.add),
+          label: const Text('新增标签'),
         ),
       );
     }
 
     return RefreshIndicator(
       onRefresh: _loadTags,
-      child: ListView(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 96),
-        children: [
-          for (final entry in _tags.indexed) ...[
-            StaggeredEntrance(
-              index: entry.$1,
-              child: _TagCard(
-                tag: entry.$2,
-                busy: _submitting,
-                onEdit: () => _openTagForm(entry.$2),
-                onDelete: () => _deleteTag(entry.$2),
-              ),
+        itemCount: _tags.length,
+        itemBuilder: (context, index) {
+          final tag = _tags[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _TagCard(
+              tag: tag,
+              busy: _submitting,
+              onEdit: () => _openTagForm(tag),
+              onDelete: () => _deleteTag(tag),
             ),
-            const SizedBox(height: 10),
-          ],
-        ],
+          );
+        },
       ),
     );
   }
@@ -269,19 +264,25 @@ class _TagCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = _parseColor(tag.color, colorScheme.primary);
+    final sourceLabel = tag.isSystem ? '默认标签' : '自建标签';
     return Semantics(
-      label: '${tag.name}，${tag.sourceLabel}，使用 ${tag.usedCount} 次',
+      label: '${tag.name}，$sourceLabel，使用 ${tag.usedCount} 次',
       button: true,
       child: PremiumSurface(
         key: ValueKey('tag-card-${tag.id}'),
         accentColor: color,
         padding: EdgeInsets.zero,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
           child: Row(
             children: [
-              IconBadge(icon: _tagIconData(tag.icon), color: color),
-              const SizedBox(width: 12),
+              IconBadge(
+                icon: _tagIconData(tag.icon),
+                color: color,
+                size: 38,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,9 +295,9 @@ class _TagCard extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
-                      '${tag.sourceLabel} · 使用 ${tag.usedCount} 次',
+                      '$sourceLabel · 使用 ${tag.usedCount} 次',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -307,15 +308,27 @@ class _TagCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: busy ? null : onEdit,
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: '编辑标签 ${tag.name}',
-              ),
-              IconButton(
-                onPressed: busy || tag.isSystem ? null : onDelete,
-                icon: const Icon(Icons.delete_outline),
-                tooltip: tag.isSystem ? '系统标签不能删除' : '删除标签 ${tag.name}',
+              PopupMenuButton<_TagAction>(
+                tooltip: '更多标签操作 ${tag.name}',
+                enabled: !busy,
+                onSelected: (action) {
+                  if (action == _TagAction.edit) {
+                    onEdit();
+                  } else {
+                    onDelete();
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: _TagAction.edit,
+                    child: Text('编辑'),
+                  ),
+                  PopupMenuItem(
+                    value: _TagAction.delete,
+                    enabled: !tag.isSystem,
+                    child: const Text('删除'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -324,6 +337,8 @@ class _TagCard extends StatelessWidget {
     );
   }
 }
+
+enum _TagAction { edit, delete }
 
 class _TagFormSheet extends ConsumerStatefulWidget {
   const _TagFormSheet({required this.onSubmit, this.tag});
@@ -401,59 +416,73 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
                     value == null || value.trim().isEmpty ? '请输入标签名称' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                key: const ValueKey('tag-icon'),
-                controller: _iconController,
-                decoration: const InputDecoration(
-                  labelText: '图标标识',
-                  hintText: 'label / wallet / repeat',
-                  border: OutlineInputBorder(),
+              ExpansionTile(
+                key: const ValueKey('tag-visual-options'),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.palette_outlined),
+                title: Text(
+                  '外观',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
                 children: [
-                  for (final option in _tagIconOptions)
-                    _TagIconChoice(
-                      option: option,
-                      selected:
-                          _iconController.text.trim().toLowerCase() ==
-                          option.value,
-                      onSelected: () {
-                        setState(() => _iconController.text = option.value);
-                      },
+                  TextFormField(
+                    key: const ValueKey('tag-icon'),
+                    controller: _iconController,
+                    decoration: const InputDecoration(
+                      labelText: '图标',
+                      hintText: '选择或输入图标',
+                      border: OutlineInputBorder(),
                     ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final color in _tagColors)
-                    ChoiceChip(
-                      label: const SizedBox(width: 16, height: 16),
-                      selected: _color == color,
-                      backgroundColor: _parseColor(
-                        color,
-                        AppTheme.financeColors(context).asset,
-                      ),
-                      selectedColor: _parseColor(
-                        color,
-                        AppTheme.financeColors(context).asset,
-                      ),
-                      onSelected: (_) => setState(() => _color = color),
-                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final option in _tagIconOptions)
+                        _TagIconChoice(
+                          option: option,
+                          selected:
+                              _iconController.text.trim().toLowerCase() ==
+                              option.value,
+                          onSelected: () {
+                            setState(() => _iconController.text = option.value);
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final color in _tagColors)
+                        ChoiceChip(
+                          label: const SizedBox(width: 16, height: 16),
+                          selected: _color == color,
+                          backgroundColor: _parseColor(
+                            color,
+                            AppTheme.financeColors(context).asset,
+                          ),
+                          selectedColor: _parseColor(
+                            color,
+                            AppTheme.financeColors(context).asset,
+                          ),
+                          onSelected: (_) => setState(() => _color = color),
+                        ),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
               FilledButton(
                 key: const ValueKey('tag-save'),
                 onPressed: _submitting ? null : _submit,
-                child: Text(_submitting ? '保存中...' : '保存'),
+                child: Text(_submitting ? '保存中' : '保存标签'),
               ),
             ],
           ),

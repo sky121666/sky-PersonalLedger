@@ -6,7 +6,6 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../../transactions/application/ledger_refresh.dart';
 import '../../transactions/data/transaction_models.dart';
 import '../data/template_repository.dart';
@@ -94,7 +93,7 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('模板保存失败')));
       }
       rethrow;
     } finally {
@@ -125,7 +124,7 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('模板使用失败')));
       }
     } finally {
       if (mounted) {
@@ -138,7 +137,7 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除模板',
-      message: '删除后不会影响已经创建的交易记录。',
+      message: '删除「${template.name}」？',
       confirmText: '删除',
       isDanger: true,
     );
@@ -162,7 +161,7 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('模板删除失败')));
       }
     } finally {
       if (mounted) {
@@ -199,7 +198,7 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
           IconButton(
             onPressed: _submitting ? null : _loadData,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新快捷模板',
+            tooltip: '刷新模板',
           ),
         ],
       ),
@@ -220,32 +219,38 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
     }
     final error = _error;
     if (error != null) {
-      return AppErrorView(message: error.toString(), onRetry: _loadData);
+      return AppErrorView(message: '模板加载失败', onRetry: _loadData);
     }
     if (_templates.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 96),
-        children: [
-          StaggeredEntrance(
-            index: 0,
-            child: PremiumSurface(
-              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
-              child: AppEmptyView(
-                title: '暂无快捷模板',
-                icon: Icons.bolt_outlined,
-                action: FilledButton.icon(
-                  onPressed:
-                      _submitting || _accounts.isEmpty || _categories.isEmpty
-                      ? null
-                      : _openTemplateForm,
-                  icon: const Icon(Icons.add),
-                  label: const Text('新增模板'),
-                ),
-              ),
+      final rows = [
+        _TemplateRow(
+          AppEmptyView(
+            title: '还没有模板',
+            icon: Icons.bolt_outlined,
+            action: FilledButton.icon(
+              onPressed: _submitting || _accounts.isEmpty || _categories.isEmpty
+                  ? null
+                  : _openTemplateForm,
+              icon: const Icon(Icons.add),
+              label: const Text('新增模板'),
             ),
           ),
-        ],
+          0,
+        ),
+      ];
+      return ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 96),
+        itemCount: rows.length,
+        itemBuilder: (context, index) {
+          final row = rows[index];
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
+            ),
+            child: row.child,
+          );
+        },
       );
     }
 
@@ -258,21 +263,25 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
         separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final template = _templates[index];
-          return StaggeredEntrance(
-            index: index,
-            child: _TemplateCard(
-              template: template,
-              accountName: _accountName(template.accountId),
-              categoryName: _categoryName(template.categoryId),
-              busy: _submitting,
-              onApply: () => _applyTemplate(template),
-              onDelete: () => _deleteTemplate(template),
-            ),
+          return _TemplateCard(
+            template: template,
+            accountName: _accountName(template.accountId),
+            categoryName: _categoryName(template.categoryId),
+            busy: _submitting,
+            onApply: () => _applyTemplate(template),
+            onDelete: () => _deleteTemplate(template),
           );
         },
       ),
     );
   }
+}
+
+class _TemplateRow {
+  const _TemplateRow(this.child, [this.bottomSpacing = 10]);
+
+  final Widget child;
+  final double bottomSpacing;
 }
 
 class _TemplateMetaPill extends StatelessWidget {
@@ -289,9 +298,7 @@ class _TemplateMetaPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
@@ -323,7 +330,7 @@ class _TemplateMetaPill extends StatelessWidget {
   }
 }
 
-class _TemplateCard extends StatelessWidget {
+class _TemplateCard extends StatefulWidget {
   const _TemplateCard({
     required this.template,
     required this.accountName,
@@ -341,7 +348,21 @@ class _TemplateCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
+  State<_TemplateCard> createState() => _TemplateCardState();
+}
+
+class _TemplateCardState extends State<_TemplateCard> {
+  bool _showRemark = false;
+
+  @override
   Widget build(BuildContext context) {
+    final template = widget.template;
+    final accountName = widget.accountName;
+    final categoryName = widget.categoryName;
+    final busy = widget.busy;
+    final onApply = widget.onApply;
+    final onDelete = widget.onDelete;
+
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     final isIncome = template.type == TransactionType.income;
@@ -397,7 +418,7 @@ class _TemplateCard extends StatelessWidget {
               ),
             ],
           ),
-          if (template.remark.isNotEmpty) ...[
+          if (_showRemark && template.remark.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               template.remark,
@@ -408,9 +429,15 @@ class _TemplateCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             children: [
+              if (template.remark.isNotEmpty)
+                IconButton(
+                  onPressed: () => setState(() => _showRemark = !_showRemark),
+                  tooltip: _showRemark ? '收起备注' : '展开备注',
+                  icon: Icon(_showRemark ? Icons.remove : Icons.add),
+                ),
               _TemplateMetaPill(
                 icon: Icons.repeat_outlined,
                 label: '已用 ${template.usedCount} 次',
@@ -426,10 +453,27 @@ class _TemplateCard extends StatelessWidget {
                   label: const Text('套用'),
                 ),
               ),
-              IconButton.filledTonal(
-                onPressed: busy ? null : onDelete,
-                icon: const Icon(Icons.delete_outline),
-                tooltip: '删除模板 ${template.name}',
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: PopupMenuButton<_TemplateAction>(
+                  tooltip: '更多模板操作 ${template.name}',
+                  enabled: !busy,
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.more_horiz),
+                  iconSize: 19,
+                  onSelected: (action) {
+                    if (action == _TemplateAction.delete) {
+                      onDelete();
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _TemplateAction.delete,
+                      child: Text('删除'),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -438,6 +482,8 @@ class _TemplateCard extends StatelessWidget {
     );
   }
 }
+
+enum _TemplateAction { delete }
 
 class _TemplateFormSheet extends ConsumerStatefulWidget {
   const _TemplateFormSheet({
@@ -464,6 +510,7 @@ class _TemplateFormSheetState extends ConsumerState<_TemplateFormSheet> {
   String? _accountId;
   String? _categoryId;
   var _submitting = false;
+  var _showMoreOptions = false;
 
   @override
   void initState() {
@@ -604,20 +651,34 @@ class _TemplateFormSheetState extends ConsumerState<_TemplateFormSheet> {
                 onChanged: (value) => setState(() => _categoryId = value),
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                key: const ValueKey('template-remark'),
-                controller: _remarkController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: '备注',
-                  border: OutlineInputBorder(),
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton.filledTonal(
+                  onPressed: () {
+                    setState(() => _showMoreOptions = !_showMoreOptions);
+                  },
+                  icon: Icon(_showMoreOptions ? Icons.close : Icons.add),
+                  tooltip:
+                      _showMoreOptions ? '收起备注输入' : '添加备注',
                 ),
               ),
+              if (_showMoreOptions) ...[
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const ValueKey('template-remark'),
+                  controller: _remarkController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '备注',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               FilledButton(
                 key: const ValueKey('template-save'),
                 onPressed: _submitting ? null : _submit,
-                child: Text(_submitting ? '保存中...' : '保存'),
+                child: Text(_submitting ? '保存中' : '保存模板'),
               ),
             ],
           ),

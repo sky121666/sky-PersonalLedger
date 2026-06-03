@@ -587,9 +587,7 @@ class _RoundedChartBar extends StatelessWidget {
     final effectiveHeight = maxValue <= 0 || value <= 0
         ? 5.0
         : math.max(value / maxValue * chartHeight, 8.0);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
+    return Container(
       height: effectiveHeight,
       decoration: BoxDecoration(
         color: value <= 0

@@ -5,7 +5,6 @@ import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
@@ -39,7 +38,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
           IconButton(
             onPressed: _isBusy ? null : _refresh,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新借贷记录',
+            tooltip: '刷新借贷往来',
           ),
         ],
       ),
@@ -56,61 +55,23 @@ class _LendingPageState extends ConsumerState<LendingPage> {
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载借贷记录...'),
         error: (error, _) =>
-            AppErrorView(message: error.toString(), onRetry: _refresh),
+            AppErrorView(message: '借贷记录加载失败', onRetry: _refresh),
         data: (dashboard) => AdaptivePageContainer(
           child: RefreshIndicator(
             onRefresh: () async => _refresh(),
-            child: ListView(
-              padding: const EdgeInsets.only(bottom: 32),
-              children: [
-                if (_errorMessage != null) ...[
-                  _ErrorBanner(message: _errorMessage!),
-                  const SizedBox(height: 12),
-                ],
-                StaggeredEntrance(
-                  index: 0,
-                  child: _SummarySection(summary: dashboard.summary),
-                ),
-                const SizedBox(height: 10),
-                StaggeredEntrance(
-                  index: 1,
-                  child: SegmentedButton<_LendingTab>(
-                    segments: const [
-                      ButtonSegment(
-                        value: _LendingTab.lendOut,
-                        icon: Icon(Icons.north_east),
-                        label: Text('借出'),
-                      ),
-                      ButtonSegment(
-                        value: _LendingTab.borrowIn,
-                        icon: Icon(Icons.south_west),
-                        label: Text('借入'),
-                      ),
-                      ButtonSegment(
-                        value: _LendingTab.settled,
-                        icon: Icon(Icons.check_circle_outline),
-                        label: Text('结清'),
-                      ),
-                    ],
-                    selected: {_tab},
-                    onSelectionChanged: _isBusy
-                        ? null
-                        : (value) => setState(() => _tab = value.single),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _LendingList(
-                  lendings: _itemsForTab(dashboard),
-                  tab: _tab,
-                  startIndex: 3,
-                  busyAction: _busyAction,
-                  onEdit: (item) => _openEditForm(item, dashboard.accounts),
-                  onDelete: _deleteLending,
-                  onRepay: (item) =>
-                      _openRepaymentDialog(item, dashboard.activeAccounts),
-                  onRecords: _openRecordsDialog,
-                ),
-              ],
+            child: _LendingBody(
+              dashboard: dashboard,
+              tab: _tab,
+              busyAction: _busyAction,
+              errorMessage: _errorMessage,
+              onTabChanged: _isBusy
+                  ? null
+                  : (tab) => setState(() => _tab = tab),
+              onEdit: (item) => _openEditForm(item, dashboard.accounts),
+              onDelete: _deleteLending,
+              onRepay: (item) =>
+                  _openRepaymentDialog(item, dashboard.activeAccounts),
+              onRecords: _openRecordsDialog,
             ),
           ),
         ),
@@ -154,14 +115,6 @@ class _LendingPageState extends ConsumerState<LendingPage> {
     await _openCreateForm(type, accounts);
   }
 
-  List<LendingItem> _itemsForTab(LendingDashboard dashboard) {
-    return switch (_tab) {
-      _LendingTab.lendOut => dashboard.activeLendOut,
-      _LendingTab.borrowIn => dashboard.activeBorrowIn,
-      _LendingTab.settled => dashboard.settled,
-    };
-  }
-
   void _refresh() {
     setState(() => _errorMessage = null);
     ref.invalidate(lendingDashboardProvider);
@@ -189,7 +142,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
           return;
         }
         if (saved == null || saved.id.isEmpty) {
-          throw const FormatException('借贷创建响应为空，无法上传附件');
+          throw const FormatException('借贷记录已创建，但附件暂时无法添加');
         }
         final uploadedAttachments = await _uploadPendingAttachments(
           result.pendingFiles,
@@ -319,7 +272,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除借贷记录',
-      message: '删除后该笔借贷和还款记录将无法恢复，已生成的账本交易会保留。',
+      message: '删除「${item.contactName}」？',
       confirmText: '删除',
       isDanger: true,
     );
@@ -358,7 +311,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = error.toString());
+      setState(() => _errorMessage = '借贷记录保存失败');
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -381,7 +334,6 @@ class _SummarySection extends StatelessWidget {
     final netColor = summary.netLending >= 0
         ? financeColors.income
         : colorScheme.error;
-    final settledCount = summary.settledLendOut + summary.settledBorrowIn;
     return PremiumSurface(
       accentColor: netColor,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -427,16 +379,6 @@ class _SummarySection extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '借出 ${summary.activeLendOut} 笔 · 借入 ${summary.activeBorrowIn} 笔 · 已结清 $settledCount 笔',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
           ),
         ],
       ),
@@ -495,68 +437,130 @@ class _SummaryMiniStat extends StatelessWidget {
   }
 }
 
-class _LendingList extends StatelessWidget {
-  const _LendingList({
-    required this.lendings,
+class _LendingBody extends StatelessWidget {
+  const _LendingBody({
+    required this.dashboard,
     required this.tab,
-    required this.startIndex,
     required this.busyAction,
+    required this.errorMessage,
+    required this.onTabChanged,
     required this.onEdit,
     required this.onDelete,
     required this.onRepay,
     required this.onRecords,
   });
 
-  final List<LendingItem> lendings;
+  final LendingDashboard dashboard;
   final _LendingTab tab;
-  final int startIndex;
   final String? busyAction;
+  final String? errorMessage;
+  final ValueChanged<_LendingTab>? onTabChanged;
   final ValueChanged<LendingItem> onEdit;
   final ValueChanged<LendingItem> onDelete;
   final ValueChanged<LendingItem> onRepay;
   final ValueChanged<LendingItem> onRecords;
 
+  List<LendingItem> get _lendings {
+    return switch (tab) {
+      _LendingTab.lendOut => dashboard.activeLendOut,
+      _LendingTab.borrowIn => dashboard.activeBorrowIn,
+      _LendingTab.settled => dashboard.settled,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (lendings.isEmpty) {
-      return StaggeredEntrance(
-        index: startIndex,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          child: AppEmptyView(
-            title: switch (tab) {
-              _LendingTab.lendOut => '暂无借出记录',
-              _LendingTab.borrowIn => '暂无借入记录',
-              _LendingTab.settled => '暂无已结清记录',
-            },
-            icon: Icons.handshake_outlined,
+    final lendings = _lendings;
+    final rows = _buildRows(lendings);
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 32),
+      itemCount: rows.length,
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        return switch (row.kind) {
+          _LendingRowKind.error => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _ErrorBanner(message: errorMessage!),
           ),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        for (final entry in lendings.indexed) ...[
-          StaggeredEntrance(
-            index: startIndex + entry.$1,
-            child: _LendingCard(
-              item: entry.$2,
-              busy: busyAction?.endsWith(entry.$2.id) ?? false,
-              onEdit: () => onEdit(entry.$2),
-              onDelete: () => onDelete(entry.$2),
-              onRepay: () => onRepay(entry.$2),
-              onRecords: () => onRecords(entry.$2),
+          _LendingRowKind.summary => _SummarySection(
+            summary: dashboard.summary,
+          ),
+          _LendingRowKind.segment => Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 12),
+            child: SegmentedButton<_LendingTab>(
+              segments: const [
+                ButtonSegment(
+                  value: _LendingTab.lendOut,
+                  icon: Icon(Icons.north_east),
+                  label: Text('借出'),
+                ),
+                ButtonSegment(
+                  value: _LendingTab.borrowIn,
+                  icon: Icon(Icons.south_west),
+                  label: Text('借入'),
+                ),
+                ButtonSegment(
+                  value: _LendingTab.settled,
+                  icon: Icon(Icons.check_circle_outline),
+                  label: Text('结清'),
+                ),
+              ],
+              selected: {tab},
+              onSelectionChanged: onTabChanged == null
+                  ? null
+                  : (value) => onTabChanged!(value.single),
             ),
           ),
-          const SizedBox(height: 12),
-        ],
-      ],
+          _LendingRowKind.empty => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: AppEmptyView(
+              title: switch (tab) {
+                _LendingTab.lendOut => '还没有借出记录',
+                _LendingTab.borrowIn => '还没有借入记录',
+                _LendingTab.settled => '还没有结清记录',
+              },
+              icon: Icons.handshake_outlined,
+            ),
+          ),
+          _LendingRowKind.item => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _LendingCard(
+              item: row.item!,
+              busy: busyAction?.endsWith(row.item!.id) ?? false,
+              onEdit: () => onEdit(row.item!),
+              onDelete: () => onDelete(row.item!),
+              onRepay: () => onRepay(row.item!),
+              onRecords: () => onRecords(row.item!),
+            ),
+          ),
+        };
+      },
     );
+  }
+
+  List<_LendingRow> _buildRows(List<LendingItem> lendings) {
+    return [
+      if (errorMessage != null) const _LendingRow(_LendingRowKind.error),
+      const _LendingRow(_LendingRowKind.summary),
+      const _LendingRow(_LendingRowKind.segment),
+      if (lendings.isEmpty)
+        const _LendingRow(_LendingRowKind.empty)
+      else
+        for (final item in lendings) _LendingRow(_LendingRowKind.item, item),
+    ];
   }
 }
 
-class _LendingCard extends StatelessWidget {
+class _LendingRow {
+  const _LendingRow(this.kind, [this.item]);
+
+  final _LendingRowKind kind;
+  final LendingItem? item;
+}
+
+enum _LendingRowKind { error, summary, segment, empty, item }
+
+class _LendingCard extends ConsumerStatefulWidget {
   const _LendingCard({
     required this.item,
     required this.busy,
@@ -574,7 +578,15 @@ class _LendingCard extends StatelessWidget {
   final VoidCallback onRecords;
 
   @override
+  ConsumerState<_LendingCard> createState() => _LendingCardState();
+}
+
+class _LendingCardState extends ConsumerState<_LendingCard> {
+  bool _showRemark = false;
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     final accent = item.type == LendingType.lendOut
@@ -598,9 +610,10 @@ class _LendingCard extends StatelessWidget {
         : item.isOverdue
         ? financeColors.expense
         : accent;
+    final repaidLabel = item.type == LendingType.lendOut ? '已收' : '已还';
     final detailLabel = [
       if (visibleStatus != null) visibleStatus,
-      if (item.remark.isNotEmpty) item.remark,
+      '$repaidLabel ${_formatMoney(item.totalRepaid)}',
     ].join(' · ');
     return Semantics(
       label:
@@ -610,7 +623,11 @@ class _LendingCard extends StatelessWidget {
         key: ValueKey('lending-card-${item.id}'),
         padding: const EdgeInsets.symmetric(vertical: 11),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+          border: Border(
+            bottom: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.78),
+            ),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -643,41 +660,38 @@ class _LendingCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '剩余 ${_formatMoney(item.currentBalance)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: statusColor,
-                        fontWeight: FontWeight.w900,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 148),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _formatMoney(item.currentBalance),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: statusColor,
+                              fontWeight: FontWeight.w900,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '已还 ${_formatMoney(item.totalRepaid)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 9),
+            const SizedBox(height: 7),
             _LendingProgressLine(progress: item.progress, color: accent),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Row(
               children: [
                 Expanded(
                   child: Text(
-                    detailLabel.isEmpty
-                        ? '进度 ${item.progress.toStringAsFixed(0)}%'
-                        : detailLabel,
+                    detailLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -691,27 +705,49 @@ class _LendingCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (busy)
+                if (widget.busy)
                   const SizedBox.square(
                     dimension: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                else ...[
-                  if (!item.isSettled)
-                    _LendingActionButton(
-                      icon: Icons.payments_outlined,
-                      tooltip: '记录还款 ${item.contactName}',
-                      onPressed: onRepay,
-                    ),
+                else
                   _LendingMoreMenu(
                     contactName: item.contactName,
-                    onRecords: onRecords,
-                    onEdit: onEdit,
-                    onDelete: onDelete,
+                    canRepay: !item.isSettled,
+                    onRepay: widget.onRepay,
+                    onRecords: widget.onRecords,
+                    onEdit: widget.onEdit,
+                    onDelete: widget.onDelete,
                   ),
-                ],
               ],
             ),
+            if (item.remark.isNotEmpty)
+              GestureDetector(
+                onTap: () => setState(() => _showRemark = !_showRemark),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    _showRemark ? '收起备注' : '展开备注',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+            if (_showRemark && item.remark.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: Text(
+                  item.remark,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.outline,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -743,39 +779,7 @@ class _LendingProgressLine extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
-        Text(
-          '${progress.toStringAsFixed(0)}%',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w800,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
       ],
-    );
-  }
-}
-
-class _LendingActionButton extends StatelessWidget {
-  const _LendingActionButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      constraints: const BoxConstraints.tightFor(width: 38, height: 38),
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      icon: Icon(icon, size: 19),
-      tooltip: tooltip,
     );
   }
 }
@@ -783,12 +787,16 @@ class _LendingActionButton extends StatelessWidget {
 class _LendingMoreMenu extends StatelessWidget {
   const _LendingMoreMenu({
     required this.contactName,
+    required this.canRepay,
+    required this.onRepay,
     required this.onRecords,
     required this.onEdit,
     required this.onDelete,
   });
 
   final String contactName;
+  final bool canRepay;
+  final VoidCallback onRepay;
   final VoidCallback onRecords;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -796,15 +804,25 @@ class _LendingMoreMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 38,
-      height: 38,
+      width: 44,
+      height: 44,
       child: PopupMenuButton<_LendingMenuAction>(
         tooltip: '更多借贷操作 $contactName',
         padding: EdgeInsets.zero,
         icon: const Icon(Icons.more_horiz),
         iconSize: 19,
-        itemBuilder: (context) => const [
-          PopupMenuItem(
+        itemBuilder: (context) => [
+          if (canRepay)
+            const PopupMenuItem(
+              value: _LendingMenuAction.repay,
+              child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.payments_outlined),
+                title: Text('记录还款'),
+              ),
+            ),
+          const PopupMenuItem(
             value: _LendingMenuAction.records,
             child: ListTile(
               dense: true,
@@ -813,7 +831,7 @@ class _LendingMoreMenu extends StatelessWidget {
               title: Text('还款记录'),
             ),
           ),
-          PopupMenuItem(
+          const PopupMenuItem(
             value: _LendingMenuAction.edit,
             child: ListTile(
               dense: true,
@@ -822,7 +840,7 @@ class _LendingMoreMenu extends StatelessWidget {
               title: Text('编辑'),
             ),
           ),
-          PopupMenuItem(
+          const PopupMenuItem(
             value: _LendingMenuAction.delete,
             child: ListTile(
               dense: true,
@@ -834,6 +852,8 @@ class _LendingMoreMenu extends StatelessWidget {
         ],
         onSelected: (action) {
           switch (action) {
+            case _LendingMenuAction.repay:
+              onRepay();
             case _LendingMenuAction.records:
               onRecords();
             case _LendingMenuAction.edit:
@@ -847,7 +867,7 @@ class _LendingMoreMenu extends StatelessWidget {
   }
 }
 
-enum _LendingMenuAction { records, edit, delete }
+enum _LendingMenuAction { repay, records, edit, delete }
 
 class _LendingRecordsDialog extends ConsumerWidget {
   const _LendingRecordsDialog({required this.item});
@@ -871,12 +891,12 @@ class _LendingRecordsDialog extends ConsumerWidget {
             }
             final error = snapshot.error;
             if (error != null) {
-              return _ErrorBanner(message: error.toString());
+              return _ErrorBanner(message: '还款记录加载失败');
             }
             final records = snapshot.data ?? const <LendingRecordItem>[];
             if (records.isEmpty) {
               return const AppEmptyView(
-                title: '暂无还款记录',
+                title: '还没有还款记录',
                 icon: Icons.receipt_long_outlined,
               );
             }
@@ -896,7 +916,7 @@ class _LendingRecordsDialog extends ConsumerWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('关闭'),
+          child: const Text('返回'),
         ),
       ],
     );
@@ -911,6 +931,10 @@ class _LendingRecordTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accountName = record.accountName;
+    final meta = [
+      _formatDate(record.recordDate),
+      if (accountName != null && accountName.isNotEmpty) accountName,
+    ].join(' · ');
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: const Icon(Icons.receipt_long_outlined),
@@ -921,14 +945,10 @@ class _LendingRecordTile extends StatelessWidget {
           context,
         ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(_formatDate(record.recordDate)),
-          if (accountName != null && accountName.isNotEmpty) Text(accountName),
-          if (record.remark.isNotEmpty) Text(record.remark),
-        ],
+      subtitle: Text(
+        record.remark.isEmpty ? meta : '$meta · ${record.remark}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
@@ -960,6 +980,7 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
   DateTime? _dueDate;
   String? _accountId;
   bool _createTransaction = false;
+  bool _showMoreDetails = false;
   late List<LedgerAttachment> _attachments;
   List<PendingAttachmentFile> _pendingAttachmentFiles = const [];
 
@@ -986,6 +1007,11 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
     _attachments = decodeAttachmentPaths(
       item?.evidence ?? '',
     ).map(LedgerAttachment.fromPath).toList();
+    _showMoreDetails =
+        item?.contactPhone.trim().isNotEmpty == true ||
+        item?.interestRate != null ||
+        item?.remark.trim().isNotEmpty == true ||
+        _attachments.isNotEmpty;
   }
 
   @override
@@ -1045,27 +1071,6 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
                       _parseAmount(value) <= 0 ? '请输入大于 0 的金额' : null,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: '联系电话',
-                    prefixIcon: Icon(Icons.call_outlined),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _interestRateController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: '利率',
-                    prefixIcon: Icon(Icons.percent),
-                    suffixText: '%',
-                  ),
-                ),
-                const SizedBox(height: 12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event_outlined),
@@ -1099,7 +1104,10 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
                       prefixIcon: Icon(Icons.account_balance_wallet_outlined),
                     ),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('不关联')),
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('不生成账户流水'),
+                      ),
                       for (final account in widget.accounts)
                         DropdownMenuItem(
                           value: account.id,
@@ -1115,12 +1123,7 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('同步更新账户余额'),
-                    subtitle: Text(
-                      widget.type == LendingType.lendOut
-                          ? '从关联账户扣除借出金额'
-                          : '向关联账户增加借入金额',
-                    ),
+                    title: const Text('同时调整账户余额'),
                     value: _accountId != null && _createTransaction,
                     onChanged: _accountId == null
                         ? null
@@ -1128,25 +1131,61 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
                   ),
                 ],
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _remarkController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: '备注',
-                    prefixIcon: Icon(Icons.notes_outlined),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton.filledTonal(
+                    key: const ValueKey('lending-more-details'),
+                    onPressed: () =>
+                        setState(() => _showMoreDetails = !_showMoreDetails),
+                    icon: Icon(
+                      _showMoreDetails ? Icons.expand_less : Icons.more_horiz,
+                    ),
+                    tooltip: _showMoreDetails ? '收起更多字段' : '展开更多字段',
                   ),
                 ),
-                const SizedBox(height: 12),
-                AttachmentPickerField(
-                  attachments: _attachments,
-                  pendingFiles: _pendingAttachmentFiles,
-                  onAttachmentsChanged: (attachments) {
-                    setState(() => _attachments = attachments);
-                  },
-                  onPendingFilesChanged: (files) {
-                    setState(() => _pendingAttachmentFiles = files);
-                  },
-                ),
+                if (_showMoreDetails) ...[
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: '联系电话',
+                      prefixIcon: Icon(Icons.call_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _interestRateController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: '利率',
+                      prefixIcon: Icon(Icons.percent),
+                      suffixText: '%',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _remarkController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: '备注',
+                      prefixIcon: Icon(Icons.notes_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AttachmentPickerField(
+                    attachments: _attachments,
+                    pendingFiles: _pendingAttachmentFiles,
+                    onAttachmentsChanged: (attachments) {
+                      setState(() => _attachments = attachments);
+                    },
+                    onPendingFilesChanged: (files) {
+                      setState(() => _pendingAttachmentFiles = files);
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -1157,7 +1196,7 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('保存')),
+        FilledButton(onPressed: _submit, child: const Text('保存记录')),
       ],
     );
   }
@@ -1369,7 +1408,10 @@ class _RepaymentDialogState extends State<_RepaymentDialog> {
                       prefixIcon: Icon(Icons.account_balance_wallet_outlined),
                     ),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('不关联')),
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('不生成账户流水'),
+                      ),
                       for (final account in widget.accounts)
                         DropdownMenuItem(
                           value: account.id,
@@ -1385,12 +1427,7 @@ class _RepaymentDialogState extends State<_RepaymentDialog> {
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('同步更新账户余额'),
-                    subtitle: Text(
-                      widget.item.type == LendingType.lendOut
-                          ? '向关联账户增加还款金额'
-                          : '从关联账户扣除还款金额',
-                    ),
+                    title: const Text('同时调整账户余额'),
                     value: _accountId != null && _createTransaction,
                     onChanged: _accountId == null
                         ? null

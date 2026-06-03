@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
 import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
@@ -13,13 +12,12 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('出错了'), findsOneWidget);
-      expect(find.textContaining('统计加载失败'), findsOneWidget);
+      expect(find.text('统计数据加载失败'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
 
       expect(repository.dashboardCalls, 2);
-      expect(find.text('本月概览'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('statistics-period-command-center')),
         findsNothing,
@@ -78,7 +76,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('支出结构扫描'), findsNothing);
-      expect(find.text('支出分类'), findsOneWidget);
+      expect(find.text('支出分类'), findsNothing);
       expect(
         find.byKey(const ValueKey('statistics-category-rank-cat-1')),
         findsOneWidget,
@@ -130,18 +128,46 @@ void main() {
       expect(find.text('收入变化'), findsNothing);
       expect(find.text('支出变化'), findsNothing);
       expect(find.text('0 笔'), findsNothing);
-      await tester.scrollUntilVisible(find.text('本月暂无趋势数据'), 300);
-      expect(find.text('本月暂无趋势数据'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('本月暂无分类数据'), 300);
-      expect(find.text('本月暂无分类数据'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('本月还没有趋势'), 300);
+      expect(find.text('本月还没有趋势'), findsOneWidget);
+      expect(find.text('本月暂无趋势数据'), findsNothing);
+      await tester.scrollUntilVisible(find.text('本月还没有分类'), 300);
+      expect(find.text('本月还没有分类'), findsOneWidget);
+      expect(find.text('本月暂无分类数据'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });
 
-    testWidgets('统计页核心区块使用分段入场动效', (tester) async {
+    testWidgets('统计页核心区块保持清晰层级', (tester) async {
       final repository = _FakeStatisticsRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsNWidgets(3));
+      expect(
+        find.byKey(const ValueKey('statistics-period-header')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('statistics-category-rank-card')),
+        findsOneWidget,
+      );
+      expect(find.text('统计'), findsOneWidget);
+    });
+
+    testWidgets('统计页分类排行默认只展示前五项', (tester) async {
+      final repository = _FakeStatisticsRepository(
+        dashboards: [_dashboard(categoryCount: 6)],
+      );
+      await _pumpPage(tester, repository);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('statistics-category-rank-card')),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('分类 1'), findsOneWidget);
+      expect(find.text('分类 5'), findsOneWidget);
+      expect(find.text('分类 6'), findsNothing);
     });
 
     testWidgets('统计刷新后恢复为最新数据', (tester) async {
@@ -241,7 +267,20 @@ StatisticsDashboard _dashboard({
   String categoryName = '餐饮',
   double expense = 400,
   bool empty = false,
+  int categoryCount = 1,
 }) {
+  final categories = [
+    for (var index = 0; index < categoryCount; index++)
+      CategoryStatItem(
+        categoryId: 'cat-${index + 1}',
+        categoryName: categoryCount == 1 ? categoryName : '分类 ${index + 1}',
+        icon: '🍽️',
+        color: '#EF4444',
+        amount: expense - index,
+        percentage: categoryCount == 1 ? 100 : 100 / categoryCount,
+        count: 5,
+      ),
+  ];
   return StatisticsDashboard(
     overview: StatisticsOverviewData(
       income: empty ? 0 : 1000,
@@ -268,19 +307,7 @@ StatisticsDashboard _dashboard({
     ),
     categories: CategoryStatResponse(
       total: empty ? 0 : expense,
-      items: empty
-          ? const []
-          : [
-              CategoryStatItem(
-                categoryId: 'cat-1',
-                categoryName: categoryName,
-                icon: '🍽️',
-                color: '#EF4444',
-                amount: expense,
-                percentage: 100,
-                count: 5,
-              ),
-            ],
+      items: empty ? const [] : categories,
     ),
   );
 }

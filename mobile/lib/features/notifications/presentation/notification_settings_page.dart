@@ -6,7 +6,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../data/notification_repository.dart';
 
 class NotificationSettingsPage extends ConsumerWidget {
@@ -29,7 +28,7 @@ class NotificationSettingsPage extends ConsumerWidget {
       body: settingsState.when(
         loading: () => const AppLoadingView(message: '正在加载通知设置...'),
         error: (error, _) => AppErrorView(
-          message: error.toString(),
+          message: '通知设置加载失败',
           onRetry: () => ref.invalidate(notificationSettingsProvider),
         ),
         data: (settings) => _NotificationSettingsForm(settings: settings),
@@ -138,111 +137,99 @@ class _NotificationSettingsFormState
     final enabledAccent = _enabled
         ? financeColors.income
         : financeColors.warning;
+    final rows = [
+      if (_errorMessage != null)
+        _NotificationRow(_ErrorBanner(message: _errorMessage!)),
+      _NotificationRow(
+        PremiumSurface(
+          accentColor: enabledAccent,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: _NotificationSwitchRow(
+            icon: Icons.notifications_active_outlined,
+            color: enabledAccent,
+            title: '启用通知',
+            value: _enabled,
+            switchKey: const ValueKey('notification-enabled'),
+            onChanged: _isBusy
+                ? null
+                : (value) => setState(() => _enabled = value),
+          ),
+        ),
+      ),
+      _NotificationRow(
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<_NotificationChannel>(
+            segments: const [
+              ButtonSegment(
+                value: _NotificationChannel.wecom,
+                icon: Icon(Icons.chat_outlined),
+                label: Text('企业微信'),
+              ),
+              ButtonSegment(
+                value: _NotificationChannel.dingtalk,
+                icon: Icon(Icons.forum_outlined),
+                label: Text('钉钉'),
+              ),
+              ButtonSegment(
+                value: _NotificationChannel.email,
+                icon: Icon(Icons.mail_outline),
+                label: Text('邮箱'),
+              ),
+              ButtonSegment(
+                value: _NotificationChannel.webhook,
+                icon: Icon(Icons.webhook_outlined),
+                label: Text('其他通道'),
+              ),
+            ],
+            selected: {_channel},
+            onSelectionChanged: _isBusy
+                ? null
+                : (value) => setState(() => _channel = value.single),
+          ),
+        ),
+        10,
+      ),
+      _NotificationRow(_buildChannelCard()),
+      _NotificationRow(
+        _ReminderSummaryCard(
+          enabledCount: _enabledReminderCount,
+          advanceDays: _advanceDays,
+          enabled: !_isBusy,
+          onTap: _openReminderSheet,
+        ),
+      ),
+      _NotificationRow(
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: _isBusy ? null : _save,
+            icon: _busyAction == 'save'
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: const Text('保存设置'),
+          ),
+        ),
+        0,
+      ),
+    ];
+
     return AdaptivePageContainer(
-      child: ListView(
+      child: ListView.builder(
         padding: const EdgeInsets.only(bottom: 32),
-        children: [
-          if (_errorMessage != null) ...[
-            StaggeredEntrance(
-              index: 0,
-              child: _ErrorBanner(message: _errorMessage!),
+        itemCount: rows.length,
+        itemBuilder: (context, index) {
+          final row = rows[index];
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
             ),
-            const SizedBox(height: 12),
-          ],
-          StaggeredEntrance(
-            index: 1,
-            child: PremiumSurface(
-              accentColor: enabledAccent,
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: _NotificationSwitchRow(
-                icon: Icons.notifications_active_outlined,
-                color: enabledAccent,
-                title: '启用通知',
-                value: _enabled,
-                switchKey: const ValueKey('notification-enabled'),
-                onChanged: _isBusy
-                    ? null
-                    : (value) => setState(() => _enabled = value),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          StaggeredEntrance(
-            index: 2,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SegmentedButton<_NotificationChannel>(
-                segments: const [
-                  ButtonSegment(
-                    value: _NotificationChannel.wecom,
-                    icon: Icon(Icons.chat_outlined),
-                    label: Text('企业微信'),
-                  ),
-                  ButtonSegment(
-                    value: _NotificationChannel.dingtalk,
-                    icon: Icon(Icons.forum_outlined),
-                    label: Text('钉钉'),
-                  ),
-                  ButtonSegment(
-                    value: _NotificationChannel.email,
-                    icon: Icon(Icons.mail_outline),
-                    label: Text('邮箱'),
-                  ),
-                  ButtonSegment(
-                    value: _NotificationChannel.webhook,
-                    icon: Icon(Icons.webhook_outlined),
-                    label: Text('Webhook'),
-                  ),
-                ],
-                selected: {_channel},
-                onSelectionChanged: _isBusy
-                    ? null
-                    : (value) => setState(() => _channel = value.single),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          StaggeredEntrance(index: 3, child: _buildChannelCard()),
-          const SizedBox(height: 12),
-          StaggeredEntrance(
-            index: 4,
-            child: _OptionsCard(
-              paymentDue: _notifyPaymentDue,
-              budgetAlert: _notifyBudgetAlert,
-              lendingDue: _notifyLendingDue,
-              annualReport: _notifyAnnualReport,
-              advanceDays: _advanceDays,
-              enabled: !_isBusy,
-              onPaymentDueChanged: (value) =>
-                  setState(() => _notifyPaymentDue = value),
-              onBudgetAlertChanged: (value) =>
-                  setState(() => _notifyBudgetAlert = value),
-              onLendingDueChanged: (value) =>
-                  setState(() => _notifyLendingDue = value),
-              onAnnualReportChanged: (value) =>
-                  setState(() => _notifyAnnualReport = value),
-              onAdvanceDaysChanged: (value) =>
-                  setState(() => _advanceDays = value),
-            ),
-          ),
-          const SizedBox(height: 12),
-          StaggeredEntrance(
-            index: 5,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: _isBusy ? null : _save,
-                icon: _busyAction == 'save'
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: const Text('保存'),
-              ),
-            ),
-          ),
-        ],
+            child: row.child,
+          );
+        },
       ),
     );
   }
@@ -254,7 +241,7 @@ class _NotificationSettingsFormState
         enabled: _wecomEnabled,
         enabledLabel: '启用企业微信',
         onEnabledChanged: (value) => setState(() => _wecomEnabled = value),
-        testButtonText: '测试发送',
+        testButtonText: '试发',
         testing: _busyAction == 'test-wecom',
         onTest: _testWecom,
         children: [
@@ -262,7 +249,7 @@ class _NotificationSettingsFormState
             key: const ValueKey('notification-wecom-webhook'),
             controller: _wecomWebhookController,
             decoration: const InputDecoration(
-              labelText: 'Webhook 地址',
+              labelText: '通知地址',
               prefixIcon: Icon(Icons.link_outlined),
             ),
           ),
@@ -273,14 +260,14 @@ class _NotificationSettingsFormState
         enabled: _dingtalkEnabled,
         enabledLabel: '启用钉钉',
         onEnabledChanged: (value) => setState(() => _dingtalkEnabled = value),
-        testButtonText: '测试发送',
+        testButtonText: '试发',
         testing: _busyAction == 'test-dingtalk',
         onTest: _testDingtalk,
         children: [
           TextField(
             controller: _dingtalkWebhookController,
             decoration: const InputDecoration(
-              labelText: 'Webhook 地址',
+              labelText: '通知地址',
               prefixIcon: Icon(Icons.link_outlined),
             ),
           ),
@@ -290,7 +277,7 @@ class _NotificationSettingsFormState
             controller: _dingtalkSecretController,
             obscureText: true,
             decoration: const InputDecoration(
-              labelText: '加签密钥',
+              labelText: '密钥',
               prefixIcon: Icon(Icons.key_outlined),
             ),
           ),
@@ -301,7 +288,7 @@ class _NotificationSettingsFormState
         enabled: _emailEnabled,
         enabledLabel: '启用邮箱',
         onEnabledChanged: (value) => setState(() => _emailEnabled = value),
-        testButtonText: '测试发送',
+        testButtonText: '试发',
         testing: _busyAction == 'test-email',
         onTest: _testEmail,
         children: [
@@ -311,8 +298,8 @@ class _NotificationSettingsFormState
                 child: TextField(
                   controller: _smtpHostController,
                   decoration: const InputDecoration(
-                    labelText: 'SMTP 服务器',
-                    prefixIcon: Icon(Icons.dns_outlined),
+                    labelText: '邮箱地址',
+                    prefixIcon: Icon(Icons.mail_outline),
                   ),
                 ),
               ),
@@ -340,7 +327,7 @@ class _NotificationSettingsFormState
             controller: _smtpPasswordController,
             obscureText: true,
             decoration: const InputDecoration(
-              labelText: '密码/授权码',
+              labelText: '邮箱密码',
               prefixIcon: Icon(Icons.password_outlined),
             ),
           ),
@@ -363,18 +350,18 @@ class _NotificationSettingsFormState
         ],
       ),
       _NotificationChannel.webhook => _ChannelCard(
-        title: 'Webhook',
+        title: '其他通道',
         enabled: _webhookEnabled,
-        enabledLabel: '启用 Webhook',
+        enabledLabel: '启用其他通道',
         onEnabledChanged: (value) => setState(() => _webhookEnabled = value),
-        testButtonText: '测试请求',
+        testButtonText: '试发',
         testing: _busyAction == 'test-webhook',
         onTest: _testWebhook,
         children: [
           TextField(
             controller: _webhookUrlController,
             decoration: const InputDecoration(
-              labelText: 'Webhook URL',
+              labelText: '通知地址',
               prefixIcon: Icon(Icons.link_outlined),
             ),
           ),
@@ -391,6 +378,64 @@ class _NotificationSettingsFormState
         ],
       ),
     };
+  }
+
+  int get _enabledReminderCount {
+    return [
+      _notifyPaymentDue,
+      _notifyBudgetAlert,
+      _notifyLendingDue,
+      _notifyAnnualReport,
+    ].where((enabled) => enabled).length;
+  }
+
+  Future<void> _openReminderSheet() async {
+    if (_isBusy) {
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            void updateSheet(VoidCallback update) {
+              setState(update);
+              setSheetState(() {});
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  16 + MediaQuery.of(sheetContext).viewInsets.bottom,
+                ),
+                child: _OptionsCard(
+                  paymentDue: _notifyPaymentDue,
+                  budgetAlert: _notifyBudgetAlert,
+                  lendingDue: _notifyLendingDue,
+                  annualReport: _notifyAnnualReport,
+                  advanceDays: _advanceDays,
+                  enabled: !_isBusy,
+                  onPaymentDueChanged: (value) =>
+                      updateSheet(() => _notifyPaymentDue = value),
+                  onBudgetAlertChanged: (value) =>
+                      updateSheet(() => _notifyBudgetAlert = value),
+                  onLendingDueChanged: (value) =>
+                      updateSheet(() => _notifyLendingDue = value),
+                  onAnnualReportChanged: (value) =>
+                      updateSheet(() => _notifyAnnualReport = value),
+                  onAdvanceDaysChanged: (value) =>
+                      updateSheet(() => _advanceDays = value),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -414,7 +459,7 @@ class _NotificationSettingsFormState
   Future<void> _testWecom() async {
     final webhook = _wecomWebhookController.text.trim();
     if (webhook.isEmpty) {
-      setState(() => _errorMessage = '请填写企业微信 Webhook 地址');
+      setState(() => _errorMessage = '请填写企业微信地址');
       return;
     }
     await _runTestAction(
@@ -427,7 +472,7 @@ class _NotificationSettingsFormState
   Future<void> _testDingtalk() async {
     final webhook = _dingtalkWebhookController.text.trim();
     if (webhook.isEmpty) {
-      setState(() => _errorMessage = '请填写钉钉 Webhook 地址');
+      setState(() => _errorMessage = '请填写钉钉地址');
       return;
     }
     await _runTestAction(
@@ -445,7 +490,7 @@ class _NotificationSettingsFormState
     final host = _smtpHostController.text.trim();
     final user = _smtpUserController.text.trim();
     if (host.isEmpty || user.isEmpty) {
-      setState(() => _errorMessage = '请填写 SMTP 服务器和邮箱账号');
+      setState(() => _errorMessage = '请填写邮箱地址和邮箱账号');
       return;
     }
     await _runTestAction(
@@ -466,7 +511,7 @@ class _NotificationSettingsFormState
   Future<void> _testWebhook() async {
     final url = _webhookUrlController.text.trim();
     if (url.isEmpty) {
-      setState(() => _errorMessage = '请填写 Webhook URL');
+      setState(() => _errorMessage = '请填写通知地址');
       return;
     }
     await _runTestAction(
@@ -486,10 +531,10 @@ class _NotificationSettingsFormState
       request: () async {
         final result = await request();
         if (result != null && !result.success) {
-          throw StateError(result.message.isEmpty ? '测试失败' : result.message);
+          throw StateError(result.message.isEmpty ? '试发失败' : result.message);
         }
       },
-      successMessage: '测试成功',
+      successMessage: '试发成功',
     );
   }
 
@@ -514,12 +559,20 @@ class _NotificationSettingsFormState
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = error.toString());
+      setState(() => _errorMessage = _cleanNotificationError(error));
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
       }
     }
+  }
+
+  String _cleanNotificationError(Object error) {
+    return error
+        .toString()
+        .replaceFirst('Bad state: ', '')
+        .replaceAll('Webhook', '其他通道')
+        .replaceAll('webhook', '其他通道');
   }
 
   NotificationSettingRequest _buildRequest() {
@@ -557,7 +610,75 @@ class _NotificationSettingsFormState
   }
 }
 
+class _NotificationRow {
+  const _NotificationRow(this.child, [this.bottomSpacing = 12]);
+
+  final Widget child;
+  final double bottomSpacing;
+}
+
 enum _NotificationChannel { wecom, dingtalk, email, webhook }
+
+class _ReminderSummaryCard extends StatelessWidget {
+  const _ReminderSummaryCard({
+    required this.enabledCount,
+    required this.advanceDays,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final int enabledCount;
+  final int advanceDays;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: financeColors.warning,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: Icons.tune_outlined,
+            color: financeColors.warning,
+            size: 32,
+            iconSize: 17,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '提醒规则',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$enabledCount 项开启 · 提前 $advanceDays 天',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            key: const ValueKey('notification-reminder-settings'),
+            onPressed: enabled ? onTap : null,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('设置'),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ChannelCard extends StatelessWidget {
   const _ChannelCard({
@@ -586,7 +707,7 @@ class _ChannelCard extends StatelessWidget {
     final accentColor = enabled ? financeColors.income : financeColors.asset;
     return PremiumSurface(
       accentColor: accentColor,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -597,22 +718,24 @@ class _ChannelCard extends StatelessWidget {
             value: enabled,
             onChanged: onEnabledChanged,
           ),
-          const SizedBox(height: 10),
-          ...children,
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
-              onPressed: testing ? null : onTest,
-              icon: testing
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send_outlined),
-              label: Text(testing ? '测试中...' : testButtonText),
+          if (enabled) ...[
+            const SizedBox(height: 8),
+            ...children,
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed: testing ? null : onTest,
+                icon: testing
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_outlined),
+                label: Text(testing ? '试发中' : testButtonText),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -666,7 +789,7 @@ class _OptionsCard extends StatelessWidget {
           _NotificationPanelHeader(
             icon: Icons.tune_outlined,
             color: financeColors.warning,
-            title: '通知选项',
+            title: '提醒',
           ),
           _NotificationOptionRow(
             icon: Icons.credit_card_outlined,

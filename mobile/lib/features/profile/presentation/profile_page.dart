@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_route_paths.dart';
@@ -10,7 +9,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../../auth/application/auth_controller.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -22,169 +20,164 @@ class ProfilePage extends ConsumerWidget {
     final themeSettings = ref.watch(themeControllerProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
+    final rows = [
+      _ProfileRow(_ProfileHero(onLogout: () => _confirmLogout(context, ref))),
+      _ProfileRow(
+        _SettingsSection(
+          title: '个人',
+          children: [
+            _SettingsEntry(
+              icon: Icons.manage_accounts_outlined,
+              color: colorScheme.primary,
+              title: '个人资料',
+              onTap: () => context.push(AppRoutePaths.profileSettings),
+            ),
+            _SettingsEntry(
+              icon: Icons.notifications_none_outlined,
+              color: colorScheme.secondary,
+              title: '通知设置',
+              onTap: () => context.push(AppRoutePaths.notifications),
+            ),
+            _SettingsEntry(
+              icon: Icons.security_outlined,
+              color: financeColors.expense,
+              title: '账号安全',
+              onTap: () => context.push(AppRoutePaths.securitySettings),
+            ),
+            _SettingsEntry(
+              icon: Icons.vpn_key_outlined,
+              color: financeColors.income,
+              title: '设备授权',
+              onTap: () => context.push(AppRoutePaths.apiTokens),
+            ),
+          ],
+        ),
+      ),
+      _ProfileRow(
+        _SettingsSection(
+          title: '账本',
+          children: [
+            _SettingsEntry(
+              icon: Icons.account_balance_wallet_outlined,
+              color: financeColors.asset,
+              title: '账户',
+              onTap: () => context.push(AppRoutePaths.accounts),
+            ),
+            _SettingsEntry(
+              icon: Icons.receipt_long_outlined,
+              color: financeColors.warning,
+              title: '账户流水',
+              onTap: () => context.push(AppRoutePaths.accountLogs),
+            ),
+            _SettingsEntry(
+              icon: Icons.category_outlined,
+              color: financeColors.expense,
+              title: '分类',
+              onTap: () => context.push(AppRoutePaths.categories),
+            ),
+            _SettingsEntry(
+              icon: Icons.label_outline,
+              color: financeColors.income,
+              title: '标签',
+              onTap: () => context.push(AppRoutePaths.tags),
+            ),
+            _SettingsEntry(
+              icon: Icons.bolt_outlined,
+              color: colorScheme.tertiary,
+              title: '快捷模板',
+              onTap: () => context.push(AppRoutePaths.templates),
+            ),
+          ],
+        ),
+      ),
+      _ProfileRow(
+        _SettingsSection(
+          title: '日常',
+          initiallyExpanded: false,
+          children: [
+            _SettingsEntry(
+              icon: Icons.savings_outlined,
+              color: financeColors.income,
+              title: '预算',
+              onTap: () => context.push(AppRoutePaths.budgets),
+            ),
+            _SettingsEntry(
+              icon: Icons.notifications_active_outlined,
+              color: financeColors.warning,
+              title: '负债',
+              onTap: () => context.push(AppRoutePaths.reminders),
+            ),
+            _SettingsEntry(
+              icon: Icons.handshake_outlined,
+              color: financeColors.asset,
+              title: '借贷往来',
+              onTap: () => context.push(AppRoutePaths.lendings),
+            ),
+            _SettingsEntry(
+              icon: Icons.diversity_3_outlined,
+              color: colorScheme.tertiary,
+              title: '家庭成员',
+              onTap: () => context.push(AppRoutePaths.family),
+            ),
+            _SettingsEntry(
+              icon: Icons.auto_awesome_outlined,
+              color: colorScheme.primary,
+              title: '财务报告',
+              onTap: () => context.push(AppRoutePaths.aiReports),
+            ),
+            _SettingsEntry(
+              icon: Icons.summarize_outlined,
+              color: financeColors.asset,
+              title: '年度报告',
+              onTap: () => context.push(AppRoutePaths.yearlyReport),
+            ),
+          ],
+        ),
+      ),
+      _ProfileRow(
+        _SettingsSection(
+          title: '设置',
+          initiallyExpanded: false,
+          children: [
+            _SettingsEntry(
+              icon: Icons.storage_outlined,
+              color: financeColors.asset,
+              title: '数据',
+              onTap: () => context.push(AppRoutePaths.dataManagement),
+            ),
+            _SettingsEntry(
+              icon: Icons.swap_horiz,
+              color: colorScheme.outline,
+              title: '更换账本',
+              onTap: () => _confirmChangeServer(context, ref),
+            ),
+          ],
+        ),
+      ),
+      _ProfileRow(
+        _AppearancePanel(
+          settings: themeSettings,
+          onModeChanged: (value) => _setThemeMode(ref, value),
+          onPaletteChanged: (value) => _setThemePalette(ref, value),
+        ),
+        0,
+      ),
+    ];
+
     return Scaffold(
       appBar: AppBar(title: const Text('我的')),
       body: AdaptivePageContainer(
-        child: ListView(
-          children: [
-            StaggeredEntrance(
-              index: 0,
-              child: _ProfileHero(onLogout: () => _confirmLogout(context, ref)),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 1,
-              child: _SettingsSection(
-                title: '资产配置',
-                children: [
-                  _SettingsEntry(
-                    icon: Icons.manage_accounts_outlined,
-                    color: colorScheme.primary,
-                    title: '个人资料',
-                    subtitle: '编辑昵称、邮箱和简介',
-                    onTap: () => context.push(AppRoutePaths.profileSettings),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.account_balance_wallet_outlined,
-                    color: financeColors.asset,
-                    title: '账户',
-                    subtitle: '新增、编辑和归档账户',
-                    onTap: () => context.push(AppRoutePaths.accounts),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.receipt_long_outlined,
-                    color: financeColors.warning,
-                    title: '账户流水',
-                    subtitle: '查看全部账户余额变动记录',
-                    onTap: () => context.push(AppRoutePaths.accountLogs),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.category_outlined,
-                    color: financeColors.expense,
-                    title: '分类',
-                    subtitle: '维护收入和支出分类',
-                    onTap: () => context.push(AppRoutePaths.categories),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.label_outline,
-                    color: financeColors.income,
-                    title: '标签',
-                    subtitle: '维护交易标签和使用标记',
-                    onTap: () => context.push(AppRoutePaths.tags),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.bolt_outlined,
-                    color: colorScheme.tertiary,
-                    title: '快捷模板',
-                    subtitle: '保存常用收支并一键记账',
-                    onTap: () => context.push(AppRoutePaths.templates),
-                  ),
-                ],
+        child: ListView.builder(
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
               ),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 2,
-              child: _SettingsSection(
-                title: '常用功能',
-                children: [
-                  _SettingsEntry(
-                    icon: Icons.savings_outlined,
-                    color: financeColors.income,
-                    title: '预算',
-                    subtitle: '设置总预算和分类提醒线',
-                    onTap: () => context.push(AppRoutePaths.budgets),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.notifications_active_outlined,
-                    color: financeColors.warning,
-                    title: '负债',
-                    subtitle: '查看还款提醒和还款记录',
-                    onTap: () => context.push(AppRoutePaths.reminders),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.handshake_outlined,
-                    color: financeColors.asset,
-                    title: '借贷往来',
-                    subtitle: '借出、借入和还款记录',
-                    onTap: () => context.push(AppRoutePaths.lendings),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.diversity_3_outlined,
-                    color: colorScheme.tertiary,
-                    title: '家庭成员',
-                    subtitle: '家庭记账成员和支出归属',
-                    onTap: () => context.push(AppRoutePaths.family),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.auto_awesome_outlined,
-                    color: colorScheme.primary,
-                    title: '财务报告',
-                    subtitle: '查看每周总结和分析',
-                    onTap: () => context.push(AppRoutePaths.aiReports),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.summarize_outlined,
-                    color: financeColors.asset,
-                    title: '年度报告',
-                    subtitle: '查看年度收支、结余和分类排行',
-                    onTap: () => context.push(AppRoutePaths.yearlyReport),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 3,
-              child: _SettingsSection(
-                title: '系统设置',
-                children: [
-                  _SettingsEntry(
-                    icon: Icons.notifications_none_outlined,
-                    color: colorScheme.secondary,
-                    title: '通知设置',
-                    onTap: () => context.push(AppRoutePaths.notifications),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.security_outlined,
-                    color: financeColors.expense,
-                    title: '账号安全',
-                    onTap: () => context.push(AppRoutePaths.securitySettings),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.vpn_key_outlined,
-                    color: financeColors.income,
-                    title: '访问令牌',
-                    subtitle: '管理 App 和外部接口授权',
-                    onTap: () => context.push(AppRoutePaths.apiTokens),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.storage_outlined,
-                    color: financeColors.asset,
-                    title: '数据',
-                    subtitle: '备份、恢复和导出交易数据',
-                    onTap: () => context.push(AppRoutePaths.dataManagement),
-                  ),
-                  _SettingsEntry(
-                    icon: Icons.dns_outlined,
-                    color: colorScheme.outline,
-                    title: '更换服务器',
-                    subtitle: '清除本机登录态并重新连接服务地址',
-                    onTap: () => _confirmChangeServer(context, ref),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 4,
-              child: _AppearancePanel(
-                settings: themeSettings,
-                onModeChanged: (value) => _setThemeMode(ref, value),
-                onPaletteChanged: (value) => _setThemePalette(ref, value),
-              ),
-            ),
-          ],
+              child: row.child,
+            );
+          },
         ),
       ),
     );
@@ -195,7 +188,6 @@ class ProfilePage extends ConsumerWidget {
     if (value == null) {
       return;
     }
-    HapticFeedback.selectionClick();
     ref.read(themeControllerProvider.notifier).setThemeMode(value);
   }
 
@@ -204,7 +196,6 @@ class ProfilePage extends ConsumerWidget {
     if (value == null) {
       return;
     }
-    HapticFeedback.selectionClick();
     ref.read(themeControllerProvider.notifier).setPalette(value);
   }
 
@@ -213,7 +204,7 @@ class ProfilePage extends ConsumerWidget {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '确认退出',
-      message: '退出后需要重新输入密码登录。',
+      message: '下次需要重新登录。',
       confirmText: '退出',
       isDanger: true,
     );
@@ -223,12 +214,12 @@ class ProfilePage extends ConsumerWidget {
     await ref.read(authControllerProvider.notifier).logout();
   }
 
-  /// 展示更换服务器确认弹窗。
+  /// 展示更换账本确认弹窗。
   Future<void> _confirmChangeServer(BuildContext context, WidgetRef ref) async {
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '更换服务器',
-      message: '这会清除当前服务器地址和本机登录态，之后需要重新连接。',
+      title: '更换账本',
+      message: '需要重新登录。',
       confirmText: '更换',
       isDanger: true,
     );
@@ -237,6 +228,13 @@ class ProfilePage extends ConsumerWidget {
     }
     await ref.read(authControllerProvider.notifier).changeServer();
   }
+}
+
+class _ProfileRow {
+  const _ProfileRow(this.child, [this.bottomSpacing = 16]);
+
+  final Widget child;
+  final double bottomSpacing;
 }
 
 class _ProfileHero extends StatelessWidget {
@@ -273,16 +271,6 @@ class _ProfileHero extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '管理账户、分类、预算和数据安全',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -300,29 +288,50 @@ class _ProfileHero extends StatelessWidget {
 }
 
 class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({required this.title, required this.children});
+  const _SettingsSection({
+    required this.title,
+    required this.children,
+    this.initiallyExpanded = true,
+  });
 
   final String title;
   final List<Widget> children;
+  final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context) {
     return PremiumSurface(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 6),
-            child: Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
+      padding: EdgeInsets.zero,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: ValueKey('profile-section-$title'),
+          initiallyExpanded: initiallyExpanded,
+          maintainState: true,
+          tilePadding: const EdgeInsets.fromLTRB(14, 2, 10, 2),
+          childrenPadding: const EdgeInsets.only(bottom: 6),
+          title: Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
-          ...children,
-        ],
+          children: [
+            for (final entry in children.indexed) ...[
+              if (entry.$1 > 0)
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  indent: 58,
+                  endIndent: 14,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outlineVariant.withValues(alpha: 0.62),
+                ),
+              entry.$2,
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -333,75 +342,53 @@ class _SettingsEntry extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.title,
-    this.subtitle,
     required this.onTap,
   });
 
   final IconData icon;
   final Color color;
   final String title;
-  final String? subtitle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
-      child: Semantics(
-        button: true,
-        label: subtitle == null ? title : '$title，$subtitle',
-        child: Material(
-          key: ValueKey('profile-entry-$title'),
-          color: Color.alphaBlend(
-            color.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.08
-                  : 0.035,
-            ),
-            colorScheme.surface,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: BorderSide(color: color.withValues(alpha: 0.08)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              onTap();
-            },
-            hoverColor: color.withValues(alpha: 0.08),
-            focusColor: color.withValues(alpha: 0.10),
-            splashColor: color.withValues(alpha: 0.10),
-            highlightColor: color.withValues(alpha: 0.06),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 52),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
+    return Semantics(
+      button: true,
+      label: title,
+      child: Material(
+        key: ValueKey('profile-entry-$title'),
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          hoverColor: color.withValues(alpha: 0.06),
+          focusColor: color.withValues(alpha: 0.08),
+          splashColor: color.withValues(alpha: 0.08),
+          highlightColor: color.withValues(alpha: 0.05),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Row(
+                children: [
+                  IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      color: color.withValues(alpha: 0.72),
-                      size: 16,
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    size: 22,
+                  ),
+                ],
               ),
             ),
           ),
@@ -450,14 +437,14 @@ class _AppearancePanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             '外观模式',
             style: Theme.of(
               context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<AppThemeMode>(
@@ -483,17 +470,11 @@ class _AppearancePanel extends StatelessWidget {
                   onModeChanged(selection.firstOrNull),
             ),
           ),
-          const SizedBox(height: 18),
-          Text(
-            '主题色',
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           DropdownButtonFormField<AppThemePalette>(
             initialValue: settings.palette,
             decoration: InputDecoration(
+              labelText: '主题色',
               filled: true,
               fillColor: colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.55,

@@ -7,7 +7,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/security_repository.dart';
 
@@ -109,7 +108,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
       await ref.read(authControllerProvider.notifier).logout();
     } catch (error) {
       if (mounted) {
-        _showMessage(error.toString());
+        _showMessage('密码修改失败');
       }
     } finally {
       if (mounted) {
@@ -121,7 +120,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
   Future<void> _saveEntryPath() async {
     final value = _entryPathController.text.trim();
     if (value.isEmpty) {
-      _showMessage('请输入访问路径，或点击关闭保护');
+      _showMessage('请输入登录入口');
       return;
     }
     await _runEntryPathAction(
@@ -133,7 +132,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
   Future<void> _generateEntryPath() async {
     await _runEntryPathAction(
       ref.read(securityRepositoryProvider).generateEntryPath,
-      '已生成随机访问路径',
+      '登录入口已生成',
     );
   }
 
@@ -145,7 +144,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '禁用登录保护',
-      message: '禁用后可直接访问登录页。确认继续？',
+      message: '关闭登录保护？',
       confirmText: '禁用',
       isDanger: true,
     );
@@ -187,7 +186,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
       _showMessage(message);
     } catch (error) {
       if (mounted) {
-        _showMessage(error.toString());
+        _showMessage('登录保护保存失败');
       }
     } finally {
       if (mounted) {
@@ -225,36 +224,132 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
     }
     final error = _error;
     if (error != null) {
-      return AppErrorView(message: error.toString(), onRetry: _loadEntryPath);
+      return AppErrorView(message: '安全设置加载失败', onRetry: _loadEntryPath);
     }
 
-    return ListView(
+    final rows = [
+      _SecurityRow(
+        _PasswordSummaryCard(
+          submitting: _passwordSubmitting,
+          onTap: _openPasswordSheet,
+        ),
+      ),
+      _SecurityRow(
+        _EntryPathCard(
+          entryPath: _entryPath,
+          controller: _entryPathController,
+          submitting: _entrySubmitting,
+          onSave: _saveEntryPath,
+          onGenerate: _generateEntryPath,
+          onDisable: _disableEntryPath,
+          onToggle: _toggleEntryPath,
+        ),
+        0,
+      ),
+    ];
+
+    return ListView.builder(
       padding: const EdgeInsets.only(bottom: 32),
-      children: [
-        StaggeredEntrance(
-          index: 1,
-          child: _PasswordCard(
-            oldPasswordController: _oldPasswordController,
-            newPasswordController: _newPasswordController,
-            confirmPasswordController: _confirmPasswordController,
-            submitting: _passwordSubmitting,
-            onSubmit: _changePassword,
+      itemCount: rows.length,
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
           ),
-        ),
-        const SizedBox(height: 12),
-        StaggeredEntrance(
-          index: 2,
-          child: _EntryPathCard(
-            entryPath: _entryPath,
-            controller: _entryPathController,
-            submitting: _entrySubmitting,
-            onSave: _saveEntryPath,
-            onGenerate: _generateEntryPath,
-            onDisable: _disableEntryPath,
-            onToggle: _toggleEntryPath,
+          child: row.child,
+        );
+      },
+    );
+  }
+
+  Future<void> _openPasswordSheet() async {
+    if (_isBusy) {
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              16 + MediaQuery.of(sheetContext).viewInsets.bottom,
+            ),
+            child: _PasswordCard(
+              oldPasswordController: _oldPasswordController,
+              newPasswordController: _newPasswordController,
+              confirmPasswordController: _confirmPasswordController,
+              submitting: _passwordSubmitting,
+              onSubmit: _changePassword,
+            ),
           ),
-        ),
-      ],
+        );
+      },
+    );
+  }
+}
+
+class _SecurityRow {
+  const _SecurityRow(this.child, [this.bottomSpacing = 12]);
+
+  final Widget child;
+  final double bottomSpacing;
+}
+
+class _PasswordSummaryCard extends StatelessWidget {
+  const _PasswordSummaryCard({required this.submitting, required this.onTap});
+
+  final bool submitting;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: financeColors.expense,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: Icons.lock_outline,
+            color: financeColors.expense,
+            size: 32,
+            iconSize: 17,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '密码',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '修改后重新登录',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            key: const ValueKey('security-open-password-sheet'),
+            onPressed: submitting ? null : onTap,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('修改'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -321,7 +416,7 @@ class _PasswordCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.check),
-            label: Text(submitting ? '修改中...' : '确认修改'),
+            label: Text(submitting ? '修改中' : '确认修改'),
           ),
         ],
       ),
@@ -423,35 +518,36 @@ class _EntryPathCard extends StatelessWidget {
             enabled: !submitting,
             inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
             decoration: InputDecoration(
-              labelText: '访问路径',
-              hintText: '/ledger',
+              labelText: '登录入口',
+              hintText: '/my-ledger',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              IconButton.filled(
-                key: const ValueKey('security-entry-save'),
-                onPressed: submitting ? null : onSave,
-                icon: submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
-                tooltip: submitting ? '保存中' : '保存登录保护',
+              Expanded(
+                child: FilledButton.icon(
+                  key: const ValueKey('security-entry-save'),
+                  onPressed: submitting ? null : onSave,
+                  icon: submitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(submitting ? '保存中' : '保存入口'),
+                ),
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(
                 key: const ValueKey('security-entry-generate'),
                 onPressed: submitting ? null : onGenerate,
                 icon: const Icon(Icons.auto_fix_high_outlined),
-                tooltip: '随机生成访问路径',
+                tooltip: '生成登录入口',
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(

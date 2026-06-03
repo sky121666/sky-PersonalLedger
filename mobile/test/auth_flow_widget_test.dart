@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/widgets/auth_flow_shell.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -70,8 +69,7 @@ void main() {
       );
       expect(
         find.byWidgetPredicate(
-          (widget) =>
-              widget is Semantics && widget.properties.label == '登录 表单',
+          (widget) => widget is Semantics && widget.properties.label == '登录 表单',
         ),
         findsOneWidget,
       );
@@ -83,10 +81,7 @@ void main() {
       expect(find.text('访问控制矩阵'), findsNothing);
       expect(find.text('会话解锁信号'), findsNothing);
       expect(find.text('密码闸门'), findsNothing);
-      expect(
-        find.byKey(const ValueKey('auth-experience-deck')),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('auth-experience-deck')), findsNothing);
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -210,11 +205,9 @@ void main() {
         findsNothing,
       );
       expect(find.text('初始化控制矩阵'), findsNothing);
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
-      expect(
-        find.byKey(const ValueKey('auth-experience-deck')),
-        findsNothing,
-      );
+      expect(find.byType(AuthFlowShell), findsOneWidget);
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
+      expect(find.byKey(const ValueKey('auth-experience-deck')), findsNothing);
       expect(find.text('跨端安全控制台'), findsNothing);
       expect(find.text('iOS 动效'), findsNothing);
       expect(find.text('Android 状态层'), findsNothing);
@@ -245,7 +238,7 @@ void main() {
       expect(controller.debugState.stage, AuthStage.loginRequired);
     });
 
-    testWidgets('确认更换服务器时回到服务器配置态', (tester) async {
+    testWidgets('确认更换账本时回到连接配置态', (tester) async {
       final repository = _FakeAuthRepository();
       final controller = await _pumpAuthPage(
         tester,
@@ -259,13 +252,21 @@ void main() {
       );
 
       await tester.pumpAndSettle();
+      final mainScrollable = find.byType(Scrollable).first;
       await tester.scrollUntilVisible(
-        find.text('更换服务器'),
+        find.byKey(const ValueKey('profile-section-设置')),
         120,
-        scrollable: find.byType(Scrollable),
+        scrollable: mainScrollable,
+      );
+      await tester.tap(find.byKey(const ValueKey('profile-section-设置')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('更换账本'),
+        120,
+        scrollable: mainScrollable,
       );
       final changeServerTile = find.ancestor(
-        of: find.text('更换服务器'),
+        of: find.text('更换账本'),
         matching: find.byType(InkWell),
       );
       await Scrollable.ensureVisible(
@@ -279,6 +280,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.debugState.stage, AuthStage.serverRequired);
+      expect(find.text('更换服务器'), findsNothing);
     });
   });
 }

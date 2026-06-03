@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
 import 'package:personal_ledger/features/account_logs/presentation/account_log_page.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
@@ -29,7 +29,7 @@ void main() {
         findsNothing,
       );
       await tester.scrollUntilVisible(
-        find.text('工资入账'),
+        find.text('收入'),
         220,
         scrollable: find.byType(Scrollable).first,
       );
@@ -39,10 +39,10 @@ void main() {
       expect(find.text('变动后'), findsNothing);
       expect(find.text('余额 ¥780.00 → ¥1280.00'), findsNothing);
       expect(find.text('+¥500.00'), findsAtLeastNWidgets(1));
-      expect(find.text('工资入账'), findsOneWidget);
+      expect(find.text('工资入账'), findsNothing);
     });
 
-    testWidgets('账户摘要和流水分组使用分段入场动效', (tester) async {
+    testWidgets('账户摘要和流水分组保持清晰层级', (tester) async {
       final repository = _FakeAccountLogRepository();
       await _pumpPage(
         tester,
@@ -51,7 +51,9 @@ void main() {
         account: _account(),
       );
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
+      expect(find.text('现金流水'), findsOneWidget);
+      expect(find.text('工资入账'), findsNothing);
     });
 
     testWidgets('账户流水直接展示分组和记录', (tester) async {
@@ -130,6 +132,9 @@ void main() {
       expect(find.textContaining('支出'), findsOneWidget);
       expect(find.text('余额减少'), findsNothing);
       expect(find.text('-¥80.00'), findsOneWidget);
+      expect(find.text('午餐'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-2')));
+      await tester.pumpAndSettle();
       expect(find.text('午餐'), findsOneWidget);
     });
 
@@ -144,6 +149,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.listPages, [1, 1]);
+      expect(find.text('工资入账'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-1')));
+      await tester.pumpAndSettle();
       expect(find.text('工资入账'), findsOneWidget);
     });
 
@@ -153,7 +161,7 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      expect(find.text('暂无流水记录'), findsOneWidget);
+      expect(find.text('还没有流水'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
     });
 
@@ -180,6 +188,9 @@ void main() {
 
       expect(repository.listPages, [1, 2]);
       expect(find.textContaining('流水加载失败'), findsOneWidget);
+      expect(find.text('工资入账'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-1')));
+      await tester.pumpAndSettle();
       expect(find.text('工资入账'), findsOneWidget);
       expect(find.text('加载更多'), findsOneWidget);
     });
@@ -214,6 +225,9 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
+      expect(find.text('工资入账'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-1')));
+      await tester.pumpAndSettle();
       expect(find.text('工资入账'), findsOneWidget);
 
       await tester.tap(find.byTooltip('刷新账户流水'));
@@ -221,6 +235,8 @@ void main() {
 
       expect(repository.listPages, [1, 1]);
       expect(find.text('工资入账'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-2')));
+      await tester.pumpAndSettle();
       expect(find.text('午餐'), findsOneWidget);
       expect(find.text('-¥80.00'), findsAtLeastNWidgets(1));
     });

@@ -3,21 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/tags/data/tag_repository.dart';
 import 'package:personal_ledger/features/tags/presentation/tag_page.dart';
 
 void main() {
   group('TagPage', () {
-    testWidgets('展示系统标签和自定义标签', (tester) async {
+    testWidgets('展示默认标签和自建标签', (tester) async {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
       expect(find.text('标签'), findsOneWidget);
       expect(find.text('工资收入'), findsOneWidget);
-      expect(find.text('系统标签 · 使用 8 次'), findsOneWidget);
+      expect(find.text('默认标签 · 使用 8 次'), findsOneWidget);
+      expect(find.text('系统标签 · 使用 8 次'), findsNothing);
       expect(find.text('旅行'), findsOneWidget);
-      expect(find.text('自定义标签 · 使用 2 次'), findsOneWidget);
+      expect(find.text('自建标签 · 使用 2 次'), findsOneWidget);
+      expect(find.text('自定义标签 · 使用 2 次'), findsNothing);
       expect(find.byKey(const ValueKey('tag-card-system-1')), findsOneWidget);
       expect(find.byKey(const ValueKey('tag-card-custom-1')), findsOneWidget);
       expect(find.text('标签库'), findsNothing);
@@ -32,11 +33,13 @@ void main() {
       expect(find.text('用户维护'), findsNothing);
     });
 
-    testWidgets('标签头部和卡片使用分段入场动效', (tester) async {
+    testWidgets('标签头部和卡片保持清晰层级', (tester) async {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
+      expect(find.text('标签'), findsOneWidget);
+      expect(find.byKey(const ValueKey('tag-card-custom-1')), findsOneWidget);
     });
 
     testWidgets('标签头部移除颜色系统和治理信号', (tester) async {
@@ -77,6 +80,10 @@ void main() {
       await tester.tap(find.byTooltip('新增标签'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '周末');
+      expect(find.byKey(const ValueKey('tag-visual-options')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tag-icon')), findsNothing);
+      await tester.tap(find.text('外观'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-icon')), 'star');
       await tester.tap(find.byKey(const ValueKey('tag-save')));
       await tester.pumpAndSettle();
@@ -92,7 +99,9 @@ void main() {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('编辑标签 旅行'));
+      await tester.tap(find.byTooltip('更多标签操作 旅行'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '旅行支出');
       await tester.tap(find.byKey(const ValueKey('tag-save')));
@@ -108,8 +117,13 @@ void main() {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('删除标签 旅行'));
+      await tester.tap(find.byTooltip('更多标签操作 旅行'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+      expect(find.text('删除「旅行」？'), findsOneWidget);
+      expect(find.text('关联交易不变。'), findsNothing);
+      expect(find.text('历史交易保留。'), findsNothing);
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 
@@ -136,7 +150,7 @@ void main() {
       final repository = _FakeTagRepository()..tags = const [];
       await _pumpPage(tester, repository);
 
-      expect(find.text('暂无标签'), findsOneWidget);
+      expect(find.text('还没有标签'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
     });
 
@@ -147,12 +161,14 @@ void main() {
       await tester.tap(find.byTooltip('新增标签'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '周末');
+      await tester.tap(find.text('外观'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-icon')), 'star');
       await tester.tap(find.byKey(const ValueKey('tag-save')));
       await tester.pumpAndSettle();
 
       expect(repository.createCalls, hasLength(1));
-      expect(find.textContaining('新增标签失败'), findsOneWidget);
+      expect(find.text('标签保存失败'), findsOneWidget);
       expect(find.text('标签已保存'), findsNothing);
       expect(find.text('周末'), findsOneWidget);
       expect(find.text('旅行'), findsOneWidget);
@@ -162,14 +178,16 @@ void main() {
       final repository = _FakeTagRepository()..updateError = '编辑标签失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('编辑标签 旅行'));
+      await tester.tap(find.byTooltip('更多标签操作 旅行'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '旅行支出');
       await tester.tap(find.byKey(const ValueKey('tag-save')));
       await tester.pumpAndSettle();
 
       expect(repository.updateCalls, hasLength(1));
-      expect(find.textContaining('编辑标签失败'), findsOneWidget);
+      expect(find.text('标签保存失败'), findsOneWidget);
       expect(find.text('标签已保存'), findsNothing);
       expect(find.text('旅行支出'), findsOneWidget);
       expect(find.text('旅行'), findsOneWidget);
@@ -179,13 +197,15 @@ void main() {
       final repository = _FakeTagRepository()..deleteError = '删除标签失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('删除标签 旅行'));
+      await tester.tap(find.byTooltip('更多标签操作 旅行'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 
       expect(repository.deleteCalls, ['custom-1']);
-      expect(find.textContaining('删除标签失败'), findsOneWidget);
+      expect(find.text('标签删除失败'), findsOneWidget);
       expect(find.text('标签已删除'), findsNothing);
       expect(find.text('旅行'), findsOneWidget);
     });

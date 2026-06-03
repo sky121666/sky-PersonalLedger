@@ -6,7 +6,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../application/category_controller.dart';
 import '../data/category.dart';
 
@@ -80,7 +79,7 @@ class CategoriesPage extends ConsumerWidget {
             onPressed: () =>
                 ref.read(categoryListControllerProvider.notifier).load(),
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新分类列表',
+            tooltip: '刷新分类',
           ),
         ],
       ),
@@ -115,7 +114,7 @@ class CategoriesPage extends ConsumerWidget {
               const SizedBox(height: 16),
               Expanded(
                 child: AppErrorView(
-                  message: error.toString(),
+                  message: '分类加载失败',
                   onRetry: () =>
                       ref.read(categoryListControllerProvider.notifier).load(),
                 ),
@@ -154,51 +153,37 @@ class _CategoryLibraryView extends ConsumerWidget {
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 0,
-              child: _CategoryHeader(
-                selectedType: state.type,
-                onTypeChanged: (type) => ref
-                    .read(categoryListControllerProvider.notifier)
-                    .setType(type),
-              ),
+            child: _CategoryHeader(
+              selectedType: state.type,
+              onTypeChanged: (type) => ref
+                  .read(categoryListControllerProvider.notifier)
+                  .setType(type),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           if (state.categories.isEmpty)
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: MediaQuery.sizeOf(context).height * 0.58,
-                child: StaggeredEntrance(
-                  index: 1,
-                  child: AppEmptyView(
-                    title: '暂无${state.type.label}分类',
-                    icon: Icons.category_outlined,
-                    action: FilledButton.icon(
-                      onPressed: () => _openCategoryForm(context, state.type),
-                      icon: const Icon(Icons.add),
-                      label: const Text('新增分类'),
-                    ),
-                  ),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: AppEmptyView(
+                title: '还没有${state.type.label}分类',
+                icon: Icons.category_outlined,
+                action: FilledButton.icon(
+                  onPressed: () => _openCategoryForm(context, state.type),
+                  icon: const Icon(Icons.add),
+                  label: const Text('新增分类'),
                 ),
               ),
             )
           else
             SliverPadding(
               padding: const EdgeInsets.only(bottom: 96),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.86,
-                ),
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  return StaggeredEntrance(
-                    index: index + 1,
-                    child: _CategoryCard(category: state.categories[index]),
-                  );
-                }, childCount: state.categories.length),
+              sliver: SliverList.separated(
+                itemBuilder: (context, index) {
+                  return _CategoryCard(category: state.categories[index]);
+                },
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 10),
+                itemCount: state.categories.length,
               ),
             ),
         ],
@@ -293,9 +278,9 @@ class _CategoryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = _parseColor(category.color, colorScheme.primary);
+    final ownershipLabel = category.isSystem ? '默认分类' : '自建分类';
     return Semantics(
-      label:
-          '${category.name}，${category.type.label}分类，${category.isSystem ? '系统分类' : '自定义分类'}',
+      label: '${category.name}，${category.type.label}分类，$ownershipLabel',
       button: true,
       child: PremiumSurface(
         key: ValueKey('category-card-${category.id}'),
@@ -307,53 +292,61 @@ class _CategoryCard extends ConsumerWidget {
             borderRadius: BorderRadius.circular(20),
             onTap: () => _openEdit(context),
             child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      IconBadge(
-                        icon: _categoryIconData(category.icon),
-                        color: color,
-                        size: 42,
-                        iconSize: 22,
-                      ),
-                      PopupMenuButton<_CategoryAction>(
-                        tooltip: '更多分类操作 ${category.name}',
-                        onSelected: (action) =>
-                            _handleAction(context, ref, action),
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(
-                            value: _CategoryAction.edit,
-                            child: Text('编辑'),
-                          ),
-                          PopupMenuItem(
-                            value: _CategoryAction.delete,
-                            child: Text('删除'),
-                          ),
-                        ],
-                      ),
-                    ],
+                  IconBadge(
+                    icon: _categoryIconData(category.icon),
+                    color: color,
+                    size: 40,
+                    iconSize: 20,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    category.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          category.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${category.type.label} · $ownershipLabel',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${category.type.label} · ${category.isSystem ? '系统分类' : '自定义分类'}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: PopupMenuButton<_CategoryAction>(
+                      tooltip: '更多分类操作 ${category.name}',
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.more_horiz),
+                      onSelected: (action) =>
+                          _handleAction(context, ref, action),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: _CategoryAction.edit,
+                          child: Text('编辑'),
+                        ),
+                        PopupMenuItem(
+                          value: _CategoryAction.delete,
+                          child: Text('删除'),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -388,8 +381,8 @@ class _CategoryCard extends ConsumerWidget {
       case _CategoryAction.delete:
         final confirmed = await showAppConfirmDialog(
           context: context,
-          title: '确认删除',
-          message: '删除后该分类下的交易记录将变为未分类状态。',
+          title: '删除分类',
+          message: '删除「${category.name}」？',
           confirmText: '删除',
           isDanger: true,
         );
@@ -409,7 +402,7 @@ class _CategoryCard extends ConsumerWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(
               context,
-            ).showSnackBar(SnackBar(content: Text(error.toString())));
+            ).showSnackBar(const SnackBar(content: Text('分类删除失败')));
           }
         }
     }
@@ -499,58 +492,72 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
                     value == null || value.trim().isEmpty ? '请输入分类名称' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                key: const ValueKey('category-icon'),
-                controller: _iconController,
-                decoration: const InputDecoration(
-                  labelText: '图标标识',
-                  hintText: 'restaurant / income / shopping',
-                  border: OutlineInputBorder(),
+              ExpansionTile(
+                key: const ValueKey('category-visual-options'),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.palette_outlined),
+                title: Text(
+                  '外观',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
                 children: [
-                  for (final option in _categoryIconOptions)
-                    _CategoryIconChoice(
-                      option: option,
-                      selected:
-                          _normalizeCategoryIcon(_iconController.text) ==
-                          option.value,
-                      onSelected: () {
-                        setState(() => _iconController.text = option.value);
-                      },
+                  TextFormField(
+                    key: const ValueKey('category-icon'),
+                    controller: _iconController,
+                    decoration: const InputDecoration(
+                      labelText: '图标',
+                      hintText: '选择或输入图标',
+                      border: OutlineInputBorder(),
                     ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final color in _categoryColors)
-                    ChoiceChip(
-                      label: const SizedBox(width: 16, height: 16),
-                      selected: _color == color,
-                      backgroundColor: _parseColor(
-                        color,
-                        AppTheme.financeColors(context).asset,
-                      ),
-                      selectedColor: _parseColor(
-                        color,
-                        AppTheme.financeColors(context).asset,
-                      ),
-                      onSelected: (_) => setState(() => _color = color),
-                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final option in _categoryIconOptions)
+                        _CategoryIconChoice(
+                          option: option,
+                          selected:
+                              _normalizeCategoryIcon(_iconController.text) ==
+                              option.value,
+                          onSelected: () {
+                            setState(() => _iconController.text = option.value);
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final color in _categoryColors)
+                        ChoiceChip(
+                          label: const SizedBox(width: 16, height: 16),
+                          selected: _color == color,
+                          backgroundColor: _parseColor(
+                            color,
+                            AppTheme.financeColors(context).asset,
+                          ),
+                          selectedColor: _parseColor(
+                            color,
+                            AppTheme.financeColors(context).asset,
+                          ),
+                          onSelected: (_) => setState(() => _color = color),
+                        ),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
               FilledButton(
                 key: const ValueKey('category-save'),
                 onPressed: _submitting ? null : _submit,
-                child: Text(_submitting ? '保存中...' : '保存'),
+                child: Text(_submitting ? '保存中' : '保存分类'),
               ),
             ],
           ),
@@ -598,7 +605,7 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('分类保存失败')));
       }
     } finally {
       if (mounted) {

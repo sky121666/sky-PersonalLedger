@@ -5,7 +5,6 @@ import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../../budgets/data/budget_repository.dart';
 import '../data/family_repository.dart';
 
@@ -57,7 +56,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('成员保存失败')));
       }
     } finally {
       if (mounted) {
@@ -70,7 +69,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '停用成员',
-      message: '停用后历史交易归属会保留。',
+      message: '停用「${member.name}」？',
       confirmText: '停用',
       isDanger: true,
     );
@@ -92,7 +91,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('成员停用失败')));
       }
     } finally {
       if (mounted) {
@@ -113,7 +112,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
           IconButton(
             onPressed: _invalidateFamilyData,
             icon: const Icon(Icons.refresh_outlined),
-            tooltip: '刷新家庭数据',
+            tooltip: '刷新家庭成员',
           ),
         ],
       ),
@@ -126,7 +125,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
         child: membersState.when(
           loading: () => const AppLoadingView(message: '正在加载家庭成员'),
           error: (error, stackTrace) => AppErrorView(
-            message: '家庭成员加载失败：$error',
+            message: '家庭成员加载失败',
             onRetry: () => ref.invalidate(familyMembersProvider),
           ),
           data: (members) {
@@ -138,85 +137,147 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
             final summary = summaryState.valueOrNull;
             final statisticsState = ref.watch(familyStatisticsProvider);
             final statistics = statisticsState.valueOrNull;
-            return ListView(
-              children: [
-                StaggeredEntrance(
-                  child: _FamilySummaryHeader(
-                    members: members,
-                    summary: summary,
-                    loadingSummary: summaryState.isLoading,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  '成员',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ...members.indexed.map((entry) {
-                  final (index, member) = entry;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: StaggeredEntrance(
-                      index: index + 1,
-                      child: _FamilyMemberCard(
-                        member: member,
-                        submitting: _submittingMember,
-                        onEdit: () => _showMemberSheet(member),
-                        onDisable: member.isEnabled
-                            ? () => _disableMember(member)
-                            : null,
-                      ),
-                    ),
-                  );
-                }),
-                if (memberBudgetsState.valueOrNull?.isNotEmpty == true) ...[
-                  const SizedBox(height: 12),
-                  StaggeredEntrance(
-                    index: members.length + 2,
-                    child: _FamilyBudgetSurface(
-                      budgets: memberBudgetsState.valueOrNull!,
-                    ),
-                  ),
-                ],
-                if (summaryState.hasError) ...[
-                  const SizedBox(height: 12),
-                  PremiumSurface(
-                    accentColor: Theme.of(context).colorScheme.error,
-                    child: const Text('家庭汇总加载失败，成员列表仍可查看。'),
-                  ),
-                ],
-                if (summary != null && summary.members.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  StaggeredEntrance(
-                    index: members.length + 3,
-                    child: _FamilyRankingSurface(summary: summary),
-                  ),
-                ],
-                if (statistics != null &&
-                    statistics.members.any(
-                      (member) => member.categories.isNotEmpty,
-                    )) ...[
-                  const SizedBox(height: 12),
-                  StaggeredEntrance(
-                    index: members.length + 4,
-                    child: _FamilyCategorySurface(statistics: statistics),
-                  ),
-                ],
-                if (statisticsState.hasError) ...[
-                  const SizedBox(height: 12),
-                  PremiumSurface(
-                    accentColor: Theme.of(context).colorScheme.error,
-                    child: const Text('家庭分类统计加载失败，其他家庭数据仍可查看。'),
-                  ),
-                ],
-              ],
+            return _FamilyBody(
+              members: members,
+              summary: summary,
+              loadingSummary: summaryState.isLoading,
+              summaryHasError: summaryState.hasError,
+              budgets: memberBudgetsState.valueOrNull ?? const [],
+              statistics: statistics,
+              statisticsHasError: statisticsState.hasError,
+              submitting: _submittingMember,
+              onEdit: _showMemberSheet,
+              onDisable: _disableMember,
             );
           },
         ),
       ),
+    );
+  }
+}
+
+class _FamilyBody extends StatelessWidget {
+  const _FamilyBody({
+    required this.members,
+    required this.summary,
+    required this.loadingSummary,
+    required this.summaryHasError,
+    required this.budgets,
+    required this.statistics,
+    required this.statisticsHasError,
+    required this.submitting,
+    required this.onEdit,
+    required this.onDisable,
+  });
+
+  final List<FamilyMember> members;
+  final FamilySummary? summary;
+  final bool loadingSummary;
+  final bool summaryHasError;
+  final List<BudgetItem> budgets;
+  final FamilyStatistics? statistics;
+  final bool statisticsHasError;
+  final bool submitting;
+  final ValueChanged<FamilyMember> onEdit;
+  final ValueChanged<FamilyMember> onDisable;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _buildRows();
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: rows.length,
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        final bottom = index == rows.length - 1 ? 0.0 : 12.0;
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottom),
+          child: switch (row.kind) {
+            _FamilyRowKind.summary => _FamilySummaryHeader(
+              members: members,
+              summary: summary,
+              loadingSummary: loadingSummary,
+            ),
+            _FamilyRowKind.sectionTitle => _FamilySectionTitle(
+              title: row.title!,
+            ),
+            _FamilyRowKind.member => _FamilyMemberCard(
+              member: row.member!,
+              submitting: submitting,
+              onEdit: () => onEdit(row.member!),
+              onDisable: row.member!.isEnabled
+                  ? () => onDisable(row.member!)
+                  : null,
+            ),
+            _FamilyRowKind.insights => _FamilyInsightsSurface(
+              budgets: budgets,
+              summary: summary,
+              statistics: statistics,
+              summaryHasError: summaryHasError,
+              statisticsHasError: statisticsHasError,
+            ),
+            _FamilyRowKind.summaryError => PremiumSurface(
+              accentColor: Theme.of(context).colorScheme.error,
+              child: const Text('家庭汇总加载失败'),
+            ),
+            _FamilyRowKind.statisticsError => PremiumSurface(
+              accentColor: Theme.of(context).colorScheme.error,
+              child: const Text('分类统计加载失败'),
+            ),
+          },
+        );
+      },
+    );
+  }
+
+  List<_FamilyRow> _buildRows() {
+    final hasCategoryStats =
+        statistics?.members.any((member) => member.categories.isNotEmpty) ??
+        false;
+    return [
+      const _FamilyRow(_FamilyRowKind.summary),
+      const _FamilyRow(_FamilyRowKind.sectionTitle, title: '成员'),
+      for (final member in members)
+        _FamilyRow(_FamilyRowKind.member, member: member),
+      if (budgets.isNotEmpty ||
+          summaryHasError ||
+          statisticsHasError ||
+          (summary?.members.isNotEmpty ?? false) ||
+          hasCategoryStats)
+        const _FamilyRow(_FamilyRowKind.insights),
+    ];
+  }
+}
+
+class _FamilyRow {
+  const _FamilyRow(this.kind, {this.member, this.title});
+
+  final _FamilyRowKind kind;
+  final FamilyMember? member;
+  final String? title;
+}
+
+enum _FamilyRowKind {
+  summary,
+  sectionTitle,
+  member,
+  insights,
+  summaryError,
+  statisticsError,
+}
+
+class _FamilySectionTitle extends StatelessWidget {
+  const _FamilySectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
     );
   }
 }
@@ -277,23 +338,12 @@ class _FamilySummaryHeader extends StatelessWidget {
     final financeColors = AppTheme.financeColors(context);
     final enabledCount = members.where((member) => member.isEnabled).length;
     final month = summary?.month.isNotEmpty == true ? summary!.month : '本月';
-    return Row(
-      children: [
-        Expanded(
-          child: PremiumSurface(
-            accentColor: financeColors.income,
-            child: _FamilyMetric(
-              label: '启用成员',
-              value: '$enabledCount',
-              helper: '共 ${members.length} 位',
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 2,
-          child: PremiumSurface(
-            accentColor: financeColors.warning,
+    return PremiumSurface(
+      accentColor: financeColors.warning,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Row(
+        children: [
+          Expanded(
             child: _FamilyMetric(
               label: '$month 家庭支出',
               value: loadingSummary
@@ -302,8 +352,128 @@ class _FamilySummaryHeader extends StatelessWidget {
               helper: '本月',
             ),
           ),
+          const SizedBox(width: 12),
+          _FamilyCountPill(
+            enabledCount: enabledCount,
+            totalCount: members.length,
+            color: financeColors.income,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyCountPill extends StatelessWidget {
+  const _FamilyCountPill({
+    required this.enabledCount,
+    required this.totalCount,
+    required this.color,
+  });
+
+  final int enabledCount;
+  final int totalCount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 48, minWidth: 84),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            '$enabledCount',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          Text(
+            '共 $totalCount 位',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyInsightsSurface extends StatelessWidget {
+  const _FamilyInsightsSurface({
+    required this.budgets,
+    required this.summary,
+    required this.statistics,
+    required this.summaryHasError,
+    required this.statisticsHasError,
+  });
+
+  final List<BudgetItem> budgets;
+  final FamilySummary? summary;
+  final FamilyStatistics? statistics;
+  final bool summaryHasError;
+  final bool statisticsHasError;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final hasSummary = summary?.members.isNotEmpty ?? false;
+    final hasCategory =
+        statistics?.members.any((member) => member.categories.isNotEmpty) ??
+        false;
+    return Material(
+      key: const ValueKey('family-insights-surface'),
+      color: Colors.transparent,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            financeColors.asset.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.13
+                  : 0.07,
+            ),
+            Theme.of(context).colorScheme.surface,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: financeColors.asset.withValues(alpha: 0.1)),
         ),
-      ],
+        child: ExpansionTile(
+          key: const ValueKey('family-insights-toggle'),
+          tilePadding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          leading: Icon(Icons.insights_outlined, color: financeColors.asset),
+          title: Text(
+            '家庭洞察',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          children: [
+            if (budgets.isNotEmpty) _FamilyBudgetSurface(budgets: budgets),
+            if (summaryHasError)
+              PremiumSurface(
+                accentColor: Theme.of(context).colorScheme.error,
+                child: const Text('家庭汇总加载失败'),
+              ),
+            if (hasSummary) _FamilyRankingSurface(summary: summary!),
+            if (hasCategory) _FamilyCategorySurface(statistics: statistics!),
+            if (statisticsHasError)
+              PremiumSurface(
+                accentColor: Theme.of(context).colorScheme.error,
+                child: const Text('分类统计加载失败'),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -723,6 +893,7 @@ class _FamilyMemberCard extends StatelessWidget {
         : member.name.characters.first;
     return PremiumSurface(
       accentColor: accent,
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
       child: Row(
         children: [
           DecoratedBox(
@@ -731,7 +902,7 @@ class _FamilyMemberCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
             ),
             child: SizedBox.square(
-              dimension: 48,
+              dimension: 42,
               child: Center(
                 child: Text(
                   initial,
@@ -743,7 +914,7 @@ class _FamilyMemberCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -754,7 +925,7 @@ class _FamilyMemberCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   relationship,
                   style: Theme.of(
@@ -764,7 +935,7 @@ class _FamilyMemberCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -775,7 +946,7 @@ class _FamilyMemberCard extends StatelessWidget {
                 children: [
                   if (member.isDefault)
                     _MemberStateChip(
-                      label: '默认',
+                      label: '常用',
                       icon: Icons.check_circle_outline,
                       color: financeColors.income,
                     ),
@@ -790,7 +961,7 @@ class _FamilyMemberCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -827,7 +998,7 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _relationshipController;
-  late final TextEditingController _avatarController;
+  late final String _avatar;
   late String _color;
   late bool _isDefault;
   late bool _isEnabled;
@@ -849,7 +1020,7 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
     _relationshipController = TextEditingController(
       text: member?.relationship ?? '',
     );
-    _avatarController = TextEditingController(text: member?.avatar ?? '');
+    _avatar = member?.avatar ?? '';
     _color = member?.color.isNotEmpty == true ? member!.color : _colors.first;
     _isDefault = member?.isDefault ?? false;
     _isEnabled = member?.isEnabled ?? true;
@@ -859,7 +1030,6 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
   void dispose() {
     _nameController.dispose();
     _relationshipController.dispose();
-    _avatarController.dispose();
     super.dispose();
   }
 
@@ -871,7 +1041,7 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
       FamilyMemberRequest(
         name: _nameController.text.trim(),
         relationship: _relationshipController.text.trim(),
-        avatar: _avatarController.text.trim(),
+        avatar: _avatar,
         color: _color,
         isDefault: _isDefault,
         isEnabled: _isEnabled,
@@ -906,7 +1076,7 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close),
-                    tooltip: '关闭',
+                    tooltip: widget.member == null ? '关闭添加成员表单' : '关闭编辑成员表单',
                   ),
                 ],
               ),
@@ -932,17 +1102,6 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
                 ),
                 textInputAction: TextInputAction.next,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                key: const ValueKey('family-member-avatar'),
-                controller: _avatarController,
-                decoration: const InputDecoration(
-                  labelText: '头像地址',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.url,
-                textInputAction: TextInputAction.done,
-              ),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 10,
@@ -950,28 +1109,34 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
                 children: [
                   for (final color in _colors)
                     InkResponse(
+                      key: ValueKey('family-member-color-$color'),
                       onTap: () => setState(() => _color = color),
-                      radius: 22,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: _memberColor(context, color),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _color == color
-                                ? colorScheme.onSurface
-                                : Colors.transparent,
-                            width: 3,
+                      radius: 24,
+                      child: SizedBox.square(
+                        dimension: 44,
+                        child: Center(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: _memberColor(context, color),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _color == color
+                                    ? colorScheme.onSurface
+                                    : Colors.transparent,
+                                width: 3,
+                              ),
+                            ),
+                            child: SizedBox.square(
+                              dimension: 34,
+                              child: _color == color
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 18,
+                                    )
+                                  : null,
+                            ),
                           ),
-                        ),
-                        child: SizedBox.square(
-                          dimension: 34,
-                          child: _color == color
-                              ? const Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 18,
-                                )
-                              : null,
                         ),
                       ),
                     ),
@@ -982,7 +1147,7 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
                 contentPadding: EdgeInsets.zero,
                 value: _isDefault,
                 onChanged: (value) => setState(() => _isDefault = value),
-                title: const Text('默认成员'),
+                title: const Text('常用成员'),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -995,7 +1160,7 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _submit,
-                  child: const Text('保存'),
+                  child: const Text('保存成员'),
                 ),
               ),
             ],

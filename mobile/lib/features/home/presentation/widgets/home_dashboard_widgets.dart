@@ -44,7 +44,7 @@ class FamilyHomeSummaryCard extends StatelessWidget {
           const SizedBox(height: 12),
           if (topMembers.isEmpty)
             Text(
-              '暂无家庭成员支出',
+              '还没有家庭支出',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.outline,
               ),

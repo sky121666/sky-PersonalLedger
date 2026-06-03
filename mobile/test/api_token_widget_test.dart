@@ -4,17 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/api_tokens/data/api_token_repository.dart';
 import 'package:personal_ledger/features/api_tokens/presentation/api_token_page.dart';
 
 void main() {
   group('ApiTokenPage', () {
-    testWidgets('展示令牌列表和有效期状态', (tester) async {
+    testWidgets('展示设备授权列表和有效期状态', (tester) async {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('访问令牌'), findsOneWidget);
+      expect(find.text('设备授权'), findsOneWidget);
+      expect(find.text('访问令牌'), findsNothing);
+      expect(find.text('授权设备'), findsOneWidget);
       expect(find.text('API 安全访问'), findsNothing);
       expect(find.text('完整令牌只会在创建成功后显示一次，请立即保存。'), findsNothing);
       expect(
@@ -41,24 +42,31 @@ void main() {
       );
       expect(find.text('令牌发行策略'), findsNothing);
       expect(find.text('有效期'), findsNothing);
-      expect(find.text('1 个'), findsOneWidget);
+      expect(find.text('1 个可用'), findsOneWidget);
       expect(find.text('我的手机'), findsOneWidget);
       expect(find.text('前缀 abcd1234...'), findsNothing);
-      expect(find.text('abcd1234... · 未使用 · 永不过期'), findsOneWidget);
+      expect(find.text('abcd1234... · 未使用 · 永不过期'), findsNothing);
+      expect(find.text('未启用 · 持续有效'), findsOneWidget);
+      expect(find.text('未连接 · 长期可用'), findsNothing);
+      expect(find.text('未使用 · 永不过期'), findsNothing);
       expect(find.text('永不过期'), findsNothing);
     });
 
-    testWidgets('创建令牌后显示完整 token 且刷新列表', (tester) async {
+    testWidgets('生成授权后显示一次性授权码且刷新列表', (tester) async {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
 
       await tester.tap(find.byKey(const ValueKey('api-token-add')));
       await tester.pumpAndSettle();
+      expect(find.text('新增设备授权'), findsOneWidget);
+      expect(find.text('设备名称'), findsOneWidget);
+      expect(find.text('创建新令牌'), findsNothing);
+      expect(find.text('令牌名称'), findsNothing);
       await tester.enterText(
         find.byKey(const ValueKey('api-token-name')),
         'iPhone',
       );
-      await tester.tap(find.text('创建令牌'));
+      await tester.tap(find.text('生成授权'));
       await tester.pumpAndSettle();
 
       expect(repository.createCalls, hasLength(1));
@@ -69,15 +77,19 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('full-token-value'), findsOneWidget);
+      expect(find.text('复制加入码'), findsOneWidget);
+      expect(find.text('复制连接码'), findsNothing);
+      expect(find.text('复制授权码'), findsNothing);
       expect(find.text('iPhone'), findsOneWidget);
       expect(find.text('待保存'), findsNothing);
       expect(find.text('完整 Token 正在等待复制保存'), findsNothing);
       expect(find.text('一次性密钥保险箱'), findsNothing);
       expect(find.text('仅本次可见'), findsNothing);
+      expect(find.text('授权已生成'), findsNothing);
       final successSurface = tester.widget<PremiumSurface>(
         find
             .ancestor(
-              of: find.text('令牌创建成功'),
+              of: find.byKey(const ValueKey('api-token-created-value')),
               matching: find.byType(PremiumSurface),
             )
             .first,
@@ -89,7 +101,7 @@ void main() {
       expect(successBadge.color, AppThemePalette.graphite.incomeColor);
     });
 
-    testWidgets('创建令牌时会提交选择的有效期', (tester) async {
+    testWidgets('生成授权时会提交选择的有效期', (tester) async {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
@@ -99,24 +111,30 @@ void main() {
         find.byKey(const ValueKey('api-token-name')),
         '自动化脚本',
       );
-      await tester.tap(find.text('永不过期').last);
+      await tester.tap(find.text('持续有效').last);
       await tester.pumpAndSettle();
+      expect(find.text('永不过期'), findsNothing);
       await tester.tap(find.text('90 天').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('创建令牌'));
+      await tester.tap(find.text('生成授权'));
       await tester.pumpAndSettle();
 
       expect(repository.createCalls.single.name, '自动化脚本');
       expect(repository.createCalls.single.expiresInDays, 90);
-      expect(find.text('ffff0000... · 未使用 · 2026-07-31 过期'), findsOneWidget);
+      expect(find.text('ffff0000... · 未使用 · 2026-07-31 过期'), findsNothing);
+      expect(find.text('未启用 · 有效至 2026-07-31'), findsOneWidget);
+      expect(find.text('未连接 · 有效至 2026-07-31'), findsNothing);
+      expect(find.text('未使用 · 2026-07-31 过期'), findsNothing);
     });
 
-    testWidgets('删除令牌前需要确认', (tester) async {
+    testWidgets('删除授权前需要确认', (tester) async {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('删除令牌 我的手机'));
+      await tester.tap(find.byTooltip('删除授权 我的手机'));
       await tester.pumpAndSettle();
+      expect(find.text('删除「我的手机」？'), findsOneWidget);
+      expect(find.text('该设备将无法使用。'), findsNothing);
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 
@@ -124,13 +142,14 @@ void main() {
       expect(find.text('我的手机'), findsNothing);
     });
 
-    testWidgets('没有令牌时展示空状态', (tester) async {
+    testWidgets('没有设备授权时展示空状态', (tester) async {
       final repository = _FakeApiTokenRepository(tokens: const []);
       await _pumpPage(tester, repository);
 
-      expect(find.text('暂无令牌'), findsOneWidget);
+      expect(find.text('还没有授权'), findsOneWidget);
+      expect(find.text('暂无令牌'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
-      expect(find.text('尚未创建'), findsOneWidget);
+      expect(find.text('未启用'), findsOneWidget);
     });
 
     testWidgets('初始加载失败时展示错误并可重试', (tester) async {
@@ -138,7 +157,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('出错了'), findsOneWidget);
-      expect(find.textContaining('令牌加载失败'), findsOneWidget);
+      expect(find.textContaining('授权加载失败'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
@@ -147,12 +166,12 @@ void main() {
       expect(repository.listCalls, 2);
     });
 
-    testWidgets('API Token 页使用分段入场动效组织控制台区域', (tester) async {
+    testWidgets('API Token 页使用高级表面和清晰授权层级', (tester) async {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
-      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
+      expect(find.text('设备授权'), findsOneWidget);
+      expect(find.byKey(const ValueKey('api-token-add')), findsOneWidget);
     });
   });
 }
@@ -221,7 +240,7 @@ class _FakeApiTokenRepository implements ApiTokenRepository {
     listCalls += 1;
     if (failingListRequests > 0) {
       failingListRequests -= 1;
-      throw StateError('令牌加载失败');
+      throw StateError('授权加载失败');
     }
     return tokens;
   }

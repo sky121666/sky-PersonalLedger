@@ -105,6 +105,28 @@ void main() {
       expect(find.text('¥2600.00'), findsWidgets);
     });
 
+    testWidgets('首页交易项默认不展开备注，点击展开后才显示', (tester) async {
+      final repository = _FakeHomeRepository(summaries: [_summary()]);
+      await _pumpPage(tester, repository);
+
+      final expandToggle = find.byTooltip('展开备注').first;
+      await tester.scrollUntilVisible(
+        expandToggle,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(expandToggle, findsOneWidget);
+      expect(find.text('午餐'), findsNothing);
+
+      await tester.tap(expandToggle);
+      await tester.pumpAndSettle();
+      expect(find.text('午餐'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('收起备注').first);
+      await tester.pumpAndSettle();
+      expect(find.text('午餐'), findsNothing);
+    });
+
     testWidgets('首页展示现金流、预算、快捷入口和家庭摘要', (tester) async {
       final repository = _FakeHomeRepository(
         summaries: [_summary(familyExpense: 320)],
@@ -139,7 +161,10 @@ void main() {
       expect(find.text('家庭数据在线'), findsNothing);
       expect(find.text('本月现金流'), findsOneWidget);
       expect(find.text('最近交易'), findsOneWidget);
-      expect(find.text('日期交易'), findsOneWidget);
+      expect(find.text('当日交易'), findsOneWidget);
+      expect(find.byTooltip('退出登录'), findsNothing);
+      expect(find.text('全部'), findsNothing);
+      expect(find.byTooltip('查看全部明细'), findsOneWidget);
       expect(find.text('餐饮'), findsWidgets);
       expect(find.text('-¥28.00'), findsWidgets);
       expect(find.text('现金流充沛'), findsNothing);

@@ -9,7 +9,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../../account_logs/presentation/account_log_page.dart';
 import '../application/account_controller.dart';
 import '../data/account.dart';
@@ -87,7 +86,7 @@ class AccountsPage extends ConsumerWidget {
             onPressed: () =>
                 ref.read(accountListControllerProvider.notifier).load(),
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新账户列表',
+            tooltip: '刷新账户',
           ),
         ],
       ),
@@ -102,7 +101,7 @@ class AccountsPage extends ConsumerWidget {
           data: (result) => _AccountContent(result: result),
           loading: () => const AppLoadingView(message: '账户加载中...'),
           error: (error, _) => AppErrorView(
-            message: error.toString(),
+            message: '账户加载失败',
             onRetry: () =>
                 ref.read(accountListControllerProvider.notifier).load(),
           ),
@@ -136,16 +135,13 @@ class _AccountContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (result.accounts.isEmpty) {
-      return StaggeredEntrance(
-        index: 0,
-        child: AppEmptyView(
-          title: '还没有账户',
-          icon: Icons.account_balance_wallet_outlined,
-          action: FilledButton.icon(
-            onPressed: () => _openAccountForm(context),
-            icon: const Icon(Icons.add),
-            label: const Text('新增账户'),
-          ),
+      return AppEmptyView(
+        title: '还没有账户',
+        icon: Icons.account_balance_wallet_outlined,
+        action: FilledButton.icon(
+          onPressed: () => _openAccountForm(context),
+          icon: const Icon(Icons.add),
+          label: const Text('新增账户'),
         ),
       );
     }
@@ -156,31 +152,25 @@ class _AccountContent extends ConsumerWidget {
     final archivedAccounts = result.accounts
         .where((item) => item.isArchived)
         .toList();
+    final rows = _buildAccountRows(
+      activeAccounts: activeAccounts,
+      archivedAccounts: archivedAccounts,
+    );
     return RefreshIndicator(
       onRefresh: () => ref.read(accountListControllerProvider.notifier).load(),
-      child: ListView(
+      child: ListView.builder(
         padding: const EdgeInsets.only(bottom: 96),
-        children: [
-          StaggeredEntrance(
-            index: 0,
-            child: _AccountSummaryCard(result: result),
-          ),
-          const SizedBox(height: 16),
-          _AccountSection(
-            title: '正常账户',
-            accounts: activeAccounts,
-            sortable: true,
-            startIndex: 1,
-          ),
-          if (archivedAccounts.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _AccountSection(
-              title: '已归档账户',
-              accounts: archivedAccounts,
-              startIndex: activeAccounts.length + 1,
-            ),
-          ],
-        ],
+        itemCount: rows.length + 2,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _AccountSummaryCard(result: result);
+          }
+          if (index == 1) {
+            return const SizedBox(height: 16);
+          }
+          final row = rows[index - 2];
+          return _AccountRowTile(row: row);
+        },
       ),
     );
   }
@@ -197,6 +187,119 @@ class _AccountContent extends ConsumerWidget {
   }
 }
 
+List<_AccountRow> _buildAccountRows({
+  required List<Account> activeAccounts,
+  required List<Account> archivedAccounts,
+}) {
+  return [
+    ..._sectionRows(title: '正常账户', accounts: activeAccounts, sortable: true),
+    if (archivedAccounts.isNotEmpty) ...[
+      const _AccountRow.gap(16),
+      ..._sectionRows(title: '已归档账户', accounts: archivedAccounts),
+    ],
+  ];
+}
+
+List<_AccountRow> _sectionRows({
+  required String title,
+  required List<Account> accounts,
+  bool sortable = false,
+}) {
+  if (accounts.isEmpty) {
+    return const [];
+  }
+  final accountIds = accounts.map((item) => item.id).toList();
+  return [
+    _AccountRow.header(
+      title: title,
+      count: accounts.length,
+      archived: title == '已归档账户',
+    ),
+    const _AccountRow.gap(8),
+    for (final entry in accounts.indexed) ...[
+      _AccountRow.account(
+        account: entry.$2,
+        accountIds: accountIds,
+        accountIndex: entry.$1,
+        sortable: sortable,
+      ),
+      const _AccountRow.gap(10),
+    ],
+  ];
+}
+
+class _AccountRowTile extends StatelessWidget {
+  const _AccountRowTile({required this.row});
+
+  final _AccountRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (row.kind) {
+      _AccountRowKind.gap => SizedBox(height: row.height),
+      _AccountRowKind.header => _SectionHeader(
+        title: row.title,
+        subtitle: '${row.count} 个账户',
+        icon: row.archived
+            ? Icons.archive_outlined
+            : Icons.account_balance_wallet_outlined,
+      ),
+      _AccountRowKind.account => _AccountListTile(
+        account: row.account!,
+        sectionAccountIds: row.accountIds,
+        accountIndex: row.accountIndex,
+        canSort: row.sortable,
+      ),
+    };
+  }
+}
+
+enum _AccountRowKind { gap, header, account }
+
+class _AccountRow {
+  const _AccountRow.gap(this.height)
+    : kind = _AccountRowKind.gap,
+      title = '',
+      count = 0,
+      archived = false,
+      account = null,
+      accountIds = const [],
+      accountIndex = 0,
+      sortable = false;
+
+  const _AccountRow.header({
+    required this.title,
+    required this.count,
+    required this.archived,
+  }) : kind = _AccountRowKind.header,
+       height = 0,
+       account = null,
+       accountIds = const [],
+       accountIndex = 0,
+       sortable = false;
+
+  const _AccountRow.account({
+    required this.account,
+    required this.accountIds,
+    required this.accountIndex,
+    required this.sortable,
+  }) : kind = _AccountRowKind.account,
+       height = 0,
+       title = '',
+       count = 0,
+       archived = false;
+
+  final _AccountRowKind kind;
+  final double height;
+  final String title;
+  final int count;
+  final bool archived;
+  final Account? account;
+  final List<String> accountIds;
+  final int accountIndex;
+  final bool sortable;
+}
+
 class _AccountSummaryCard extends StatelessWidget {
   const _AccountSummaryCard({required this.result});
 
@@ -211,7 +314,7 @@ class _AccountSummaryCard extends StatelessWidget {
       label: '净资产 ${_formatMoney(result.netAssets)}',
       child: PremiumSurface(
         accentColor: financeColors.asset,
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -233,25 +336,35 @@ class _AccountSummaryCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
             Text(
               _formatMoney(result.netAssets),
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 fontWeight: FontWeight.w800,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            const SizedBox(height: 16),
-            _AccountSummaryLine(
-              label: '总资产',
-              value: _formatMoney(result.totalAssets),
-              color: financeColors.income,
-            ),
-            const SizedBox(height: 8),
-            _AccountSummaryLine(
-              label: '总负债',
-              value: _formatMoney(result.totalLiabilities),
-              color: financeColors.expense,
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _AccountSummaryLine(
+                    label: '总资产',
+                    value: _formatMoney(result.totalAssets),
+                    color: financeColors.income,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _AccountSummaryLine(
+                    label: '总负债',
+                    value: _formatMoney(result.totalLiabilities),
+                    color: financeColors.expense,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -274,82 +387,43 @@ class _AccountSummaryLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
         ),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w900,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _AccountSection extends StatelessWidget {
-  const _AccountSection({
-    required this.title,
-    required this.accounts,
-    required this.startIndex,
-    this.sortable = false,
-  });
-
-  final String title;
-  final List<Account> accounts;
-  final int startIndex;
-  final bool sortable;
-
-  /// 构建账户分组列表。
-  @override
-  Widget build(BuildContext context) {
-    if (accounts.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final accountIds = accounts.map((item) => item.id).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        StaggeredEntrance(
-          index: startIndex,
-          child: _SectionHeader(
-            title: title,
-            subtitle: '${accounts.length} 个账户',
-            icon: title == '已归档账户'
-                ? Icons.archive_outlined
-                : Icons.account_balance_wallet_outlined,
-          ),
-        ),
-        const SizedBox(height: 8),
-        for (final entry in accounts.indexed) ...[
-          StaggeredEntrance(
-            index: startIndex + entry.$1 + 1,
-            child: _AccountListTile(
-              account: entry.$2,
-              sectionAccountIds: accountIds,
-              accountIndex: entry.$1,
-              canSort: sortable,
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
-}
-
-class _AccountListTile extends ConsumerWidget {
+class _AccountListTile extends ConsumerStatefulWidget {
   const _AccountListTile({
     required this.account,
     required this.sectionAccountIds,
@@ -364,7 +438,20 @@ class _AccountListTile extends ConsumerWidget {
 
   /// 构建账户列表项。
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AccountListTile> createState() => _AccountListTileState();
+}
+
+class _AccountListTileState extends ConsumerState<_AccountListTile> {
+  bool _showDetails = false;
+
+  Account get account => widget.account;
+  List<String> get sectionAccountIds => widget.sectionAccountIds;
+  int get accountIndex => widget.accountIndex;
+  bool get canSort => widget.canSort;
+
+  @override
+  Widget build(BuildContext context) {
+
     final financeColors = AppTheme.financeColors(context);
     final color = _parseColor(
       account.color,
@@ -376,11 +463,13 @@ class _AccountListTile extends ConsumerWidget {
         : account.currentBalance >= 0
         ? financeColors.income
         : Theme.of(context).colorScheme.error;
+
     final statusLabel = account.isArchived
         ? '已归档'
         : isDebt
         ? '负债账户'
         : '资产账户';
+
     return Semantics(
       label:
           '${account.name}，${_accountTypeLabel(account.type)}，$statusLabel，当前余额${_formatMoney(account.currentBalance)}',
@@ -395,7 +484,7 @@ class _AccountListTile extends ConsumerWidget {
             borderRadius: BorderRadius.circular(20),
             onTap: () => _handleAction(context, ref, _AccountAction.logs),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -405,10 +494,10 @@ class _AccountListTile extends ConsumerWidget {
                       IconBadge(
                         icon: _accountIconData(account),
                         color: color,
-                        size: 42,
-                        iconSize: 22,
+                        size: 36,
+                        iconSize: 19,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,7 +524,7 @@ class _AccountListTile extends ConsumerWidget {
                                 ],
                               ],
                             ),
-                            const SizedBox(height: 5),
+                            const SizedBox(height: 3),
                             Text(
                               account.isArchived
                                   ? '${_accountTypeLabel(account.type)} · 已归档'
@@ -453,7 +542,7 @@ class _AccountListTile extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -467,17 +556,6 @@ class _AccountListTile extends ConsumerWidget {
                                   fontFeatures: const [
                                     FontFeature.tabularFigures(),
                                   ],
-                                ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            isDebt ? '剩余负债' : '当前余额',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w700,
                                 ),
                           ),
                         ],
@@ -521,28 +599,42 @@ class _AccountListTile extends ConsumerWidget {
                     ],
                   ),
                   if (isDebt || account.remark.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        if (isDebt && account.paymentDay != null)
-                          _AccountInfoChip(
-                            icon: Icons.event_available_outlined,
-                            label: '还款日 ${account.paymentDay} 日',
-                          ),
-                        if (isDebt && account.interestRate != null)
-                          _AccountInfoChip(
-                            icon: Icons.percent_outlined,
-                            label: '年利率 ${account.interestRate}%',
-                          ),
-                        if (account.remark.isNotEmpty)
-                          _AccountInfoChip(
-                            icon: Icons.notes_outlined,
-                            label: account.remark,
-                          ),
+                        IconButton(
+                          onPressed: () {
+                            setState(() => _showDetails = !_showDetails);
+                          },
+                          icon: Icon(_showDetails ? Icons.remove : Icons.add),
+                          tooltip:
+                              _showDetails ? '收起账户信息' : '更多账户信息',
+                        ),
                       ],
                     ),
+                    if (_showDetails) ...[
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (isDebt && account.paymentDay != null)
+                            _AccountInfoChip(
+                              icon: Icons.event_available_outlined,
+                              label: '还款日 ${account.paymentDay} 日',
+                            ),
+                          if (isDebt && account.interestRate != null)
+                            _AccountInfoChip(
+                              icon: Icons.percent_outlined,
+                              label: '年利率 ${account.interestRate}%',
+                            ),
+                          if (account.remark.isNotEmpty)
+                            _AccountInfoChip(
+                              icon: Icons.notes_outlined,
+                              label: account.remark,
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -587,8 +679,8 @@ class _AccountListTile extends ConsumerWidget {
       case _AccountAction.delete:
         final confirmed = await showAppConfirmDialog(
           context: context,
-          title: '确认删除',
-          message: '余额不为零或已有交易记录的账户无法删除，可选择归档。',
+          title: '删除账户',
+          message: '删除「${account.name}」？',
           confirmText: '删除',
           isDanger: true,
         );
@@ -608,7 +700,7 @@ class _AccountListTile extends ConsumerWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(
               context,
-            ).showSnackBar(SnackBar(content: Text(error.toString())));
+            ).showSnackBar(const SnackBar(content: Text('账户删除失败')));
           }
         }
     }
@@ -642,7 +734,7 @@ class _AccountListTile extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('排序失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('账户排序失败')));
       }
     }
   }
@@ -673,6 +765,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
   late String _color;
   bool _submitting = false;
   bool _showVisualOptions = false;
+  bool _showDebtOptions = false;
 
   /// 初始化账户表单状态。
   @override
@@ -772,7 +865,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        tooltip: '关闭',
+                        tooltip: isEditing ? '关闭编辑账户表单' : '关闭新增账户表单',
                         icon: const Icon(Icons.close),
                       ),
                     ],
@@ -903,15 +996,27 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                         ],
                         if (_isDebtAccount(_type)) ...[
                           const SizedBox(height: 12),
-                          _AccountDebtFields(
-                            paymentDayController: _paymentDayController,
-                            billingDayController: _billingDayController,
-                            creditLimitController: _creditLimitController,
-                            interestRateController: _interestRateController,
-                            startDateController: _startDateController,
-                            targetDateController: _targetDateController,
-                            remarkController: _remarkController,
+                          TextButton.icon(
+                            onPressed: () => setState(
+                              () => _showDebtOptions = !_showDebtOptions,
+                            ),
+                            icon: Icon(
+                              _showDebtOptions
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
+                            ),
+                            label: Text(_showDebtOptions ? '收起' : '债务选项'),
                           ),
+                          if (_showDebtOptions)
+                            _AccountDebtFields(
+                              paymentDayController: _paymentDayController,
+                              billingDayController: _billingDayController,
+                              creditLimitController: _creditLimitController,
+                              interestRateController: _interestRateController,
+                              startDateController: _startDateController,
+                              targetDateController: _targetDateController,
+                              remarkController: _remarkController,
+                            ),
                         ],
                       ],
                     ),
@@ -928,7 +1033,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                       children: [
                         Icon(_submitting ? Icons.hourglass_top : Icons.check),
                         const SizedBox(width: 8),
-                        Text(_submitting ? '保存中...' : '保存'),
+                        Text(_submitting ? '保存中' : '保存账户'),
                       ],
                     ),
                   ),
@@ -994,7 +1099,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('账户保存失败')));
       }
     } finally {
       if (mounted) {
@@ -1084,7 +1189,7 @@ class _VisualOptionsToggle extends StatelessWidget {
     return TextButton.icon(
       onPressed: onPressed,
       icon: Icon(expanded ? Icons.expand_less : Icons.tune_outlined, size: 18),
-      label: Text(expanded ? '收起外观' : '高级外观'),
+      label: Text(expanded ? '收起' : '样式'),
       style: TextButton.styleFrom(
         foregroundColor: color,
         alignment: Alignment.centerLeft,
@@ -1167,7 +1272,7 @@ class _AccountDebtFields extends StatelessWidget {
                   key: const ValueKey('account-credit-limit'),
                   controller: creditLimitController,
                   decoration: const InputDecoration(
-                    labelText: '授信/本金',
+                    labelText: '额度/本金',
                     prefixText: '¥ ',
                     border: OutlineInputBorder(),
                   ),
@@ -1208,7 +1313,7 @@ class _AccountDebtFields extends StatelessWidget {
                   controller: startDateController,
                   decoration: const InputDecoration(
                     labelText: '开始日期',
-                    hintText: 'YYYY-MM-DD',
+                    hintText: '2026-05-01',
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.datetime,
@@ -1225,7 +1330,7 @@ class _AccountDebtFields extends StatelessWidget {
                   controller: targetDateController,
                   decoration: const InputDecoration(
                     labelText: '目标结清日',
-                    hintText: 'YYYY-MM-DD',
+                    hintText: '2026-12-31',
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.datetime,
@@ -1302,20 +1407,27 @@ class _AccountColorChoice extends StatelessWidget {
     return InkResponse(
       onTap: onSelected,
       radius: 24,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-          border: Border.all(
-            color: selected ? Theme.of(context).colorScheme.onSurface : color,
-            width: selected ? 3 : 1,
+      child: SizedBox.square(
+        dimension: 44,
+        child: Center(
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              border: Border.all(
+                color: selected
+                    ? Theme.of(context).colorScheme.onSurface
+                    : color,
+                width: selected ? 3 : 1,
+              ),
+            ),
+            child: selected
+                ? const Icon(Icons.check, size: 18, color: Colors.white)
+                : null,
           ),
         ),
-        child: selected
-            ? const Icon(Icons.check, size: 18, color: Colors.white)
-            : null,
       ),
     );
   }
@@ -1517,7 +1629,7 @@ String? _validateOptionalDate(String? value) {
       parts[1].length != 2 ||
       parts[2].length != 2 ||
       DateTime.tryParse(text) == null) {
-    return '格式为 YYYY-MM-DD';
+    return '请输入有效日期';
   }
   return null;
 }

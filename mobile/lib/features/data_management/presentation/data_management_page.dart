@@ -7,7 +7,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../data/data_management_repository.dart';
 
 class DataManagementPage extends ConsumerStatefulWidget {
@@ -20,7 +19,7 @@ class DataManagementPage extends ConsumerStatefulWidget {
 class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   final _maxBackupsController = TextEditingController(text: '10');
   String? _busyAction;
-  String? _lastSavedPath;
+  String? _lastSavedName;
   String? _errorMessage;
   AutoBackupSettings _autoBackupSettings = const AutoBackupSettings(
     enabled: false,
@@ -30,6 +29,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   );
   List<AutoBackupFile> _autoBackupFiles = const [];
   bool _autoBackupLoading = true;
+  bool _showAutoBackupSettings = false;
+  bool _showAutoBackupFiles = false;
+  bool _showRecovery = false;
 
   bool get _isBusy => _busyAction != null;
 
@@ -49,119 +51,142 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
+    final rows = _buildRows(colorScheme, financeColors);
     return Scaffold(
       appBar: AppBar(title: const Text('数据')),
       body: AdaptivePageContainer(
-        child: ListView(
+        child: ListView.builder(
           padding: const EdgeInsets.only(bottom: 32),
-          children: [
-            if (_errorMessage != null) ...[
-              StaggeredEntrance(
-                index: 0,
-                child: _MessagePanel(
-                  icon: Icons.error_outline,
-                  message: _errorMessage!,
-                  isError: true,
-                ),
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
               ),
-            ],
-            if (_lastSavedPath != null) ...[
-              StaggeredEntrance(
-                index: 0,
-                child: _MessagePanel(
-                  icon: Icons.folder_outlined,
-                  message: '文件已保存到 $_lastSavedPath',
-                ),
-              ),
-            ],
-            const SizedBox(height: 10),
-            StaggeredEntrance(
-              index: 2,
-              child: _ActionCard(
-                icon: Icons.backup_outlined,
-                accentColor: financeColors.asset,
-                title: '完整备份',
-                buttonLabel: '下载备份',
-                busy: _busyAction == 'backup',
-                enabled: !_isBusy,
-                onPressed: _downloadBackup,
-              ),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 3,
-              child: _ActionCard(
-                icon: Icons.table_view_outlined,
-                accentColor: financeColors.income,
-                title: '交易 CSV',
-                buttonLabel: '导出 CSV',
-                secondaryLabel: '筛选导出',
-                busy: _busyAction == 'csv',
-                enabled: !_isBusy,
-                onPressed: _exportTransactionsCsv,
-                onSecondaryPressed: _showCsvExportSheet,
-              ),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 4,
-              child: _ActionCard(
-                icon: Icons.restore_outlined,
-                accentColor: colorScheme.error,
-                title: '恢复数据',
-                buttonLabel: '选择备份',
-                busy: _busyAction == 'restore',
-                enabled: !_isBusy,
-                isDanger: true,
-                onPressed: _pickAndRestoreBackup,
-              ),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 5,
-              child: _AutoBackupCard(
-                settings: _autoBackupSettings,
-                files: _autoBackupFiles,
-                maxBackupsController: _maxBackupsController,
-                loading: _autoBackupLoading || _busyAction == 'auto-backup',
-                enabled: !_isBusy,
-                onEnabledChanged: (value) {
-                  setState(() {
-                    _autoBackupSettings = _autoBackupSettings.copyWith(
-                      enabled: value,
-                    );
-                  });
-                },
-                onFrequencyChanged: (value) {
-                  setState(() {
-                    _autoBackupSettings = _autoBackupSettings.copyWith(
-                      frequency: value,
-                    );
-                  });
-                },
-                onHourChanged: (value) {
-                  setState(() {
-                    _autoBackupSettings = _autoBackupSettings.copyWith(
-                      hour: value,
-                    );
-                  });
-                },
-                onSave: _saveAutoBackupSettings,
-                onTrigger: _triggerAutoBackup,
-                onReload: _loadAutoBackup,
-              ),
-            ),
-          ],
+              child: row.child,
+            );
+          },
         ),
       ),
     );
+  }
+
+  List<_DataManagementRow> _buildRows(
+    ColorScheme colorScheme,
+    AppFinanceColors financeColors,
+  ) {
+    return [
+      if (_errorMessage != null)
+        _DataManagementRow(
+          _MessagePanel(
+            icon: Icons.error_outline,
+            message: _errorMessage!,
+            isError: true,
+          ),
+          10,
+        ),
+      if (_lastSavedName != null)
+        _DataManagementRow(
+          _MessagePanel(
+            icon: Icons.folder_outlined,
+            message: '已保存：$_lastSavedName',
+          ),
+          10,
+        ),
+      _DataManagementRow(
+        _ActionCard(
+          icon: Icons.backup_outlined,
+          accentColor: financeColors.asset,
+          title: '账本副本',
+          buttonLabel: '保存副本',
+          busy: _busyAction == 'backup',
+          enabled: !_isBusy,
+          onPressed: _downloadBackup,
+        ),
+      ),
+      _DataManagementRow(
+        _ActionCard(
+          icon: Icons.table_view_outlined,
+          accentColor: financeColors.income,
+          title: '交易明细',
+          buttonLabel: '保存明细',
+          secondaryLabel: '筛选明细',
+          busy: _busyAction == 'csv',
+          enabled: !_isBusy,
+          onPressed: _exportTransactionsCsv,
+          onSecondaryPressed: _showCsvExportSheet,
+        ),
+      ),
+      _DataManagementRow(
+        _RecoveryPanel(
+          icon: Icons.restore_outlined,
+          accentColor: colorScheme.error,
+          title: '恢复账本',
+          buttonLabel: '选择副本',
+          busy: _busyAction == 'restore',
+          enabled: !_isBusy,
+          expanded: _showRecovery,
+          onToggle: () {
+            setState(() {
+              _showRecovery = !_showRecovery;
+            });
+          },
+          onPressed: _pickAndRestoreBackup,
+        ),
+      ),
+      _DataManagementRow(
+        _AutoBackupCard(
+          settings: _autoBackupSettings,
+          files: _autoBackupFiles,
+          maxBackupsController: _maxBackupsController,
+          loading: _autoBackupLoading || _busyAction == 'auto-backup',
+          enabled: !_isBusy,
+          onEnabledChanged: (value) {
+            setState(() {
+              _autoBackupSettings = _autoBackupSettings.copyWith(
+                enabled: value,
+              );
+            });
+          },
+          onFrequencyChanged: (value) {
+            setState(() {
+              _autoBackupSettings = _autoBackupSettings.copyWith(
+                frequency: value,
+              );
+            });
+          },
+          onHourChanged: (value) {
+            setState(() {
+              _autoBackupSettings = _autoBackupSettings.copyWith(hour: value);
+            });
+          },
+          onSave: _saveAutoBackupSettings,
+          onTrigger: _triggerAutoBackup,
+          onReload: _loadAutoBackup,
+          showSettings: _showAutoBackupSettings,
+          showFiles: _showAutoBackupFiles,
+          onToggleSettings: () {
+            setState(() {
+              _showAutoBackupSettings = !_showAutoBackupSettings;
+            });
+          },
+          onToggleFiles: () {
+            setState(() {
+              _showAutoBackupFiles = !_showAutoBackupFiles;
+            });
+          },
+        ),
+        0,
+      ),
+    ];
   }
 
   Future<void> _downloadBackup() async {
     await _runFileAction(
       action: 'backup',
       request: ref.read(dataManagementRepositoryProvider).downloadBackup,
-      successMessage: (result) => '备份已保存：${result.filename}',
+      successMessage: (result) => '副本已保存：${result.filename}',
     );
   }
 
@@ -169,7 +194,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     await _runFileAction(
       action: 'csv',
       request: ref.read(dataManagementRepositoryProvider).exportTransactionsCsv,
-      successMessage: (result) => 'CSV 已保存：${result.filename}',
+      successMessage: (result) => '明细已保存：${result.filename}',
     );
   }
 
@@ -188,16 +213,16 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
       request: () => ref
           .read(dataManagementRepositoryProvider)
           .exportTransactionsCsv(filter: filter),
-      successMessage: (result) => 'CSV 已保存：${result.filename}',
+      successMessage: (result) => '明细已保存：${result.filename}',
     );
   }
 
   Future<void> _pickAndRestoreBackup() async {
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '恢复数据',
-      message: '将用所选备份覆盖当前账户数据。',
-      confirmText: '继续恢复',
+      title: '恢复账本',
+      message: '恢复所选副本？',
+      confirmText: '恢复',
       isDanger: true,
     );
     if (!confirmed || !mounted) {
@@ -219,7 +244,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     setState(() {
       _busyAction = 'restore';
       _errorMessage = null;
-      _lastSavedPath = null;
+      _lastSavedName = null;
     });
 
     try {
@@ -229,13 +254,14 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('备份恢复完成')));
+      ).showSnackBar(const SnackBar(content: Text('数据已恢复')));
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = error.toString());
-      _showDataError(error);
+      final message = _friendlyDataMessage(error);
+      setState(() => _errorMessage = message);
+      _showDataError(message);
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -265,7 +291,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = error.toString());
+      setState(() => _errorMessage = _friendlyDataMessage(error));
     } finally {
       if (mounted) {
         setState(() => _autoBackupLoading = false);
@@ -284,7 +310,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     setState(() {
       _busyAction = 'auto-backup';
       _errorMessage = null;
-      _lastSavedPath = null;
+      _lastSavedName = null;
       _autoBackupSettings = settings;
       _maxBackupsController.text = settings.maxBackups.toString();
     });
@@ -302,13 +328,14 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('自动备份设置已保存')));
+      ).showSnackBar(const SnackBar(content: Text('自动保存设置已保存')));
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = error.toString());
-      _showDataError(error);
+      final message = _friendlyDataMessage(error);
+      setState(() => _errorMessage = message);
+      _showDataError(message);
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -320,7 +347,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     setState(() {
       _busyAction = 'auto-backup';
       _errorMessage = null;
-      _lastSavedPath = null;
+      _lastSavedName = null;
     });
 
     try {
@@ -333,13 +360,14 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
       setState(() => _autoBackupFiles = files ?? const []);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('自动备份已触发')));
+      ).showSnackBar(const SnackBar(content: Text('自动保存已开始')));
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = error.toString());
-      _showDataError(error);
+      final message = _friendlyDataMessage(error);
+      setState(() => _errorMessage = message);
+      _showDataError(message);
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -355,7 +383,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     setState(() {
       _busyAction = action;
       _errorMessage = null;
-      _lastSavedPath = null;
+      _lastSavedName = null;
     });
 
     try {
@@ -363,7 +391,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
       if (!mounted) {
         return;
       }
-      setState(() => _lastSavedPath = result.path);
+      setState(() => _lastSavedName = result.filename);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(successMessage(result))));
@@ -371,8 +399,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = error.toString());
-      _showDataError(error);
+      final message = _friendlyDataMessage(error);
+      setState(() => _errorMessage = message);
+      _showDataError(message);
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -380,11 +409,27 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     }
   }
 
-  void _showDataError(Object error) {
+  String _friendlyDataMessage(Object error) {
+    return error
+        .toString()
+        .replaceAll('自动备份', '自动保存')
+        .replaceAll('备份文件', '副本')
+        .replaceAll('备份', '副本')
+        .replaceAll('导出', '保存');
+  }
+
+  void _showDataError(String message) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(error.toString())));
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
+}
+
+class _DataManagementRow {
+  const _DataManagementRow(this.child, [this.bottomSpacing = 12]);
+
+  final Widget child;
+  final double bottomSpacing;
 }
 
 class _AutoBackupCard extends StatelessWidget {
@@ -400,6 +445,10 @@ class _AutoBackupCard extends StatelessWidget {
     required this.onSave,
     required this.onTrigger,
     required this.onReload,
+    required this.showSettings,
+    required this.showFiles,
+    required this.onToggleSettings,
+    required this.onToggleFiles,
   });
 
   final AutoBackupSettings settings;
@@ -413,6 +462,10 @@ class _AutoBackupCard extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onTrigger;
   final VoidCallback onReload;
+  final bool showSettings;
+  final bool showFiles;
+  final VoidCallback onToggleSettings;
+  final VoidCallback onToggleFiles;
 
   @override
   Widget build(BuildContext context) {
@@ -420,6 +473,7 @@ class _AutoBackupCard extends StatelessWidget {
     final statusColor = settings.enabled
         ? colorScheme.primary
         : colorScheme.outline;
+    final visibleFiles = files.take(3).toList(growable: false);
     return PremiumSurface(
       accentColor: statusColor,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
@@ -440,7 +494,7 @@ class _AutoBackupCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '自动备份',
+                      '自动保存',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -449,8 +503,8 @@ class _AutoBackupCard extends StatelessWidget {
                     Text(
                       settings.lastBackup == null ||
                               settings.lastBackup!.isEmpty
-                          ? '按频率保留备份'
-                          : '上次备份：${settings.lastBackup}',
+                          ? '还没有保存记录'
+                          : '最近：${settings.lastBackup}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -463,141 +517,164 @@ class _AutoBackupCard extends StatelessWidget {
               IconButton.filledTonal(
                 onPressed: enabled && !loading ? onReload : null,
                 icon: const Icon(Icons.refresh),
-                tooltip: '刷新自动备份',
+                tooltip: '刷新保存记录',
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _SwitchPanel(
-            value: settings.enabled,
-            enabled: enabled && !loading,
-            onChanged: onEnabledChanged,
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(
-                  value: 'daily',
-                  label: Text('每天'),
-                  icon: Icon(Icons.today_outlined),
-                ),
-                ButtonSegment(
-                  value: 'weekly',
-                  label: Text('每周'),
-                  icon: Icon(Icons.view_week_outlined),
-                ),
-                ButtonSegment(
-                  value: 'monthly',
-                  label: Text('每月'),
-                  icon: Icon(Icons.calendar_month_outlined),
-                ),
-              ],
-              selected: {settings.frequency},
-              showSelectedIcon: false,
-              onSelectionChanged: enabled && !loading
-                  ? (values) => onFrequencyChanged(values.first)
-                  : null,
-            ),
-          ),
-          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<int>(
-                  key: ValueKey(settings.hour),
-                  initialValue: settings.hour,
-                  decoration: InputDecoration(
-                    labelText: '执行小时',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Icon(
-                      Icons.access_time_outlined,
-                      color: colorScheme.primary,
-                    ),
+                child: OutlinedButton.icon(
+                  key: const ValueKey('auto-backup-settings-toggle'),
+                  onPressed: enabled ? onToggleSettings : null,
+                  icon: Icon(
+                    showSettings ? Icons.expand_less : Icons.tune_outlined,
                   ),
-                  items: [
-                    for (var hour = 0; hour < 24; hour++)
-                      DropdownMenuItem(
-                        value: hour,
-                        child: Text('${hour.toString().padLeft(2, '0')}:00'),
-                      ),
-                  ],
-                  onChanged: enabled && !loading && settings.enabled
-                      ? (value) {
-                          if (value != null) {
-                            onHourChanged(value);
-                          }
-                        }
-                      : null,
+                  label: Text(showSettings ? '收起设置' : '设置'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextField(
-                  controller: maxBackupsController,
-                  enabled: enabled && !loading,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: '保留份数',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Icon(
-                      Icons.inventory_2_outlined,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
                 child: FilledButton.icon(
-                  onPressed: enabled && !loading ? onSave : null,
+                  onPressed: enabled && !loading ? onTrigger : null,
                   icon: loading
                       ? const SizedBox.square(
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.save_outlined),
-                  label: Text(loading ? '处理中...' : '保存'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: enabled && !loading ? onTrigger : null,
-                  icon: const Icon(Icons.play_arrow_outlined),
-                  label: const Text('立即备份'),
+                      : const Icon(Icons.play_arrow_outlined),
+                  label: Text(loading ? '处理中' : '立即保存'),
                 ),
               ),
             ],
           ),
+          if (showSettings) ...[
+            const SizedBox(height: 12),
+            _SwitchPanel(
+              value: settings.enabled,
+              enabled: enabled && !loading,
+              onChanged: onEnabledChanged,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'daily',
+                    label: Text('每天'),
+                    icon: Icon(Icons.today_outlined),
+                  ),
+                  ButtonSegment(
+                    value: 'weekly',
+                    label: Text('每周'),
+                    icon: Icon(Icons.view_week_outlined),
+                  ),
+                  ButtonSegment(
+                    value: 'monthly',
+                    label: Text('每月'),
+                    icon: Icon(Icons.calendar_month_outlined),
+                  ),
+                ],
+                selected: {settings.frequency},
+                showSelectedIcon: false,
+                onSelectionChanged: enabled && !loading
+                    ? (values) => onFrequencyChanged(values.first)
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    key: ValueKey(settings.hour),
+                    initialValue: settings.hour,
+                    decoration: InputDecoration(
+                      labelText: '保存时间',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: Icon(
+                        Icons.access_time_outlined,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    items: [
+                      for (var hour = 0; hour < 24; hour++)
+                        DropdownMenuItem(
+                          value: hour,
+                          child: Text('${hour.toString().padLeft(2, '0')}:00'),
+                        ),
+                    ],
+                    onChanged: enabled && !loading && settings.enabled
+                        ? (value) {
+                            if (value != null) {
+                              onHourChanged(value);
+                            }
+                          }
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: maxBackupsController,
+                    enabled: enabled && !loading,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: '保留副本数',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: Icon(
+                        Icons.inventory_2_outlined,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: enabled && !loading ? onSave : null,
+                icon: loading
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: Text(loading ? '处理中' : '保存设置'),
+              ),
+            ),
+          ],
           if (files.isNotEmpty) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             Row(
               children: [
                 Text(
-                  '已有备份',
+                  '记录',
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const Spacer(),
-                Text(
-                  '${files.length} 个文件',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                TextButton.icon(
+                  key: const ValueKey('auto-backup-files-toggle'),
+                  onPressed: enabled ? onToggleFiles : null,
+                  icon: Icon(
+                    showFiles ? Icons.expand_less : Icons.history_outlined,
                   ),
+                  label: Text(showFiles ? '收起' : '${files.length} 个'),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            for (final file in files.take(3)) ...[
-              _BackupFileRow(file: file),
-              if (file != files.take(3).last) const SizedBox(height: 8),
+            if (showFiles) ...[
+              const SizedBox(height: 10),
+              for (var index = 0; index < visibleFiles.length; index++) ...[
+                _BackupFileRow(file: visibleFiles[index]),
+                if (index != visibleFiles.length - 1) const SizedBox(height: 8),
+              ],
             ],
           ],
         ],
@@ -673,7 +750,7 @@ class _SwitchPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '启用自动备份',
+                  '启用自动保存',
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -681,7 +758,7 @@ class _SwitchPanel extends StatelessWidget {
               ),
               Semantics(
                 key: const ValueKey('auto-backup-enabled-semantics'),
-                label: '启用自动备份',
+                label: '启用自动保存',
                 toggled: value,
                 enabled: enabled,
                 child: Switch(
@@ -707,11 +784,8 @@ class _BackupFileRow extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     return Semantics(
-      label:
-          '${file.filename}，${_formatFileSize(file.size)}，创建于 ${file.createdAt}',
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
+      label: '${file.filename}，${_formatFileSize(file.size)}',
+      child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Color.alphaBlend(
@@ -741,7 +815,7 @@ class _BackupFileRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    file.filename,
+                    _compactBackupName(file.filename),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -750,7 +824,7 @@ class _BackupFileRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${_formatFileSize(file.size)} · ${file.createdAt}',
+                    _formatFileSize(file.size),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -803,6 +877,82 @@ class _MessagePanel extends StatelessWidget {
   }
 }
 
+class _RecoveryPanel extends StatelessWidget {
+  const _RecoveryPanel({
+    required this.icon,
+    required this.accentColor,
+    required this.title,
+    required this.buttonLabel,
+    required this.busy,
+    required this.enabled,
+    required this.expanded,
+    required this.onToggle,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final Color accentColor;
+  final String title;
+  final String buttonLabel;
+  final bool busy;
+  final bool enabled;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: accentColor,
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              IconBadge(icon: icon, color: accentColor, size: 38, iconSize: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              IconButton.filledTonal(
+                key: const ValueKey('restore-panel-toggle'),
+                onPressed: enabled ? onToggle : null,
+                tooltip: expanded ? '收起恢复' : '展开恢复',
+                icon: Icon(expanded ? Icons.expand_less : Icons.more_horiz),
+              ),
+            ],
+          ),
+          if (expanded) ...[
+            const SizedBox(height: 12),
+            Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                key: const ValueKey('restore-backup-button'),
+                onPressed: enabled ? onPressed : null,
+                icon: _ButtonIcon(busy: busy, fallback: Icons.upload_file),
+                label: Text(busy ? '恢复中' : buttonLabel),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ActionCard extends StatelessWidget {
   const _ActionCard({
     required this.icon,
@@ -814,7 +964,6 @@ class _ActionCard extends StatelessWidget {
     required this.onPressed,
     this.secondaryLabel,
     this.onSecondaryPressed,
-    this.isDanger = false,
   });
 
   final IconData icon;
@@ -826,19 +975,16 @@ class _ActionCard extends StatelessWidget {
   final VoidCallback onPressed;
   final String? secondaryLabel;
   final VoidCallback? onSecondaryPressed;
-  final bool isDanger;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final iconColor = isDanger ? colorScheme.error : accentColor;
     return PremiumSurface(
-      accentColor: iconColor,
+      accentColor: accentColor,
       padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          IconBadge(icon: icon, color: iconColor, size: 38, iconSize: 20),
+          IconBadge(icon: icon, color: accentColor, size: 38, iconSize: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -852,27 +998,18 @@ class _ActionCard extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           if (secondaryLabel != null && onSecondaryPressed != null) ...[
-            TextButton.icon(
+            IconButton.filledTonal(
               onPressed: enabled ? onSecondaryPressed : null,
+              tooltip: secondaryLabel,
               icon: const Icon(Icons.filter_alt_outlined),
-              label: Text(secondaryLabel!),
             ),
             const SizedBox(width: 8),
           ],
-          isDanger
-              ? FilledButton.tonalIcon(
-                  onPressed: enabled ? onPressed : null,
-                  icon: _ButtonIcon(busy: busy, fallback: Icons.upload_file),
-                  label: Text(busy ? '恢复中...' : buttonLabel),
-                )
-              : FilledButton.icon(
-                  onPressed: enabled ? onPressed : null,
-                  icon: _ButtonIcon(
-                    busy: busy,
-                    fallback: Icons.download_outlined,
-                  ),
-                  label: Text(busy ? '处理中...' : buttonLabel),
-                ),
+          FilledButton.icon(
+            onPressed: enabled ? onPressed : null,
+            icon: _ButtonIcon(busy: busy, fallback: Icons.download_outlined),
+            label: Text(busy ? '处理中' : buttonLabel),
+          ),
         ],
       ),
     );
@@ -912,7 +1049,7 @@ class _CsvExportFilterSheetState extends State<_CsvExportFilterSheet> {
     final end = parseDate(_endController.text);
     if (_startController.text.trim().isNotEmpty && start == null ||
         _endController.text.trim().isNotEmpty && end == null) {
-      setState(() => _errorText = '日期格式应为 YYYY-MM-DD');
+      setState(() => _errorText = '请输入有效日期');
       return;
     }
     if (start != null && end != null && start.isAfter(end)) {
@@ -940,7 +1077,7 @@ class _CsvExportFilterSheetState extends State<_CsvExportFilterSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '筛选导出',
+              '筛选明细',
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -986,8 +1123,8 @@ class _CsvExportFilterSheetState extends State<_CsvExportFilterSheet> {
               child: FilledButton.icon(
                 key: const ValueKey('csv-export-filter-submit'),
                 onPressed: _submit,
-                icon: const Icon(Icons.download_outlined),
-                label: const Text('导出'),
+                icon: const Icon(Icons.save_alt_outlined),
+                label: const Text('保存明细'),
               ),
             ),
           ],
@@ -1023,4 +1160,11 @@ String _formatFileSize(int size) {
     return '${(size / 1024).toStringAsFixed(1)} KB';
   }
   return '$size B';
+}
+
+String _compactBackupName(String filename) {
+  final normalized = filename
+      .replaceFirst(RegExp(r'^auto_backup_'), '')
+      .replaceFirst(RegExp(r'\.json$'), '');
+  return normalized.isEmpty ? filename : normalized;
 }

@@ -9,7 +9,8 @@ void main() {
   testWidgets('AppLoadingView 只展示加载信息', (tester) async {
     await _pump(tester, const AppLoadingView(message: '正在加载数据...'));
 
-    expect(find.text('正在加载数据...'), findsOneWidget);
+    expect(find.text('数据加载中'), findsOneWidget);
+    expect(find.text('正在加载数据...'), findsNothing);
     expect(find.text('本地缓存'), findsNothing);
     expect(find.text('接口连通'), findsNothing);
     expect(find.text('主题渲染'), findsNothing);
@@ -19,21 +20,21 @@ void main() {
     );
     expect(find.byType(PremiumSurface), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 
   testWidgets('AppEmptyView 展示语义图标和操作按钮', (tester) async {
     await _pump(
       tester,
       AppEmptyView(
-        title: '暂无数据',
+        title: '还没有内容',
         message: '稍后再来查看。',
         icon: Icons.inbox_outlined,
         action: FilledButton(onPressed: () {}, child: const Text('创建')),
       ),
     );
 
-    expect(find.text('暂无数据'), findsOneWidget);
+    expect(find.text('还没有内容'), findsOneWidget);
     expect(find.text('稍后再来查看。'), findsOneWidget);
     expect(find.text('内容状态'), findsNothing);
     expect(find.text('下一步'), findsNothing);
@@ -91,7 +92,7 @@ void main() {
               final confirmed = await showAppConfirmDialog(
                 context: context,
                 title: '删除交易',
-                message: '删除后账户余额会同步回滚。',
+                message: '删除后账户余额会自动调整。',
                 confirmText: '删除',
                 isDanger: true,
               );
@@ -107,14 +108,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('删除交易'), findsOneWidget);
-    expect(find.text('删除后账户余额会同步回滚。'), findsOneWidget);
+    expect(find.text('删除后账户余额会自动调整。'), findsOneWidget);
+    expect(find.textContaining('同步回滚'), findsNothing);
     expect(find.textContaining('高风险'), findsNothing);
     expect(find.textContaining('需手动确认'), findsNothing);
     expect(
       find.byWidgetPredicate(
         (widget) =>
             widget is Semantics &&
-            widget.properties.label == '删除交易，高风险操作，需手动确认',
+            widget.properties.label != null &&
+            widget.properties.label!.contains('删除交易') &&
+            widget.properties.label!.contains('需手动确认'),
       ),
       findsAtLeastNWidgets(1),
     );

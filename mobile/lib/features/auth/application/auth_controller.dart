@@ -205,12 +205,31 @@ class AuthController extends StateNotifier<AuthState> {
 
   String _formatError(Object error) {
     final message = error.toString();
+    final lowerMessage = message.toLowerCase();
+    if (lowerMessage.contains('dioexception') ||
+        lowerMessage.contains('socketexception') ||
+        lowerMessage.contains('httpexception') ||
+        lowerMessage.contains('xmlhttprequest') ||
+        lowerMessage.contains('connection') ||
+        lowerMessage.contains('timeout')) {
+      return '账本连接失败，请检查地址或网络';
+    }
     const prefixes = ['Exception: ', 'FormatException: '];
     for (final prefix in prefixes) {
       if (message.startsWith(prefix)) {
-        return message.substring(prefix.length);
+        return _safeAuthMessage(message.substring(prefix.length));
       }
     }
-    return message;
+    return _safeAuthMessage(message);
+  }
+
+  String _safeAuthMessage(String message) {
+    final trimmed = message.trim();
+    if (trimmed.startsWith('账本地址') ||
+        trimmed.startsWith('远程账本') ||
+        trimmed == '认证响应无效') {
+      return trimmed;
+    }
+    return '账本连接失败，请检查地址或网络';
   }
 }

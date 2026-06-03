@@ -7,7 +7,6 @@ import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
@@ -40,7 +39,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
           IconButton(
             onPressed: _isBusy ? null : _refresh,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新负债提醒',
+            tooltip: '刷新提醒',
           ),
         ],
       ),
@@ -52,7 +51,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载负债提醒...'),
         error: (error, _) => _ReminderErrorView(
-          message: error.toString(),
+          message: '负债提醒加载失败',
           onRetry: _refresh,
           onRefresh: () => ref.refresh(reminderDashboardProvider.future),
         ),
@@ -119,7 +118,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
             return;
           }
           if (saved == null || saved.id.isEmpty) {
-            throw const FormatException('提醒创建响应为空，无法上传附件');
+            throw const FormatException('提醒已创建，但附件暂时无法添加');
           }
           final uploadedAttachments = await _uploadPendingAttachments(
             result.pendingFiles,
@@ -169,7 +168,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除负债提醒',
-      message: '删除后相关还款记录将从提醒中移除，已生成的账本交易会保留。',
+      message: '删除「${reminder.displayName}」？',
       confirmText: '删除',
       isDanger: true,
     );
@@ -270,7 +269,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = error.toString());
+      setState(() => _errorMessage = '负债提醒保存失败');
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -302,67 +301,106 @@ class _ReminderContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeCount = dashboard.activeReminders.length;
-    final inactiveStartIndex = activeCount + 4;
-    final paidOffStartIndex =
-        inactiveStartIndex + dashboard.inactiveReminders.length + 1;
+    final rows = _buildRows();
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
-        child: ListView(
+        child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 96),
-          children: [
-            if (errorMessage != null) ...[
-              _MessagePanel(message: errorMessage!),
-              const SizedBox(height: 12),
-            ],
-            StaggeredEntrance(
-              index: 0,
-              child: _DebtSummaryCard(summary: dashboard.summary),
-            ),
-            const SizedBox(height: 16),
-            if (dashboard.reminders.isEmpty)
-              const StaggeredEntrance(index: 3, child: _EmptyReminderCard())
-            else ...[
-              _ReminderSection(
-                title: '进行中',
-                reminders: dashboard.activeReminders,
-                startIndex: 3,
-                busyAction: busyAction,
-                onToggle: onToggle,
-                onEdit: onEdit,
-                onDelete: onDelete,
-                onRecordPayment: onRecordPayment,
-              ),
-              _ReminderSection(
-                title: '已暂停',
-                reminders: dashboard.inactiveReminders,
-                startIndex: inactiveStartIndex,
-                busyAction: busyAction,
-                onToggle: onToggle,
-                onEdit: onEdit,
-                onDelete: onDelete,
-                onRecordPayment: onRecordPayment,
-              ),
-              _ReminderSection(
-                title: '已还清',
-                reminders: dashboard.paidOffReminders,
-                startIndex: paidOffStartIndex,
-                busyAction: busyAction,
-                onToggle: onToggle,
-                onEdit: onEdit,
-                onDelete: onDelete,
-                onRecordPayment: onRecordPayment,
-                readOnly: true,
-              ),
-            ],
-          ],
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            final bottom = index == rows.length - 1 ? 0.0 : 12.0;
+            return Padding(
+              padding: EdgeInsets.only(bottom: bottom),
+              child: switch (row.kind) {
+                _ReminderRowKind.error => _MessagePanel(message: errorMessage!),
+                _ReminderRowKind.summary => _DebtSummaryCard(
+                  summary: dashboard.summary,
+                ),
+                _ReminderRowKind.empty => const _EmptyReminderCard(),
+                _ReminderRowKind.section => _ReminderSectionLabel(
+                  title: row.title!,
+                  count: row.count!,
+                  readOnly: row.readOnly,
+                ),
+                _ReminderRowKind.item => _ReminderCard(
+                  reminder: row.reminder!,
+                  busyAction: busyAction,
+                  readOnly: row.readOnly,
+                  onToggle: () => onToggle(row.reminder!),
+                  onEdit: () => onEdit(row.reminder!),
+                  onDelete: () => onDelete(row.reminder!),
+                  onRecordPayment: () => onRecordPayment(row.reminder!),
+                ),
+              },
+            );
+          },
         ),
       ),
     );
   }
+
+  List<_ReminderRow> _buildRows() {
+    if (dashboard.reminders.isEmpty) {
+      return [
+        if (errorMessage != null) const _ReminderRow(_ReminderRowKind.error),
+        const _ReminderRow(_ReminderRowKind.summary),
+        const _ReminderRow(_ReminderRowKind.empty),
+      ];
+    }
+    return [
+      if (errorMessage != null) const _ReminderRow(_ReminderRowKind.error),
+      const _ReminderRow(_ReminderRowKind.summary),
+      ..._sectionRows('进行中', dashboard.activeReminders),
+      ..._sectionRows('已暂停', dashboard.inactiveReminders),
+      ..._sectionRows('已还清', dashboard.paidOffReminders, readOnly: true),
+    ];
+  }
+
+  List<_ReminderRow> _sectionRows(
+    String title,
+    List<ReminderItem> reminders, {
+    bool readOnly = false,
+  }) {
+    if (reminders.isEmpty) {
+      return const [];
+    }
+    return [
+      _ReminderRow(
+        _ReminderRowKind.section,
+        title: title,
+        count: reminders.length,
+        readOnly: readOnly,
+      ),
+      for (final reminder in reminders)
+        _ReminderRow(
+          _ReminderRowKind.item,
+          reminder: reminder,
+          readOnly: readOnly,
+        ),
+    ];
+  }
 }
+
+class _ReminderRow {
+  const _ReminderRow(
+    this.kind, {
+    this.title,
+    this.count,
+    this.reminder,
+    this.readOnly = false,
+  });
+
+  final _ReminderRowKind kind;
+  final String? title;
+  final int? count;
+  final ReminderItem? reminder;
+  final bool readOnly;
+}
+
+enum _ReminderRowKind { error, summary, empty, section, item }
 
 class _ReminderErrorView extends StatelessWidget {
   const _ReminderErrorView({
@@ -377,19 +415,36 @@ class _ReminderErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rows = [
+      const _ReminderErrorRow(SizedBox(height: 48)),
+      _ReminderErrorRow(AppErrorView(message: message, onRetry: onRetry), 0),
+    ];
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
-        child: ListView(
+        child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(height: MediaQuery.sizeOf(context).height * 0.18),
-            AppErrorView(message: message, onRetry: onRetry),
-          ],
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
+              ),
+              child: row.child,
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _ReminderErrorRow {
+  const _ReminderErrorRow(this.child, [this.bottomSpacing = 0]);
+
+  final Widget child;
+  final double bottomSpacing;
 }
 
 class _MessagePanel extends StatelessWidget {
@@ -591,69 +646,6 @@ class _NextPaymentBanner extends StatelessWidget {
   }
 }
 
-class _ReminderSection extends StatelessWidget {
-  const _ReminderSection({
-    required this.title,
-    required this.reminders,
-    required this.startIndex,
-    required this.busyAction,
-    required this.onToggle,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onRecordPayment,
-    this.readOnly = false,
-  });
-
-  final String title;
-  final List<ReminderItem> reminders;
-  final int startIndex;
-  final String? busyAction;
-  final ValueChanged<ReminderItem> onToggle;
-  final ValueChanged<ReminderItem> onEdit;
-  final ValueChanged<ReminderItem> onDelete;
-  final ValueChanged<ReminderItem> onRecordPayment;
-  final bool readOnly;
-
-  @override
-  Widget build(BuildContext context) {
-    if (reminders.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        StaggeredEntrance(
-          index: startIndex,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 8),
-            child: _ReminderSectionLabel(
-              title: title,
-              count: reminders.length,
-              readOnly: readOnly,
-            ),
-          ),
-        ),
-        for (final entry in reminders.indexed) ...[
-          StaggeredEntrance(
-            index: startIndex + entry.$1 + 1,
-            child: _ReminderCard(
-              reminder: entry.$2,
-              busyAction: busyAction,
-              readOnly: readOnly,
-              onToggle: () => onToggle(entry.$2),
-              onEdit: () => onEdit(entry.$2),
-              onDelete: () => onDelete(entry.$2),
-              onRecordPayment: () => onRecordPayment(entry.$2),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ],
-    );
-  }
-}
-
 class _ReminderSectionLabel extends StatelessWidget {
   const _ReminderSectionLabel({
     required this.title,
@@ -826,7 +818,7 @@ class _ReminderCard extends StatelessWidget {
                   )
                 else
                   PopupMenuButton<_ReminderMenuAction>(
-                    tooltip: '更多操作 ${reminder.displayName}',
+                    tooltip: '更多提醒操作 ${reminder.displayName}',
                     onSelected: (action) {
                       switch (action) {
                         case _ReminderMenuAction.payment:
@@ -922,7 +914,7 @@ class _EmptyReminderCard extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 18),
       child: AppEmptyView(
-        title: '暂无负债提醒',
+        title: '还没有负债提醒',
         icon: Icons.notifications_none_outlined,
       ),
     );
@@ -965,6 +957,7 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
   late String _loanType;
   late String _color;
   String? _accountId;
+  bool _showMoreDetails = false;
   late List<LedgerAttachment> _attachments;
   List<PendingAttachmentFile> _pendingAttachmentFiles = const [];
 
@@ -1009,6 +1002,10 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
     _attachments = decodeAttachmentPaths(
       request.evidence,
     ).map(LedgerAttachment.fromPath).toList();
+    _showMoreDetails =
+        request.interestRate != null ||
+        request.remark.trim().isNotEmpty ||
+        _attachments.isNotEmpty;
     final accountId = request.accountId;
     _accountId =
         accountId != null &&
@@ -1180,7 +1177,7 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
                           decimal: true,
                         ),
                         decoration: const InputDecoration(
-                          labelText: '月供/最低还款',
+                          labelText: '每月还款',
                           prefixText: '¥ ',
                           border: OutlineInputBorder(),
                         ),
@@ -1193,7 +1190,7 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
                         controller: _advanceDaysController,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: '提前提醒天数',
+                          labelText: '提前提醒',
                           border: OutlineInputBorder(),
                         ),
                         validator: _validateAdvanceDays,
@@ -1202,37 +1199,52 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _interestRateController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: '年化利率',
-                    suffixText: '%',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: _validateOptionalAmount,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _remarkController,
-                  decoration: const InputDecoration(
-                    labelText: '备注',
-                    border: OutlineInputBorder(),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton.filledTonal(
+                    key: const ValueKey('reminder-more-details'),
+                    onPressed: () =>
+                        setState(() => _showMoreDetails = !_showMoreDetails),
+                    icon: Icon(
+                      _showMoreDetails ? Icons.expand_less : Icons.more_horiz,
+                    ),
+                    tooltip: _showMoreDetails ? '收起更多字段' : '展开更多字段',
                   ),
                 ),
-                const SizedBox(height: 12),
-                AttachmentPickerField(
-                  attachments: _attachments,
-                  pendingFiles: _pendingAttachmentFiles,
-                  onAttachmentsChanged: (attachments) {
-                    setState(() => _attachments = attachments);
-                  },
-                  onPendingFilesChanged: (files) {
-                    setState(() => _pendingAttachmentFiles = files);
-                  },
-                ),
+                if (_showMoreDetails) ...[
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _interestRateController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: '利率',
+                      suffixText: '%',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: _validateOptionalAmount,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _remarkController,
+                    decoration: const InputDecoration(
+                      labelText: '备注',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AttachmentPickerField(
+                    attachments: _attachments,
+                    pendingFiles: _pendingAttachmentFiles,
+                    onAttachmentsChanged: (attachments) {
+                      setState(() => _attachments = attachments);
+                    },
+                    onPendingFilesChanged: (files) {
+                      setState(() => _pendingAttachmentFiles = files);
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -1243,7 +1255,7 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('保存')),
+        FilledButton(onPressed: _submit, child: const Text('保存提醒')),
       ],
     );
   }
@@ -1390,73 +1402,81 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     return AlertDialog(
       title: Text('记录还款：${widget.reminder.displayName}'),
       content: widget.paymentAccounts.isEmpty
-          ? const Text('暂无可用还款账户，请先创建现金、储蓄卡等资产账户。')
-          : Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: _amountController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: '还款总额',
-                      prefixText: '¥ ',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: _validatePositiveAmount,
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _accountId,
-                    decoration: const InputDecoration(
-                      labelText: '还款账户',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      for (final account in widget.paymentAccounts)
-                        DropdownMenuItem(
-                          value: account.id,
-                          child: Text(account.name),
-                        ),
-                    ],
-                    onChanged: (value) => setState(() => _accountId = value),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
+          ? const Text('还没有还款账户')
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _principalController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: '本金',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: _validateOptionalAmount,
+                      TextFormField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
+                        decoration: const InputDecoration(
+                          labelText: '还款总额',
+                          prefixText: '¥ ',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _validatePositiveAmount,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _interestController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: '利息',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: _validateInterestAmount,
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _accountId,
+                        decoration: const InputDecoration(
+                          labelText: '还款账户',
+                          border: OutlineInputBorder(),
                         ),
+                        items: [
+                          for (final account in widget.paymentAccounts)
+                            DropdownMenuItem(
+                              value: account.id,
+                              child: Text(account.name),
+                            ),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => _accountId = value),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _principalController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: '本金',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: _validateOptionalAmount,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _interestController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: '利息',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: _validateInterestAmount,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
       actions: [

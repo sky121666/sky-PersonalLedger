@@ -6,7 +6,7 @@ import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
+import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -46,8 +46,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('个人记账'), findsOneWidget);
-    expect(find.text('管理账户、分类、预算和数据安全'), findsOneWidget);
-    expect(find.text('资产配置'), findsOneWidget);
+    expect(find.text('管理账户、分类、预算和数据安全'), findsNothing);
+    expect(find.text('个人'), findsOneWidget);
+    expect(find.text('账本'), findsOneWidget);
+    expect(find.text('资产配置'), findsNothing);
+    expect(find.text('常用功能'), findsNothing);
     expect(find.text('个人控制中枢 · 静谧墨绿'), findsNothing);
     expect(find.text('主题模板'), findsNothing);
     expect(find.text('能力入口'), findsNothing);
@@ -60,31 +63,36 @@ void main() {
     expect(find.text('本机操作 1'), findsNothing);
     expect(find.text('主题模板 16'), findsNothing);
     expect(find.text('入口治理'), findsNothing);
+    expect(find.text('系统设置'), findsNothing);
+    expect(find.text('访问令牌'), findsNothing);
+    expect(find.text('预算'), findsNothing);
 
-    for (final label in _entryLabels) {
-      final labelFinder = find.text(label);
-      if (labelFinder.evaluate().isEmpty) {
-        await tester.scrollUntilVisible(
-          labelFinder,
-          160,
-          scrollable: find.byType(Scrollable).first,
-        );
-      }
-      expect(labelFinder, findsAtLeastNWidgets(1));
-      if (label == '家庭成员') {
-        expect(
-          find.byKey(const ValueKey('profile-entry-家庭成员')),
-          findsOneWidget,
-        );
-        expect(
-          find.ancestor(
-            of: find.byKey(const ValueKey('profile-entry-家庭成员')),
-            matching: find.byType(Semantics),
-          ),
-          findsWidgets,
-        );
-      }
-    }
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('profile-section-日常')),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('profile-section-日常')));
+    await tester.pumpAndSettle();
+    expect(find.text('预算'), findsOneWidget);
+    expect(find.byKey(const ValueKey('profile-entry-家庭成员')), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey('profile-entry-家庭成员')),
+        matching: find.byType(Semantics),
+      ),
+      findsWidgets,
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('profile-section-设置')),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('profile-section-设置')));
+    await tester.pumpAndSettle();
+    expect(find.text('数据'), findsOneWidget);
+    expect(find.text('更换账本'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('profile-entry-个人资料')),
@@ -222,7 +230,7 @@ void main() {
     expect(badgeColors, contains(theme.colorScheme.tertiary));
   });
 
-  testWidgets('ProfilePage 设置分区和主题模板使用分段入场动效', (tester) async {
+  testWidgets('ProfilePage 设置分区和主题模板保持清晰层级', (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1;
@@ -243,31 +251,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
+    expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
+    expect(
+      find.byKey(const ValueKey('profile-command-center')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-appearance-panel')),
+      findsOneWidget,
+    );
   });
 }
-
-const _entryLabels = [
-  '个人资料',
-  '账户',
-  '账户流水',
-  '分类',
-  '标签',
-  '快捷模板',
-  '预算',
-  '负债',
-  '借贷往来',
-  '通知设置',
-  '账号安全',
-  '访问令牌',
-  '数据',
-  '家庭成员',
-  '财务报告',
-  '年度报告',
-  '更换服务器',
-  '外观模式',
-  '主题色',
-];
 
 const _targetPaths = [
   AppRoutePaths.profileSettings,

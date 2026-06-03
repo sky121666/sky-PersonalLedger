@@ -8,7 +8,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../application/ledger_refresh.dart';
 import '../application/transaction_list_controller.dart';
 import '../data/transaction_models.dart';
@@ -64,13 +63,7 @@ class _TransactionDetailsPageState
           _selectedIds.isEmpty ? '明细' : '已选择 ${_selectedIds.length} 笔',
         ),
         actions: _selectedIds.isEmpty
-            ? [
-                IconButton(
-                  onPressed: () => context.push(AppRoutePaths.quickTransaction),
-                  icon: const Icon(Icons.add),
-                  tooltip: '记一笔',
-                ),
-              ]
+            ? null
             : [
                 IconButton(
                   onPressed: state.items.isEmpty
@@ -108,23 +101,35 @@ class _TransactionDetailsPageState
     }
 
     if (state.items.isEmpty) {
-      return ListView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 18),
-        children: [
-          ..._buildHeaderWidgets(state, controller),
-          const SizedBox(height: 8),
+      final rows = [
+        for (final widget in _buildHeaderWidgets(state, controller))
+          _TransactionDetailsRow(widget, 8),
+        _TransactionDetailsRow(
           AppEmptyView(
-            title: state.hasActiveFilter ? '没有匹配的交易' : '暂无交易明细',
-            message: state.hasActiveFilter ? '调整筛选条件后再试。' : '还没有交易记录。',
+            title: state.hasActiveFilter ? '没有匹配结果' : '还没有明细',
             icon: Icons.receipt_long_outlined,
             action: FilledButton.tonal(
               onPressed: () => context.push(AppRoutePaths.quickTransaction),
               child: const Text('去记一笔'),
             ),
           ),
-        ],
+          0,
+        ),
+      ];
+      return ListView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 12),
+        itemCount: rows.length,
+        itemBuilder: (context, index) {
+          final row = rows[index];
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
+            ),
+            child: row.child,
+          );
+        },
       );
     }
 
@@ -139,18 +144,15 @@ class _TransactionDetailsPageState
           if (index == 0) {
             return Padding(
               padding: const EdgeInsets.only(top: 8, bottom: 8),
-              child: StaggeredEntrance(
-                index: 0,
-                child: _TransactionFilterWorkbench(
-                  state: state,
-                  controller: _searchController,
-                  onChanged: controller.updateKeyword,
-                  onClear: () {
-                    _searchController.clear();
-                    controller.clearFilters();
-                  },
-                  onFilterChanged: controller.updateFilters,
-                ),
+              child: _TransactionFilterWorkbench(
+                state: state,
+                controller: _searchController,
+                onChanged: controller.updateKeyword,
+                onClear: () {
+                  _searchController.clear();
+                  controller.clearFilters();
+                },
+                onFilterChanged: controller.updateFilters,
               ),
             );
           }
@@ -159,18 +161,14 @@ class _TransactionDetailsPageState
           }
           final itemIndex = index - 1;
           final item = state.items[itemIndex];
-          return StaggeredEntrance(
-            index: itemIndex.clamp(0, 5),
-            offset: const Offset(0, 8),
-            child: _TransactionListTile(
-              item: item,
-              selectionMode: _selectedIds.isNotEmpty,
-              selected: _selectedIds.contains(item.id),
-              onTap: () =>
-                  context.push(AppRoutePaths.quickTransaction, extra: item),
-              onSelectionToggle: () => _toggleSelection(item.id),
-              onDelete: () => _confirmDelete(item),
-            ),
+          return _TransactionListTile(
+            item: item,
+            selectionMode: _selectedIds.isNotEmpty,
+            selected: _selectedIds.contains(item.id),
+            onTap: () =>
+                context.push(AppRoutePaths.quickTransaction, extra: item),
+            onSelectionToggle: () => _toggleSelection(item.id),
+            onDelete: () => _confirmDelete(item),
           );
         },
       ),
@@ -182,18 +180,15 @@ class _TransactionDetailsPageState
     TransactionListController controller,
   ) {
     return [
-      StaggeredEntrance(
-        index: 0,
-        child: _TransactionFilterWorkbench(
-          state: state,
-          controller: _searchController,
-          onChanged: controller.updateKeyword,
-          onClear: () {
-            _searchController.clear();
-            controller.clearFilters();
-          },
-          onFilterChanged: controller.updateFilters,
-        ),
+      _TransactionFilterWorkbench(
+        state: state,
+        controller: _searchController,
+        onChanged: controller.updateKeyword,
+        onClear: () {
+          _searchController.clear();
+          controller.clearFilters();
+        },
+        onFilterChanged: controller.updateFilters,
       ),
     ];
   }
@@ -202,7 +197,7 @@ class _TransactionDetailsPageState
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除交易',
-      message: '确定删除「${item.displayTitle}」这笔交易吗？删除后账户余额会同步回滚。',
+      message: '删除「${item.displayTitle}」？',
       confirmText: '删除',
       isDanger: true,
     );
@@ -224,7 +219,7 @@ class _TransactionDetailsPageState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('删除失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('交易删除失败')));
       }
     }
   }
@@ -238,7 +233,7 @@ class _TransactionDetailsPageState
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除选中交易',
-      message: '确定删除选中的 ${ids.length} 笔交易吗？删除后账户余额会同步回滚。',
+      message: '删除 ${ids.length} 笔交易？',
       confirmText: '删除',
       isDanger: true,
     );
@@ -261,7 +256,7 @@ class _TransactionDetailsPageState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('批量删除失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('交易删除失败')));
       }
     }
   }
@@ -295,7 +290,14 @@ class _TransactionDetailsPageState
   }
 }
 
-class _TransactionFilterWorkbench extends ConsumerWidget {
+class _TransactionDetailsRow {
+  const _TransactionDetailsRow(this.child, [this.bottomSpacing = 8]);
+
+  final Widget child;
+  final double bottomSpacing;
+}
+
+class _TransactionFilterWorkbench extends ConsumerStatefulWidget {
   const _TransactionFilterWorkbench({
     required this.state,
     required this.controller,
@@ -319,63 +321,103 @@ class _TransactionFilterWorkbench extends ConsumerWidget {
   onFilterChanged;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TransactionFilterWorkbench> createState() =>
+      _TransactionFilterWorkbenchState();
+}
+
+class _TransactionFilterWorkbenchState
+    extends ConsumerState<_TransactionFilterWorkbench> {
+  late final Future<List<LedgerAccount>> _accountsFuture;
+  bool _showFilters = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _accountsFuture = ref.read(transactionRepositoryProvider).listAccounts();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final activeCount = [
-      state.keyword.trim().isNotEmpty,
-      state.type != null,
-      state.accountId != null && state.accountId!.isNotEmpty,
-      state.categoryId != null && state.categoryId!.isNotEmpty,
+      widget.state.keyword.trim().isNotEmpty,
+      widget.state.type != null,
+      widget.state.accountId != null && widget.state.accountId!.isNotEmpty,
+      widget.state.categoryId != null && widget.state.categoryId!.isNotEmpty,
     ].where((active) => active).length;
+    final hasActiveFilter = activeCount > 0;
 
     return PremiumSurface(
       key: const ValueKey('transaction-filter-workbench'),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       accentColor: colorScheme.primary,
       child: FutureBuilder<List<LedgerAccount>>(
-        future: ref.read(transactionRepositoryProvider).listAccounts(),
+        future: _accountsFuture,
         builder: (context, snapshot) {
           final accounts = snapshot.data ?? const <LedgerAccount>[];
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                key: const ValueKey('transaction-search'),
-                controller: controller,
-                decoration: InputDecoration(
-                  hintText: state.hasActiveFilter
-                      ? '$activeCount 项条件 · ${state.items.length}/${state.total} 笔'
-                      : '搜索备注、标签或账户',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: controller.text.isEmpty
-                      ? state.hasActiveFilter
-                            ? IconButton(
-                                onPressed: onClear,
-                                icon: const Icon(Icons.filter_alt_off_outlined),
-                                tooltip: '清空筛选',
-                              )
-                            : null
-                      : IconButton(
-                          onPressed: onClear,
-                          icon: const Icon(Icons.close),
-                          tooltip: '清空交易搜索',
-                        ),
-                          ),
-                onChanged: onChanged,
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('transaction-search'),
+                      controller: widget.controller,
+                      decoration: InputDecoration(
+                        hintText: widget.state.hasActiveFilter
+                            ? '$activeCount 项条件 · ${widget.state.items.length}/${widget.state.total} 笔'
+                            : '搜索备注、标签或账户',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: widget.controller.text.isEmpty
+                            ? widget.state.hasActiveFilter
+                                  ? IconButton(
+                                      onPressed: widget.onClear,
+                                      icon: const Icon(
+                                        Icons.filter_alt_off_outlined,
+                                      ),
+                                      tooltip: '清空筛选',
+                                    )
+                                  : null
+                            : IconButton(
+                                onPressed: widget.onClear,
+                                icon: const Icon(Icons.close),
+                                tooltip: '清空交易搜索',
+                              ),
+                      ),
+                      onChanged: widget.onChanged,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    key: const ValueKey('transaction-filter-toggle'),
+                    onPressed: () =>
+                        setState(() => _showFilters = !_showFilters),
+                    tooltip: _showFilters ? '收起筛选' : '展开筛选',
+                    icon: Icon(
+                      _showFilters
+                          ? Icons.expand_less
+                          : hasActiveFilter
+                          ? Icons.filter_alt
+                          : Icons.tune_outlined,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              _TransactionFilterControls(
-                state: state,
-                accounts: accounts,
-                onChanged: onFilterChanged,
-              ),
+              if (_showFilters) ...[
+                const SizedBox(height: 8),
+                _TransactionFilterControls(
+                  state: widget.state,
+                  accounts: accounts,
+                  onChanged: widget.onFilterChanged,
+                ),
+              ],
             ],
           );
         },
       ),
     );
   }
-
 }
 
 class _TransactionFilterControls extends StatelessWidget {
@@ -407,7 +449,7 @@ class _TransactionFilterControls extends StatelessWidget {
           FilterChip(
             avatar: const Icon(Icons.all_inclusive_rounded, size: 18),
             selected: state.type == null,
-            label: const Text('全部类型'),
+            label: const Text('全部'),
             onSelected: (_) => onChanged(clearType: true),
           ),
           const SizedBox(width: 8),
@@ -426,7 +468,7 @@ class _TransactionFilterControls extends StatelessWidget {
               initialSelection: state.accountId ?? '',
               leadingIcon: const Icon(Icons.account_balance_wallet_outlined),
               dropdownMenuEntries: [
-                const DropdownMenuEntry(value: '', label: '全部账户'),
+                const DropdownMenuEntry(value: '', label: '全部'),
                 ...accounts.map(
                   (account) =>
                       DropdownMenuEntry(value: account.id, label: account.name),
@@ -454,7 +496,7 @@ IconData _typeIcon(TransactionType type) {
   };
 }
 
-class _TransactionListTile extends StatelessWidget {
+class _TransactionListTile extends ConsumerStatefulWidget {
   const _TransactionListTile({
     required this.item,
     required this.selectionMode,
@@ -471,9 +513,24 @@ class _TransactionListTile extends StatelessWidget {
   final VoidCallback onSelectionToggle;
   final VoidCallback onDelete;
 
+  @override
+  ConsumerState<_TransactionListTile> createState() =>
+      _TransactionListTileState();
+}
+
+class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
+  bool _showDetails = false;
+
   /// 构建单条交易列表项。
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final selectionMode = widget.selectionMode;
+    final selected = widget.selected;
+    final onTap = widget.onTap;
+    final onSelectionToggle = widget.onSelectionToggle;
+    final onDelete = widget.onDelete;
+
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     final amountColor = switch (item.type) {
@@ -488,7 +545,7 @@ class _TransactionListTile extends StatelessWidget {
     };
     final accountLabel = item.type == TransactionType.transfer
         ? '${item.account?.name ?? '转出账户'} → ${item.toAccount?.name ?? '转入账户'}'
-        : item.account?.name ?? '账户流水';
+        : item.account?.name ?? '账户';
 
     return Semantics(
       label:
@@ -496,7 +553,7 @@ class _TransactionListTile extends StatelessWidget {
       selected: selected,
       child: Padding(
         key: ValueKey('transaction-item-${item.id}'),
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(bottom: 8),
         child: PremiumSurface(
           accentColor: selected ? colorScheme.primary : amountColor,
           padding: EdgeInsets.zero,
@@ -507,7 +564,7 @@ class _TransactionListTile extends StatelessWidget {
               onTap: selectionMode ? onSelectionToggle : onTap,
               onLongPress: onSelectionToggle,
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -532,10 +589,10 @@ class _TransactionListTile extends StatelessWidget {
                       IconBadge(
                         icon: _typeIcon(item.type),
                         color: amountColor,
-                        size: 42,
-                        iconSize: 22,
+                        size: 38,
+                        iconSize: 20,
                       ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,7 +623,7 @@ class _TransactionListTile extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           Text(
                             '${item.typeLabel} · $accountLabel · ${_formatDateTime(item.transactionDate)}',
                             maxLines: 1,
@@ -577,8 +634,8 @@ class _TransactionListTile extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                           ),
-                          if (item.remark.isNotEmpty) ...[
-                            const SizedBox(height: 8),
+                          if (_showDetails && item.remark.isNotEmpty) ...[
+                            const SizedBox(height: 6),
                             Text(
                               item.remark,
                               maxLines: 2,
@@ -587,8 +644,8 @@ class _TransactionListTile extends StatelessWidget {
                                   ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                           ],
-                          if (item.tags.isNotEmpty) ...[
-                            const SizedBox(height: 8),
+                          if (_showDetails && item.tags.isNotEmpty) ...[
+                            const SizedBox(height: 6),
                             Wrap(
                               spacing: 6,
                               runSpacing: 6,
@@ -606,18 +663,32 @@ class _TransactionListTile extends StatelessWidget {
                       ),
                     ),
                     if (!selectionMode)
-                      PopupMenuButton<String>(
-                        tooltip: '更多交易操作 ${item.displayTitle}',
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            onTap();
-                          } else if (value == 'delete') {
-                            onDelete();
-                          }
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(value: 'edit', child: Text('编辑')),
-                          PopupMenuItem(value: 'delete', child: Text('删除')),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (item.remark.isNotEmpty || item.tags.isNotEmpty)
+                            IconButton(
+                              onPressed: () =>
+                                  setState(() => _showDetails = !_showDetails),
+                              icon: Icon(
+                                _showDetails ? Icons.remove : Icons.add,
+                              ),
+                              tooltip: _showDetails ? '收起明细' : '展开明细',
+                            ),
+                          PopupMenuButton<String>(
+                            tooltip: '更多交易操作 ${item.displayTitle}',
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                onTap();
+                              } else if (value == 'delete') {
+                                onDelete();
+                              }
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(value: 'edit', child: Text('编辑')),
+                              PopupMenuItem(value: 'delete', child: Text('删除')),
+                            ],
+                          ),
                         ],
                       ),
                   ],
@@ -679,12 +750,7 @@ class _LoadMoreIndicator extends StatelessWidget {
       );
     }
     if (!state.hasMore) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: Center(
-          child: Text('没有更多了', style: Theme.of(context).textTheme.bodySmall),
-        ),
-      );
+      return const SizedBox(height: 8);
     }
     return const SizedBox(height: 56);
   }

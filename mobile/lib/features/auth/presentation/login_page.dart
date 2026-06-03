@@ -43,7 +43,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return AuthFlowShell(
       icon: Icons.lock_outline,
       title: '账本解锁',
-      subtitle: '验证后进入账本。',
+      subtitle: '',
       primaryLabel: '登录',
       serverUrl: authState.serverUrl ?? '个人记账',
       accentColor: AppTheme.financeColors(context).asset,
@@ -51,17 +51,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         onPressed: isLoading
             ? null
             : ref.read(authControllerProvider.notifier).changeServer,
-        icon: const Icon(Icons.dns_outlined),
-        label: const Text('更换服务器'),
+        icon: const Icon(Icons.swap_horiz),
+        label: const Text('更换账本'),
       ),
       children: [
         TextField(
           controller: _passwordController,
           enabled: !isLoading,
           obscureText: _obscurePassword,
-          decoration: InputDecoration(
+          decoration: authFlowInputDecoration(
+            context,
             labelText: '密码',
-            border: const OutlineInputBorder(),
             errorText: errorText,
             prefixIcon: const Icon(Icons.password_outlined),
             suffixIcon: IconButton(
@@ -78,15 +78,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           onSubmitted: (_) => isLoading ? null : _submit(),
         ),
         const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: isLoading ? null : _submit,
-          icon: isLoading
-              ? const SizedBox.square(
-                  dimension: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.login),
-          label: const Text('登录'),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: isLoading ? null : _submit,
+            icon: isLoading
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.login),
+            label: const Text('登录'),
+          ),
         ),
       ],
     );

@@ -203,7 +203,7 @@ class TransactionListController extends StateNotifier<TransactionListState> {
         isLoading: false,
         isRefreshing: false,
         isLoadingMore: false,
-        errorMessage: error.toString(),
+        errorMessage: '交易加载失败',
       );
     }
   }

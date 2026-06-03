@@ -7,11 +7,10 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../data/api_token_repository.dart';
 
 const _expiryOptions = [
-  _ExpiryOption(0, '永不过期'),
+  _ExpiryOption(0, '持续有效'),
   _ExpiryOption(30, '30 天'),
   _ExpiryOption(90, '90 天'),
   _ExpiryOption(365, '1 年'),
@@ -74,7 +73,7 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('请输入令牌名称')));
+      ).showSnackBar(const SnackBar(content: Text('请输入设备名称')));
       return false;
     }
 
@@ -99,13 +98,13 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('令牌创建成功，请立即复制保存')));
+      ).showSnackBar(const SnackBar(content: Text('加入码已生成')));
       return true;
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('授权生成失败')));
       }
       return false;
     } finally {
@@ -157,8 +156,8 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
   Future<void> _deleteToken(ApiTokenItem token) async {
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '删除令牌',
-      message: '删除后使用此令牌的 App 或 API 将无法访问。',
+      title: '删除授权',
+      message: '删除「${token.name}」？',
       confirmText: '删除',
       isDanger: true,
     );
@@ -176,12 +175,12 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
       setState(() => _tokens = tokens);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('令牌已删除')));
+      ).showSnackBar(const SnackBar(content: Text('授权已删除')));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('授权删除失败')));
       }
     } finally {
       if (mounted) {
@@ -207,19 +206,19 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('访问令牌'),
+        title: const Text('设备授权'),
         actions: [
           IconButton(
             onPressed: _loadTokens,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新访问令牌',
+            tooltip: '刷新授权',
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         key: const ValueKey('api-token-add'),
         onPressed: _submitting ? null : _openCreateSheet,
-        tooltip: '新增令牌',
+        tooltip: '新增授权',
         child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(child: _buildBody()),
@@ -228,69 +227,86 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
 
   Widget _buildBody() {
     if (_loading && _tokens.isEmpty) {
-      return const AppLoadingView(message: '令牌加载中...');
+      return const AppLoadingView(message: '授权加载中...');
     }
     final error = _error;
     if (error != null && _tokens.isEmpty) {
-      return AppErrorView(message: error.toString(), onRetry: _loadTokens);
+      return AppErrorView(message: '设备授权加载失败', onRetry: _loadTokens);
     }
+    final rows = _buildTokenRows();
 
     return RefreshIndicator(
       onRefresh: _loadTokens,
-      child: ListView(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          if (_createdToken != null) ...[
-            StaggeredEntrance(
-              index: 0,
-              child: _CreatedTokenCard(
+        itemCount: rows.length,
+        itemBuilder: (context, index) {
+          final row = rows[index];
+          final bottom = index == rows.length - 1 ? 0.0 : row.bottomSpacing;
+          return Padding(
+            padding: EdgeInsets.only(bottom: bottom),
+            child: switch (row.kind) {
+              _ApiTokenRowKind.created => _CreatedTokenCard(
                 token: _createdToken!,
                 onCopy: _copyCreatedToken,
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          StaggeredEntrance(
-            index: _createdToken == null ? 0 : 1,
-            child: _TokenListHeader(tokenCount: _tokens.length),
-          ),
-          const SizedBox(height: 8),
-          StaggeredEntrance(
-            index: _createdToken == null ? 1 : 2,
-            child: _tokens.isEmpty
-                ? const PremiumSurface(
-                    padding: EdgeInsets.symmetric(vertical: 30, horizontal: 16),
-                    child: AppEmptyView(
-                      title: '暂无令牌',
-                      icon: Icons.vpn_key_outlined,
-                    ),
-                  )
-                : PremiumSurface(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                    child: Column(
-                      children: [
-                        for (
-                          var index = 0;
-                          index < _tokens.length;
-                          index++
-                        ) ...[
-                          _TokenTile(
-                            token: _tokens[index],
-                            deleting: _submitting,
-                            onDelete: () => _deleteToken(_tokens[index]),
-                          ),
-                          if (index != _tokens.length - 1)
-                            const SizedBox(height: 8),
-                        ],
-                      ],
-                    ),
-                  ),
-          ),
-        ],
+              _ApiTokenRowKind.header => _TokenListHeader(
+                tokenCount: _tokens.length,
+              ),
+              _ApiTokenRowKind.empty => const AppEmptyView(
+                title: '还没有授权',
+                icon: Icons.vpn_key_outlined,
+              ),
+              _ApiTokenRowKind.token => _TokenTile(
+                token: row.token!,
+                deleting: _submitting,
+                onDelete: () => _deleteToken(row.token!),
+              ),
+            },
+          );
+        },
       ),
     );
   }
+
+  List<_ApiTokenRow> _buildTokenRows() {
+    return [
+      if (_createdToken != null) const _ApiTokenRow.created(),
+      const _ApiTokenRow.header(),
+      if (_tokens.isEmpty)
+        const _ApiTokenRow.empty()
+      else
+        for (final token in _tokens) _ApiTokenRow.token(token),
+    ];
+  }
+}
+
+enum _ApiTokenRowKind { created, header, empty, token }
+
+class _ApiTokenRow {
+  const _ApiTokenRow.created()
+    : kind = _ApiTokenRowKind.created,
+      token = null,
+      bottomSpacing = 12;
+
+  const _ApiTokenRow.header()
+    : kind = _ApiTokenRowKind.header,
+      token = null,
+      bottomSpacing = 8;
+
+  const _ApiTokenRow.empty()
+    : kind = _ApiTokenRowKind.empty,
+      token = null,
+      bottomSpacing = 0;
+
+  const _ApiTokenRow.token(this.token)
+    : kind = _ApiTokenRowKind.token,
+      bottomSpacing = 8;
+
+  final _ApiTokenRowKind kind;
+  final ApiTokenItem? token;
+  final double bottomSpacing;
 }
 
 class _TokenListHeader extends StatelessWidget {
@@ -301,80 +317,37 @@ class _TokenListHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        IconBadge(
-          icon: Icons.key_outlined,
-          color: colorScheme.primary,
-          size: 34,
-          iconSize: 18,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '已创建的令牌',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                tokenCount == 0 ? '尚未创建' : '$tokenCount 个',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: Icons.key_outlined,
+            color: colorScheme.primary,
+            size: 34,
+            iconSize: 18,
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({
-    required this.icon,
-    required this.title,
-    required this.color,
-    this.iconKey,
-  });
-
-  final IconData icon;
-  final String title;
-  final Color color;
-  final Key? iconKey;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        IconBadge(
-          key: iconKey,
-          icon: icon,
-          color: color,
-          size: 42,
-          iconSize: 21,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '授权设备',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+            ),
           ),
-        ),
-      ],
+          Text(
+            tokenCount == 0 ? '未启用' : '$tokenCount 个可用',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -405,7 +378,7 @@ class _CreateTokenCard extends StatelessWidget {
         children: [
           _PanelHeader(
             icon: Icons.add_moderator_outlined,
-            title: '创建新令牌',
+            title: '新增设备授权',
             color: colorScheme.secondary,
           ),
           const SizedBox(height: 16),
@@ -413,7 +386,7 @@ class _CreateTokenCard extends StatelessWidget {
             key: const ValueKey('api-token-name'),
             controller: nameController,
             decoration: const InputDecoration(
-              labelText: '令牌名称',
+              labelText: '设备名称',
               border: OutlineInputBorder(),
             ),
           ),
@@ -443,7 +416,7 @@ class _CreateTokenCard extends StatelessWidget {
           FilledButton.icon(
             onPressed: submitting ? null : onCreate,
             icon: const Icon(Icons.add),
-            label: Text(submitting ? '处理中...' : '创建令牌'),
+            label: Text(submitting ? '处理中' : '生成授权'),
           ),
         ],
       ),
@@ -459,52 +432,80 @@ class _CreatedTokenCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final successColor = AppTheme.financeColors(context).income;
     return PremiumSurface(
       accentColor: successColor,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(
         children: [
-          _PanelHeader(
+          IconBadge(
+            key: const ValueKey('api-token-created-success-icon'),
             icon: Icons.check_circle_outline,
-            iconKey: const ValueKey('api-token-created-success-icon'),
-            title: '令牌创建成功',
             color: successColor,
+            size: 36,
+            iconSize: 19,
           ),
-          const SizedBox(height: 12),
-          Semantics(
-            label: '一次性完整令牌',
-            textField: true,
-            child: Container(
-              key: const ValueKey('api-token-created-value'),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-              decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.72),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.7),
-                ),
-              ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Semantics(
+              label: '一次性加入码',
+              textField: true,
               child: SelectableText(
                 token,
+                key: const ValueKey('api-token-created-value'),
+                maxLines: 1,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontFamily: 'monospace',
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: onCopy,
-            icon: const Icon(Icons.copy),
-            label: const Text('复制令牌'),
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('复制加入码'),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PanelHeader extends StatelessWidget {
+  const _PanelHeader({
+    required this.icon,
+    required this.title,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        IconBadge(icon: icon, color: color, size: 40, iconSize: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -525,7 +526,7 @@ class _TokenTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     return Semantics(
-      label: '${token.name}，${_tokenSubtitle(token)}',
+      label: '${token.name}，${_tokenStatus(token)}',
       button: true,
       child: Container(
         padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
@@ -541,8 +542,8 @@ class _TokenTile extends StatelessWidget {
             IconBadge(
               icon: Icons.smartphone_outlined,
               color: colorScheme.primary,
-              size: 34,
-              iconSize: 18,
+              size: 32,
+              iconSize: 17,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -564,7 +565,7 @@ class _TokenTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    _tokenSubtitle(token),
+                    _tokenStatus(token),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -576,14 +577,11 @@ class _TokenTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            IconButton.filledTonal(
+            IconButton(
               onPressed: deleting ? null : onDelete,
               icon: const Icon(Icons.delete_outline),
-              tooltip: deleting ? '正在处理' : '删除令牌 ${token.name}',
-              style: IconButton.styleFrom(
-                foregroundColor: financeColors.expense,
-                backgroundColor: financeColors.expense.withValues(alpha: 0.10),
-              ),
+              tooltip: deleting ? '正在处理' : '删除授权 ${token.name}',
+              color: financeColors.expense,
             ),
           ],
         ),
@@ -599,23 +597,15 @@ class _ExpiryOption {
   final String label;
 }
 
-String _tokenSubtitle(ApiTokenItem token) {
-  final parts = <String>[
-    '${token.tokenPrefix}...',
-    token.lastUsedAt == null
-        ? '未使用'
-        : '最后使用 ${_formatDateTime(token.lastUsedAt!)}',
-    token.expiresAt == null ? '永不过期' : '${_formatDate(token.expiresAt!)} 过期',
-  ];
-  return parts.join(' · ');
+String _tokenStatus(ApiTokenItem token) {
+  if (token.expiresAt == null) {
+    return token.lastUsedAt == null ? '未启用 · 持续有效' : '最近使用 · 持续有效';
+  }
+  final expiry = '有效至 ${_formatDate(token.expiresAt!)}';
+  return token.lastUsedAt == null ? '未启用 · $expiry' : '最近使用 · $expiry';
 }
 
 String _formatDate(DateTime value) {
   String two(int number) => number.toString().padLeft(2, '0');
   return '${value.year}-${two(value.month)}-${two(value.day)}';
-}
-
-String _formatDateTime(DateTime value) {
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${_formatDate(value)} ${two(value.hour)}:${two(value.minute)}';
 }

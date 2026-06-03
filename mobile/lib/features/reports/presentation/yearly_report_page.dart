@@ -9,7 +9,6 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../data/yearly_report_models.dart';
 import '../data/yearly_report_repository.dart';
 
@@ -43,14 +42,14 @@ class _YearlyReportPageState extends ConsumerState<YearlyReportPage> {
             onPressed: () =>
                 ref.invalidate(yearlyReportDashboardProvider(_selectedYear)),
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新年度报表',
+            tooltip: '刷新年度报告',
           ),
         ],
       ),
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载年度报告...'),
         error: (error, _) => _ReportErrorView(
-          message: error.toString(),
+          message: '年度报告加载失败',
           onRetry: () =>
               ref.invalidate(yearlyReportDashboardProvider(_selectedYear)),
           onRefresh: () =>
@@ -81,15 +80,17 @@ class _ReportErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rows = [
+      const SizedBox(height: 48),
+      AppErrorView(message: message, onRetry: onRetry),
+    ];
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
-        child: ListView(
+        child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(height: MediaQuery.sizeOf(context).height * 0.18),
-            AppErrorView(message: message, onRetry: onRetry),
-          ],
+          itemCount: rows.length,
+          itemBuilder: (context, index) => rows[index],
         ),
       ),
     );
@@ -112,56 +113,61 @@ class _ReportContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final report = dashboard.report;
+    final rows = [
+      _ReportRow(
+        _YearSelector(
+          years: dashboard.years,
+          selectedYear: selectedYear,
+          onYearChanged: onYearChanged,
+        ),
+      ),
+      _ReportRow(_SummaryCard(report: report)),
+      _ReportRow(_AnnualHighlightsCard(report: report)),
+      _ReportRow(_MonthlyTrendCard(items: report.monthlyData)),
+      _ReportRow(
+        _CategoryRankCard(
+          title: '支出 Top',
+          items: report.topExpenses,
+          emptyText: '还没有支出记录',
+        ),
+      ),
+      _ReportRow(
+        _CategoryRankCard(
+          title: '收入 Top',
+          items: report.topIncomes,
+          emptyText: '还没有收入记录',
+        ),
+        0,
+      ),
+    ];
+
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
-        child: ListView(
+        child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 96),
-          children: [
-            StaggeredEntrance(
-              index: 0,
-              child: _YearSelector(
-                years: dashboard.years,
-                selectedYear: selectedYear,
-                onYearChanged: onYearChanged,
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
               ),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(index: 1, child: _SummaryCard(report: report)),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 2,
-              child: _AnnualHighlightsCard(report: report),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 3,
-              child: _MonthlyTrendCard(items: report.monthlyData),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 4,
-              child: _CategoryRankCard(
-                title: '年度支出 Top',
-                items: report.topExpenses,
-                emptyText: '本年暂无支出分类数据',
-              ),
-            ),
-            const SizedBox(height: 12),
-            StaggeredEntrance(
-              index: 5,
-              child: _CategoryRankCard(
-                title: '年度收入 Top',
-                items: report.topIncomes,
-                emptyText: '本年暂无收入分类数据',
-              ),
-            ),
-          ],
+              child: row.child,
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _ReportRow {
+  const _ReportRow(this.child, [this.bottomSpacing = 12]);
+
+  final Widget child;
+  final double bottomSpacing;
 }
 
 class _YearSelector extends StatelessWidget {
@@ -183,7 +189,7 @@ class _YearSelector extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            '$selectedYear 年账本汇总',
+            '$selectedYear 年',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
@@ -221,7 +227,7 @@ class _SummaryCard extends StatelessWidget {
         : colorScheme.error;
     return PremiumSurface(
       accentColor: savingsColor,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -245,7 +251,7 @@ class _SummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Text(
             _formatCurrency(report.netSavings),
             maxLines: 1,
@@ -256,7 +262,7 @@ class _SummaryCard extends StatelessWidget {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           _SummaryInlineRow(
             items: [
               _SummaryInlineItem(
@@ -372,6 +378,7 @@ class _AnnualHighlightsCard extends StatelessWidget {
     final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       accentColor: financeColors.asset,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -383,14 +390,14 @@ class _AnnualHighlightsCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '年度摘要',
+                '摘要',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -412,7 +419,7 @@ class _AnnualHighlightsCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           _HighlightLine(
             label: '月均收入',
             value: _formatCurrency(report.averageIncome),
@@ -448,9 +455,7 @@ class _AnnualStatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+    return Container(
       constraints: const BoxConstraints(minHeight: 76),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -563,7 +568,7 @@ class _MonthlyTrendCard extends StatelessWidget {
 
     return PremiumSurface(
       accentColor: financeColors.income,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -582,7 +587,7 @@ class _MonthlyTrendCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -616,12 +621,12 @@ class _MonthlyTrendCard extends StatelessWidget {
             color: netColor,
             horizontal: true,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           if (items.isEmpty)
-            const _EmptyLine(text: '暂无月度数据')
+            const _EmptyLine(text: '还没有月度记录')
           else
             Container(
-              height: 186,
+              height: 168,
               padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
               decoration: BoxDecoration(
                 color: Color.alphaBlend(
@@ -697,9 +702,7 @@ class _MonthlyPulseTile extends StatelessWidget {
         ),
       ],
     );
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+    return Container(
       constraints: BoxConstraints(minHeight: horizontal ? 64 : 86),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -753,7 +756,7 @@ class _MonthlyBar extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         SizedBox(
-          height: 128,
+          height: 104,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -789,7 +792,7 @@ class _MonthlyBar extends StatelessWidget {
     if (maxAmount <= 0 || value <= 0) {
       return 4;
     }
-    return math.max(value / maxAmount * 116, 6);
+    return math.max(value / maxAmount * 96, 6);
   }
 }
 

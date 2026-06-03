@@ -23,7 +23,7 @@ void main() {
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     expect(find.text('正在启动'), findsOneWidget);
-    expect(find.text('请稍候。'), findsOneWidget);
+    expect(find.text('请稍候。'), findsNothing);
     expect(
       find.byKey(const ValueKey('bootstrap-readiness-rail')),
       findsNothing,

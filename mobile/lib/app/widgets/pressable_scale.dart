@@ -7,7 +7,6 @@ class PressableScale extends StatelessWidget {
     this.onTap,
     this.semanticLabel,
     this.scale = 0.98,
-    this.enableHaptic = false,
     super.key,
   });
 
@@ -15,12 +14,8 @@ class PressableScale extends StatelessWidget {
   final VoidCallback? onTap;
   final String? semanticLabel;
   final double scale;
-  final bool enableHaptic;
 
-  Future<void> _handleTap() async {
-    if (enableHaptic) {
-      await HapticFeedback.selectionClick();
-    }
+  void _handleTap() {
     onTap?.call();
   }
 

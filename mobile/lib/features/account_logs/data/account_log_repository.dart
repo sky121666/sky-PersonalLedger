@@ -13,7 +13,7 @@ class AccountLogRepository {
 
   final ApiClient _apiClient;
 
-  /// 获取全部账户流水分页列表。
+  /// 获取流水分页列表。
   Future<AccountLogListResult> list({int page = 1, int pageSize = 50}) async {
     final result = await _apiClient.get<AccountLogListResult>(
       '/account-logs',

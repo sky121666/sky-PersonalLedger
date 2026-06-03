@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_models.dart';
 import 'package:personal_ledger/features/reports/data/yearly_report_repository.dart';
 import 'package:personal_ledger/features/reports/presentation/yearly_report_page.dart';
@@ -13,7 +12,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('年度报告'), findsWidgets);
-      expect(find.text('2026 年账本汇总'), findsOneWidget);
+      expect(find.text('2026 年'), findsAtLeastNWidgets(1));
+      expect(find.text('2026 年账本汇总'), findsNothing);
       expect(find.byKey(const ValueKey('yearly-insight-deck')), findsNothing);
       expect(find.text('年度洞察台'), findsNothing);
       expect(find.text('年度正结余'), findsNothing);
@@ -60,11 +60,14 @@ void main() {
       expect(find.text('工资'), findsOneWidget);
     });
 
-    testWidgets('年度报告核心区块使用分段入场动效', (tester) async {
+    testWidgets('年度报告核心区块保持清晰层级', (tester) async {
       final repository = _FakeYearlyReportRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(6));
+      expect(find.text('年度报告'), findsOneWidget);
+      expect(find.text('支出 Top'), findsOneWidget);
+      expect(find.text('收入 Top'), findsOneWidget);
+      expect(find.text('餐饮'), findsOneWidget);
     });
 
     testWidgets('切换年份时重新加载报告', (tester) async {
@@ -77,7 +80,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.requestedYears, contains(2025));
-      expect(find.text('2025 年账本汇总'), findsOneWidget);
+      expect(find.text('2025 年'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('加载失败时展示错误并可重试', (tester) async {
@@ -93,14 +96,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.requestedYears, [currentYear, currentYear]);
-      expect(find.text('$currentYear 年账本汇总'), findsOneWidget);
+      expect(find.text('$currentYear 年'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('没有年度明细时展示空年度数据', (tester) async {
       final repository = _FakeYearlyReportRepository()..emptyYears = {2026};
       await _pumpPage(tester, repository);
 
-      expect(find.text('2026 年账本汇总'), findsOneWidget);
+      expect(find.text('2026 年'), findsAtLeastNWidgets(1));
       expect(find.text('年度洞察台'), findsNothing);
       expect(find.text('年度叙事雷达'), findsNothing);
       expect(find.text('月度样本'), findsNothing);
@@ -108,19 +111,22 @@ void main() {
       expect(find.byKey(const ValueKey('yearly-evidence-rail')), findsNothing);
       expect(find.text('待积累'), findsNothing);
       expect(find.text('暂无主导支出分类'), findsNothing);
-      expect(find.text('暂无月度数据'), findsAtLeastNWidgets(1));
+      expect(find.text('还没有月度记录'), findsAtLeastNWidgets(1));
+      expect(find.text('暂无月度数据'), findsNothing);
       await tester.scrollUntilVisible(
-        find.text('本年暂无支出分类数据'),
+        find.text('还没有支出记录'),
         260,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('本年暂无支出分类数据'), findsOneWidget);
+      expect(find.text('还没有支出记录'), findsOneWidget);
+      expect(find.text('暂无支出数据'), findsNothing);
       await tester.scrollUntilVisible(
-        find.text('本年暂无收入分类数据'),
+        find.text('还没有收入记录'),
         260,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('本年暂无收入分类数据'), findsOneWidget);
+      expect(find.text('还没有收入记录'), findsOneWidget);
+      expect(find.text('暂无收入数据'), findsNothing);
       expect(find.text('交易笔数'), findsOneWidget);
       expect(find.text('0'), findsWidgets);
     });
@@ -145,7 +151,7 @@ void main() {
         repository.requestedYears.where((year) => year == 2025),
         hasLength(2),
       );
-      expect(find.text('2025 年账本汇总'), findsOneWidget);
+      expect(find.text('2025 年'), findsAtLeastNWidgets(1));
     });
   });
 }

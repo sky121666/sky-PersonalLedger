@@ -3,24 +3,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/data_management/data/data_management_repository.dart';
 import 'package:personal_ledger/features/data_management/presentation/data_management_page.dart';
 
 void main() {
   group('DataManagementPage', () {
-    testWidgets('点击下载备份时调用备份接口并展示保存路径', (tester) async {
+    testWidgets('点击保存副本时调用备份接口并展示保存名称', (tester) async {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
       expect(find.text('数据保险库'), findsNothing);
       expect(find.text('服务器备份'), findsNothing);
       expect(find.text('保留设置'), findsNothing);
-      expect(find.text('完整备份'), findsAtLeastNWidgets(1));
-      expect(find.text('交易 CSV'), findsOneWidget);
-      expect(find.text('下载备份'), findsOneWidget);
-      expect(find.text('导出 CSV'), findsOneWidget);
-      expect(find.text('恢复数据'), findsOneWidget);
+      expect(find.text('账本副本'), findsAtLeastNWidgets(1));
+      expect(find.text('完整副本'), findsNothing);
+      expect(find.text('完整备份'), findsNothing);
+      expect(find.text('交易明细'), findsOneWidget);
+      expect(find.text('交易 CSV'), findsNothing);
+      expect(find.text('保存副本'), findsOneWidget);
+      expect(find.text('下载备份'), findsNothing);
+      expect(find.text('保存明细'), findsOneWidget);
+      expect(find.text('导出明细'), findsNothing);
+      expect(find.text('导出 CSV'), findsNothing);
+      expect(find.text('恢复账本'), findsOneWidget);
+      expect(find.text('选择副本'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('restore-panel-toggle')),
+        findsOneWidget,
+      );
+      expect(find.text('选择备份'), findsNothing);
       expect(find.text('数据操作链路'), findsNothing);
       expect(find.byKey(const ValueKey('data-operation-rail')), findsNothing);
       expect(find.byKey(const ValueKey('data-recovery-matrix')), findsNothing);
@@ -32,30 +43,35 @@ void main() {
       expect(find.text('恢复前建议备份'), findsNothing);
       expect(find.text('用备份 JSON 覆盖当前账户下的数据。'), findsNothing);
       expect(find.text('导出、恢复和迁移数据前先确认目标文件来源。'), findsNothing);
-      await tester.tap(find.text('下载备份'));
+      await tester.tap(find.text('保存副本'));
       await tester.pumpAndSettle();
 
       expect(repository.downloadBackupCalls, 1);
-      expect(find.textContaining('/tmp/backup.json'), findsOneWidget);
+      expect(find.textContaining('/tmp/backup.json'), findsNothing);
+      expect(find.textContaining('backup.json'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('点击导出 CSV 时调用交易导出接口', (tester) async {
+    testWidgets('点击保存明细时调用交易导出接口', (tester) async {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('导出 CSV'));
+      await tester.tap(find.text('保存明细'));
       await tester.pumpAndSettle();
 
       expect(repository.exportCsvCalls, 1);
-      expect(find.textContaining('/tmp/transactions.csv'), findsOneWidget);
+      expect(find.textContaining('/tmp/transactions.csv'), findsNothing);
+      expect(find.textContaining('transactions.csv'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('筛选导出 CSV 时提交日期和类型参数', (tester) async {
+    testWidgets('筛选保存明细时提交日期和类型参数', (tester) async {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('筛选导出'));
+      expect(find.text('按条件保存'), findsNothing);
+      await tester.tap(find.byTooltip('筛选明细'));
       await tester.pumpAndSettle();
+      expect(find.text('筛选导出'), findsNothing);
+      expect(find.text('保存明细'), findsWidgets);
       await tester.tap(find.text('支出'));
       await tester.enterText(
         find.byKey(const ValueKey('csv-export-start-date')),
@@ -80,18 +96,30 @@ void main() {
         ..downloadBackupError = '网络失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('下载备份'));
+      await tester.tap(find.text('保存副本'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('网络失败'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('保存自动备份设置时提交当前设置', (tester) async {
+    testWidgets('保存自动保存设置时提交当前设置', (tester) async {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
+      expect(find.text('保存时间'), findsNothing);
+      expect(find.text('保留副本数'), findsNothing);
       await tester.scrollUntilVisible(
-        find.text('启用自动备份').last,
+        find.byKey(const ValueKey('auto-backup-settings-toggle')),
+        280,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('auto-backup-settings-toggle')),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('启用自动保存').last,
         280,
         scrollable: find.byType(Scrollable).first,
       );
@@ -99,26 +127,42 @@ void main() {
       final backupSwitchSemantics = tester.widget<Semantics>(
         find.byKey(const ValueKey('auto-backup-enabled-semantics')),
       );
-      expect(backupSwitchSemantics.properties.label, '启用自动备份');
-      await tester.tap(find.text('启用自动备份').last);
+      expect(backupSwitchSemantics.properties.label, '启用自动保存');
+      expect(find.text('保存时间'), findsOneWidget);
+      expect(find.text('备份时间'), findsNothing);
+      expect(find.text('执行小时'), findsNothing);
+      expect(find.text('保留副本数'), findsOneWidget);
+      expect(find.text('保存份数'), findsNothing);
+      expect(find.text('保留份数'), findsNothing);
+      await tester.tap(find.text('启用自动保存').last);
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
-        find.text('保存').last,
+        find.text('保存设置').last,
         240,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存').last);
+      await tester.tap(find.text('保存设置').last);
       await tester.pumpAndSettle();
 
       expect(repository.saveAutoBackupCalls, hasLength(1));
       expect(repository.saveAutoBackupCalls.single.enabled, isTrue);
     });
 
-    testWidgets('保存自动备份设置时会限制保留份数范围', (tester) async {
+    testWidgets('保存自动保存设置时会限制保留副本数范围', (tester) async {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('auto-backup-settings-toggle')),
+        280,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('auto-backup-settings-toggle')),
+      );
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byType(TextField).first,
         280,
@@ -127,12 +171,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '200');
       await tester.scrollUntilVisible(
-        find.text('保存').last,
+        find.text('保存设置').last,
         240,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存').last);
+      await tester.tap(find.text('保存设置').last);
       await tester.pumpAndSettle();
 
       expect(repository.saveAutoBackupCalls, hasLength(1));
@@ -140,70 +184,93 @@ void main() {
       expect(find.text('100'), findsOneWidget);
     });
 
-    testWidgets('立即备份会触发服务器备份并刷新文件列表', (tester) async {
+    testWidgets('立即保存会触发副本保存并刷新文件列表', (tester) async {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
 
       await tester.scrollUntilVisible(
-        find.text('立即备份').last,
+        find.text('立即保存').last,
         280,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('立即备份').last);
+      await tester.tap(find.text('立即保存').last);
       await tester.pumpAndSettle();
 
       expect(repository.triggerAutoBackupCalls, 1);
       expect(repository.listAutoBackupFilesCalls, greaterThanOrEqualTo(2));
-      expect(find.textContaining('auto_backup_user1'), findsOneWidget);
+      expect(find.textContaining('auto_backup_user1'), findsNothing);
+      expect(find.textContaining('user1_20260516'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('auto-backup-files-toggle')),
+        280,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const ValueKey('auto-backup-files-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('user1_20260516'), findsOneWidget);
     });
 
-    testWidgets('立即备份失败时展示错误信息', (tester) async {
+    testWidgets('立即保存失败时展示错误信息', (tester) async {
       final repository = _FakeDataManagementRepository()
         ..triggerAutoBackupError = '磁盘空间不足';
       await _pumpPage(tester, repository);
 
       await tester.scrollUntilVisible(
-        find.text('立即备份').last,
+        find.text('立即保存').last,
         280,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('立即备份').last);
+      await tester.tap(find.text('立即保存').last);
       await tester.pumpAndSettle();
 
       expect(repository.triggerAutoBackupCalls, 1);
       expect(find.textContaining('磁盘空间不足'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('自动备份加载失败后可以刷新恢复', (tester) async {
+    testWidgets('自动保存加载失败后可以刷新恢复', (tester) async {
       final repository = _FakeDataManagementRepository()
         ..getAutoBackupOverviewErrors = 1;
       await _pumpPage(tester, repository);
 
-      expect(find.textContaining('自动备份加载失败'), findsOneWidget);
+      expect(find.textContaining('自动保存加载失败'), findsOneWidget);
+      expect(find.textContaining('定期副本加载失败'), findsNothing);
+      expect(find.textContaining('自动备份加载失败'), findsNothing);
 
       await tester.scrollUntilVisible(
-        find.byTooltip('刷新自动备份'),
+        find.byTooltip('刷新保存记录'),
         280,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('刷新自动备份'));
+      await tester.tap(find.byTooltip('刷新保存记录'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('自动备份加载失败'), findsNothing);
-      expect(find.textContaining('auto_backup_user1'), findsOneWidget);
+      expect(find.textContaining('定期副本加载失败'), findsNothing);
+      expect(find.text('自动保存'), findsOneWidget);
+      expect(find.text('定期副本'), findsNothing);
+      expect(find.text('自动备份'), findsNothing);
+      expect(find.textContaining('auto_backup_user1'), findsNothing);
+      expect(find.textContaining('user1_20260516'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('auto-backup-files-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('user1_20260516'), findsOneWidget);
       expect(repository.getAutoBackupOverviewCalls, 2);
     });
 
-    testWidgets('数据管理页使用高级表面和分段入场动效', (tester) async {
+    testWidgets('数据管理页使用高级表面和清晰操作层级', (tester) async {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository, physicalSize: const Size(1200, 4000));
 
-      expect(find.text('完整备份'), findsAtLeastNWidgets(1));
-      expect(find.text('交易 CSV'), findsOneWidget);
-      expect(find.text('恢复数据'), findsWidgets);
+      expect(find.text('账本副本'), findsAtLeastNWidgets(1));
+      expect(find.text('完整副本'), findsNothing);
+      expect(find.text('完整备份'), findsNothing);
+      expect(find.text('交易明细'), findsOneWidget);
+      expect(find.text('交易 CSV'), findsNothing);
+      expect(find.text('恢复账本'), findsOneWidget);
+      expect(find.text('选择副本'), findsNothing);
       expect(
         find.byKey(const ValueKey('auto-backup-orchestration-panel')),
         findsNothing,
@@ -212,7 +279,29 @@ void main() {
       expect(find.text('风险控制'), findsNothing);
       expect(find.text('服务器留存'), findsNothing);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(4));
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(4));
+      expect(find.text('自动保存'), findsOneWidget);
+      expect(find.text('设置'), findsOneWidget);
+      expect(find.text('保留副本数'), findsNothing);
+      expect(find.text('保存记录'), findsNothing);
+      expect(find.text('记录'), findsOneWidget);
+      expect(find.textContaining('user1_20260516'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('restore-panel-toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('选择副本'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('auto-backup-settings-toggle')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('保留副本数'), findsOneWidget);
+      expect(find.text('保存记录'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('auto-backup-files-toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('user1_20260516'), findsOneWidget);
     });
   });
 }

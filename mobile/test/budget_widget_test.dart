@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/budgets/presentation/budget_page.dart';
 import 'package:personal_ledger/features/categories/application/category_controller.dart';
@@ -47,6 +46,10 @@ void main() {
       await tester.scrollUntilVisible(find.text('成员'), 300);
       await tester.pumpAndSettle();
       expect(find.text('成员'), findsOneWidget);
+      expect(find.byKey(const ValueKey('budget-member-panel')), findsOneWidget);
+      expect(find.text('家人'), findsNothing);
+      await tester.tap(find.text('成员'));
+      await tester.pumpAndSettle();
       expect(find.text('家人'), findsOneWidget);
       expect(
         find.byKey(
@@ -57,11 +60,15 @@ void main() {
       expect(find.text('成员范围'), findsNothing);
     });
 
-    testWidgets('预算总览和预算卡片使用分段入场动效', (tester) async {
+    testWidgets('预算总览和预算卡片保持清晰层级', (tester) async {
       final budgetRepository = _FakeBudgetRepository();
       await _pumpPage(tester, budgetRepository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
+      expect(find.text('本月预算'), findsOneWidget);
+      expect(find.text('分类'), findsOneWidget);
+      expect(find.text('成员'), findsOneWidget);
+      expect(find.text('餐饮'), findsOneWidget);
     });
 
     testWidgets('保存总预算时提交金额和提醒阈值', (tester) async {
@@ -71,7 +78,7 @@ void main() {
       await tester.tap(find.byTooltip('修改总预算'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), '3500');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存预算'));
       await tester.pumpAndSettle();
 
       expect(budgetRepository.setTotalCalls, hasLength(1));
@@ -86,7 +93,7 @@ void main() {
       await tester.tap(find.byTooltip('添加分类预算'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), '500');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存预算'));
       await tester.pumpAndSettle();
 
       expect(budgetRepository.setCategoryCalls, hasLength(1));
@@ -104,8 +111,15 @@ void main() {
       await tester.scrollUntilVisible(find.text('成员'), 300);
       await tester.tap(find.byTooltip('添加成员预算'));
       await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(SingleChildScrollView),
+        ),
+        findsOneWidget,
+      );
       await tester.enterText(find.byType(TextFormField), '900');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存预算'));
       await tester.pumpAndSettle();
 
       expect(budgetRepository.setTotalCalls, hasLength(1));
@@ -117,11 +131,22 @@ void main() {
       final budgetRepository = _FakeBudgetRepository();
       await _pumpPage(tester, budgetRepository);
 
-      final deleteButton = find.byTooltip('删除预算 餐饮');
+      final foodBudgetCard = find.ancestor(
+        of: find.text('餐饮'),
+        matching: find.byWidgetPredicate(
+          (widget) => widget.runtimeType.toString() == '_CategoryBudgetCard',
+        ),
+      );
+      final deleteButton = find.descendant(
+        of: foodBudgetCard,
+        matching: find.byTooltip('删除'),
+      );
       await tester.ensureVisible(deleteButton);
       await tester.pumpAndSettle();
       await tester.tap(deleteButton);
       await tester.pumpAndSettle();
+      expect(find.text('删除「餐饮」？'), findsOneWidget);
+      expect(find.text('预算记录将移除。'), findsNothing);
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 
@@ -160,8 +185,10 @@ void main() {
       );
       expect(find.text('家庭预留'), findsNothing);
       expect(find.text('提醒线预留'), findsNothing);
-      expect(find.text('未设置总预算'), findsOneWidget);
-      expect(find.text('未设置分类预算'), findsOneWidget);
+      expect(find.text('本月还没有总预算'), findsWidgets);
+      expect(find.text('还没有分类预算'), findsOneWidget);
+      expect(find.text('未设置总预算'), findsNothing);
+      expect(find.text('未设置分类预算'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
     });
 
@@ -173,12 +200,12 @@ void main() {
       await tester.tap(find.byTooltip('修改总预算'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), '3500');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存预算'));
       await tester.pumpAndSettle();
 
       expect(budgetRepository.setTotalCalls, hasLength(1));
       expect(budgetRepository.setTotalCalls.single.amount, 3500);
-      expect(find.textContaining('总预算保存失败'), findsOneWidget);
+      expect(find.text('预算保存失败'), findsOneWidget);
       expect(find.text('总预算已保存'), findsNothing);
       expect(find.text('¥1800.00'), findsAtLeastNWidgets(1));
     });

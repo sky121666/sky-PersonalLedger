@@ -7,7 +7,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../data/statistics_models.dart';
 import '../data/statistics_repository.dart';
 
@@ -53,7 +52,7 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载统计数据...'),
         error: (error, _) => _StatisticsErrorView(
-          message: error.toString(),
+          message: '统计数据加载失败',
           onRetry: () => ref.invalidate(statisticsDashboardProvider(query)),
           onRefresh: () =>
               ref.refresh(statisticsDashboardProvider(query).future),
@@ -120,42 +119,54 @@ class _StatisticsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rows = [
+      _StatisticsRow(
+        _MonthHeader(
+          selectedMonth: selectedMonth,
+          overview: dashboard.overview,
+          settings: themeSettings,
+          onPreviousMonth: onPreviousMonth,
+          onNextMonth: onNextMonth,
+        ),
+      ),
+      _StatisticsRow(_TrendCard(trend: dashboard.trend)),
+      _StatisticsRow(
+        _CategoryRankCard(
+          response: dashboard.categories,
+          categoryType: categoryType,
+          onCategoryTypeChanged: onCategoryTypeChanged,
+        ),
+        0,
+      ),
+    ];
+
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
-        child: ListView(
+        child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 96),
-          children: [
-            StaggeredEntrance(
-              index: 0,
-              child: _MonthHeader(
-                selectedMonth: selectedMonth,
-                overview: dashboard.overview,
-                settings: themeSettings,
-                onPreviousMonth: onPreviousMonth,
-                onNextMonth: onNextMonth,
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
               ),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 1,
-              child: _TrendCard(trend: dashboard.trend),
-            ),
-            const SizedBox(height: 16),
-            StaggeredEntrance(
-              index: 2,
-              child: _CategoryRankCard(
-                response: dashboard.categories,
-                categoryType: categoryType,
-                onCategoryTypeChanged: onCategoryTypeChanged,
-              ),
-            ),
-          ],
+              child: row.child,
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _StatisticsRow {
+  const _StatisticsRow(this.child, [this.bottomSpacing = 12]);
+
+  final Widget child;
+  final double bottomSpacing;
 }
 
 class _StatisticsErrorView extends StatelessWidget {
@@ -171,15 +182,17 @@ class _StatisticsErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rows = [
+      const SizedBox(height: 48),
+      AppErrorView(message: message, onRetry: onRetry),
+    ];
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
-        child: ListView(
+        child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(height: MediaQuery.sizeOf(context).height * 0.18),
-            AppErrorView(message: message, onRetry: onRetry),
-          ],
+          itemCount: rows.length,
+          itemBuilder: (context, index) => rows[index],
         ),
       ),
     );
@@ -204,7 +217,6 @@ class _MonthHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = settings.palette;
-    final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     final balanceColor = overview.balance >= 0
         ? financeColors.income
@@ -216,47 +228,12 @@ class _MonthHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.space_dashboard_outlined,
-                color: palette.seedColor,
-                size: 44,
-                iconSize: 23,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '本月概览',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _formatMonthLabel(selectedMonth),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
           _StatisticsBalanceHero(
             label: '结余',
             value: _formatCurrency(overview.balance),
             color: balanceColor,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             children: [
               IconButton.filledTonal(
@@ -281,7 +258,7 @@ class _MonthHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -318,9 +295,7 @@ class _StatisticsPeriodCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+    return Container(
       constraints: const BoxConstraints(minHeight: 48),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
@@ -436,9 +411,7 @@ class _StatisticsAmountPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+    return Container(
       constraints: const BoxConstraints(minHeight: 48),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -528,9 +501,9 @@ class _TrendCard extends StatelessWidget {
               const _TrendLegend(),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (items.isEmpty)
-            const _EmptyLine(text: '本月暂无趋势数据')
+            const _EmptyLine(text: '本月还没有趋势')
           else
             RoundedBarChart(
               maxValue: maxAmount,
@@ -624,26 +597,11 @@ class _CategoryRankCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '分类排行',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      categoryType == 'expense' ? '支出分类' : '收入分类',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  '分类排行',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
               _CategoryRankTotalPill(
@@ -652,7 +610,7 @@ class _CategoryRankCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           SegmentedButton<String>(
             segments: const [
               ButtonSegment(value: 'expense', label: Text('支出')),
@@ -664,11 +622,11 @@ class _CategoryRankCard extends StatelessWidget {
               onCategoryTypeChanged(values.first);
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (response.items.isEmpty)
-            const _EmptyLine(text: '本月暂无分类数据')
+            const _EmptyLine(text: '本月还没有分类')
           else ...[
-            for (final item in response.items.indexed)
+            for (final item in response.items.take(5).indexed)
               CategoryRankTile(
                 key: ValueKey('statistics-category-rank-${item.$2.categoryId}'),
                 name: item.$2.categoryName,

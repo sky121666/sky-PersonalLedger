@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'finance_dashboard_widgets.dart';
 import 'premium_surface.dart';
-import 'staggered_entrance.dart';
 
 class AuthFlowShell extends StatelessWidget {
   const AuthFlowShell({
@@ -29,7 +28,6 @@ class AuthFlowShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -46,39 +44,27 @@ class AuthFlowShell extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        StaggeredEntrance(
-                          index: 0,
-                          child: _AuthHeroPanel(
-                            icon: icon,
-                            title: title,
-                            subtitle: subtitle,
-                            primaryLabel: primaryLabel,
-                            serverUrl: serverUrl,
-                            accentColor: accentColor,
-                          ),
+                        _AuthHeroPanel(
+                          icon: icon,
+                          title: title,
+                          subtitle: subtitle,
+                          primaryLabel: primaryLabel,
+                          serverUrl: serverUrl,
+                          accentColor: accentColor,
                         ),
                         const SizedBox(height: 14),
-                        StaggeredEntrance(
-                          index: 1,
-                          child: PremiumSurface(
-                            accentColor: accentColor,
-                            semanticLabel: '$primaryLabel 表单',
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: children,
-                            ),
+                        PremiumSurface(
+                          accentColor: accentColor,
+                          semanticLabel: '$primaryLabel 表单',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: children,
                           ),
                         ),
                         if (footer != null) ...[
                           const SizedBox(height: 10),
-                          StaggeredEntrance(index: 2, child: footer!),
+                          footer!,
                         ],
-                        const SizedBox(height: 14),
-                        Text(
-                          'Personal Ledger',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: colorScheme.outline),
-                        ),
                       ],
                     ),
                   ),
@@ -90,6 +76,44 @@ class AuthFlowShell extends StatelessWidget {
       ),
     );
   }
+}
+
+InputDecoration authFlowInputDecoration(
+  BuildContext context, {
+  required String labelText,
+  String? hintText,
+  String? errorText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(16),
+    borderSide: BorderSide(color: colorScheme.outlineVariant),
+  );
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    errorText: errorText,
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    filled: true,
+    fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.52),
+    border: border,
+    enabledBorder: border,
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: colorScheme.error),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: colorScheme.error, width: 1.4),
+    ),
+  );
 }
 
 class _AuthHeroPanel extends StatelessWidget {
@@ -113,6 +137,7 @@ class _AuthHeroPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
+    final subtitleText = subtitle.trim();
     return PremiumSurface(
       semanticLabel: '$title，$primaryLabel',
       accentColor: accentColor,
@@ -140,14 +165,16 @@ class _AuthHeroPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.45,
+          if (subtitleText.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              subtitleText,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.45,
+              ),
             ),
-          ),
+          ],
           if (serverUrl != null && serverUrl!.trim().isNotEmpty) ...[
             const SizedBox(height: 14),
             Container(

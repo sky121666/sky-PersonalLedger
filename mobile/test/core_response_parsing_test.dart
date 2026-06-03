@@ -120,7 +120,7 @@ void main() {
           isA<FormatException>().having(
             (error) => error.message,
             'message',
-            contains('远程服务器必须使用 HTTPS'),
+            contains('远程账本必须使用 HTTPS'),
           ),
         ),
       );

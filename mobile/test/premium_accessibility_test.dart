@@ -41,9 +41,7 @@ void main() {
             .whereType<String>();
         expect(visibleSurfaceLabels, contains('查看家庭支出详情'));
         expect(find.byTooltip('刷新首页概览'), findsOneWidget);
-        expect(find.byTooltip('退出登录'), findsOneWidget);
         _expectMinTapTarget(tester, find.byTooltip('刷新首页概览'));
-        _expectMinTapTarget(tester, find.byTooltip('退出登录'));
       });
     });
 
@@ -64,7 +62,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('记一笔'), findsOneWidget);
+        expect(find.text('记一笔'), findsAtLeastNWidgets(1));
         expect(find.byTooltip('关闭记一笔表单'), findsOneWidget);
         expect(find.text('金额'), findsAtLeastNWidgets(1));
         expect(find.text('账户'), findsAtLeastNWidgets(1));
@@ -72,26 +70,28 @@ void main() {
         _expectMinTapTarget(tester, find.byTooltip('关闭记一笔表单'));
 
         await tester.scrollUntilVisible(
-          find.text('更多选项'),
+          find.byKey(const ValueKey('transaction-more-options')),
           240,
           scrollable: find.byType(Scrollable).first,
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('更多选项'));
+        await tester.tap(
+          find.byKey(const ValueKey('transaction-more-options')),
+        );
         await tester.pumpAndSettle();
         expect(find.text('成员'), findsOneWidget);
 
         await tester.drag(find.byType(ListView).first, const Offset(0, -1000));
         await tester.pumpAndSettle();
-        expect(find.byTooltip('添加自定义标签'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('添加自定义标签'));
+        expect(find.byTooltip('添加标签'), findsOneWidget);
+        _expectMinTapTarget(tester, find.byTooltip('添加标签'));
         await tester.scrollUntilVisible(
-          find.widgetWithText(FilledButton, '保存'),
+          find.widgetWithText(FilledButton, '记一笔'),
           240,
           scrollable: find.byType(Scrollable).first,
         );
         await tester.pumpAndSettle();
-        _expectMinTapTarget(tester, find.widgetWithText(FilledButton, '保存'));
+        _expectMinTapTarget(tester, find.widgetWithText(FilledButton, '记一笔'));
       });
     });
 
@@ -136,13 +136,13 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('家庭成员'), findsOneWidget);
-        expect(find.byTooltip('刷新家庭数据'), findsOneWidget);
-        await tester.scrollUntilVisible(find.text('默认'), 240);
-        expect(find.text('默认'), findsOneWidget);
+        expect(find.byTooltip('刷新家庭成员'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('常用'), 240);
+        expect(find.text('常用'), findsOneWidget);
         expect(find.text('启用'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('停用'), 240);
         expect(find.text('停用'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('刷新家庭数据'));
+        _expectMinTapTarget(tester, find.byTooltip('刷新家庭成员'));
       });
     });
   });

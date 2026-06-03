@@ -19,10 +19,11 @@ void main() {
       expect(find.byType(PremiumSurface), findsOneWidget);
       expect(find.text('文件凭证'), findsNothing);
       expect(find.text('图片凭证'), findsNothing);
-      expect(find.text('已上传 · 文件'), findsOneWidget);
-      expect(find.text('待上传 · 图片'), findsOneWidget);
+      expect(find.text('文件'), findsOneWidget);
+      expect(find.text('图片'), findsOneWidget);
       expect(find.text('2/5'), findsNothing);
       expect(find.text('保存状态'), findsNothing);
+      expect(find.textContaining('可下载'), findsNothing);
       expect(
         find.byKey(const ValueKey('attachment-signal-deck')),
         findsNothing,
@@ -32,7 +33,9 @@ void main() {
         findsNothing,
       );
       expect(find.byTooltip('预览 invoice.pdf'), findsOneWidget);
-      expect(find.byTooltip('下载 invoice.pdf'), findsOneWidget);
+      expect(find.byTooltip('保存 invoice.pdf'), findsNothing);
+      expect(find.byTooltip('下载 invoice.pdf'), findsNothing);
+      expect(find.byTooltip('更多附件操作 invoice.pdf'), findsOneWidget);
       expect(find.byTooltip('移除 invoice.pdf'), findsOneWidget);
       expect(find.byTooltip('预览 receipt.jpg'), findsOneWidget);
       expect(find.byTooltip('移除 receipt.jpg'), findsOneWidget);

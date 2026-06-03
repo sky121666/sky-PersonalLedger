@@ -40,7 +40,7 @@ class ServerConfigService {
   String normalizeServerUrl(String input) {
     final trimmedInput = input.trim();
     if (trimmedInput.isEmpty) {
-      throw const FormatException('服务器地址不能为空');
+      throw const FormatException('账本地址不能为空');
     }
 
     final urlWithScheme = trimmedInput.startsWith(RegExp('https?://'))
@@ -48,10 +48,10 @@ class ServerConfigService {
         : 'https://$trimmedInput';
     final uri = Uri.tryParse(urlWithScheme);
     if (uri == null || uri.host.isEmpty) {
-      throw const FormatException('服务器地址格式不正确');
+      throw const FormatException('账本地址格式不正确');
     }
     if (!_isAllowedScheme(uri)) {
-      throw const FormatException('远程服务器必须使用 HTTPS；HTTP 仅允许本机或局域网私有地址');
+      throw const FormatException('远程账本必须使用 HTTPS；HTTP 仅允许本机或局域网私有地址');
     }
 
     return uri.replace(path: _trimTrailingSlash(uri.path)).toString();

@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/profile/data/profile_repository.dart';
 import 'package:personal_ledger/features/profile/presentation/profile_settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,8 +16,8 @@ void main() {
 
       expect(find.text('个人资料'), findsOneWidget);
       expect(find.text('Sky'), findsWidgets);
-      expect(find.text('用户名：admin'), findsOneWidget);
-      expect(find.text('创建时间：2026-05-01'), findsOneWidget);
+      expect(find.text('用户名：admin'), findsNothing);
+      expect(find.text('创建时间：2026-05-01'), findsNothing);
       expect(
         find.byKey(const ValueKey('profile-draft-evidence-rail')),
         findsNothing,
@@ -26,12 +25,17 @@ void main() {
       expect(find.text('草稿覆盖 3/4'), findsNothing);
     });
 
-    testWidgets('个人资料摘要和表单使用高级表面与入场动效', (tester) async {
+    testWidgets('个人资料摘要和表单使用高级表面与清晰层级', (tester) async {
       final repository = _FakeProfileRepository();
       await _pumpPage(tester, repository);
 
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(
+        find.byKey(const ValueKey('profile-settings-theme-panel')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('profile-save')), findsOneWidget);
+      expect(find.text('保存资料'), findsOneWidget);
     });
 
     testWidgets('个人资料设置页可直接切换主题模式和主题色模板', (tester) async {
@@ -49,7 +53,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('外观'), findsOneWidget);
-      expect(find.text('调整显示模式和主题色。'), findsOneWidget);
+      expect(find.text('调整显示模式和主题色。'), findsNothing);
       expect(find.text('设置主题中心'), findsNothing);
       expect(find.text('推荐主题策展'), findsNothing);
       expect(find.text('模板适配矩阵'), findsNothing);
@@ -67,8 +71,8 @@ void main() {
       final repository = _FakeProfileRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.text('用户名：admin'), findsOneWidget);
-      expect(find.text('上次登录：2026-05-17 09:00:00'), findsOneWidget);
+      expect(find.text('用户名：admin'), findsNothing);
+      expect(find.text('上次登录：2026-05-17 09:00:00'), findsNothing);
       expect(find.text('登录状态'), findsNothing);
       expect(find.text('身份状态轨道'), findsNothing);
       expect(find.byKey(const ValueKey('profile-identity-rail')), findsNothing);
@@ -76,9 +80,20 @@ void main() {
       expect(find.byKey(const ValueKey('profile-nickname')), findsOneWidget);
       expect(find.byKey(const ValueKey('profile-email')), findsOneWidget);
       expect(
+        find.byKey(const ValueKey('profile-advanced-fields')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('profile-avatar-upload')), findsNothing);
+      expect(find.text('选择头像'), findsNothing);
+      expect(find.text('上传头像'), findsNothing);
+
+      await tester.tap(find.text('头像与简介'));
+      await tester.pumpAndSettle();
+      expect(
         find.byKey(const ValueKey('profile-avatar-upload')),
         findsOneWidget,
       );
+      expect(find.text('选择头像'), findsOneWidget);
     });
 
     testWidgets('资料完整度根据缺失字段降级展示', (tester) async {
@@ -102,6 +117,8 @@ void main() {
         find.byKey(const ValueKey('profile-email')),
         'new@example.com',
       );
+      await tester.tap(find.text('头像与简介'));
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('profile-avatar')),
         'https://example.com/new.png',

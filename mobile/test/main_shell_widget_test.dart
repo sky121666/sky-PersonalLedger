@@ -45,6 +45,14 @@ void main() {
       find.byKey(const ValueKey('main-shell-quick-transaction')),
       findsOneWidget,
     );
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+    expect(find.text('快速记一笔'), findsNothing);
+    final quickActionSize = tester.getSize(
+      find.byKey(const ValueKey('main-shell-quick-transaction')),
+    );
+    expect(quickActionSize.width, greaterThanOrEqualTo(44));
+    expect(quickActionSize.height, greaterThanOrEqualTo(44));
     expect(find.byKey(const ValueKey('main-shell-tab-home')), findsOneWidget);
     expect(
       find.ancestor(

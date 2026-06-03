@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -20,8 +19,11 @@ void main() {
       expect(find.text('安全控制台'), findsNothing);
       expect(find.text('Protected'), findsNothing);
       expect(find.text('安全态势'), findsNothing);
-      expect(find.text('修改密码'), findsOneWidget);
+      expect(find.text('修改密码'), findsNothing);
+      expect(find.text('密码'), findsOneWidget);
       expect(find.text('登录保护'), findsOneWidget);
+      expect(find.text('登录入口'), findsOneWidget);
+      expect(find.text('入口地址'), findsNothing);
       expect(find.text('/ledger'), findsWidgets);
       final entrySwitchSemantics = tester.widget<Semantics>(
         find.byKey(const ValueKey('security-entry-enabled-semantics')),
@@ -39,6 +41,11 @@ void main() {
         findsNothing,
       );
       expect(find.text('入口守护策略'), findsNothing);
+      expect(find.byKey(const ValueKey('security-old-password')), findsNothing);
+      await tester.tap(
+        find.byKey(const ValueKey('security-open-password-sheet')),
+      );
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('security-old-password')),
         findsOneWidget,
@@ -78,7 +85,7 @@ void main() {
 
       expect(repository.generateCalls, 1);
       expect(find.text('/generated'), findsWidgets);
-      expect(find.text('已生成随机访问路径'), findsOneWidget);
+      expect(find.text('登录入口已生成'), findsOneWidget);
     });
 
     testWidgets('修改密码成功后退出当前登录态', (tester) async {
@@ -90,6 +97,10 @@ void main() {
         authRepository: authRepository,
       );
 
+      await tester.tap(
+        find.byKey(const ValueKey('security-open-password-sheet')),
+      );
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('security-old-password')),
         'old-password',
@@ -122,7 +133,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('出错了'), findsOneWidget);
-      expect(find.textContaining('安全入口加载失败'), findsOneWidget);
+      expect(find.text('安全设置加载失败'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
@@ -144,8 +155,7 @@ void main() {
 
       expect(repository.setEntryPathCalls, ['/private']);
       expect(find.text('/private'), findsOneWidget);
-      expect(find.text('/ledger'), findsWidgets);
-      expect(find.textContaining('保存失败'), findsOneWidget);
+      expect(find.text('登录保护保存失败'), findsOneWidget);
     });
 
     testWidgets('刷新入口会恢复服务端最新路径', (tester) async {
@@ -169,6 +179,21 @@ void main() {
       expect(repository.getEntryPathCalls, 2);
     });
 
+    testWidgets('关闭登录保护前展示精简确认', (tester) async {
+      final repository = _FakeSecurityRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(find.byKey(const ValueKey('security-entry-disable')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('关闭登录保护？'), findsOneWidget);
+      expect(find.text('登录页将直接显示。'), findsNothing);
+      await tester.tap(find.widgetWithText(FilledButton, '禁用'));
+      await tester.pumpAndSettle();
+
+      expect(repository.disableCalls, 1);
+    });
+
     testWidgets('修改密码失败时展示错误且保留登录态', (tester) async {
       final repository = _FakeSecurityRepository()
         ..changePasswordError = '密码错误';
@@ -179,6 +204,10 @@ void main() {
         authRepository: authRepository,
       );
 
+      await tester.tap(
+        find.byKey(const ValueKey('security-open-password-sheet')),
+      );
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('security-old-password')),
         'old-password',
@@ -201,7 +230,7 @@ void main() {
       ]);
       expect(authRepository.logoutCalls, 0);
       expect(controller.debugState.stage, AuthStage.authenticated);
-      expect(find.textContaining('密码错误'), findsOneWidget);
+      expect(find.text('密码修改失败'), findsOneWidget);
       expect(find.text('old-password'), findsOneWidget);
     });
 
@@ -221,12 +250,14 @@ void main() {
       );
     });
 
-    testWidgets('账号安全页使用高级表面和分段入场动效', (tester) async {
+    testWidgets('账号安全页使用高级表面和清晰操作层级', (tester) async {
       final repository = _FakeSecurityRepository();
       await _pumpPage(tester, repository);
 
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
+      expect(find.text('密码'), findsOneWidget);
+      expect(find.text('登录保护'), findsOneWidget);
+      expect(find.byKey(const ValueKey('security-entry-save')), findsOneWidget);
     });
   });
 }

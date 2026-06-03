@@ -76,7 +76,7 @@ class AttachmentPickerField extends ConsumerWidget {
                 for (final attachment in attachments)
                   _AttachmentTile(
                     title: attachment.filename,
-                    subtitle: '已上传',
+                    isUploaded: true,
                     isImage: attachment.isImage,
                     stateColor: financeColors.income,
                     onPreview: () => _previewUploaded(context, ref, attachment),
@@ -93,7 +93,7 @@ class AttachmentPickerField extends ConsumerWidget {
                 for (final file in pendingFiles)
                   _AttachmentTile(
                     title: file.name,
-                    subtitle: '待上传',
+                    isUploaded: false,
                     isImage: file.isImage,
                     stateColor: financeColors.warning,
                     onPreview: () => _previewLocal(context, file),
@@ -233,7 +233,7 @@ class AttachmentPickerField extends ConsumerWidget {
     if (!file.isImage) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('该文件将在保存交易后可下载')));
+      ).showSnackBar(const SnackBar(content: Text('保存后可查看')));
       return;
     }
     await showDialog<void>(
@@ -260,13 +260,13 @@ class AttachmentPickerField extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('已下载到 $filePath')));
+        ).showSnackBar(SnackBar(content: Text('已保存：${attachment.filename}')));
       }
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('下载失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('附件保存失败')));
       }
     }
   }
@@ -329,7 +329,7 @@ class _AttachmentPickOption extends StatelessWidget {
 class _AttachmentTile extends StatelessWidget {
   const _AttachmentTile({
     required this.title,
-    required this.subtitle,
+    required this.isUploaded,
     required this.isImage,
     required this.stateColor,
     required this.onPreview,
@@ -338,7 +338,7 @@ class _AttachmentTile extends StatelessWidget {
   });
 
   final String title;
-  final String subtitle;
+  final bool isUploaded;
   final bool isImage;
   final Color stateColor;
   final VoidCallback? onPreview;
@@ -393,7 +393,7 @@ class _AttachmentTile extends StatelessWidget {
                           ),
                         ),
                         child: Icon(
-                          subtitle == '已上传'
+                          isUploaded
                               ? Icons.check_rounded
                               : Icons.schedule_rounded,
                           color: stateColor,
@@ -418,7 +418,7 @@ class _AttachmentTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '$subtitle · $fileTypeLabel',
+                        fileTypeLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -436,10 +436,27 @@ class _AttachmentTile extends StatelessWidget {
                   tooltip: '预览 $title',
                 ),
                 if (onDownload != null)
-                  IconButton(
-                    onPressed: onDownload,
-                    icon: const Icon(Icons.download_outlined),
-                    tooltip: '下载 $title',
+                  PopupMenuButton<_AttachmentAction>(
+                    tooltip: '更多附件操作 $title',
+                    icon: const Icon(Icons.more_horiz),
+                    onSelected: (action) {
+                      switch (action) {
+                        case _AttachmentAction.save:
+                          onDownload?.call();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: _AttachmentAction.save,
+                        child: Row(
+                          children: [
+                            Icon(Icons.save_alt_outlined),
+                            SizedBox(width: 10),
+                            Text('保存'),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 if (onRemove != null)
                   IconButton(
@@ -455,6 +472,8 @@ class _AttachmentTile extends StatelessWidget {
     );
   }
 }
+
+enum _AttachmentAction { save }
 
 class _UploadProgressTile extends StatelessWidget {
   const _UploadProgressTile({required this.progress});

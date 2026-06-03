@@ -24,9 +24,30 @@ void main() {
 
       final state = container.read(authControllerProvider);
       expect(state.stage, AuthStage.serverRequired);
-      expect(state.errorMessage, '服务器地址不能为空');
+      expect(state.errorMessage, '账本地址不能为空');
     },
   );
+
+  test('connectServer hides low-level status errors', () async {
+    final container = ProviderContainer(
+      overrides: [
+        secureStorageServiceProvider.overrideWithValue(_FakeSecureStorage()),
+        authRepositoryProvider.overrideWithValue(
+          _FakeAuthRepository(statusError: Exception('raw socket failure')),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(authControllerProvider.notifier);
+
+    await controller.connectServer('https://ledger.example.com');
+
+    final state = container.read(authControllerProvider);
+    expect(state.stage, AuthStage.serverRequired);
+    expect(state.errorMessage, '账本连接失败，请检查地址或网络');
+    expect(state.errorMessage, isNot(contains('raw socket failure')));
+  });
 }
 
 class _FakeSecureStorage extends SecureStorageService {
@@ -73,8 +94,16 @@ class _FakeSecureStorage extends SecureStorageService {
 }
 
 class _FakeAuthRepository implements AuthRepository {
+  const _FakeAuthRepository({this.statusError});
+
+  final Object? statusError;
+
   @override
   Future<AuthStatus> getStatus() async {
+    final error = statusError;
+    if (error != null) {
+      throw error;
+    }
     return const AuthStatus(initialized: true);
   }
 

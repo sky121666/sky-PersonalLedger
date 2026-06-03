@@ -7,7 +7,6 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../../accounts/data/account.dart';
 import '../data/account_log_repository.dart';
 
@@ -31,6 +30,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
   static const _pageSize = 50;
 
   var _logs = <AccountLogItem>[];
+  var _groups = <_LogGroup>[];
   var _page = 1;
   var _total = 0;
   var _loading = true;
@@ -58,6 +58,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
       }
       setState(() {
         _logs = result.list;
+        _groups = _groupLogsByDate(result.list);
         _total = result.total;
         _page = result.page;
       });
@@ -83,8 +84,10 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
       if (!mounted) {
         return;
       }
+      final logs = [..._logs, ...result.list];
       setState(() {
-        _logs = [..._logs, ...result.list];
+        _logs = logs;
+        _groups = _groupLogsByDate(logs);
         _total = result.total;
         _page = result.page;
       });
@@ -92,7 +95,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(const SnackBar(content: Text('流水加载失败')));
       }
     } finally {
       if (mounted) {
@@ -138,97 +141,146 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
     }
     final error = _error;
     if (error != null && _logs.isEmpty) {
-      return AppErrorView(message: error.toString(), onRetry: _loadFirstPage);
+      return AppErrorView(message: '流水加载失败', onRetry: _loadFirstPage);
     }
     if (_logs.isEmpty) {
+      const rows = [
+        _AccountLogEmptyRow(SizedBox(height: 96)),
+        _AccountLogEmptyRow(
+          AppEmptyView(title: '还没有流水', icon: Icons.receipt_long_outlined),
+          0,
+        ),
+      ];
       return RefreshIndicator(
         onRefresh: _loadFirstPage,
-        child: ListView(
+        child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 96),
-            StaggeredEntrance(
-              index: 0,
-              child: AppEmptyView(
-                title: '暂无流水记录',
-                icon: Icons.receipt_long_outlined,
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == rows.length - 1 ? 0 : row.bottomSpacing,
               ),
-            ),
-          ],
+              child: row.child,
+            );
+          },
         ),
       );
     }
 
-    final groups = _groupLogsByDate(_logs);
+    final groupStartIndex = account == null ? 0 : 2;
+    final loadMoreIndex = groupStartIndex + _groups.length;
     return RefreshIndicator(
       onRefresh: _loadFirstPage,
-      child: ListView(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 24),
+        itemCount: loadMoreIndex + 1,
+        itemBuilder: (context, index) {
+          if (account != null) {
+            if (index == 0) {
+              return _AccountSummaryCard(account: account);
+            }
+            if (index == 1) {
+              return const SizedBox(height: 12);
+            }
+          }
+          if (index == loadMoreIndex) {
+            return _LoadMoreFooter(
+              hasMore: _hasMore,
+              loading: _loadingMore,
+              onLoadMore: _loadMore,
+            );
+          }
+          final group = _groups[index - groupStartIndex];
+          return _AccountLogGroupCard(
+            group: group,
+            showAccount: account == null,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AccountLogEmptyRow {
+  const _AccountLogEmptyRow(this.child, [this.bottomSpacing = 0]);
+
+  final Widget child;
+  final double bottomSpacing;
+}
+
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter({
+    required this.hasMore,
+    required this.loading,
+    required this.onLoadMore,
+  });
+
+  final bool hasMore;
+  final bool loading;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!hasMore) {
+      return const SizedBox(height: 4);
+    }
+    return FilledButton.tonal(
+      onPressed: loading ? null : onLoadMore,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (account != null) ...[
-            StaggeredEntrance(
-              index: 0,
-              child: _AccountSummaryCard(account: account),
-            ),
-            const SizedBox(height: 12),
-          ],
-          for (final entry in groups.indexed) ...[
-            StaggeredEntrance(
-              index: (account == null ? 0 : 1) + entry.$1 * 2,
-              child: _DateHeader(
-                date: entry.$2.date,
-                count: entry.$2.logs.length,
-              ),
-            ),
-            const SizedBox(height: 8),
-            StaggeredEntrance(
-              index: (account == null ? 1 : 2) + entry.$1 * 2,
-              child: PremiumSurface(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                child: Column(
-                  children: [
-                    for (var index = 0; index < entry.$2.logs.length; index++)
-                      _AccountLogTile(
-                        log: entry.$2.logs[index],
-                        showAccount: account == null,
-                        isLast: index == entry.$2.logs.length - 1,
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (_hasMore)
-            FilledButton.tonal(
-              onPressed: _loadingMore ? null : _loadMore,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_loadingMore)
-                    const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    const Icon(Icons.expand_more),
-                  const SizedBox(width: 8),
-                  Text(_loadingMore ? '加载中...' : '加载更多'),
-                ],
-              ),
+          if (loading)
+            const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: Text(
-                  '没有更多了',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
+            const Icon(Icons.expand_more),
+          const SizedBox(width: 8),
+          Text(loading ? '加载中' : '加载更多'),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountLogGroupCard extends StatelessWidget {
+  const _AccountLogGroupCard({required this.group, required this.showAccount});
+
+  final _LogGroup group;
+  final bool showAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DateHeader(
+            date: group.date,
+            count: group.logs.length,
+            totalChange: group.totalChange,
+          ),
+          const SizedBox(height: 8),
+          PremiumSurface(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+            child: Column(
+                children: [
+                  for (var index = 0; index < group.logs.length; index++)
+                    _AccountLogTile(
+                      key: ValueKey('account-log-tile-${group.logs[index].id}'),
+                      log: group.logs[index],
+                      showAccount: showAccount,
+                      isLast: index == group.logs.length - 1,
+                    ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -248,7 +300,7 @@ class _AccountSummaryCard extends StatelessWidget {
     );
     return PremiumSurface(
       accentColor: color,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -268,18 +320,20 @@ class _AccountSummaryCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       account.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 3),
                     Text(
                       _accountTypeLabel(account.type),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -291,6 +345,8 @@ class _AccountSummaryCard extends StatelessWidget {
               ),
               Text(
                 _formatMoney(account.currentBalance),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: color,
                   fontWeight: FontWeight.w900,
@@ -306,14 +362,25 @@ class _AccountSummaryCard extends StatelessWidget {
 }
 
 class _DateHeader extends StatelessWidget {
-  const _DateHeader({required this.date, required this.count});
+  const _DateHeader({
+    required this.date,
+    required this.count,
+    required this.totalChange,
+  });
 
   final DateTime date;
   final int count;
+  final double totalChange;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final totalColor = totalChange > 0
+        ? financeColors.income
+        : totalChange < 0
+        ? financeColors.expense
+        : colorScheme.outline;
     return Row(
       children: [
         Container(
@@ -345,6 +412,15 @@ class _DateHeader extends StatelessWidget {
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(width: 8),
+              Text(
+                _formatSignedMoney(totalChange),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: totalColor,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
             ],
           ),
         ),
@@ -353,8 +429,9 @@ class _DateHeader extends StatelessWidget {
   }
 }
 
-class _AccountLogTile extends StatelessWidget {
+class _AccountLogTile extends StatefulWidget {
   const _AccountLogTile({
+    super.key,
     required this.log,
     required this.showAccount,
     required this.isLast,
@@ -365,9 +442,19 @@ class _AccountLogTile extends StatelessWidget {
   final bool isLast;
 
   @override
+  State<_AccountLogTile> createState() => _AccountLogTileState();
+}
+
+class _AccountLogTileState extends State<_AccountLogTile> {
+  bool _showRemark = false;
+
+  @override
   Widget build(BuildContext context) {
+    final log = widget.log;
     final typeStyle = _typeStyle(context, log.type);
     final change = log.balanceChange;
+    final isLast = widget.isLast;
+    final showAccount = widget.showAccount;
     final financeColors = AppTheme.financeColors(context);
     final changeColor = change > 0
         ? financeColors.income
@@ -376,61 +463,82 @@ class _AccountLogTile extends StatelessWidget {
         : Theme.of(context).colorScheme.outline;
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 4),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             IconBadge(
               icon: typeStyle.icon,
               color: typeStyle.color,
-              size: 38,
-              iconSize: 19,
+              size: 34,
+              iconSize: 17,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    log.remark.isEmpty ? log.type.label : log.remark,
+                    log.type.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 3),
                   Text(
                     [
-                      log.type.label,
                       if (showAccount && log.account != null) log.account!.name,
                       _formatTime(log.createdAt),
                     ].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                   ),
+                  if (_showRemark && log.remark.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      log.remark,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  _formatSignedMoney(change),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: changeColor,
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 132),
+              child: Text(
+                _formatSignedMoney(change),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: changeColor,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-              ],
+              ),
             ),
+            if (log.remark.isNotEmpty)
+              IconButton(
+                key: ValueKey('account-log-remark-toggle-${log.id}'),
+                onPressed: () => setState(() {
+                  _showRemark = !_showRemark;
+                }),
+                icon: Icon(_showRemark ? Icons.remove : Icons.add),
+                tooltip: _showRemark ? '收起备注' : '展开备注',
+                iconSize: 20,
+              ),
           ],
         ),
       ),
@@ -443,6 +551,8 @@ class _LogGroup {
 
   final DateTime date;
   final List<AccountLogItem> logs;
+
+  double get totalChange => logs.fold(0, (sum, log) => sum + log.balanceChange);
 }
 
 class _TypeStyle {
@@ -500,7 +610,16 @@ _TypeStyle _typeStyle(BuildContext context, AccountLogType type) {
 }
 
 String _formatMoney(double value) {
-  return '¥${value.toStringAsFixed(2)}';
+  final fixed = value.toStringAsFixed(2);
+  final parts = fixed.split('.');
+  final buffer = StringBuffer();
+  for (var index = 0; index < parts.first.length; index++) {
+    if (index > 0 && (parts.first.length - index) % 3 == 0) {
+      buffer.write(',');
+    }
+    buffer.write(parts.first[index]);
+  }
+  return '¥${buffer.toString()}.${parts.last}';
 }
 
 String _formatSignedMoney(double value) {

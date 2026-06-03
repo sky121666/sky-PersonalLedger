@@ -74,6 +74,7 @@ android {
         }
         getByName("profile") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
+            isProfileable = true
         }
         release {
             manifestPlaceholders["usesCleartextTraffic"] =

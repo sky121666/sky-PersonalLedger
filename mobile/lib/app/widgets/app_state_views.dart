@@ -4,7 +4,7 @@ import 'finance_dashboard_widgets.dart';
 import 'premium_surface.dart';
 
 class AppLoadingView extends StatelessWidget {
-  const AppLoadingView({this.message = '加载中...', super.key});
+  const AppLoadingView({this.message = '加载中', super.key});
 
   final String message;
 
@@ -12,6 +12,7 @@ class AppLoadingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final visibleMessage = _loadingMessage(message);
     return Center(
       child: _StateViewFrame(
         accentColor: colorScheme.primary,
@@ -21,24 +22,32 @@ class AppLoadingView extends StatelessWidget {
             _LoadingIndicatorTile(color: colorScheme.primary),
             const SizedBox(height: 16),
             Text(
-              message,
+              visibleMessage,
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                minHeight: 4,
-                backgroundColor: colorScheme.primary.withValues(alpha: 0.10),
-              ),
-            ),
           ],
         ),
       ),
     );
+  }
+
+  String _loadingMessage(String value) {
+    final compact = value
+        .trim()
+        .replaceAll('...', '')
+        .replaceAll('…', '')
+        .replaceFirst(RegExp(r'^正在加载'), '')
+        .replaceFirst(RegExp(r'^加载'), '')
+        .replaceFirst(RegExp(r'加载中$'), '')
+        .replaceFirst(RegExp(r'中$'), '')
+        .trim();
+    if (compact.isEmpty) {
+      return '加载中';
+    }
+    return '$compact加载中';
   }
 }
 
@@ -188,38 +197,23 @@ class _LoadingIndicatorTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.72, end: 1),
-      duration: const Duration(milliseconds: 900),
-      curve: Curves.easeInOutCubic,
-      builder: (context, scale, child) {
-        return Transform.scale(scale: scale, child: child);
-      },
-      child: Container(
-        width: 76,
-        height: 58,
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            color.withValues(alpha: 0.14),
-            colorScheme.surface,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.24)),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.18),
-              blurRadius: 22,
-              offset: const Offset(0, 10),
-            ),
-          ],
+    return Container(
+      width: 72,
+      height: 54,
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.10),
+          colorScheme.surface,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(15),
-          child: CircularProgressIndicator(
-            strokeWidth: 3,
-            color: color,
-            backgroundColor: color.withValues(alpha: 0.12),
-          ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: CircularProgressIndicator(
+          strokeWidth: 2.6,
+          color: color,
+          backgroundColor: color.withValues(alpha: 0.10),
         ),
       ),
     );
@@ -247,7 +241,7 @@ class AppConfirmDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final accentColor = isDanger ? colorScheme.error : colorScheme.primary;
-    final riskLabel = isDanger ? '高风险操作' : '确认操作';
+    final riskLabel = isDanger ? '高优先级操作' : '确认操作';
     final dialogSemanticLabel = '$title，$riskLabel，需手动确认';
     return Semantics(
       container: true,

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/categories/application/category_controller.dart';
 import 'package:personal_ledger/features/categories/data/category.dart';
 import 'package:personal_ledger/features/categories/data/category_repository.dart';
@@ -17,9 +16,11 @@ void main() {
 
       expect(find.text('分类'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
-      expect(find.text('支出 · 系统分类'), findsOneWidget);
+      expect(find.text('支出 · 默认分类'), findsOneWidget);
+      expect(find.text('支出 · 系统分类'), findsNothing);
       expect(find.text('交通'), findsOneWidget);
-      expect(find.text('支出 · 自定义分类'), findsOneWidget);
+      expect(find.text('支出 · 自建分类'), findsOneWidget);
+      expect(find.text('支出 · 自定义分类'), findsNothing);
       expect(
         find.byKey(const ValueKey('category-card-cat-food')),
         findsOneWidget,
@@ -42,11 +43,16 @@ void main() {
       );
     });
 
-    testWidgets('分类头部和卡片使用分段入场动效', (tester) async {
+    testWidgets('分类头部和卡片保持清晰层级', (tester) async {
       final repository = _FakeCategoryRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
+      expect(find.text('分类'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('category-card-cat-food')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('分类头部移除颜色系统和治理信号', (tester) async {
@@ -80,6 +86,13 @@ void main() {
       await tester.tap(find.byTooltip('新增分类'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('category-name')), '咖啡');
+      expect(
+        find.byKey(const ValueKey('category-visual-options')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('category-icon')), findsNothing);
+      await tester.tap(find.text('外观'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('category-icon')), '☕');
       await tester.tap(find.byKey(const ValueKey('category-save')));
       await tester.pumpAndSettle();
@@ -117,6 +130,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
+      expect(find.text('删除「交通」？'), findsOneWidget);
+      expect(find.text('相关交易将取消分类。'), findsNothing);
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 
@@ -144,7 +159,7 @@ void main() {
         ..expenseCategories = const [];
       await _pumpPage(tester, repository);
 
-      expect(find.text('暂无支出分类'), findsOneWidget);
+      expect(find.text('还没有支出分类'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
     });
 
@@ -155,12 +170,14 @@ void main() {
       await tester.tap(find.byTooltip('新增分类'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('category-name')), '咖啡');
+      await tester.tap(find.text('外观'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('category-icon')), '☕');
       await tester.tap(find.byKey(const ValueKey('category-save')));
       await tester.pumpAndSettle();
 
       expect(repository.createCalls, hasLength(1));
-      expect(find.textContaining('新增分类失败'), findsOneWidget);
+      expect(find.text('分类保存失败'), findsOneWidget);
       expect(find.text('保存成功'), findsNothing);
       expect(find.text('咖啡'), findsOneWidget);
       expect(find.text('餐饮'), findsOneWidget);
@@ -177,7 +194,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.updateCalls, hasLength(1));
-      expect(find.textContaining('编辑分类失败'), findsOneWidget);
+      expect(find.text('分类保存失败'), findsOneWidget);
       expect(find.text('保存成功'), findsNothing);
       expect(find.text('通勤'), findsOneWidget);
       expect(find.text('交通'), findsOneWidget);
@@ -195,7 +212,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.deleteCalls, ['cat-traffic']);
-      expect(find.textContaining('删除分类失败'), findsOneWidget);
+      expect(find.text('分类删除失败'), findsOneWidget);
       expect(find.text('删除成功'), findsNothing);
       expect(find.text('交通'), findsOneWidget);
     });

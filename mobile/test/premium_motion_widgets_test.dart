@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/app/widgets/pressable_scale.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 
 void main() {
   testWidgets('PremiumSurface renders child and handles tap', (tester) async {
@@ -135,17 +134,5 @@ void main() {
       ),
     );
     semantics.dispose();
-  });
-
-  testWidgets('StaggeredEntrance renders child after settling', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: StaggeredEntrance(index: 1, child: Text('入场内容'))),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.text('入场内容'), findsOneWidget);
   });
 }

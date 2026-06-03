@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/app_theme.dart';
@@ -30,13 +29,9 @@ class MainShellPage extends StatelessWidget {
           Expanded(child: navigationShell),
         ],
       ),
-      floatingActionButton: Semantics(
-        button: true,
-        label: '快速记一笔',
-        child: _QuickTransactionFab(
-          key: const ValueKey('main-shell-quick-transaction'),
-          onPressed: () => _openQuickTransaction(context),
-        ),
+      floatingActionButton: _QuickTransactionFab(
+        key: const ValueKey('main-shell-quick-transaction'),
+        onPressed: () => _openQuickTransaction(context),
       ),
       floatingActionButtonLocation: isWideLayout
           ? FloatingActionButtonLocation.endFloat
@@ -52,7 +47,6 @@ class MainShellPage extends StatelessWidget {
 
   /// 切换底部导航标签页。
   void _selectTab(int index) {
-    HapticFeedback.selectionClick();
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -60,7 +54,6 @@ class MainShellPage extends StatelessWidget {
   }
 
   void _openQuickTransaction(BuildContext context) {
-    HapticFeedback.lightImpact();
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet<void>(
       context: context,
@@ -94,35 +87,17 @@ class _QuickTransactionFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onPressed,
-        child: Ink(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: colorScheme.primary,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: colorScheme.onPrimary.withValues(alpha: 0.22),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.primary.withValues(alpha: 0.12),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.add_rounded,
-            color: colorScheme.onPrimary,
-            size: 28,
-          ),
-        ),
-      ),
+    return FloatingActionButton(
+      onPressed: onPressed,
+      tooltip: '记一笔',
+      elevation: 1,
+      focusElevation: 1,
+      hoverElevation: 1,
+      highlightElevation: 2,
+      backgroundColor: colorScheme.primary,
+      foregroundColor: colorScheme.onPrimary,
+      shape: const CircleBorder(),
+      child: const Icon(Icons.add_rounded, size: 30),
     );
   }
 }
@@ -173,21 +148,23 @@ class _PremiumBottomNavigation extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 64),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           decoration: BoxDecoration(
             color: Color.alphaBlend(
               colorScheme.primary.withValues(
                 alpha: Theme.of(context).brightness == Brightness.dark
-                    ? 0.08
-                    : 0.04,
+                    ? 0.06
+                    : 0.025,
               ),
               colorScheme.surface,
             ),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.48),
+            ),
           ),
           child: Row(
             children: [
@@ -200,7 +177,7 @@ class _PremiumBottomNavigation extends StatelessWidget {
                   ),
                 ),
                 if (entry.$1 != destinations.length - 1)
-                  const SizedBox(width: 3),
+                  const SizedBox(width: 2),
               ],
             ],
           ),
@@ -234,46 +211,30 @@ class _PremiumBottomNavigationItem extends StatelessWidget {
         type: MaterialType.transparency,
         child: InkWell(
           key: ValueKey('main-shell-tab-${destination.keyValue}'),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Container(
-            constraints: const BoxConstraints(minHeight: 50),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
               color: selected
                   ? Color.alphaBlend(
-                      activeColor.withValues(alpha: 0.10),
+                      activeColor.withValues(alpha: 0.075),
                       colorScheme.surface,
                     )
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: selected
-                    ? activeColor.withValues(alpha: 0.18)
-                    : Colors.transparent,
-              ),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: selected ? 18 : 5,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? activeColor
-                        : colorScheme.outlineVariant.withValues(alpha: 0.0),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                const SizedBox(height: 3),
                 Icon(
                   selected ? destination.selectedIcon : destination.icon,
                   color: foreground,
                   size: 21,
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
                   destination.label,
                   maxLines: 1,

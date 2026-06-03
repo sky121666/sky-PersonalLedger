@@ -53,7 +53,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
     return AuthFlowShell(
       icon: Icons.admin_panel_settings_outlined,
       title: '设置密码',
-      subtitle: '为账本开启保护。',
+      subtitle: '',
       primaryLabel: '账本保护',
       serverUrl: authState.serverUrl,
       accentColor: accentColor,
@@ -61,17 +61,17 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
         onPressed: isLoading
             ? null
             : ref.read(authControllerProvider.notifier).changeServer,
-        icon: const Icon(Icons.dns_outlined),
-        label: const Text('更换服务器'),
+        icon: const Icon(Icons.swap_horiz),
+        label: const Text('更换账本'),
       ),
       children: [
         TextField(
           controller: _passwordController,
           enabled: !isLoading,
           obscureText: _obscurePassword,
-          decoration: InputDecoration(
+          decoration: authFlowInputDecoration(
+            context,
             labelText: '密码',
-            border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.password_outlined),
             suffixIcon: IconButton(
               tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
@@ -90,9 +90,9 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
           controller: _confirmPasswordController,
           enabled: !isLoading,
           obscureText: _obscureConfirmPassword,
-          decoration: InputDecoration(
+          decoration: authFlowInputDecoration(
+            context,
             labelText: '确认密码',
-            border: const OutlineInputBorder(),
             errorText: errorText,
             prefixIcon: const Icon(Icons.verified_user_outlined),
             suffixIcon: IconButton(
@@ -111,15 +111,18 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
           onSubmitted: (_) => isLoading ? null : _submit(),
         ),
         const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: isLoading ? null : _submit,
-          icon: isLoading
-              ? const SizedBox.square(
-                  dimension: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.check_circle_outline),
-          label: const Text('完成设置'),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: isLoading ? null : _submit,
+            icon: isLoading
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check_circle_outline),
+            label: const Text('完成设置'),
+          ),
         ),
       ],
     );

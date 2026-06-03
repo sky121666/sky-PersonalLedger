@@ -67,8 +67,10 @@ void main() {
     expect(find.text('静谧墨绿'), findsNothing);
     expect(find.text('周报未启用'), findsNothing);
     expect(find.text('Key 不回显'), findsNothing);
-    await _scrollIntoTapArea(tester, find.text('报告来源'));
-    expect(find.text('报告来源'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('分析方式'));
+    expect(find.text('分析方式'), findsOneWidget);
+    expect(find.text('报告服务'), findsNothing);
+    expect(find.text('报告来源'), findsNothing);
     expect(
       find.byKey(const ValueKey('ai-production-readiness-panel')),
       findsNothing,
@@ -81,11 +83,12 @@ void main() {
     expect(find.text('AI 洞察质量层'), findsNothing);
     expect(find.text('重点'), findsNothing);
     expect(find.text('风险'), findsNothing);
+    expect(find.text('关注'), findsNothing);
     expect(find.text('建议 1 条'), findsNothing);
     expect(find.text('默认脱敏'), findsNothing);
     expect(find.text('手动生成'), findsNothing);
     expect(find.text('OpenAI API'), findsNothing);
-    await _scrollIntoTapArea(tester, find.text('报告来源'));
+    await _scrollIntoTapArea(tester, find.text('分析方式'));
     await _scrollIntoTapArea(
       tester,
       find.byKey(const ValueKey('ai-report-card-report-1')),
@@ -107,10 +110,12 @@ void main() {
     expect(find.text('3 条'), findsNothing);
     expect(find.text('重点 1'), findsNothing);
     expect(find.text('风险 1'), findsNothing);
+    expect(find.text('关注 1'), findsNothing);
     expect(find.text('建议 1'), findsNothing);
     expect(find.text('• 净现金流为正'), findsOneWidget);
     expect(find.text('• 预算偏高'), findsOneWidget);
     expect(find.text('• 继续记录'), findsOneWidget);
+    expect(find.text('关注'), findsOneWidget);
     expect(find.text('账户变化'), findsOneWidget);
     expect(find.text('账户1'), findsOneWidget);
     expect(find.text('+¥380.00'), findsOneWidget);
@@ -207,8 +212,8 @@ void main() {
     expect(find.text('AI 分析控制台'), findsNothing);
     expect(find.text('AI 模型编排'), findsNothing);
     expect(find.text('等待生成'), findsNothing);
-    await tester.scrollUntilVisible(find.text('暂无报告'), 300);
-    expect(find.text('暂无报告'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('还没有报告'), 300);
+    expect(find.text('还没有报告'), findsOneWidget);
     expect(find.text('生成报告'), findsWidgets);
   });
 
@@ -280,7 +285,7 @@ void main() {
     await tester.tap(find.byTooltip('生成财务报告'));
     await tester.pumpAndSettle();
     expect(find.text('生成报告'), findsAtLeastNWidgets(1));
-    expect(find.text('DeepSeek / deepseek-v4-flash'), findsOneWidget);
+    expect(find.text('DeepSeek'), findsAtLeastNWidgets(1));
 
     await tester.tap(find.byKey(const ValueKey('ai-report-generate-submit')));
     await tester.pumpAndSettle();
@@ -323,6 +328,8 @@ void main() {
     await _scrollIntoTapArea(tester, find.text('删除报告'));
     await tester.tap(find.text('删除报告'));
     await tester.pumpAndSettle();
+    expect(find.text('删除「每周总结」？'), findsOneWidget);
+    expect(find.text('报告将移除。'), findsNothing);
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 300));
@@ -360,7 +367,7 @@ void main() {
     expect(find.text('开始日期不能晚于结束日期'), findsOneWidget);
   });
 
-  testWidgets('AIReportsPage 可管理自动报告设置', (tester) async {
+  testWidgets('AIReportsPage 可管理定期报告设置', (tester) async {
     final repository = _FakeAIReportRepository();
     await tester.pumpWidget(
       ProviderScope(
@@ -370,25 +377,27 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('自动报告'), findsAtLeastNWidgets(1));
-    await _scrollIntoTapArea(tester, find.text('默认关闭'));
-    expect(find.text('默认关闭'), findsOneWidget);
-    expect(find.text('运行时间'), findsOneWidget);
-    expect(find.text('聚合快照'), findsOneWidget);
+    expect(find.text('定期报告'), findsAtLeastNWidgets(1));
+    expect(find.text('自动报告'), findsNothing);
+    await _scrollIntoTapArea(tester, find.text('未开启'));
+    expect(find.text('未开启'), findsOneWidget);
+    expect(find.text('生成时间'), findsOneWidget);
+    expect(find.text('运行时间'), findsNothing);
+    expect(find.text('报告类型'), findsOneWidget);
 
-    await _scrollIntoTapArea(tester, find.text('启用自动生成'));
+    await _scrollIntoTapArea(tester, find.text('启用定期生成'));
     final scheduleSwitchSemantics = tester.widget<Semantics>(
       find.byKey(const ValueKey('ai-schedule-enabled-semantics')),
     );
-    expect(scheduleSwitchSemantics.properties.label, '启用自动生成报告');
-    await tester.tap(find.text('启用自动生成'));
+    expect(scheduleSwitchSemantics.properties.label, '启用定期生成报告');
+    await tester.tap(find.text('启用定期生成'));
     await tester.pumpAndSettle();
 
     expect(repository.savedSchedule.enabled, isTrue);
-    expect(find.text('自动报告设置已保存'), findsOneWidget);
+    expect(find.text('定期报告设置已保存'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
-    await tester.scrollUntilVisible(find.text('立即触发应生成报告'), 300);
+    await tester.scrollUntilVisible(find.text('立即生成'), 300);
     await tester.drag(find.byType(ListView), const Offset(0, -160));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('ai-schedule-trigger')));
@@ -397,7 +406,7 @@ void main() {
     expect(repository.triggerCalls, 1);
   });
 
-  testWidgets('AIReportsPage 可配置和测试 Provider', (tester) async {
+  testWidgets('AIReportsPage 可配置和检查 Provider', (tester) async {
     final repository = _FakeAIReportRepository();
     await tester.pumpWidget(
       ProviderScope(
@@ -407,13 +416,31 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _scrollIntoTapArea(tester, find.text('报告来源'));
-    expect(find.text('报告来源'), findsOneWidget);
-    expect(find.text('暂无可用来源'), findsOneWidget);
+    await _scrollIntoTapArea(tester, find.text('分析方式'));
+    expect(find.text('分析方式'), findsAtLeastNWidgets(1));
+    expect(find.text('报告服务'), findsNothing);
+    expect(find.text('报告来源'), findsNothing);
+    expect(find.text('还没有方式'), findsOneWidget);
+    expect(find.text('暂无可用服务'), findsNothing);
+    expect(find.text('暂无可用来源'), findsNothing);
 
-    await _scrollIntoTapArea(tester, find.text('添加来源'));
-    await tester.tap(find.text('添加来源').last);
+    await _scrollIntoTapArea(tester, find.text('添加方式'));
+    await tester.tap(find.text('添加方式').last);
     await tester.pumpAndSettle();
+    expect(find.text('分析方式'), findsAtLeastNWidgets(1));
+    expect(find.text('服务模板'), findsNothing);
+    expect(find.text('预设'), findsNothing);
+    expect(find.text('分析能力'), findsOneWidget);
+    expect(find.text('使用模型'), findsNothing);
+    expect(find.text('模型'), findsNothing);
+    expect(find.text('连接地址'), findsNothing);
+    expect(find.text('服务地址'), findsOneWidget);
+    expect(find.text('Base URL'), findsNothing);
+    expect(find.text('密钥'), findsOneWidget);
+    expect(find.text('访问凭证'), findsNothing);
+    expect(find.text('访问密钥'), findsNothing);
+    expect(find.text('API Key'), findsNothing);
+    expect(find.text('保存方式'), findsOneWidget);
     await tester.enterText(
       find.byKey(const ValueKey('ai-provider-api-key')),
       'sk-mobile-test',
@@ -424,29 +451,21 @@ void main() {
     expect(repository.createdProviders, hasLength(1));
     expect(repository.createdProviders.single.name, 'DeepSeek');
     expect(repository.createdProviders.single.apiKey, 'sk-mobile-test');
-    expect(find.text('来源已保存'), findsOneWidget);
+    expect(find.text('方式已保存'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await _scrollIntoTapArea(
-      tester,
-      find.byKey(const ValueKey('ai-provider-test-provider-1')),
-    );
-    expect(find.byTooltip('测试来源 DeepSeek'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('ai-provider-test-provider-1')));
+    await _openProviderMenu(tester, 'DeepSeek');
+    await tester.tap(find.text('检查'));
     await tester.pumpAndSettle();
 
     expect(repository.testProviderIds, ['provider-1']);
-    expect(find.text('连接测试通过'), findsOneWidget);
+    expect(find.text('服务检查通过'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await _scrollIntoTapArea(
-      tester,
-      find.byKey(const ValueKey('ai-provider-edit-provider-1')),
-    );
-    expect(find.byTooltip('编辑来源 DeepSeek'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('ai-provider-edit-provider-1')));
+    await _openProviderMenu(tester, 'DeepSeek');
+    await tester.tap(find.text('编辑'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(2), 'deepseek-reasoner');
     await tester.tap(find.byKey(const ValueKey('ai-provider-save')));
@@ -455,20 +474,23 @@ void main() {
     expect(repository.updatedProviderIds, ['provider-1']);
     expect(repository.updatedProviders.single.apiKey, isEmpty);
     expect(repository.providers.single.model, 'deepseek-reasoner');
-    expect(find.text('来源已更新'), findsOneWidget);
+    expect(find.text('方式已更新'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await _scrollIntoTapArea(tester, find.byTooltip('删除来源 DeepSeek'));
-    expect(find.byTooltip('删除来源 DeepSeek'), findsOneWidget);
-    await tester.tap(find.byTooltip('删除来源 DeepSeek'));
+    await _openProviderMenu(tester, 'DeepSeek');
+    await tester.tap(find.text('删除'));
     await tester.pumpAndSettle();
+    expect(find.text('删除分析方式'), findsOneWidget);
+    expect(find.text('删除「DeepSeek」？'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(PremiumSurface), findsWidgets);
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();
 
     expect(repository.deletedProviderIds, ['provider-1']);
     expect(repository.providers, isEmpty);
-    expect(find.text('来源已删除'), findsOneWidget);
+    expect(find.text('方式已删除'), findsOneWidget);
   });
 
   test('空 AI Provider API Key 不会进入移动端请求 JSON', () {
@@ -490,7 +512,11 @@ Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
   if (!_isInTapArea(tester, target)) {
     final scrollable = find.byType(Scrollable);
     if (scrollable.evaluate().isNotEmpty) {
-      await tester.scrollUntilVisible(finder, 300, scrollable: scrollable.first);
+      await tester.scrollUntilVisible(
+        finder,
+        300,
+        scrollable: scrollable.first,
+      );
     }
     await tester.pumpAndSettle();
   }
@@ -511,6 +537,13 @@ Future<void> _tapReportTitle(WidgetTester tester, String reportId) async {
   final card = find.byKey(ValueKey('ai-report-card-$reportId'));
   final title = find.descendant(of: card, matching: find.text('每周总结'));
   await tester.tap(title);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openProviderMenu(WidgetTester tester, String providerName) async {
+  final menu = find.byTooltip('更多分析方式操作 $providerName');
+  await _scrollIntoTapArea(tester, menu);
+  await tester.tap(menu);
   await tester.pumpAndSettle();
 }
 

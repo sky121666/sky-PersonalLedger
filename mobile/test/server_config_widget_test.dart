@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/widgets/auth_flow_shell.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -20,9 +19,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.connectCalls, ['']);
-      expect(find.text('请输入服务器地址'), findsOneWidget);
-      expect(find.text('连接服务器'), findsOneWidget);
-      expect(find.text('连接你的账本服务。'), findsOneWidget);
+      expect(find.text('请输入账本地址'), findsOneWidget);
+      expect(find.text('连接账本'), findsOneWidget);
+      expect(find.text('连接服务器'), findsNothing);
+      expect(find.text('连接你的账本服务。'), findsNothing);
       expect(find.text('自托管入口'), findsNothing);
       expect(find.byType(AuthFlowShell), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
@@ -58,7 +58,7 @@ void main() {
       final connectButton = find.byKey(const ValueKey('server-connect-button'));
 
       await tester.enterText(
-        find.widgetWithText(TextField, '服务器地址'),
+        find.widgetWithText(TextField, '账本地址'),
         'ledger.example.com:8080',
       );
       await tester.pumpAndSettle();
@@ -74,7 +74,12 @@ void main() {
 
       expect(controller.connectCalls, ['ledger.example.com:8080']);
       expect(controller.debugState.stage, AuthStage.loginRequired);
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
+      expect(find.byType(AuthFlowShell), findsOneWidget);
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
+      expect(
+        find.byKey(const ValueKey('server-connect-button')),
+        findsOneWidget,
+      );
     });
   });
 }
@@ -136,7 +141,7 @@ class _TestAuthController extends AuthController {
     if (trimmed.isEmpty) {
       state = const AuthState(
         stage: AuthStage.serverRequired,
-        errorMessage: '请输入服务器地址',
+        errorMessage: '请输入账本地址',
       );
       return;
     }

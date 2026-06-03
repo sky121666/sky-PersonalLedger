@@ -140,10 +140,18 @@ void main() {
     expect(find.text('分类统计'), findsNothing);
     expect(find.text('成员A'), findsWidgets);
     expect(find.text('家人'), findsOneWidget);
-    expect(find.text('默认'), findsOneWidget);
+    expect(find.text('常用'), findsOneWidget);
     expect(find.text('成员B'), findsWidgets);
     expect(find.text('子女'), findsOneWidget);
     expect(find.text('停用'), findsOneWidget);
+    expect(find.text('家庭洞察'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('family-insights-surface')),
+      findsOneWidget,
+    );
+    expect(find.text('家庭预算'), findsNothing);
+    await tester.tap(find.text('家庭洞察'));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('家庭预算'), 260);
     await tester.pumpAndSettle();
     expect(find.text('家庭预算'), findsAtLeastNWidgets(1));
@@ -216,6 +224,12 @@ void main() {
 
     await tester.tap(find.byTooltip('添加成员'));
     await tester.pumpAndSettle();
+    final colorChoiceBox = tester.renderObject<RenderBox>(
+      find.byKey(const ValueKey('family-member-color-#2563EB')),
+    );
+    expect(colorChoiceBox.size.width, greaterThanOrEqualTo(44));
+    expect(colorChoiceBox.size.height, greaterThanOrEqualTo(44));
+
     await tester.enterText(
       find.byKey(const ValueKey('family-member-name')),
       '成员C',
@@ -224,7 +238,7 @@ void main() {
       find.byKey(const ValueKey('family-member-relationship')),
       '家人',
     );
-    await tester.tap(find.text('保存'));
+    await tester.tap(find.text('保存成员'));
     await tester.pumpAndSettle();
 
     expect(repository.createdRequests, hasLength(1));
@@ -237,7 +251,7 @@ void main() {
       find.byKey(const ValueKey('family-member-name')),
       '成员C改',
     );
-    await tester.tap(find.text('保存'));
+    await tester.tap(find.text('保存成员'));
     await tester.pumpAndSettle();
 
     expect(repository.updatedRequests, hasLength(1));
@@ -247,6 +261,9 @@ void main() {
 
     await tester.tap(find.byTooltip('停用成员 成员C改'));
     await tester.pumpAndSettle();
+    expect(find.text('停用「成员C改」？'), findsOneWidget);
+    expect(find.text('关联记录不变。'), findsNothing);
+    expect(find.text('历史归属保留。'), findsNothing);
     await tester.tap(find.widgetWithText(FilledButton, '停用'));
     await tester.pumpAndSettle();
 

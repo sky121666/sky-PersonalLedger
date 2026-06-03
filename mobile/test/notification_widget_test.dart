@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/notifications/presentation/notification_settings_page.dart';
 
@@ -33,7 +32,11 @@ void main() {
         findsNothing,
       );
       expect(find.text('通道路由矩阵'), findsNothing);
-      expect(find.text('Webhook'), findsAtLeastNWidgets(1));
+      expect(find.text('Webhook'), findsNothing);
+      expect(find.text('其他通道'), findsOneWidget);
+      expect(find.text('邮件服务器'), findsNothing);
+      expect(find.text('发送地址'), findsNothing);
+      expect(find.text('通知地址'), findsWidgets);
       expect(find.text('可发送'), findsNothing);
       expect(find.text('启用通知'), findsOneWidget);
       final notificationEnabledSemantics = tester.widget<Semantics>(
@@ -42,6 +45,13 @@ void main() {
       expect(notificationEnabledSemantics.properties.label, '启用通知');
       expect(find.text('企业微信'), findsWidgets);
       expect(find.text('推送'), findsNothing);
+      expect(find.text('提醒规则'), findsOneWidget);
+      expect(find.text('4 项开启 · 提前 3 天'), findsOneWidget);
+      expect(find.text('还款日提醒'), findsNothing);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-reminder-settings')),
+      );
+      await tester.pumpAndSettle();
       expect(find.text('还款日提醒'), findsOneWidget);
       final reminderSemantics = tester.widget<Semantics>(
         find.byKey(const ValueKey('notification-switch-semantics-还款日提醒')),
@@ -56,11 +66,17 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('notification-enabled')));
       await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('notification-reminder-settings')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('notification-budget-alert')));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       await tester.drag(find.byType(ListView), const Offset(0, -900));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存'));
+      await tester.tap(find.text('保存设置'));
       await tester.pumpAndSettle();
 
       expect(repository.updateCalls, hasLength(1));
@@ -69,7 +85,7 @@ void main() {
       expect(repository.updateCalls.single.advanceDays, 3);
     });
 
-    testWidgets('发送企业微信测试消息时使用当前 Webhook', (tester) async {
+    testWidgets('试发企业微信时使用当前通知地址', (tester) async {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
@@ -79,13 +95,14 @@ void main() {
       );
       await tester.drag(find.byType(ListView), const Offset(0, -400));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('测试发送'));
+      await tester.tap(find.text('试发'));
       await tester.pumpAndSettle();
 
       expect(repository.wecomTestCalls, [
         'https://qyapi.example.com/send?key=test',
       ]);
-      expect(find.text('测试成功'), findsOneWidget);
+      expect(find.text('试发成功'), findsOneWidget);
+      expect(find.text('发送检查通过'), findsNothing);
     });
 
     testWidgets('设置加载失败时展示错误并可重试', (tester) async {
@@ -109,14 +126,14 @@ void main() {
 
       await tester.drag(find.byType(ListView), const Offset(0, -900));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存'));
+      await tester.tap(find.text('保存设置'));
       await tester.pumpAndSettle();
 
       expect(repository.updateCalls, hasLength(1));
       expect(find.textContaining('保存失败'), findsOneWidget);
     });
 
-    testWidgets('企业微信测试失败时展示错误信息', (tester) async {
+    testWidgets('企业微信试发失败时展示错误信息', (tester) async {
       final repository = _FakeNotificationRepository()
         ..wecomTestResult = const TestNotificationResult(
           success: false,
@@ -130,16 +147,17 @@ void main() {
       );
       await tester.drag(find.byType(ListView), const Offset(0, -400));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('测试发送'));
+      await tester.tap(find.text('试发'));
       await tester.pumpAndSettle();
 
       expect(repository.wecomTestCalls, [
         'https://qyapi.example.com/send?key=broken',
       ]);
-      expect(find.textContaining('Webhook 不可用'), findsOneWidget);
+      expect(find.textContaining('其他通道 不可用'), findsOneWidget);
+      expect(find.textContaining('Webhook 不可用'), findsNothing);
     });
 
-    testWidgets('企业微信测试缺少 Webhook 时使用本地校验', (tester) async {
+    testWidgets('企业微信试发缺少地址时使用本地校验', (tester) async {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
@@ -149,25 +167,41 @@ void main() {
       );
       await tester.drag(find.byType(ListView), const Offset(0, -400));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('测试发送'));
+      await tester.tap(find.text('试发'));
       await tester.pumpAndSettle();
 
       expect(repository.wecomTestCalls, isEmpty);
-      expect(find.text('请填写企业微信 Webhook 地址'), findsOneWidget);
+      expect(find.text('请填写企业微信地址'), findsOneWidget);
     });
 
     testWidgets('通知通道密钥输入框默认遮罩显示', (tester) async {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('钉钉'));
+      await tester.tap(find.text('钉钉').last);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('notification-switch-semantics-启用钉钉')),
+          matching: find.byType(Switch),
+        ),
+      );
       await tester.pumpAndSettle();
       final dingtalkSecret = tester.widget<TextField>(
         find.byKey(const ValueKey('notification-dingtalk-secret')),
       );
       expect(dingtalkSecret.obscureText, isTrue);
 
-      await tester.tap(find.text('Webhook').last);
+      await tester.tap(find.text('其他通道').last);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('notification-switch-semantics-启用其他通道'),
+          ),
+          matching: find.byType(Switch),
+        ),
+      );
       await tester.pumpAndSettle();
       final webhookSecret = tester.widget<TextField>(
         find.byKey(const ValueKey('notification-webhook-secret')),
@@ -179,17 +213,43 @@ void main() {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('邮箱'));
+      await tester.tap(find.text('邮箱').last);
       await tester.pumpAndSettle();
 
       expect(find.text('启用邮箱'), findsOneWidget);
-      expect(find.text('SMTP 服务器'), findsOneWidget);
+      expect(find.text('邮件服务器'), findsNothing);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('notification-switch-semantics-启用邮箱')),
+          matching: find.byType(Switch),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('邮箱地址'), findsOneWidget);
+      expect(find.text('邮箱服务'), findsNothing);
+      expect(find.text('连接端口'), findsNothing);
+      expect(find.text('端口'), findsOneWidget);
+      expect(find.text('邮箱密码'), findsOneWidget);
+      expect(find.text('邮件服务器'), findsNothing);
 
-      await tester.tap(find.text('Webhook').last);
+      await tester.tap(find.text('其他通道').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('启用 Webhook'), findsOneWidget);
-      expect(find.text('Webhook URL'), findsOneWidget);
+      expect(find.text('启用其他通道'), findsOneWidget);
+      expect(find.text('发送地址'), findsNothing);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('notification-switch-semantics-启用其他通道'),
+          ),
+          matching: find.byType(Switch),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('发送地址'), findsNothing);
+      expect(find.text('通知地址'), findsOneWidget);
+      expect(find.text('密钥'), findsOneWidget);
+      expect(find.text('安全密钥'), findsNothing);
     });
 
     testWidgets('通知设置页跟随主题色模板', (tester) async {
@@ -208,12 +268,26 @@ void main() {
       );
     });
 
-    testWidgets('通知设置页使用高级表面和分段入场动效', (tester) async {
+    testWidgets('通知设置页使用高级表面和清晰操作层级', (tester) async {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository, physicalSize: const Size(1200, 2600));
 
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(5));
+      expect(find.text('启用通知'), findsOneWidget);
+      expect(find.text('企业微信'), findsOneWidget);
+      expect(find.text('提醒规则'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('notification-budget-alert')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('notification-reminder-settings')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('notification-budget-alert')),
+        findsOneWidget,
+      );
     });
 
     test('空通知密钥不会进入更新请求 JSON', () {

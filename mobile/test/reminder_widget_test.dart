@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
@@ -56,11 +55,16 @@ void main() {
       expect(find.text('凭证状态'), findsNothing);
     });
 
-    testWidgets('上岸进度和提醒卡片使用分段入场动效', (tester) async {
+    testWidgets('上岸进度和提醒卡片保持清晰层级', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(2));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
+      expect(find.text('负债'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('reminder-card-reminder-1')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('负债页面不展示额外状态概览网格', (tester) async {
@@ -77,7 +81,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('暂停提醒'));
       await tester.pumpAndSettle();
@@ -89,10 +93,17 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('记录还款'));
       await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(SingleChildScrollView),
+        ),
+        findsOneWidget,
+      );
       await tester.enterText(find.byType(TextFormField).first, '1200');
       await tester.tap(find.widgetWithText(FilledButton, '确认还款'));
       await tester.pumpAndSettle();
@@ -107,7 +118,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('记录还款'));
       await tester.pumpAndSettle();
@@ -129,7 +140,7 @@ void main() {
       await tester.enterText(find.byType(TextFormField).at(0), '花呗');
       await tester.enterText(find.byType(TextFormField).at(1), '15');
       await tester.enterText(find.byType(TextFormField).at(3), '3000');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
       await tester.pumpAndSettle();
 
       expect(repository.createCalls, hasLength(1));
@@ -143,12 +154,12 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).first, '房贷调整');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
       await tester.pumpAndSettle();
 
       expect(repository.updateCalls, hasLength(1));
@@ -160,11 +171,11 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
       await tester.pumpAndSettle();
 
       expect(repository.updateCalls, hasLength(1));
@@ -183,7 +194,7 @@ void main() {
         attachmentRepository: attachmentRepository,
       );
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
@@ -195,7 +206,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(removeButton);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
       await tester.pumpAndSettle();
 
       expect(repository.updateCalls, hasLength(1));
@@ -222,7 +233,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
@@ -233,7 +244,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('选择文件'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
       await tester.pumpAndSettle();
 
       expect(attachmentRepository.uploadCalls, hasLength(1));
@@ -250,12 +261,15 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('账本交易会保留'), findsOneWidget);
+      expect(find.text('删除「房贷」？'), findsOneWidget);
+      expect(find.text('关联交易不变。'), findsNothing);
+      expect(find.textContaining('账本交易会保留'), findsNothing);
+      expect(find.text('提醒记录将移除。'), findsNothing);
 
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
@@ -283,7 +297,7 @@ void main() {
         ..summary = const DebtSummary.empty();
       await _pumpPage(tester, repository);
 
-      expect(find.text('暂无负债提醒'), findsOneWidget);
+      expect(find.text('还没有负债提醒'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });
@@ -303,13 +317,13 @@ void main() {
       final repository = _FakeReminderRepository()..toggleError = '暂停失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('暂停提醒'));
       await tester.pumpAndSettle();
 
       expect(repository.toggleCalls, ['reminder-1']);
-      expect(find.textContaining('暂停失败'), findsOneWidget);
+      expect(find.text('负债提醒保存失败'), findsOneWidget);
       expect(find.text('提醒已暂停'), findsNothing);
       expect(find.text('进行中'), findsWidgets);
       expect(find.text('房贷'), findsAtLeastNWidgets(1));
@@ -319,7 +333,7 @@ void main() {
       final repository = _FakeReminderRepository()..paymentError = '还款失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多操作 房贷'));
+      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('记录还款'));
       await tester.pumpAndSettle();
@@ -328,7 +342,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.paymentCalls, hasLength(1));
-      expect(find.textContaining('还款失败'), findsOneWidget);
+      expect(find.text('负债提醒保存失败'), findsOneWidget);
       expect(find.text('还款已记录'), findsNothing);
       expect(find.text('待还'), findsAtLeastNWidgets(1));
       expect(find.text('¥80000.00'), findsAtLeastNWidgets(1));

@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
@@ -25,8 +24,8 @@ void main() {
       expect(find.text('¥1,200.00'), findsAtLeastNWidgets(1));
       expect(find.text('结清率'), findsNothing);
       expect(find.text('张三'), findsOneWidget);
-      expect(find.textContaining('剩余'), findsOneWidget);
-      expect(find.text('剩余 ¥800.00'), findsOneWidget);
+      expect(find.textContaining('剩余'), findsNothing);
+      expect(find.text('¥800.00'), findsOneWidget);
       expect(find.byKey(const ValueKey('lending-card-lend-1')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('lending-progress-lend-1')),
@@ -35,8 +34,13 @@ void main() {
       expect(find.textContaining('凭证'), findsNothing);
       expect(find.text('待补凭证'), findsNothing);
       expect(find.textContaining('本金'), findsNothing);
-      expect(find.textContaining('已还'), findsAtLeastNWidgets(1));
-      expect(find.text('20%'), findsOneWidget);
+      expect(find.textContaining('已收'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('已收 ¥200.00'), findsOneWidget);
+      expect(find.text('20%'), findsNothing);
+      expect(find.textContaining('朋友周转'), findsNothing);
+      final expandRemark = find.text('展开备注');
+      await tester.tap(expandRemark);
+      await tester.pumpAndSettle();
       expect(find.textContaining('朋友周转'), findsOneWidget);
 
       expect(
@@ -55,11 +59,15 @@ void main() {
       expect(find.text('回款动线'), findsNothing);
     });
 
-    testWidgets('借贷总览和借贷卡片使用分段入场动效', (tester) async {
+    testWidgets('借贷总览和借贷卡片保持清晰层级', (tester) async {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
+      expect(find.text('应收'), findsAtLeastNWidgets(1));
+      expect(find.text('借出'), findsOneWidget);
+      expect(find.text('借入'), findsOneWidget);
+      expect(find.byKey(const ValueKey('lending-card-lend-1')), findsOneWidget);
     });
 
     testWidgets('新增借出记录时提交联系人和本金', (tester) async {
@@ -70,6 +78,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('lending-add-lend-out')));
       await tester.pumpAndSettle();
+      expect(find.text('同时调整账户余额'), findsOneWidget);
+      expect(find.text('同步更新账户余额'), findsNothing);
       await tester.enterText(
         find.byKey(const ValueKey('lending-contact-name')),
         '王五',
@@ -78,7 +88,7 @@ void main() {
         find.byKey(const ValueKey('lending-principal')),
         '500',
       );
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
       await tester.pumpAndSettle();
 
       expect(lendingRepository.createCalls, hasLength(1));
@@ -91,8 +101,11 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('记录还款 张三'));
+      await _openLendingMoreMenu(tester, '张三');
+      await tester.tap(find.text('记录还款'));
       await tester.pumpAndSettle();
+      expect(find.text('同时调整账户余额'), findsOneWidget);
+      expect(find.text('同步更新账户余额'), findsNothing);
       await tester.enterText(
         find.byKey(const ValueKey('lending-repayment-amount')),
         '300',
@@ -115,8 +128,7 @@ void main() {
 
       expect(lendingRepository.recordCalls, ['lend-1']);
       expect(find.text('还款记录'), findsOneWidget);
-      expect(find.text('首次还款'), findsOneWidget);
-      expect(find.text('现金'), findsOneWidget);
+      expect(find.textContaining('现金'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(AlertDialog),
@@ -133,7 +145,7 @@ void main() {
       await _openLendingMoreMenu(tester, '张三');
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
       await tester.pumpAndSettle();
 
       expect(lendingRepository.updateCalls, hasLength(1));
@@ -163,7 +175,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(removeButton);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
       await tester.pumpAndSettle();
 
       expect(lendingRepository.updateCalls, hasLength(1));
@@ -200,7 +212,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('选择文件'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
       await tester.pumpAndSettle();
 
       expect(attachmentRepository.uploadCalls, hasLength(1));
@@ -221,7 +233,10 @@ void main() {
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('账本交易会保留'), findsOneWidget);
+      expect(find.text('删除「张三」？'), findsOneWidget);
+      expect(find.text('关联交易不变。'), findsNothing);
+      expect(find.textContaining('账本交易会保留'), findsNothing);
+      expect(find.text('借贷记录将移除。'), findsNothing);
 
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
@@ -234,7 +249,7 @@ void main() {
       await _pumpPage(tester, lendingRepository);
 
       expect(find.text('出错了'), findsOneWidget);
-      expect(find.textContaining('借贷列表加载失败'), findsOneWidget);
+      expect(find.text('借贷记录加载失败'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
@@ -249,7 +264,7 @@ void main() {
         ..summary = const LendingSummary.empty();
       await _pumpPage(tester, lendingRepository);
 
-      expect(find.text('暂无借出记录'), findsOneWidget);
+      expect(find.text('还没有借出记录'), findsOneWidget);
       expect(find.text('可以先从上方按钮新增一笔借贷往来。'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });
@@ -273,7 +288,7 @@ void main() {
       expect(overviewSurface.accentColor, AppThemePalette.graphite.incomeColor);
       expect(find.text('应收'), findsOneWidget);
       expect(find.text('应付'), findsOneWidget);
-      expect(find.text('借出 1 笔 · 借入 1 笔 · 已结清 0 笔'), findsOneWidget);
+      expect(find.text('借出 1 笔 · 借入 1 笔 · 已结清 0 笔'), findsNothing);
     });
 
     testWidgets('新增借出失败时展示错误且保留列表', (tester) async {
@@ -293,11 +308,11 @@ void main() {
         find.byKey(const ValueKey('lending-principal')),
         '500',
       );
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
       await tester.pumpAndSettle();
 
       expect(lendingRepository.createCalls, hasLength(1));
-      expect(find.textContaining('新增借出失败'), findsOneWidget);
+      expect(find.text('借贷记录保存失败'), findsOneWidget);
       expect(find.text('借出记录已创建'), findsNothing);
       expect(find.text('张三'), findsOneWidget);
     });
@@ -307,7 +322,8 @@ void main() {
         ..repaymentError = '还款失败';
       await _pumpPage(tester, lendingRepository);
 
-      await tester.tap(find.byTooltip('记录还款 张三'));
+      await _openLendingMoreMenu(tester, '张三');
+      await tester.tap(find.text('记录还款'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('lending-repayment-amount')),
@@ -317,15 +333,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(lendingRepository.repaymentCalls, hasLength(1));
-      expect(find.textContaining('还款失败'), findsOneWidget);
+      expect(find.text('借贷记录保存失败'), findsOneWidget);
       expect(find.text('还款已记录'), findsNothing);
-      expect(find.textContaining('剩余'), findsOneWidget);
-      expect(find.text('剩余 ¥800.00'), findsOneWidget);
+      expect(find.textContaining('剩余'), findsNothing);
+      expect(find.text('¥800.00'), findsOneWidget);
     });
   });
 }
 
-Future<void> _openLendingMoreMenu(WidgetTester tester, String contactName) async {
+Future<void> _openLendingMoreMenu(
+  WidgetTester tester,
+  String contactName,
+) async {
   await tester.tap(find.byTooltip('更多借贷操作 $contactName'));
   await tester.pumpAndSettle();
 }

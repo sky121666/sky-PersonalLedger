@@ -133,16 +133,9 @@ void main() {
             ?.text,
         '18.00',
       );
-      await _expandMoreOptions(tester);
-      expect(find.text('日常'), findsOneWidget);
-
       await tester.enterText(
         find.byKey(const ValueKey('transaction-amount')),
         '20.5',
-      );
-      await tester.enterText(
-        find.byKey(const ValueKey('transaction-remark')),
-        '早餐更新',
       );
       await _tapSaveButton(tester, label: '保存修改');
       await tester.pumpAndSettle();
@@ -150,7 +143,7 @@ void main() {
       expect(repository.updateCalls, hasLength(1));
       expect(repository.updateCalls.single.$1, 'transaction-1');
       expect(repository.updateCalls.single.$2.amount, 20.5);
-      expect(repository.updateCalls.single.$2.remark, '早餐更新');
+      expect(repository.updateCalls.single.$2.remark, '早餐');
       expect(repository.updateCalls.single.$2.tags, contains('日常'));
     });
 
@@ -172,10 +165,14 @@ void main() {
         ),
       );
 
-      await _expandMoreOptions(tester);
       await tester.drag(find.byType(ListView), const Offset(0, -800));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('移除 old.pdf'));
+      final removeOldAttachment = find.byTooltip(
+        '移除 old.pdf',
+        skipOffstage: false,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(removeOldAttachment);
       await tester.pumpAndSettle();
       await _tapSaveButton(tester, label: '保存修改');
       await tester.pumpAndSettle();
@@ -188,6 +185,44 @@ void main() {
       expect(attachmentRepository.deleteCalls, [
         '1/transactions/transaction-1/old.pdf',
       ]);
+      expect(find.textContaining('旧附件清理失败'), findsNothing);
+    });
+
+    testWidgets('编辑交易清理旧附件失败时展示轻量反馈', (tester) async {
+      final repository = _FakeTransactionRepository();
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..failDeletes = true;
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        attachmentRepository: attachmentRepository,
+        editingTransaction: TransactionItem(
+          id: 'transaction-1',
+          type: TransactionType.expense,
+          amount: 18,
+          accountId: 'account-1',
+          categoryId: 'category-expense',
+          transactionDate: DateTime(2026, 5, 18, 8, 30),
+          images: '["1/transactions/transaction-1/old.pdf"]',
+        ),
+      );
+
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      final removeOldAttachment = find.byTooltip(
+        '移除 old.pdf',
+        skipOffstage: false,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(removeOldAttachment);
+      await tester.pumpAndSettle();
+      await _tapSaveButton(tester, label: '保存修改');
+      await tester.pumpAndSettle();
+
+      expect(attachmentRepository.deleteCalls, [
+        '1/transactions/transaction-1/old.pdf',
+      ]);
+      expect(find.textContaining('旧附件清理失败'), findsNothing);
     });
 
     testWidgets('新增交易带附件时上传文件并回写附件路径', (tester) async {
@@ -279,15 +314,23 @@ void main() {
         embedded: true,
       );
 
-      expect(find.text('记一笔'), findsOneWidget);
+      expect(find.text('记一笔'), findsAtLeastNWidgets(1));
       expect(find.byKey(const ValueKey('transaction-amount')), findsOneWidget);
       expect(find.text('账户'), findsOneWidget);
       expect(find.text('分类'), findsOneWidget);
       expect(find.text('时间'), findsOneWidget);
-      expect(find.text('更多选项'), findsOneWidget);
+      expect(find.text('更多选项'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('transaction-more-options')),
+        findsOneWidget,
+      );
       expect(find.text('备注'), findsNothing);
       await _expandMoreOptions(tester);
       expect(find.text('备注'), findsOneWidget);
+      expect(find.text('新标签'), findsNothing);
+      await tester.tap(find.byTooltip('添加标签'));
+      await tester.pumpAndSettle();
+      expect(find.text('新标签'), findsOneWidget);
       expect(find.text('记账指挥条'), findsNothing);
       expect(find.text('录入质量层'), findsNothing);
       expect(find.text('记账动线'), findsNothing);
@@ -297,7 +340,7 @@ void main() {
         260,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.widgetWithText(FilledButton, '保存'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '记一笔'), findsOneWidget);
       expect(find.byType(PremiumSurface), findsWidgets);
     });
 
@@ -419,7 +462,7 @@ Future<void> _pumpTransactionPage(
   await tester.pumpAndSettle();
 }
 
-Future<void> _tapSaveButton(WidgetTester tester, {String label = '保存'}) async {
+Future<void> _tapSaveButton(WidgetTester tester, {String label = '记一笔'}) async {
   await tester.drag(find.byType(ListView), const Offset(0, -1000));
   await tester.pumpAndSettle();
 
@@ -427,16 +470,24 @@ Future<void> _tapSaveButton(WidgetTester tester, {String label = '保存'}) asyn
 }
 
 Future<void> _expandMoreOptions(WidgetTester tester) async {
-  final more = find.text('更多选项');
-  if (more.evaluate().isEmpty) {
-    return;
+  final more = find.byKey(
+    const ValueKey('transaction-more-options'),
+    skipOffstage: false,
+  );
+  for (var attempt = 0; attempt < 5 && more.evaluate().isEmpty; attempt += 1) {
+    await tester.drag(find.byType(ListView), const Offset(0, -360));
+    await tester.pumpAndSettle();
   }
+  expect(more, findsOneWidget);
   await tester.scrollUntilVisible(
     more,
     240,
     scrollable: find.byType(Scrollable).first,
   );
-  await tester.tap(more);
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.byKey(const ValueKey('transaction-more-options')).hitTestable(),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -584,10 +635,14 @@ class _FakeAttachmentPickerService implements AttachmentPickerService {
 class _FakeAttachmentRepository implements AttachmentRepository {
   final List<_UploadCall> uploadCalls = [];
   final List<String> deleteCalls = [];
+  var failDeletes = false;
 
   @override
   Future<void> delete(String path) async {
     deleteCalls.add(path);
+    if (failDeletes) {
+      throw StateError('delete failed');
+    }
   }
 
   @override

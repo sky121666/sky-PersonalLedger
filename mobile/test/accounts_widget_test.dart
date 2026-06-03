@@ -5,7 +5,6 @@ import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
 import 'package:personal_ledger/features/accounts/data/account.dart';
 import 'package:personal_ledger/features/accounts/data/account_repository.dart';
@@ -71,12 +70,20 @@ void main() {
         find.byKey(const ValueKey('account-balance-bank-card')),
         findsOneWidget,
       );
-      expect(find.text('当前余额'), findsAtLeastNWidgets(1));
-      expect(find.text('剩余负债'), findsOneWidget);
+      expect(find.text('当前余额'), findsNothing);
+      expect(find.text('剩余负债'), findsNothing);
       expect(find.text('资产类'), findsNothing);
       expect(find.text('负债类'), findsNothing);
       expect(find.text('正常'), findsNothing);
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(
+        find.byKey(const ValueKey('account-card-bank-card')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('account-card-mortgage')),
+        findsOneWidget,
+      );
+      expect(find.text('正常账户'), findsOneWidget);
 
       expect(
         find.byKey(const ValueKey('account-portfolio-control-strip')),
@@ -115,12 +122,22 @@ void main() {
       expect(find.text('创建可用于记账和资产统计的账户'), findsNothing);
       expect(find.text('基础信息'), findsOneWidget);
       expect(find.text('视觉标识'), findsNothing);
-      expect(find.text('高级外观'), findsOneWidget);
+      expect(find.text('样式'), findsOneWidget);
       expect(find.text('卡片'), findsNothing);
-      await tester.tap(find.text('高级外观'));
+      await tester.tap(find.text('样式'));
       await tester.pumpAndSettle();
       expect(find.text('外观'), findsOneWidget);
       expect(find.text('卡片'), findsOneWidget);
+      final colorChoiceSize = tester.getSize(
+        find
+            .ancestor(
+              of: find.byIcon(Icons.check),
+              matching: find.byType(SizedBox),
+            )
+            .first,
+      );
+      expect(colorChoiceSize.width, greaterThanOrEqualTo(44));
+      expect(colorChoiceSize.height, greaterThanOrEqualTo(44));
       expect(find.byType(IconBadge), findsWidgets);
       expect(find.byType(PremiumSurface), findsWidgets);
     });
@@ -140,6 +157,8 @@ void main() {
         find.byKey(const ValueKey('account-initial-balance')),
         '500000',
       );
+      await tester.tap(find.text('债务选项'));
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('account-payment-day')),
         '20',
@@ -232,6 +251,27 @@ void main() {
         ['mortgage', 'bank-card', 'apple-pay'],
       ]);
       expect(find.text('账户排序已更新'), findsOneWidget);
+    });
+
+    testWidgets('删除账户前展示精简确认', (tester) async {
+      final repository = _FakeAccountRepository();
+      await _pumpPage(tester, repository);
+
+      final walletMenu = find.byTooltip('更多账户操作 手机钱包');
+      await tester.ensureVisible(walletMenu);
+      await tester.pumpAndSettle();
+      await tester.tap(walletMenu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('删除「手机钱包」？'), findsOneWidget);
+      expect(find.text('请先归档后再删除。'), findsNothing);
+      expect(find.text('有余额或交易时请先归档。'), findsNothing);
+      await tester.tap(find.widgetWithText(FilledButton, '删除'));
+      await tester.pumpAndSettle();
+
+      expect(repository.deleteCalls, ['apple-pay']);
     });
   });
 }

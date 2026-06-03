@@ -8,7 +8,6 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../data/ai_report_repository.dart';
 
 class AIReportsPage extends ConsumerStatefulWidget {
@@ -51,7 +50,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
         child: state.when(
           loading: () => const AppLoadingView(message: '正在加载报告'),
           error: (error, stackTrace) => AppErrorView(
-            message: '报告加载失败：$error',
+            message: '报告加载失败',
             onRetry: () => ref.invalidate(aiReportsProvider),
           ),
           data: (reports) {
@@ -74,53 +73,74 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
               onChanged: _saveSchedule,
               onTrigger: _triggerSchedule,
             );
+            final utilityBar = _AIReportsUtilityBar(
+              providerState: providerState,
+              scheduleState: scheduleState,
+              onProviders: () => _showSettingsSheet(providerSurface),
+              onSchedule: () => _showSettingsSheet(scheduleSurface),
+            );
             if (visibleReports.isEmpty) {
-              return ListView(
-                children: [
-                  providerSurface,
-                  const SizedBox(height: 12),
-                  scheduleSurface,
-                  const SizedBox(height: 12),
-                  _AIReportsEmptyState(
-                    generating: _generating,
-                    onGenerate: _generating ? null : _showGenerateReportSheet,
-                  ),
-                ],
+              final rows = [
+                providerSurface,
+                const SizedBox(height: 12),
+                scheduleSurface,
+                const SizedBox(height: 12),
+                _AIReportsEmptyState(
+                  generating: _generating,
+                  onGenerate: _generating ? null : _showGenerateReportSheet,
+                ),
+              ];
+              return ListView.builder(
+                itemCount: rows.length,
+                itemBuilder: (context, index) => rows[index],
               );
             }
             return ListView.separated(
-              itemCount: visibleReports.length + (_generating ? 1 : 0) + 2,
+              itemCount: visibleReports.length + (_generating ? 1 : 0) + 1,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return providerSurface;
+                  return utilityBar;
                 }
-                if (index == 1) {
-                  return scheduleSurface;
-                }
-                if (_generating && index == 2) {
+                if (_generating && index == 1) {
                   return const _AIReportGeneratingSurface();
                 }
-                final reportIndex = index - 2 - (_generating ? 1 : 0);
+                final reportIndex = index - 1 - (_generating ? 1 : 0);
                 final report = visibleReports[reportIndex];
-                return StaggeredEntrance(
-                  index: index,
-                  child: _AIReportCard(
-                    report: report,
-                    title: _reportTitle(report.reportType),
-                    statusText: _statusText(report.status),
-                    period:
-                        '${_formatDate(report.periodStart)} - ${_formatDate(report.periodEnd)}',
-                    deleting: _deletingReportId == report.id,
-                    onDelete: () => _deleteReport(report),
-                    onRegenerate: report.status == 'failed'
-                        ? _showGenerateReportSheet
-                        : null,
-                  ),
+                return _AIReportCard(
+                  report: report,
+                  title: _reportTitle(report.reportType),
+                  statusText: _statusText(report.status),
+                  period:
+                      '${_formatDate(report.periodStart)} - ${_formatDate(report.periodEnd)}',
+                  deleting: _deletingReportId == report.id,
+                  onDelete: () => _deleteReport(report),
+                  onRegenerate: report.status == 'failed'
+                      ? _showGenerateReportSheet
+                      : null,
                 );
               },
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showSettingsSheet(Widget content) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            MediaQuery.viewInsetsOf(context).bottom + 16,
+          ),
+          child: SingleChildScrollView(child: content),
         ),
       ),
     );
@@ -167,37 +187,27 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       ref.invalidate(aiProviderSetupProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(provider == null ? '来源已保存' : '来源已更新')),
+          SnackBar(content: Text(provider == null ? '方式已保存' : '方式已更新')),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('保存来源失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('保存方式失败')));
       }
     }
   }
 
   Future<void> _deleteProvider(AIProviderSummary provider) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除来源'),
-        content: Text('删除「${provider.name}」？已生成报告不会删除。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton.tonal(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+      title: '删除分析方式',
+      message: '删除「${provider.name}」？',
+      confirmText: '删除',
+      isDanger: true,
     );
-    if (confirmed != true) {
+    if (!confirmed) {
       return;
     }
     try {
@@ -206,13 +216,13 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('来源已删除')));
+        ).showSnackBar(const SnackBar(content: Text('方式已删除')));
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('删除来源失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('删除方式失败')));
       }
     }
   }
@@ -224,13 +234,13 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('连接测试通过')));
+        ).showSnackBar(const SnackBar(content: Text('服务检查通过')));
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('连接测试失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('服务检查失败')));
       }
     } finally {
       if (mounted) {
@@ -247,7 +257,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('报告来源加载失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('分析方式加载失败')));
       }
       return;
     }
@@ -290,7 +300,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('报告生成失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('报告生成失败')));
       }
     } finally {
       if (mounted) {
@@ -303,7 +313,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除报告',
-      message: '删除后不会影响账本数据。',
+      message: '删除「${_reportTitle(report.reportType)}」？',
       confirmText: '删除',
       isDanger: true,
     );
@@ -325,7 +335,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('删除报告失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('删除报告失败')));
       }
     } finally {
       if (mounted) {
@@ -344,13 +354,13 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('自动报告设置已保存')));
+        ).showSnackBar(const SnackBar(content: Text('定期报告设置已保存')));
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('保存自动报告失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('保存定期报告失败')));
       }
     } finally {
       if (mounted) {
@@ -375,7 +385,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(succeeded > 0 ? '已生成 $succeeded 份自动报告' : '自动报告检查完成'),
+            content: Text(succeeded > 0 ? '已生成 $succeeded 份定期报告' : '定期报告检查完成'),
           ),
         );
       }
@@ -383,7 +393,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('触发自动报告失败：$error')));
+        ).showSnackBar(const SnackBar(content: Text('生成定期报告失败')));
       }
     } finally {
       if (mounted) {
@@ -425,6 +435,131 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
   }
 }
 
+class _AIReportsUtilityBar extends StatelessWidget {
+  const _AIReportsUtilityBar({
+    required this.providerState,
+    required this.scheduleState,
+    required this.onProviders,
+    required this.onSchedule,
+  });
+
+  final AsyncValue<AIProviderSetupData> providerState;
+  final AsyncValue<AIReportScheduleSettings> scheduleState;
+  final VoidCallback onProviders;
+  final VoidCallback onSchedule;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final providerLabel = providerState.maybeWhen(
+      data: (setup) {
+        final enabledCount = setup.providers
+            .where((item) => item.enabled)
+            .length;
+        if (setup.providers.isEmpty) {
+          return '未配置';
+        }
+        return '$enabledCount/${setup.providers.length}';
+      },
+      loading: () => '加载中',
+      orElse: () => '失败',
+    );
+    final scheduleLabel = scheduleState.maybeWhen(
+      data: (settings) => settings.enabled ? '已开启' : '未开启',
+      loading: () => '加载中',
+      orElse: () => '失败',
+    );
+    return Row(
+      children: [
+        Expanded(
+          child: _AIUtilityButton(
+            icon: Icons.key_outlined,
+            title: '分析方式',
+            value: providerLabel,
+            color: colorScheme.secondary,
+            onPressed: onProviders,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _AIUtilityButton(
+            icon: Icons.event_repeat_outlined,
+            title: '定期报告',
+            value: scheduleLabel,
+            color: colorScheme.primary,
+            onPressed: onSchedule,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AIUtilityButton extends StatelessWidget {
+  const _AIUtilityButton({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: colorScheme.outline, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AIReportScheduleSurface extends StatelessWidget {
   const _AIReportScheduleSurface({
     required this.state,
@@ -449,12 +584,12 @@ class _AIReportScheduleSurface extends StatelessWidget {
             dimension: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          title: Text('正在加载自动报告设置'),
+          title: Text('定期报告加载中'),
         ),
       ),
       error: (error, stackTrace) => PremiumSurface(
         accentColor: Theme.of(context).colorScheme.error,
-        child: Text('自动报告设置加载失败：$error'),
+        child: const Text('定期报告设置加载失败'),
       ),
       data: (settings) => _AIReportScheduleForm(
         settings: settings,
@@ -495,12 +630,12 @@ class _AIProviderSetupSurface extends StatelessWidget {
             dimension: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          title: Text('正在加载报告来源'),
+          title: Text('分析方式加载中'),
         ),
       ),
       error: (error, stackTrace) => PremiumSurface(
         accentColor: colorScheme.error,
-        child: Text('报告来源加载失败：$error'),
+        child: const Text('分析方式加载失败'),
       ),
       data: (setup) {
         return PremiumSurface(
@@ -520,7 +655,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '报告来源',
+                      '分析方式',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -529,7 +664,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                   FilledButton.tonalIcon(
                     onPressed: () => onAdd(setup),
                     icon: const Icon(Icons.add_outlined),
-                    label: const Text('添加来源'),
+                    label: const Text('添加方式'),
                   ),
                 ],
               ),
@@ -556,7 +691,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '暂无可用来源',
+                          '还没有方式',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: colorScheme.outline),
                         ),
@@ -641,42 +776,46 @@ class _AIProviderCompactRow extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      provider.model,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 6),
-              IconButton(
-                key: ValueKey('ai-provider-edit-${provider.id}'),
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: '编辑来源 ${provider.name}',
-              ),
-              IconButton(
-                key: ValueKey('ai-provider-test-${provider.id}'),
-                onPressed: disabled && !testing ? null : onTest,
-                icon: testing
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.bolt_outlined),
-                tooltip: '测试来源 ${provider.name}',
-              ),
-              IconButton(
-                key: ValueKey('ai-provider-delete-${provider.id}'),
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline),
-                tooltip: '删除来源 ${provider.name}',
-              ),
+              if (testing)
+                const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                PopupMenuButton<_AIProviderAction>(
+                  key: ValueKey('ai-provider-menu-${provider.id}'),
+                  tooltip: '更多分析方式操作 ${provider.name}',
+                  enabled: !disabled,
+                  icon: const Icon(Icons.more_horiz),
+                  onSelected: (action) {
+                    switch (action) {
+                      case _AIProviderAction.edit:
+                        onEdit();
+                      case _AIProviderAction.test:
+                        onTest();
+                      case _AIProviderAction.delete:
+                        onDelete();
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _AIProviderAction.test,
+                      child: Text('检查'),
+                    ),
+                    PopupMenuItem(
+                      value: _AIProviderAction.edit,
+                      child: Text('编辑'),
+                    ),
+                    PopupMenuItem(
+                      value: _AIProviderAction.delete,
+                      child: Text('删除'),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -684,6 +823,8 @@ class _AIProviderCompactRow extends StatelessWidget {
     );
   }
 }
+
+enum _AIProviderAction { test, edit, delete }
 
 class _AIProviderEditorSheet extends StatefulWidget {
   const _AIProviderEditorSheet({required this.presets, this.provider});
@@ -751,7 +892,7 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.provider == null ? '添加来源' : '编辑来源',
+                widget.provider == null ? '添加方式' : '编辑方式',
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -759,7 +900,7 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: _selectedPreset.id,
-                decoration: const InputDecoration(labelText: '预设'),
+                decoration: const InputDecoration(labelText: '分析方式'),
                 items: [
                   for (final preset in widget.presets)
                     DropdownMenuItem(
@@ -788,19 +929,19 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
               const SizedBox(height: 10),
               TextField(
                 controller: _baseUrlController,
-                decoration: const InputDecoration(labelText: 'Base URL'),
+                decoration: const InputDecoration(labelText: '服务地址'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: _modelController,
-                decoration: const InputDecoration(labelText: '模型'),
+                decoration: const InputDecoration(labelText: '分析能力'),
               ),
               const SizedBox(height: 10),
               TextField(
                 key: const ValueKey('ai-provider-api-key'),
                 controller: _apiKeyController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'API Key'),
+                decoration: const InputDecoration(labelText: '密钥'),
               ),
               const SizedBox(height: 10),
               SwitchListTile(
@@ -816,7 +957,7 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
                   key: const ValueKey('ai-provider-save'),
                   onPressed: _submit,
                   icon: const Icon(Icons.save_outlined),
-                  label: const Text('保存来源'),
+                  label: const Text('保存方式'),
                 ),
               ),
             ],
@@ -837,7 +978,7 @@ class _AIProviderEditorSheetState extends State<_AIProviderEditorSheet> {
         (widget.provider == null && apiKey.isEmpty)) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('请完整填写来源信息')));
+      ).showSnackBar(const SnackBar(content: Text('请补全方式信息')));
       return;
     }
     Navigator.of(context).pop(
@@ -931,13 +1072,13 @@ class _AIReportGenerateSheetState extends State<_AIReportGenerateSheet> {
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: _providerId,
-                decoration: const InputDecoration(labelText: '来源'),
+                decoration: const InputDecoration(labelText: '分析方式'),
                 items: [
-                  const DropdownMenuItem(value: '', child: Text('自动选择启用来源')),
+                  const DropdownMenuItem(value: '', child: Text('默认方式')),
                   for (final provider in widget.providers)
                     DropdownMenuItem(
                       value: provider.id,
-                      child: Text('${provider.name} / ${provider.model}'),
+                      child: Text(provider.name),
                     ),
                 ],
                 onChanged: (value) => setState(() => _providerId = value ?? ''),
@@ -951,7 +1092,7 @@ class _AIReportGenerateSheetState extends State<_AIReportGenerateSheet> {
                       controller: _startController,
                       decoration: const InputDecoration(
                         labelText: '开始日期',
-                        hintText: 'YYYY-MM-DD',
+                        hintText: '2026-05-01',
                       ),
                     ),
                   ),
@@ -962,7 +1103,7 @@ class _AIReportGenerateSheetState extends State<_AIReportGenerateSheet> {
                       controller: _endController,
                       decoration: const InputDecoration(
                         labelText: '结束日期',
-                        hintText: 'YYYY-MM-DD',
+                        hintText: '2026-05-31',
                       ),
                     ),
                   ),
@@ -972,8 +1113,7 @@ class _AIReportGenerateSheetState extends State<_AIReportGenerateSheet> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _maskNames,
-                title: const Text('遮蔽成员和账户名称'),
-                subtitle: const Text('生成报告前替换为成员1、账户1等匿名标签。'),
+                title: const Text('隐藏姓名'),
                 onChanged: (value) => setState(() => _maskNames = value),
               ),
               const SizedBox(height: 14),
@@ -1007,7 +1147,7 @@ class _AIReportGenerateSheetState extends State<_AIReportGenerateSheet> {
     if (startDate == null || endDate == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('日期格式应为 YYYY-MM-DD')));
+      ).showSnackBar(const SnackBar(content: Text('请输入有效日期')));
       return;
     }
     if (startDate.isAfter(endDate)) {
@@ -1071,7 +1211,7 @@ class _AIReportScheduleForm extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '自动报告',
+                  '定期报告',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -1079,7 +1219,7 @@ class _AIReportScheduleForm extends StatelessWidget {
               ),
               _AIReportStatusChip(
                 status: settings.enabled ? 'completed' : 'pending',
-                label: settings.enabled ? '已开启' : '默认关闭',
+                label: settings.enabled ? '已开启' : '未开启',
               ),
             ],
           ),
@@ -1102,7 +1242,7 @@ class _AIReportScheduleForm extends StatelessWidget {
                 child: DropdownButtonFormField<int>(
                   initialValue: normalizedHour,
                   decoration: const InputDecoration(
-                    labelText: '运行时间',
+                    labelText: '生成时间',
                     border: OutlineInputBorder(),
                   ),
                   items: [
@@ -1153,7 +1293,7 @@ class _AIReportScheduleForm extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.bolt_outlined),
-              label: const Text('立即触发应生成报告'),
+              label: const Text('立即生成'),
             ),
           ),
         ],
@@ -1200,12 +1340,12 @@ class _AIScheduleSummaryRow extends StatelessWidget {
         children: [
           _AISchedulePill(
             icon: Icons.schedule_outlined,
-            label: '执行',
+            label: '生成',
             value: '${hour.toString().padLeft(2, '0')}:00',
           ),
           _AISchedulePill(
             icon: Icons.privacy_tip_outlined,
-            label: '聚合快照',
+            label: '报告类型',
             value: enabledTypes.isEmpty ? '未选择' : enabledTypes,
           ),
         ],
@@ -1301,17 +1441,10 @@ class _AIScheduleEnablePanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '启用自动生成',
+                      '启用定期生成',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: colorScheme.onSurface,
                         fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '只发送聚合快照，不包含交易备注和附件。',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -1320,7 +1453,7 @@ class _AIScheduleEnablePanel extends StatelessWidget {
               const SizedBox(width: 10),
               Semantics(
                 key: const ValueKey('ai-schedule-enabled-semantics'),
-                label: '启用自动生成报告',
+                label: '启用定期生成报告',
                 toggled: value,
                 enabled: enabled,
                 child: Switch(
@@ -1362,7 +1495,7 @@ class _AIReportsEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              '暂无报告',
+              '还没有报告',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -1672,7 +1805,7 @@ class _AIReportContent extends StatelessWidget {
         data.highlights.isEmpty &&
         data.risks.isEmpty &&
         data.suggestions.isEmpty) {
-      return const Align(alignment: Alignment.centerLeft, child: Text('暂无内容'));
+      return const Align(alignment: Alignment.centerLeft, child: Text('还没有内容'));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1690,7 +1823,7 @@ class _AIReportContent extends StatelessWidget {
         if (data.risks.isNotEmpty) ...[
           const SizedBox(height: 12),
           _AIReportSection(
-            title: '风险',
+            title: '关注',
             icon: Icons.warning_amber_outlined,
             color: financeColors.warning,
             items: data.risks,

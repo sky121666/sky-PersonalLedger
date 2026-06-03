@@ -9,8 +9,6 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
-import '../../auth/application/auth_controller.dart';
 import '../../transactions/data/transaction_models.dart';
 import '../data/home_repository.dart';
 import 'widgets/home_dashboard_widgets.dart';
@@ -55,17 +53,12 @@ class _HomePageState extends ConsumerState<HomePage> {
             icon: const Icon(Icons.refresh),
             tooltip: '刷新首页概览',
           ),
-          IconButton(
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-            icon: const Icon(Icons.logout),
-            tooltip: '退出登录',
-          ),
         ],
       ),
       body: summaryState.when(
         loading: () => const AppLoadingView(message: '正在加载首页数据...'),
         error: (error, stackTrace) => _HomeErrorView(
-          message: error.toString(),
+          message: '首页数据加载失败',
           onRefresh: () => ref.refresh(homeSummaryProvider.future),
           onRetry: () => ref.invalidate(homeSummaryProvider),
         ),
@@ -101,56 +94,54 @@ class _HomeContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final accounts = summary.accounts.activeAccounts;
     final visibleAccounts = _prioritizedHomeAccounts(accounts).take(3).toList();
+    final rows = [
+      _HomeRow(_NetAssetsCard(accounts: summary.accounts)),
+      _HomeRow(_MonthlyOverviewCard(overview: summary.overview)),
+      _HomeRow(
+        _AccountOverviewCard(
+          accounts: visibleAccounts,
+          totalCount: accounts.length,
+        ),
+      ),
+      _HomeRow(_BudgetSummaryCard(summary: summary.budgetSummary)),
+      _HomeRow(FamilyHomeSummaryCard(summary: summary.familySummary)),
+      _HomeRow(_RecentTransactionsCard(items: summary.recentTransactions)),
+      _HomeRow(
+        _DateTransactionsCard(
+          selectedDate: selectedDate,
+          state: dateTransactionsState,
+          onSelectDate: onSelectDate,
+        ),
+      ),
+    ];
 
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
-        child: ListView(
+        child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 96),
-          children: [
-            _entry(0, _NetAssetsCard(accounts: summary.accounts)),
-            const SizedBox(height: 10),
-            _entry(1, _MonthlyOverviewCard(overview: summary.overview)),
-            const SizedBox(height: 10),
-            _entry(
-              2,
-              _AccountOverviewCard(
-                accounts: visibleAccounts,
-                totalCount: accounts.length,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _entry(3, _BudgetSummaryCard(summary: summary.budgetSummary)),
-            const SizedBox(height: 10),
-            _entry(4, FamilyHomeSummaryCard(summary: summary.familySummary)),
-            const SizedBox(height: 10),
-            _entry(
-              5,
-              _RecentTransactionsCard(items: summary.recentTransactions),
-            ),
-            const SizedBox(height: 10),
-            _entry(
-              6,
-              _DateTransactionsCard(
-                selectedDate: selectedDate,
-                state: dateTransactionsState,
-                onSelectDate: onSelectDate,
-              ),
-            ),
-          ],
+          itemCount: rows.length,
+          itemBuilder: (context, index) => Padding(
+            padding: EdgeInsets.only(bottom: index == rows.length - 1 ? 0 : 10),
+            child: rows[index].child,
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _entry(int index, Widget child) {
-    return StaggeredEntrance(index: index, child: child);
-  }
+class _HomeRow {
+  const _HomeRow(this.child);
+
+  final Widget child;
 }
 
 class _RecentTransactionsCard extends StatelessWidget {
   const _RecentTransactionsCard({required this.items});
+
+  static const _previewCount = 3;
 
   final List<TransactionItem> items;
 
@@ -174,9 +165,10 @@ class _RecentTransactionsCard extends StatelessWidget {
                   ),
                 ),
               ),
-              TextButton(
+              IconButton(
                 onPressed: () => context.push(AppRoutePaths.transactions),
-                child: const Text('全部'),
+                icon: const Icon(Icons.arrow_forward_rounded),
+                tooltip: '查看全部明细',
               ),
             ],
           ),
@@ -184,7 +176,9 @@ class _RecentTransactionsCard extends StatelessWidget {
           if (items.isEmpty)
             const _HomeEmptyLine(text: '还没有交易')
           else
-            ...items.map((item) => _HomeTransactionRow(item: item)),
+            ...items
+                .take(_previewCount)
+                .map((item) => _HomeTransactionRow(item: item)),
         ],
       ),
     );
@@ -197,6 +191,8 @@ class _DateTransactionsCard extends StatelessWidget {
     required this.state,
     required this.onSelectDate,
   });
+
+  static const _previewCount = 3;
 
   final DateTime selectedDate;
   final AsyncValue<List<TransactionItem>> state;
@@ -216,7 +212,7 @@ class _DateTransactionsCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '日期交易',
+                  '当日交易',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -235,15 +231,14 @@ class _DateTransactionsCard extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: 12),
               child: LinearProgressIndicator(),
             ),
-            error: (error, stackTrace) => Text(
-              '加载失败：$error',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            error: (error, stackTrace) =>
+                Text('明细加载失败', style: Theme.of(context).textTheme.bodySmall),
             data: (items) => items.isEmpty
                 ? const _HomeEmptyLine(text: '当日无交易')
                 : Column(
                     children: [
-                      for (final item in items) _HomeTransactionRow(item: item),
+                      for (final item in items.take(_previewCount))
+                        _HomeTransactionRow(item: item),
                     ],
                   ),
           ),
@@ -253,14 +248,22 @@ class _DateTransactionsCard extends StatelessWidget {
   }
 }
 
-class _HomeTransactionRow extends StatelessWidget {
+class _HomeTransactionRow extends StatefulWidget {
   const _HomeTransactionRow({required this.item});
 
   final TransactionItem item;
 
   @override
+  State<_HomeTransactionRow> createState() => _HomeTransactionRowState();
+}
+
+class _HomeTransactionRowState extends State<_HomeTransactionRow> {
+  bool _showRemark = false;
+
+  @override
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
+    final item = widget.item;
     final color = switch (item.type) {
       TransactionType.income => financeColors.income,
       TransactionType.transfer => Theme.of(context).colorScheme.primary,
@@ -269,45 +272,66 @@ class _HomeTransactionRow extends StatelessWidget {
     return InkWell(
       onTap: () => context.push(AppRoutePaths.quickTransaction, extra: item),
       borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Row(
-          children: [
-            Icon(_transactionIcon(item.type), color: color, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 46),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Text(
-                    item.displayTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (item.remark.isNotEmpty)
-                    Text(
-                      item.remark,
+                  Icon(_transactionIcon(item.type), color: color, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      item.displayTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (item.remark.isNotEmpty)
+                        IconButton(
+                          onPressed: () {
+                            setState(() => _showRemark = !_showRemark);
+                          },
+                          icon: Icon(_showRemark ? Icons.remove : Icons.add),
+                          tooltip: _showRemark ? '收起备注' : '展开备注',
+                          iconSize: 18,
+                        ),
+                      Text(
+                        _formatSignedTransactionAmount(item),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ),
-            Text(
-              _formatSignedTransactionAmount(item),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w800,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
+              if (_showRemark && item.remark.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  item.remark,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -347,15 +371,17 @@ class _HomeErrorView extends StatelessWidget {
   /// 构建支持重试和下拉刷新的错误页。
   @override
   Widget build(BuildContext context) {
+    final rows = [
+      const SizedBox(height: 48),
+      AppErrorView(message: message, onRetry: onRetry),
+    ];
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: AdaptivePageContainer(
-        child: ListView(
+        child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(height: MediaQuery.sizeOf(context).height * 0.16),
-            AppErrorView(message: message, onRetry: onRetry),
-          ],
+          itemCount: rows.length,
+          itemBuilder: (context, index) => rows[index],
         ),
       ),
     );
@@ -850,8 +876,6 @@ class _AccountOverviewCard extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    const SizedBox.shrink(),
                   ],
                 ),
               ),

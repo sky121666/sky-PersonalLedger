@@ -44,8 +44,8 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
 
     return AuthFlowShell(
       icon: Icons.account_balance_wallet_outlined,
-      title: '连接服务器',
-      subtitle: '连接你的账本服务。',
+      title: '连接账本',
+      subtitle: '',
       primaryLabel: '个人账本',
       accentColor: accentColor,
       children: [
@@ -55,28 +55,31 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
           autocorrect: false,
           enableSuggestions: false,
           textCapitalization: TextCapitalization.none,
-          decoration: InputDecoration(
-            labelText: '服务器地址',
-            hintText: 'https://ledger.example.com',
-            border: const OutlineInputBorder(),
+          decoration: authFlowInputDecoration(
+            context,
+            labelText: '账本地址',
+            hintText: 'https://你的账本域名',
             errorText: authState.errorMessage,
-            prefixIcon: const Icon(Icons.dns_outlined),
+            prefixIcon: const Icon(Icons.link),
           ),
           keyboardType: TextInputType.url,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => isLoading ? null : _submitServerUrl(),
         ),
         const SizedBox(height: 16),
-        FilledButton.icon(
-          key: const ValueKey('server-connect-button'),
-          onPressed: isLoading ? null : _submitServerUrl,
-          icon: isLoading
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.arrow_forward),
-          label: const Text('连接'),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            key: const ValueKey('server-connect-button'),
+            onPressed: isLoading ? null : _submitServerUrl,
+            icon: isLoading
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.arrow_forward),
+            label: const Text('进入账本'),
+          ),
         ),
       ],
     );

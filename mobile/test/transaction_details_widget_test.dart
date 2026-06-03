@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
-import 'package:personal_ledger/app/widgets/staggered_entrance.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/transaction_details_page.dart';
@@ -27,18 +26,26 @@ void main() {
         findsOneWidget,
       );
       expect(
-        tester.widget<TextField>(
-          find.byKey(const ValueKey('transaction-search')),
-        ).decoration?.hintText,
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('transaction-search')))
+            .decoration
+            ?.hintText,
         '搜索备注、标签或账户',
       );
+      expect(
+        find.byKey(const ValueKey('transaction-filter-toggle')),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(FilterChip, '全部'), findsNothing);
+      expect(find.widgetWithText(FilterChip, '支出'), findsNothing);
       expect(find.text('餐饮'), findsAtLeastNWidgets(1));
-      expect(find.text('支出'), findsAtLeastNWidgets(1));
-      expect(find.text('现金'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('现金'), findsAtLeastNWidgets(1));
       expect(find.textContaining('2026-05-18 12:00'), findsAtLeastNWidgets(1));
       expect(find.text('分类'), findsNothing);
       expect(find.text('账户'), findsNothing);
       expect(find.text('入账'), findsNothing);
+      expect(find.text('全部类型'), findsNothing);
+      expect(find.text('全部账户'), findsNothing);
       expect(
         find.byKey(const ValueKey('transaction-amount-transaction-1')),
         findsOneWidget,
@@ -51,6 +58,8 @@ void main() {
         ),
         findsWidgets,
       );
+      await tester.tap(find.byTooltip('展开明细').first);
+      await tester.pumpAndSettle();
       expect(find.textContaining('午餐'), findsOneWidget);
 
       await tester.scrollUntilVisible(
@@ -86,6 +95,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
+      expect(find.textContaining('删除「餐饮」？'), findsOneWidget);
+      expect(find.textContaining('余额将同步调整'), findsNothing);
+      expect(find.textContaining('账户余额会自动调整'), findsNothing);
+      expect(find.textContaining('同步回滚'), findsNothing);
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 
@@ -133,6 +146,10 @@ void main() {
       expect(find.byTooltip('全选当前页 2 笔交易'), findsOneWidget);
       await tester.tap(find.byTooltip('删除已选择 2 笔交易'));
       await tester.pumpAndSettle();
+      expect(find.textContaining('删除 2 笔交易？'), findsOneWidget);
+      expect(find.textContaining('余额将同步调整'), findsNothing);
+      expect(find.textContaining('账户余额会自动调整'), findsNothing);
+      expect(find.textContaining('同步回滚'), findsNothing);
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();
 
@@ -146,6 +163,7 @@ void main() {
     testWidgets('搜索和筛选会按条件刷新交易列表', (tester) async {
       final repository = _FakeTransactionRepository();
       await _pumpPage(tester, repository);
+      expect(repository.listAccountsCalls, 1);
 
       await tester.enterText(
         find.byKey(const ValueKey('transaction-search')),
@@ -156,12 +174,15 @@ void main() {
 
       expect(repository.listQueries.last.keyword, '午餐');
 
+      await tester.tap(find.byKey(const ValueKey('transaction-filter-toggle')));
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilterChip, '支出'));
       await tester.pumpAndSettle();
 
       expect(repository.listQueries.last.type, TransactionType.expense);
       expect(find.text('2 项条件 · 1/1 笔'), findsOneWidget);
       expect(find.text('筛选构成'), findsNothing);
+      expect(repository.listAccountsCalls, 1);
     });
 
     testWidgets('清空筛选会重置搜索和类型条件', (tester) async {
@@ -173,6 +194,8 @@ void main() {
         '午餐',
       );
       await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('transaction-filter-toggle')));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilterChip, '支出'));
       await tester.pumpAndSettle();
@@ -187,9 +210,10 @@ void main() {
       expect(repository.listQueries.last.keyword, isEmpty);
       expect(repository.listQueries.last.type, isNull);
       expect(
-        tester.widget<TextField>(
-          find.byKey(const ValueKey('transaction-search')),
-        ).decoration?.hintText,
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('transaction-search')))
+            .decoration
+            ?.hintText,
         '搜索备注、标签或账户',
       );
     });
@@ -207,7 +231,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       await tester.scrollUntilVisible(
-        find.text('流水 25'),
+        find.byKey(const ValueKey('transaction-item-transaction-25')),
         420,
         scrollable: find.byType(Scrollable).first,
       );
@@ -224,8 +248,9 @@ void main() {
       final repository = _FakeTransactionRepository(items: const []);
       await _pumpPage(tester, repository);
 
-      expect(find.text('暂无交易明细'), findsOneWidget);
-      expect(find.text('还没有交易记录。'), findsOneWidget);
+      expect(find.text('还没有明细'), findsOneWidget);
+      expect(find.text('暂无交易明细'), findsNothing);
+      expect(find.text('还没有交易记录。'), findsNothing);
 
       await tester.scrollUntilVisible(
         find.widgetWithText(FilledButton, '去记一笔'),
@@ -250,8 +275,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
 
-      expect(find.text('没有匹配的交易'), findsOneWidget);
-      expect(find.text('调整筛选条件后再试。'), findsOneWidget);
+      expect(find.text('没有匹配结果'), findsOneWidget);
+      expect(find.text('没有匹配的交易'), findsNothing);
+      expect(find.text('调整筛选条件后再试。'), findsNothing);
     });
 
     testWidgets('初始加载失败时展示错误并可重试', (tester) async {
@@ -259,7 +285,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('出错了'), findsOneWidget);
-      expect(find.textContaining('加载交易失败'), findsOneWidget);
+      expect(find.text('交易加载失败'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
@@ -280,7 +306,7 @@ void main() {
       expect(amountText.style?.color, AppThemePalette.graphite.incomeColor);
     });
 
-    testWidgets('交易明细核心区域使用分段入场动效', (tester) async {
+    testWidgets('交易明细核心区域保持清晰列表层级', (tester) async {
       final repository = _FakeTransactionRepository(
         items: [
           _transaction(id: 'transaction-1', remark: '午餐'),
@@ -289,7 +315,16 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      expect(find.byType(StaggeredEntrance), findsAtLeastNWidgets(3));
+      expect(find.text('明细'), findsOneWidget);
+      expect(find.text('餐饮'), findsAtLeastNWidgets(2));
+      expect(find.byTooltip('展开明细').first, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('transaction-item-transaction-1')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('展开明细').first);
+      await tester.pumpAndSettle();
+      expect(find.text('午餐'), findsOneWidget);
     });
   });
 }
@@ -371,6 +406,7 @@ class _FakeTransactionRepository implements TransactionRepository {
   final List<TransactionListQuery> listQueries = [];
   final List<String> deleteCalls = [];
   final List<List<String>> batchDeleteCalls = [];
+  int listAccountsCalls = 0;
 
   @override
   Future<void> batchDelete(List<String> ids) async {
@@ -424,6 +460,7 @@ class _FakeTransactionRepository implements TransactionRepository {
 
   @override
   Future<List<LedgerAccount>> listAccounts() async {
+    listAccountsCalls += 1;
     return const [LedgerAccount(id: 'account-1', name: '现金', type: 'cash')];
   }
 

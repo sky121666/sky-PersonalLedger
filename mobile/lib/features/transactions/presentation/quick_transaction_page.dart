@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/premium_surface.dart';
-import '../../../app/widgets/staggered_entrance.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
 import '../../attachments/data/attachment_repository.dart';
@@ -55,6 +54,9 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   bool _loading = true;
   bool _submitting = false;
   bool _showMoreOptions = false;
+  bool _showCustomTagInput = false;
+  bool _secondaryDataLoaded = false;
+  bool _loadingSecondaryData = false;
   String? _errorMessage;
 
   bool get _isEditing => widget.editingTransaction != null;
@@ -79,163 +81,22 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   /// 构建新增或编辑交易表单页面。
   @override
   Widget build(BuildContext context) {
+    final formRows = _loading ? const <Widget>[] : _quickTransactionRows;
     final content = _loading
-        ? const SizedBox(
-            height: 360,
+        ? SizedBox(
+            height: _isEmbedded ? 220 : 320,
             child: Center(child: CircularProgressIndicator(strokeWidth: 2.6)),
           )
         : Form(
             key: _formKey,
-            child: ListView(
+            child: ListView.builder(
               shrinkWrap: widget.embedded,
               physics: widget.embedded
                   ? const ClampingScrollPhysics()
                   : const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.only(bottom: widget.embedded ? 8 : 24),
-              children: [
-                if (_errorMessage != null) ...[
-                  _buildErrorSurface(),
-                  const SizedBox(height: 12),
-                ],
-                _buildEntrance(
-                  0,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _TransactionTypeSelector(
-                        selectedType: _type,
-                        onSelected: (type) {
-                          setState(() {
-                            _type = type;
-                            _categoryId = null;
-                            _toAccountId = null;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        key: const ValueKey('transaction-amount'),
-                        controller: _amountController,
-                        autofocus: false,
-                        decoration: _fieldDecoration(
-                          labelText: '金额',
-                          icon: _typeIcon(_type),
-                        ).copyWith(prefixText: '¥ '),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                        validator: _validateAmount,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildEntrance(
-                  1,
-                  Column(
-                    children: [
-                      _buildAccountPicker(),
-                      const SizedBox(height: 10),
-                      if (_type == TransactionType.transfer)
-                        _buildToAccountPicker()
-                      else
-                        _buildCategoryPicker(),
-                      const SizedBox(height: 10),
-                      _buildDateTimePicker(),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildEntrance(
-                  2,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () => setState(
-                          () => _showMoreOptions = !_showMoreOptions,
-                        ),
-                        icon: Icon(
-                          _showMoreOptions
-                              ? Icons.expand_less
-                              : Icons.more_horiz,
-                        ),
-                        label: Text(_showMoreOptions ? '收起选项' : '更多选项'),
-                      ),
-                      if (_showMoreOptions) ...[
-                        const SizedBox(height: 8),
-                        PremiumSurface(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            children: [
-                              TextFormField(
-                                key: const ValueKey('transaction-remark'),
-                                controller: _remarkController,
-                                decoration: const InputDecoration(
-                                  labelText: '备注',
-                                  border: OutlineInputBorder(),
-                                ),
-                                maxLines: 2,
-                              ),
-                              const SizedBox(height: 10),
-                              if (_familyMembers.isNotEmpty) ...[
-                                _buildMemberPicker(),
-                                const SizedBox(height: 10),
-                              ],
-                              _buildTagPicker(),
-                              const SizedBox(height: 10),
-                              AttachmentPickerField(
-                                attachments: _attachments,
-                                pendingFiles: _pendingAttachmentFiles,
-                                uploadProgress: _uploadProgress,
-                                enabled: !_submitting,
-                                onAttachmentsChanged: (attachments) {
-                                  setState(() => _attachments = attachments);
-                                },
-                                onPendingFilesChanged: (files) {
-                                  setState(
-                                    () => _pendingAttachmentFiles = files,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  key: const ValueKey('transaction-save'),
-                  onPressed: _submitting ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_submitting)
-                        const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        Icon(_isEditing ? Icons.save_outlined : Icons.check),
-                      const SizedBox(width: 8),
-                      Text(_isEditing ? '保存修改' : '保存'),
-                    ],
-                  ),
-                ),
-              ],
+              itemCount: formRows.length,
+              itemBuilder: (context, index) => formRows[index],
             ),
           );
 
@@ -244,23 +105,23 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
         color: Theme.of(context).colorScheme.surface,
         child: Padding(
           padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.viewInsetsOf(context).bottom + 10,
+            left: 14,
+            right: 14,
+            bottom: MediaQuery.viewInsetsOf(context).bottom + 8,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Container(
-                width: 42,
-                height: 5,
+                width: 36,
+                height: 4,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.outlineVariant,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               Row(
                 children: [
                   Expanded(
@@ -278,7 +139,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Flexible(child: content),
             ],
           ),
@@ -299,11 +160,162 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     );
   }
 
-  Widget _buildEntrance(int index, Widget child) {
-    if (_isEmbedded) {
-      return child;
-    }
-    return StaggeredEntrance(index: index, child: child);
+  List<Widget> get _quickTransactionRows {
+    return [
+      if (_errorMessage != null) ...[
+        _buildErrorSurface(),
+        const SizedBox(height: 12),
+      ],
+      _buildPrimaryAmountSection(),
+      const SizedBox(height: 8),
+      _buildRequiredPickersSection(),
+      const SizedBox(height: 8),
+      _buildOptionalFieldsSection(),
+      const SizedBox(height: 12),
+      _buildSaveButton(),
+    ];
+  }
+
+  Widget _buildPrimaryAmountSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _TransactionTypeSelector(
+          selectedType: _type,
+          onSelected: (type) {
+            setState(() {
+              _type = type;
+              _categoryId = null;
+              _toAccountId = null;
+            });
+          },
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          key: const ValueKey('transaction-amount'),
+          controller: _amountController,
+          autofocus: false,
+          decoration: _fieldDecoration(
+            labelText: '金额',
+            icon: _typeIcon(_type),
+          ).copyWith(prefixText: '¥ '),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+          validator: _validateAmount,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRequiredPickersSection() {
+    return Column(
+      children: [
+        _buildAccountPicker(),
+        const SizedBox(height: 8),
+        if (_type == TransactionType.transfer)
+          _buildToAccountPicker()
+        else
+          _buildCategoryPicker(),
+        const SizedBox(height: 8),
+        _buildDateTimePicker(),
+      ],
+    );
+  }
+
+  Widget _buildOptionalFieldsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: IconButton.filledTonal(
+            key: const ValueKey('transaction-more-options'),
+            onPressed: () {
+              final next = !_showMoreOptions;
+              setState(() => _showMoreOptions = next);
+              if (next) {
+                _ensureSecondaryDataLoaded();
+              }
+            },
+            icon: Icon(_showMoreOptions ? Icons.close : Icons.add),
+            iconSize: 20,
+            tooltip: _showMoreOptions ? '收起备注和附件' : '添加可选信息',
+          ),
+        ),
+        if (_showMoreOptions) ...[
+          const SizedBox(height: 6),
+          PremiumSurface(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: Column(
+              children: [
+                if (_loadingSecondaryData)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
+                TextFormField(
+                  key: const ValueKey('transaction-remark'),
+                  controller: _remarkController,
+                  decoration: const InputDecoration(
+                    labelText: '备注',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 8),
+                if (_familyMembers.isNotEmpty) ...[
+                  _buildMemberPicker(),
+                  const SizedBox(height: 8),
+                ],
+                _buildTagPicker(),
+                const SizedBox(height: 8),
+                AttachmentPickerField(
+                  attachments: _attachments,
+                  pendingFiles: _pendingAttachmentFiles,
+                  uploadProgress: _uploadProgress,
+                  enabled: !_submitting,
+                  onAttachmentsChanged: (attachments) {
+                    setState(() => _attachments = attachments);
+                  },
+                  onPendingFilesChanged: (files) {
+                    setState(() => _pendingAttachmentFiles = files);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return FilledButton(
+      key: const ValueKey('transaction-save'),
+      onPressed: _submitting ? null : _submit,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(50),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (_submitting)
+            const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(_isEditing ? Icons.save_outlined : Icons.check),
+          const SizedBox(width: 8),
+          Text(_isEditing ? '保存修改' : '记一笔'),
+        ],
+      ),
+    );
   }
 
   InputDecoration _fieldDecoration({
@@ -508,7 +520,30 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('标签', style: Theme.of(context).textTheme.titleSmall),
+        Row(
+          children: [
+            Expanded(
+              child: Text('标签', style: Theme.of(context).textTheme.titleSmall),
+            ),
+            Tooltip(
+              message: '添加标签',
+              child: TextButton(
+                onPressed: () {
+                  if (_showCustomTagInput) {
+                    _addCustomTag();
+                    return;
+                  }
+                  setState(() => _showCustomTagInput = true);
+                },
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(68, 30),
+                ),
+                child: Text(_showCustomTagInput ? '保存' : '添加标签'),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -537,28 +572,18 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
               ),
           ],
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                key: const ValueKey('transaction-custom-tag'),
-                controller: _customTagController,
-                decoration: _fieldDecoration(
-                  labelText: '自定义标签',
-                  icon: Icons.sell_outlined,
-                ),
-                onSubmitted: (_) => _addCustomTag(),
-              ),
+        if (_showCustomTagInput) ...[
+          const SizedBox(height: 8),
+          TextField(
+            key: const ValueKey('transaction-custom-tag'),
+            controller: _customTagController,
+            decoration: _fieldDecoration(
+              labelText: '新标签',
+              icon: Icons.sell_outlined,
             ),
-            const SizedBox(width: 8),
-            IconButton.filledTonal(
-              onPressed: _addCustomTag,
-              icon: const Icon(Icons.add),
-              tooltip: '添加自定义标签',
-            ),
-          ],
-        ),
+            onSubmitted: (_) => _addCustomTag(),
+          ),
+        ],
       ],
     );
   }
@@ -600,16 +625,25 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
         _accountId ??= _accounts.isNotEmpty ? _accounts.first.id : null;
         _loading = false;
       });
-      unawaited(_loadSecondaryFormData());
+      if (_showMoreOptions) {
+        _ensureSecondaryDataLoaded();
+      }
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = '记账信息加载失败';
         _loading = false;
       });
     }
+  }
+
+  void _ensureSecondaryDataLoaded() {
+    if (_secondaryDataLoaded || _loadingSecondaryData) {
+      return;
+    }
+    unawaited(_loadSecondaryFormData());
   }
 
   Future<void> _pickDateTime() async {
@@ -712,7 +746,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
             content: Text(
               failedCleanupPaths.isEmpty
                   ? (_isEditing ? '交易已更新' : '交易已创建')
-                  : '${_isEditing ? '交易已更新' : '交易已创建'}，但有 ${failedCleanupPaths.length} 个旧附件清理失败',
+                  : '${_isEditing ? '交易已更新' : '交易已创建'}，附件稍后处理',
             ),
           ),
         );
@@ -721,7 +755,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _errorMessage = error.toString();
+          _errorMessage = _isEditing ? '交易保存失败' : '记账失败';
           _submitting = false;
         });
       }
@@ -737,6 +771,12 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   }
 
   Future<void> _loadSecondaryFormData() async {
+    if (_secondaryDataLoaded || _loadingSecondaryData) {
+      return;
+    }
+    setState(() {
+      _loadingSecondaryData = true;
+    });
     try {
       final repository = ref.read(transactionRepositoryProvider);
       final results = await Future.wait([
@@ -752,6 +792,13 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       });
     } catch (_) {
       // Optional fields should not block the primary transaction form.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _secondaryDataLoaded = true;
+          _loadingSecondaryData = false;
+        });
+      }
     }
   }
 
@@ -825,6 +872,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     setState(() {
       _selectedTags.add(tagName);
       _customTagController.clear();
+      _showCustomTagInput = false;
     });
   }
 }
