@@ -14,6 +14,7 @@ import '../../family/data/family_repository.dart';
 import '../application/ledger_refresh.dart';
 import '../data/transaction_models.dart';
 import '../data/transaction_repository.dart';
+import 'widgets/quick_transaction_pickers.dart';
 
 class QuickTransactionPage extends ConsumerStatefulWidget {
   const QuickTransactionPage({
@@ -55,9 +56,17 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   bool _submitting = false;
   bool _showMoreOptions = false;
   bool _showCustomTagInput = false;
+  bool _showTagList = false;
   bool _secondaryDataLoaded = false;
   bool _loadingSecondaryData = false;
   String? _errorMessage;
+
+  static List<LedgerAccount> _accountCache = const [];
+  static List<LedgerCategory> _categoryCache = const [];
+  static List<LedgerTag> _tagCache = const [];
+  static List<FamilyMember> _familyMemberCache = const [];
+  static bool _primaryDataLoaded = false;
+  static bool _secondaryDataLoadedCache = false;
 
   bool get _isEditing => widget.editingTransaction != null;
   bool get _isEmbedded => widget.embedded;
@@ -107,21 +116,12 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           padding: EdgeInsets.only(
             left: 14,
             right: 14,
+            top: 2,
             bottom: MediaQuery.viewInsetsOf(context).bottom + 8,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 6),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              const SizedBox(height: 6),
               Row(
                 children: [
                   Expanded(
@@ -132,14 +132,10 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                    tooltip: _isEditing ? '关闭编辑交易表单' : '关闭记一笔表单',
-                  ),
+                  _buildMoreOptionsAction(),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Flexible(child: content),
             ],
           ),
@@ -148,8 +144,56 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(_isEditing ? '编辑交易' : '记一笔')),
+      appBar: AppBar(
+        title: Text(_isEditing ? '编辑交易' : '记一笔'),
+        actions: [_buildMoreOptionsAction()],
+      ),
       body: AdaptivePageContainer(child: content),
+    );
+  }
+
+  Widget _buildMoreOptionsAction() {
+    return SizedBox(
+      key: const ValueKey('transaction-more-options'),
+      width: 44,
+      height: 44,
+      child: IconButton(
+        onPressed: _toggleMoreOptions,
+        visualDensity: VisualDensity.standard,
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        tooltip: null,
+        style: IconButton.styleFrom(
+          minimumSize: const Size(44, 44),
+          fixedSize: const Size(44, 44),
+          tapTargetSize: MaterialTapTargetSize.padded,
+        ),
+        icon: Icon(
+          Icons.add_rounded,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTagToggleButton({
+    required Key key,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      key: key,
+      onPressed: onPressed,
+      tooltip: null,
+      padding: EdgeInsets.zero,
+      iconSize: 20,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        fixedSize: const Size(44, 44),
+        tapTargetSize: MaterialTapTargetSize.padded,
+      ),
+      icon: Icon(icon),
+      color: Theme.of(context).colorScheme.primary,
     );
   }
 
@@ -229,63 +273,45 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: IconButton.filledTonal(
-            key: const ValueKey('transaction-more-options'),
-            onPressed: () {
-              final next = !_showMoreOptions;
-              setState(() => _showMoreOptions = next);
-              if (next) {
-                _ensureSecondaryDataLoaded();
-              }
-            },
-            icon: Icon(_showMoreOptions ? Icons.close : Icons.add),
-            iconSize: 20,
-            tooltip: _showMoreOptions ? '收起备注和附件' : '添加可选信息',
-          ),
-        ),
         if (_showMoreOptions) ...[
-          const SizedBox(height: 6),
-          PremiumSurface(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: Column(
-              children: [
-                if (_loadingSecondaryData)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: LinearProgressIndicator(minHeight: 2),
-                  ),
-                TextFormField(
-                  key: const ValueKey('transaction-remark'),
-                  controller: _remarkController,
-                  decoration: const InputDecoration(
-                    labelText: '备注',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 8),
-                if (_familyMembers.isNotEmpty) ...[
-                  _buildMemberPicker(),
-                  const SizedBox(height: 8),
-                ],
-                _buildTagPicker(),
-                const SizedBox(height: 8),
-                AttachmentPickerField(
-                  attachments: _attachments,
-                  pendingFiles: _pendingAttachmentFiles,
-                  uploadProgress: _uploadProgress,
-                  enabled: !_submitting,
-                  onAttachmentsChanged: (attachments) {
-                    setState(() => _attachments = attachments);
-                  },
-                  onPendingFilesChanged: (files) {
-                    setState(() => _pendingAttachmentFiles = files);
-                  },
-                ),
-              ],
+          const SizedBox(height: 2),
+          Divider(
+            height: 18,
+            thickness: 0.8,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+          if (_loadingSecondaryData)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: LinearProgressIndicator(minHeight: 2),
             ),
+          TextFormField(
+            key: const ValueKey('transaction-remark'),
+            controller: _remarkController,
+            decoration: _fieldDecoration(
+              labelText: '备注',
+              icon: Icons.notes_outlined,
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 8),
+          if (_familyMembers.isNotEmpty) ...[
+            _buildMemberPicker(),
+            const SizedBox(height: 8),
+          ],
+          _buildTagPicker(),
+          const SizedBox(height: 8),
+          AttachmentPickerField(
+            attachments: _attachments,
+            pendingFiles: _pendingAttachmentFiles,
+            uploadProgress: _uploadProgress,
+            enabled: !_submitting,
+            onAttachmentsChanged: (attachments) {
+              setState(() => _attachments = attachments);
+            },
+            onPendingFilesChanged: (files) {
+              setState(() => _pendingAttachmentFiles = files);
+            },
           ),
         ],
       ],
@@ -353,17 +379,16 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   }
 
   Widget _buildAccountPicker() {
-    return DropdownButtonFormField<String>(
-      initialValue: _accountId,
-      decoration: _fieldDecoration(
-        labelText: '账户',
-        icon: Icons.account_balance_wallet_outlined,
-      ),
-      menuMaxHeight: 360,
+    return QuickTransactionDropdownField(
+      value: _accountId,
+      label: '账户',
+      icon: Icons.account_balance_wallet_outlined,
       items: _accounts
           .map(
-            (account) =>
-                DropdownMenuItem(value: account.id, child: Text(account.name)),
+            (account) => DropdownMenuItem<String>(
+              value: account.id,
+              child: Text(account.name),
+            ),
           )
           .toList(),
       validator: (value) => value == null || value.isEmpty ? '请选择账户' : null,
@@ -375,20 +400,18 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     final selectableAccounts = _accounts
         .where((account) => account.id != _accountId)
         .toList();
-    return DropdownButtonFormField<String>(
-      initialValue:
-          selectableAccounts.any((account) => account.id == _toAccountId)
+    return QuickTransactionDropdownField(
+      value: selectableAccounts.any((account) => account.id == _toAccountId)
           ? _toAccountId
           : null,
-      decoration: _fieldDecoration(
-        labelText: '转入账户',
-        icon: Icons.move_down_outlined,
-      ),
-      menuMaxHeight: 360,
+      label: '转入账户',
+      icon: Icons.move_down_outlined,
       items: selectableAccounts
           .map(
-            (account) =>
-                DropdownMenuItem(value: account.id, child: Text(account.name)),
+            (account) => DropdownMenuItem<String>(
+              value: account.id,
+              child: Text(account.name),
+            ),
           )
           .toList(),
       validator: (value) {
@@ -411,16 +434,12 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     final selectableCategories = _categories
         .where((category) => category.type == _type.value)
         .toList();
-    return DropdownButtonFormField<String>(
-      initialValue:
-          selectableCategories.any((category) => category.id == _categoryId)
+    return QuickTransactionDropdownField(
+      value: selectableCategories.any((category) => category.id == _categoryId)
           ? _categoryId
           : null,
-      decoration: _fieldDecoration(
-        labelText: '分类',
-        icon: Icons.category_outlined,
-      ),
-      menuMaxHeight: 360,
+      label: '分类',
+      icon: Icons.category_outlined,
       items: selectableCategories
           .map(
             (category) => DropdownMenuItem(
@@ -440,17 +459,19 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   }
 
   Widget _buildMemberPicker() {
-    return DropdownButtonFormField<String>(
-      initialValue: _familyMembers.any((member) => member.id == _memberId)
+    return QuickTransactionDropdownField(
+      value: _familyMembers.any((member) => member.id == _memberId)
           ? _memberId
           : null,
-      decoration: _fieldDecoration(labelText: '成员', icon: Icons.group_outlined),
-      menuMaxHeight: 360,
+      label: '成员',
+      icon: Icons.group_outlined,
       items: [
-        const DropdownMenuItem(value: '', child: Text('不指定成员')),
+        const DropdownMenuItem<String>(value: '', child: Text('不指定成员')),
         ..._familyMembers.map(
-          (member) =>
-              DropdownMenuItem(value: member.id, child: Text(member.name)),
+          (member) => DropdownMenuItem<String>(
+            value: member.id,
+            child: Text(member.name),
+          ),
         ),
       ],
       onChanged: (value) {
@@ -517,66 +538,105 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   }
 
   Widget _buildTagPicker() {
+    final selectedTags = _selectedTags.toList();
+    final compactSelectedTags = selectedTags.take(2).toList();
+    final moreSelectedCount = selectedTags.length - compactSelectedTags.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Expanded(
-              child: Text('标签', style: Theme.of(context).textTheme.titleSmall),
+            Icon(
+              Icons.sell_outlined,
+              size: 18,
+              color: Theme.of(context).colorScheme.outline,
             ),
-            Tooltip(
-              message: '添加标签',
-              child: TextButton(
-                onPressed: () {
-                  if (_showCustomTagInput) {
-                    _addCustomTag();
-                    return;
-                  }
-                  setState(() => _showCustomTagInput = true);
-                },
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(68, 30),
+            const SizedBox(width: 8),
+            Text('标签', style: Theme.of(context).textTheme.titleSmall),
+            const Spacer(),
+            if (selectedTags.isNotEmpty)
+              Flexible(
+                child: Row(
+                  children: [
+                    for (final tag in compactSelectedTags)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: InputChip(
+                          label: Text(
+                            tag,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onSelected: null,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    if (moreSelectedCount > 0)
+                      Text(
+                        '+$moreSelectedCount',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
-                child: Text(_showCustomTagInput ? '保存' : '添加标签'),
+              )
+            else
+              Text(
+                '未设置',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
+            const SizedBox(width: 6),
+            _buildTagToggleButton(
+              key: const ValueKey('transaction-add-custom-tag'),
+              icon: _showTagList
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              onPressed: _toggleTagInput,
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final tag in _tags)
-              FilterChip(
-                selected: _selectedTags.contains(tag.name),
-                label: Text(tag.name),
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedTags.add(tag.name);
-                    } else {
-                      _selectedTags.remove(tag.name);
-                    }
-                  });
-                },
-              ),
-            for (final tagName in _selectedTags.where(
-              (name) => !_tags.any((tag) => tag.name == name),
-            ))
-              InputChip(
-                label: Text(tagName),
-                onDeleted: () => setState(() => _selectedTags.remove(tagName)),
-              ),
-          ],
-        ),
+        if (_showTagList) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in _tags)
+                FilterChip(
+                  selected: _selectedTags.contains(tag.name),
+                  label: Text(tag.name),
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedTags.add(tag.name);
+                      } else {
+                        _selectedTags.remove(tag.name);
+                      }
+                    });
+                  },
+                ),
+              for (final tagName in _selectedTags.where(
+                (name) => !_tags.any((tag) => tag.name == name),
+              ))
+                InputChip(
+                  label: Text(tagName),
+                  onDeleted: () =>
+                      setState(() => _selectedTags.remove(tagName)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
         if (_showCustomTagInput) ...[
           const SizedBox(height: 8),
           TextField(
             key: const ValueKey('transaction-custom-tag'),
             controller: _customTagController,
+            textInputAction: TextInputAction.done,
             decoration: _fieldDecoration(
               labelText: '新标签',
               icon: Icons.sell_outlined,
@@ -586,6 +646,27 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
         ],
       ],
     );
+  }
+
+  void _toggleMoreOptions() {
+    final targetShowMoreOptions = !_showMoreOptions;
+
+    if (targetShowMoreOptions) {
+      unawaited(_ensureSecondaryDataLoaded());
+    }
+
+    setState(() => _showMoreOptions = targetShowMoreOptions);
+  }
+
+  void _toggleTagInput() {
+    final shouldShow = !_showTagList;
+    setState(() {
+      _showTagList = shouldShow;
+      _showCustomTagInput = shouldShow;
+    });
+    if (!_showTagList) {
+      _customTagController.clear();
+    }
   }
 
   Future<void> _initializeForm() async {
@@ -603,11 +684,17 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       final attachmentPaths = decodeAttachmentPaths(transaction.images);
       _originalAttachmentPaths = attachmentPaths.toSet();
       _attachments = attachmentPaths.map(LedgerAttachment.fromPath).toList();
-      _showMoreOptions =
-          transaction.remark.trim().isNotEmpty ||
-          transaction.memberId != null ||
-          transaction.tags.isNotEmpty ||
-          attachmentPaths.isNotEmpty;
+      _showMoreOptions = false;
+    }
+
+    if (_primaryDataLoaded) {
+      setState(() {
+        _accounts = _accountCache;
+        _categories = _categoryCache;
+        _loading = false;
+        _accountId ??= _accounts.isNotEmpty ? _accounts.first.id : null;
+      });
+      return;
     }
 
     try {
@@ -619,15 +706,19 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       if (!mounted) {
         return;
       }
+
+      final accounts = results[0] as List<LedgerAccount>;
+      final categories = results[1] as List<LedgerCategory>;
       setState(() {
-        _accounts = results[0] as List<LedgerAccount>;
-        _categories = results[1] as List<LedgerCategory>;
+        _accounts = accounts;
+        _categories = categories;
         _accountId ??= _accounts.isNotEmpty ? _accounts.first.id : null;
         _loading = false;
       });
-      if (_showMoreOptions) {
-        _ensureSecondaryDataLoaded();
-      }
+
+      _accountCache = accounts;
+      _categoryCache = categories;
+      _primaryDataLoaded = true;
     } catch (error) {
       if (!mounted) {
         return;
@@ -639,11 +730,11 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     }
   }
 
-  void _ensureSecondaryDataLoaded() {
+  Future<void> _ensureSecondaryDataLoaded() async {
     if (_secondaryDataLoaded || _loadingSecondaryData) {
       return;
     }
-    unawaited(_loadSecondaryFormData());
+    await _loadSecondaryFormData();
   }
 
   Future<void> _pickDateTime() async {
@@ -746,7 +837,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
             content: Text(
               failedCleanupPaths.isEmpty
                   ? (_isEditing ? '交易已更新' : '交易已创建')
-                  : '${_isEditing ? '交易已更新' : '交易已创建'}，附件稍后处理',
+                  : '${_isEditing ? '交易已更新' : '交易已创建'}，附件处理中',
             ),
           ),
         );
@@ -774,6 +865,18 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     if (_secondaryDataLoaded || _loadingSecondaryData) {
       return;
     }
+
+    if (_secondaryDataLoadedCache) {
+      setState(() {
+        _tags = _tagCache;
+        _familyMembers = _familyMemberCache;
+        _secondaryDataLoaded = true;
+      });
+      if (_familyMemberCache.isNotEmpty) {
+        return;
+      }
+    }
+
     setState(() {
       _loadingSecondaryData = true;
     });
@@ -786,12 +889,18 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       if (!mounted) {
         return;
       }
+      final tags = results[0] as List<LedgerTag>;
+      final familyMembers = results[1] as List<FamilyMember>;
       setState(() {
-        _tags = results[0] as List<LedgerTag>;
-        _familyMembers = results[1] as List<FamilyMember>;
+        _tags = tags;
+        _familyMembers = familyMembers;
       });
+      _tagCache = tags;
+      _familyMemberCache = familyMembers;
+      _secondaryDataLoadedCache = true;
     } catch (_) {
       // Optional fields should not block the primary transaction form.
+      _secondaryDataLoadedCache = true;
     } finally {
       if (mounted) {
         setState(() {
@@ -867,6 +976,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   void _addCustomTag() {
     final tagName = _customTagController.text.trim();
     if (tagName.isEmpty) {
+      setState(() => _showCustomTagInput = false);
       return;
     }
     setState(() {
