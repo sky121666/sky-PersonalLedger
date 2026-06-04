@@ -50,8 +50,9 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
       accentColor: accentColor,
       children: [
         TextField(
+          key: const ValueKey('server-url-field'),
           controller: _serverUrlController,
-          enabled: !isLoading,
+          autofocus: true,
           autocorrect: false,
           enableSuggestions: false,
           textCapitalization: TextCapitalization.none,

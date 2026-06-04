@@ -66,15 +66,17 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
       ),
       children: [
         TextField(
+          key: const ValueKey('auth-setup-password-field'),
           controller: _passwordController,
-          enabled: !isLoading,
+          autofocus: true,
           obscureText: _obscurePassword,
           decoration: authFlowInputDecoration(
             context,
             labelText: '密码',
             prefixIcon: const Icon(Icons.password_outlined),
             suffixIcon: IconButton(
-              tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
+              key: const ValueKey('auth-setup-password-visibility-toggle'),
+              tooltip: null,
               onPressed: () => setState(() {
                 _obscurePassword = !_obscurePassword;
               }),
@@ -87,8 +89,8 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
         ),
         const SizedBox(height: 16),
         TextField(
+          key: const ValueKey('auth-setup-password-confirm-field'),
           controller: _confirmPasswordController,
-          enabled: !isLoading,
           obscureText: _obscureConfirmPassword,
           decoration: authFlowInputDecoration(
             context,
@@ -96,7 +98,10 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
             errorText: errorText,
             prefixIcon: const Icon(Icons.verified_user_outlined),
             suffixIcon: IconButton(
-              tooltip: _obscureConfirmPassword ? '显示确认密码' : '隐藏确认密码',
+              key: const ValueKey(
+                'auth-setup-confirm-password-visibility-toggle',
+              ),
+              tooltip: null,
               onPressed: () => setState(() {
                 _obscureConfirmPassword = !_obscureConfirmPassword;
               }),
@@ -114,6 +119,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
         SizedBox(
           height: 48,
           child: FilledButton.icon(
+            key: const ValueKey('auth-setup-submit-button'),
             onPressed: isLoading ? null : _submit,
             icon: isLoading
                 ? const SizedBox.square(

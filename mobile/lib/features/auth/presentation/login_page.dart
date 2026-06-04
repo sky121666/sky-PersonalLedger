@@ -56,8 +56,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
       children: [
         TextField(
+          key: const ValueKey('auth-login-password-field'),
           controller: _passwordController,
-          enabled: !isLoading,
+          autofocus: true,
           obscureText: _obscurePassword,
           decoration: authFlowInputDecoration(
             context,
@@ -65,7 +66,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             errorText: errorText,
             prefixIcon: const Icon(Icons.password_outlined),
             suffixIcon: IconButton(
-              tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
+              key: const ValueKey('auth-login-password-visibility-toggle'),
+              tooltip: null,
               onPressed: () => setState(() {
                 _obscurePassword = !_obscurePassword;
               }),
@@ -81,6 +83,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         SizedBox(
           height: 48,
           child: FilledButton.icon(
+            key: const ValueKey('auth-login-submit-button'),
             onPressed: isLoading ? null : _submit,
             icon: isLoading
                 ? const SizedBox.square(
