@@ -83,18 +83,12 @@ class AccountsPage extends ConsumerWidget {
         title: const Text('账户'),
         actions: [
           IconButton(
-            onPressed: () =>
-                ref.read(accountListControllerProvider.notifier).load(),
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新账户',
+            key: const ValueKey('account-add'),
+            onPressed: () => _openAccountForm(context, ref),
+            tooltip: null,
+            icon: const Icon(Icons.add),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        key: const ValueKey('account-add'),
-        onPressed: () => _openAccountForm(context, ref),
-        tooltip: '新增账户',
-        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(
         child: state.when(
@@ -126,23 +120,28 @@ class AccountsPage extends ConsumerWidget {
   }
 }
 
-class _AccountContent extends ConsumerWidget {
+class _AccountContent extends ConsumerStatefulWidget {
   const _AccountContent({required this.result});
 
   final AccountListResult result;
 
+  @override
+  ConsumerState<_AccountContent> createState() => _AccountContentState();
+}
+
+class _AccountContentState extends ConsumerState<_AccountContent> {
+  bool _showArchivedAccounts = false;
+
   /// 构建账户汇总和列表内容。
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final result = widget.result;
+
     if (result.accounts.isEmpty) {
-      return AppEmptyView(
+      return const _AccountsEmptyState(
         title: '还没有账户',
+        message: '还没有账户，先添加账户',
         icon: Icons.account_balance_wallet_outlined,
-        action: FilledButton.icon(
-          onPressed: () => _openAccountForm(context),
-          icon: const Icon(Icons.add),
-          label: const Text('新增账户'),
-        ),
       );
     }
 
@@ -152,10 +151,52 @@ class _AccountContent extends ConsumerWidget {
     final archivedAccounts = result.accounts
         .where((item) => item.isArchived)
         .toList();
-    final rows = _buildAccountRows(
-      activeAccounts: activeAccounts,
-      archivedAccounts: archivedAccounts,
-    );
+    final accountIds = archivedAccounts.map((item) => item.id).toList();
+
+    final rows = <Widget>[
+      _SectionHeader(
+        title: '正常账户',
+        subtitle: '${activeAccounts.length} 个账户',
+        icon: Icons.account_balance_wallet_outlined,
+      ),
+      const SizedBox(height: 8),
+      for (final entry in activeAccounts.indexed)
+        _AccountListTile(
+          account: entry.$2,
+          sectionAccountIds: activeAccounts.map((item) => item.id).toList(),
+          accountIndex: entry.$1,
+          canSort: true,
+        ),
+    ];
+
+    if (archivedAccounts.isNotEmpty) {
+      rows.add(const SizedBox(height: 16));
+      rows.add(
+        _SectionHeaderWithAction(
+          title: '已归档账户',
+          subtitle: '${archivedAccounts.length} 个账户',
+          icon: Icons.archive_outlined,
+          isExpanded: _showArchivedAccounts,
+          onTap: () =>
+              setState(() => _showArchivedAccounts = !_showArchivedAccounts),
+        ),
+      );
+      if (_showArchivedAccounts) {
+        rows
+          ..add(const SizedBox(height: 8))
+          ..addAll(
+            archivedAccounts.indexed.map(
+              (entry) => _AccountListTile(
+                account: entry.$2,
+                sectionAccountIds: accountIds,
+                accountIndex: entry.$1,
+                canSort: false,
+              ),
+            ),
+          );
+      }
+    }
+
     return RefreshIndicator(
       onRefresh: () => ref.read(accountListControllerProvider.notifier).load(),
       child: ListView.builder(
@@ -168,21 +209,68 @@ class _AccountContent extends ConsumerWidget {
           if (index == 1) {
             return const SizedBox(height: 16);
           }
-          final row = rows[index - 2];
-          return _AccountRowTile(row: row);
+          return rows[index - 2];
         },
       ),
     );
   }
+}
 
-  /// 打开新增账户表单。
-  Future<void> _openAccountForm(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const _AccountFormSheet(),
+class _AccountsEmptyState extends StatelessWidget {
+  const _AccountsEmptyState({
+    required this.title,
+    required this.message,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: SizedBox.square(
+              dimension: 42,
+              child: Icon(icon, size: 20, color: colorScheme.primary),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -226,32 +314,6 @@ List<_AccountRow> _sectionRows({
       const _AccountRow.gap(10),
     ],
   ];
-}
-
-class _AccountRowTile extends StatelessWidget {
-  const _AccountRowTile({required this.row});
-
-  final _AccountRow row;
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (row.kind) {
-      _AccountRowKind.gap => SizedBox(height: row.height),
-      _AccountRowKind.header => _SectionHeader(
-        title: row.title,
-        subtitle: '${row.count} 个账户',
-        icon: row.archived
-            ? Icons.archive_outlined
-            : Icons.account_balance_wallet_outlined,
-      ),
-      _AccountRowKind.account => _AccountListTile(
-        account: row.account!,
-        sectionAccountIds: row.accountIds,
-        accountIndex: row.accountIndex,
-        canSort: row.sortable,
-      ),
-    };
-  }
 }
 
 enum _AccountRowKind { gap, header, account }
@@ -300,6 +362,70 @@ class _AccountRow {
   final bool sortable;
 }
 
+class _SectionHeaderWithAction extends StatelessWidget {
+  const _SectionHeaderWithAction({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+              size: 18,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              icon,
+              size: 18,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AccountSummaryCard extends StatelessWidget {
   const _AccountSummaryCard({required this.result});
 
@@ -318,25 +444,14 @@ class _AccountSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                IconBadge(
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: financeColors.asset,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '净资产',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              '净资产',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               _formatMoney(result.netAssets),
               maxLines: 1,
@@ -347,24 +462,22 @@ class _AccountSummaryCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _AccountSummaryLine(
-                    label: '总资产',
-                    value: _formatMoney(result.totalAssets),
-                    color: financeColors.income,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _AccountSummaryLine(
-                    label: '总负债',
-                    value: _formatMoney(result.totalLiabilities),
-                    color: financeColors.expense,
-                  ),
-                ),
-              ],
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+            ),
+            const SizedBox(height: 10),
+            _AccountSummaryLine(
+              label: '总资产',
+              value: _formatMoney(result.totalAssets),
+              color: financeColors.income,
+            ),
+            const SizedBox(height: 6),
+            _AccountSummaryLine(
+              label: '总负债',
+              value: _formatMoney(result.totalLiabilities),
+              color: financeColors.expense,
             ),
           ],
         ),
@@ -387,38 +500,79 @@ class _AccountSummaryLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.12)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
-            const SizedBox(height: 3),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
+          ),
         ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountLeadingIcon extends StatelessWidget {
+  const _AccountLeadingIcon({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(color.withValues(alpha: 0.1), surface),
+        borderRadius: BorderRadius.circular(12),
       ),
+      child: Icon(icon, size: 19, color: color),
+    );
+  }
+}
+
+class _AccountActionTextButton extends StatelessWidget {
+  const _AccountActionTextButton({
+    required this.buttonKey,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final Key buttonKey;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      key: buttonKey,
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(label),
     );
   }
 }
@@ -442,7 +596,7 @@ class _AccountListTile extends ConsumerStatefulWidget {
 }
 
 class _AccountListTileState extends ConsumerState<_AccountListTile> {
-  bool _showDetails = false;
+  bool _expanded = false;
 
   Account get account => widget.account;
   List<String> get sectionAccountIds => widget.sectionAccountIds;
@@ -451,7 +605,6 @@ class _AccountListTileState extends ConsumerState<_AccountListTile> {
 
   @override
   Widget build(BuildContext context) {
-
     final financeColors = AppTheme.financeColors(context);
     final color = _parseColor(
       account.color,
@@ -481,7 +634,7 @@ class _AccountListTileState extends ConsumerState<_AccountListTile> {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             onTap: () => _handleAction(context, ref, _AccountAction.logs),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
@@ -491,11 +644,9 @@ class _AccountListTileState extends ConsumerState<_AccountListTile> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconBadge(
+                      _AccountLeadingIcon(
                         icon: _accountIconData(account),
                         color: color,
-                        size: 36,
-                        iconSize: 19,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -515,13 +666,6 @@ class _AccountListTileState extends ConsumerState<_AccountListTile> {
                                         ?.copyWith(fontWeight: FontWeight.w900),
                                   ),
                                 ),
-                                if (account.isArchived) ...[
-                                  const SizedBox(width: 8),
-                                  const Chip(
-                                    label: Text('已归档'),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                ],
                               ],
                             ),
                             const SizedBox(height: 3),
@@ -560,81 +704,126 @@ class _AccountListTileState extends ConsumerState<_AccountListTile> {
                           ),
                         ],
                       ),
-                      PopupMenuButton<_AccountAction>(
-                        tooltip: '更多账户操作 ${account.name}',
-                        onSelected: (action) =>
-                            _handleAction(context, ref, action),
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: _AccountAction.logs,
-                            child: Text('查看流水'),
-                          ),
-                          const PopupMenuItem(
-                            value: _AccountAction.edit,
-                            child: Text('编辑'),
-                          ),
-                          if (canSort) ...[
-                            PopupMenuItem(
-                              value: _AccountAction.moveUp,
-                              enabled: accountIndex > 0,
-                              child: const Text('上移'),
-                            ),
-                            PopupMenuItem(
-                              value: _AccountAction.moveDown,
-                              enabled:
-                                  accountIndex < sectionAccountIds.length - 1,
-                              child: const Text('下移'),
-                            ),
-                          ],
-                          PopupMenuItem(
-                            value: _AccountAction.archive,
-                            child: Text(account.isArchived ? '恢复' : '归档'),
-                          ),
-                          const PopupMenuItem(
-                            value: _AccountAction.delete,
-                            child: Text('删除'),
-                          ),
-                        ],
+                      IconButton(
+                        key: ValueKey('account-toggle-details-${account.id}'),
+                        tooltip: null,
+                        onPressed: () => setState(() {
+                          _expanded = !_expanded;
+                        }),
+                        icon: Icon(_expanded ? Icons.remove : Icons.add),
+                        iconSize: 19,
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
                       ),
                     ],
                   ),
-                  if (isDebt || account.remark.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            setState(() => _showDetails = !_showDetails);
-                          },
-                          icon: Icon(_showDetails ? Icons.remove : Icons.add),
-                          tooltip:
-                              _showDetails ? '收起账户信息' : '更多账户信息',
-                        ),
-                      ],
+                  if (_expanded) ...[
+                    const SizedBox(height: 10),
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outlineVariant.withValues(alpha: 0.52),
                     ),
-                    if (_showDetails) ...[
-                      Wrap(
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
                         spacing: 8,
-                        runSpacing: 8,
                         children: [
-                          if (isDebt && account.paymentDay != null)
-                            _AccountInfoChip(
-                              icon: Icons.event_available_outlined,
-                              label: '还款日 ${account.paymentDay} 日',
+                          _AccountActionTextButton(
+                            buttonKey: ValueKey(
+                              'account-action-logs-${account.id}',
                             ),
-                          if (isDebt && account.interestRate != null)
-                            _AccountInfoChip(
-                              icon: Icons.percent_outlined,
-                              label: '年利率 ${account.interestRate}%',
+                            onPressed: () => _handleAction(
+                              context,
+                              ref,
+                              _AccountAction.logs,
                             ),
-                          if (account.remark.isNotEmpty)
-                            _AccountInfoChip(
-                              icon: Icons.notes_outlined,
-                              label: account.remark,
+                            label: '流水',
+                          ),
+                          _AccountActionTextButton(
+                            buttonKey: ValueKey(
+                              'account-action-edit-${account.id}',
                             ),
+                            onPressed: () => _handleAction(
+                              context,
+                              ref,
+                              _AccountAction.edit,
+                            ),
+                            label: '编辑',
+                          ),
+                          if (canSort)
+                            _AccountActionTextButton(
+                              buttonKey: ValueKey(
+                                'account-action-move-up-${account.id}',
+                              ),
+                              onPressed: accountIndex > 0
+                                  ? () => _handleAction(
+                                      context,
+                                      ref,
+                                      _AccountAction.moveUp,
+                                    )
+                                  : null,
+                              label: '上移',
+                            ),
+                          if (canSort)
+                            _AccountActionTextButton(
+                              buttonKey: ValueKey(
+                                'account-action-move-down-${account.id}',
+                              ),
+                              onPressed:
+                                  accountIndex < sectionAccountIds.length - 1
+                                  ? () => _handleAction(
+                                      context,
+                                      ref,
+                                      _AccountAction.moveDown,
+                                    )
+                                  : null,
+                              label: '下移',
+                            ),
+                          _AccountActionTextButton(
+                            buttonKey: ValueKey(
+                              'account-action-archive-${account.id}',
+                            ),
+                            onPressed: () => _handleAction(
+                              context,
+                              ref,
+                              _AccountAction.archive,
+                            ),
+                            label: account.isArchived ? '恢复' : '归档',
+                          ),
+                          _AccountActionTextButton(
+                            buttonKey: ValueKey(
+                              'account-action-delete-${account.id}',
+                            ),
+                            onPressed: () => _handleAction(
+                              context,
+                              ref,
+                              _AccountAction.delete,
+                            ),
+                            label: '删除',
+                          ),
                         ],
                       ),
-                    ],
+                    ),
+                    if (isDebt && account.paymentDay != null)
+                      _AccountInfoChip(
+                        icon: Icons.event_available_outlined,
+                        label: '还款日 ${account.paymentDay} 日',
+                      ),
+                    if (isDebt && account.interestRate != null)
+                      _AccountInfoChip(
+                        icon: Icons.percent_outlined,
+                        label: '年利率 ${account.interestRate}%',
+                      ),
+                    if (account.remark.isNotEmpty)
+                      _AccountInfoChip(
+                        icon: Icons.notes_outlined,
+                        label: account.remark,
+                      ),
                   ],
                 ],
               ),
@@ -653,10 +842,21 @@ class _AccountListTileState extends ConsumerState<_AccountListTile> {
   ) async {
     switch (action) {
       case _AccountAction.logs:
-        context.push(
-          '${AppRoutePaths.accountLogs}/${account.id}',
-          extra: AccountLogPageAccount(account),
-        );
+        final router = GoRouter.maybeOf(context);
+        if (router != null) {
+          await context.push(
+            '${AppRoutePaths.accountLogs}/${account.id}',
+            extra: AccountLogPageAccount(account),
+          );
+          return;
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('请在主应用中打开流水详情。')));
+        }
+        return;
       case _AccountAction.edit:
         await showModalBottomSheet<void>(
           context: context,
@@ -711,6 +911,7 @@ class _AccountListTileState extends ConsumerState<_AccountListTile> {
     WidgetRef ref,
     int offset,
   ) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
     final fromIndex = sectionAccountIds.indexOf(account.id);
     final toIndex = fromIndex + offset;
     if (fromIndex < 0 || toIndex < 0 || toIndex >= sectionAccountIds.length) {
@@ -725,16 +926,12 @@ class _AccountListTileState extends ConsumerState<_AccountListTile> {
       await ref
           .read(accountListControllerProvider.notifier)
           .updateSort(reorderedIds);
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('账户排序已更新')));
+      if (messenger != null) {
+        messenger.showSnackBar(const SnackBar(content: Text('账户排序已更新')));
       }
     } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('账户排序失败')));
+      if (messenger != null) {
+        messenger.showSnackBar(const SnackBar(content: Text('账户排序失败')));
       }
     }
   }
@@ -865,7 +1062,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        tooltip: isEditing ? '关闭编辑账户表单' : '关闭新增账户表单',
+                        tooltip: null,
                         icon: const Icon(Icons.close),
                       ),
                     ],
@@ -945,9 +1142,9 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                         _VisualOptionsToggle(
                           expanded: _showVisualOptions,
                           color: accentColor,
-                          onPressed: () => setState(
-                            () => _showVisualOptions = !_showVisualOptions,
-                          ),
+                          onPressed: () => setState(() {
+                            _showVisualOptions = !_showVisualOptions;
+                          }),
                         ),
                         if (_showVisualOptions) ...[
                           const SizedBox(height: 10),
@@ -996,16 +1193,15 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                         ],
                         if (_isDebtAccount(_type)) ...[
                           const SizedBox(height: 12),
-                          TextButton.icon(
-                            onPressed: () => setState(
-                              () => _showDebtOptions = !_showDebtOptions,
-                            ),
+                          IconButton(
+                            key: const ValueKey('account-debt-options-toggle'),
+                            onPressed: () => setState(() {
+                              _showDebtOptions = !_showDebtOptions;
+                            }),
+                            tooltip: null,
                             icon: Icon(
-                              _showDebtOptions
-                                  ? Icons.expand_less
-                                  : Icons.expand_more,
+                              _showDebtOptions ? Icons.remove : Icons.add,
                             ),
-                            label: Text(_showDebtOptions ? '收起' : '债务选项'),
                           ),
                           if (_showDebtOptions)
                             _AccountDebtFields(
@@ -1186,21 +1382,14 @@ class _VisualOptionsToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return TextButton.icon(
+    return IconButton(
+      key: const ValueKey('account-style-toggle'),
       onPressed: onPressed,
-      icon: Icon(expanded ? Icons.expand_less : Icons.tune_outlined, size: 18),
-      label: Text(expanded ? '收起' : '样式'),
-      style: TextButton.styleFrom(
-        foregroundColor: color,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        textStyle: Theme.of(
-          context,
-        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: colorScheme.outlineVariant),
-        ),
+      tooltip: null,
+      icon: Icon(expanded ? Icons.remove_rounded : Icons.add_rounded, size: 18),
+      color: color,
+      style: IconButton.styleFrom(
+        backgroundColor: colorScheme.surfaceContainer,
       ),
     );
   }
@@ -1378,7 +1567,12 @@ class _AccountIconChoice extends StatelessWidget {
     return ChoiceChip(
       selected: selected,
       onSelected: (_) => onSelected(),
-      avatar: Icon(option.icon, size: 17, color: selected ? color : null),
+      avatar: IconBadge(
+        icon: option.icon,
+        color: selected ? color : colorScheme.outline,
+        size: 24,
+        iconSize: 14,
+      ),
       label: Text(option.label),
       labelStyle: TextStyle(
         color: selected ? color : colorScheme.onSurfaceVariant,
@@ -1447,18 +1641,10 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return PremiumSurface(
-      accentColor: colorScheme.primary,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
       child: Row(
         children: [
-          IconBadge(
-            icon: icon,
-            color: colorScheme.primary,
-            size: 34,
-            iconSize: 18,
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1479,6 +1665,12 @@ class _SectionHeader extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 10),
+          Icon(
+            icon,
+            size: 18,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+          ),
         ],
       ),
     );
@@ -1494,20 +1686,20 @@ class _AccountInfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final chipColor = colorScheme.outline;
+    final chipColor = colorScheme.onSurfaceVariant;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           chipColor.withValues(
             alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.10,
+                ? 0.12
+                : 0.06,
           ),
           colorScheme.surface,
         ),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: chipColor.withValues(alpha: 0.16)),
+        border: Border.all(color: chipColor.withValues(alpha: 0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
