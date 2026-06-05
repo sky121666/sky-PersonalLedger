@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/app_route_paths.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/theme/app_theme.dart';
@@ -191,23 +193,21 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
 
   @override
   Widget build(BuildContext context) {
+    final canCreateTemplate =
+        !_submitting && _accounts.isNotEmpty && _categories.isNotEmpty;
     return Scaffold(
       appBar: AppBar(
         title: const Text('快捷模板'),
-        actions: [
-          IconButton(
-            onPressed: _submitting ? null : _loadData,
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新模板',
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _submitting || _accounts.isEmpty || _categories.isEmpty
-            ? null
-            : _openTemplateForm,
-        tooltip: '新增模板',
-        child: const Icon(Icons.add),
+        actions: canCreateTemplate
+            ? [
+                IconButton(
+                  key: const ValueKey('template-add'),
+                  onPressed: _openTemplateForm,
+                  tooltip: null,
+                  icon: const Icon(Icons.add),
+                ),
+              ]
+            : const [],
       ),
       body: AdaptivePageContainer(child: _buildBody()),
     );
@@ -224,16 +224,9 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
     if (_templates.isEmpty) {
       final rows = [
         _TemplateRow(
-          AppEmptyView(
-            title: '还没有模板',
-            icon: Icons.bolt_outlined,
-            action: FilledButton.icon(
-              onPressed: _submitting || _accounts.isEmpty || _categories.isEmpty
-                  ? null
-                  : _openTemplateForm,
-              icon: const Icon(Icons.add),
-              label: const Text('新增模板'),
-            ),
+          _TemplateEmptyState(
+            hasAccounts: _accounts.isNotEmpty,
+            hasCategories: _categories.isNotEmpty,
           ),
           0,
         ),
@@ -277,6 +270,124 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
   }
 }
 
+class _TemplateEmptyState extends StatelessWidget {
+  const _TemplateEmptyState({
+    required this.hasAccounts,
+    required this.hasCategories,
+  });
+
+  final bool hasAccounts;
+  final bool hasCategories;
+
+  String get _message {
+    if (hasAccounts && hasCategories) {
+      return '还没有模板，先补充账户和分类后创建';
+    }
+    if (!hasAccounts && !hasCategories) {
+      return '先补充账户和分类后再创建';
+    }
+    if (!hasAccounts) {
+      return '先补充账户后再创建';
+    }
+    return '先补充分类后再创建';
+  }
+
+  List<_TemplateDependencyAction> _actions(BuildContext context) {
+    final actions = <_TemplateDependencyAction>[];
+    if (!hasAccounts) {
+      actions.add(
+        _TemplateDependencyAction(
+          icon: Icons.account_balance_wallet_outlined,
+          label: '账户',
+          onPressed: () => context.push(AppRoutePaths.accounts),
+        ),
+      );
+    }
+    if (!hasCategories) {
+      actions.add(
+        _TemplateDependencyAction(
+          icon: Icons.category_outlined,
+          label: '分类',
+          onPressed: () => context.push(AppRoutePaths.categories),
+        ),
+      );
+    }
+    return actions;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final actions = _actions(context);
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconBadge(
+            icon: Icons.bolt_outlined,
+            color: colorScheme.primary,
+            size: 42,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '还没有模板',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: actions
+                        .map(
+                          (action) => OutlinedButton.icon(
+                            onPressed: action.onPressed,
+                            icon: Icon(action.icon, size: 16),
+                            label: Text(action.label),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateDependencyAction {
+  const _TemplateDependencyAction({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+}
+
 class _TemplateRow {
   const _TemplateRow(this.child, [this.bottomSpacing = 10]);
 
@@ -298,34 +409,19 @@ class _TemplateMetaPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
           ),
-          colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -353,6 +449,7 @@ class _TemplateCard extends StatefulWidget {
 
 class _TemplateCardState extends State<_TemplateCard> {
   bool _showRemark = false;
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -380,8 +477,8 @@ class _TemplateCardState extends State<_TemplateCard> {
                     ? Icons.trending_up_outlined
                     : Icons.trending_down_outlined,
                 color: amountColor,
-                size: 36,
-                iconSize: 19,
+                size: 32,
+                iconSize: 17,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -434,9 +531,14 @@ class _TemplateCardState extends State<_TemplateCard> {
             children: [
               if (template.remark.isNotEmpty)
                 IconButton(
-                  onPressed: () => setState(() => _showRemark = !_showRemark),
-                  tooltip: _showRemark ? '收起备注' : '展开备注',
-                  icon: Icon(_showRemark ? Icons.remove : Icons.add),
+                  key: const ValueKey('template-remark-toggle'),
+                  onPressed: () => setState(() {
+                    _showRemark = !_showRemark;
+                  }),
+                  icon: Icon(
+                    _showRemark ? Icons.remove_rounded : Icons.add_rounded,
+                  ),
+                  tooltip: null,
                 ),
               _TemplateMetaPill(
                 icon: Icons.repeat_outlined,
@@ -444,46 +546,75 @@ class _TemplateCardState extends State<_TemplateCard> {
                 color: amountColor,
               ),
               const Spacer(),
-              Tooltip(
-                message: '套用模板 ${template.name}',
-                child: TextButton.icon(
-                  key: ValueKey('template-apply-${template.id}'),
-                  onPressed: busy ? null : onApply,
-                  icon: const Icon(Icons.play_arrow_outlined),
-                  label: const Text('套用'),
-                ),
+              TextButton.icon(
+                key: ValueKey('template-apply-${template.id}'),
+                onPressed: busy ? null : onApply,
+                icon: const Icon(Icons.play_arrow_outlined),
+                label: const Text('套用'),
               ),
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: PopupMenuButton<_TemplateAction>(
-                  tooltip: '更多模板操作 ${template.name}',
-                  enabled: !busy,
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.more_horiz),
-                  iconSize: 19,
-                  onSelected: (action) {
-                    if (action == _TemplateAction.delete) {
-                      onDelete();
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: _TemplateAction.delete,
-                      child: Text('删除'),
-                    ),
-                  ],
+              IconButton(
+                key: ValueKey('template-toggle-details-${template.id}'),
+                tooltip: null,
+                onPressed: () => setState(() {
+                  _expanded = !_expanded;
+                }),
+                icon: Icon(
+                  _expanded ? Icons.remove_rounded : Icons.add_rounded,
                 ),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
+          if (_expanded) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _TemplateQuickAction(
+                  key: ValueKey('template-action-delete-${template.id}'),
+                  icon: Icons.delete_outline,
+                  label: '删除',
+                  onPressed: busy ? null : onDelete,
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-enum _TemplateAction { delete }
+class _TemplateQuickAction extends StatelessWidget {
+  const _TemplateQuickAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TextButton.icon(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        visualDensity: VisualDensity.compact,
+        foregroundColor: colorScheme.onSurface,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+    );
+  }
+}
 
 class _TemplateFormSheet extends ConsumerStatefulWidget {
   const _TemplateFormSheet({
@@ -653,13 +784,17 @@ class _TemplateFormSheetState extends ConsumerState<_TemplateFormSheet> {
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
-                child: IconButton.filledTonal(
+                child: IconButton(
+                  key: const ValueKey('template-remark-field-toggle'),
                   onPressed: () {
-                    setState(() => _showMoreOptions = !_showMoreOptions);
+                    setState(() {
+                      _showMoreOptions = !_showMoreOptions;
+                    });
                   },
-                  icon: Icon(_showMoreOptions ? Icons.close : Icons.add),
-                  tooltip:
-                      _showMoreOptions ? '收起备注输入' : '添加备注',
+                  icon: Icon(
+                    _showMoreOptions ? Icons.remove_rounded : Icons.add_rounded,
+                  ),
+                  tooltip: null,
                 ),
               ),
               if (_showMoreOptions) ...[

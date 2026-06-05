@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp_dir="$(mktemp -d)"
 backend_pid=""
+ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-1}"
 android_emulator_pid=""
 android_avd_name=""
 booted_ios_device=""
@@ -12,6 +13,11 @@ ios_device=""
 android_local_properties=""
 android_local_properties_backup=""
 android_local_properties_existed=0
+
+if [[ "$ANDROID_PREFER_EMULATOR" != "1" ]]; then
+  echo "[策略] Android E2E 一律走模拟器，当前 ANDROID_PREFER_EMULATOR=${ANDROID_PREFER_EMULATOR} 已被重置为 1。"
+  ANDROID_PREFER_EMULATOR="1"
+fi
 
 cleanup() {
   if [[ -n "$backend_pid" ]] && kill -0 "$backend_pid" 2>/dev/null; then
@@ -235,8 +241,25 @@ EOF
 
 resolve_android_device() {
   if [[ -n "${ANDROID_SERIAL:-}" ]]; then
-    android_device="$ANDROID_SERIAL"
-    return 0
+    if [[ "${ANDROID_PREFER_EMULATOR}" == "1" ]]; then
+      if [[ "${ANDROID_SERIAL}" == emulator-* ]]; then
+        android_device="$ANDROID_SERIAL"
+        return 0
+      fi
+
+      echo "ANDROID_PREFER_EMULATOR=1, ANDROID_SERIAL is not an emulator: ${ANDROID_SERIAL}" >&2
+      echo "Ignore the explicit device and try to use an online emulator first." >&2
+      local running_serial
+      running_serial="$(adb devices | awk '$2 == "device" && $1 ~ /^emulator-/ { print $1; exit }')"
+      if [[ -n "$running_serial" ]]; then
+        android_device="$running_serial"
+        return 0
+      fi
+      echo "No online emulator found yet, will start one automatically." >&2
+    else
+      android_device="$ANDROID_SERIAL"
+      return 0
+    fi
   fi
 
   local running

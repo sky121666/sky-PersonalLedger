@@ -16,6 +16,8 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final FocusNode _passwordFocusNode = FocusNode();
+  final FocusNode _confirmPasswordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String? _localError;
@@ -24,6 +26,8 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
   void dispose() {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _passwordFocusNode.dispose();
+    _confirmPasswordFocusNode.dispose();
     super.dispose();
   }
 
@@ -68,7 +72,12 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
         TextField(
           key: const ValueKey('auth-setup-password-field'),
           controller: _passwordController,
+          focusNode: _passwordFocusNode,
           autofocus: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          autofillHints: const [AutofillHints.newPassword],
+          keyboardType: TextInputType.visiblePassword,
           obscureText: _obscurePassword,
           decoration: authFlowInputDecoration(
             context,
@@ -86,11 +95,17 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
             ),
           ),
           textInputAction: TextInputAction.next,
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
         ),
         const SizedBox(height: 16),
         TextField(
           key: const ValueKey('auth-setup-password-confirm-field'),
           controller: _confirmPasswordController,
+          focusNode: _confirmPasswordFocusNode,
+          autocorrect: false,
+          enableSuggestions: false,
+          autofillHints: const [AutofillHints.newPassword],
+          keyboardType: TextInputType.visiblePassword,
           obscureText: _obscureConfirmPassword,
           decoration: authFlowInputDecoration(
             context,
@@ -114,6 +129,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
           ),
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => isLoading ? null : _submit(),
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
         ),
         const SizedBox(height: 16),
         SizedBox(

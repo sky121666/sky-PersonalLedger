@@ -25,7 +25,7 @@ class ProfilePage extends ConsumerWidget {
       _ProfileRow(
         _SettingsSection(
           title: '个人',
-          children: [
+          childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.manage_accounts_outlined,
               color: colorScheme.primary,
@@ -56,7 +56,8 @@ class ProfilePage extends ConsumerWidget {
       _ProfileRow(
         _SettingsSection(
           title: '账本',
-          children: [
+          initiallyExpanded: false,
+          childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.account_balance_wallet_outlined,
               color: financeColors.asset,
@@ -94,7 +95,7 @@ class ProfilePage extends ConsumerWidget {
         _SettingsSection(
           title: '日常',
           initiallyExpanded: false,
-          children: [
+          childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.savings_outlined,
               color: financeColors.income,
@@ -138,7 +139,7 @@ class ProfilePage extends ConsumerWidget {
         _SettingsSection(
           title: '设置',
           initiallyExpanded: false,
-          children: [
+          childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.storage_outlined,
               color: financeColors.asset,
@@ -231,7 +232,7 @@ class ProfilePage extends ConsumerWidget {
 }
 
 class _ProfileRow {
-  const _ProfileRow(this.child, [this.bottomSpacing = 16]);
+  const _ProfileRow(this.child, [this.bottomSpacing = 12]);
 
   final Widget child;
   final double bottomSpacing;
@@ -245,41 +246,51 @@ class _ProfileHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
     return PremiumSurface(
       key: const ValueKey('profile-command-center'),
       accentColor: colorScheme.primary,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      child: Row(
         children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.account_balance_wallet_outlined,
-                color: colorScheme.primary,
-                size: 48,
-                iconSize: 25,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '个人记账',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '个人记账',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                    IconBadge(
+                      icon: Icons.account_balance_wallet_outlined,
+                      color: financeColors.asset,
+                      size: 24,
+                      iconSize: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    IconBadge(
+                      icon: Icons.palette_outlined,
+                      color: colorScheme.tertiary,
+                      size: 24,
+                      iconSize: 14,
                     ),
                   ],
                 ),
-              ),
-              IconButton.filledTonal(
-                onPressed: onLogout,
-                icon: const Icon(Icons.logout),
-                tooltip: '退出登录',
-              ),
-            ],
+              ],
+            ),
+          ),
+          IconButton(
+            key: const ValueKey('profile-logout'),
+            onPressed: onLogout,
+            icon: const Icon(Icons.logout),
+            tooltip: null,
+            visualDensity: VisualDensity.compact,
           ),
         ],
       ),
@@ -290,28 +301,63 @@ class _ProfileHero extends StatelessWidget {
 class _SettingsSection extends StatelessWidget {
   const _SettingsSection({
     required this.title,
-    required this.children,
+    required this.childrenBuilder,
     this.initiallyExpanded = true,
   });
 
   final String title;
-  final List<Widget> children;
+  final List<Widget> Function() childrenBuilder;
   final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context) {
+    return _LazySettingsSection(
+      title: title,
+      childrenBuilder: childrenBuilder,
+      initiallyExpanded: initiallyExpanded,
+    );
+  }
+}
+
+class _LazySettingsSection extends StatefulWidget {
+  const _LazySettingsSection({
+    required this.title,
+    required this.childrenBuilder,
+    required this.initiallyExpanded,
+  });
+
+  final String title;
+  final List<Widget> Function() childrenBuilder;
+  final bool initiallyExpanded;
+
+  @override
+  State<_LazySettingsSection> createState() => _LazySettingsSectionState();
+}
+
+class _LazySettingsSectionState extends State<_LazySettingsSection> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = _expanded ? widget.childrenBuilder() : const <Widget>[];
     return PremiumSurface(
       padding: EdgeInsets.zero,
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          key: ValueKey('profile-section-$title'),
-          initiallyExpanded: initiallyExpanded,
-          maintainState: true,
-          tilePadding: const EdgeInsets.fromLTRB(14, 2, 10, 2),
-          childrenPadding: const EdgeInsets.only(bottom: 6),
+          key: ValueKey('profile-section-${widget.title}'),
+          initiallyExpanded: widget.initiallyExpanded,
+          maintainState: false,
+          onExpansionChanged: (expanded) {
+            if (_expanded == expanded) {
+              return;
+            }
+            setState(() => _expanded = expanded);
+          },
+          tilePadding: const EdgeInsets.fromLTRB(14, 0, 10, 0),
+          childrenPadding: const EdgeInsets.only(bottom: 4),
           title: Text(
-            title,
+            widget.title,
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -366,13 +412,13 @@ class _SettingsEntry extends StatelessWidget {
           splashColor: color.withValues(alpha: 0.08),
           highlightColor: color.withValues(alpha: 0.05),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
+            constraints: const BoxConstraints(minHeight: 48),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               child: Row(
                 children: [
-                  IconBadge(icon: icon, color: color, size: 34, iconSize: 18),
-                  const SizedBox(width: 12),
+                  IconBadge(icon: icon, color: color, size: 30, iconSize: 16),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       title,
@@ -415,6 +461,7 @@ class _AppearancePanel extends StatelessWidget {
     return PremiumSurface(
       key: const ValueKey('profile-appearance-panel'),
       accentColor: settings.palette.seedColor,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -422,11 +469,11 @@ class _AppearancePanel extends StatelessWidget {
             children: [
               IconBadge(
                 icon: Icons.contrast_outlined,
-                color: settings.palette.seedColor,
-                size: 42,
-                iconSize: 22,
+                color: colorScheme.tertiary,
+                size: 34,
+                iconSize: 18,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   '外观',
@@ -437,9 +484,9 @@ class _AppearancePanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
-            '外观模式',
+            '模式',
             style: Theme.of(
               context,
             ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -470,7 +517,7 @@ class _AppearancePanel extends StatelessWidget {
                   onModeChanged(selection.firstOrNull),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           DropdownButtonFormField<AppThemePalette>(
             initialValue: settings.palette,
             decoration: InputDecoration(

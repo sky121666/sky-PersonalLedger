@@ -32,6 +32,11 @@ void main() {
         await tester.scrollUntilVisible(find.text('最近交易'), 320);
         await tester.pumpAndSettle();
         expect(find.text('最近交易'), findsOneWidget);
+        final recentTransactionsAll = find.byKey(
+          const ValueKey('home-recent-transactions-all'),
+        );
+        expect(recentTransactionsAll, findsOneWidget);
+        _expectMinTapTarget(tester, recentTransactionsAll);
 
         await tester.scrollUntilVisible(find.text('家庭支出'), 320);
         await tester.pumpAndSettle();
@@ -40,8 +45,7 @@ void main() {
             .map((surface) => surface.semanticLabel)
             .whereType<String>();
         expect(visibleSurfaceLabels, contains('查看家庭支出详情'));
-        expect(find.byTooltip('刷新首页概览'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('刷新首页概览'));
+        expect(find.byType(RefreshIndicator), findsOneWidget);
       });
     });
 
@@ -63,11 +67,17 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('记一笔'), findsAtLeastNWidgets(1));
-        expect(find.byTooltip('关闭记一笔表单'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('transaction-more-options')),
+          findsOneWidget,
+        );
         expect(find.text('金额'), findsAtLeastNWidgets(1));
         expect(find.text('账户'), findsAtLeastNWidgets(1));
         expect(find.text('分类'), findsAtLeastNWidgets(1));
-        _expectMinTapTarget(tester, find.byTooltip('关闭记一笔表单'));
+        _expectMinTapTarget(
+          tester,
+          find.byKey(const ValueKey('transaction-more-options')),
+        );
 
         await tester.scrollUntilVisible(
           find.byKey(const ValueKey('transaction-more-options')),
@@ -83,8 +93,14 @@ void main() {
 
         await tester.drag(find.byType(ListView).first, const Offset(0, -1000));
         await tester.pumpAndSettle();
-        expect(find.byTooltip('添加标签'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('添加标签'));
+        expect(
+          find.byKey(const ValueKey('transaction-add-custom-tag')),
+          findsOneWidget,
+        );
+        _expectMinTapTarget(
+          tester,
+          find.byKey(const ValueKey('transaction-add-custom-tag')),
+        );
         await tester.scrollUntilVisible(
           find.widgetWithText(FilledButton, '记一笔'),
           240,
@@ -110,13 +126,19 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('财务报告'), findsOneWidget);
-        expect(find.byTooltip('生成财务报告'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('ai-report-generate')),
+          findsOneWidget,
+        );
         await tester.scrollUntilVisible(find.text('已完成'), 240);
         expect(find.text('已完成'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('DeepSeek'), 240);
         expect(find.text('DeepSeek'), findsWidgets);
         expect(find.text('DeepSeek / deepseek-v4-flash'), findsNothing);
-        _expectMinTapTarget(tester, find.byTooltip('生成财务报告'));
+        _expectMinTapTarget(
+          tester,
+          find.byKey(const ValueKey('ai-report-generate')),
+        );
       });
     });
 
@@ -136,13 +158,16 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('家庭成员'), findsOneWidget);
-        expect(find.byTooltip('刷新家庭成员'), findsOneWidget);
+        expect(find.byKey(const ValueKey('family-add-member')), findsOneWidget);
         await tester.scrollUntilVisible(find.text('常用'), 240);
         expect(find.text('常用'), findsOneWidget);
         expect(find.text('启用'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('停用'), 240);
         expect(find.text('停用'), findsOneWidget);
-        _expectMinTapTarget(tester, find.byTooltip('刷新家庭成员'));
+        _expectMinTapTarget(
+          tester,
+          find.byKey(const ValueKey('family-add-member')),
+        );
       });
     });
   });

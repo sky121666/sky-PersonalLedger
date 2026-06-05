@@ -189,16 +189,12 @@ class _TagPageState extends ConsumerState<TagPage> {
         title: const Text('标签'),
         actions: [
           IconButton(
-            onPressed: _submitting ? null : _loadTags,
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新标签',
+            key: const ValueKey('tag-add'),
+            onPressed: _submitting ? null : () => _openTagForm(),
+            tooltip: null,
+            icon: const Icon(Icons.add),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _submitting ? null : () => _openTagForm(),
-        tooltip: '新增标签',
-        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(child: _buildBody()),
     );
@@ -213,15 +209,7 @@ class _TagPageState extends ConsumerState<TagPage> {
       return AppErrorView(message: '标签加载失败', onRetry: _loadTags);
     }
     if (_tags.isEmpty) {
-      return AppEmptyView(
-        title: '还没有标签',
-        icon: Icons.label_outline,
-        action: FilledButton.icon(
-          onPressed: _submitting ? null : () => _openTagForm(),
-          icon: const Icon(Icons.add),
-          label: const Text('新增标签'),
-        ),
-      );
+      return const _TagEmptyState();
     }
 
     return RefreshIndicator(
@@ -247,7 +235,54 @@ class _TagPageState extends ConsumerState<TagPage> {
   }
 }
 
-class _TagCard extends StatelessWidget {
+class _TagEmptyState extends StatelessWidget {
+  const _TagEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconBadge(
+            icon: Icons.label_outline,
+            color: colorScheme.primary,
+            size: 42,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '还没有标签',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '尚未创建标签，先添加标签',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagCard extends StatefulWidget {
   const _TagCard({
     required this.tag,
     required this.busy,
@@ -259,6 +294,18 @@ class _TagCard extends StatelessWidget {
   final bool busy;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
+  @override
+  State<_TagCard> createState() => _TagCardState();
+}
+
+class _TagCardState extends State<_TagCard> {
+  bool _expanded = false;
+
+  TagItem get tag => widget.tag;
+  bool get busy => widget.busy;
+  VoidCallback get onEdit => widget.onEdit;
+  VoidCallback get onDelete => widget.onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -274,62 +321,84 @@ class _TagCard extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconBadge(
-                icon: _tagIconData(tag.icon),
-                color: color,
-                size: 38,
-                iconSize: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tag.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
+              Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SizedBox.square(
+                      dimension: 34,
+                      child: Icon(
+                        _tagIconData(tag.icon),
+                        size: 18,
+                        color: color,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$sourceLabel · 使用 ${tag.usedCount} 次',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuButton<_TagAction>(
-                tooltip: '更多标签操作 ${tag.name}',
-                enabled: !busy,
-                onSelected: (action) {
-                  if (action == _TagAction.edit) {
-                    onEdit();
-                  } else {
-                    onDelete();
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: _TagAction.edit,
-                    child: Text('编辑'),
                   ),
-                  PopupMenuItem(
-                    value: _TagAction.delete,
-                    enabled: !tag.isSystem,
-                    child: const Text('删除'),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tag.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$sourceLabel · 使用 ${tag.usedCount} 次',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    key: ValueKey('tag-toggle-details-${tag.id}'),
+                    tooltip: null,
+                    onPressed: () => setState(() {
+                      _expanded = !_expanded;
+                    }),
+                    icon: Icon(_expanded ? Icons.remove : Icons.add),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
                   ),
                 ],
               ),
+              if (_expanded) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _TagQuickAction(
+                      key: ValueKey('tag-action-edit-${tag.id}'),
+                      icon: Icons.edit_outlined,
+                      label: '编辑',
+                      onPressed: busy ? null : onEdit,
+                    ),
+                    _TagQuickAction(
+                      key: ValueKey('tag-action-delete-${tag.id}'),
+                      icon: Icons.delete_outline,
+                      label: '删除',
+                      onPressed: busy || tag.isSystem ? null : onDelete,
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -338,7 +407,34 @@ class _TagCard extends StatelessWidget {
   }
 }
 
-enum _TagAction { edit, delete }
+class _TagQuickAction extends StatelessWidget {
+  const _TagQuickAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TextButton.icon(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        visualDensity: VisualDensity.compact,
+        foregroundColor: colorScheme.onSurface,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+    );
+  }
+}
 
 class _TagFormSheet extends ConsumerStatefulWidget {
   const _TagFormSheet({required this.onSubmit, this.tag});

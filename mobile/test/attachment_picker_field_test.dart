@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_picker_service.dart';
 import 'package:personal_ledger/features/attachments/presentation/attachment_picker_field.dart';
@@ -16,7 +15,6 @@ void main() {
       expect(find.text('receipt.jpg'), findsOneWidget);
       expect(find.text('待上传'), findsNothing);
       expect(find.text('附件'), findsOneWidget);
-      expect(find.byType(PremiumSurface), findsOneWidget);
       expect(find.text('文件凭证'), findsNothing);
       expect(find.text('图片凭证'), findsNothing);
       expect(find.text('文件'), findsOneWidget);
@@ -32,22 +30,35 @@ void main() {
         find.byKey(const ValueKey('attachment-evidence-matrix')),
         findsNothing,
       );
-      expect(find.byTooltip('预览 invoice.pdf'), findsOneWidget);
-      expect(find.byTooltip('保存 invoice.pdf'), findsNothing);
-      expect(find.byTooltip('下载 invoice.pdf'), findsNothing);
-      expect(find.byTooltip('更多附件操作 invoice.pdf'), findsOneWidget);
-      expect(find.byTooltip('移除 invoice.pdf'), findsOneWidget);
-      expect(find.byTooltip('预览 receipt.jpg'), findsOneWidget);
-      expect(find.byTooltip('移除 receipt.jpg'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('attachment-preview-invoice.pdf')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('attachment-remove-invoice.pdf')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('attachment-preview-receipt.jpg')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('attachment-remove-receipt.jpg')),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.byTooltip('移除 invoice.pdf'));
+      await tester.tap(
+        find.byKey(const ValueKey('attachment-remove-invoice.pdf')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('invoice.pdf'), findsNothing);
       expect(find.text('receipt.jpg'), findsOneWidget);
       expect(find.text('1/5'), findsNothing);
 
-      await tester.tap(find.byTooltip('移除 receipt.jpg'));
+      await tester.tap(
+        find.byKey(const ValueKey('attachment-remove-receipt.jpg')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('receipt.jpg'), findsNothing);

@@ -83,7 +83,7 @@ void main() {
       final repository = _FakeCategoryRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('新增分类'));
+      await tester.tap(find.byKey(const ValueKey('category-add')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('category-name')), '咖啡');
       expect(
@@ -125,10 +125,13 @@ void main() {
       final repository = _FakeCategoryRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byTooltip('更多分类操作 交通'), findsOneWidget);
-      await tester.tap(find.byTooltip('更多分类操作 交通'));
+      await tester.tap(
+        find.byKey(const ValueKey('category-toggle-details-cat-traffic')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('删除'));
+      await tester.tap(
+        find.byKey(const ValueKey('category-action-delete-cat-traffic')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('删除「交通」？'), findsOneWidget);
       expect(find.text('相关交易将取消分类。'), findsNothing);
@@ -160,6 +163,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有支出分类'), findsOneWidget);
+      expect(find.text('当前分类为空，先添加分类'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
     });
 
@@ -167,7 +171,7 @@ void main() {
       final repository = _FakeCategoryRepository()..createError = '新增分类失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('新增分类'));
+      await tester.tap(find.byKey(const ValueKey('category-add')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('category-name')), '咖啡');
       await tester.tap(find.text('外观'));
@@ -204,9 +208,13 @@ void main() {
       final repository = _FakeCategoryRepository()..deleteError = '删除分类失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多分类操作 交通'));
+      await tester.tap(
+        find.byKey(const ValueKey('category-toggle-details-cat-traffic')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('删除'));
+      await tester.tap(
+        find.byKey(const ValueKey('category-action-delete-cat-traffic')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();

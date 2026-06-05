@@ -8,7 +8,7 @@ final statisticsRepositoryProvider = Provider<StatisticsRepository>((ref) {
   return StatisticsRepository(ref.watch(apiClientProvider));
 });
 
-final statisticsDashboardProvider = FutureProvider.autoDispose
+final statisticsDashboardProvider = FutureProvider
     .family<StatisticsDashboard, StatisticsDashboardQuery>((ref, query) {
       return ref.watch(statisticsRepositoryProvider).getDashboard(query);
     });

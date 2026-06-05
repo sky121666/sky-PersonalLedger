@@ -16,10 +16,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
   String? _localError;
+  final FocusNode _passwordFocusNode = FocusNode();
 
   @override
   void dispose() {
     _passwordController.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -45,7 +47,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       title: '账本解锁',
       subtitle: '',
       primaryLabel: '登录',
-      serverUrl: authState.serverUrl ?? '个人记账',
+      serverUrl: authState.serverUrl,
       accentColor: AppTheme.financeColors(context).asset,
       footer: TextButton.icon(
         onPressed: isLoading
@@ -58,7 +60,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         TextField(
           key: const ValueKey('auth-login-password-field'),
           controller: _passwordController,
+          focusNode: _passwordFocusNode,
           autofocus: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          autofillHints: const [AutofillHints.password],
           obscureText: _obscurePassword,
           decoration: authFlowInputDecoration(
             context,
@@ -76,8 +82,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
           ),
+          keyboardType: TextInputType.visiblePassword,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => isLoading ? null : _submit(),
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
         ),
         const SizedBox(height: 16),
         SizedBox(

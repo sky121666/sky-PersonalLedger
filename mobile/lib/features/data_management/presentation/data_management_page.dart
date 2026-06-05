@@ -116,6 +116,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
           enabled: !_isBusy,
           onPressed: _exportTransactionsCsv,
           onSecondaryPressed: _showCsvExportSheet,
+          secondaryKey: const ValueKey('data-management-transactions-filter'),
         ),
       ),
       _DataManagementRow(
@@ -482,13 +483,6 @@ class _AutoBackupCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: Icons.schedule_outlined,
-                color: statusColor,
-                size: 38,
-                iconSize: 20,
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,12 +506,11 @@ class _AutoBackupCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _AutoBackupStatusPill(enabled: settings.enabled),
-              const SizedBox(width: 6),
-              IconButton.filledTonal(
+              IconButton(
+                key: const ValueKey('auto-backup-reload'),
                 onPressed: enabled && !loading ? onReload : null,
                 icon: const Icon(Icons.refresh),
-                tooltip: '刷新保存记录',
+                tooltip: null,
               ),
             ],
           ),
@@ -528,9 +521,7 @@ class _AutoBackupCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   key: const ValueKey('auto-backup-settings-toggle'),
                   onPressed: enabled ? onToggleSettings : null,
-                  icon: Icon(
-                    showSettings ? Icons.expand_less : Icons.tune_outlined,
-                  ),
+                  icon: Icon(showSettings ? Icons.remove : Icons.add),
                   label: Text(showSettings ? '收起设置' : '设置'),
                 ),
               ),
@@ -652,20 +643,13 @@ class _AutoBackupCard extends StatelessWidget {
             const SizedBox(height: 14),
             Row(
               children: [
-                Text(
-                  '记录',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
+                const Text('记录', style: TextStyle(fontWeight: FontWeight.w800)),
                 const Spacer(),
-                TextButton.icon(
+                OutlinedButton.icon(
                   key: const ValueKey('auto-backup-files-toggle'),
                   onPressed: enabled ? onToggleFiles : null,
-                  icon: Icon(
-                    showFiles ? Icons.expand_less : Icons.history_outlined,
-                  ),
-                  label: Text(showFiles ? '收起' : '${files.length} 个'),
+                  icon: Icon(showFiles ? Icons.remove : Icons.add),
+                  label: Text(showFiles ? '收起' : '展开'),
                 ),
               ],
             ),
@@ -678,34 +662,6 @@ class _AutoBackupCard extends StatelessWidget {
             ],
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _AutoBackupStatusPill extends StatelessWidget {
-  const _AutoBackupStatusPill({required this.enabled});
-
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final color = enabled ? colorScheme.primary : colorScheme.outline;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 28),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Text(
-        enabled ? '已开启' : '关闭',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w900,
-        ),
       ),
     );
   }
@@ -741,19 +697,24 @@ class _SwitchPanel extends StatelessWidget {
           ),
           child: Row(
             children: [
-              IconBadge(
-                icon: Icons.auto_awesome_motion_outlined,
-                color: value ? colorScheme.primary : colorScheme.outline,
-                size: 34,
-                iconSize: 18,
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  '启用自动保存',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '启用自动保存',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value ? '当前已开启' : '当前未开启',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Semantics(
@@ -782,34 +743,15 @@ class _BackupFileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
     return Semantics(
       label: '${file.filename}，${_formatFileSize(file.size)}',
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            financeColors.asset.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.13
-                  : 0.06,
-            ),
-            colorScheme.surface,
-          ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: financeColors.asset.withValues(alpha: 0.14),
-          ),
+          border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
         ),
         child: Row(
           children: [
-            IconBadge(
-              icon: Icons.description_outlined,
-              color: financeColors.asset,
-              size: 38,
-              iconSize: 19,
-            ),
-            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -861,8 +803,6 @@ class _MessagePanel extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
-          IconBadge(icon: icon, color: foreground, size: 38, iconSize: 19),
-          const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
@@ -871,6 +811,8 @@ class _MessagePanel extends StatelessWidget {
               ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
+          const SizedBox(width: 10),
+          Icon(icon, size: 18, color: foreground),
         ],
       ),
     );
@@ -910,8 +852,6 @@ class _RecoveryPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconBadge(icon: icon, color: accentColor, size: 38, iconSize: 20),
-              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
@@ -922,11 +862,13 @@ class _RecoveryPanel extends StatelessWidget {
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
                 ),
               ),
-              IconButton.filledTonal(
+              const SizedBox(width: 8),
+              Icon(icon, size: 18, color: accentColor),
+              IconButton(
                 key: const ValueKey('restore-panel-toggle'),
                 onPressed: enabled ? onToggle : null,
-                tooltip: expanded ? '收起恢复' : '展开恢复',
-                icon: Icon(expanded ? Icons.expand_less : Icons.more_horiz),
+                tooltip: null,
+                icon: Icon(expanded ? Icons.remove : Icons.add),
               ),
             ],
           ),
@@ -964,6 +906,7 @@ class _ActionCard extends StatelessWidget {
     required this.onPressed,
     this.secondaryLabel,
     this.onSecondaryPressed,
+    this.secondaryKey,
   });
 
   final IconData icon;
@@ -975,6 +918,7 @@ class _ActionCard extends StatelessWidget {
   final VoidCallback onPressed;
   final String? secondaryLabel;
   final VoidCallback? onSecondaryPressed;
+  final Key? secondaryKey;
 
   @override
   Widget build(BuildContext context) {
@@ -984,23 +928,30 @@ class _ActionCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          IconBadge(icon: icon, color: accentColor, size: 38, iconSize: 20),
-          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(icon, size: 18, color: accentColor),
+              ],
             ),
           ),
           const SizedBox(width: 10),
           if (secondaryLabel != null && onSecondaryPressed != null) ...[
-            IconButton.filledTonal(
+            IconButton(
+              key: secondaryKey,
               onPressed: enabled ? onSecondaryPressed : null,
-              tooltip: secondaryLabel,
+              tooltip: null,
               icon: const Icon(Icons.filter_alt_outlined),
             ),
             const SizedBox(width: 8),

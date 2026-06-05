@@ -21,36 +21,78 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('连接服务器'), findsOneWidget);
-    expect(find.text('自托管入口'), findsOneWidget);
-    expect(find.textContaining('连接后会自动判断是否需要首次初始化'), findsOneWidget);
+    expect(find.text('连接账本'), findsOneWidget);
+    expect(find.byKey(const ValueKey('server-url-field')), findsOneWidget);
+    expect(find.byKey(const ValueKey('server-connect-button')), findsOneWidget);
 
-    await _tapConnectButton(tester);
-    expect(find.text('请输入服务器地址'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('server-connect-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('请输入账本地址'), findsOneWidget);
 
     await tester.enterText(
-      find.widgetWithText(TextField, '服务器地址'),
+      find.byKey(const ValueKey('server-url-field')),
       'ledger.example.com:8080',
     );
-    await _tapConnectButton(tester);
+    await tester.tap(find.byKey(const ValueKey('server-connect-button')));
+    await tester.pumpAndSettle();
 
-    expect(find.text('欢迎回来'), findsOneWidget);
+    expect(find.text('账本解锁'), findsOneWidget);
     expect(find.text('ledger.example.com:8080'), findsOneWidget);
+  });
+
+  testWidgets('accepts password input and triggers login flow', (tester) async {
+    const password = 'TestPassw0rd';
+    late _TestAuthController controller;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) {
+            controller = _TestAuthController(ref, captureLogin: true);
+            return controller;
+          }),
+        ],
+        child: const PersonalLedgerApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('server-url-field')),
+      'ledger.example.com:8080',
+    );
+    await tester.tap(find.byKey(const ValueKey('server-connect-button')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('auth-login-password-field')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('auth-login-submit-button')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('auth-login-password-field')),
+      password,
+    );
+    await tester.tap(find.byKey(const ValueKey('auth-login-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(controller.loginCalls, equals([password]));
+    expect(controller.debugState.stage, AuthStage.authenticated);
   });
 }
 
-Future<void> _tapConnectButton(WidgetTester tester) async {
-  final finder = find.text('连接');
-  await tester.ensureVisible(finder);
-  await tester.pumpAndSettle();
-  await tester.tap(finder);
-  await tester.pumpAndSettle();
-}
-
 class _TestAuthController extends AuthController {
-  _TestAuthController(super.ref) {
+  _TestAuthController(super.ref, {this.captureLogin = false}) {
     state = const AuthState(stage: AuthStage.serverRequired);
   }
+
+  final bool captureLogin;
+  final List<String> loginCalls = [];
+
+  @override
+  AuthState get debugState => state;
 
   @override
   Future<void> connectServer(String input) async {
@@ -58,7 +100,7 @@ class _TestAuthController extends AuthController {
     if (trimmed.isEmpty) {
       state = const AuthState(
         stage: AuthStage.serverRequired,
-        errorMessage: '请输入服务器地址',
+        errorMessage: '请输入账本地址',
       );
       return;
     }
@@ -66,6 +108,26 @@ class _TestAuthController extends AuthController {
       stage: AuthStage.loginRequired,
       serverUrl: trimmed,
       initialized: true,
+    );
+  }
+
+  @override
+  Future<void> login(String password) async {
+    if (captureLogin) {
+      loginCalls.add(password);
+      state = state.copyWith(stage: AuthStage.authenticated, clearError: true);
+      return;
+    }
+    return super.login(password);
+  }
+
+  @override
+  Future<void> setupPassword(String password) async {
+    state = AuthState(
+      stage: AuthStage.authenticated,
+      initialized: true,
+      serverUrl: state.serverUrl,
+      errorMessage: null,
     );
   }
 }

@@ -77,7 +77,7 @@ void main() {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('新增标签'));
+      await tester.tap(find.byKey(const ValueKey('tag-add')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '周末');
       expect(find.byKey(const ValueKey('tag-visual-options')), findsOneWidget);
@@ -99,9 +99,11 @@ void main() {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多标签操作 旅行'));
+      await tester.tap(
+        find.byKey(const ValueKey('tag-toggle-details-custom-1')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('编辑'));
+      await tester.tap(find.byKey(const ValueKey('tag-action-edit-custom-1')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '旅行支出');
       await tester.tap(find.byKey(const ValueKey('tag-save')));
@@ -117,9 +119,13 @@ void main() {
       final repository = _FakeTagRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多标签操作 旅行'));
+      await tester.tap(
+        find.byKey(const ValueKey('tag-toggle-details-custom-1')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('删除'));
+      await tester.tap(
+        find.byKey(const ValueKey('tag-action-delete-custom-1')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('删除「旅行」？'), findsOneWidget);
       expect(find.text('关联交易不变。'), findsNothing);
@@ -151,6 +157,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有标签'), findsOneWidget);
+      expect(find.text('尚未创建标签，先添加标签'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
     });
 
@@ -158,7 +165,7 @@ void main() {
       final repository = _FakeTagRepository()..createError = '新增标签失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('新增标签'));
+      await tester.tap(find.byKey(const ValueKey('tag-add')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '周末');
       await tester.tap(find.text('外观'));
@@ -178,9 +185,11 @@ void main() {
       final repository = _FakeTagRepository()..updateError = '编辑标签失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多标签操作 旅行'));
+      await tester.tap(
+        find.byKey(const ValueKey('tag-toggle-details-custom-1')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('编辑'));
+      await tester.tap(find.byKey(const ValueKey('tag-action-edit-custom-1')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('tag-name')), '旅行支出');
       await tester.tap(find.byKey(const ValueKey('tag-save')));
@@ -197,9 +206,13 @@ void main() {
       final repository = _FakeTagRepository()..deleteError = '删除标签失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多标签操作 旅行'));
+      await tester.tap(
+        find.byKey(const ValueKey('tag-toggle-details-custom-1')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('删除'));
+      await tester.tap(
+        find.byKey(const ValueKey('tag-action-delete-custom-1')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '删除'));
       await tester.pumpAndSettle();

@@ -76,17 +76,12 @@ class CategoriesPage extends ConsumerWidget {
         title: const Text('分类'),
         actions: [
           IconButton(
-            onPressed: () =>
-                ref.read(categoryListControllerProvider.notifier).load(),
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新分类',
+            key: const ValueKey('category-add'),
+            onPressed: () => _openCategoryForm(context, selectedType),
+            tooltip: null,
+            icon: const Icon(Icons.add),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openCategoryForm(context, selectedType),
-        tooltip: '新增分类',
-        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(
         child: state.when(
@@ -164,14 +159,10 @@ class _CategoryLibraryView extends ConsumerWidget {
           if (state.categories.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
-              child: AppEmptyView(
+              child: _CategoryEmptyState(
                 title: '还没有${state.type.label}分类',
+                message: '当前分类为空，先添加分类',
                 icon: Icons.category_outlined,
-                action: FilledButton.icon(
-                  onPressed: () => _openCategoryForm(context, state.type),
-                  icon: const Icon(Icons.add),
-                  label: const Text('新增分类'),
-                ),
               ),
             )
           else
@@ -190,17 +181,69 @@ class _CategoryLibraryView extends ConsumerWidget {
       ),
     );
   }
+}
 
-  /// 打开新增分类表单。
-  Future<void> _openCategoryForm(
-    BuildContext context,
-    CategoryType type,
-  ) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => _CategoryFormSheet(type: type),
+class _CategoryEmptyState extends StatelessWidget {
+  const _CategoryEmptyState({
+    required this.title,
+    required this.message,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 96),
+        child: PremiumSurface(
+          accentColor: colorScheme.primary,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: SizedBox.square(
+                  dimension: 42,
+                  child: Icon(icon, size: 20, color: colorScheme.primary),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      message,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -222,30 +265,37 @@ class _CategoryHeader extends StatelessWidget {
         : financeColors.income;
     return PremiumSurface(
       accentColor: accentColor,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              IconBadge(
-                icon: selectedType == CategoryType.expense
-                    ? Icons.south_east
-                    : Icons.north_west,
-                color: accentColor,
-              ),
-              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  '${selectedType.label}分类',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${selectedType.label}分类',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '默认分类与自建分类集中管理',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           SegmentedButton<CategoryType>(
             segments: const [
               ButtonSegment(
@@ -268,14 +318,23 @@ class _CategoryHeader extends StatelessWidget {
   }
 }
 
-class _CategoryCard extends ConsumerWidget {
+class _CategoryCard extends ConsumerStatefulWidget {
   const _CategoryCard({required this.category});
 
   final Category category;
 
   /// 构建分类卡片。
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CategoryCard> createState() => _CategoryCardState();
+}
+
+class _CategoryCardState extends ConsumerState<_CategoryCard> {
+  bool _expanded = false;
+
+  Category get category => widget.category;
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = _parseColor(category.color, colorScheme.primary);
     final ownershipLabel = category.isSystem ? '默认分类' : '自建分类';
@@ -293,62 +352,96 @@ class _CategoryCard extends ConsumerWidget {
             onTap: () => _openEdit(context),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconBadge(
-                    icon: _categoryIconData(category.icon),
-                    color: color,
-                    size: 40,
-                    iconSize: 20,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: SizedBox.square(
+                          dimension: 34,
+                          child: Icon(
+                            _categoryIconData(category.icon),
+                            size: 18,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              category.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${category.type.label} · $ownershipLabel',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        key: ValueKey('category-toggle-details-${category.id}'),
+                        tooltip: null,
+                        onPressed: () => setState(() {
+                          _expanded = !_expanded;
+                        }),
+                        icon: Icon(
+                          _expanded
+                              ? Icons.keyboard_arrow_up
+                              : Icons.keyboard_arrow_down,
+                        ),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  if (_expanded) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        Text(
-                          category.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w900),
+                        _CategoryQuickAction(
+                          key: ValueKey('category-action-edit-${category.id}'),
+                          icon: Icons.edit_outlined,
+                          label: '编辑',
+                          onPressed: () =>
+                              _handleAction(context, ref, _CategoryAction.edit),
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${category.type.label} · $ownershipLabel',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: PopupMenuButton<_CategoryAction>(
-                      tooltip: '更多分类操作 ${category.name}',
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.more_horiz),
-                      onSelected: (action) =>
-                          _handleAction(context, ref, action),
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(
-                          value: _CategoryAction.edit,
-                          child: Text('编辑'),
-                        ),
-                        PopupMenuItem(
-                          value: _CategoryAction.delete,
-                          child: Text('删除'),
+                        _CategoryQuickAction(
+                          key: ValueKey(
+                            'category-action-delete-${category.id}',
+                          ),
+                          icon: Icons.delete_outline,
+                          label: '删除',
+                          onPressed: () => _handleAction(
+                            context,
+                            ref,
+                            _CategoryAction.delete,
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -612,6 +705,35 @@ class _CategoryFormSheetState extends ConsumerState<_CategoryFormSheet> {
         setState(() => _submitting = false);
       }
     }
+  }
+}
+
+class _CategoryQuickAction extends StatelessWidget {
+  const _CategoryQuickAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TextButton.icon(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        visualDensity: VisualDensity.compact,
+        foregroundColor: colorScheme.onSurface,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+    );
   }
 }
 

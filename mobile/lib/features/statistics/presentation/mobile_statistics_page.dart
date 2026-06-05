@@ -39,16 +39,7 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
     final themeSettings = ref.watch(themeControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('统计'),
-        actions: [
-          IconButton(
-            onPressed: () => ref.invalidate(statisticsDashboardProvider(query)),
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新统计数据',
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('统计')),
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载统计数据...'),
         error: (error, _) => _StatisticsErrorView(
@@ -218,6 +209,8 @@ class _MonthHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = settings.palette;
     final financeColors = AppTheme.financeColors(context);
+    final previousMonth = DateTime(selectedMonth.year, selectedMonth.month - 1);
+    final nextMonth = DateTime(selectedMonth.year, selectedMonth.month + 1);
     final balanceColor = overview.balance >= 0
         ? financeColors.income
         : financeColors.expense;
@@ -236,11 +229,13 @@ class _MonthHeader extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              IconButton.filledTonal(
+              IconButton(
+                key: ValueKey(
+                  'statistics-previous-month-${previousMonth.year}-${previousMonth.month.toString().padLeft(2, '0')}',
+                ),
                 onPressed: onPreviousMonth,
                 icon: const Icon(Icons.chevron_left),
-                tooltip:
-                    '切换到 ${_formatMonthLabel(DateTime(selectedMonth.year, selectedMonth.month - 1))}',
+                tooltip: '切换到 ${_formatMonthLabel(previousMonth)}',
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -250,11 +245,13 @@ class _MonthHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton.filledTonal(
+              IconButton(
+                key: ValueKey(
+                  'statistics-next-month-${nextMonth.year}-${nextMonth.month.toString().padLeft(2, '0')}',
+                ),
                 onPressed: onNextMonth,
                 icon: const Icon(Icons.chevron_right),
-                tooltip:
-                    '切换到 ${_formatMonthLabel(DateTime(selectedMonth.year, selectedMonth.month + 1))}',
+                tooltip: '切换到 ${_formatMonthLabel(nextMonth)}',
               ),
             ],
           ),
@@ -344,28 +341,9 @@ class _StatisticsBalanceHero extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
+      padding: const EdgeInsets.fromLTRB(2, 2, 2, 2),
       child: Row(
         children: [
-          IconBadge(
-            icon: Icons.account_balance_wallet_outlined,
-            color: color,
-            size: 38,
-            iconSize: 19,
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Text(
               label,
@@ -412,20 +390,8 @@ class _StatisticsAmountPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      constraints: const BoxConstraints(minHeight: 48),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
+      constraints: const BoxConstraints(minHeight: 40),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Row(
         children: [
           Icon(icon, color: color, size: 17),
@@ -483,13 +449,6 @@ class _TrendCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: Icons.stacked_bar_chart_outlined,
-                color: Theme.of(context).colorScheme.primary,
-                size: 36,
-                iconSize: 18,
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   '收支趋势',
@@ -589,13 +548,6 @@ class _CategoryRankCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: Icons.donut_large_outlined,
-                color: accentColor,
-                size: 36,
-                iconSize: 18,
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   '分类排行',
@@ -656,39 +608,14 @@ class _CategoryRankTotalPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 32, maxWidth: 132),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.summarize_outlined, color: color, size: 15),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              amount,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w900,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-        ],
+    return Text(
+      amount,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w800,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }

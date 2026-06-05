@@ -35,17 +35,7 @@ class _YearlyReportPageState extends ConsumerState<YearlyReportPage> {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('年度报告'),
-        actions: [
-          IconButton(
-            onPressed: () =>
-                ref.invalidate(yearlyReportDashboardProvider(_selectedYear)),
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新年度报告',
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('年度报告')),
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载年度报告...'),
         error: (error, _) => _ReportErrorView(
@@ -231,27 +221,14 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: report.netSavings >= 0
-                    ? Icons.trending_up
-                    : Icons.trending_down,
-                color: savingsColor,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '净结余',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            '净结余',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             _formatCurrency(report.netSavings),
             maxLines: 1,
@@ -262,7 +239,7 @@ class _SummaryCard extends StatelessWidget {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _SummaryInlineRow(
             items: [
               _SummaryInlineItem(
@@ -312,10 +289,13 @@ class _SummaryInlineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [for (final item in items) _SummaryInlinePill(item: item)],
+    return Column(
+      children: [
+        for (var index = 0; index < items.length; index++) ...[
+          _SummaryInlinePill(item: items[index]),
+          if (index != items.length - 1) const SizedBox(height: 6),
+        ],
+      ],
     );
   }
 }
@@ -328,42 +308,29 @@ class _SummaryInlinePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 42, minWidth: 102),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          item.color.withValues(alpha: 0.08),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: item.color.withValues(alpha: 0.14)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(item.icon, color: item.color, size: 16),
-          const SizedBox(width: 6),
-          Text(
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
             item.label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(width: 6),
-          Text(
-            item.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: item.color,
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          item.value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: item.color,
+            fontWeight: FontWeight.w900,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -384,16 +351,18 @@ class _AnnualHighlightsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: Icons.auto_graph_outlined,
-                color: financeColors.asset,
+              Expanded(
+                child: Text(
+                  '摘要',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-              const SizedBox(width: 10),
-              Text(
-                '摘要',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              Icon(
+                Icons.auto_graph_outlined,
+                size: 18,
+                color: financeColors.asset,
               ),
             ],
           ),
@@ -456,43 +425,40 @@ class _AnnualStatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           color.withValues(
             alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
+                ? 0.12
+                : 0.06,
           ),
           colorScheme.surface,
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Row(
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: color,
               fontWeight: FontWeight.w900,
               fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -574,16 +540,18 @@ class _MonthlyTrendCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: Icons.stacked_bar_chart_outlined,
-                color: financeColors.income,
+              Expanded(
+                child: Text(
+                  '月度收支',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-              const SizedBox(width: 10),
-              Text(
-                '月度收支',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              Icon(
+                Icons.stacked_bar_chart_outlined,
+                size: 18,
+                color: financeColors.income,
               ),
             ],
           ),
@@ -847,18 +815,20 @@ class _CategoryRankCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: title.contains('收入')
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Icon(
+                title.contains('收入')
                     ? Icons.account_balance_wallet_outlined
                     : Icons.local_fire_department_outlined,
+                size: 18,
                 color: accentColor,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
             ],
           ),

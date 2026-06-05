@@ -83,15 +83,13 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      await tester.scrollUntilVisible(
-        find.text('现金'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
       expect(find.text('现金'), findsOneWidget);
       expect(find.text('¥1280.00'), findsWidgets);
 
-      await tester.tap(find.byTooltip('刷新首页概览'));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HomePage)),
+      );
+      container.invalidate(homeSummaryProvider);
       await tester.pumpAndSettle();
 
       expect(repository.summaryCalls, 2);
@@ -105,26 +103,11 @@ void main() {
       expect(find.text('¥2600.00'), findsWidgets);
     });
 
-    testWidgets('首页交易项默认不展开备注，点击展开后才显示', (tester) async {
+    testWidgets('首页交易项默认展示备注，备注不再折叠', (tester) async {
       final repository = _FakeHomeRepository(summaries: [_summary()]);
       await _pumpPage(tester, repository);
 
-      final expandToggle = find.byTooltip('展开备注').first;
-      await tester.scrollUntilVisible(
-        expandToggle,
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(expandToggle, findsOneWidget);
-      expect(find.text('午餐'), findsNothing);
-
-      await tester.tap(expandToggle);
-      await tester.pumpAndSettle();
-      expect(find.text('午餐'), findsOneWidget);
-
-      await tester.tap(find.byTooltip('收起备注').first);
-      await tester.pumpAndSettle();
-      expect(find.text('午餐'), findsNothing);
+      expect(find.text('午餐'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('首页展示现金流、预算、快捷入口和家庭摘要', (tester) async {
@@ -146,7 +129,7 @@ void main() {
       expect(find.text('快速记账'), findsNothing);
       expect(find.text('5 笔'), findsOneWidget);
       expect(find.text('预算守护'), findsNothing);
-      expect(find.text('40%'), findsOneWidget);
+      expect(find.text('已设置 40%'), findsOneWidget);
       expect(find.text('家庭协同'), findsNothing);
       expect(find.text('1 人'), findsNothing);
       expect(find.text('AI 周报'), findsNothing);
@@ -162,9 +145,9 @@ void main() {
       expect(find.text('本月现金流'), findsOneWidget);
       expect(find.text('最近交易'), findsOneWidget);
       expect(find.text('当日交易'), findsOneWidget);
-      expect(find.byTooltip('退出登录'), findsNothing);
+      expect(find.byKey(const ValueKey('profile-logout')), findsNothing);
       expect(find.text('全部'), findsNothing);
-      expect(find.byTooltip('查看全部明细'), findsOneWidget);
+      expect(find.byKey(const ValueKey('home-recent-transactions-all')), findsOneWidget);
       expect(find.text('餐饮'), findsWidgets);
       expect(find.text('-¥28.00'), findsWidgets);
       expect(find.text('现金流充沛'), findsNothing);
@@ -203,7 +186,7 @@ void main() {
         find.byKey(const ValueKey('home-budget-summary-card')),
         findsOneWidget,
       );
-      expect(find.text('已设置'), findsOneWidget);
+      expect(find.text('已设置 40%'), findsOneWidget);
       expect(find.text('剩余预算'), findsOneWidget);
       expect(find.text('日可用'), findsOneWidget);
       expect(find.text('剩余天数'), findsOneWidget);
@@ -282,10 +265,15 @@ void main() {
         find.byKey(const ValueKey('home-account-line-credit-1')),
         findsOneWidget,
       );
-      expect(find.text('资产账户'), findsOneWidget);
-      expect(find.text('可用余额'), findsOneWidget);
-      expect(find.text('负债账户'), findsOneWidget);
-      expect(find.text('待偿还'), findsOneWidget);
+      expect(find.text('现金钱包'), findsOneWidget);
+      expect(find.text('信用卡'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('home-account-line-cash-1')),
+          matching: find.byType(Semantics),
+        ),
+        findsWidgets,
+      );
       expect(
         find.ancestor(
           of: find.byKey(const ValueKey('home-account-line-credit-1')),
@@ -361,7 +349,7 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey('home-account-line-empty-cash')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('home-account-line-empty-bank')),
@@ -382,9 +370,8 @@ void main() {
       final surface = tester.widget<PremiumSurface>(
         find.byType(PremiumSurface).first,
       );
-      final badge = tester.widget<IconBadge>(find.byType(IconBadge).first);
       expect(surface.accentColor, AppThemePalette.graphite.assetColor);
-      expect(badge.color, AppThemePalette.graphite.assetColor);
+      expect(find.byType(IconBadge), findsNothing);
     });
   });
 }

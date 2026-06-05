@@ -158,9 +158,10 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
         title: const Text('个人资料'),
         actions: [
           IconButton(
+            key: const ValueKey('profile-settings-refresh'),
             onPressed: _submitting ? null : _loadProfile,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新个人资料',
+            tooltip: null,
           ),
         ],
       ),
@@ -178,8 +179,9 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
     }
     final profile = _profile;
     if (profile == null) {
-      return const AppEmptyView(
+      return const _ProfileSettingsEmptyState(
         title: '还没有个人资料',
+        message: '下拉刷新后再重试一次',
         icon: Icons.manage_accounts_outlined,
       );
     }
@@ -240,8 +242,67 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
   }
 }
 
+class _ProfileSettingsEmptyState extends StatelessWidget {
+  const _ProfileSettingsEmptyState({
+    required this.title,
+    required this.message,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: SizedBox.square(
+              dimension: 42,
+              child: Icon(icon, size: 20, color: colorScheme.primary),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProfileSettingsRow {
-  const _ProfileSettingsRow(this.child, [this.bottomSpacing = 16]);
+  const _ProfileSettingsRow(this.child, [this.bottomSpacing = 12]);
 
   final Widget child;
   final double bottomSpacing;
@@ -255,50 +316,44 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return PremiumSurface(
-      accentColor: colorScheme.primary,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final secondaryLine = [
+      if (profile.email.isNotEmpty) profile.email,
+      if (profile.bio.isNotEmpty) profile.bio,
+    ].join('  ·  ');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              _ProfileAvatar(profile: profile),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      profile.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (profile.email.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        profile.email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                    if (profile.bio.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        profile.bio,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ],
+          _ProfileAvatar(profile: profile),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  profile.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-            ],
+                if (secondaryLine.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    secondaryLine,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -330,31 +385,20 @@ class _ProfileThemePanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: Icons.contrast_outlined,
-                color: palette.seedColor,
-                size: 42,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '外观',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  '外观',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
+              Icon(Icons.contrast_outlined, size: 18, color: palette.seedColor),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
-            '外观模式',
+            '模式',
             style: Theme.of(
               context,
             ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -385,7 +429,7 @@ class _ProfileThemePanel extends StatelessWidget {
                   onModeChanged(selection.firstOrNull),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           DropdownButtonFormField<AppThemePalette>(
             initialValue: settings.palette,
             decoration: InputDecoration(
@@ -494,10 +538,15 @@ class _ProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final fallback = CircleAvatar(
-      radius: 28,
+      radius: 20,
       backgroundColor: colorScheme.primary,
       foregroundColor: colorScheme.onPrimary,
-      child: Text(_fallbackText),
+      child: Text(
+        _fallbackText,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+      ),
     );
     if (profile.avatar.isEmpty) {
       return fallback;
@@ -505,8 +554,8 @@ class _ProfileAvatar extends StatelessWidget {
     return ClipOval(
       child: Image.network(
         profile.avatar,
-        width: 56,
-        height: 56,
+        width: 40,
+        height: 40,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => fallback,
       ),
@@ -540,56 +589,61 @@ class _ProfileFormCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return PremiumSurface(
       accentColor: colorScheme.tertiary,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconBadge(
-                icon: Icons.edit_note_outlined,
-                color: colorScheme.tertiary,
-                size: 40,
-                iconSize: 22,
-              ),
-              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  '编辑资料',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '编辑资料',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '昵称与邮箱优先展示在账本内',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              Icon(
+                Icons.edit_note_outlined,
+                size: 16,
+                color: colorScheme.tertiary.withValues(alpha: 0.75),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           TextField(
             key: const ValueKey('profile-nickname'),
             controller: nicknameController,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: '昵称',
-              border: OutlineInputBorder(),
-            ),
+            decoration: _profileFormInputDecoration(context, labelText: '昵称'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           TextField(
             key: const ValueKey('profile-email'),
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: '邮箱',
-              border: OutlineInputBorder(),
-            ),
+            decoration: _profileFormInputDecoration(context, labelText: '邮箱'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           ExpansionTile(
             key: const ValueKey('profile-advanced-fields'),
             tilePadding: EdgeInsets.zero,
             childrenPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.tune_outlined),
             title: Text(
               '头像与简介',
               style: Theme.of(
@@ -602,9 +656,9 @@ class _ProfileFormCard extends StatelessWidget {
                 controller: avatarController,
                 keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
+                decoration: _profileFormInputDecoration(
+                  context,
                   labelText: '头像链接',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
@@ -628,19 +682,22 @@ class _ProfileFormCard extends StatelessWidget {
               TextField(
                 key: const ValueKey('profile-bio'),
                 controller: bioController,
-                maxLines: 4,
-                decoration: const InputDecoration(
+                maxLines: 3,
+                decoration: _profileFormInputDecoration(
+                  context,
                   labelText: '简介',
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           FilledButton.icon(
             key: const ValueKey('profile-save'),
             onPressed: submitting ? null : onSubmit,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+            ),
             icon: submitting
                 ? const SizedBox(
                     width: 18,
@@ -654,4 +711,32 @@ class _ProfileFormCard extends StatelessWidget {
       ),
     );
   }
+}
+
+InputDecoration _profileFormInputDecoration(
+  BuildContext context, {
+  required String labelText,
+  bool alignLabelWithHint = false,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  OutlineInputBorder border() {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(18),
+      borderSide: BorderSide(color: colorScheme.outlineVariant),
+    );
+  }
+
+  return InputDecoration(
+    labelText: labelText,
+    alignLabelWithHint: alignLabelWithHint,
+    isDense: true,
+    filled: true,
+    fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.38),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: border(),
+    enabledBorder: border(),
+    focusedBorder: border().copyWith(
+      borderSide: BorderSide(color: colorScheme.primary, width: 1.2),
+    ),
+  );
 }

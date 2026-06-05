@@ -74,7 +74,7 @@ void main() {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('新增模板'));
+      await tester.tap(find.byKey(const ValueKey('template-add')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('template-name')), '咖啡');
       await tester.enterText(
@@ -83,11 +83,13 @@ void main() {
       );
       await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
       expect(
-        find.byTooltip('添加备注'),
+        find.byKey(const ValueKey('template-remark-field-toggle')),
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('template-remark')), findsNothing);
-      await tester.tap(find.byTooltip('添加备注'));
+      await tester.tap(
+        find.byKey(const ValueKey('template-remark-field-toggle')),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('template-remark')),
@@ -110,7 +112,10 @@ void main() {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
 
-      expect(find.byTooltip('套用模板 午餐'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('template-apply-tpl-1')),
+        findsOneWidget,
+      );
       await tester.tap(find.byKey(const ValueKey('template-apply-tpl-1')));
       await tester.pumpAndSettle();
 
@@ -125,18 +130,9 @@ void main() {
       final repository = _FakeTemplateRepository();
       await _pumpPage(tester, repository);
 
-      final menuBox = tester.getSize(
-        find
-            .ancestor(
-              of: find.byTooltip('更多模板操作 午餐'),
-              matching: find.byType(SizedBox),
-            )
-            .first,
+      await tester.tap(
+        find.byKey(const ValueKey('template-toggle-details-tpl-1')),
       );
-      expect(menuBox.width, greaterThanOrEqualTo(44));
-      expect(menuBox.height, greaterThanOrEqualTo(44));
-
-      await tester.tap(find.byTooltip('更多模板操作 午餐'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -170,8 +166,24 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有模板'), findsOneWidget);
+      expect(find.text('还没有模板，先补充账户和分类后创建'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
-      expect(find.text('新增模板'), findsWidgets);
+      expect(find.text('新增模板'), findsNothing);
+      expect(find.byKey(const ValueKey('template-add')), findsOneWidget);
+    });
+
+    testWidgets('缺少账户和分类时隐藏新增入口并展示前置引导', (tester) async {
+      final repository = _FakeTemplateRepository()
+        ..templates = const []
+        ..accounts = const []
+        ..categories = const [];
+      await _pumpPage(tester, repository);
+
+      expect(find.text('还没有模板'), findsOneWidget);
+      expect(find.text('先补充账户和分类后再创建'), findsOneWidget);
+      expect(find.text('账户'), findsOneWidget);
+      expect(find.text('分类'), findsOneWidget);
+      expect(find.byKey(const ValueKey('template-add')), findsNothing);
     });
 
     testWidgets('收入模板跟随主题收入色', (tester) async {
@@ -207,7 +219,7 @@ void main() {
       final repository = _FakeTemplateRepository()..createError = '新增模板失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('新增模板'));
+      await tester.tap(find.byKey(const ValueKey('template-add')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('template-name')), '咖啡');
       await tester.enterText(
@@ -229,7 +241,10 @@ void main() {
       final repository = _FakeTemplateRepository()..applyError = '套用模板失败';
       await _pumpPage(tester, repository);
 
-      expect(find.byTooltip('套用模板 午餐'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('template-apply-tpl-1')),
+        findsOneWidget,
+      );
       await tester.tap(find.byKey(const ValueKey('template-apply-tpl-1')));
       await tester.pumpAndSettle();
 
@@ -243,7 +258,9 @@ void main() {
       final repository = _FakeTemplateRepository()..deleteError = '删除模板失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多模板操作 午餐'));
+      await tester.tap(
+        find.byKey(const ValueKey('template-toggle-details-tpl-1')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -318,6 +335,14 @@ class _FakeTemplateRepository implements TemplateRepository {
   String? createError;
   String? applyError;
   String? deleteError;
+  List<LedgerAccount> accounts = const [
+    LedgerAccount(id: 'account-1', name: '现金', type: 'cash'),
+    LedgerAccount(id: 'account-2', name: '储蓄卡', type: 'bank_card'),
+  ];
+  List<LedgerCategory> categories = const [
+    LedgerCategory(id: 'category-expense', name: '餐饮', type: 'expense'),
+    LedgerCategory(id: 'category-income', name: '工资', type: 'income'),
+  ];
 
   @override
   Future<TransactionItem> apply(String id, ApplyTemplateRequest request) async {
@@ -385,18 +410,12 @@ class _FakeTemplateRepository implements TemplateRepository {
 
   @override
   Future<List<LedgerAccount>> listAccounts() async {
-    return const [
-      LedgerAccount(id: 'account-1', name: '现金', type: 'cash'),
-      LedgerAccount(id: 'account-2', name: '储蓄卡', type: 'bank_card'),
-    ];
+    return accounts;
   }
 
   @override
   Future<List<LedgerCategory>> listCategories() async {
-    return const [
-      LedgerCategory(id: 'category-expense', name: '餐饮', type: 'expense'),
-      LedgerCategory(id: 'category-income', name: '工资', type: 'income'),
-    ];
+    return categories;
   }
 
   @override

@@ -13,6 +13,8 @@ import '../application/transaction_list_controller.dart';
 import '../data/transaction_models.dart';
 import '../data/transaction_repository.dart';
 
+enum _TransactionListAction { toggle, edit, delete }
+
 class TransactionDetailsPage extends ConsumerStatefulWidget {
   const TransactionDetailsPage({super.key});
 
@@ -55,27 +57,37 @@ class _TransactionDetailsPageState
         leading: _selectedIds.isEmpty
             ? null
             : IconButton(
+                key: const ValueKey('transaction-clear-selection'),
                 onPressed: _clearSelection,
                 icon: const Icon(Icons.close),
-                tooltip: '退出选择，已选择 ${_selectedIds.length} 笔',
+                tooltip: null,
               ),
         title: Text(
           _selectedIds.isEmpty ? '明细' : '已选择 ${_selectedIds.length} 笔',
         ),
         actions: _selectedIds.isEmpty
-            ? null
+            ? [
+                IconButton(
+                  key: const ValueKey('transaction-add'),
+                  onPressed: () => context.push(AppRoutePaths.quickTransaction),
+                  tooltip: null,
+                  icon: const Icon(Icons.add),
+                ),
+              ]
             : [
                 IconButton(
+                  key: const ValueKey('transaction-select-all-current-page'),
                   onPressed: state.items.isEmpty
                       ? null
                       : () => _selectCurrentPage(state.items),
                   icon: const Icon(Icons.select_all),
-                  tooltip: '全选当前页 ${state.items.length} 笔交易',
+                  tooltip: null,
                 ),
                 IconButton(
+                  key: const ValueKey('transaction-batch-delete'),
                   onPressed: _confirmBatchDelete,
                   icon: const Icon(Icons.delete_outline),
-                  tooltip: '删除已选择 ${_selectedIds.length} 笔交易',
+                  tooltip: null,
                 ),
               ],
       ),
@@ -105,13 +117,9 @@ class _TransactionDetailsPageState
         for (final widget in _buildHeaderWidgets(state, controller))
           _TransactionDetailsRow(widget, 8),
         _TransactionDetailsRow(
-          AppEmptyView(
+          _TransactionEmptyState(
             title: state.hasActiveFilter ? '没有匹配结果' : '还没有明细',
-            icon: Icons.receipt_long_outlined,
-            action: FilledButton.tonal(
-              onPressed: () => context.push(AppRoutePaths.quickTransaction),
-              child: const Text('去记一笔'),
-            ),
+            message: state.hasActiveFilter ? '清空筛选后查看全部' : '还没有明细，先创建一笔交易',
           ),
           0,
         ),
@@ -250,7 +258,7 @@ class _TransactionDetailsPageState
         setState(_selectedIds.clear);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('已删除 ${ids.length} 笔交易')));
+        ).showSnackBar(SnackBar(content: Text('已删 ${ids.length} 笔')));
       }
     } catch (error) {
       if (mounted) {
@@ -328,7 +336,6 @@ class _TransactionFilterWorkbench extends ConsumerStatefulWidget {
 class _TransactionFilterWorkbenchState
     extends ConsumerState<_TransactionFilterWorkbench> {
   late final Future<List<LedgerAccount>> _accountsFuture;
-  bool _showFilters = false;
 
   @override
   void initState() {
@@ -345,11 +352,9 @@ class _TransactionFilterWorkbenchState
       widget.state.accountId != null && widget.state.accountId!.isNotEmpty,
       widget.state.categoryId != null && widget.state.categoryId!.isNotEmpty,
     ].where((active) => active).length;
-    final hasActiveFilter = activeCount > 0;
-
     return PremiumSurface(
       key: const ValueKey('transaction-filter-workbench'),
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
       accentColor: colorScheme.primary,
       child: FutureBuilder<List<LedgerAccount>>(
         future: _accountsFuture,
@@ -372,49 +377,116 @@ class _TransactionFilterWorkbenchState
                         suffixIcon: widget.controller.text.isEmpty
                             ? widget.state.hasActiveFilter
                                   ? IconButton(
+                                      key: const ValueKey(
+                                        'transaction-filter-clear',
+                                      ),
                                       onPressed: widget.onClear,
                                       icon: const Icon(
                                         Icons.filter_alt_off_outlined,
                                       ),
-                                      tooltip: '清空筛选',
+                                      tooltip: null,
                                     )
                                   : null
                             : IconButton(
+                                key: const ValueKey('transaction-filter-clear'),
                                 onPressed: widget.onClear,
                                 icon: const Icon(Icons.close),
-                                tooltip: '清空交易搜索',
+                                tooltip: null,
                               ),
                       ),
                       onChanged: widget.onChanged,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    key: const ValueKey('transaction-filter-toggle'),
-                    onPressed: () =>
-                        setState(() => _showFilters = !_showFilters),
-                    tooltip: _showFilters ? '收起筛选' : '展开筛选',
-                    icon: Icon(
-                      _showFilters
-                          ? Icons.expand_less
-                          : hasActiveFilter
-                          ? Icons.filter_alt
-                          : Icons.tune_outlined,
-                    ),
+                  _TransactionFilterBadgeButton(
+                    activeCount: activeCount,
+                    onPressed: () => _openFilterSheet(accounts),
                   ),
                 ],
               ),
-              if (_showFilters) ...[
+              if (widget.state.hasActiveFilter) ...[
                 const SizedBox(height: 8),
-                _TransactionFilterControls(
+                _TransactionActiveFiltersSummary(
                   state: widget.state,
-                  accounts: accounts,
-                  onChanged: widget.onFilterChanged,
+                  onClear: widget.onClear,
                 ),
               ],
             ],
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _openFilterSheet(List<LedgerAccount> accounts) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _TransactionFilterControls(
+            state: widget.state,
+            accounts: accounts,
+            onChanged: widget.onFilterChanged,
+            closeOnSelect: true,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TransactionEmptyState extends StatelessWidget {
+  const _TransactionEmptyState({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: PremiumSurface(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+        accentColor: colorScheme.primary,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            IconBadge(
+              icon: Icons.receipt_long_outlined,
+              color: colorScheme.primary,
+              size: 44,
+              iconSize: 22,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    message,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -425,6 +497,7 @@ class _TransactionFilterControls extends StatelessWidget {
     required this.state,
     required this.accounts,
     required this.onChanged,
+    this.closeOnSelect = false,
   });
 
   final TransactionListState state;
@@ -438,6 +511,7 @@ class _TransactionFilterControls extends StatelessWidget {
     bool clearCategory,
   })
   onChanged;
+  final bool closeOnSelect;
 
   /// 构建交易筛选栏。
   @override
@@ -450,7 +524,12 @@ class _TransactionFilterControls extends StatelessWidget {
             avatar: const Icon(Icons.all_inclusive_rounded, size: 18),
             selected: state.type == null,
             label: const Text('全部'),
-            onSelected: (_) => onChanged(clearType: true),
+            onSelected: (_) {
+              onChanged(clearType: true);
+              if (closeOnSelect) {
+                Navigator.of(context).pop();
+              }
+            },
           ),
           const SizedBox(width: 8),
           for (final type in TransactionType.values) ...[
@@ -458,7 +537,12 @@ class _TransactionFilterControls extends StatelessWidget {
               avatar: Icon(_typeIcon(type), size: 18),
               selected: state.type == type,
               label: Text(type.label),
-              onSelected: (_) => onChanged(type: type),
+              onSelected: (_) {
+                onChanged(type: type);
+                if (closeOnSelect) {
+                  Navigator.of(context).pop();
+                }
+              },
             ),
             const SizedBox(width: 8),
           ],
@@ -480,9 +564,139 @@ class _TransactionFilterControls extends StatelessWidget {
                 } else {
                   onChanged(accountId: value);
                 }
+                if (closeOnSelect) {
+                  Navigator.of(context).pop();
+                }
               },
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _TransactionFilterBadgeButton extends StatelessWidget {
+  const _TransactionFilterBadgeButton({
+    required this.activeCount,
+    required this.onPressed,
+  });
+
+  final int activeCount;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          key: const ValueKey('transaction-filter-toggle'),
+          onPressed: onPressed,
+          tooltip: null,
+          icon: Icon(
+            activeCount == 0 ? Icons.filter_alt_outlined : Icons.filter_alt,
+          ),
+          color: colorScheme.primary,
+        ),
+        if (activeCount > 0)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: colorScheme.error,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '$activeCount',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onError,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TransactionActiveFiltersSummary extends StatelessWidget {
+  const _TransactionActiveFiltersSummary({
+    required this.state,
+    required this.onClear,
+  });
+
+  final TransactionListState state;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final tags = <String>[];
+
+    if (state.keyword.trim().isNotEmpty) {
+      tags.add('关键字');
+    }
+    if (state.type != null) {
+      tags.add(state.type!.label);
+    }
+    if (state.accountId != null && state.accountId!.isNotEmpty) {
+      tags.add('账户');
+    }
+    if (state.categoryId != null && state.categoryId!.isNotEmpty) {
+      tags.add('分类');
+    }
+
+    if (tags.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        for (final tag in tags) _TransactionActiveFilterChip(label: tag),
+        InkWell(
+          key: const ValueKey('transaction-filter-summary-clear'),
+          onTap: onClear,
+          child: Icon(
+            Icons.close,
+            size: 18,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TransactionActiveFilterChip extends StatelessWidget {
+  const _TransactionActiveFilterChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.primary,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -519,7 +733,44 @@ class _TransactionListTile extends ConsumerStatefulWidget {
 }
 
 class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
-  bool _showDetails = false;
+  bool _expanded = false;
+
+  PopupMenuItem<_TransactionListAction> _menuItem({
+    required _TransactionListAction action,
+    required String keySuffix,
+    required String title,
+    required IconData icon,
+    bool enabled = true,
+  }) {
+    return PopupMenuItem<_TransactionListAction>(
+      value: action,
+      enabled: enabled,
+      key: ValueKey('transaction-action-$keySuffix-${widget.item.id}'),
+      child: ListTile(
+        leading: Icon(icon, size: 18),
+        title: Text(title),
+        contentPadding: EdgeInsets.zero,
+        minLeadingWidth: 0,
+        dense: true,
+      ),
+    );
+  }
+
+  void _onMenuSelected(_TransactionListAction action) {
+    switch (action) {
+      case _TransactionListAction.toggle:
+        setState(() {
+          _expanded = !_expanded;
+        });
+        return;
+      case _TransactionListAction.edit:
+        widget.onTap();
+        return;
+      case _TransactionListAction.delete:
+        widget.onDelete();
+        return;
+    }
+  }
 
   /// 构建单条交易列表项。
   @override
@@ -529,8 +780,6 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
     final selected = widget.selected;
     final onTap = widget.onTap;
     final onSelectionToggle = widget.onSelectionToggle;
-    final onDelete = widget.onDelete;
-
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     final amountColor = switch (item.type) {
@@ -634,7 +883,7 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
                                   fontWeight: FontWeight.w600,
                                 ),
                           ),
-                          if (_showDetails && item.remark.isNotEmpty) ...[
+                          if (_expanded && item.remark.isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text(
                               item.remark,
@@ -644,7 +893,7 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
                                   ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                           ],
-                          if (_showDetails && item.tags.isNotEmpty) ...[
+                          if (_expanded && item.tags.isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Wrap(
                               spacing: 6,
@@ -666,27 +915,32 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (item.remark.isNotEmpty || item.tags.isNotEmpty)
-                            IconButton(
-                              onPressed: () =>
-                                  setState(() => _showDetails = !_showDetails),
-                              icon: Icon(
-                                _showDetails ? Icons.remove : Icons.add,
+                          PopupMenuButton<_TransactionListAction>(
+                            key: ValueKey('transaction-more-menu-${item.id}'),
+                            icon: const Icon(Icons.more_horiz, size: 20),
+                            tooltip: null,
+                            onSelected: _onMenuSelected,
+                            itemBuilder: (context) => [
+                              _menuItem(
+                                action: _TransactionListAction.toggle,
+                                keySuffix: 'toggle',
+                                title: _expanded ? '收起' : '展开',
+                                icon: _expanded
+                                    ? Icons.keyboard_arrow_up_rounded
+                                    : Icons.keyboard_arrow_down_rounded,
                               ),
-                              tooltip: _showDetails ? '收起明细' : '展开明细',
-                            ),
-                          PopupMenuButton<String>(
-                            tooltip: '更多交易操作 ${item.displayTitle}',
-                            onSelected: (value) {
-                              if (value == 'edit') {
-                                onTap();
-                              } else if (value == 'delete') {
-                                onDelete();
-                              }
-                            },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(value: 'edit', child: Text('编辑')),
-                              PopupMenuItem(value: 'delete', child: Text('删除')),
+                              _menuItem(
+                                action: _TransactionListAction.edit,
+                                keySuffix: 'edit',
+                                title: '编辑',
+                                icon: Icons.edit_outlined,
+                              ),
+                              _menuItem(
+                                action: _TransactionListAction.delete,
+                                keySuffix: 'delete',
+                                title: '删除',
+                                icon: Icons.delete_outline,
+                              ),
                             ],
                           ),
                         ],

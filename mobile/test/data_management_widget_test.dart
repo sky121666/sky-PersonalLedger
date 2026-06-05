@@ -68,7 +68,9 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('按条件保存'), findsNothing);
-      await tester.tap(find.byTooltip('筛选明细'));
+      await tester.tap(
+        find.byKey(const ValueKey('data-management-transactions-filter')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('筛选导出'), findsNothing);
       expect(find.text('保存明细'), findsWidgets);
@@ -239,12 +241,12 @@ void main() {
       expect(find.textContaining('自动备份加载失败'), findsNothing);
 
       await tester.scrollUntilVisible(
-        find.byTooltip('刷新保存记录'),
+        find.byKey(const ValueKey('auto-backup-reload')),
         280,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('刷新保存记录'));
+      await tester.tap(find.byKey(const ValueKey('auto-backup-reload')));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('自动备份加载失败'), findsNothing);
@@ -280,7 +282,10 @@ void main() {
       expect(find.text('服务器留存'), findsNothing);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(4));
       expect(find.text('自动保存'), findsOneWidget);
-      expect(find.text('设置'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('auto-backup-settings-toggle')),
+        findsOneWidget,
+      );
       expect(find.text('保留副本数'), findsNothing);
       expect(find.text('保存记录'), findsNothing);
       expect(find.text('记录'), findsOneWidget);

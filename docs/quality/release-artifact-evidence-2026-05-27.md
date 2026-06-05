@@ -54,7 +54,7 @@ RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 
 | iOS signing material | iOS workflow or local export validates certificate, provisioning profile, and export options | PENDING |
 | iOS artifact | IPA, TestFlight build, or Xcode archive is recorded with version/build number | PENDING |
 | iOS checksum | IPA `.sha256` file is attached to the CI artifact and matches the downloaded file | PENDING |
-| iOS/Android device QA | USB-connected iPhone evidence and Android device/emulator E2E or signed-install manual checklist are recorded | PENDING |
+| iOS/Android device QA | USB-connected iPhone evidence and Android emulator E2E or signed-install manual checklist are recorded | PENDING |
 | Backup operator drill structure | `./scripts/check-backup-operator-drill.sh` passes | PASS |
 | Backup operator drill execution | `docs/quality/backup-operator-drill-2026-05-27.md` records real export/restore evidence from an isolated deployment | PASS |
 | Release notes structure | `./scripts/check-release-notes-candidate.sh` passes | PASS |

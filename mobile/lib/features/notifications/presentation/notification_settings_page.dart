@@ -15,16 +15,7 @@ class NotificationSettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsState = ref.watch(notificationSettingsProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('通知设置'),
-        actions: [
-          IconButton(
-            onPressed: () => ref.invalidate(notificationSettingsProvider),
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新通知设置',
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('通知设置')),
       body: settingsState.when(
         loading: () => const AppLoadingView(message: '正在加载通知设置...'),
         error: (error, _) => AppErrorView(
@@ -641,13 +632,6 @@ class _ReminderSummaryCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Row(
         children: [
-          IconBadge(
-            icon: Icons.tune_outlined,
-            color: financeColors.warning,
-            size: 32,
-            iconSize: 17,
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -719,6 +703,13 @@ class _ChannelCard extends StatelessWidget {
             onChanged: onEnabledChanged,
           ),
           if (enabled) ...[
+            const SizedBox(height: 8),
+            Divider(
+              height: 1,
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 8),
             ...children,
             const SizedBox(height: 8),
@@ -840,7 +831,7 @@ class _OptionDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Divider(
       height: 1,
-      indent: 50,
+      indent: 18,
       color: Theme.of(
         context,
       ).colorScheme.outlineVariant.withValues(alpha: 0.5),
@@ -863,21 +854,15 @@ class _NotificationPanelHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconBadge(icon: icon, color: color),
-        const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ],
+          child: Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
         ),
+        Icon(icon, size: 18, color: color),
       ],
     );
   }
@@ -903,43 +888,39 @@ class _NotificationSwitchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(alpha: value ? 0.10 : 0.04),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: value ? 0.18 : 0.10)),
-      ),
-      child: Row(
-        children: [
-          IconBadge(icon: icon, color: color, size: 32, iconSize: 17),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value ? '当前已开启' : '当前未开启',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Semantics(
-            key: ValueKey('notification-switch-semantics-$title'),
-            label: title,
-            toggled: value,
-            enabled: onChanged != null,
-            child: Switch(key: switchKey, value: value, onChanged: onChanged),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Semantics(
+          key: ValueKey('notification-switch-semantics-$title'),
+          label: title,
+          toggled: value,
+          enabled: onChanged != null,
+          child: Switch(key: switchKey, value: value, onChanged: onChanged),
+        ),
+      ],
     );
   }
 }
@@ -967,8 +948,6 @@ class _NotificationOptionRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          IconBadge(icon: icon, color: color, size: 30, iconSize: 16),
-          const SizedBox(width: 10),
           Expanded(
             child: Text(
               title,
@@ -977,6 +956,8 @@ class _NotificationOptionRow extends StatelessWidget {
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
+          const SizedBox(width: 8),
+          Icon(icon, size: 16, color: color),
           const SizedBox(width: 8),
           Semantics(
             key: ValueKey('notification-switch-semantics-$title'),
@@ -1009,13 +990,6 @@ class _NotificationAdvanceRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          IconBadge(
-            icon: Icons.event_available_outlined,
-            color: financeColors.asset,
-            size: 34,
-            iconSize: 16,
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Text(
               '提前 $advanceDays 天提醒',
@@ -1024,6 +998,13 @@ class _NotificationAdvanceRow extends StatelessWidget {
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
+          const SizedBox(width: 8),
+          Icon(
+            Icons.event_available_outlined,
+            size: 16,
+            color: financeColors.asset,
+          ),
+          const SizedBox(width: 8),
           DropdownButton<int>(
             value: advanceDays,
             underline: const SizedBox.shrink(),
@@ -1066,14 +1047,14 @@ class _ErrorBanner extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Icon(Icons.error_outline, color: colorScheme.onErrorContainer),
-            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 message,
                 style: TextStyle(color: colorScheme.onErrorContainer),
               ),
             ),
+            const SizedBox(width: 8),
+            Icon(Icons.error_outline, color: colorScheme.onErrorContainer),
           ],
         ),
       ),

@@ -181,6 +181,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('statistics-content'), findsOneWidget);
   });
+
+  testWidgets('MainShellPage 横屏手机仍使用底部导航而不是侧栏', (tester) async {
+    tester.view.physicalSize = const Size(932, 430);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = GoRouter(
+      initialLocation: AppRoutePaths.home,
+      routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) =>
+              MainShellPage(navigationShell: navigationShell),
+          branches: [
+            _branch(AppRoutePaths.home, 'home-content'),
+            _branch(AppRoutePaths.transactions, 'transactions-content'),
+            _branch(AppRoutePaths.statistics, 'statistics-content'),
+            _branch(AppRoutePaths.profile, 'profile-content'),
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        theme: AppTheme.lightTheme(AppThemePalette.teal),
+        darkTheme: AppTheme.darkTheme(AppThemePalette.teal),
+        routerConfig: router,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.byKey(const ValueKey('main-shell-navigation-rail')), findsNothing);
+    expect(find.byKey(const ValueKey('main-shell-tab-home')), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+  });
 }
 
 StatefulShellBranch _branch(String path, String label) {

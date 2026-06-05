@@ -209,17 +209,12 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
         title: const Text('设备授权'),
         actions: [
           IconButton(
-            onPressed: _loadTokens,
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新授权',
+            key: const ValueKey('api-token-add'),
+            onPressed: _submitting ? null : _openCreateSheet,
+            tooltip: null,
+            icon: const Icon(Icons.add),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        key: const ValueKey('api-token-add'),
-        onPressed: _submitting ? null : _openCreateSheet,
-        tooltip: '新增授权',
-        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(child: _buildBody()),
     );
@@ -254,8 +249,9 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
               _ApiTokenRowKind.header => _TokenListHeader(
                 tokenCount: _tokens.length,
               ),
-              _ApiTokenRowKind.empty => const AppEmptyView(
+              _ApiTokenRowKind.empty => const _EmptyTokenState(
                 title: '还没有授权',
+                message: '还没有授权设备',
                 icon: Icons.vpn_key_outlined,
               ),
               _ApiTokenRowKind.token => _TokenTile(
@@ -321,29 +317,86 @@ class _TokenListHeader extends StatelessWidget {
       accentColor: colorScheme.primary,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconBadge(
-            icon: Icons.key_outlined,
-            color: colorScheme.primary,
-            size: 34,
-            iconSize: 18,
-          ),
-          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              '授权设备',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '授权设备',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  tokenCount == 0 ? '未启用' : '$tokenCount 个可用',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
-          Text(
-            tokenCount == 0 ? '未启用' : '$tokenCount 个可用',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w800,
+          const SizedBox(width: 8),
+          Icon(Icons.key_outlined, size: 18, color: colorScheme.primary),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyTokenState extends StatelessWidget {
+  const _EmptyTokenState({
+    required this.title,
+    required this.message,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      accentColor: colorScheme.primary,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconBadge(
+            icon: icon,
+            color: colorScheme.primary,
+            size: 42,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -413,7 +466,7 @@ class _CreateTokenCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          FilledButton.icon(
+          OutlinedButton.icon(
             onPressed: submitting ? null : onCreate,
             icon: const Icon(Icons.add),
             label: Text(submitting ? '处理中' : '生成授权'),
@@ -436,37 +489,51 @@ class _CreatedTokenCard extends StatelessWidget {
     return PremiumSurface(
       accentColor: successColor,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconBadge(
-            key: const ValueKey('api-token-created-success-icon'),
-            icon: Icons.check_circle_outline,
-            color: successColor,
-            size: 36,
-            iconSize: 19,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Semantics(
-              label: '一次性加入码',
-              textField: true,
-              child: SelectableText(
-                token,
-                key: const ValueKey('api-token-created-value'),
-                maxLines: 1,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w900,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '一次性加入码',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
+              ),
+              IconBadge(
+                key: const ValueKey('api-token-created-success-icon'),
+                icon: Icons.check_circle_outline,
+                color: successColor,
+                size: 30,
+                iconSize: 16,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Semantics(
+            label: '一次性加入码',
+            textField: true,
+            child: SelectableText(
+              token,
+              key: const ValueKey('api-token-created-value'),
+              maxLines: 1,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w900,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: onCopy,
-            icon: const Icon(Icons.copy, size: 18),
-            label: const Text('复制加入码'),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: onCopy,
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('复制加入码'),
+            ),
           ),
         ],
       ),
@@ -488,23 +555,17 @@ class _PanelHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        IconBadge(icon: icon, color: color, size: 40, iconSize: 20),
-        const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ],
+          child: Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
         ),
+        const SizedBox(width: 12),
+        Icon(icon, size: 18, color: color),
       ],
     );
   }
@@ -529,21 +590,29 @@ class _TokenTile extends StatelessWidget {
       label: '${token.name}，${_tokenStatus(token)}',
       button: true,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+        padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.38),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.46),
           ),
         ),
         child: Row(
           children: [
-            IconBadge(
-              icon: Icons.smartphone_outlined,
-              color: colorScheme.primary,
-              size: 32,
-              iconSize: 17,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SizedBox.square(
+                dimension: 34,
+                child: Icon(
+                  Icons.smartphone_outlined,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -577,11 +646,17 @@ class _TokenTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            IconButton(
+            TextButton(
+              key: ValueKey('api-token-delete-${token.id}'),
               onPressed: deleting ? null : onDelete,
-              icon: const Icon(Icons.delete_outline),
-              tooltip: deleting ? '正在处理' : '删除授权 ${token.name}',
-              color: financeColors.expense,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                foregroundColor: financeColors.expense,
+              ),
+              child: const Text('删除'),
             ),
           ],
         ),

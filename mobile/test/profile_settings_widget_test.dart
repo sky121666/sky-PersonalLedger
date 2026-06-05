@@ -201,7 +201,7 @@ void main() {
       );
       repository.profile = _profile(nickname: 'Server Sky');
 
-      await tester.tap(find.byTooltip('刷新个人资料'));
+      await tester.tap(find.byKey(const ValueKey('profile-settings-refresh')));
       await tester.pumpAndSettle();
 
       expect(find.text('Server Sky'), findsWidgets);

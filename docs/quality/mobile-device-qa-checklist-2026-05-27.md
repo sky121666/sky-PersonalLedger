@@ -2,7 +2,7 @@
 
 ## Conclusion
 
-Automated simulator/emulator evidence is strong, but the final mobile release gate still requires physical-device and assistive-technology evidence. This checklist records the exact checks needed to close that gap.
+Automated simulator/emulator evidence is strong, and Android QA now uses emulator-by-policy. This checklist records the exact checks needed to close remaining physical-device and assistive-technology gaps.
 
 Current device evidence: iPhone 17 Simulator is available; `sky的iPhone 12` is visible only as a wireless device, so it is not accepted as physical Flutter integration-test evidence.
 
@@ -11,24 +11,25 @@ Current device evidence: iPhone 17 Simulator is available; `sky的iPhone 12` is 
 Run from the repository root:
 
 ```bash
-./scripts/check-mobile-device-qa-preflight.sh
+ANDROID_PREFER_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh
 ```
 
 Require a USB-connected iPhone:
 
 ```bash
-REQUIRE_PHYSICAL_IOS=1 ./scripts/check-mobile-device-qa-preflight.sh
+ANDROID_PREFER_EMULATOR=1 REQUIRE_PHYSICAL_IOS=1 ./scripts/check-mobile-device-qa-preflight.sh
 ```
 
-Require both a USB-connected iPhone and an Android device or emulator:
+Require both a USB-connected iPhone and an Android emulator:
 
 ```bash
-REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_DEVICE=1 ./scripts/check-mobile-device-qa-preflight.sh
+ANDROID_PREFER_EMULATOR=1 REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh
 ```
 
 Run real-backend E2E on a USB-connected iPhone:
 
 ```bash
+ANDROID_PREFER_EMULATOR=1 \
 REQUIRE_PHYSICAL_IOS=1 \
 RUN_PHYSICAL_IOS_E2E=1 \
 IOS_PHYSICAL_DEVICE_ID=<device-id> \
@@ -38,7 +39,7 @@ IOS_PHYSICAL_DEVICE_ID=<device-id> \
 Run real-backend E2E on Android:
 
 ```bash
-RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-preflight.sh
+ANDROID_PREFER_EMULATOR=1 RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-preflight.sh
 ```
 
 ## Physical Device Evidence
@@ -48,15 +49,15 @@ RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-preflight.sh
 | Device identity | Physical device model, OS version, device ID, and connection type | PENDING |  |
 | Build identity | App version, build number, and artifact/source used for install | PENDING |  |
 | USB iPhone preflight | `REQUIRE_PHYSICAL_IOS=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PENDING |  |
-| Android device preflight | `REQUIRE_ANDROID_DEVICE=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PENDING |  |
+| Android emulator preflight | `REQUIRE_ANDROID_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PENDING |  |
 | Physical iPhone E2E | USB-connected iPhone E2E or signed-install manual result is recorded | PENDING |  |
-| Android E2E | Android device/emulator E2E or signed-install manual result is recorded | PENDING |  |
+| Android E2E | Android emulator E2E or signed-install manual result is recorded | PENDING |  |
 
 ## Manual Physical Device Checklist
 
 | Area | Required Result | Status | Evidence |
 | --- | --- | --- | --- |
-| Install/launch | App installs and launches on USB iPhone and Android device/emulator without signing/runtime error | PENDING | Device ID, OS version, build number |
+| Install/launch | App installs and launches on USB iPhone and Android emulator without signing/runtime error | PENDING | Device ID, OS version, build number |
 | Login/setup | Server address, first password, login, and token persistence work | PENDING | Short notes or screenshot |
 | Home | Premium dashboard, family summary, and budget surfaces render without overflow | PENDING | Light/dark screenshots |
 | Quick transaction | Keyboard does not cover save action; amount/category/member/account fields work | PENDING | Test transaction ID or screenshot |

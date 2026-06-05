@@ -50,7 +50,10 @@ void main() {
         find.byKey(const ValueKey('transaction-amount-transaction-1')),
         findsOneWidget,
       );
-      expect(find.byTooltip('更多交易操作 餐饮'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('transaction-more-menu-transaction-1')),
+        findsOneWidget,
+      );
       expect(
         find.ancestor(
           of: find.byKey(const ValueKey('transaction-item-transaction-1')),
@@ -58,7 +61,16 @@ void main() {
         ),
         findsWidgets,
       );
-      await tester.tap(find.byTooltip('展开明细').first);
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-more-menu-transaction-1')),
+      );
+      await tester.pumpAndSettle();
+      await _tapTransactionMenuAction(
+        tester,
+        transactionId: 'transaction-1',
+        actionLabel: _toggleActionLabel(isTransactionExpanded: false),
+        actionSuffix: 'toggle',
+      );
       await tester.pumpAndSettle();
       expect(find.textContaining('午餐'), findsOneWidget);
 
@@ -91,9 +103,16 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('更多交易操作 餐饮'));
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-more-menu-transaction-1')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('删除'));
+      await _tapTransactionMenuAction(
+        tester,
+        actionLabel: '删除',
+        actionSuffix: 'delete',
+        transactionId: 'transaction-1',
+      );
       await tester.pumpAndSettle();
       expect(find.textContaining('删除「餐饮」？'), findsOneWidget);
       expect(find.textContaining('余额将同步调整'), findsNothing);
@@ -142,9 +161,19 @@ void main() {
         find.byKey(const ValueKey('transaction-select-transaction-2')),
       );
       await tester.pumpAndSettle();
-      expect(find.byTooltip('退出选择，已选择 2 笔'), findsOneWidget);
-      expect(find.byTooltip('全选当前页 2 笔交易'), findsOneWidget);
-      await tester.tap(find.byTooltip('删除已选择 2 笔交易'));
+      expect(
+        find.byKey(const ValueKey('transaction-clear-selection')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('transaction-select-all-current-page')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('transaction-batch-delete')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('transaction-batch-delete')));
       await tester.pumpAndSettle();
       expect(find.textContaining('删除 2 笔交易？'), findsOneWidget);
       expect(find.textContaining('余额将同步调整'), findsNothing);
@@ -157,7 +186,7 @@ void main() {
         ['transaction-1', 'transaction-2'],
       ]);
       expect(find.text('餐饮'), findsNothing);
-      expect(find.text('已删除 2 笔交易'), findsOneWidget);
+      expect(find.textContaining('已删 2 笔'), findsOneWidget);
     });
 
     testWidgets('搜索和筛选会按条件刷新交易列表', (tester) async {
@@ -182,6 +211,11 @@ void main() {
       expect(repository.listQueries.last.type, TransactionType.expense);
       expect(find.text('2 项条件 · 1/1 笔'), findsOneWidget);
       expect(find.text('筛选构成'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('transaction-filter-summary-clear')),
+        findsOneWidget,
+      );
+      expect(find.text('支出'), findsOneWidget);
       expect(repository.listAccountsCalls, 1);
     });
 
@@ -200,7 +234,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilterChip, '支出'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('清空交易搜索'));
+      await tester.tap(find.byKey(const ValueKey('transaction-filter-clear')));
       await tester.pumpAndSettle();
 
       final field = tester.widget<TextField>(
@@ -249,19 +283,15 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有明细'), findsOneWidget);
+      expect(find.text('还没有明细，先创建一笔交易'), findsOneWidget);
+      expect(find.byKey(const ValueKey('transaction-add')), findsOneWidget);
       expect(find.text('暂无交易明细'), findsNothing);
       expect(find.text('还没有交易记录。'), findsNothing);
+      expect(find.widgetWithText(FilledButton, '去记一笔'), findsNothing);
 
-      await tester.scrollUntilVisible(
-        find.widgetWithText(FilledButton, '去记一笔'),
-        320,
-        scrollable: find.byType(Scrollable).first,
-      );
+      await tester.tap(find.byKey(const ValueKey('transaction-add')));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '去记一笔'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('编辑 new'), findsOneWidget);
+      expect(find.textContaining('编辑 '), findsOneWidget);
     });
 
     testWidgets('筛选无结果时展示匹配空状态', (tester) async {
@@ -276,6 +306,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('没有匹配结果'), findsOneWidget);
+      expect(find.text('清空筛选后查看全部'), findsOneWidget);
       expect(find.text('没有匹配的交易'), findsNothing);
       expect(find.text('调整筛选条件后再试。'), findsNothing);
     });
@@ -317,12 +348,24 @@ void main() {
 
       expect(find.text('明细'), findsOneWidget);
       expect(find.text('餐饮'), findsAtLeastNWidgets(2));
-      expect(find.byTooltip('展开明细').first, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('transaction-more-menu-transaction-1')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('transaction-item-transaction-1')),
         findsOneWidget,
       );
-      await tester.tap(find.byTooltip('展开明细').first);
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-more-menu-transaction-1')),
+      );
+      await tester.pumpAndSettle();
+      await _tapTransactionMenuAction(
+        tester,
+        transactionId: 'transaction-1',
+        actionLabel: _toggleActionLabel(isTransactionExpanded: false),
+        actionSuffix: 'toggle',
+      );
       await tester.pumpAndSettle();
       expect(find.text('午餐'), findsOneWidget);
     });
@@ -351,10 +394,16 @@ Future<void> _pumpPage(
         path: AppRoutePaths.quickTransaction,
         builder: (context, state) {
           final transaction = state.extra as TransactionItem?;
+          final header = transaction == null
+              ? '编辑 new'
+              : '编辑 ${transaction.id}';
+          final subtitle = transaction?.remark?.trim();
           return Scaffold(
             appBar: AppBar(title: const Text('编辑页')),
             body: Text(
-              '编辑 ${transaction?.id ?? 'new'} ${transaction?.remark ?? ''}',
+              subtitle == null || subtitle.isEmpty
+                  ? header
+                  : '$header $subtitle',
             ),
           );
         },
@@ -392,6 +441,24 @@ class _FixedThemeController extends ThemeController {
   Future<void> setPalette(AppThemePalette palette) async {
     state = state.copyWith(palette: palette);
   }
+}
+
+String _toggleActionLabel({required bool isTransactionExpanded}) =>
+    isTransactionExpanded ? '收起' : '展开';
+
+Future<void> _tapTransactionMenuAction(
+  WidgetTester tester, {
+  required String transactionId,
+  required String actionLabel,
+  String? actionSuffix,
+}) async {
+  Finder finder = actionSuffix == null
+      ? find.text(actionLabel)
+      : find.byKey(ValueKey('transaction-action-$actionSuffix-$transactionId'));
+  if (!tester.any(finder)) {
+    finder = find.text(actionLabel);
+  }
+  await tester.tap(finder);
 }
 
 class _FakeTransactionRepository implements TransactionRepository {

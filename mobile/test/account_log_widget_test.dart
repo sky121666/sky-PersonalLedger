@@ -133,7 +133,9 @@ void main() {
       expect(find.text('余额减少'), findsNothing);
       expect(find.text('-¥80.00'), findsOneWidget);
       expect(find.text('午餐'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-2')));
+      await tester.tap(
+        find.byKey(const ValueKey('account-log-remark-toggle-log-2')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('午餐'), findsOneWidget);
     });
@@ -150,7 +152,9 @@ void main() {
 
       expect(repository.listPages, [1, 1]);
       expect(find.text('工资入账'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-1')));
+      await tester.tap(
+        find.byKey(const ValueKey('account-log-remark-toggle-log-1')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('工资入账'), findsOneWidget);
     });
@@ -162,6 +166,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有流水'), findsOneWidget);
+      expect(find.text('记录交易后会在这里按时间展开'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
     });
 
@@ -189,7 +194,9 @@ void main() {
       expect(repository.listPages, [1, 2]);
       expect(find.textContaining('流水加载失败'), findsOneWidget);
       expect(find.text('工资入账'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-1')));
+      await tester.tap(
+        find.byKey(const ValueKey('account-log-remark-toggle-log-1')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('工资入账'), findsOneWidget);
       expect(find.text('加载更多'), findsOneWidget);
@@ -226,16 +233,24 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('工资入账'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-1')));
+      await tester.tap(
+        find.byKey(const ValueKey('account-log-remark-toggle-log-1')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('工资入账'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('刷新账户流水'));
+      await tester.fling(
+        find.byType(Scrollable).first,
+        const Offset(0, 300),
+        1000,
+      );
       await tester.pumpAndSettle();
 
       expect(repository.listPages, [1, 1]);
       expect(find.text('工资入账'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('account-log-remark-toggle-log-2')));
+      await tester.tap(
+        find.byKey(const ValueKey('account-log-remark-toggle-log-2')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('午餐'), findsOneWidget);
       expect(find.text('-¥80.00'), findsAtLeastNWidgets(1));

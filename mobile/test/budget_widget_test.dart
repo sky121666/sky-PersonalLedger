@@ -75,7 +75,7 @@ void main() {
       final budgetRepository = _FakeBudgetRepository();
       await _pumpPage(tester, budgetRepository);
 
-      await tester.tap(find.byTooltip('修改总预算'));
+      await tester.tap(find.byKey(const ValueKey('budget-total-edit')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), '3500');
       await tester.tap(find.widgetWithText(FilledButton, '保存预算'));
@@ -90,7 +90,7 @@ void main() {
       final budgetRepository = _FakeBudgetRepository();
       await _pumpPage(tester, budgetRepository);
 
-      await tester.tap(find.byTooltip('添加分类预算'));
+      await tester.tap(find.byKey(const ValueKey('budget-category-add')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), '500');
       await tester.tap(find.widgetWithText(FilledButton, '保存预算'));
@@ -109,7 +109,7 @@ void main() {
       await _pumpPage(tester, budgetRepository);
 
       await tester.scrollUntilVisible(find.text('成员'), 300);
-      await tester.tap(find.byTooltip('添加成员预算'));
+      await tester.tap(find.byKey(const ValueKey('budget-member-add')));
       await tester.pumpAndSettle();
       expect(
         find.descendant(
@@ -139,7 +139,9 @@ void main() {
       );
       final deleteButton = find.descendant(
         of: foodBudgetCard,
-        matching: find.byTooltip('删除'),
+        matching: find.byKey(
+          const ValueKey('budget-category-delete-budget-food'),
+        ),
       );
       await tester.ensureVisible(deleteButton);
       await tester.pumpAndSettle();
@@ -187,9 +189,54 @@ void main() {
       expect(find.text('提醒线预留'), findsNothing);
       expect(find.text('本月还没有总预算'), findsWidgets);
       expect(find.text('还没有分类预算'), findsOneWidget);
+      expect(find.text('还没有分类预算，先补充分类后添加'), findsOneWidget);
       expect(find.text('未设置总预算'), findsNothing);
       expect(find.text('未设置分类预算'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
+    });
+
+    testWidgets('缺少支出分类时隐藏分类预算新增入口并展示前置引导', (tester) async {
+      final budgetRepository = _FakeBudgetRepository()
+        ..budgetList = const BudgetListResponse(
+          totalBudget: null,
+          categoryBudgets: [],
+        );
+      await _pumpPage(tester, budgetRepository, categories: const []);
+
+      expect(find.text('还没有分类预算'), findsOneWidget);
+      expect(find.text('先补充支出分类后再添加'), findsOneWidget);
+      expect(find.text('当前分类为空，先添加分类预算'), findsNothing);
+      expect(find.byKey(const ValueKey('budget-category-add')), findsNothing);
+      expect(
+        find.byWidgetPredicate((widget) => widget is OutlinedButton),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.category_outlined), findsOneWidget);
+    });
+
+    testWidgets('缺少家庭成员时隐藏成员预算新增入口并展示前置引导', (tester) async {
+      final budgetRepository = _FakeBudgetRepository()
+        ..budgetList = const BudgetListResponse(
+          totalBudget: null,
+          categoryBudgets: [],
+          memberBudgets: [],
+        );
+      await _pumpPage(tester, budgetRepository, familyMembers: const []);
+
+      await tester.scrollUntilVisible(find.text('成员'), 300);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('成员'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('还没有成员预算'), findsOneWidget);
+      expect(find.text('先补充家庭成员后再添加'), findsOneWidget);
+      expect(find.text('尚未添加家庭成员，先添加成员预算'), findsNothing);
+      expect(find.byKey(const ValueKey('budget-member-add')), findsNothing);
+      expect(
+        find.byWidgetPredicate((widget) => widget is OutlinedButton),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.group_outlined), findsOneWidget);
     });
 
     testWidgets('保存总预算失败时展示错误面板', (tester) async {
@@ -197,7 +244,7 @@ void main() {
         ..setTotalError = '总预算保存失败';
       await _pumpPage(tester, budgetRepository);
 
-      await tester.tap(find.byTooltip('修改总预算'));
+      await tester.tap(find.byKey(const ValueKey('budget-total-edit')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), '3500');
       await tester.tap(find.widgetWithText(FilledButton, '保存预算'));
@@ -230,6 +277,36 @@ Future<void> _pumpPage(
   WidgetTester tester,
   _FakeBudgetRepository budgetRepository, {
   AppThemePalette palette = AppThemePalette.teal,
+  List<Category> categories = const [
+    Category(
+      id: 'cat-food',
+      name: '餐饮',
+      type: CategoryType.expense,
+      icon: '🍽️',
+      color: '#EF4444',
+      isSystem: true,
+      sortOrder: 1,
+    ),
+    Category(
+      id: 'cat-traffic',
+      name: '交通',
+      type: CategoryType.expense,
+      icon: '🚗',
+      color: '#3B82F6',
+      isSystem: true,
+      sortOrder: 2,
+    ),
+  ],
+  List<FamilyMember> familyMembers = const [
+    FamilyMember(
+      id: 'member-family',
+      name: '家人',
+      relationship: '家人',
+      color: '#2563EB',
+      isDefault: true,
+      isEnabled: true,
+    ),
+  ],
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -240,19 +317,10 @@ Future<void> _pumpPage(
     ProviderScope(
       overrides: [
         budgetRepositoryProvider.overrideWithValue(budgetRepository),
-        categoryRepositoryProvider.overrideWithValue(_FakeCategoryRepository()),
-        familyMembersProvider.overrideWith((ref) async {
-          return const [
-            FamilyMember(
-              id: 'member-family',
-              name: '家人',
-              relationship: '家人',
-              color: '#2563EB',
-              isDefault: true,
-              isEnabled: true,
-            ),
-          ];
-        }),
+        categoryRepositoryProvider.overrideWithValue(
+          _FakeCategoryRepository(categories: categories),
+        ),
+        familyMembersProvider.overrideWith((ref) async => familyMembers),
       ],
       child: MaterialApp(
         theme: AppTheme.lightTheme(palette),
@@ -404,6 +472,31 @@ class _FakeBudgetRepository implements BudgetRepository {
 }
 
 class _FakeCategoryRepository implements CategoryRepository {
+  _FakeCategoryRepository({
+    this.categories = const [
+      Category(
+        id: 'cat-food',
+        name: '餐饮',
+        type: CategoryType.expense,
+        icon: '🍽️',
+        color: '#EF4444',
+        isSystem: true,
+        sortOrder: 1,
+      ),
+      Category(
+        id: 'cat-traffic',
+        name: '交通',
+        type: CategoryType.expense,
+        icon: '🚗',
+        color: '#3B82F6',
+        isSystem: true,
+        sortOrder: 2,
+      ),
+    ],
+  });
+
+  final List<Category> categories;
+
   @override
   Future<Category> create(CreateCategoryRequest request) {
     throw UnimplementedError();
@@ -416,28 +509,7 @@ class _FakeCategoryRepository implements CategoryRepository {
 
   @override
   Future<CategoryListResult> list(CategoryType type) async {
-    return const CategoryListResult(
-      categories: [
-        Category(
-          id: 'cat-food',
-          name: '餐饮',
-          type: CategoryType.expense,
-          icon: '🍽️',
-          color: '#EF4444',
-          isSystem: true,
-          sortOrder: 1,
-        ),
-        Category(
-          id: 'cat-traffic',
-          name: '交通',
-          type: CategoryType.expense,
-          icon: '🚗',
-          color: '#3B82F6',
-          isSystem: true,
-          sortOrder: 2,
-        ),
-      ],
-    );
+    return CategoryListResult(categories: categories);
   }
 
   @override

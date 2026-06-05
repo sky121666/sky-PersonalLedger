@@ -4,7 +4,7 @@
 
 The local release rehearsal entrypoint is `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh`. It verifies the current working tree directly, not only `HEAD`, and is the local gate before any tag, artifact upload, or public release.
 
-This rehearsal cannot replace signed Android/iOS artifact generation, USB iPhone validation, or Android device/emulator release QA. It proves source-level release readiness on the local machine.
+This rehearsal cannot replace signed Android/iOS artifact generation, USB iPhone validation, or Android emulator release QA. It proves source-level release readiness on the local machine.
 
 Latest local final gate run on 2026-05-30: **PASS**.
 
@@ -78,5 +78,5 @@ LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 | --- | --- |
 | Signed Android artifact | Requires release keystore secrets or CI artifact run |
 | Signed iOS IPA/TestFlight | Requires Apple certificate, provisioning profile, and export options |
-| iOS/Android device validation | Requires USB-connected iPhone plus Android device/emulator E2E or supported signed-install manual workflow |
+| iOS/Android device validation | Requires USB-connected iPhone plus Android emulator E2E or supported signed-install manual workflow |
 | Real screen-reader pass | Requires manual VoiceOver/TalkBack operation on target device |

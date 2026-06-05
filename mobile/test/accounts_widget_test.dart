@@ -122,9 +122,12 @@ void main() {
       expect(find.text('创建可用于记账和资产统计的账户'), findsNothing);
       expect(find.text('基础信息'), findsOneWidget);
       expect(find.text('视觉标识'), findsNothing);
-      expect(find.text('样式'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('account-style-toggle')),
+        findsOneWidget,
+      );
       expect(find.text('卡片'), findsNothing);
-      await tester.tap(find.text('样式'));
+      await tester.tap(find.byKey(const ValueKey('account-style-toggle')));
       await tester.pumpAndSettle();
       expect(find.text('外观'), findsOneWidget);
       expect(find.text('卡片'), findsOneWidget);
@@ -157,7 +160,9 @@ void main() {
         find.byKey(const ValueKey('account-initial-balance')),
         '500000',
       );
-      await tester.tap(find.text('债务选项'));
+      await tester.tap(
+        find.byKey(const ValueKey('account-debt-options-toggle')),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('account-payment-day')),
@@ -204,16 +209,30 @@ void main() {
       expect(find.text('保存成功'), findsOneWidget);
     });
 
+    testWidgets('没有账户时展示轻量空态', (tester) async {
+      final repository = _FakeAccountRepository()..accounts = [];
+      await _pumpPage(tester, repository);
+
+      expect(find.text('还没有账户'), findsOneWidget);
+      expect(find.text('还没有账户，先添加账户'), findsOneWidget);
+      expect(find.text('暂无数据'), findsNothing);
+    });
+
     testWidgets('编辑负债账户时保留负债字段', (tester) async {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
-      final mortgageMenu = find.byTooltip('更多账户操作 住房贷款');
-      await tester.ensureVisible(mortgageMenu);
+      final mortgageExpand = find.byKey(
+        const ValueKey('account-toggle-details-mortgage'),
+      );
+      await tester.ensureVisible(mortgageExpand);
       await tester.pumpAndSettle();
-      await tester.tap(mortgageMenu);
+      await tester.tap(mortgageExpand);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('编辑'));
+      await _openAccountActionMenu(tester, 'mortgage');
+      await tester.tap(
+        find.byKey(const ValueKey('account-action-edit-mortgage')),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('account-name')),
@@ -239,30 +258,39 @@ void main() {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
-      final mortgageMenu = find.byTooltip('更多账户操作 住房贷款');
-      await tester.ensureVisible(mortgageMenu);
+      final mortgageExpand = find.byKey(
+        const ValueKey('account-toggle-details-mortgage'),
+      );
+      await tester.ensureVisible(mortgageExpand);
       await tester.pumpAndSettle();
-      await tester.tap(mortgageMenu);
+      await tester.tap(mortgageExpand);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('上移'));
+      await _openAccountActionMenu(tester, 'mortgage');
+      await tester.tap(
+        find.byKey(const ValueKey('account-action-move-up-mortgage')),
+      );
       await tester.pumpAndSettle();
 
       expect(repository.sortCalls, [
         ['mortgage', 'bank-card', 'apple-pay'],
       ]);
-      expect(find.text('账户排序已更新'), findsOneWidget);
     });
 
     testWidgets('删除账户前展示精简确认', (tester) async {
       final repository = _FakeAccountRepository();
       await _pumpPage(tester, repository);
 
-      final walletMenu = find.byTooltip('更多账户操作 手机钱包');
-      await tester.ensureVisible(walletMenu);
+      final walletExpand = find.byKey(
+        const ValueKey('account-toggle-details-apple-pay'),
+      );
+      await tester.ensureVisible(walletExpand);
       await tester.pumpAndSettle();
-      await tester.tap(walletMenu);
+      await tester.tap(walletExpand);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('删除'));
+      await _openAccountActionMenu(tester, 'apple-pay');
+      await tester.tap(
+        find.byKey(const ValueKey('account-action-delete-apple-pay')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('删除「手机钱包」？'), findsOneWidget);
@@ -296,6 +324,14 @@ Future<void> _pumpPage(
       child: const MaterialApp(home: AccountsPage()),
     ),
   );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openAccountActionMenu(
+  WidgetTester tester,
+  String accountId,
+) async {
+  await tester.tap(find.byKey(ValueKey('account-action-logs-$accountId')));
   await tester.pumpAndSettle();
 }
 

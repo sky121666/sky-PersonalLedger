@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -14,6 +15,7 @@ import 'package:personal_ledger/features/attachments/data/attachment_models.dart
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/family/data/family_repository.dart';
+import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
 import 'package:personal_ledger/features/notifications/data/notification_repository.dart';
 import 'package:personal_ledger/features/profile/data/profile_repository.dart';
@@ -97,6 +99,26 @@ void main() {
               ),
         ),
       );
+    });
+
+    test('首页摘要在家庭摘要接口失败时降级为空家庭数据', () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://ledger.example.com/api/v1'))
+        ..httpClientAdapter = _HomeSummaryAdapter();
+      final client = ApiClient(
+        serverConfigService: ServerConfigService(SecureStorageService()),
+        dio: dio,
+      );
+      final repository = HomeRepository(client);
+
+      final summary = await repository.getSummary();
+
+      expect(summary.accounts.activeAccounts, hasLength(1));
+      expect(summary.overview.transactionCount, 6);
+      expect(summary.budgetSummary.totalAmount, 3000);
+      expect(summary.recentTransactions, hasLength(1));
+      expect(summary.familySummary.month, isEmpty);
+      expect(summary.familySummary.members, isEmpty);
+      expect(summary.familySummary.totalExpense, 0);
     });
   });
 
@@ -610,6 +632,115 @@ class _FailingNetworkAdapter implements HttpClientAdapter {
       type: DioExceptionType.connectionError,
       message:
           'Connection refused for https://ledger.example.com/api/v1/health?token=secret',
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+class _HomeSummaryAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final payload = switch (options.path) {
+      '/accounts' => _jsonPayload({
+        'code': 0,
+        'message': 'ok',
+        'data': {
+          'list': [
+            {
+              'id': 'account-1',
+              'name': '现金',
+              'type': 'cash',
+              'icon': '💰',
+              'color': '#10B981',
+              'current_balance': 1280,
+              'is_archived': false,
+            },
+          ],
+          'total_assets': 1280,
+          'total_liabilities': 0,
+          'net_assets': 1280,
+        },
+      }),
+      '/statistics/overview' => _jsonPayload({
+        'code': 0,
+        'message': 'ok',
+        'data': {
+          'income': 1600,
+          'expense': 420,
+          'balance': 1180,
+          'transaction_count': 6,
+        },
+      }),
+      '/budgets/summary' => _jsonPayload({
+        'code': 0,
+        'message': 'ok',
+        'data': {
+          'total_amount': 3000,
+          'total_spent': 1200,
+          'percentage': 40,
+          'daily_available': 90,
+          'days_remaining': 20,
+          'over_budget_categories': [],
+        },
+      }),
+      '/transactions' => _jsonPayload({
+        'code': 0,
+        'message': 'ok',
+        'data': {
+          'list': [
+            {
+              'id': 'tx-1',
+              'type': 'expense',
+              'amount': 28,
+              'account_id': 'account-1',
+              'category_id': 'category-food',
+              'transaction_date': '2026-05-20T09:00:00Z',
+              'remark': '午餐',
+              'account': {'id': 'account-1', 'name': '现金', 'type': 'cash'},
+              'category': {
+                'id': 'category-food',
+                'name': '餐饮',
+                'type': 'expense',
+              },
+            },
+          ],
+          'total': 1,
+          'page': 1,
+          'page_size': 5,
+        },
+      }),
+      '/family/summary' => throw DioException(
+        requestOptions: options,
+        response: Response<Object?>(
+          requestOptions: options,
+          statusCode: 404,
+          data: 'page not found',
+        ),
+        type: DioExceptionType.badResponse,
+      ),
+      _ => _jsonPayload({'code': 404, 'message': 'not found', 'data': null}, statusCode: 404),
+    };
+
+    return payload;
+  }
+
+  ResponseBody _jsonPayload(
+    Map<String, Object?> data, {
+    int statusCode = 200,
+  }) {
+    final bytes = Uint8List.fromList(utf8.encode(jsonEncode(data)));
+    return ResponseBody.fromBytes(
+      bytes,
+      statusCode,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
     );
   }
 

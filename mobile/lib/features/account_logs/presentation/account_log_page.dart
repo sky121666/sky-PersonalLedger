@@ -123,13 +123,6 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(account == null ? '账户流水' : '${account.name}流水'),
-        actions: [
-          IconButton(
-            onPressed: _loadFirstPage,
-            icon: const Icon(Icons.refresh),
-            tooltip: account == null ? '刷新账户流水' : '刷新${account.name}流水',
-          ),
-        ],
       ),
       body: AdaptivePageContainer(child: _buildBody(account)),
     );
@@ -146,10 +139,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
     if (_logs.isEmpty) {
       const rows = [
         _AccountLogEmptyRow(SizedBox(height: 96)),
-        _AccountLogEmptyRow(
-          AppEmptyView(title: '还没有流水', icon: Icons.receipt_long_outlined),
-          0,
-        ),
+        _AccountLogEmptyRow(_AccountLogEmptyState(), 0),
       ];
       return RefreshIndicator(
         onRefresh: _loadFirstPage,
@@ -199,6 +189,61 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
             showAccount: account == null,
           );
         },
+      ),
+    );
+  }
+}
+
+class _AccountLogEmptyState extends StatelessWidget {
+  const _AccountLogEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: SizedBox.square(
+              dimension: 42,
+              child: Icon(
+                Icons.receipt_long_outlined,
+                size: 20,
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '还没有流水',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '记录交易后会在这里按时间展开',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -270,14 +315,14 @@ class _AccountLogGroupCard extends StatelessWidget {
           PremiumSurface(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
             child: Column(
-                children: [
-                  for (var index = 0; index < group.logs.length; index++)
-                    _AccountLogTile(
-                      key: ValueKey('account-log-tile-${group.logs[index].id}'),
-                      log: group.logs[index],
-                      showAccount: showAccount,
-                      isLast: index == group.logs.length - 1,
-                    ),
+              children: [
+                for (var index = 0; index < group.logs.length; index++)
+                  _AccountLogTile(
+                    key: ValueKey('account-log-tile-${group.logs[index].id}'),
+                    log: group.logs[index],
+                    showAccount: showAccount,
+                    isLast: index == group.logs.length - 1,
+                  ),
               ],
             ),
           ),
@@ -497,8 +542,8 @@ class _AccountLogTileState extends State<_AccountLogTile> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   if (_showRemark && log.remark.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -535,9 +580,8 @@ class _AccountLogTileState extends State<_AccountLogTile> {
                 onPressed: () => setState(() {
                   _showRemark = !_showRemark;
                 }),
-                icon: Icon(_showRemark ? Icons.remove : Icons.add),
-                tooltip: _showRemark ? '收起备注' : '展开备注',
-                iconSize: 20,
+                icon: Icon(_showRemark ? Icons.remove : Icons.add, size: 20),
+                tooltip: null,
               ),
           ],
         ),

@@ -35,6 +35,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
         title: const Text('财务报告'),
         actions: [
           IconButton(
+            key: const ValueKey('ai-report-generate'),
             onPressed: _generating ? null : _showGenerateReportSheet,
             icon: _generating
                 ? const SizedBox.square(
@@ -42,7 +43,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.auto_awesome_outlined),
-            tooltip: '生成财务报告',
+            tooltip: null,
           ),
         ],
       ),
@@ -646,13 +647,6 @@ class _AIProviderSetupSurface extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  IconBadge(
-                    icon: Icons.key_outlined,
-                    color: colorScheme.secondary,
-                    size: 34,
-                    iconSize: 18,
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '分析方式',
@@ -661,7 +655,13 @@ class _AIProviderSetupSurface extends StatelessWidget {
                       ),
                     ),
                   ),
-                  FilledButton.tonalIcon(
+                  Icon(
+                    Icons.key_outlined,
+                    size: 18,
+                    color: colorScheme.secondary,
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
                     onPressed: () => onAdd(setup),
                     icon: const Icon(Icons.add_outlined),
                     label: const Text('添加方式'),
@@ -718,7 +718,7 @@ class _AIProviderSetupSurface extends StatelessWidget {
   }
 }
 
-class _AIProviderCompactRow extends StatelessWidget {
+class _AIProviderCompactRow extends StatefulWidget {
   const _AIProviderCompactRow({
     required this.provider,
     required this.testing,
@@ -736,7 +736,20 @@ class _AIProviderCompactRow extends StatelessWidget {
   final VoidCallback onTest;
 
   @override
+  State<_AIProviderCompactRow> createState() => _AIProviderCompactRowState();
+}
+
+class _AIProviderCompactRowState extends State<_AIProviderCompactRow> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final provider = widget.provider;
+    final testing = widget.testing;
+    final disabled = widget.disabled;
+    final onEdit = widget.onEdit;
+    final onDelete = widget.onDelete;
+    final onTest = widget.onTest;
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -745,77 +758,102 @@ class _AIProviderCompactRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: colorScheme.secondary.withValues(alpha: 0.12),
-                foregroundColor: colorScheme.secondary,
-                child: const Icon(Icons.smart_toy_outlined, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colorScheme.secondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SizedBox.square(
+                      dimension: 34,
+                      child: Icon(
+                        Icons.smart_toy_outlined,
+                        size: 18,
+                        color: colorScheme.secondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Flexible(
-                          child: Text(
-                            provider.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        _AIReportStatusChip(
-                          status: provider.enabled ? 'completed' : 'pending',
-                          label: provider.enabled ? '启用' : '停用',
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                provider.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            _AIReportStatusChip(
+                              status: provider.enabled
+                                  ? 'completed'
+                                  : 'pending',
+                              label: provider.enabled ? '启用' : '停用',
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 6),
+                  if (testing)
+                    const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    IconButton(
+                      key: ValueKey('ai-provider-toggle-${provider.id}'),
+                      tooltip: null,
+                      onPressed: disabled
+                          ? null
+                          : () => setState(() {
+                              _expanded = !_expanded;
+                            }),
+                      icon: Icon(_expanded ? Icons.remove : Icons.add),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                ],
               ),
-              const SizedBox(width: 6),
-              if (testing)
-                const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                PopupMenuButton<_AIProviderAction>(
-                  key: ValueKey('ai-provider-menu-${provider.id}'),
-                  tooltip: '更多分析方式操作 ${provider.name}',
-                  enabled: !disabled,
-                  icon: const Icon(Icons.more_horiz),
-                  onSelected: (action) {
-                    switch (action) {
-                      case _AIProviderAction.edit:
-                        onEdit();
-                      case _AIProviderAction.test:
-                        onTest();
-                      case _AIProviderAction.delete:
-                        onDelete();
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: _AIProviderAction.test,
-                      child: Text('检查'),
+              if (_expanded) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    _AIProviderQuickAction(
+                      key: ValueKey('ai-provider-action-test-${provider.id}'),
+                      icon: Icons.health_and_safety_outlined,
+                      label: '检查',
+                      onPressed: disabled ? null : onTest,
                     ),
-                    PopupMenuItem(
-                      value: _AIProviderAction.edit,
-                      child: Text('编辑'),
+                    _AIProviderQuickAction(
+                      key: ValueKey('ai-provider-action-edit-${provider.id}'),
+                      icon: Icons.edit_outlined,
+                      label: '编辑',
+                      onPressed: disabled ? null : onEdit,
                     ),
-                    PopupMenuItem(
-                      value: _AIProviderAction.delete,
-                      child: Text('删除'),
+                    _AIProviderQuickAction(
+                      key: ValueKey('ai-provider-action-delete-${provider.id}'),
+                      icon: Icons.delete_outline,
+                      label: '删除',
+                      onPressed: disabled ? null : onDelete,
                     ),
                   ],
                 ),
+              ],
             ],
           ),
         ),
@@ -824,7 +862,35 @@ class _AIProviderCompactRow extends StatelessWidget {
   }
 }
 
-enum _AIProviderAction { test, edit, delete }
+class _AIProviderQuickAction extends StatelessWidget {
+  const _AIProviderQuickAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        visualDensity: VisualDensity.compact,
+        foregroundColor: colorScheme.onSurface,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        side: BorderSide(color: colorScheme.outline),
+      ),
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+    );
+  }
+}
 
 class _AIProviderEditorSheet extends StatefulWidget {
   const _AIProviderEditorSheet({required this.presets, this.provider});
@@ -1202,13 +1268,6 @@ class _AIReportScheduleForm extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconBadge(
-                icon: Icons.event_repeat_outlined,
-                color: colorScheme.primary,
-                size: 34,
-                iconSize: 18,
-              ),
-              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   '定期报告',
@@ -1217,6 +1276,12 @@ class _AIReportScheduleForm extends StatelessWidget {
                   ),
                 ),
               ),
+              Icon(
+                Icons.event_repeat_outlined,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
               _AIReportStatusChip(
                 status: settings.enabled ? 'completed' : 'pending',
                 label: settings.enabled ? '已开启' : '未开启',
@@ -1427,15 +1492,6 @@ class _AIScheduleEnablePanel extends StatelessWidget {
           ),
           child: Row(
             children: [
-              IconBadge(
-                icon: value
-                    ? Icons.auto_awesome_motion_outlined
-                    : Icons.motion_photos_paused_outlined,
-                color: accentColor,
-                size: 40,
-                iconSize: 20,
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1447,8 +1503,24 @@ class _AIScheduleEnablePanel extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value ? '当前已开启' : '当前未开启',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                value
+                    ? Icons.auto_awesome_motion_outlined
+                    : Icons.motion_photos_paused_outlined,
+                size: 18,
+                color: accentColor,
               ),
               const SizedBox(width: 10),
               Semantics(
@@ -1482,26 +1554,50 @@ class _AIReportsEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
-    return Center(
-      child: PremiumSurface(
-        accentColor: financeColors.asset,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.auto_awesome_outlined,
-              size: 48,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '还没有报告',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
+    return PremiumSurface(
+      accentColor: financeColors.asset,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: Icons.auto_awesome_outlined,
+                color: colorScheme.primary,
+                size: 42,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '还没有报告',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '先添加分析方式，再生成报告',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
               onPressed: onGenerate,
               icon: generating
                   ? const SizedBox.square(
@@ -1511,12 +1607,12 @@ class _AIReportsEmptyState extends StatelessWidget {
                   : const Icon(Icons.auto_awesome_outlined),
               label: const Text('生成报告'),
             ),
-            if (generating) ...[
-              const SizedBox(height: 12),
-              const _AIReportGeneratingSurface(compact: true),
-            ],
+          ),
+          if (generating) ...[
+            const SizedBox(height: 12),
+            const _AIReportGeneratingSurface(compact: true),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1613,14 +1709,19 @@ class _AIReportCard extends StatelessWidget {
           ),
         ),
         child: ExpansionTile(
-          leading: CircleAvatar(
-            backgroundColor:
-                (isFailed ? colorScheme.error : colorScheme.primary).withValues(
-                  alpha: 0.12,
-                ),
-            foregroundColor: isFailed ? colorScheme.error : colorScheme.primary,
-            child: Icon(
-              isFailed ? Icons.error_outline : Icons.auto_graph_outlined,
+          leading: DecoratedBox(
+            decoration: BoxDecoration(
+              color: (isFailed ? colorScheme.error : colorScheme.primary)
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: SizedBox.square(
+              dimension: 34,
+              child: Icon(
+                isFailed ? Icons.error_outline : Icons.auto_graph_outlined,
+                size: 18,
+                color: isFailed ? colorScheme.error : colorScheme.primary,
+              ),
             ),
           ),
           title: Text(
@@ -1669,7 +1770,7 @@ class _AIReportCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  FilledButton.tonalIcon(
+                  OutlinedButton.icon(
                     onPressed: onRegenerate,
                     icon: const Icon(Icons.refresh_outlined),
                     label: const Text('重新生成'),

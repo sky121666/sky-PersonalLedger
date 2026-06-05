@@ -171,16 +171,53 @@ void main() {
       expect(storage.refreshToken, isNull);
     },
   );
+
+  test('expires the session on generic unauthorized responses', () async {
+    final storage = _MemorySecureStorage(
+      accessToken: 'stale-access',
+      refreshToken: 'stale-refresh',
+    );
+    final adapter = _TokenRefreshAdapter(genericUnauthorized: true);
+    var expiredCalls = 0;
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: 'https://ledger.example.com/api/v1',
+        validateStatus: (status) =>
+            status != null && status >= 200 && status < 300,
+      ),
+    )..httpClientAdapter = adapter;
+    dio.interceptors.add(
+      AuthInterceptor(
+        dio: dio,
+        secureStorage: storage,
+        onSessionExpired: () {
+          expiredCalls++;
+        },
+      ),
+    );
+
+    await expectLater(
+      dio.get<Object?>('/protected'),
+      throwsA(isA<DioException>()),
+    );
+
+    expect(adapter.refreshRequests, 0);
+    expect(expiredCalls, 1);
+    expect(storage.accessToken, isNull);
+    expect(storage.refreshToken, isNull);
+  });
 }
 
 class _TokenRefreshAdapter implements HttpClientAdapter {
   _TokenRefreshAdapter({
     this.refreshShouldFail = false,
     this.retriedRequestShouldFail = false,
+    this.genericUnauthorized = false,
   });
 
   final bool refreshShouldFail;
   final bool retriedRequestShouldFail;
+  final bool genericUnauthorized;
   int protectedRequests = 0;
   int refreshRequests = 0;
   final List<String?> protectedRequestAuthHeaders = [];
@@ -218,6 +255,13 @@ class _TokenRefreshAdapter implements HttpClientAdapter {
       protectedRequests++;
       final authHeader = _authorizationHeader(options);
       protectedRequestAuthHeaders.add(authHeader);
+      if (genericUnauthorized) {
+        return _jsonResponse(options, 401, {
+          'code': 40101,
+          'message': 'unauthorized',
+          'data': null,
+        });
+      }
       if (authHeader == 'Bearer fresh-access' && !retriedRequestShouldFail) {
         return _jsonResponse(options, 200, {
           'code': 0,

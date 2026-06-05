@@ -147,6 +147,29 @@ void main() {
       expect(repository.updateCalls.single.$2.tags, contains('日常'));
     });
 
+    testWidgets('编辑交易默认收起可选字段', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        editingTransaction: TransactionItem(
+          id: 'transaction-1',
+          type: TransactionType.expense,
+          amount: 18,
+          accountId: 'account-1',
+          categoryId: 'category-expense',
+          transactionDate: DateTime(2026, 5, 18, 8, 30),
+          remark: '早餐',
+          tags: const ['日常'],
+          memberId: 'member-1',
+          images: '["1/transactions/transaction-1/old.pdf"]',
+        ),
+      );
+
+      expect(find.byKey(const ValueKey('transaction-more-options')), findsOneWidget);
+      expect(find.byKey(const ValueKey('transaction-remark')), findsNothing);
+    });
+
     testWidgets('编辑交易移除已有附件并保存后清理旧文件', (tester) async {
       final repository = _FakeTransactionRepository();
       final attachmentRepository = _FakeAttachmentRepository();
@@ -167,9 +190,9 @@ void main() {
 
       await tester.drag(find.byType(ListView), const Offset(0, -800));
       await tester.pumpAndSettle();
-      final removeOldAttachment = find.byTooltip(
-        '移除 old.pdf',
-        skipOffstage: false,
+      await _expandMoreOptions(tester);
+      final removeOldAttachment = find.byKey(
+        const ValueKey('attachment-remove-old.pdf'),
       );
       await tester.pumpAndSettle();
       await tester.tap(removeOldAttachment);
@@ -209,9 +232,9 @@ void main() {
 
       await tester.drag(find.byType(ListView), const Offset(0, -800));
       await tester.pumpAndSettle();
-      final removeOldAttachment = find.byTooltip(
-        '移除 old.pdf',
-        skipOffstage: false,
+      await _expandMoreOptions(tester);
+      final removeOldAttachment = find.byKey(
+        const ValueKey('attachment-remove-old.pdf'),
       );
       await tester.pumpAndSettle();
       await tester.tap(removeOldAttachment);
@@ -328,7 +351,7 @@ void main() {
       await _expandMoreOptions(tester);
       expect(find.text('备注'), findsOneWidget);
       expect(find.text('新标签'), findsNothing);
-      await tester.tap(find.byTooltip('添加标签'));
+      await tester.tap(find.byKey(const ValueKey('transaction-add-custom-tag')));
       await tester.pumpAndSettle();
       expect(find.text('新标签'), findsOneWidget);
       expect(find.text('记账指挥条'), findsNothing);
@@ -341,7 +364,7 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.widgetWithText(FilledButton, '记一笔'), findsOneWidget);
-      expect(find.byType(PremiumSurface), findsWidgets);
+      expect(find.byType(PremiumSurface), findsNothing);
     });
 
     testWidgets('类型切换保留纯表单字段', (tester) async {

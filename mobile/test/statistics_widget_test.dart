@@ -184,11 +184,25 @@ void main() {
       final now = DateTime.now();
       final previousMonth = DateTime(now.year, now.month - 1);
       expect(
-        find.byTooltip('切换到 ${previousMonth.year}年${previousMonth.month}月'),
+        find.byKey(
+          ValueKey(
+            'statistics-previous-month-${previousMonth.year}-${previousMonth.month.toString().padLeft(2, '0')}',
+          ),
+        ),
         findsOneWidget,
       );
 
-      await tester.tap(find.byTooltip('刷新统计数据'));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MobileStatisticsPage)),
+      );
+      container.invalidate(
+        statisticsDashboardProvider(
+          StatisticsDashboardQuery(
+            month: '${now.year}-${now.month.toString().padLeft(2, '0')}',
+            categoryType: 'expense',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(repository.dashboardCalls, 2);

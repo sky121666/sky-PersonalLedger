@@ -208,9 +208,10 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
         title: const Text('账号安全'),
         actions: [
           IconButton(
+            key: const ValueKey('security-entry-refresh'),
             onPressed: _isBusy ? null : _loadEntryPath,
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新登录保护',
+            tooltip: null,
           ),
         ],
       ),
@@ -315,13 +316,6 @@ class _PasswordSummaryCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Row(
         children: [
-          IconBadge(
-            icon: Icons.lock_outline,
-            color: financeColors.expense,
-            size: 32,
-            iconSize: 17,
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,6 +336,9 @@ class _PasswordSummaryCard extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          Icon(Icons.lock_outline, size: 18, color: financeColors.expense),
+          const SizedBox(width: 8),
           TextButton.icon(
             key: const ValueKey('security-open-password-sheet'),
             onPressed: submitting ? null : onTap,
@@ -512,6 +509,11 @@ class _EntryPathCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          Divider(
+            height: 1,
+            color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+          ),
+          const SizedBox(height: 12),
           TextField(
             key: const ValueKey('security-entry-path'),
             controller: controller,
@@ -543,18 +545,16 @@ class _EntryPathCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton.filledTonal(
+              OutlinedButton(
                 key: const ValueKey('security-entry-generate'),
                 onPressed: submitting ? null : onGenerate,
-                icon: const Icon(Icons.auto_fix_high_outlined),
-                tooltip: '生成登录入口',
+                child: const Text('生成'),
               ),
               const SizedBox(width: 8),
-              IconButton.filledTonal(
+              OutlinedButton(
                 key: const ValueKey('security-entry-disable'),
                 onPressed: submitting || !entryPath.enabled ? null : onDisable,
-                icon: const Icon(Icons.block_outlined),
-                tooltip: '关闭登录保护',
+                child: const Text('禁用'),
               ),
             ],
           ),
@@ -579,21 +579,15 @@ class _SecuritySectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconBadge(icon: icon, color: color, size: 36, iconSize: 19),
-        const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ],
+          child: Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
         ),
+        Icon(icon, size: 18, color: color),
       ],
     );
   }

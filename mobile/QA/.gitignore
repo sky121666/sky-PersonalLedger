@@ -1,0 +1,27 @@
+# QA runtime artifacts
+reports/
+runtime/
+_legacy/
+
+# 持续生成的策略文档（非必要持久）
+goal_completion_report.md
+page_by_page_completion_*.md
+quality_page_snapshot.md
+route_quality_check.json
+route_quality_check.md
+route_quality_check_*.json
+route_quality_check_*.md
+
+# Auto-generated QA artifacts
+quality_audit_*.md
+quality_audit_*.json
+route_quality_check_*.md
+route_quality_check_*.json
+quality_scores_*.json
+quality_scores_*.md
+quality_audit_latest.*
+route_quality_check_latest.*
+quality_scores_latest.*
+
+# Keep generated logs out of git history by default.
+*.log

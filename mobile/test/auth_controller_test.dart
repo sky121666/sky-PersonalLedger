@@ -48,10 +48,51 @@ void main() {
     expect(state.errorMessage, '账本连接失败，请检查地址或网络');
     expect(state.errorMessage, isNot(contains('raw socket failure')));
   });
+
+  test('bootstrap falls back to login when stored token is unauthorized', () async {
+    final storage = _FakeSecureStorage()
+      ..serverUrl = 'https://ledger.example.com'
+      ..accessToken = 'expired-access'
+      ..refreshToken = 'expired-refresh';
+    final container = ProviderContainer(
+      overrides: [
+        secureStorageServiceProvider.overrideWithValue(storage),
+        authRepositoryProvider.overrideWithValue(
+          _FakeAuthRepository(sessionValid: false),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await _waitForAuthStage(
+      container,
+      predicate: (stage) => stage != AuthStage.checking,
+    );
+
+    final state = container.read(authControllerProvider);
+    expect(state.stage, AuthStage.loginRequired);
+    expect(await storage.readAccessToken(), isNull);
+    expect(await storage.readRefreshToken(), isNull);
+  });
+}
+
+Future<void> _waitForAuthStage(
+  ProviderContainer container, {
+  required bool Function(AuthStage stage) predicate,
+}) async {
+  for (var attempt = 0; attempt < 20; attempt++) {
+    final stage = container.read(authControllerProvider).stage;
+    if (predicate(stage)) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
 }
 
 class _FakeSecureStorage extends SecureStorageService {
   String? serverUrl;
+  String? accessToken;
+  String? refreshToken;
 
   @override
   Future<String?> readServerUrl() async => serverUrl;
@@ -67,25 +108,35 @@ class _FakeSecureStorage extends SecureStorageService {
   }
 
   @override
-  Future<String?> readAccessToken() async => null;
+  Future<String?> readAccessToken() async => accessToken;
 
   @override
-  Future<void> saveAccessToken(String accessToken) async {}
+  Future<void> saveAccessToken(String accessToken) async {
+    this.accessToken = accessToken;
+  }
 
   @override
-  Future<String?> readRefreshToken() async => null;
+  Future<String?> readRefreshToken() async => refreshToken;
 
   @override
-  Future<void> saveRefreshToken(String refreshToken) async {}
+  Future<void> saveRefreshToken(String refreshToken) async {
+    this.refreshToken = refreshToken;
+  }
 
   @override
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
-  }) async {}
+  }) async {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+  }
 
   @override
-  Future<void> clearTokens() async {}
+  Future<void> clearTokens() async {
+    accessToken = null;
+    refreshToken = null;
+  }
 
   @override
   Future<void> clearAll() async {
@@ -94,9 +145,10 @@ class _FakeSecureStorage extends SecureStorageService {
 }
 
 class _FakeAuthRepository implements AuthRepository {
-  const _FakeAuthRepository({this.statusError});
+  const _FakeAuthRepository({this.statusError, this.sessionValid = true});
 
   final Object? statusError;
+  final bool sessionValid;
 
   @override
   Future<AuthStatus> getStatus() async {
@@ -122,6 +174,9 @@ class _FakeAuthRepository implements AuthRepository {
       refreshToken: 'refresh-token',
     );
   }
+
+  @override
+  Future<bool> validateSession() async => sessionValid;
 
   @override
   Future<void> logout() async {}

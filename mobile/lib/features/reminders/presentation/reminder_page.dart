@@ -37,16 +37,12 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
         title: const Text('负债'),
         actions: [
           IconButton(
-            onPressed: _isBusy ? null : _refresh,
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新提醒',
+            key: const ValueKey('reminder-add'),
+            onPressed: _isBusy ? null : () => _openReminderForm(),
+            tooltip: null,
+            icon: const Icon(Icons.add),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _isBusy ? null : () => _openReminderForm(),
-        tooltip: '新增负债',
-        child: const Icon(Icons.add),
       ),
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载负债提醒...'),
@@ -402,6 +398,8 @@ class _ReminderRow {
 
 enum _ReminderRowKind { error, summary, empty, section, item }
 
+enum _ReminderMenuAction { none, payment, edit, toggle, delete }
+
 class _ReminderErrorView extends StatelessWidget {
   const _ReminderErrorView({
     required this.message,
@@ -573,39 +571,28 @@ class _DebtMiniStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(alpha: 0.06),
-          colorScheme.surface,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -660,52 +647,35 @@ class _ReminderSectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final accentColor = readOnly ? financeColors.income : colorScheme.primary;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: accentColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: accentColor.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              readOnly ? Icons.verified_outlined : Icons.layers_outlined,
-              size: 15,
-              color: accentColor,
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '$count',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: accentColor,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        Text(
+          '$count',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _ReminderCard extends StatelessWidget {
+class _ReminderCard extends ConsumerStatefulWidget {
   const _ReminderCard({
     required this.reminder,
     required this.busyAction,
@@ -725,14 +695,40 @@ class _ReminderCard extends StatelessWidget {
   final bool readOnly;
 
   @override
+  ConsumerState<_ReminderCard> createState() => _ReminderCardState();
+}
+
+class _ReminderCardState extends ConsumerState<_ReminderCard> {
+  bool _expanded = false;
+  void _onMenuSelected(_ReminderMenuAction action) {
+    switch (action) {
+      case _ReminderMenuAction.payment:
+        widget.onRecordPayment();
+        return;
+      case _ReminderMenuAction.edit:
+        widget.onEdit();
+        return;
+      case _ReminderMenuAction.toggle:
+        widget.onToggle();
+        return;
+      case _ReminderMenuAction.delete:
+        widget.onDelete();
+        return;
+      case _ReminderMenuAction.none:
+        return;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
+    final reminder = widget.reminder;
     final days = reminder.daysUntilPayment(DateTime.now());
     final busy =
-        busyAction == 'toggle-${reminder.id}' ||
-        busyAction == 'delete-${reminder.id}' ||
-        busyAction == 'payment-${reminder.id}';
+        widget.busyAction == 'toggle-${reminder.id}' ||
+        widget.busyAction == 'delete-${reminder.id}' ||
+        widget.busyAction == 'payment-${reminder.id}';
     final accentColor = days <= reminder.advanceDays
         ? financeColors.warning
         : colorScheme.primary;
@@ -817,46 +813,97 @@ class _ReminderCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 else
-                  PopupMenuButton<_ReminderMenuAction>(
-                    tooltip: '更多提醒操作 ${reminder.displayName}',
-                    onSelected: (action) {
-                      switch (action) {
-                        case _ReminderMenuAction.payment:
-                          onRecordPayment();
-                        case _ReminderMenuAction.edit:
-                          onEdit();
-                        case _ReminderMenuAction.toggle:
-                          onToggle();
-                        case _ReminderMenuAction.delete:
-                          onDelete();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      if (!readOnly && reminder.principal != null)
-                        const PopupMenuItem(
-                          value: _ReminderMenuAction.payment,
-                          child: Text('记录还款'),
-                        ),
-                      if (!readOnly)
-                        const PopupMenuItem(
-                          value: _ReminderMenuAction.edit,
-                          child: Text('编辑'),
-                        ),
-                      PopupMenuItem(
-                        value: _ReminderMenuAction.toggle,
-                        child: Text(reminder.isEnabled ? '暂停提醒' : '启用提醒'),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        key: ValueKey('reminder-toggle-details-${reminder.id}'),
+                        tooltip: null,
+                        onPressed: () => setState(() {
+                          _expanded = !_expanded;
+                        }),
+                        icon: Icon(_expanded ? Icons.remove : Icons.add),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
                       ),
-                      const PopupMenuItem(
-                        value: _ReminderMenuAction.delete,
-                        child: Text('删除'),
-                      ),
+                      if (_expanded)
+                        PopupMenuButton<_ReminderMenuAction>(
+                          key: ValueKey('reminder-more-menu-${reminder.id}'),
+                          icon: const Icon(Icons.more_horiz, size: 20),
+                          tooltip: null,
+                          onSelected: _onMenuSelected,
+                          itemBuilder: (context) => [
+                            if (!widget.readOnly && reminder.principal != null)
+                              PopupMenuItem<_ReminderMenuAction>(
+                                value: _ReminderMenuAction.payment,
+                                key: ValueKey(
+                                  'reminder-action-payment-${reminder.id}',
+                                ),
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(
+                                    Icons.payments_outlined,
+                                    size: 16,
+                                  ),
+                                  title: const Text('记录还款'),
+                                ),
+                              ),
+                            if (!widget.readOnly)
+                              PopupMenuItem<_ReminderMenuAction>(
+                                value: _ReminderMenuAction.edit,
+                                key: ValueKey(
+                                  'reminder-action-edit-${reminder.id}',
+                                ),
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 16,
+                                  ),
+                                  title: const Text('编辑'),
+                                ),
+                              ),
+                            PopupMenuItem<_ReminderMenuAction>(
+                              value: _ReminderMenuAction.toggle,
+                              key: ValueKey(
+                                'reminder-action-toggle-${reminder.id}',
+                              ),
+                              child: ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(
+                                  reminder.isEnabled
+                                      ? Icons.pause_circle_outline
+                                      : Icons.play_circle_outline,
+                                  size: 16,
+                                ),
+                                title: Text(
+                                  reminder.isEnabled ? '暂停提醒' : '启用提醒',
+                                ),
+                              ),
+                            ),
+                            PopupMenuItem<_ReminderMenuAction>(
+                              value: _ReminderMenuAction.delete,
+                              key: ValueKey(
+                                'reminder-action-delete-${reminder.id}',
+                              ),
+                              child: ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(
+                                  Icons.delete_outline,
+                                  size: 16,
+                                ),
+                                title: const Text('删除'),
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
               ],
             ),
-            if (reminder.principal != null) ...[
-              const SizedBox(height: 10),
+            if (_expanded && reminder.principal != null) ...[
               _ReminderProgressLine(
+                key: ValueKey('reminder-details-${reminder.id}'),
                 progress: reminder.progress,
                 color: accentColor,
               ),
@@ -869,7 +916,11 @@ class _ReminderCard extends StatelessWidget {
 }
 
 class _ReminderProgressLine extends StatelessWidget {
-  const _ReminderProgressLine({required this.progress, required this.color});
+  const _ReminderProgressLine({
+    super.key,
+    required this.progress,
+    required this.color,
+  });
 
   final double progress;
   final Color color;
@@ -911,11 +962,54 @@ class _EmptyReminderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
       padding: EdgeInsets.symmetric(vertical: 18),
-      child: AppEmptyView(
-        title: '还没有负债提醒',
-        icon: Icons.notifications_none_outlined,
+      child: PremiumSurface(
+        accentColor: colorScheme.primary,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: SizedBox.square(
+                dimension: 42,
+                child: Icon(
+                  Icons.notifications_none_outlined,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '还没有负债提醒',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '还没有负债提醒，先添加提醒',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1002,10 +1096,7 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
     _attachments = decodeAttachmentPaths(
       request.evidence,
     ).map(LedgerAttachment.fromPath).toList();
-    _showMoreDetails =
-        request.interestRate != null ||
-        request.remark.trim().isNotEmpty ||
-        _attachments.isNotEmpty;
+    _showMoreDetails = false;
     final accountId = request.accountId;
     _accountId =
         accountId != null &&
@@ -1201,14 +1292,16 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: IconButton.filledTonal(
+                  child: IconButton(
                     key: const ValueKey('reminder-more-details'),
                     onPressed: () =>
                         setState(() => _showMoreDetails = !_showMoreDetails),
                     icon: Icon(
-                      _showMoreDetails ? Icons.expand_less : Icons.more_horiz,
+                      _showMoreDetails
+                          ? Icons.remove_rounded
+                          : Icons.add_rounded,
                     ),
-                    tooltip: _showMoreDetails ? '收起更多字段' : '展开更多字段',
+                    tooltip: null,
                   ),
                 ),
                 if (_showMoreDetails) ...[
@@ -1566,8 +1659,6 @@ class _PaymentFormResult {
   final double? principalAmount;
   final double? interestAmount;
 }
-
-enum _ReminderMenuAction { payment, edit, toggle, delete }
 
 double? _parseOptionalAmount(String value) {
   final text = value.trim();

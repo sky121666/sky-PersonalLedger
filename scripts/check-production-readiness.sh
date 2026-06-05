@@ -212,19 +212,19 @@ require_text "scripts/check-final-release-gates.sh" 'Working tree must be clean 
 require_text "scripts/check-final-release-gates.sh" 'clean working tree'
 require_text "scripts/check-final-release-gates.sh" 'RUN_DOCKER_RELEASE_SMOKE=1'
 require_text "scripts/check-final-release-gates.sh" 'env REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 "\$ROOT_DIR/scripts/check-release-artifact-files\.sh"'
-require_text "scripts/check-final-release-gates.sh" 'REQUIRE_ANDROID_DEVICE=1'
-require_text "scripts/check-mobile-device-qa-preflight.sh" 'REQUIRE_ANDROID_DEVICE:-0'
-require_text "scripts/check-mobile-device-qa-preflight.sh" 'No Android device or emulator detected'
+require_text "scripts/check-final-release-gates.sh" 'REQUIRE_ANDROID_EMULATOR=1'
+require_text "scripts/check-mobile-device-qa-preflight.sh" 'REQUIRE_ANDROID_EMULATOR=1'
+require_text "scripts/check-mobile-device-qa-preflight.sh" 'No Android emulator detected'
 require_text "scripts/check-mobile-device-qa-preflight.sh" 'RUN_ANDROID_E2E'
 require_text "scripts/check-final-release-runbook.sh" '\^## 4\\. Mobile Device QA'
-require_text "scripts/check-final-release-runbook.sh" 'REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_DEVICE=1'
+require_text "scripts/check-final-release-runbook.sh" 'REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1'
 require_text "scripts/check-final-release-runbook.sh" 'RUN_ANDROID_E2E=1'
-require_text "docs/quality/mobile-device-qa-checklist-2026-05-27.md" 'REQUIRE_ANDROID_DEVICE=1'
+require_text "docs/quality/mobile-device-qa-checklist-2026-05-27.md" 'REQUIRE_ANDROID_EMULATOR=1'
 require_text "docs/quality/mobile-device-qa-checklist-2026-05-27.md" 'Android E2E'
-require_text "docs/quality/mobile-device-qa-checklist-2026-05-27.md" 'USB iPhone and Android device/emulator'
+require_text "docs/quality/mobile-device-qa-checklist-2026-05-27.md" 'Android emulator'
 require_text "docs/quality/mobile-device-qa-checklist-2026-05-27.md" 'Android status/navigation bars'
 require_text "docs/quality/mobile-device-qa-checklist-2026-05-27.md" 'on iOS and Android'
-require_text "docs/quality/production-readiness-2026-05-27.md" 'REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_DEVICE=1'
+require_text "docs/quality/production-readiness-2026-05-27.md" 'REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1'
 require_text "docs/quality/production-readiness-2026-05-27.md" 'iOS/Android device validation'
 require_text "docs/quality/production-readiness-2026-05-27.md" 'USB iPhone and Android release-device evidence remain missing'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'iOS/Android device QA'
@@ -238,7 +238,7 @@ require_text "docs/quality/local-release-rehearsal-2026-05-27.md" 'iOS/Android d
 require_text "docs/quality/mobile-platform-qa-2026-05-27.md" 'iOS/Android release-device QA'
 require_text "docs/quality/mobile-platform-qa-2026-05-27.md" 'Android release-device evidence'
 require_text "docs/quality/mobile-premium-visual-review-2026-05-27.md" 'final iOS/Android release-device QA'
-require_text "docs/quality/mobile-premium-visual-review-2026-05-27.md" 'USB-connected iPhone and an Android device/emulator'
+require_text "docs/quality/mobile-premium-visual-review-2026-05-27.md" 'USB-connected iPhone and an Android emulator'
 require_text "docs/quality/local-release-rehearsal-2026-05-27.md" 'release-image smoke'
 require_text "scripts/check-final-release-runbook.sh" 'VERIFY_ARTIFACT_SIGNATURES=1'
 require_text "docs/quality/final-release-runbook-2026-05-27.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
@@ -270,7 +270,7 @@ fi
 "$ROOT_DIR/scripts/check-release-notes-candidate.sh"
 "$ROOT_DIR/scripts/check-release-change-inventory.sh"
 "$ROOT_DIR/scripts/check-final-release-runbook.sh"
-"$ROOT_DIR/scripts/check-mobile-device-qa-preflight.sh"
+ANDROID_PREFER_EMULATOR=1 REQUIRE_ANDROID_EMULATOR=1 "$ROOT_DIR/scripts/check-mobile-device-qa-preflight.sh"
 
 if [[ "${RUN_EXPENSIVE:-0}" == "1" ]]; then
   (

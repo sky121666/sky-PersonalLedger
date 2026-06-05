@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../budgets/data/budget_repository.dart';
 import '../data/family_repository.dart';
@@ -110,16 +111,12 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
         title: const Text('家庭成员'),
         actions: [
           IconButton(
-            onPressed: _invalidateFamilyData,
-            icon: const Icon(Icons.refresh_outlined),
-            tooltip: '刷新家庭成员',
+            key: const ValueKey('family-add-member'),
+            onPressed: _submittingMember ? null : () => _showMemberSheet(),
+            tooltip: null,
+            icon: const Icon(Icons.add),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _submittingMember ? null : () => _showMemberSheet(),
-        tooltip: '添加成员',
-        child: const Icon(Icons.add),
       ),
       body: AdaptivePageContainer(
         child: membersState.when(
@@ -130,9 +127,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
           ),
           data: (members) {
             if (members.isEmpty) {
-              return _FamilyEmptyState(
-                onAdd: _submittingMember ? null : () => _showMemberSheet(),
-              );
+              return const _FamilyEmptyState();
             }
             final summary = summaryState.valueOrNull;
             final statisticsState = ref.watch(familyStatisticsProvider);
@@ -283,40 +278,48 @@ class _FamilySectionTitle extends StatelessWidget {
 }
 
 class _FamilyEmptyState extends StatelessWidget {
-  const _FamilyEmptyState({required this.onAdd});
-
-  final VoidCallback? onAdd;
+  const _FamilyEmptyState();
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
-    return Center(
-      child: PremiumSurface(
-        accentColor: financeColors.asset,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.diversity_3_outlined,
-              size: 48,
-              color: colorScheme.primary,
+    return PremiumSurface(
+      accentColor: financeColors.asset,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconBadge(
+            icon: Icons.diversity_3_outlined,
+            color: colorScheme.primary,
+            size: 42,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '还没有家庭成员',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '尚未添加家庭成员，先添加成员',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 14),
-            Text(
-              '还没有家庭成员',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add_outlined),
-              label: const Text('添加成员'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -341,65 +344,29 @@ class _FamilySummaryHeader extends StatelessWidget {
     return PremiumSurface(
       accentColor: financeColors.warning,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      child: Row(
-        children: [
-          Expanded(
-            child: _FamilyMetric(
-              label: '$month 家庭支出',
-              value: loadingSummary
-                  ? '加载中'
-                  : _formatMoney(summary?.totalExpense ?? 0),
-              helper: '本月',
-            ),
-          ),
-          const SizedBox(width: 12),
-          _FamilyCountPill(
-            enabledCount: enabledCount,
-            totalCount: members.length,
-            color: financeColors.income,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FamilyCountPill extends StatelessWidget {
-  const _FamilyCountPill({
-    required this.enabledCount,
-    required this.totalCount,
-    required this.color,
-  });
-
-  final int enabledCount;
-  final int totalCount;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 48, minWidth: 84),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$enabledCount',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: color,
+            '$month 家庭支出',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            loadingSummary ? '加载中' : _formatMoney(summary?.totalExpense ?? 0),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w900,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
+          const SizedBox(height: 6),
           Text(
-            '共 $totalCount 位',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
+            '$enabledCount 位启用 · 共 ${members.length} 位',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -450,12 +417,22 @@ class _FamilyInsightsSurface extends StatelessWidget {
           key: const ValueKey('family-insights-toggle'),
           tilePadding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          leading: Icon(Icons.insights_outlined, color: financeColors.asset),
-          title: Text(
-            '家庭洞察',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '家庭洞察',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.insights_outlined,
+                size: 18,
+                color: financeColors.asset,
+              ),
+            ],
           ),
           children: [
             if (budgets.isNotEmpty) _FamilyBudgetSurface(budgets: budgets),
@@ -867,7 +844,7 @@ class _FamilyRankingRow extends StatelessWidget {
   }
 }
 
-class _FamilyMemberCard extends StatelessWidget {
+class _FamilyMemberCard extends StatefulWidget {
   const _FamilyMemberCard({
     required this.member,
     required this.submitting,
@@ -881,8 +858,19 @@ class _FamilyMemberCard extends StatelessWidget {
   final VoidCallback? onDisable;
 
   @override
+  State<_FamilyMemberCard> createState() => _FamilyMemberCardState();
+}
+
+class _FamilyMemberCardState extends State<_FamilyMemberCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
+    final member = widget.member;
+    final submitting = widget.submitting;
+    final onEdit = widget.onEdit;
+    final onDisable = widget.onDisable;
+
     final accent = _memberColor(context, member.color);
     final colorScheme = Theme.of(context).colorScheme;
     final relationship = member.relationship.isEmpty
@@ -941,42 +929,77 @@ class _FamilyMemberCard extends StatelessWidget {
             children: [
               Wrap(
                 spacing: 6,
-                runSpacing: 6,
+                runSpacing: 2,
                 alignment: WrapAlignment.end,
                 children: [
                   if (member.isDefault)
-                    _MemberStateChip(
-                      label: '常用',
-                      icon: Icons.check_circle_outline,
-                      color: financeColors.income,
+                    Text(
+                      '常用',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  _MemberStateChip(
-                    label: member.isEnabled ? '启用' : '停用',
-                    icon: member.isEnabled
-                        ? Icons.person_outline
-                        : Icons.person_off_outlined,
-                    color: member.isEnabled
-                        ? financeColors.asset
-                        : colorScheme.outline,
+                  Text(
+                    member.isEnabled ? '启用' : '停用',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: submitting ? null : onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                    tooltip: '编辑成员 ${member.name}',
-                  ),
-                  IconButton(
-                    onPressed: submitting ? null : onDisable,
-                    icon: const Icon(Icons.person_off_outlined),
-                    tooltip: '停用成员 ${member.name}',
-                  ),
-                ],
+              IconButton(
+                key: ValueKey('family-member-toggle-${member.id}'),
+                tooltip: null,
+                onPressed: () => setState(() {
+                  _expanded = !_expanded;
+                }),
+                icon: Icon(_expanded ? Icons.remove : Icons.add),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
               ),
+              if (_expanded && !submitting) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      key: ValueKey('family-member-action-edit-${member.id}'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      label: const Text('编辑成员'),
+                    ),
+                    if (onDisable != null)
+                      TextButton.icon(
+                        key: ValueKey(
+                          'family-member-action-disable-${member.id}',
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                        onPressed: onDisable,
+                        icon: const Icon(Icons.person_off_outlined, size: 16),
+                        label: const Text('停用成员'),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         ],
@@ -1076,7 +1099,7 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close),
-                    tooltip: widget.member == null ? '关闭添加成员表单' : '关闭编辑成员表单',
+                    tooltip: null,
                   ),
                 ],
               ),
@@ -1165,45 +1188,6 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MemberStateChip extends StatelessWidget {
-  const _MemberStateChip({
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
         ),
       ),
     );

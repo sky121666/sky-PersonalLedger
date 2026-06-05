@@ -255,6 +255,29 @@ class HomeRepository {
 
   final ApiClient _apiClient;
 
+  static const _emptyAccounts = AccountListResponse(
+    list: [],
+    totalAssets: 0,
+    totalLiabilities: 0,
+    netAssets: 0,
+  );
+
+  static const _emptyOverview = StatisticsOverview(
+    income: 0,
+    expense: 0,
+    balance: 0,
+    transactionCount: 0,
+  );
+
+  static const _emptyBudgetSummary = BudgetSummary(
+    totalAmount: 0,
+    totalSpent: 0,
+    percentage: 0,
+    dailyAvailable: 0,
+    daysRemaining: 0,
+    overBudgetCategories: [],
+  );
+
   /// 获取首页需要的账户、统计、预算和最近交易数据。
   Future<HomeSummary> getSummary() async {
     final results = await Future.wait<Object?>([
@@ -271,45 +294,30 @@ class HomeRepository {
         '/budgets/summary',
         fromJsonT: BudgetSummary.fromJson,
       ),
-      _apiClient.get<FamilyHomeSummary>(
-        '/family/summary',
-        fromJsonT: FamilyHomeSummary.fromJson,
-      ),
+      _getFamilySummaryOrEmpty(),
       listRecentTransactions(),
     ]);
 
     return HomeSummary(
-      accounts:
-          results[0] as AccountListResponse? ??
-          const AccountListResponse(
-            list: [],
-            totalAssets: 0,
-            totalLiabilities: 0,
-            netAssets: 0,
-          ),
-      overview:
-          results[1] as StatisticsOverview? ??
-          const StatisticsOverview(
-            income: 0,
-            expense: 0,
-            balance: 0,
-            transactionCount: 0,
-          ),
-      budgetSummary:
-          results[2] as BudgetSummary? ??
-          const BudgetSummary(
-            totalAmount: 0,
-            totalSpent: 0,
-            percentage: 0,
-            dailyAvailable: 0,
-            daysRemaining: 0,
-            overBudgetCategories: [],
-          ),
-      familySummary:
-          results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
+      accounts: results[0] as AccountListResponse? ?? _emptyAccounts,
+      overview: results[1] as StatisticsOverview? ?? _emptyOverview,
+      budgetSummary: results[2] as BudgetSummary? ?? _emptyBudgetSummary,
+      familySummary: results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
       recentTransactions:
           results[4] as List<TransactionItem>? ?? const <TransactionItem>[],
     );
+  }
+
+  Future<FamilyHomeSummary> _getFamilySummaryOrEmpty() async {
+    try {
+      return await _apiClient.get<FamilyHomeSummary>(
+            '/family/summary',
+            fromJsonT: FamilyHomeSummary.fromJson,
+          ) ??
+          const FamilyHomeSummary.empty();
+    } catch (_) {
+      return const FamilyHomeSummary.empty();
+    }
   }
 
   Future<List<TransactionItem>> listRecentTransactions() async {
@@ -343,11 +351,11 @@ final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   return HomeRepository(ref.watch(apiClientProvider));
 });
 
-final homeSummaryProvider = FutureProvider.autoDispose<HomeSummary>((ref) {
+final homeSummaryProvider = FutureProvider<HomeSummary>((ref) {
   return ref.watch(homeRepositoryProvider).getSummary();
 });
 
-final homeDateTransactionsProvider = FutureProvider.autoDispose
+final homeDateTransactionsProvider = FutureProvider
     .family<List<TransactionItem>, DateTime>((ref, date) {
       return ref.watch(homeRepositoryProvider).listTransactionsForDate(date);
     });

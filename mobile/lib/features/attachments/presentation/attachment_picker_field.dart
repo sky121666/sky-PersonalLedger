@@ -36,93 +36,83 @@ class AttachmentPickerField extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final totalCount = attachments.length + pendingFiles.length;
     final canAdd = enabled && totalCount < maxFiles;
-    final financeColors = AppTheme.financeColors(context);
-    final accent = canAdd ? financeColors.asset : financeColors.warning;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return PremiumSurface(
-      accentColor: accent,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.attach_file,
-                color: accent,
-                size: 40,
-                iconSize: 21,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              '附件',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '附件',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
+            ),
+            const Spacer(),
+            if (totalCount > 0)
+              Text(
+                '$totalCount / $maxFiles',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+          ],
+        ),
+        if (attachments.isNotEmpty || pendingFiles.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Column(
+            children: [
+              for (final attachment in attachments)
+                _AttachmentTile(
+                  title: attachment.filename,
+                  isUploaded: true,
+                  isImage: attachment.isImage,
+                  stateColor: AppTheme.financeColors(context).income,
+                  onPreview: () => _previewUploaded(context, ref, attachment),
+                  onDownload: () =>
+                      _downloadAttachment(context, ref, attachment),
+                  onRemove: enabled
+                      ? () => onAttachmentsChanged(
+                          attachments
+                              .where((item) => item.path != attachment.path)
+                              .toList(),
+                        )
+                      : null,
+                ),
+              for (final file in pendingFiles)
+                _AttachmentTile(
+                  title: file.name,
+                  isUploaded: false,
+                  isImage: file.isImage,
+                  stateColor: AppTheme.financeColors(context).warning,
+                  onPreview: () => _previewLocal(context, file),
+                  onDownload: null,
+                  onRemove: enabled
+                      ? () => onPendingFilesChanged(
+                          pendingFiles
+                              .where((item) => item.path != file.path)
+                              .toList(),
+                        )
+                      : null,
+                ),
             ],
           ),
-          if (attachments.isNotEmpty || pendingFiles.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Column(
-              children: [
-                for (final attachment in attachments)
-                  _AttachmentTile(
-                    title: attachment.filename,
-                    isUploaded: true,
-                    isImage: attachment.isImage,
-                    stateColor: financeColors.income,
-                    onPreview: () => _previewUploaded(context, ref, attachment),
-                    onDownload: () =>
-                        _downloadAttachment(context, ref, attachment),
-                    onRemove: enabled
-                        ? () => onAttachmentsChanged(
-                            attachments
-                                .where((item) => item.path != attachment.path)
-                                .toList(),
-                          )
-                        : null,
-                  ),
-                for (final file in pendingFiles)
-                  _AttachmentTile(
-                    title: file.name,
-                    isUploaded: false,
-                    isImage: file.isImage,
-                    stateColor: financeColors.warning,
-                    onPreview: () => _previewLocal(context, file),
-                    onDownload: null,
-                    onRemove: enabled
-                        ? () => onPendingFilesChanged(
-                            pendingFiles
-                                .where((item) => item.path != file.path)
-                                .toList(),
-                          )
-                        : null,
-                  ),
-              ],
-            ),
-          ],
-          for (final progress in uploadProgress) ...[
-            const SizedBox(height: 8),
-            _UploadProgressTile(progress: progress),
-          ],
-          if (canAdd) ...[
-            const SizedBox(height: 10),
-            FilledButton.tonalIcon(
-              onPressed: () => _showPickSheet(context, ref),
-              icon: const Icon(Icons.add_photo_alternate_outlined),
-              label: const Text('添加附件'),
-            ),
-          ],
         ],
-      ),
+        for (final progress in uploadProgress) ...[
+          const SizedBox(height: 8),
+          _UploadProgressTile(progress: progress),
+        ],
+        if (canAdd) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _showPickSheet(context, ref),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('添加附件'),
+          ),
+        ],
+      ],
     );
   }
 
@@ -326,7 +316,7 @@ class _AttachmentPickOption extends StatelessWidget {
   }
 }
 
-class _AttachmentTile extends StatelessWidget {
+class _AttachmentTile extends StatefulWidget {
   const _AttachmentTile({
     required this.title,
     required this.isUploaded,
@@ -346,7 +336,22 @@ class _AttachmentTile extends StatelessWidget {
   final VoidCallback? onRemove;
 
   @override
+  State<_AttachmentTile> createState() => _AttachmentTileState();
+}
+
+class _AttachmentTileState extends State<_AttachmentTile> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final title = widget.title;
+    final isUploaded = widget.isUploaded;
+    final isImage = widget.isImage;
+    final stateColor = widget.stateColor;
+    final onPreview = widget.onPreview;
+    final onDownload = widget.onDownload;
+    final onRemove = widget.onRemove;
+
     final colorScheme = Theme.of(context).colorScheme;
     final fileTypeLabel = isImage ? '图片' : '文件';
     return Padding(
@@ -431,38 +436,48 @@ class _AttachmentTile extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 IconButton(
+                  key: ValueKey('attachment-preview-$title'),
                   onPressed: onPreview,
                   icon: const Icon(Icons.visibility_outlined),
-                  tooltip: '预览 $title',
+                  tooltip: null,
                 ),
                 if (onDownload != null)
-                  PopupMenuButton<_AttachmentAction>(
-                    tooltip: '更多附件操作 $title',
-                    icon: const Icon(Icons.more_horiz),
-                    onSelected: (action) {
-                      switch (action) {
-                        case _AttachmentAction.save:
-                          onDownload?.call();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: _AttachmentAction.save,
-                        child: Row(
-                          children: [
-                            Icon(Icons.save_alt_outlined),
-                            SizedBox(width: 10),
-                            Text('保存'),
-                          ],
-                        ),
-                      ),
-                    ],
+                  IconButton(
+                    key: ValueKey('attachment-action-toggle-$title'),
+                    tooltip: null,
+                    onPressed: () => setState(() {
+                      _expanded = !_expanded;
+                    }),
+                    icon: Icon(_expanded ? Icons.remove : Icons.add),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
                   ),
                 if (onRemove != null)
                   IconButton(
+                    key: ValueKey('attachment-remove-$title'),
                     onPressed: onRemove,
                     icon: const Icon(Icons.close),
-                    tooltip: '移除 $title',
+                    tooltip: null,
+                  ),
+                if (_expanded && onDownload != null)
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: OutlinedButton.icon(
+                        key: ValueKey('attachment-action-save-$title'),
+                        onPressed: onDownload,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          side: BorderSide(color: colorScheme.outline),
+                        ),
+                        icon: const Icon(Icons.save_alt_outlined, size: 16),
+                        label: const Text('保存'),
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -472,8 +487,6 @@ class _AttachmentTile extends StatelessWidget {
     );
   }
 }
-
-enum _AttachmentAction { save }
 
 class _UploadProgressTile extends StatelessWidget {
   const _UploadProgressTile({required this.progress});

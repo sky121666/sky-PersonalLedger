@@ -131,7 +131,7 @@ void main() {
       final repository = _FakeApiTokenRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('删除授权 我的手机'));
+      await tester.tap(find.byKey(const ValueKey('api-token-delete-1')));
       await tester.pumpAndSettle();
       expect(find.text('删除「我的手机」？'), findsOneWidget);
       expect(find.text('该设备将无法使用。'), findsNothing);
@@ -147,6 +147,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有授权'), findsOneWidget);
+      expect(find.text('还没有授权设备'), findsOneWidget);
       expect(find.text('暂无令牌'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
       expect(find.text('未启用'), findsOneWidget);

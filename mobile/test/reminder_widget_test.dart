@@ -55,6 +55,46 @@ void main() {
       expect(find.text('凭证状态'), findsNothing);
     });
 
+    testWidgets('记一笔默认折叠展示关键字段', (tester) async {
+      final repository = _FakeReminderRepository();
+      await _pumpPage(tester, repository);
+
+      expect(
+        find.byKey(const ValueKey('reminder-toggle-details-reminder-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('reminder-details-reminder-1')),
+        findsNothing,
+      );
+      final toggleButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('reminder-toggle-details-reminder-1')),
+      );
+      expect((toggleButton.icon as Icon).icon, Icons.add);
+      expect(find.text('33%'), findsNothing);
+    });
+
+    testWidgets('记一笔点击后详情只需展开', (tester) async {
+      final repository = _FakeReminderRepository();
+      await _pumpPage(tester, repository);
+
+      final toggleKey = find.byKey(
+        const ValueKey('reminder-toggle-details-reminder-1'),
+      );
+      await tester.tap(toggleKey);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('reminder-details-reminder-1')),
+        findsOneWidget,
+      );
+      expect(find.text('33%'), findsOneWidget);
+      final toggleButtonAfterExpand = tester.widget<IconButton>(
+        find.byKey(const ValueKey('reminder-toggle-details-reminder-1')),
+      );
+      expect((toggleButtonAfterExpand.icon as Icon).icon, Icons.remove);
+    });
+
     testWidgets('上岸进度和提醒卡片保持清晰层级', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
@@ -77,13 +117,11 @@ void main() {
       expect(find.byType(PremiumSurface), findsWidgets);
     });
 
-    testWidgets('菜单中可以暂停提醒', (tester) async {
+    testWidgets('可以暂停提醒', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('暂停提醒'));
+      await _openReminderAction(tester, 'toggle');
       await tester.pumpAndSettle();
 
       expect(repository.toggleCalls, ['reminder-1']);
@@ -93,9 +131,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('记录还款'));
+      await _openReminderAction(tester, 'payment');
       await tester.pumpAndSettle();
       expect(
         find.descendant(
@@ -118,9 +154,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('记录还款'));
+      await _openReminderAction(tester, 'payment');
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).at(0), '1000');
       await tester.enterText(find.byType(TextFormField).at(1), '1200');
@@ -135,7 +169,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('新增负债'));
+      await tester.tap(find.byKey(const ValueKey('reminder-add')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).at(0), '花呗');
       await tester.enterText(find.byType(TextFormField).at(1), '15');
@@ -154,10 +188,9 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
+      await _openReminderAction(tester, 'edit');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('编辑'));
-      await tester.pumpAndSettle();
+      expect(find.text('利率'), findsNothing);
       await tester.enterText(find.byType(TextFormField).first, '房贷调整');
       await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
       await tester.pumpAndSettle();
@@ -167,13 +200,25 @@ void main() {
       expect(repository.updateCalls.single.request.name, '房贷调整');
     });
 
+    testWidgets('编辑提醒默认不展开更多字段', (tester) async {
+      final repository = _FakeReminderRepository();
+      await _pumpPage(tester, repository);
+
+      await _openReminderAction(tester, 'edit');
+      await tester.pumpAndSettle();
+
+      expect(find.text('利率'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('reminder-more-details')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('编辑提醒时保留已有凭证路径', (tester) async {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('编辑'));
+      await _openReminderAction(tester, 'edit');
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
       await tester.pumpAndSettle();
@@ -194,13 +239,12 @@ void main() {
         attachmentRepository: attachmentRepository,
       );
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
+      await _openReminderAction(tester, 'edit');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('编辑'));
+      await tester.tap(find.byKey(const ValueKey('reminder-more-details')));
       await tester.pumpAndSettle();
-      final removeButton = find.byTooltip(
-        '移除 contract.pdf',
-        skipOffstage: false,
+      final removeButton = find.byKey(
+        const ValueKey('attachment-remove-contract.pdf'),
       );
       await tester.ensureVisible(removeButton);
       await tester.pumpAndSettle();
@@ -233,9 +277,9 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
+      await _openReminderAction(tester, 'edit');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('编辑'));
+      await tester.tap(find.byKey(const ValueKey('reminder-more-details')));
       await tester.pumpAndSettle();
       final addAttachmentButton = find.text('添加附件', skipOffstage: false);
       await tester.ensureVisible(addAttachmentButton);
@@ -261,9 +305,7 @@ void main() {
       final repository = _FakeReminderRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('删除'));
+      await _openReminderAction(tester, 'delete');
       await tester.pumpAndSettle();
 
       expect(find.text('删除「房贷」？'), findsOneWidget);
@@ -298,6 +340,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有负债提醒'), findsOneWidget);
+      expect(find.text('还没有负债提醒，先添加提醒'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });
@@ -317,9 +360,7 @@ void main() {
       final repository = _FakeReminderRepository()..toggleError = '暂停失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('暂停提醒'));
+      await _openReminderAction(tester, 'toggle');
       await tester.pumpAndSettle();
 
       expect(repository.toggleCalls, ['reminder-1']);
@@ -333,9 +374,7 @@ void main() {
       final repository = _FakeReminderRepository()..paymentError = '还款失败';
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.byTooltip('更多提醒操作 房贷'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('记录还款'));
+      await _openReminderAction(tester, 'payment');
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).first, '1200');
       await tester.tap(find.widgetWithText(FilledButton, '确认还款'));
@@ -382,6 +421,16 @@ Future<void> _pumpPage(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+Future<void> _openReminderAction(WidgetTester tester, String action) async {
+  await tester.tap(
+    find.byKey(const ValueKey('reminder-toggle-details-reminder-1')),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('reminder-more-menu-reminder-1')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(ValueKey('reminder-action-$action-reminder-1')));
 }
 
 class _FakeReminderRepository implements ReminderRepository {

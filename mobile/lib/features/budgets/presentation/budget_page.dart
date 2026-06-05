@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/app_route_paths.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
@@ -24,24 +26,13 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
   String? _busyAction;
   String? _errorMessage;
 
-  bool get _isBusy => _busyAction != null;
-
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(budgetDashboardProvider);
     final familyMembersState = ref.watch(familyMembersProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('预算'),
-        actions: [
-          IconButton(
-            onPressed: _isBusy ? null : _refresh,
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新预算',
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('预算')),
       body: dashboardState.when(
         loading: () => const AppLoadingView(message: '正在加载预算...'),
         error: (error, _) => _BudgetErrorView(
@@ -338,7 +329,7 @@ List<_BudgetRow> _buildBudgetRows({
     ),
     const _BudgetRow.gap(8),
     if (budgetList.categoryBudgets.isEmpty)
-      const _BudgetRow.emptyCategory()
+      _BudgetRow.emptyCategory(availableCount: availableCategoryCount)
     else
       for (final budget in budgetList.categoryBudgets) ...[
         _BudgetRow.category(budget),
@@ -390,7 +381,9 @@ class _BudgetRowTile extends StatelessWidget {
         availableCount: row.availableCount,
         onAdd: busyAction == null ? onAddCategory : null,
       ),
-      _BudgetRowKind.emptyCategory => const _EmptyCategoryBudgetCard(),
+      _BudgetRowKind.emptyCategory => _EmptyCategoryBudgetCard(
+        canAddCategoryBudget: row.availableCount > 0,
+      ),
       _BudgetRowKind.category => _CategoryBudgetCard(
         budget: row.budget!,
         busy: busyAction == 'delete-${row.budget!.id}',
@@ -454,14 +447,13 @@ class _BudgetRow {
        budget = null,
        budgets = const [];
 
-  const _BudgetRow.emptyCategory()
+  const _BudgetRow.emptyCategory({required this.availableCount})
     : kind = _BudgetRowKind.emptyCategory,
       height = 0,
       message = '',
       budget = null,
       budgets = const [],
-      count = 0,
-      availableCount = 0;
+      count = 0;
 
   const _BudgetRow.category(this.budget)
     : kind = _BudgetRowKind.category,
@@ -632,21 +624,17 @@ class _BudgetSummaryCard extends StatelessWidget {
                 ),
               ),
               if (totalBudget != null)
-                ProgressRing(
-                  value: percentage / 100,
-                  color: statusColor,
-                  size: 64,
-                  center: Text(
-                    '${percentage.toStringAsFixed(0)}%',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                Text(
+                  '${percentage.toStringAsFixed(0)}%',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
+              const SizedBox(width: 6),
+              IconButton(
+                key: const ValueKey('budget-total-edit'),
                 onPressed: busy ? null : onEdit,
                 icon: busy
                     ? const SizedBox.square(
@@ -654,7 +642,7 @@ class _BudgetSummaryCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : Icon(totalBudget == null ? Icons.add : Icons.edit),
-                tooltip: totalBudget == null ? '设置总预算' : '修改总预算',
+                tooltip: null,
               ),
             ],
           ),
@@ -679,13 +667,22 @@ class _BudgetSummaryCard extends StatelessWidget {
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            const SizedBox(height: 3),
-            Text(
-              '已用 ${_formatMoney(used)} / ${_formatMoney(amount)}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
+            const SizedBox(height: 8),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: 0.58),
             ),
+            const SizedBox(height: 8),
+            _BudgetMetricLine(
+              label: '已用',
+              value: _formatMoney(used),
+              valueColor: statusColor,
+            ),
+            const SizedBox(height: 6),
+            _BudgetMetricLine(label: '总额', value: _formatMoney(amount)),
           ],
         ],
       ),
@@ -715,24 +712,41 @@ class _CategoryBudgetHeader extends StatelessWidget {
             subtitle: '$count / ${count + availableCount}',
           ),
         ),
-        IconButton.filled(
-          onPressed: availableCount == 0 ? null : onAdd,
-          icon: const Icon(Icons.add),
-          tooltip: '添加分类预算',
-        ),
+        if (availableCount > 0 && onAdd != null)
+          IconButton(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add),
+            key: const ValueKey('budget-category-add'),
+            tooltip: null,
+          ),
       ],
     );
   }
 }
 
 class _EmptyCategoryBudgetCard extends StatelessWidget {
-  const _EmptyCategoryBudgetCard();
+  const _EmptyCategoryBudgetCard({required this.canAddCategoryBudget});
+
+  final bool canAddCategoryBudget;
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
-      child: AppEmptyView(title: '还没有分类预算', icon: Icons.track_changes_outlined),
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: _CompactBudgetEmptyState(
+        title: '还没有分类预算',
+        message: canAddCategoryBudget ? '还没有分类预算，先补充分类后添加' : '先补充支出分类后再添加',
+        icon: Icons.track_changes_outlined,
+        actions: canAddCategoryBudget
+            ? const []
+            : [
+                _BudgetDependencyAction(
+                  label: '分类',
+                  icon: Icons.category_outlined,
+                  onPressed: () => context.push(AppRoutePaths.categories),
+                ),
+              ],
+      ),
     );
   }
 }
@@ -763,6 +777,7 @@ class _CategoryBudgetCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -789,16 +804,30 @@ class _CategoryBudgetCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                '${budget.percentage.toStringAsFixed(0)}%',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${budget.percentage.toStringAsFixed(0)}%',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '剩余 ${_formatMoney(budget.remaining)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 4),
               IconButton(
+                key: ValueKey('budget-category-delete-${budget.id}'),
                 onPressed: busy ? null : onDelete,
                 icon: busy
                     ? const SizedBox(
@@ -808,7 +837,7 @@ class _CategoryBudgetCard extends StatelessWidget {
                       )
                     : const Icon(Icons.delete_outline),
                 color: colorScheme.error,
-                tooltip: '删除',
+                tooltip: null,
               ),
             ],
           ),
@@ -819,19 +848,13 @@ class _CategoryBudgetCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  riskText ?? '剩余 ${_formatMoney(budget.remaining)}',
+                  riskText ?? '提醒 ${budget.alertThreshold}%',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: riskText == null ? colorScheme.outline : statusColor,
                     fontWeight: riskText == null ? null : FontWeight.w700,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-              ),
-              Text(
-                '提醒 ${budget.alertThreshold}%',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
             ],
           ),
@@ -842,15 +865,99 @@ class _CategoryBudgetCard extends StatelessWidget {
 }
 
 class _EmptyMemberBudgetCard extends StatelessWidget {
-  const _EmptyMemberBudgetCard();
+  const _EmptyMemberBudgetCard({required this.canAddMemberBudget});
+
+  final bool canAddMemberBudget;
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
-      child: AppEmptyView(
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: _CompactBudgetEmptyState(
         title: '还没有成员预算',
+        message: canAddMemberBudget ? '还没有成员预算，先补充家庭成员后添加' : '先补充家庭成员后再添加',
         icon: Icons.family_restroom_outlined,
+        actions: canAddMemberBudget
+            ? const []
+            : [
+                _BudgetDependencyAction(
+                  label: '家庭成员',
+                  icon: Icons.group_outlined,
+                  onPressed: () => context.push(AppRoutePaths.family),
+                ),
+              ],
+      ),
+    );
+  }
+}
+
+class _CompactBudgetEmptyState extends StatelessWidget {
+  const _CompactBudgetEmptyState({
+    required this.title,
+    required this.message,
+    required this.icon,
+    this.actions = const [],
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+  final List<_BudgetDependencyAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      accentColor: colorScheme.primary,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconBadge(
+            icon: icon,
+            color: colorScheme.primary,
+            size: 42,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final action in actions)
+                        OutlinedButton.icon(
+                          onPressed: action.onPressed,
+                          icon: Icon(action.icon, size: 18),
+                          label: Text(action.label),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -882,12 +989,8 @@ class _MemberBudgetPanel extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: ExpansionTile(
         key: const ValueKey('budget-member-panel-toggle'),
-        tilePadding: const EdgeInsets.fromLTRB(14, 6, 10, 6),
-        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        leading: Icon(
-          Icons.family_restroom_outlined,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        tilePadding: const EdgeInsets.fromLTRB(14, 4, 10, 4),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
         title: Text(
           '成员',
           style: Theme.of(
@@ -898,17 +1001,18 @@ class _MemberBudgetPanel extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton.filledTonal(
-              onPressed: availableMemberCount == 0 ? null : onAdd,
-              icon: const Icon(Icons.add),
-              tooltip: '添加成员预算',
-            ),
-            const Icon(Icons.expand_more),
+            if (availableMemberCount > 0 && onAdd != null)
+              IconButton(
+                key: const ValueKey('budget-member-add'),
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+                tooltip: null,
+              ),
           ],
         ),
         children: [
           if (budgets.isEmpty)
-            const _EmptyMemberBudgetCard()
+            _EmptyMemberBudgetCard(canAddMemberBudget: availableMemberCount > 0)
           else
             for (final budget in budgets)
               _MemberBudgetCard(
@@ -920,6 +1024,18 @@ class _MemberBudgetPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _BudgetDependencyAction {
+  const _BudgetDependencyAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
 }
 
 class _MemberBudgetCard extends StatelessWidget {
@@ -952,6 +1068,7 @@ class _MemberBudgetCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -976,16 +1093,30 @@ class _MemberBudgetCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                '${budget.percentage.toStringAsFixed(0)}%',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${budget.percentage.toStringAsFixed(0)}%',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '剩余 ${_formatMoney(budget.remaining)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.outline,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 4),
               IconButton(
+                key: ValueKey('budget-member-delete-${budget.id}'),
                 onPressed: busy ? null : onDelete,
                 icon: busy
                     ? const SizedBox(
@@ -995,7 +1126,7 @@ class _MemberBudgetCard extends StatelessWidget {
                       )
                     : const Icon(Icons.delete_outline),
                 color: colorScheme.error,
-                tooltip: '删除',
+                tooltip: null,
               ),
             ],
           ),
@@ -1006,7 +1137,7 @@ class _MemberBudgetCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  riskText ?? '剩余 ${_formatMoney(budget.remaining)}',
+                  riskText ?? '提醒 ${budget.alertThreshold}%',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: riskText == null ? colorScheme.outline : statusColor,
                     fontWeight: riskText == null ? null : FontWeight.w700,
@@ -1014,16 +1145,49 @@ class _MemberBudgetCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(
-                '提醒 ${budget.alertThreshold}%',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-              ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BudgetMetricLine extends StatelessWidget {
+  const _BudgetMetricLine({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: valueColor ?? colorScheme.onSurface,
+            fontWeight: FontWeight.w800,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -60,6 +60,9 @@ class AuthInterceptor extends Interceptor {
     final hasRetried = err.requestOptions.extra[retriedExtraKey] == true;
 
     if (!isTokenExpired) {
+      if (err.response?.statusCode == 401) {
+        await _expireSession();
+      }
       handler.next(err);
       return;
     }

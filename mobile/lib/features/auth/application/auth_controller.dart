@@ -1,8 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/auth_interceptor.dart';
+import '../../../core/config/server_config_service.dart';
 import '../../../core/providers/core_providers.dart';
 import '../data/auth_repository.dart';
+
+const _e2eServerUrl = String.fromEnvironment(
+  'LEDGER_E2E_SERVER_URL',
+  defaultValue: '',
+);
+const _e2ePassword = String.fromEnvironment(
+  'LEDGER_E2E_PASSWORD',
+  defaultValue: '',
+);
+const _e2eAutoAuth = bool.fromEnvironment(
+  'LEDGER_E2E_AUTO_AUTH',
+  defaultValue: false,
+);
+const _runningWidgetTests = bool.fromEnvironment(
+  'FLUTTER_TEST',
+  defaultValue: false,
+);
 
 enum AuthStage {
   checking,
@@ -62,23 +80,75 @@ class AuthController extends StateNotifier<AuthState> {
   bool _apiInitialized = false;
 
   Future<void> bootstrap() async {
-    state = state.copyWith(stage: AuthStage.checking, clearError: true);
+    _emitState(state.copyWith(stage: AuthStage.checking, clearError: true));
     final serverConfigService = _ref.read(serverConfigServiceProvider);
     final secureStorage = _ref.read(secureStorageServiceProvider);
     final config = await serverConfigService.readConfig();
 
     if (config == null) {
+      if (await _maybeBootstrapWithRuntimeE2E(serverConfigService)) {
+        return;
+      }
+
       await secureStorage.clearTokens();
-      state = const AuthState(stage: AuthStage.serverRequired);
+      _emitState(const AuthState(stage: AuthStage.serverRequired));
       return;
     }
 
     await _initializeApiClient();
+    if (await _maybeBootstrapWithRuntimeE2E(serverConfigService)) {
+      return;
+    }
     await _detectInitialRoute(config.baseUrl);
   }
 
+  bool get _shouldAutoBootstrapE2E {
+    return _e2eAutoAuth &&
+        !_runningWidgetTests &&
+        _e2eServerUrl.trim().isNotEmpty &&
+        _e2ePassword.trim().isNotEmpty;
+  }
+
+  Future<bool> _maybeBootstrapWithRuntimeE2E(
+    ServerConfigService serverConfigService,
+  ) async {
+    if (!_shouldAutoBootstrapE2E) {
+      return false;
+    }
+
+    if (!_isEnvironmentValidForAutoBootstrap(serverConfigService)) {
+      return false;
+    }
+
+    await connectServer(_e2eServerUrl);
+
+    if (state.stage == AuthStage.authenticated) {
+      return true;
+    }
+
+    if (state.stage == AuthStage.setupRequired) {
+      await setupPassword(_e2ePassword);
+    } else if (state.stage == AuthStage.loginRequired) {
+      await login(_e2ePassword);
+    }
+
+    return state.stage == AuthStage.authenticated;
+  }
+
+  bool _isEnvironmentValidForAutoBootstrap(
+    ServerConfigService serverConfigService,
+  ) {
+    try {
+      serverConfigService.normalizeServerUrl(_e2eServerUrl);
+    } catch (_) {
+      return false;
+    }
+
+    return true;
+  }
+
   Future<void> connectServer(String input) async {
-    state = state.copyWith(stage: AuthStage.checking, clearError: true);
+    _emitState(state.copyWith(stage: AuthStage.checking, clearError: true));
     final serverConfigService = _ref.read(serverConfigServiceProvider);
     final secureStorage = _ref.read(secureStorageServiceProvider);
 
@@ -91,9 +161,11 @@ class AuthController extends StateNotifier<AuthState> {
       await _detectInitialRoute(normalizedUrl);
     } catch (error) {
       await serverConfigService.clearConfig();
-      state = AuthState(
-        stage: AuthStage.serverRequired,
-        errorMessage: _formatError(error),
+      _emitState(
+        AuthState(
+          stage: AuthStage.serverRequired,
+          errorMessage: _formatError(error),
+        ),
       );
     }
   }
@@ -115,7 +187,9 @@ class AuthController extends StateNotifier<AuthState> {
       await repository.logout();
     } catch (_) {}
     await secureStorage.clearTokens();
-    state = state.copyWith(stage: AuthStage.loginRequired, clearError: true);
+    _emitState(
+      state.copyWith(stage: AuthStage.loginRequired, clearError: true),
+    );
   }
 
   Future<void> changeServer() async {
@@ -123,14 +197,16 @@ class AuthController extends StateNotifier<AuthState> {
     final secureStorage = _ref.read(secureStorageServiceProvider);
     await secureStorage.clearTokens();
     await serverConfigService.clearConfig();
-    state = const AuthState(stage: AuthStage.serverRequired);
+    _emitState(const AuthState(stage: AuthStage.serverRequired));
   }
 
   Future<void> expireSession() async {
     await _ref.read(secureStorageServiceProvider).clearTokens();
-    state = state.copyWith(
-      stage: AuthStage.loginRequired,
-      errorMessage: '登录已过期，请重新登录',
+    _emitState(
+      state.copyWith(
+        stage: AuthStage.loginRequired,
+        errorMessage: '登录已过期，请重新登录',
+      ),
     );
   }
 
@@ -159,27 +235,39 @@ class AuthController extends StateNotifier<AuthState> {
           .read(secureStorageServiceProvider)
           .readAccessToken();
       final hasToken = accessToken != null && accessToken.isNotEmpty;
+      final hasValidSession = hasToken
+          ? await _ref.read(authRepositoryProvider).validateSession()
+          : false;
 
-      state = AuthState(
-        stage: !status.initialized
-            ? AuthStage.setupRequired
-            : hasToken
-            ? AuthStage.authenticated
-            : AuthStage.loginRequired,
-        serverUrl: serverUrl,
-        initialized: status.initialized,
+      if (hasToken && !hasValidSession) {
+        await _ref.read(secureStorageServiceProvider).clearTokens();
+      }
+
+      _emitState(
+        AuthState(
+          stage: !status.initialized
+              ? AuthStage.setupRequired
+              : hasValidSession
+              ? AuthStage.authenticated
+              : AuthStage.loginRequired,
+          serverUrl: serverUrl,
+          initialized: status.initialized,
+        ),
       );
     } catch (error) {
-      state = AuthState(
-        stage: AuthStage.serverRequired,
-        serverUrl: serverUrl,
-        errorMessage: _formatError(error),
+      _emitState(
+        AuthState(
+          stage: AuthStage.serverRequired,
+          serverUrl: serverUrl,
+          errorMessage: _formatError(error),
+        ),
       );
+      return;
     }
   }
 
   Future<void> _authenticate(Future<dynamic> Function() request) async {
-    state = state.copyWith(stage: AuthStage.checking, clearError: true);
+    _emitState(state.copyWith(stage: AuthStage.checking, clearError: true));
     try {
       final tokenPair = await request();
       if (!tokenPair.isValid) {
@@ -191,16 +279,24 @@ class AuthController extends StateNotifier<AuthState> {
             accessToken: tokenPair.accessToken,
             refreshToken: tokenPair.refreshToken,
           );
-      state = state.copyWith(stage: AuthStage.authenticated, clearError: true);
+      _emitState(
+        state.copyWith(stage: AuthStage.authenticated, clearError: true),
+      );
     } catch (error) {
       final fallbackStage = state.initialized == false
           ? AuthStage.setupRequired
           : AuthStage.loginRequired;
-      state = state.copyWith(
-        stage: fallbackStage,
-        errorMessage: _formatError(error),
+      _emitState(
+        state.copyWith(stage: fallbackStage, errorMessage: _formatError(error)),
       );
     }
+  }
+
+  void _emitState(AuthState next) {
+    if (!mounted) {
+      return;
+    }
+    state = next;
   }
 
   String _formatError(Object error) {

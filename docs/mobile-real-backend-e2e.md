@@ -18,6 +18,14 @@ The default target is `flutter-tester`. It is fast and does not require an Andro
 RUN_FLUTTER_TESTER_E2E=0 RUN_ANDROID_E2E=1 ./scripts/verify-mobile-e2e.sh
 ```
 
+默认链路会优先选择 `emulator-*` 设备；如果你当前未启动模拟器，可显式带上：
+
+```bash
+ANDROID_PREFER_EMULATOR=1 RUN_FLUTTER_TESTER_E2E=0 RUN_ANDROID_E2E=1 ./scripts/verify-mobile-e2e.sh
+```
+
+该链路已按 Android Emulator 为默认策略；请保持 `ANDROID_PREFER_EMULATOR=1`（默认）。脚本会在未检测到 emulator 时自动尝试启动并阻断非模拟器路径。
+
 The script looks for a complete Android SDK under `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `/opt/homebrew/share/android-commandlinetools`, or `$HOME/Library/Android/sdk`. If no emulator is already running, it creates a temporary AVD from `ANDROID_E2E_SYSTEM_IMAGE`.
 
 On Apple Silicon local machines the default image is:

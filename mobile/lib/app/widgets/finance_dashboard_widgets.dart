@@ -31,19 +31,12 @@ class FinanceHeroCard extends StatelessWidget {
       label: semanticLabel,
       child: PremiumSurface(
         accentColor: effectiveAccentColor,
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                IconBadge(
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: effectiveAccentColor,
-                  size: 38,
-                  iconSize: 20,
-                ),
-                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     label,
@@ -55,26 +48,26 @@ class FinanceHeroCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             AnimatedMoneyText(
               amount: amount,
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w800,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            const SizedBox(height: 10),
+            Column(
               children: [
-                for (final metric in metrics)
+                for (final entry in metrics.indexed) ...[
                   MetricPill(
-                    label: metric.label,
-                    value: metric.value,
-                    icon: metric.icon,
-                    color: metric.color,
+                    label: entry.$2.label,
+                    value: entry.$2.value,
+                    icon: entry.$2.icon,
+                    color: entry.$2.color,
                   ),
+                  if (entry.$1 != metrics.length - 1) const SizedBox(height: 8),
+                ],
               ],
             ),
           ],
@@ -104,49 +97,32 @@ class MetricPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final content = Container(
-      constraints: const BoxConstraints(minHeight: 64),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.16
-                : 0.08,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
+      constraints: const BoxConstraints(minHeight: 40),
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          IconBadge(icon: icon, color: color, size: 30, iconSize: 16),
+          Icon(icon, size: 16, color: color),
           const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],

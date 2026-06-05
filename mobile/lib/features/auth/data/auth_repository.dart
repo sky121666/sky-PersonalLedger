@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/auth/auth_token_pair.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/network/auth_interceptor.dart';
 
 class AuthStatus {
@@ -54,6 +55,18 @@ class AuthRepository {
 
   Future<void> logout() async {
     await _apiClient.post<void>('/auth/logout');
+  }
+
+  Future<bool> validateSession() async {
+    try {
+      await _apiClient.get<Object?>('/auth/profile');
+      return true;
+    } on ApiException catch (error) {
+      if (error.isUnauthorized) {
+        return false;
+      }
+      rethrow;
+    }
   }
 
   static final _skipAuthOptions = Options(

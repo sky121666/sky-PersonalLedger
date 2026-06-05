@@ -14,6 +14,7 @@ class ServerConfigPage extends ConsumerStatefulWidget {
 
 class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
   final TextEditingController _serverUrlController = TextEditingController();
+  final FocusNode _serverUrlFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
   @override
   void dispose() {
     _serverUrlController.dispose();
+    _serverUrlFocusNode.dispose();
     super.dispose();
   }
 
@@ -52,9 +54,11 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
         TextField(
           key: const ValueKey('server-url-field'),
           controller: _serverUrlController,
+          focusNode: _serverUrlFocusNode,
           autofocus: true,
           autocorrect: false,
           enableSuggestions: false,
+          autofillHints: const [AutofillHints.url],
           textCapitalization: TextCapitalization.none,
           decoration: authFlowInputDecoration(
             context,
@@ -66,6 +70,7 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
           keyboardType: TextInputType.url,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => isLoading ? null : _submitServerUrl(),
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
         ),
         const SizedBox(height: 16),
         SizedBox(

@@ -214,6 +214,7 @@ void main() {
     expect(find.text('等待生成'), findsNothing);
     await tester.scrollUntilVisible(find.text('还没有报告'), 300);
     expect(find.text('还没有报告'), findsOneWidget);
+    expect(find.text('先添加分析方式，再生成报告'), findsOneWidget);
     expect(find.text('生成报告'), findsWidgets);
   });
 
@@ -282,7 +283,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('生成财务报告'));
+    await tester.tap(find.byKey(const ValueKey('ai-report-generate')));
     await tester.pumpAndSettle();
     expect(find.text('生成报告'), findsAtLeastNWidgets(1));
     expect(find.text('DeepSeek'), findsAtLeastNWidgets(1));
@@ -350,7 +351,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('生成财务报告'));
+    await tester.tap(find.byKey(const ValueKey('ai-report-generate')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('ai-report-start-date')),
@@ -455,7 +456,7 @@ void main() {
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await _openProviderMenu(tester, 'DeepSeek');
+    await _openProviderActions(tester, 'provider-1');
     await tester.tap(find.text('检查'));
     await tester.pumpAndSettle();
 
@@ -464,7 +465,7 @@ void main() {
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await _openProviderMenu(tester, 'DeepSeek');
+    await _openProviderActions(tester, 'provider-1');
     await tester.tap(find.text('编辑'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(2), 'deepseek-reasoner');
@@ -478,7 +479,7 @@ void main() {
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await _openProviderMenu(tester, 'DeepSeek');
+    await _openProviderActions(tester, 'provider-1');
     await tester.tap(find.text('删除'));
     await tester.pumpAndSettle();
     expect(find.text('删除分析方式'), findsOneWidget);
@@ -540,9 +541,21 @@ Future<void> _tapReportTitle(WidgetTester tester, String reportId) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _openProviderMenu(WidgetTester tester, String providerName) async {
-  final menu = find.byTooltip('更多分析方式操作 $providerName');
+Future<void> _openProviderActions(WidgetTester tester, String providerId) async {
+  final menu = find.byKey(ValueKey('ai-provider-toggle-$providerId'));
+  final editAction = find.byKey(
+    ValueKey('ai-provider-action-edit-$providerId'),
+  );
+  if (editAction.evaluate().isNotEmpty) {
+    return;
+  }
+
   await _scrollIntoTapArea(tester, menu);
+  await tester.tap(menu);
+  await tester.pumpAndSettle();
+  if (editAction.evaluate().isNotEmpty) {
+    return;
+  }
   await tester.tap(menu);
   await tester.pumpAndSettle();
 }

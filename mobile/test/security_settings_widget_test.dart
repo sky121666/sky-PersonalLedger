@@ -171,7 +171,7 @@ void main() {
         enabled: true,
       );
 
-      await tester.tap(find.byTooltip('刷新登录保护'));
+      await tester.tap(find.byKey(const ValueKey('security-entry-refresh')));
       await tester.pumpAndSettle();
 
       expect(find.text('/server'), findsWidgets);
@@ -424,6 +424,9 @@ class _FakeAuthRepository implements AuthRepository {
       refreshToken: 'refresh-token',
     );
   }
+
+  @override
+  Future<bool> validateSession() async => true;
 
   @override
   Future<void> logout() async {

@@ -17,7 +17,7 @@ class MainShellPage extends StatelessWidget {
   /// 构建移动端主框架，包含底部导航和快速记账按钮。
   @override
   Widget build(BuildContext context) {
-    final isWideLayout = MediaQuery.sizeOf(context).width >= 720;
+    final isWideLayout = _shouldUseNavigationRail(MediaQuery.sizeOf(context));
     return Scaffold(
       body: Row(
         children: [
@@ -45,6 +45,10 @@ class MainShellPage extends StatelessWidget {
     );
   }
 
+  static bool _shouldUseNavigationRail(Size size) {
+    return size.width >= 720 && size.shortestSide >= 600;
+  }
+
   /// 切换底部导航标签页。
   void _selectTab(int index) {
     navigationShell.goBranch(
@@ -54,27 +58,19 @@ class MainShellPage extends StatelessWidget {
   }
 
   void _openQuickTransaction(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.42),
-      clipBehavior: Clip.antiAlias,
       constraints: const BoxConstraints(maxWidth: 640),
-      elevation: 0,
       isScrollControlled: true,
-      showDragHandle: false,
       useSafeArea: true,
-      builder: (context) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          border: Border.all(color: colorScheme.outlineVariant),
-        ),
-        child:
-            quickTransactionBuilder?.call(context) ??
-            const QuickTransactionPage(embedded: true),
+      enableDrag: true,
+      sheetAnimationStyle: const AnimationStyle(
+        duration: Duration(milliseconds: 180),
+        reverseDuration: Duration(milliseconds: 140),
       ),
+      builder: (context) =>
+          quickTransactionBuilder?.call(context) ??
+          const QuickTransactionPage(embedded: true),
     );
   }
 }
@@ -89,7 +85,7 @@ class _QuickTransactionFab extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return FloatingActionButton(
       onPressed: onPressed,
-      tooltip: '记一笔',
+      tooltip: null,
       elevation: 1,
       focusElevation: 1,
       hoverElevation: 1,

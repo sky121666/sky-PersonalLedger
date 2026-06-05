@@ -89,10 +89,10 @@ docs/quality/release-artifact-evidence-2026-05-27.md
 
 ## 4. Mobile Device QA
 
-Connect the iPhone by USB, unlock it, trust this Mac, confirm Developer Mode is enabled, and connect an Android device or start an Android emulator:
+Connect the iPhone by USB, unlock it, trust this Mac, confirm Developer Mode is enabled, and start an Android emulator:
 
 ```bash
-REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_DEVICE=1 ./scripts/check-mobile-device-qa-preflight.sh
+REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh
 ```
 
 Run real-backend E2E on the USB-connected iPhone when available:
@@ -181,7 +181,7 @@ The release can be called fully complete only when the strict final gate passes.
 | iOS IPA missing | Check certificate import, provisioning profile, export options, and bundle ID |
 | Artifact checksum mismatch | Discard downloaded artifacts and re-download from the trusted CI/release source |
 | USB iPhone not detected | Unlock device, trust Mac, enable Developer Mode, use cable, then rerun preflight |
-| Android device not detected | Connect an Android device or start an emulator, then rerun preflight |
+| Android emulator not detected | Start Android emulator, then rerun preflight |
 | Backup drill fails | Keep the failed backup file and target logs for diagnosis, but do not publish release as complete |
 | Accessibility fail | Fix or document scoped non-blocking exception, then retest |
 

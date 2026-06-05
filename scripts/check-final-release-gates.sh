@@ -146,7 +146,7 @@ if [[ "${STRICT_FINAL_RELEASE:-0}" == "1" ]]; then
     env REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 "$ROOT_DIR/scripts/check-release-artifact-files.sh" || strict_failures=1
 
   run_strict_check "mobile device preflight" \
-    env REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_DEVICE=1 "$ROOT_DIR/scripts/check-mobile-device-qa-preflight.sh" || strict_failures=1
+    env ANDROID_PREFER_EMULATOR=1 REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1 "$ROOT_DIR/scripts/check-mobile-device-qa-preflight.sh" || strict_failures=1
 
   if [[ "$strict_failures" != "0" ]]; then
     fail "Strict final release gate failed. See FAIL entries above."

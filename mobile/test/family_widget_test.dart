@@ -184,7 +184,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('还没有家庭成员'), findsOneWidget);
-    expect(find.text('添加成员'), findsWidgets);
+    expect(find.text('尚未添加家庭成员，先添加成员'), findsOneWidget);
+    expect(find.byKey(const ValueKey('family-add-member')), findsOneWidget);
   });
 
   testWidgets('FamilyPage 空态跟随主题色模板', (tester) async {
@@ -222,7 +223,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('添加成员'));
+    await tester.tap(find.byKey(const ValueKey('family-add-member')));
     await tester.pumpAndSettle();
     final colorChoiceBox = tester.renderObject<RenderBox>(
       find.byKey(const ValueKey('family-member-color-#2563EB')),
@@ -245,7 +246,13 @@ void main() {
     expect(repository.createdRequests.single.name, '成员C');
     expect(find.text('成员C'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('编辑成员 成员C'));
+    await tester.tap(
+      find.byKey(const ValueKey('family-member-toggle-member-2')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('family-member-action-edit-member-2')),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('family-member-name')),
@@ -259,7 +266,9 @@ void main() {
     expect(repository.updatedRequests.single.$2.name, '成员C改');
     expect(find.text('成员C改'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('停用成员 成员C改'));
+    await tester.tap(
+      find.byKey(const ValueKey('family-member-action-disable-member-2')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('停用「成员C改」？'), findsOneWidget);
     expect(find.text('关联记录不变。'), findsNothing);

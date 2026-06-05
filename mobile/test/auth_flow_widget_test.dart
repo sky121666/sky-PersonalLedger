@@ -56,10 +56,16 @@ void main() {
       expect(controller.debugState.stage, AuthStage.authenticated);
       expect(find.text('账本解锁'), findsOneWidget);
       expect(find.text('登录'), findsAtLeastNWidgets(1));
-      expect(find.byTooltip('显示密码'), findsOneWidget);
-      await tester.tap(find.byTooltip('显示密码'));
+      expect(
+        find.byKey(const ValueKey('auth-login-password-visibility-toggle')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('auth-login-password-visibility-toggle')));
       await tester.pump();
-      expect(find.byTooltip('隐藏密码'), findsOneWidget);
+      final passwordVisibilityButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('auth-login-password-visibility-toggle')),
+      );
+      expect((passwordVisibilityButton.icon as Icon).icon, Icons.visibility_off);
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -95,6 +101,27 @@ void main() {
       expect(find.text('iOS 动效'), findsNothing);
       expect(find.text('Android 状态层'), findsNothing);
       expect(find.text('主题色联动'), findsNothing);
+    });
+
+    testWidgets('登录页在手机布局下保持首屏靠上', (tester) async {
+      tester.view.physicalSize = const Size(393, 852);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await _pumpAuthPage(
+        tester,
+        const LoginPage(),
+        repository: _FakeAuthRepository(),
+        state: const AuthState(
+          stage: AuthStage.loginRequired,
+          serverUrl: 'https://ledger.example.com',
+          initialized: true,
+        ),
+      );
+
+      final titleTop = tester.getTopLeft(find.text('账本解锁')).dy;
+      expect(titleTop, lessThan(220));
     });
   });
 
@@ -173,13 +200,41 @@ void main() {
       expect(find.text('设置密码'), findsOneWidget);
       expect(find.text('账本保护'), findsAtLeastNWidgets(1));
       expect(find.text('初始化密钥策略'), findsNothing);
-      expect(find.byTooltip('显示密码'), findsOneWidget);
-      expect(find.byTooltip('显示确认密码'), findsOneWidget);
-      await tester.tap(find.byTooltip('显示密码'));
-      await tester.tap(find.byTooltip('显示确认密码'));
+      expect(
+        find.byKey(const ValueKey('auth-setup-password-visibility-toggle')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('auth-setup-confirm-password-visibility-toggle'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('auth-setup-password-visibility-toggle')),
+      );
+      await tester.tap(
+        find.byKey(
+          const ValueKey('auth-setup-confirm-password-visibility-toggle'),
+        ),
+      );
       await tester.pump();
-      expect(find.byTooltip('隐藏密码'), findsOneWidget);
-      expect(find.byTooltip('隐藏确认密码'), findsOneWidget);
+      final setupPasswordVisibilityButtonSecond = tester.widget<IconButton>(
+        find.byKey(const ValueKey('auth-setup-password-visibility-toggle')),
+      );
+      final setupPasswordConfirmVisibilityButtonSecond = tester.widget<IconButton>(
+        find.byKey(
+          const ValueKey('auth-setup-confirm-password-visibility-toggle'),
+        ),
+      );
+      expect(
+        (setupPasswordVisibilityButtonSecond.icon as Icon).icon,
+        Icons.visibility_off,
+      );
+      expect(
+        (setupPasswordConfirmVisibilityButtonSecond.icon as Icon).icon,
+        Icons.visibility_off,
+      );
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -193,6 +248,22 @@ void main() {
               widget is Semantics && widget.properties.label == '账本保护 表单',
         ),
         findsOneWidget,
+      );
+      final setupPasswordVisibilityButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('auth-setup-password-visibility-toggle')),
+      );
+      final setupPasswordConfirmVisibilityButton = tester.widget<IconButton>(
+        find.byKey(
+          const ValueKey('auth-setup-confirm-password-visibility-toggle'),
+        ),
+      );
+      expect(
+        (setupPasswordVisibilityButton.icon as Icon).icon,
+        Icons.visibility_off,
+      );
+      expect(
+        (setupPasswordConfirmVisibilityButton.icon as Icon).icon,
+        Icons.visibility_off,
       );
       expect(
         find.byKey(const ValueKey('setup-submission-evidence-rail')),
@@ -229,7 +300,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('退出登录'));
+      await tester.tap(find.byKey(const ValueKey('profile-logout')));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '退出'));
       await tester.pumpAndSettle();
@@ -253,34 +324,20 @@ void main() {
 
       await tester.pumpAndSettle();
       final mainScrollable = find.byType(Scrollable).first;
-      await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('profile-section-设置')),
-        120,
-        scrollable: mainScrollable,
-      );
-      await tester.tap(find.byKey(const ValueKey('profile-section-设置')));
+      final settingsSection = find.byKey(const ValueKey('profile-section-设置'));
+      await _scrollIntoTapArea(tester, settingsSection);
+      await tester.tap(settingsSection, warnIfMissed: false);
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('更换账本'),
-        120,
-        scrollable: mainScrollable,
+      final changeServerEntry = find.byKey(
+        const ValueKey('profile-entry-更换账本'),
       );
-      final changeServerTile = find.ancestor(
-        of: find.text('更换账本'),
-        matching: find.byType(InkWell),
-      );
-      await Scrollable.ensureVisible(
-        tester.element(changeServerTile),
-        alignment: 0.5,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(changeServerTile);
+      await _scrollIntoTapArea(tester, changeServerEntry);
+      await tester.tap(changeServerEntry);
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '更换'));
       await tester.pumpAndSettle();
 
       expect(controller.debugState.stage, AuthStage.serverRequired);
-      expect(find.text('更换服务器'), findsNothing);
     });
   });
 }
@@ -412,6 +469,9 @@ class _FakeAuthRepository implements AuthRepository {
       refreshToken: 'refresh-token',
     );
   }
+
+  @override
+  Future<bool> validateSession() async => true;
 
   @override
   Future<void> logout() async {

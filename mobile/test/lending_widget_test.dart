@@ -34,14 +34,21 @@ void main() {
       expect(find.textContaining('凭证'), findsNothing);
       expect(find.text('待补凭证'), findsNothing);
       expect(find.textContaining('本金'), findsNothing);
-      expect(find.textContaining('已收'), findsAtLeastNWidgets(1));
-      expect(find.textContaining('已收 ¥200.00'), findsOneWidget);
+      expect(find.textContaining('进行中'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('已收 ¥200.00'), findsNothing);
       expect(find.text('20%'), findsNothing);
       expect(find.textContaining('朋友周转'), findsNothing);
-      final expandRemark = find.text('展开备注');
-      await tester.tap(expandRemark);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('lending-card-lend-1')),
+      );
       await tester.pumpAndSettle();
-      expect(find.textContaining('朋友周转'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('lending-detail-toggle-lend-1')),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('类型'), findsNothing);
+      expect(find.textContaining('已收 ¥200.00'), findsAtLeastNWidgets(1));
 
       expect(
         find.byKey(const ValueKey('lending-relationship-hub')),
@@ -65,7 +72,7 @@ void main() {
 
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
       expect(find.text('应收'), findsAtLeastNWidgets(1));
-      expect(find.text('借出'), findsOneWidget);
+      expect(find.text('借出'), findsAtLeastNWidgets(1));
       expect(find.text('借入'), findsOneWidget);
       expect(find.byKey(const ValueKey('lending-card-lend-1')), findsOneWidget);
     });
@@ -101,9 +108,8 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await _openLendingMoreMenu(tester, '张三');
-      await tester.tap(find.text('记录还款'));
-      await tester.pumpAndSettle();
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '记录还款');
       expect(find.text('同时调整账户余额'), findsOneWidget);
       expect(find.text('同步更新账户余额'), findsNothing);
       await tester.enterText(
@@ -122,12 +128,11 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await _openLendingMoreMenu(tester, '张三');
-      await tester.tap(find.text('还款记录'));
-      await tester.pumpAndSettle();
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '还款记录');
 
       expect(lendingRepository.recordCalls, ['lend-1']);
-      expect(find.text('还款记录'), findsOneWidget);
+      expect(find.text('还款明细'), findsOneWidget);
       expect(find.textContaining('现金'), findsOneWidget);
       expect(
         find.descendant(
@@ -138,13 +143,26 @@ void main() {
       );
     });
 
+    testWidgets('没有还款记录时展示轻量空态', (tester) async {
+      final lendingRepository = _FakeLendingRepository()
+        ..recordItems = const [];
+      await _pumpPage(tester, lendingRepository);
+
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '还款记录');
+
+      expect(find.text('还没有还款记录'), findsOneWidget);
+      expect(find.text('记录一次还款后会出现在这里'), findsOneWidget);
+      expect(find.text('暂无数据'), findsNothing);
+    });
+
     testWidgets('编辑借贷记录时保留已有凭证路径', (tester) async {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await _openLendingMoreMenu(tester, '张三');
-      await tester.tap(find.text('编辑'));
-      await tester.pumpAndSettle();
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+      expect(find.text('电话'), findsNothing);
       await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
       await tester.pumpAndSettle();
 
@@ -152,6 +170,20 @@ void main() {
       expect(
         lendingRepository.updateCalls.single.evidence,
         '["1/lendings/lend-1/contract.pdf"]',
+      );
+    });
+
+    testWidgets('编辑借贷记录默认不展开更多字段', (tester) async {
+      final lendingRepository = _FakeLendingRepository();
+      await _pumpPage(tester, lendingRepository);
+
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+
+      expect(find.text('联系电话'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('lending-more-details')),
+        findsOneWidget,
       );
     });
 
@@ -164,12 +196,12 @@ void main() {
         attachmentRepository: attachmentRepository,
       );
 
-      await _openLendingMoreMenu(tester, '张三');
-      await tester.tap(find.text('编辑'));
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+      await tester.tap(find.byKey(const ValueKey('lending-more-details')));
       await tester.pumpAndSettle();
-      final removeButton = find.byTooltip(
-        '移除 contract.pdf',
-        skipOffstage: false,
+      final removeButton = find.byKey(
+        const ValueKey('attachment-remove-contract.pdf'),
       );
       await tester.ensureVisible(removeButton);
       await tester.pumpAndSettle();
@@ -202,8 +234,9 @@ void main() {
         ),
       );
 
-      await _openLendingMoreMenu(tester, '张三');
-      await tester.tap(find.text('编辑'));
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+      await tester.tap(find.byKey(const ValueKey('lending-more-details')));
       await tester.pumpAndSettle();
       final addAttachmentButton = find.text('添加附件', skipOffstage: false);
       await tester.ensureVisible(addAttachmentButton);
@@ -229,9 +262,8 @@ void main() {
       final lendingRepository = _FakeLendingRepository();
       await _pumpPage(tester, lendingRepository);
 
-      await _openLendingMoreMenu(tester, '张三');
-      await tester.tap(find.text('删除'));
-      await tester.pumpAndSettle();
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '删除');
 
       expect(find.text('删除「张三」？'), findsOneWidget);
       expect(find.text('关联交易不变。'), findsNothing);
@@ -265,7 +297,7 @@ void main() {
       await _pumpPage(tester, lendingRepository);
 
       expect(find.text('还没有借出记录'), findsOneWidget);
-      expect(find.text('可以先从上方按钮新增一笔借贷往来。'), findsNothing);
+      expect(find.text('还没有借贷记录，先创建一笔记录'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
     });
 
@@ -322,9 +354,8 @@ void main() {
         ..repaymentError = '还款失败';
       await _pumpPage(tester, lendingRepository);
 
-      await _openLendingMoreMenu(tester, '张三');
-      await tester.tap(find.text('记录还款'));
-      await tester.pumpAndSettle();
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '记录还款');
       await tester.enterText(
         find.byKey(const ValueKey('lending-repayment-amount')),
         '300',
@@ -341,11 +372,16 @@ void main() {
   });
 }
 
-Future<void> _openLendingMoreMenu(
-  WidgetTester tester,
-  String contactName,
-) async {
-  await tester.tap(find.byTooltip('更多借贷操作 $contactName'));
+Future<void> _openLendingMoreMenu(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('lending-more-menu-lend-1')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectLendingMenuAction(WidgetTester tester, String label) async {
+  final action = find.text(label, skipOffstage: false).last;
+  await tester.ensureVisible(action);
+  await tester.pumpAndSettle();
+  await tester.tap(action, warnIfMissed: false);
   await tester.pumpAndSettle();
 }
 
@@ -442,6 +478,18 @@ class _FakeLendingRepository implements LendingRepository {
   final List<_RepaymentCall> repaymentCalls = [];
   final List<String> deleteCalls = [];
   final List<String> recordCalls = [];
+  List<LendingRecordItem> recordItems = [
+    LendingRecordItem(
+      id: 'record-1',
+      lendingId: 'lend-1',
+      type: LendingRecordType.repay,
+      amount: 200,
+      recordDate: DateTime(2026, 5, 10, 9),
+      accountId: 'cash',
+      accountName: '现金',
+      remark: '首次还款',
+    ),
+  ];
   var listCalls = 0;
   var listErrors = 0;
   String? createError;
@@ -488,16 +536,17 @@ class _FakeLendingRepository implements LendingRepository {
   Future<List<LendingRecordItem>?> records(String id) async {
     recordCalls.add(id);
     return [
-      LendingRecordItem(
-        id: 'record-1',
-        lendingId: id,
-        type: LendingRecordType.repay,
-        amount: 200,
-        recordDate: DateTime(2026, 5, 10, 9),
-        accountId: 'cash',
-        accountName: '现金',
-        remark: '首次还款',
-      ),
+      for (final record in recordItems)
+        LendingRecordItem(
+          id: record.id,
+          lendingId: id,
+          type: record.type,
+          amount: record.amount,
+          recordDate: record.recordDate,
+          accountId: record.accountId,
+          accountName: record.accountName,
+          remark: record.remark,
+        ),
     ];
   }
 
