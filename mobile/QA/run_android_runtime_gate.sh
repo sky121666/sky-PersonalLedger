@@ -8,13 +8,53 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MOBILE_DIR="$PROJECT_ROOT"
 TRACE_DIR="$PROJECT_ROOT/QA/runtime"
+GFXINFO_DIR="$TRACE_DIR/gfxinfo"
 DEVICE_ID="${1:-}"
 ROUTE_ARGS="${2:-}"
+APP_PACKAGE="${APP_PACKAGE:-}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 ROUTE_SECONDS="${ROUTE_SECONDS:-30}"
 EMULATOR_BIN="${EMULATOR_BIN:-/opt/homebrew/share/android-commandlinetools/emulator/emulator}"
 ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-0}"
 EMULATOR_WAIT_SECONDS="${EMULATOR_WAIT_SECONDS:-120}"
+
+resolve_app_package() {
+  if [ -n "$APP_PACKAGE" ]; then
+    echo "$APP_PACKAGE"
+    return 0
+  fi
+
+  local gradle_file="$PROJECT_ROOT/android/app/build.gradle.kts"
+  if [ -f "$gradle_file" ]; then
+    APP_PACKAGE="$(sed -n '1,120p' "$gradle_file" | awk -F'\"' '/applicationId[[:space:]]*=/{print $2; exit}')"
+    if [ -n "$APP_PACKAGE" ]; then
+      echo "$APP_PACKAGE"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+collect_gfxinfo() {
+  local safe_route="$1"
+  local report_path="$GFXINFO_DIR/${TIMESTAMP}_${safe_route}.txt"
+
+  if [ -z "$APP_PACKAGE" ]; then
+    return 0
+  fi
+
+  if ! "$ADB_BIN" -s "$DEVICE_ID" shell "dumpsys gfxinfo $APP_PACKAGE framestats" >"$report_path" 2>&1; then
+    return 0
+  fi
+}
+
+ensure_app_package() {
+  if APP_PACKAGE="$(resolve_app_package)"; then
+    return 0
+  fi
+  APP_PACKAGE=""
+}
 
 resolve_emulator_binary() {
   if [ -x "$EMULATOR_BIN" ]; then
@@ -219,6 +259,9 @@ fi
 run_with_timeout() {
   local cmd="$1"
   local log_file="$2"
+  local safe_route="$3"
+  local start_ts
+  start_ts="$(date +%s)"
 
   bash -lc "$cmd" >"$log_file" 2>&1 &
   local pid=$!
@@ -226,7 +269,13 @@ run_with_timeout() {
   local remain=$ROUTE_SECONDS
   while [ $remain -gt 0 ]; do
     if ! kill -0 "$pid" 2>/dev/null; then
-      return 0
+      local exit_code=0
+      wait "$pid"
+      exit_code=$?
+      ROUTE_SECONDS_ACTUAL="$(($(date +%s)-start_ts))"
+      ROUTE_EXIT_CODE=$exit_code
+      collect_gfxinfo "$safe_route"
+      return $exit_code
     fi
     sleep 1
     remain=$((remain - 1))
@@ -237,9 +286,16 @@ run_with_timeout() {
     kill "$pid" 2>/dev/null || true
     sleep 2
     kill -9 "$pid" 2>/dev/null || true
-    return 0
+    ROUTE_SECONDS_ACTUAL="$(($(date +%s)-start_ts))"
+    ROUTE_EXIT_CODE=124
+    collect_gfxinfo "$safe_route"
+    return 124
   fi
   wait "$pid" 2>/dev/null || true
+  ROUTE_SECONDS_ACTUAL="$(($(date +%s)-start_ts))"
+  ROUTE_EXIT_CODE=$?
+  collect_gfxinfo "$safe_route"
+  return "$ROUTE_EXIT_CODE"
 }
 
 echo "============================================="
@@ -247,7 +303,21 @@ echo "Android 运行时采样闸门（profile）"
 echo "时间: $(date +'%F %T')"
 echo "设备: $DEVICE_ID"
 echo "输出目录: $TRACE_DIR"
+if [ -n "$APP_PACKAGE" ]; then
+  echo "包名: $APP_PACKAGE"
+fi
 echo "============================================="
+
+mkdir -p "$TRACE_DIR" "$GFXINFO_DIR"
+RUNTIME_REPORT="$TRACE_DIR/runtime_report_${TIMESTAMP}.md"
+echo "# Android 运行时采样报告" > "$RUNTIME_REPORT"
+echo "- 时间: $(date +'%F %T')" >> "$RUNTIME_REPORT"
+echo "- 设备: $DEVICE_ID" >> "$RUNTIME_REPORT"
+echo "- 采样时长阈值: ${ROUTE_SECONDS}s" >> "$RUNTIME_REPORT"
+echo "" >> "$RUNTIME_REPORT"
+echo "| 路由 | 耗时(秒) | 状态 | 说明 |" >> "$RUNTIME_REPORT"
+echo "| --- | ---: | --- | --- |" >> "$RUNTIME_REPORT"
+ensure_app_package
 
 run_index=0
 for route in "${ROUTES[@]}"; do
@@ -262,15 +332,40 @@ for route in "${ROUTES[@]}"; do
 
   # 使用 trace-startup 获取第一帧启动路径，便于对比首屏时间趋势。
   # 若当前会话存在认证拦截（如登录态不足），部分路由会重定向到登录/配置页，这是正常现象，需在有登录态的测试环境下复测。
-  run_with_timeout "\"$FLUTTER_BIN\" run --profile --trace-startup --trace-to-file \"$TRACE_FILE\" --device-id \"$DEVICE_ID\" --route \"$route\" --verbose" "$LOG_FILE"
-  CODE=$?
-  if [ "$CODE" -ne 0 ]; then
-    echo "[警告] $route 采样未正常完成，查看日志: $LOG_FILE"
-    tail -n 20 "$LOG_FILE" | sed 's/^/[log] /'
+  ROUTE_EXIT_CODE=0
+  ROUTE_SECONDS_ACTUAL=0
+  STATUS="UNKNOWN"
+  CODE=0
+  NOTE="未采样"
+  if run_with_timeout "\"$FLUTTER_BIN\" run --profile --trace-startup --trace-to-file \"$TRACE_FILE\" --device-id \"$DEVICE_ID\" --route \"$route\" --verbose" "$LOG_FILE" "$SAFE_ROUTE"; then
+    CODE=$?
+    STATUS="PASS"
+    NOTE="完成"
   else
-    echo "[完成] $route"
+    CODE=$?
+    if [ "$CODE" -eq 124 ]; then
+      STATUS="TIMEOUT"
+      NOTE="超时停止采样（${ROUTE_SECONDS}s）"
+    else
+      STATUS="FAIL"
+      NOTE="命令退出码 $CODE"
+    fi
   fi
+
+  if [ "$STATUS" = "PASS" ]; then
+    echo "[完成] $route"
+  else
+    echo "[警告] $route 采样未正常完成，状态=${STATUS}，日志: $LOG_FILE"
+    tail -n 20 "$LOG_FILE" | sed 's/^/[log] /'
+  fi
+  echo "| $route | ${ROUTE_SECONDS_ACTUAL} | ${STATUS} | ${NOTE} |" >> "$RUNTIME_REPORT"
 done
+
+echo "============================================="
+echo "运行时采样报告: $RUNTIME_REPORT"
+if [ -n "$APP_PACKAGE" ]; then
+echo "dumpsys gfxinfo: $GFXINFO_DIR"
+fi
 
 echo "============================================="
 echo "运行时采样已结束。请基于 trace 与 log 打分："
@@ -278,4 +373,3 @@ echo "1) 首屏目标：<= 3000ms（含认证重定向）"
 echo "2) 交互目标：核心按钮响应 P99 <= 180ms（手工打点）"
 echo "3) 连续滚动目标：无持续掉帧，平均 FPS >= 57"
 echo "4) 在目标机上重复采样并记录分值"
-echo "============================================="
