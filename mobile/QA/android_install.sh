@@ -4,8 +4,9 @@ set -euo pipefail
 
 FLUTTER_BIN="${FLUTTER_BIN:-/private/tmp/sky-personalledger-flutter-sdk/flutter/bin/flutter}"
 ADB_BIN="${ADB_BIN:-adb}"
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MOBILE_DIR="$PROJECT_ROOT/mobile"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+MOBILE_DIR="$PROJECT_ROOT"
 
 if ! command -v "$ADB_BIN" >/dev/null 2>&1; then
   echo "[错误] adb 未安装或未在 PATH。"

@@ -4,9 +4,10 @@ set -euo pipefail
 
 FLUTTER_BIN="${FLUTTER_BIN:-/private/tmp/sky-personalledger-flutter-sdk/flutter/bin/flutter}"
 ADB_BIN="${ADB_BIN:-adb}"
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MOBILE_DIR="$PROJECT_ROOT/mobile"
-TRACE_DIR="$PROJECT_ROOT/mobile/QA/runtime"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+MOBILE_DIR="$PROJECT_ROOT"
+TRACE_DIR="$PROJECT_ROOT/QA/runtime"
 DEVICE_ID="${1:-}"
 ROUTE_ARGS="${2:-}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
