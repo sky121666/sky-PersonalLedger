@@ -15,7 +15,8 @@ const tsMatch = path.basename(runtimeReportPath).match(/runtime_report_(\d{8}_\d
 const sampleTimestamp = tsMatch ? tsMatch[1] : '';
 
 const toFiniteNumber = (value) => {
-  const n = Number(value);
+  const normalized = String(value).replace(/,/g, '');
+  const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
 };
 
@@ -117,11 +118,12 @@ const pickLastMatch = (content, patterns) => {
 const analyzeLog = (filePath) => {
   const content = fs.readFileSync(filePath, 'utf8');
   const startupMs = pickLastMatch(content, [
-    /app_time_stats: avg=([0-9.]+)ms/i,
-    /first frame.*?([0-9.]+)\s*ms/i,
-    /first_frame.*?([0-9.]+)\s*ms/i,
-    /flutter run .*? took ([0-9]+)\s*ms/i,
-    /firstInteractive.*?([0-9.]+)\s*ms/i,
+    /app_time_stats: avg=([0-9.,]+)ms/i,
+    /first frame.*?([0-9.,]+)\s*ms/i,
+    /first_frame.*?([0-9.,]+)\s*ms/i,
+    /\"flutter run\" took\s+([0-9.,]+)\s*ms/i,
+    /flutter run .*? took\s+([0-9.,]+)\s*ms/i,
+    /firstInteractive.*?([0-9.,]+)\s*ms/i,
   ]);
 
   const timelineProgress = Array.from(content.matchAll(/\[\s*\+([0-9]+)ms\]/g))
@@ -191,27 +193,67 @@ const analyzeTrace = (filePath) => {
 const analyzeGfx = (filePath) => {
   const content = fs.readFileSync(filePath, 'utf8');
   const unavailable = /no process found|failed while dumping app/i.test(content);
-  const p95Match = content.match(/95th percentile:\s*([0-9.]+)\s*ms/i);
-  const p95GpuMatch = content.match(/95th gpu percentile:\s*([0-9.]+)\s*ms/i);
-  const p95FrameMs = p95Match
-    ? toFiniteNumber(p95Match[1])
-    : (p95GpuMatch ? toFiniteNumber(p95GpuMatch[1]) : null);
+  const lines = content.split(/\r?\n/);
+  const sections = [];
+  let current = null;
+
+  for (const line of lines) {
+    const totalMatch = line.match(/Total frames rendered:\s*([0-9]+)/i);
+    if (totalMatch) {
+      current = {
+        totalFrames: toFiniteNumber(totalMatch[1]),
+        p95: null,
+        p95Gpu: null,
+        jank: null,
+      };
+      sections.push(current);
+      continue;
+    }
+    if (!current) {
+      continue;
+    }
+
+    const p95Match = line.match(/95th percentile:\s*([0-9.]+)\s*ms/i);
+    if (p95Match) {
+      current.p95 = toFiniteNumber(p95Match[1]);
+      continue;
+    }
+    const p95GpuMatch = line.match(/95th gpu percentile:\s*([0-9.]+)\s*ms/i);
+    if (p95GpuMatch) {
+      current.p95Gpu = toFiniteNumber(p95GpuMatch[1]);
+      continue;
+    }
+    const jankMatch = line.match(/janky frames:\s*([0-9]+)/i);
+    if (jankMatch) {
+      current.jank = toFiniteNumber(jankMatch[1]);
+    }
+  }
+
+  let selected = null;
+  if (sections.length > 0) {
+    selected = sections
+      .slice()
+      .sort((a, b) => {
+        const aFrames = Number.isFinite(a.totalFrames) ? a.totalFrames : -1;
+        const bFrames = Number.isFinite(b.totalFrames) ? b.totalFrames : -1;
+        if (aFrames !== bFrames) {
+          return bFrames - aFrames;
+        }
+        const aP95 = Number.isFinite(a.p95) ? a.p95 : Number.MAX_VALUE;
+        const bP95 = Number.isFinite(b.p95) ? b.p95 : Number.MAX_VALUE;
+        return aP95 - bP95;
+      })[0];
+  }
+
+  const p95FrameMs = selected ? (Number.isFinite(selected.p95) ? selected.p95 : selected.p95Gpu) : null;
   const fps = p95FrameMs && p95FrameMs > 0 ? 1000 / p95FrameMs : null;
-  const jank = pickLastMatch(content, [
-    /janky frames:\s*([0-9]+)/i,
-    /jank:\s*([0-9]+)/i,
-    /missed\s*frames:\s*([0-9]+)/i,
-  ]);
-  const totalFrames = pickLastMatch(content, [
-    /total frames rendered:\s*([0-9]+)/i,
-  ]);
 
   return {
     file: filePath,
     unavailable,
     fps,
-    jankFrames: jank,
-    totalFrames,
+    jankFrames: selected && Number.isFinite(selected.jank) ? selected.jank : null,
+    totalFrames: selected && Number.isFinite(selected.totalFrames) ? selected.totalFrames : null,
   };
 };
 
