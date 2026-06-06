@@ -671,8 +671,17 @@ echo "dumpsys gfxinfo: $GFXINFO_DIR"
 fi
 
 echo "============================================="
-echo "运行时采样已结束。请基于 trace 与 log 打分："
-echo "1) 首屏目标：<= 3000ms（含认证重定向）"
-echo "2) 交互目标：核心按钮响应 P99 <= 180ms（手工打点）"
-echo "3) 连续滚动目标：无持续掉帧，平均 FPS >= 57"
-echo "4) 在目标机上重复采样并记录分值"
+echo "运行时采样已结束。已生成 runtime report：$RUNTIME_REPORT"
+echo "4) 运行时评分输出："
+echo "   - runtime_performance_report: $TRACE_DIR/runtime_performance_latest.md"
+echo "   - runtime_performance_json: $TRACE_DIR/runtime_performance_latest.json"
+
+set +e
+node ./QA/generate_runtime_performance_report.js "$RUNTIME_REPORT_LATEST"
+RUNTIME_SCORE_CODE=$?
+set -e
+if [ "$RUNTIME_SCORE_CODE" -ne 0 ]; then
+  echo "[警告] 自动评分未达标，已输出评分文件（保留缺口供复测）。"
+else
+  echo "[完成] 运行时评分已生成。"
+fi
