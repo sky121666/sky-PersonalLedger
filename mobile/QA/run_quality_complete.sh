@@ -12,8 +12,8 @@ fi
 
 export HOME="${HOME_OVERRIDE:-/private/tmp}"
 
-printf '=== 1/2 静态质量闸门 ===\n'
-./QA/run_ui_quality_gate.sh
+printf '=== 1/2 生成静态质量报告 ===\n'
+./QA/generate_quality_report.sh
 
 printf '\n=== 2/2 运行时闸门（如有设备） ===\n'
 if ./QA/check_device_readiness.sh >/tmp/qa_readiness.log 2>&1; then

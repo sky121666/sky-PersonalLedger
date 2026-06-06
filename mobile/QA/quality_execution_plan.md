@@ -10,7 +10,7 @@
 
 ## 当前静态状态（可核验）
 - 质量扫描：通过
-  - 命令：`cd mobile && HOME=/private/tmp ./QA/run_ui_quality_gate.sh`
+  - 命令：`cd mobile && ./QA/run_quality_complete.sh`
   - 最新报告：`mobile/QA/quality_audit_latest.md`
   - 最新报告：`mobile/QA/quality_audit_latest.json`（27页面，污染命中0）
   - 页面数：27，污染命中：0，最低分：100，均通过 95+。
@@ -20,10 +20,10 @@
 - 回归与静态校验通过：
   - `cd mobile && HOME=/private/tmp flutter test -r compact`
   - `cd mobile && HOME=/private/tmp flutter analyze`
-  - `cd mobile && HOME=/private/tmp ./QA/run_ui_quality_gate.sh`（包含污染与洁净分数）
+  - `cd mobile && ./QA/run_quality_complete.sh`（包含静态污染与洁净分数）
 
 ### 最新达成快照（2026-06-04）
-- 执行入口：`cd mobile && HOME=/private/tmp ./QA/run_ui_quality_gate.sh`
+- 执行入口：`cd mobile && ./QA/run_quality_complete.sh`
 - 扫描摘要：
   - 页面总数：27
   - 触发污染：0
@@ -43,7 +43,7 @@
    - 长列表 FPS P95 >= 57（120Hz 目标）
 
 ## 模拟器适配闭环（当前阻塞）
-- 当前阻塞点：`adb devices -l` 无在线设备；`flutter devices` 无 Android 模拟器目标（iOS dev 服务也有连接异常）。
+- 当前阻塞点：无 Android 在线设备时无法形成运行时评分闭环；部分 iOS 环境连接异常时先按 Android 模拟器补齐。
 - 处理方式：
   - Android：`cd mobile && HOME=/private/tmp ANDROID_PREFER_EMULATOR=1 ./QA/android_install.sh`
   - Android 运行时采样：`cd mobile && HOME=/private/tmp ANDROID_PREFER_EMULATOR=1 ./QA/run_android_runtime_gate.sh`
@@ -60,20 +60,21 @@
   - 保持与现有 `SKY_LEDGER_TMP_ROOT`/`GRADLE_USER_HOME` 兼容。
   - 增补执行期输出：`android_install.sh` 与 `run_android_runtime_gate.sh` 在超时等待期间每 10~15 秒输出一次进度与最新日志，降低“假卡顿”误判。
 
-- 报告索引统一：补齐 `mobile/QA/quality_audit_latest.json` 快速快照（脚本已更新为每次闸门执行后自动同步）。
+- 报告索引统一：补齐 `mobile/QA/quality_audit_latest.json` 快速快照（由 `generate_quality_report.sh`/`run_quality_complete.sh` 在静态闸门阶段更新）。
 
 ## 模拟器性能验收与下一步节奏
-1. 先跑静态闸门：`run_ui_quality_gate.sh`。
+1. 先跑静态闸门：`run_quality_complete.sh`。
 2. 代码变更后补 `ui_pollution_guard_test.dart` 与相关页面测试。
 3. 启动 Android 模拟器后先跑 `android_install.sh`，确认安装链路。
-4. 接着跑 `run_android_runtime_gate.sh`（脚本会采集：
-   - 首页首帧时间
-   - 关键路由截图
+4. 接着跑 `run_android_runtime_gate.sh`，采集内容包括：
+   - 每个路由启动耗时
    - Android `dumpsys gfxinfo` 帧统计
-   - 交易列表与借贷列表滚动稳定性样本
-   - 记一笔表单与更多选项交互样本）
+   - 每条路由日志与可选 trace
 5. `run_android_runtime_gate.sh` 产出结果补到：
-   - `mobile/QA/quality_audit_latest.md` 与 `mobile/QA/quality_audit_latest.json`
+   - `mobile/QA/runtime/runtime_report_latest.md`
+   - `mobile/QA/runtime/*.log`
+   - `mobile/QA/runtime/*.json`
+   - `mobile/QA/runtime/gfxinfo/*.txt`
    - `mobile/QA/route_quality_check_latest.md` 与 `mobile/QA/route_quality_check_latest.json`
 6. 如出现“启动无响应/安装后卡顿”：
    - `./QA/check_device_readiness.sh`
@@ -95,9 +96,10 @@
   3) 优化重建开销（缓存、`const` 化、减少重复计算）
 
 ## 执行节奏（每次迭代）
-1. 先跑静态闸门：`run_ui_quality_gate.sh`。
+1. 先跑静态闸门：`run_quality_complete.sh`。
 2. 代码变更后补 `ui_pollution_guard_test.dart` 与相关页面测试。
 3. 启动 Android 模拟器后再跑 `run_android_runtime_gate.sh`。
 4. 每次闭环形成报告后更新：
   - `mobile/QA/quality_audit_latest.md` 与 `mobile/QA/quality_audit_latest.json`
   - `mobile/QA/route_quality_check_latest.md` 与 `mobile/QA/route_quality_check_latest.json`
+  - `mobile/QA/runtime/runtime_report_latest.md` 与 `mobile/QA/runtime/gfxinfo/*.txt`
