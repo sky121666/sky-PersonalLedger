@@ -12,6 +12,108 @@ DEVICE_ID="${1:-}"
 ROUTE_ARGS="${2:-}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 ROUTE_SECONDS="${ROUTE_SECONDS:-30}"
+EMULATOR_BIN="${EMULATOR_BIN:-/opt/homebrew/share/android-commandlinetools/emulator/emulator}"
+ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-0}"
+EMULATOR_WAIT_SECONDS="${EMULATOR_WAIT_SECONDS:-120}"
+
+resolve_emulator_binary() {
+  if [ -x "$EMULATOR_BIN" ]; then
+    echo "$EMULATOR_BIN"
+    return 0
+  fi
+
+  for root in "${ANDROID_SDK_ROOT:-}" "${ANDROID_HOME:-}"; do
+    if [ -n "$root" ] && [ -x "$root/emulator/emulator" ]; then
+      echo "$root/emulator/emulator"
+      return 0
+    fi
+  done
+
+  if [ -x "/opt/homebrew/share/android-commandlinetools/emulator/emulator" ]; then
+    echo "/opt/homebrew/share/android-commandlinetools/emulator/emulator"
+    return 0
+  fi
+
+  return 1
+}
+
+ensure_emulator_started() {
+  if [ "$ANDROID_PREFER_EMULATOR" != "1" ]; then
+    return 0
+  fi
+
+  if [ -n "$DEVICE_ID" ] && printf '%s\n' "$($ADB_BIN devices -l | awk 'NR>1 {print $1}' )" | awk -v target="$DEVICE_ID" '$1 == target {found=1} END {exit !found}'; then
+    return 0
+  fi
+
+  local emulator_bin
+  if ! emulator_bin="$(resolve_emulator_binary)"; then
+    return 0
+  fi
+
+  local avd_name="${ANDROID_EMULATOR_NAME:-}"
+  if [ -z "$avd_name" ]; then
+    avd_name="$($emulator_bin -list-avds | awk 'NF>0 {print $1; exit}')"
+  fi
+
+  if [ -z "$avd_name" ]; then
+    return 0
+  fi
+
+  if ! printf '%s\n' "$($ADB_BIN devices -l | awk 'NR>1 {print $1}')" | awk '/^emulator-/ {found=1} END {exit !found}'; then
+    echo "[信息] 未检测到在线模拟器，尝试启动 $avd_name"
+    "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect >/tmp/qa_runtime_boot.log 2>&1 &
+  fi
+}
+
+wait_for_device_ready() {
+  local target_device="$1"
+  local waited=0
+  while [ "$waited" -lt "$EMULATOR_WAIT_SECONDS" ]; do
+    local raw_devices
+    raw_devices="$($ADB_BIN devices -l | awk 'NR>1')"
+
+    if [ -n "$target_device" ]; then
+      if printf '%s\n' "$raw_devices" | awk -v device="$target_device" '$1 == device && $2 == "device" {found=1} END {exit !found}'; then
+        return 0
+      fi
+    elif printf '%s\n' "$raw_devices" | awk '$2 == "device" {found=1} END {exit !found}'; then
+      return 0
+    fi
+
+    sleep 1
+    waited=$((waited + 1))
+    if [ $((waited % 10)) -eq 0 ]; then
+      if [ -n "$target_device" ]; then
+        echo "[信息] 正在等待目标设备就绪 ${waited}/${EMULATOR_WAIT_SECONDS}s..."
+      else
+        echo "[信息] 正在等待设备就绪 ${waited}/${EMULATOR_WAIT_SECONDS}s..."
+      fi
+    fi
+  done
+  return 1
+}
+
+wait_for_device_services() {
+  local device="$1"
+  local waited=0
+  while [ "$waited" -lt "$EMULATOR_WAIT_SECONDS" ]; do
+    local boot_completed
+    boot_completed="$($ADB_BIN -s "$device" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+    if [ "$boot_completed" = "1" ]; then
+      if "$ADB_BIN" -s "$device" shell cmd package list packages >/dev/null 2>&1; then
+        return 0
+      fi
+    fi
+
+    sleep 1
+    waited=$((waited + 1))
+    if [ $((waited % 10)) -eq 0 ]; then
+      echo "[信息] 正在等待设备系统服务就绪 ${waited}/${EMULATOR_WAIT_SECONDS}s..."
+    fi
+  done
+  return 1
+}
 
 if ! command -v "$FLUTTER_BIN" >/dev/null 2>&1; then
   if command -v flutter >/dev/null 2>&1; then
@@ -30,13 +132,30 @@ fi
 
 ONLINE_DEVICES="$("$ADB_BIN" devices -l | awk 'NR>1 && $2=="device" {print $1}')"
 if [ -z "$ONLINE_DEVICES" ]; then
-  echo "[错误] 当前无 online 的 Android 设备。"
-  echo "建议排查："
-  echo " - 连接线是否支持数据传输"
-  echo " - 手机是否开启 USB 调试"
-  echo " - 是否弹出并确认“是否允许 USB 调试”授权"
-  echo " - 运行 adb devices -l 查看状态"
-  exit 2
+  ensure_emulator_started
+  sleep 2
+  ONLINE_DEVICES="$($ADB_BIN devices -l | awk 'NR>1 && $2=="device" {print $1}')"
+fi
+
+if [ -z "$ONLINE_DEVICES" ]; then
+  if [ -n "$DEVICE_ID" ]; then
+    echo "[信息] 目标设备 $DEVICE_ID 未就绪，等待上线中（${EMULATOR_WAIT_SECONDS}s）"
+  else
+    echo "[信息] 未检测到在线设备，等待上线中（${EMULATOR_WAIT_SECONDS}s）"
+  fi
+
+  if ! wait_for_device_ready "$DEVICE_ID"; then
+    echo "[错误] 当前无 online 的 Android 设备。"
+    echo "建议排查："
+    echo " - 连接线是否支持数据传输"
+    echo " - 手机上是否开启开发者模式和 USB 调试"
+    echo " - 是否弹出并确认“是否允许 USB 调试”授权"
+    echo " - 运行 adb devices -l 查看状态"
+    echo " - 模拟器未启动或启动未完成"
+    echo " - 检查模拟器日志：/tmp/qa_runtime_boot.log"
+    exit 2
+  fi
+  ONLINE_DEVICES="$($ADB_BIN devices -l | awk 'NR>1 && $2=="device" {print $1}')"
 fi
 
 if [ -z "$DEVICE_ID" ]; then
@@ -49,6 +168,11 @@ else
     printf '%s\n' "$ONLINE_DEVICES" | sed 's/^/ - /'
     exit 3
   fi
+fi
+
+if ! wait_for_device_services "$DEVICE_ID"; then
+  echo "[警告] 设备 $DEVICE_ID 的系统服务仍在启动（package service 未就绪）。"
+  echo "建议等待 5-10 秒后重试，或确认模拟器启动完成。"
 fi
 
 mkdir -p "$TRACE_DIR"

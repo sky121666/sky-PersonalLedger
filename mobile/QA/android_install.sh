@@ -7,6 +7,100 @@ ADB_BIN="${ADB_BIN:-adb}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MOBILE_DIR="$PROJECT_ROOT"
+EMULATOR_BIN="${EMULATOR_BIN:-/opt/homebrew/share/android-commandlinetools/emulator/emulator}"
+ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-0}"
+EMULATOR_WAIT_SECONDS="${EMULATOR_WAIT_SECONDS:-120}"
+
+resolve_emulator_binary() {
+  if [ -x "$EMULATOR_BIN" ]; then
+    echo "$EMULATOR_BIN"
+    return 0
+  fi
+
+  for root in "${ANDROID_SDK_ROOT:-}" "${ANDROID_HOME:-}"; do
+    if [ -n "$root" ] && [ -x "$root/emulator/emulator" ]; then
+      echo "$root/emulator/emulator"
+      return 0
+    fi
+  done
+
+  if [ -x "/opt/homebrew/share/android-commandlinetools/emulator/emulator" ]; then
+    echo "/opt/homebrew/share/android-commandlinetools/emulator/emulator"
+    return 0
+  fi
+
+  return 1
+}
+
+wait_for_device_online() {
+  local target_device="$1"
+  local waited=0
+  while [ "$waited" -lt "$EMULATOR_WAIT_SECONDS" ]; do
+    local raw_devices
+    raw_devices="$($ADB_BIN devices -l | awk 'NR>1')"
+
+    if [ -n "$target_device" ]; then
+      if printf '%s\n' "$raw_devices" | awk -v device="$target_device" '$1 == device && $2 == "device" {found=1} END {exit !found}'; then
+        return 0
+      fi
+    else
+      if printf '%s\n' "$raw_devices" | awk '$2 == "device" {found=1} END {exit !found}'; then
+        return 0
+      fi
+    fi
+
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  return 1
+}
+
+wait_for_device_services() {
+  local device="$1"
+  local waited=0
+  while [ "$waited" -lt "$EMULATOR_WAIT_SECONDS" ]; do
+    local boot_completed
+    boot_completed="$($ADB_BIN -s "$device" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+    if [ "$boot_completed" = "1" ]; then
+      if "$ADB_BIN" -s "$device" shell cmd package list packages >/dev/null 2>&1; then
+        return 0
+      fi
+    fi
+
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  return 1
+}
+
+ensure_emulator_started() {
+  if [ "$ANDROID_PREFER_EMULATOR" != "1" ]; then
+    return 0
+  fi
+
+  local emulator_bin
+  if ! emulator_bin="$(resolve_emulator_binary)"; then
+    echo "[提示] 已开启模拟器优先，但未发现 emulator 可执行路径，不自动启动。"
+    return 0
+  fi
+
+  local avd_name="${ANDROID_EMULATOR_NAME:-}"
+  if [ -z "$avd_name" ]; then
+    avd_name="$($emulator_bin -list-avds | awk 'NF>0 {print $1; exit}')"
+  fi
+
+  if [ -z "$avd_name" ]; then
+    echo "[提示] 未检测到可用 AVD，不自动启动模拟器。"
+    return 0
+  fi
+
+  if ! printf '%s\n' "$($ADB_BIN devices -l | awk 'NR>1 {print $1}')" | awk '/^emulator-/ {found=1} END {exit !found}'; then
+    echo "[信息] 未检测到在线模拟器，尝试启动 $avd_name"
+    "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect >/tmp/qa_emulator_boot.log 2>&1 &
+  fi
+}
 
 if ! command -v "$ADB_BIN" >/dev/null 2>&1; then
   echo "[错误] adb 未安装或未在 PATH。"
@@ -25,13 +119,29 @@ fi
 
 DEVICES_RAW="$($ADB_BIN devices -l | awk 'NR>1 && $2 == "device" {print $1}')"
 if [ -z "$DEVICES_RAW" ]; then
-  echo "[错误] 未检测到授权且在线的 Android 设备。"
-  echo "排查项："
-  echo "1) USB 线是否稳定、数据线是否支持调试"
-  echo "2) 手机是否开启了开发者模式和 USB 调试"
-  echo "3) 电脑是否弹出授权提示并已确认"
-  echo "4) 执行 adb devices -l 查看状态（unauthorized/offline/device）"
-  exit 2
+  ensure_emulator_started
+  sleep 2
+  DEVICES_RAW="$($ADB_BIN devices -l | awk 'NR>1 && $2 == "device" {print $1}')"
+fi
+
+if [ -z "$DEVICES_RAW" ]; then
+  if [ "${1:-}" != "" ]; then
+    echo "[信息] 目标设备 $1 未就绪，等待其上线中（${EMULATOR_WAIT_SECONDS}s）"
+  else
+    echo "[信息] 未检测到在线设备，等待上线中（${EMULATOR_WAIT_SECONDS}s）"
+  fi
+
+  if ! wait_for_device_online "${1:-}"; then
+    echo "[错误] 未检测到授权且在线的 Android 设备。"
+    echo "排查项："
+    echo "1) USB 线是否稳定、数据线是否支持调试"
+    echo "2) 手机上是否开启了开发者模式和 USB 调试"
+    echo "3) 电脑是否弹出授权提示并已确认"
+    echo "4) 执行 adb devices -l 查看状态（unauthorized/offline/device）"
+    exit 2
+  fi
+
+  DEVICES_RAW="$($ADB_BIN devices -l | awk 'NR>1 && $2 == "device" {print $1}')"
 fi
 
 SELECTED_DEVICE="${1:-$(printf '%s\n' "$DEVICES_RAW" | awk 'NR==1 {print $1}')}"
@@ -43,6 +153,11 @@ if ! printf '%s\n' "$DEVICES_RAW" | awk -v selected="$SELECTED_DEVICE" '$0 == se
     echo " - $d"
   done <<< "$DEVICES_RAW"
   exit 3
+fi
+
+if ! wait_for_device_services "$SELECTED_DEVICE"; then
+  echo "[警告] 设备 $SELECTED_DEVICE 仍未完全就绪（package service 未就绪）。"
+  echo "请等 5-10s 后重试，或手动在模拟器上确认启动完成。"
 fi
 
 cd "$MOBILE_DIR"
