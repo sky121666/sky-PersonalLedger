@@ -166,7 +166,10 @@ void main() {
         ),
       );
 
-      expect(find.byKey(const ValueKey('transaction-more-options')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('transaction-more-options')),
+        findsOneWidget,
+      );
       expect(find.byKey(const ValueKey('transaction-remark')), findsNothing);
     });
 
@@ -275,7 +278,7 @@ void main() {
       await _expandMoreOptions(tester);
       await tester.drag(find.byType(ListView), const Offset(0, -800));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('添加附件'));
+      await tester.tap(find.byKey(const ValueKey('attachment-add-button')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('选择文件'));
       await tester.pumpAndSettle();
@@ -351,7 +354,9 @@ void main() {
       await _expandMoreOptions(tester);
       expect(find.text('备注'), findsOneWidget);
       expect(find.text('新标签'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('transaction-add-custom-tag')));
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-add-custom-tag')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('新标签'), findsOneWidget);
       expect(find.text('记账指挥条'), findsNothing);

@@ -32,7 +32,7 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey('attachment-preview-invoice.pdf')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('attachment-remove-invoice.pdf')),
@@ -40,7 +40,7 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey('attachment-preview-receipt.jpg')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('attachment-remove-receipt.jpg')),
@@ -85,12 +85,12 @@ void main() {
       );
 
       await tester.scrollUntilVisible(
-        find.text('添加附件'),
+        find.byKey(const ValueKey('attachment-add-button')),
         240,
         scrollable: find.byType(Scrollable),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('添加附件'));
+      await tester.tap(find.byKey(const ValueKey('attachment-add-button')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('选择文件'));
       await tester.pumpAndSettle();
@@ -100,6 +100,7 @@ void main() {
       expect(find.text('b.jpg'), findsNothing);
       expect(find.text('2/2'), findsNothing);
       expect(find.text('添加附件'), findsNothing);
+      expect(find.byKey(const ValueKey('attachment-add-button')), findsNothing);
     });
 
     testWidgets('上传进度展示百分比和完成状态', (tester) async {

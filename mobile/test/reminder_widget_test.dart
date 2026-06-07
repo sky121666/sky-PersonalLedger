@@ -281,7 +281,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('reminder-more-details')));
       await tester.pumpAndSettle();
-      final addAttachmentButton = find.text('添加附件', skipOffstage: false);
+      final addAttachmentButton = find.byKey(
+        const ValueKey('attachment-add-button'),
+        skipOffstage: false,
+      );
       await tester.ensureVisible(addAttachmentButton);
       await tester.pumpAndSettle();
       await tester.tap(addAttachmentButton);
