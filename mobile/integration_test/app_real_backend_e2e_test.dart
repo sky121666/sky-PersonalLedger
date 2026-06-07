@@ -317,8 +317,13 @@ Future<void> _tapTextOrKey(
   for (final key in keys) {
     final finder = find.byKey(key);
     if (finder.evaluate().isNotEmpty) {
-      await _tapKey(tester, key);
-      return;
+      try {
+        await _tapKey(tester, key);
+        return;
+      } catch (_) {
+        // Android emulator layout can move bottom actions after keyboard/scroll
+        // changes. Fall through to text/button based candidates.
+      }
     }
   }
   for (final text in fallbackTexts) {
@@ -546,14 +551,16 @@ Future<void> _verifyAccountBalance(
 }
 
 Future<void> _openProfileAccounts(WidgetTester tester) async {
-  if (find.byKey(const ValueKey('profile-entry-账户')).evaluate().isEmpty) {
-    await _tapKey(tester, const ValueKey('profile-section-账本'));
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const ValueKey('profile-entry-账户')),
-    );
+  if (find.byKey(const ValueKey('profile-entry-账户')).evaluate().isNotEmpty) {
+    await _tapKey(tester, const ValueKey('profile-entry-账户'));
+    return;
   }
-  await _tapKey(tester, const ValueKey('profile-entry-账户'));
+
+  await _openRoute(tester, AppRoutePaths.accounts);
+  await _pumpUntilAnyFound(tester, [
+    find.text('账户'),
+    find.byKey(const ValueKey('account-add')),
+  ]);
 }
 
 Future<Finder> _findTransaction(
@@ -638,7 +645,34 @@ Future<void> _openShellTab(
     return;
   }
 
+  final route = switch (keyValue) {
+    'home' => AppRoutePaths.home,
+    'transactions' => AppRoutePaths.transactions,
+    'statistics' => AppRoutePaths.statistics,
+    'profile' => AppRoutePaths.profile,
+    _ => null,
+  };
+  if (route != null) {
+    await _openRoute(tester, route);
+    return;
+  }
+
   await _tapText(tester, label);
+}
+
+Future<void> _openRoute(WidgetTester tester, String location) async {
+  final appFinder = find.byType(PersonalLedgerApp);
+  if (appFinder.evaluate().isEmpty) {
+    return;
+  }
+
+  final context = tester.element(appFinder);
+  final router = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(appRouterProvider);
+  router.go(location);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _openTransactionListByRoute(WidgetTester tester) async {

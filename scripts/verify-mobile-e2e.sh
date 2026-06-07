@@ -157,6 +157,7 @@ run_flutter_e2e() {
   local device_id="$1"
   local server_url="$2"
   local storage_mode="$3"
+  local test_file="${LEDGER_MOBILE_E2E_TEST_FILE:-integration_test/app_real_backend_e2e_test.dart}"
 
   (
     cd "$repo_root/mobile"
@@ -166,7 +167,7 @@ run_flutter_e2e() {
       --dart-define="LEDGER_E2E_SERVER_URL=$server_url" \
       --dart-define="LEDGER_E2E_PASSWORD=$LEDGER_E2E_PASSWORD" \
       --dart-define="LEDGER_E2E_USE_IN_MEMORY_STORAGE=$storage_mode" \
-      integration_test/app_real_backend_e2e_test.dart
+      "$test_file"
   )
 }
 

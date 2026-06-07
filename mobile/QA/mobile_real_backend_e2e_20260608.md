@@ -35,6 +35,26 @@ Result:
 - Verified visible transaction and balance states.
 - Final result: `All tests passed!`
 
+Passed on Android Emulator:
+
+```bash
+ANDROID_PREFER_EMULATOR=1 \
+RUN_FLUTTER_TESTER_E2E=0 \
+RUN_ANDROID_E2E=1 \
+LEDGER_MOBILE_E2E_TEST_FILE=integration_test/app_real_backend_smoke_test.dart \
+./scripts/verify-mobile-e2e.sh
+```
+
+Result:
+
+- Started isolated Go backend with SQLite.
+- Selected Android emulator `emulator-5554`.
+- Built and installed the debug APK.
+- Connected from Android to the host backend through the emulator bridge.
+- Completed setup/login.
+- Opened the quick transaction form from the main shell `+` action.
+- Final result: `All tests passed!`
+
 Passed:
 
 ```bash
@@ -63,4 +83,6 @@ Result:
 
 ## Boundary
 
-This closes the real-backend `flutter-tester` regression gap. Android emulator authenticated traversal still needs a separate emulator run with the isolated backend or a known seeded test ledger.
+This closes the real-backend `flutter-tester` regression gap and adds a stable Android emulator smoke gate for install, auth, and quick transaction entry.
+
+The full Android ledger mutation E2E was attempted, but it is too slow and brittle for this UI acceptance gate. Keep the full mutation flow on `flutter-tester`; use Android smoke for emulator install, launch, auth, and primary `+` interaction coverage.
