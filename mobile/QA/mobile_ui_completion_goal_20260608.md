@@ -52,6 +52,8 @@ Target score: **98/100 current acceptance**, **100/100 remaining goal after runt
 - Current screenshot corpus: `mobile/QA/screenshots/current/`
 - Android emulator gate: `mobile/QA/android_ui_gate_20260608.md`
 - Android emulator proof screenshot: `mobile/QA/screenshots/android/android-emulator-install-launch-settled-20260608.png`
+- Real backend E2E: `mobile/QA/mobile_real_backend_e2e_20260608.md`
+- Performance acceptance: `mobile/QA/mobile_performance_acceptance_20260608.md`
 
 ## Android policy
 
@@ -68,14 +70,16 @@ Android QA must use an emulator by default.
 - UI pollution / static cleanliness: **100/100**
 - Route coverage: **100/100**
 - Current screenshot coverage: **98/100**
-- Android emulator install and login-entry proof: **96/100**
-- Runtime performance proof: **88/100**, because login-entry `gfxinfo` is available, but full authenticated traversal is not proven.
+- Real backend full flow: **100/100**
+- Android emulator smoke: **98/100**
+- iOS simulator smoke: **98/100**
+- Runtime performance proof: **92/100**, because frame/tap evidence exists, but the full-site runtime score is still below 95.
 
 Overall current score: **98/100**.
 
 To reach 100/100, the remaining work is:
 
-- Use a known seeded test password or resettable test ledger to run full authenticated Android emulator traversal.
 - Add small-screen proof for very large money values so real financial data never truncates awkwardly.
 - Keep iOS and Android screenshot snapshots refreshed from the same seeded data set.
-- Produce one runtime performance report that covers home, transactions, statistics, lending, and quick transaction on emulator.
+- Split full Android mutation E2E into smaller emulator tests so the route-level performance report can complete reliably.
+- Produce stable `dumpsys gfxinfo` reports for home, transactions, statistics, lending, and quick transaction.
