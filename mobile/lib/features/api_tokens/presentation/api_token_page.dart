@@ -251,7 +251,7 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
               ),
               _ApiTokenRowKind.empty => const _EmptyTokenState(
                 title: '还没有授权',
-                message: '还没有授权设备',
+                message: '右上角添加',
                 icon: Icons.vpn_key_outlined,
               ),
               _ApiTokenRowKind.token => _TokenTile(
@@ -269,11 +269,12 @@ class _ApiTokenPageState extends ConsumerState<ApiTokenPage> {
   List<_ApiTokenRow> _buildTokenRows() {
     return [
       if (_createdToken != null) const _ApiTokenRow.created(),
-      const _ApiTokenRow.header(),
       if (_tokens.isEmpty)
         const _ApiTokenRow.empty()
-      else
+      else ...[
+        const _ApiTokenRow.header(),
         for (final token in _tokens) _ApiTokenRow.token(token),
+      ],
     ];
   }
 }
@@ -365,7 +366,7 @@ class _EmptyTokenState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return PremiumSurface(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       accentColor: colorScheme.primary,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,10 +374,10 @@ class _EmptyTokenState extends StatelessWidget {
           IconBadge(
             icon: icon,
             color: colorScheme.primary,
-            size: 42,
-            iconSize: 20,
+            size: 34,
+            iconSize: 17,
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,16 +385,16 @@ class _EmptyTokenState extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 2),
                 Text(
                   message,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
-                    height: 1.4,
+                    height: 1.35,
                   ),
                 ),
               ],

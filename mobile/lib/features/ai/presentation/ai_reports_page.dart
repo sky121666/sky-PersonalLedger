@@ -1583,7 +1583,7 @@ class _AIReportsEmptyState extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '先添加分析方式，再生成报告',
+                      '添加分析方式',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                         height: 1.4,

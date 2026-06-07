@@ -184,7 +184,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('还没有家庭成员'), findsOneWidget);
-    expect(find.text('尚未添加家庭成员，先添加成员'), findsOneWidget);
+    expect(find.text('右上角添加'), findsOneWidget);
+    expect(find.text('尚未添加家庭成员，先添加成员'), findsNothing);
     expect(find.byKey(const ValueKey('family-add-member')), findsOneWidget);
   });
 

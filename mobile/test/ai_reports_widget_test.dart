@@ -214,7 +214,8 @@ void main() {
     expect(find.text('等待生成'), findsNothing);
     await tester.scrollUntilVisible(find.text('还没有报告'), 300);
     expect(find.text('还没有报告'), findsOneWidget);
-    expect(find.text('先添加分析方式，再生成报告'), findsOneWidget);
+    expect(find.text('添加分析方式'), findsOneWidget);
+    expect(find.text('先添加分析方式，再生成报告'), findsNothing);
     expect(find.text('生成报告'), findsWidgets);
   });
 
@@ -541,7 +542,10 @@ Future<void> _tapReportTitle(WidgetTester tester, String reportId) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _openProviderActions(WidgetTester tester, String providerId) async {
+Future<void> _openProviderActions(
+  WidgetTester tester,
+  String providerId,
+) async {
   final menu = find.byKey(ValueKey('ai-provider-toggle-$providerId'));
   final editAction = find.byKey(
     ValueKey('ai-provider-action-edit-$providerId'),

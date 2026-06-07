@@ -82,8 +82,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('#1'), findsOneWidget);
-      expect(find.text('5 笔'), findsAtLeastNWidgets(1));
-      expect(find.text('100.0%'), findsOneWidget);
+      expect(find.text('5 笔 · 100.0%'), findsOneWidget);
     });
 
     testWidgets('统计页展示空统计摘要', (tester) async {

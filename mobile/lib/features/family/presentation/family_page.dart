@@ -310,7 +310,7 @@ class _FamilyEmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '尚未添加家庭成员，先添加成员',
+                  '右上角添加',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.4,

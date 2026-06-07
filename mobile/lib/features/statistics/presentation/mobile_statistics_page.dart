@@ -41,7 +41,7 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('统计')),
       body: dashboardState.when(
-        loading: () => const AppLoadingView(message: '正在加载统计数据...'),
+        loading: () => const _StatisticsLoadingView(),
         error: (error, _) => _StatisticsErrorView(
           message: '统计数据加载失败',
           onRetry: () => ref.invalidate(statisticsDashboardProvider(query)),
@@ -190,6 +190,33 @@ class _StatisticsErrorView extends StatelessWidget {
   }
 }
 
+class _StatisticsLoadingView extends StatelessWidget {
+  const _StatisticsLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AdaptivePageContainer(
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(14),
+              child: LinearProgressIndicator(minHeight: 3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MonthHeader extends StatelessWidget {
   const _MonthHeader({
     required this.selectedMonth,
@@ -226,7 +253,7 @@ class _MonthHeader extends StatelessWidget {
             value: _formatCurrency(overview.balance),
             color: balanceColor,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             children: [
               IconButton(
@@ -237,14 +264,14 @@ class _MonthHeader extends StatelessWidget {
                 icon: const Icon(Icons.chevron_left),
                 tooltip: '切换到 ${_formatMonthLabel(previousMonth)}',
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: _StatisticsPeriodCard(
                   monthLabel: _formatMonthLabel(selectedMonth),
                   color: balanceColor,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               IconButton(
                 key: ValueKey(
                   'statistics-next-month-${nextMonth.year}-${nextMonth.month.toString().padLeft(2, '0')}',
@@ -255,7 +282,7 @@ class _MonthHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
@@ -460,12 +487,13 @@ class _TrendCard extends StatelessWidget {
               const _TrendLegend(),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (items.isEmpty)
             const _EmptyLine(text: '本月还没有趋势')
           else
             RoundedBarChart(
               maxValue: maxAmount,
+              height: 132,
               items: [
                 for (final item in items)
                   RoundedBarChartItem(
@@ -562,7 +590,7 @@ class _CategoryRankCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           SegmentedButton<String>(
             segments: const [
               ButtonSegment(value: 'expense', label: Text('支出')),
@@ -574,7 +602,7 @@ class _CategoryRankCard extends StatelessWidget {
               onCategoryTypeChanged(values.first);
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (response.items.isEmpty)
             const _EmptyLine(text: '本月还没有分类')
           else ...[
@@ -629,7 +657,7 @@ class _EmptyLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Text(
         text,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
