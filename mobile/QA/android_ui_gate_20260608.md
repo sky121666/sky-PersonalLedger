@@ -25,3 +25,14 @@
 ## Boundary
 
 - Full authenticated Android page traversal is still not claimed in this report because no real ledger password was provided in this run.
+
+## 2026-06-08 00:51 Retest
+
+- Backend check: `curl http://127.0.0.1:8080/api/v1/auth/status` returned `initialized=true`.
+- AVD: `pld-emu-2`, serial `emulator-5554`.
+- Install command: `FLUTTER_BIN=$(command -v flutter) LEDGER_E2E_LOCAL_SERVER_URL=http://127.0.0.1:8080 ./mobile/QA/android_install.sh emulator-5554`.
+- Package: `com.skyapp.personal_ledger`, activity `.MainActivity`.
+- App launch screenshot: `mobile/QA/screenshots/android/android-profile-theme-20260608-005122.png`.
+- Login screenshot after entering `http://10.0.2.2:8080`: `mobile/QA/screenshots/android/android-after-enter-local-20260608-005204.png`.
+- Result: Android Emulator install, launch, local-backend address entry, and transition to ledger login passed.
+- Boundary: authenticated traversal is still not claimed because the current local ledger is already initialized and the plaintext password is unknown.
