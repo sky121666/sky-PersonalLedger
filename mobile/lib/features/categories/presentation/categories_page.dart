@@ -264,52 +264,39 @@ class _CategoryHeader extends StatelessWidget {
         : financeColors.income;
     return PremiumSurface(
       accentColor: accentColor,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${selectedType.label}分类',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '默认分类与自建分类集中管理',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Expanded(
+            child: Text(
+              '${selectedType.label}分类',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
           ),
-          const SizedBox(height: 12),
-          SegmentedButton<CategoryType>(
-            segments: const [
-              ButtonSegment(
-                value: CategoryType.expense,
-                label: Text('支出'),
-                icon: Icon(Icons.remove_circle_outline),
-              ),
-              ButtonSegment(
-                value: CategoryType.income,
-                label: Text('收入'),
-                icon: Icon(Icons.add_circle_outline),
-              ),
-            ],
-            selected: {selectedType},
-            onSelectionChanged: (values) => onTypeChanged(values.first),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 184,
+            child: SegmentedButton<CategoryType>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: CategoryType.expense,
+                  label: Text('支出'),
+                  icon: Icon(Icons.remove_circle_outline),
+                ),
+                ButtonSegment(
+                  value: CategoryType.income,
+                  label: Text('收入'),
+                  icon: Icon(Icons.add_circle_outline),
+                ),
+              ],
+              selected: {selectedType},
+              onSelectionChanged: (values) => onTypeChanged(values.first),
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            ),
           ),
         ],
       ),
