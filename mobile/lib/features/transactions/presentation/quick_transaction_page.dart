@@ -127,8 +127,8 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                   Expanded(
                     child: Text(
                       _isEditing ? '编辑交易' : '记一笔',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
@@ -169,7 +169,9 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           tapTargetSize: MaterialTapTargetSize.padded,
         ),
         icon: Icon(
-          Icons.add_rounded,
+          _showMoreOptions
+              ? Icons.keyboard_arrow_up_rounded
+              : Icons.add_rounded,
           color: Theme.of(context).colorScheme.primary,
         ),
       ),
@@ -274,17 +276,17 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_showMoreOptions) ...[
-          const SizedBox(height: 2),
-          Divider(
-            height: 18,
-            thickness: 0.8,
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-          if (_loadingSecondaryData)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: LinearProgressIndicator(minHeight: 2),
+          if (_loadingSecondaryData) ...[
+            const SizedBox(
+              height: 44,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             ),
+            const SizedBox(height: 8),
+          ],
+          if (_familyMembers.isNotEmpty) ...[
+            _buildMemberPicker(),
+            const SizedBox(height: 8),
+          ],
           TextFormField(
             key: const ValueKey('transaction-remark'),
             controller: _remarkController,
@@ -295,10 +297,6 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
             maxLines: 2,
           ),
           const SizedBox(height: 8),
-          if (_familyMembers.isNotEmpty) ...[
-            _buildMemberPicker(),
-            const SizedBox(height: 8),
-          ],
           _buildTagPicker(),
           const SizedBox(height: 8),
           AttachmentPickerField(
@@ -323,8 +321,8 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       key: const ValueKey('transaction-save'),
       onPressed: _submitting ? null : _submit,
       style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(50),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        minimumSize: const Size.fromHeight(48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -358,21 +356,21 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       ),
       filled: true,
       fillColor: Color.alphaBlend(
-        colorScheme.primary.withValues(alpha: 0.035),
+        colorScheme.primary.withValues(alpha: 0.02),
         colorScheme.surface,
       ),
       prefixIcon: Icon(icon, size: 20),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: colorScheme.primary, width: 1.2),
       ),
     );
@@ -488,21 +486,21 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         onTap: _pickDateTime,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             color: Color.alphaBlend(
               accentColor.withValues(
                 alpha: Theme.of(context).brightness == Brightness.dark
-                    ? 0.14
-                    : 0.08,
+                    ? 0.10
+                    : 0.04,
               ),
               colorScheme.surface,
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: accentColor.withValues(alpha: 0.16)),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: accentColor.withValues(alpha: 0.12)),
           ),
           child: Row(
             children: [
@@ -583,12 +581,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                 ),
               )
             else
-              Text(
-                '未设置',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
+              const SizedBox.shrink(),
             const SizedBox(width: 6),
             _buildTagToggleButton(
               key: const ValueKey('transaction-add-custom-tag'),
@@ -694,6 +687,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
         _loading = false;
         _accountId ??= _accounts.isNotEmpty ? _accounts.first.id : null;
       });
+      unawaited(_ensureSecondaryDataLoaded());
       return;
     }
 
@@ -719,6 +713,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       _accountCache = accounts;
       _categoryCache = categories;
       _primaryDataLoaded = true;
+      unawaited(_ensureSecondaryDataLoaded());
     } catch (error) {
       if (!mounted) {
         return;
