@@ -140,7 +140,7 @@ class _AccountContentState extends ConsumerState<_AccountContent> {
     if (result.accounts.isEmpty) {
       return const _AccountsEmptyState(
         title: '还没有账户',
-        message: '还没有账户，先添加账户',
+        message: '右上角添加',
         icon: Icons.account_balance_wallet_outlined,
       );
     }
@@ -230,136 +230,58 @@ class _AccountsEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return PremiumSurface(
-      accentColor: colorScheme.primary,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: SizedBox.square(
-              dimension: 42,
-              child: Icon(icon, size: 20, color: colorScheme.primary),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 0, 12),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SizedBox.square(
+                dimension: 34,
+                child: Icon(icon, size: 18, color: colorScheme.primary),
+              ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 11, 14, 11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.4,
+                  const SizedBox(height: 2),
+                  Text(
+                    message,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
-
-List<_AccountRow> _buildAccountRows({
-  required List<Account> activeAccounts,
-  required List<Account> archivedAccounts,
-}) {
-  return [
-    ..._sectionRows(title: '正常账户', accounts: activeAccounts, sortable: true),
-    if (archivedAccounts.isNotEmpty) ...[
-      const _AccountRow.gap(16),
-      ..._sectionRows(title: '已归档账户', accounts: archivedAccounts),
-    ],
-  ];
-}
-
-List<_AccountRow> _sectionRows({
-  required String title,
-  required List<Account> accounts,
-  bool sortable = false,
-}) {
-  if (accounts.isEmpty) {
-    return const [];
-  }
-  final accountIds = accounts.map((item) => item.id).toList();
-  return [
-    _AccountRow.header(
-      title: title,
-      count: accounts.length,
-      archived: title == '已归档账户',
-    ),
-    const _AccountRow.gap(8),
-    for (final entry in accounts.indexed) ...[
-      _AccountRow.account(
-        account: entry.$2,
-        accountIds: accountIds,
-        accountIndex: entry.$1,
-        sortable: sortable,
-      ),
-      const _AccountRow.gap(10),
-    ],
-  ];
-}
-
-enum _AccountRowKind { gap, header, account }
-
-class _AccountRow {
-  const _AccountRow.gap(this.height)
-    : kind = _AccountRowKind.gap,
-      title = '',
-      count = 0,
-      archived = false,
-      account = null,
-      accountIds = const [],
-      accountIndex = 0,
-      sortable = false;
-
-  const _AccountRow.header({
-    required this.title,
-    required this.count,
-    required this.archived,
-  }) : kind = _AccountRowKind.header,
-       height = 0,
-       account = null,
-       accountIds = const [],
-       accountIndex = 0,
-       sortable = false;
-
-  const _AccountRow.account({
-    required this.account,
-    required this.accountIds,
-    required this.accountIndex,
-    required this.sortable,
-  }) : kind = _AccountRowKind.account,
-       height = 0,
-       title = '',
-       count = 0,
-       archived = false;
-
-  final _AccountRowKind kind;
-  final double height;
-  final String title;
-  final int count;
-  final bool archived;
-  final Account? account;
-  final List<String> accountIds;
-  final int accountIndex;
-  final bool sortable;
 }
 
 class _SectionHeaderWithAction extends StatelessWidget {

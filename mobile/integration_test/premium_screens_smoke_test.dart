@@ -445,7 +445,7 @@ void main() {
         );
       });
 
-      testWidgets('renders premium accounts control room (${variant.name})', (
+      testWidgets('renders premium accounts surface (${variant.name})', (
         tester,
       ) async {
         await _prepareScreenshotCapture(binding);
@@ -470,30 +470,16 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('账户', findsOneWidget);
-        _expectTextOrScaffold('资产概览', findsOneWidget);
-        _expectByKey(const ValueKey('account-portfolio-control-strip'));
-        _expectTextOrScaffold('资产控制中枢', findsOneWidget);
-        _expectTextOrScaffold('静谧墨绿', findsOneWidget);
+        _expectTextOrScaffold('净资产', findsOneWidget);
+        _expectTextOrScaffold('招商银行', findsWidgets);
+        _expectTextOrScaffold('账户资产矩阵', findsNothing);
+        _expectTextOrScaffold('资产控制中枢', findsNothing);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'accounts-control-room-${variant.name}',
+          'accounts-surface-${variant.name}',
         );
-
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('账户资产矩阵'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        _expectByKey(const ValueKey('account-portfolio-matrix-panel'));
-        _expectTextOrScaffold('账户资产矩阵', findsOneWidget);
-        _expectTextOrScaffold('流动优先', findsOneWidget);
-        _expectTextOrScaffold('主资产账户', findsOneWidget);
-        _expectTextOrScaffold('主要负债', findsOneWidget);
-        _expectTextOrScaffold('结构比例', findsOneWidget);
-        _expectStableVisualFrame(tester);
 
         await _scrollUntilVisibleIfPresent(
           tester,
@@ -502,9 +488,9 @@ void main() {
           scrollable: find.byType(Scrollable).first,
         );
         _expectTextOrScaffold('正常账户', findsOneWidget);
-        _expectTextOrScaffold('支持排序', findsOneWidget);
-        _expectTextOrScaffold('资产类', findsAtLeastNWidgets(1));
         _expectTextOrScaffold('招商银行', findsWidgets);
+        _expectTextOrScaffold('资产类', findsNothing);
+        _expectTextOrScaffold('支持排序', findsNothing);
         _expectStableVisualFrame(tester);
         await _scrollUntilVisibleIfPresent(
           tester,
@@ -513,8 +499,8 @@ void main() {
           scrollable: find.byType(Scrollable).first,
         );
         _expectTextOrScaffold('已归档账户', findsOneWidget);
-        _expectTextOrScaffold('负债类', findsOneWidget);
         _expectTextOrScaffold('住房贷款', findsOneWidget);
+        _expectTextOrScaffold('负债类', findsNothing);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
       });
