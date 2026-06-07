@@ -10,6 +10,44 @@ MOBILE_DIR="$PROJECT_ROOT"
 EMULATOR_BIN="${EMULATOR_BIN:-/opt/homebrew/share/android-commandlinetools/emulator/emulator}"
 ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-0}"
 EMULATOR_WAIT_SECONDS="${EMULATOR_WAIT_SECONDS:-120}"
+LEDGER_E2E_LOCAL_SERVER_URL="${LEDGER_E2E_LOCAL_SERVER_URL:-${LEDGER_E2E_SERVER_URL:-}}"
+LEDGER_E2E_SERVER_URL="${LEDGER_E2E_SERVER_URL:-}"
+LEDGER_E2E_PASSWORD="${LEDGER_E2E_PASSWORD:-}"
+LEDGER_E2E_AUTO_AUTH="${LEDGER_E2E_AUTO_AUTH:-}"
+
+detect_current_local_server_url() {
+  local candidate
+  for candidate in http://127.0.0.1:8080 http://localhost:8080; do
+    if curl -fsS "$candidate/api/v1/auth/status" >/dev/null 2>&1; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+server_url_for_device() {
+  local local_url="$1"
+
+  if [ -z "$local_url" ]; then
+    return 0
+  fi
+
+  case "$SELECTED_DEVICE" in
+    emulator-*)
+      case "$local_url" in
+        http://127.0.0.1:*) echo "http://10.0.2.2:${local_url#http://127.0.0.1:}" ;;
+        http://localhost:*) echo "http://10.0.2.2:${local_url#http://localhost:}" ;;
+        http://127.0.0.1) echo "http://10.0.2.2" ;;
+        http://localhost) echo "http://10.0.2.2" ;;
+        *) echo "$local_url" ;;
+      esac
+      ;;
+    *)
+      echo "$local_url"
+      ;;
+  esac
+}
 
 resolve_emulator_binary() {
   if [ -x "$EMULATOR_BIN" ]; then
@@ -160,8 +198,34 @@ if ! wait_for_device_services "$SELECTED_DEVICE"; then
   echo "请等 5-10s 后重试，或手动在模拟器上确认启动完成。"
 fi
 
+if [ -z "$LEDGER_E2E_LOCAL_SERVER_URL" ]; then
+  LEDGER_E2E_LOCAL_SERVER_URL="$(detect_current_local_server_url || true)"
+fi
+if [ -n "$LEDGER_E2E_LOCAL_SERVER_URL" ]; then
+  LEDGER_E2E_SERVER_URL="$(server_url_for_device "$LEDGER_E2E_LOCAL_SERVER_URL")"
+fi
+if [ -z "$LEDGER_E2E_AUTO_AUTH" ] && [ -n "$LEDGER_E2E_SERVER_URL" ] && [ -n "$LEDGER_E2E_PASSWORD" ]; then
+  LEDGER_E2E_AUTO_AUTH="true"
+fi
+
 cd "$MOBILE_DIR"
-echo "[执行] flutter install -d $SELECTED_DEVICE"
-HOME=/tmp FLUTTER_SUPPRESS_ANALYTICS=true DART_SUPPRESS_ANALYTICS=true "$FLUTTER_BIN" install -d "$SELECTED_DEVICE"
+if [ -n "$LEDGER_E2E_SERVER_URL" ]; then
+  echo "[信息] 本地账本地址: ${LEDGER_E2E_LOCAL_SERVER_URL:-$LEDGER_E2E_SERVER_URL}"
+  if [ "$LEDGER_E2E_SERVER_URL" != "${LEDGER_E2E_LOCAL_SERVER_URL:-$LEDGER_E2E_SERVER_URL}" ]; then
+    echo "[信息] 设备访问地址: $LEDGER_E2E_SERVER_URL"
+  fi
+  BUILD_ARGS=("--debug" "--dart-define" "LEDGER_E2E_SERVER_URL=$LEDGER_E2E_SERVER_URL")
+  if [ -n "$LEDGER_E2E_PASSWORD" ]; then
+    BUILD_ARGS+=("--dart-define" "LEDGER_E2E_PASSWORD=$LEDGER_E2E_PASSWORD")
+    BUILD_ARGS+=("--dart-define" "LEDGER_E2E_AUTO_AUTH=$LEDGER_E2E_AUTO_AUTH")
+  fi
+  echo "[执行] flutter build apk ${BUILD_ARGS[*]}"
+  HOME=/tmp FLUTTER_SUPPRESS_ANALYTICS=true DART_SUPPRESS_ANALYTICS=true "$FLUTTER_BIN" build apk "${BUILD_ARGS[@]}"
+  echo "[执行] flutter install -d $SELECTED_DEVICE --use-application-binary build/app/outputs/flutter-apk/app-debug.apk"
+  HOME=/tmp FLUTTER_SUPPRESS_ANALYTICS=true DART_SUPPRESS_ANALYTICS=true "$FLUTTER_BIN" install -d "$SELECTED_DEVICE" --debug --use-application-binary build/app/outputs/flutter-apk/app-debug.apk
+else
+  echo "[执行] flutter install -d $SELECTED_DEVICE"
+  HOME=/tmp FLUTTER_SUPPRESS_ANALYTICS=true DART_SUPPRESS_ANALYTICS=true "$FLUTTER_BIN" install -d "$SELECTED_DEVICE"
+fi
 
 echo "[完成] 已尝试对设备 $SELECTED_DEVICE 执行安装，若无错误即安装成功。"

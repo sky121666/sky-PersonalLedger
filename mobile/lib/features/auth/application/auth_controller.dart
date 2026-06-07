@@ -86,6 +86,9 @@ class AuthController extends StateNotifier<AuthState> {
     final config = await serverConfigService.readConfig();
 
     if (config == null) {
+      if (await _maybeConnectRuntimeServerConfig(serverConfigService)) {
+        return;
+      }
       if (await _maybeBootstrapWithRuntimeE2E(serverConfigService)) {
         return;
       }
@@ -107,6 +110,34 @@ class AuthController extends StateNotifier<AuthState> {
         !_runningWidgetTests &&
         _e2eServerUrl.trim().isNotEmpty &&
         _e2ePassword.trim().isNotEmpty;
+  }
+
+  bool get _hasRuntimeServerConfig {
+    return !_runningWidgetTests && _e2eServerUrl.trim().isNotEmpty;
+  }
+
+  Future<bool> _maybeConnectRuntimeServerConfig(
+    ServerConfigService serverConfigService,
+  ) async {
+    if (!_hasRuntimeServerConfig) {
+      return false;
+    }
+
+    if (!_isEnvironmentValidForAutoBootstrap(serverConfigService)) {
+      return false;
+    }
+
+    await connectServer(_e2eServerUrl);
+
+    if (_shouldAutoBootstrapE2E) {
+      if (state.stage == AuthStage.setupRequired) {
+        await setupPassword(_e2ePassword);
+      } else if (state.stage == AuthStage.loginRequired) {
+        await login(_e2ePassword);
+      }
+    }
+
+    return state.stage != AuthStage.serverRequired;
   }
 
   Future<bool> _maybeBootstrapWithRuntimeE2E(

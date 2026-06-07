@@ -22,6 +22,48 @@ FLUTTER_DISABLE_SERVICE_AUTH_CODES="${FLUTTER_DISABLE_SERVICE_AUTH_CODES:-1}"
 FLUTTER_RETRY_ON_DDS_FAILURE="${FLUTTER_RETRY_ON_DDS_FAILURE:-1}"
 FLUTTER_USE_TRACE_STARTUP="${FLUTTER_USE_TRACE_STARTUP:-0}"
 FLUTTER_TRACE_FALLBACK="${FLUTTER_TRACE_FALLBACK:-1}"
+LEDGER_E2E_LOCAL_SERVER_URL="${LEDGER_E2E_LOCAL_SERVER_URL:-${LEDGER_E2E_SERVER_URL:-}}"
+LEDGER_E2E_SERVER_URL="${LEDGER_E2E_SERVER_URL:-}"
+LEDGER_E2E_PASSWORD="${LEDGER_E2E_PASSWORD:-}"
+LEDGER_E2E_AUTO_AUTH="${LEDGER_E2E_AUTO_AUTH:-}"
+
+shell_quote() {
+  printf '%q' "$1"
+}
+
+detect_current_local_server_url() {
+  local candidate
+  for candidate in http://127.0.0.1:8080 http://localhost:8080; do
+    if curl -fsS "$candidate/api/v1/auth/status" >/dev/null 2>&1; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+server_url_for_device() {
+  local local_url="$1"
+
+  if [ -z "$local_url" ]; then
+    return 0
+  fi
+
+  case "$DEVICE_ID" in
+    emulator-*)
+      case "$local_url" in
+        http://127.0.0.1:*) echo "http://10.0.2.2:${local_url#http://127.0.0.1:}" ;;
+        http://localhost:*) echo "http://10.0.2.2:${local_url#http://localhost:}" ;;
+        http://127.0.0.1) echo "http://10.0.2.2" ;;
+        http://localhost) echo "http://10.0.2.2" ;;
+        *) echo "$local_url" ;;
+      esac
+      ;;
+    *)
+      echo "$local_url"
+      ;;
+  esac
+}
 
 resolve_app_package() {
   if [ -n "$APP_PACKAGE" ]; then
@@ -298,6 +340,16 @@ if ! wait_for_device_services "$DEVICE_ID"; then
   echo "建议等待 5-10 秒后重试，或确认模拟器启动完成。"
 fi
 
+if [ -z "$LEDGER_E2E_LOCAL_SERVER_URL" ]; then
+  LEDGER_E2E_LOCAL_SERVER_URL="$(detect_current_local_server_url || true)"
+fi
+if [ -n "$LEDGER_E2E_LOCAL_SERVER_URL" ]; then
+  LEDGER_E2E_SERVER_URL="$(server_url_for_device "$LEDGER_E2E_LOCAL_SERVER_URL")"
+fi
+if [ -z "$LEDGER_E2E_AUTO_AUTH" ] && [ -n "$LEDGER_E2E_SERVER_URL" ] && [ -n "$LEDGER_E2E_PASSWORD" ]; then
+  LEDGER_E2E_AUTO_AUTH="true"
+fi
+
 mkdir -p "$TRACE_DIR"
 
 cd "$MOBILE_DIR"
@@ -402,6 +454,15 @@ build_run_command() {
   if [ "$no_dds" = "1" ]; then
     cmd+=" --no-dds"
   fi
+  if [ -n "$LEDGER_E2E_SERVER_URL" ]; then
+    cmd+=" --dart-define=$(shell_quote "LEDGER_E2E_SERVER_URL=$LEDGER_E2E_SERVER_URL")"
+  fi
+  if [ -n "$LEDGER_E2E_PASSWORD" ]; then
+    cmd+=" --dart-define=$(shell_quote "LEDGER_E2E_PASSWORD=$LEDGER_E2E_PASSWORD")"
+  fi
+  if [ -n "$LEDGER_E2E_AUTO_AUTH" ]; then
+    cmd+=" --dart-define=$(shell_quote "LEDGER_E2E_AUTO_AUTH=$LEDGER_E2E_AUTO_AUTH")"
+  fi
 
   cmd+=" --verbose"
   echo "$cmd"
@@ -459,6 +520,14 @@ if [ "$FLUTTER_USE_TRACE_STARTUP" = "1" ]; then
   echo "Trace-Startup: 启用"
 else
   echo "Trace-Startup: 关闭（默认）"
+fi
+if [ -n "$LEDGER_E2E_SERVER_URL" ] && [ -n "$LEDGER_E2E_PASSWORD" ]; then
+  echo "本地账本地址: ${LEDGER_E2E_LOCAL_SERVER_URL:-$LEDGER_E2E_SERVER_URL}"
+  if [ "$LEDGER_E2E_SERVER_URL" != "${LEDGER_E2E_LOCAL_SERVER_URL:-$LEDGER_E2E_SERVER_URL}" ]; then
+    echo "设备访问地址: $LEDGER_E2E_SERVER_URL"
+  fi
+else
+  echo "本地账本自动登录: 关闭（未检测到本地服务或未传入 LEDGER_E2E_PASSWORD）"
 fi
 if [ "$FLUTTER_TRACE_FALLBACK" = "1" ]; then
   echo "Trace 回退: 启用"

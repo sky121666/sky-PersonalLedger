@@ -116,6 +116,7 @@ class TransactionItem {
     this.toAccountId,
     this.memberId,
     this.paidByMemberId,
+    this.source = 'manual',
     this.account,
     this.toAccount,
     this.category,
@@ -133,11 +134,17 @@ class TransactionItem {
   final String? toAccountId;
   final String? memberId;
   final String? paidByMemberId;
+  final String source;
   final LedgerAccount? account;
   final LedgerAccount? toAccount;
   final LedgerCategory? category;
 
   String get typeLabel => type.label;
+
+  bool get isSystemSeed {
+    return source.trim().toLowerCase() == 'system' ||
+        remark.trimLeft().startsWith('期初余额:');
+  }
 
   String get displayTitle {
     if (type == TransactionType.transfer) {
@@ -163,6 +170,7 @@ class TransactionItem {
       toAccountId: json['to_account_id'] as String?,
       memberId: json['member_id'] as String?,
       paidByMemberId: json['paid_by_member_id'] as String?,
+      source: json['source'] as String? ?? 'manual',
       account: json['account'] is Map<String, dynamic>
           ? LedgerAccount.fromJson(json['account'] as Map<String, dynamic>)
           : null,
@@ -190,6 +198,20 @@ class TransactionListResult {
   final int pageSize;
 
   bool get hasMore => page * pageSize < total;
+
+  TransactionListResult copyWith({
+    List<TransactionItem>? list,
+    int? total,
+    int? page,
+    int? pageSize,
+  }) {
+    return TransactionListResult(
+      list: list ?? this.list,
+      total: total ?? this.total,
+      page: page ?? this.page,
+      pageSize: pageSize ?? this.pageSize,
+    );
+  }
 
   /// 从交易列表接口 JSON 构建分页结果。
   factory TransactionListResult.fromJson(Map<String, dynamic> json) {

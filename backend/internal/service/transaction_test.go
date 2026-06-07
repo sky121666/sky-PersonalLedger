@@ -84,6 +84,102 @@ func TestSumByDayUsesStoredLocalDate(t *testing.T) {
 	}
 }
 
+func TestTransactionListExcludesSystemRowsByDefault(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+
+	_, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          12.34,
+		AccountID:       accountID,
+		TransactionDate: "2026-05-18T04:42:29.878007",
+		Remark:          "早餐",
+	})
+	if err != nil {
+		t.Fatalf("create manual transaction: %v", err)
+	}
+	if err := repos.Transaction.Create(&model.Transaction{
+		ID:              uuid.NewString(),
+		UserID:          userID,
+		AccountID:       accountID,
+		Type:            "income",
+		Amount:          100,
+		TransactionDate: time.Date(2026, time.May, 18, 9, 0, 0, 0, time.Local),
+		Remark:          "期初余额: Wallet",
+		Source:          "system",
+	}); err != nil {
+		t.Fatalf("create system transaction: %v", err)
+	}
+
+	cleanList, cleanTotal, err := repos.Transaction.List(repository.TransactionFilter{
+		UserID:   userID,
+		Page:     1,
+		PageSize: 20,
+	})
+	if err != nil {
+		t.Fatalf("list clean transactions: %v", err)
+	}
+	if cleanTotal != 1 || len(cleanList) != 1 || cleanList[0].Source == "system" {
+		t.Fatalf("clean list = total %d rows %#v, want only manual row", cleanTotal, cleanList)
+	}
+
+	allList, allTotal, err := repos.Transaction.List(repository.TransactionFilter{
+		UserID:        userID,
+		IncludeSystem: true,
+		Page:          1,
+		PageSize:      20,
+	})
+	if err != nil {
+		t.Fatalf("list all transactions: %v", err)
+	}
+	if allTotal != 2 || len(allList) != 2 {
+		t.Fatalf("all list = total %d len %d, want 2", allTotal, len(allList))
+	}
+}
+
+func TestTransactionStatisticsExcludeSystemRows(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+	day := time.Date(2026, time.May, 18, 9, 0, 0, 0, time.Local)
+
+	for _, tx := range []model.Transaction{
+		{
+			ID:              uuid.NewString(),
+			UserID:          userID,
+			AccountID:       accountID,
+			Type:            "expense",
+			Amount:          20,
+			TransactionDate: day,
+			Remark:          "午餐",
+			Source:          "manual",
+		},
+		{
+			ID:              uuid.NewString(),
+			UserID:          userID,
+			AccountID:       accountID,
+			Type:            "income",
+			Amount:          1000,
+			TransactionDate: day,
+			Remark:          "期初余额: Wallet",
+			Source:          "system",
+		},
+	} {
+		if err := repos.Transaction.Create(&tx); err != nil {
+			t.Fatalf("create transaction: %v", err)
+		}
+	}
+
+	start := time.Date(2026, time.May, 1, 0, 0, 0, 0, time.Local)
+	end := time.Date(2026, time.May, 31, 23, 59, 59, 0, time.Local)
+	sum, err := repos.Transaction.SumByDateRange(userID, start, end)
+	if err != nil {
+		t.Fatalf("sum by date range: %v", err)
+	}
+	if sum.Income != 0 || sum.Expense != 20 || sum.Count != 1 {
+		t.Fatalf("sum = income %.2f expense %.2f count %d, want only manual expense", sum.Income, sum.Expense, sum.Count)
+	}
+}
+
 func TestCreateTransferRollsBackWhenTargetAccountDoesNotExist(t *testing.T) {
 	svc, repos, userID := newTransactionTestService(t)
 	sourceID := createAccountForTest(t, repos, userID, 100)

@@ -302,7 +302,8 @@ class HomeRepository {
       accounts: results[0] as AccountListResponse? ?? _emptyAccounts,
       overview: results[1] as StatisticsOverview? ?? _emptyOverview,
       budgetSummary: results[2] as BudgetSummary? ?? _emptyBudgetSummary,
-      familySummary: results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
+      familySummary:
+          results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
       recentTransactions:
           results[4] as List<TransactionItem>? ?? const <TransactionItem>[],
     );
@@ -323,11 +324,14 @@ class HomeRepository {
   Future<List<TransactionItem>> listRecentTransactions() async {
     final result = await _apiClient.get<TransactionListResult>(
       '/transactions',
-      queryParameters: const {'page': 1, 'page_size': 5},
+      queryParameters: const {'page': 1, 'page_size': 20},
       fromJsonT: (json) =>
           TransactionListResult.fromJson(json as Map<String, dynamic>? ?? {}),
     );
-    return result?.list ?? const [];
+    return (result?.list ?? const <TransactionItem>[])
+        .where((item) => !item.isSystemSeed)
+        .take(5)
+        .toList();
   }
 
   Future<List<TransactionItem>> listTransactionsForDate(DateTime date) async {
@@ -343,7 +347,9 @@ class HomeRepository {
       fromJsonT: (json) =>
           TransactionListResult.fromJson(json as Map<String, dynamic>? ?? {}),
     );
-    return result?.list ?? const [];
+    return (result?.list ?? const <TransactionItem>[])
+        .where((item) => !item.isSystemSeed)
+        .toList();
   }
 }
 
@@ -355,8 +361,8 @@ final homeSummaryProvider = FutureProvider<HomeSummary>((ref) {
   return ref.watch(homeRepositoryProvider).getSummary();
 });
 
-final homeDateTransactionsProvider = FutureProvider
-    .family<List<TransactionItem>, DateTime>((ref, date) {
+final homeDateTransactionsProvider =
+    FutureProvider.family<List<TransactionItem>, DateTime>((ref, date) {
       return ref.watch(homeRepositoryProvider).listTransactionsForDate(date);
     });
 

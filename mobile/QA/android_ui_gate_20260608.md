@@ -46,3 +46,14 @@
 - UI tree result: connection screen exposed `连接账本`, `账本地址`, `进入账本`; login screen exposed `账本解锁`, `登录`, `更换账本`.
 - Result: latest Android build keeps the clean auth/server entry layout and reaches the local-backend login page.
 - Boundary: authenticated traversal remains unclaimed because the current local ledger password is unknown.
+
+## 2026-06-08 01:23 Emulator Runtime Address Retest
+
+- AVD: `pld-emu-2`, serial `emulator-5554`.
+- Backend check: `http://127.0.0.1:8080/api/v1/auth/status` returned `initialized=true`.
+- Install command: `FLUTTER_BIN=$(command -v flutter) LEDGER_E2E_LOCAL_SERVER_URL=http://127.0.0.1:8080 ./mobile/QA/android_install.sh emulator-5554`.
+- Script behavior: detected local backend, converted emulator URL to `http://10.0.2.2:8080`, built debug APK with `LEDGER_E2E_SERVER_URL`, then installed the prebuilt APK.
+- Login screenshot: `mobile/QA/screenshots/android/android-emulator-login-local-server-20260608.png`.
+- UI tree result: login screen exposed `账本解锁`, `登录`, `http://10.0.2.2:8080`, and `更换账本`.
+- Result: Android emulator no longer requires manually retyping the current local backend address after install.
+- Boundary: authenticated traversal remains unclaimed because the current local ledger password is unknown.

@@ -31,17 +31,18 @@ func (r *TransactionRepository) GetByID(id string) (*model.Transaction, error) {
 }
 
 type TransactionFilter struct {
-	UserID     uint
-	StartDate  *time.Time
-	EndDate    *time.Time
-	Type       string
-	AccountID  string
-	CategoryID string
-	MinAmount  *float64
-	MaxAmount  *float64
-	Keyword    string
-	Page       int
-	PageSize   int
+	UserID        uint
+	StartDate     *time.Time
+	EndDate       *time.Time
+	Type          string
+	AccountID     string
+	CategoryID    string
+	MinAmount     *float64
+	MaxAmount     *float64
+	Keyword       string
+	IncludeSystem bool
+	Page          int
+	PageSize      int
 }
 
 func (r *TransactionRepository) List(filter TransactionFilter) ([]model.Transaction, int64, error) {
@@ -74,6 +75,9 @@ func (r *TransactionRepository) List(filter TransactionFilter) ([]model.Transact
 	if filter.Keyword != "" {
 		query = query.Where("remark LIKE ?", "%"+filter.Keyword+"%")
 	}
+	if !filter.IncludeSystem {
+		query = query.Where("COALESCE(source, '') <> ?", "system")
+	}
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -104,8 +108,8 @@ func (r *TransactionRepository) SumByCategory(userID uint, startDate, endDate ti
 	var results []CategorySum
 	err := r.db.Model(&model.Transaction{}).
 		Select("category_id, SUM(amount) as total, COUNT(*) as count").
-		Where("user_id = ? AND type = ? AND transaction_date >= ? AND transaction_date <= ?",
-			userID, txType, startDate, endDate).
+		Where("user_id = ? AND type = ? AND transaction_date >= ? AND transaction_date <= ? AND COALESCE(source, '') <> ?",
+			userID, txType, startDate, endDate, "system").
 		Group("category_id").
 		Find(&results).Error
 	return results, err
@@ -195,8 +199,8 @@ func (r *TransactionRepository) SumByDateRange(userID uint, startDate, endDate t
 			SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense,
 			COUNT(*) as count
 		`).
-		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ?",
-			userID, startDate, endDate).
+		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND COALESCE(source, '') <> ?",
+			userID, startDate, endDate, "system").
 		Scan(&result).Error
 	return &result, err
 }
@@ -222,8 +226,8 @@ func (r *TransactionRepository) SumByDay(userID uint, startDate, endDate time.Ti
 			SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
 			SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
 		`, dayExpression)).
-		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ?",
-			userID, startDate, endDate).
+		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND COALESCE(source, '') <> ?",
+			userID, startDate, endDate, "system").
 		Group(dayExpression).
 		Order(dayExpression + " ASC").
 		Scan(&results).Error

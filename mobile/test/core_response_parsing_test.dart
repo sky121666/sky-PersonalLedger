@@ -201,12 +201,38 @@ void main() {
       expect(result.list, hasLength(1));
       expect(result.list.first.type, TransactionType.income);
       expect(result.list.first.amount, 12.5);
+      expect(result.list.first.source, 'manual');
+      expect(result.list.first.isSystemSeed, isFalse);
       expect(
         result.list.first.transactionDate,
         DateTime.parse('2026-05-14T10:20:00Z').toLocal(),
       );
       expect(result.list.first.tags, ['工资', '五月']);
       expect(result.hasMore, isTrue);
+    });
+
+    test('TransactionItem 识别系统期初余额流水', () {
+      final sourceRow = TransactionItem.fromJson({
+        'id': 'system-source',
+        'type': 'income',
+        'amount': 1000,
+        'account_id': 'a1',
+        'transaction_date': '2026-05-14T10:20:00Z',
+        'source': 'system',
+        'remark': '账户初始化',
+      });
+      final remarkRow = TransactionItem.fromJson({
+        'id': 'system-remark',
+        'type': 'income',
+        'amount': 1000,
+        'account_id': 'a1',
+        'transaction_date': '2026-05-14T10:20:00Z',
+        'source': 'manual',
+        'remark': '  期初余额: 现金',
+      });
+
+      expect(sourceRow.isSystemSeed, isTrue);
+      expect(remarkRow.isSystemSeed, isTrue);
     });
 
     test('附件路径兼容 JSON 和逗号分隔格式', () {
@@ -724,16 +750,17 @@ class _HomeSummaryAdapter implements HttpClientAdapter {
         ),
         type: DioExceptionType.badResponse,
       ),
-      _ => _jsonPayload({'code': 404, 'message': 'not found', 'data': null}, statusCode: 404),
+      _ => _jsonPayload({
+        'code': 404,
+        'message': 'not found',
+        'data': null,
+      }, statusCode: 404),
     };
 
     return payload;
   }
 
-  ResponseBody _jsonPayload(
-    Map<String, Object?> data, {
-    int statusCode = 200,
-  }) {
+  ResponseBody _jsonPayload(Map<String, Object?> data, {int statusCode = 200}) {
     final bytes = Uint8List.fromList(utf8.encode(jsonEncode(data)));
     return ResponseBody.fromBytes(
       bytes,

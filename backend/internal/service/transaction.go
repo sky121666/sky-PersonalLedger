@@ -177,16 +177,17 @@ func (s *TransactionService) GetByID(id string, userID uint) (*model.Transaction
 }
 
 type ListTransactionRequest struct {
-	Page       int     `form:"page"`
-	PageSize   int     `form:"page_size"`
-	StartDate  string  `form:"start_date"`
-	EndDate    string  `form:"end_date"`
-	Type       string  `form:"type"`
-	AccountID  string  `form:"account_id"`
-	CategoryID string  `form:"category_id"`
-	MinAmount  float64 `form:"min_amount"`
-	MaxAmount  float64 `form:"max_amount"`
-	Keyword    string  `form:"keyword"`
+	Page          int     `form:"page"`
+	PageSize      int     `form:"page_size"`
+	StartDate     string  `form:"start_date"`
+	EndDate       string  `form:"end_date"`
+	Type          string  `form:"type"`
+	AccountID     string  `form:"account_id"`
+	CategoryID    string  `form:"category_id"`
+	MinAmount     float64 `form:"min_amount"`
+	MaxAmount     float64 `form:"max_amount"`
+	Keyword       string  `form:"keyword"`
+	IncludeSystem bool    `form:"include_system"`
 }
 
 type ListTransactionResponse struct {
@@ -205,13 +206,14 @@ func (s *TransactionService) List(userID uint, req ListTransactionRequest) (*Lis
 	}
 
 	filter := repository.TransactionFilter{
-		UserID:     userID,
-		Type:       req.Type,
-		AccountID:  req.AccountID,
-		CategoryID: req.CategoryID,
-		Keyword:    req.Keyword,
-		Page:       req.Page,
-		PageSize:   req.PageSize,
+		UserID:        userID,
+		Type:          req.Type,
+		AccountID:     req.AccountID,
+		CategoryID:    req.CategoryID,
+		Keyword:       req.Keyword,
+		IncludeSystem: req.IncludeSystem,
+		Page:          req.Page,
+		PageSize:      req.PageSize,
 	}
 
 	if req.StartDate != "" {
