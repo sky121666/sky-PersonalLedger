@@ -1,0 +1,829 @@
+{
+  "generatedAt": "2026-06-07T18:00:39.390Z",
+  "meta": {
+    "project": "/Users/sky/项目/sky-PersonalLedger/mobile",
+    "ruleSource": "ui_score_scan + ui_cleanliness_audit (auto-discovered pages)",
+    "totalPages": 27
+  },
+  "summary": {
+    "allPass95": true,
+    "scan": {
+      "allPass95": true,
+      "minScore": 100,
+      "avgScore": 100,
+      "totalViolations": 0,
+      "violationPages": 0
+    },
+    "cleanliness": {
+      "average": 100,
+      "minScore": 100,
+      "allPass95": true
+    },
+    "totalPages": 27,
+    "routeQuality": {
+      "totalRoutes": 26,
+      "mappedRoutes": 26,
+      "missingRoutes": 0,
+      "allPass95": true,
+      "minScore": 100
+    }
+  },
+  "pages": [
+    {
+      "page": "features/account_logs/presentation/account_log_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/accounts/presentation/accounts_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/ai/presentation/ai_reports_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/api_tokens/presentation/api_token_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/attachments/presentation/attachment_picker_field.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/auth/presentation/login_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/auth/presentation/setup_password_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/bootstrap/presentation/bootstrap_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/budgets/presentation/budget_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/categories/presentation/categories_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/data_management/presentation/data_management_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/family/presentation/family_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/home/presentation/home_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/lendings/presentation/lending_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/main/presentation/main_shell_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/notifications/presentation/notification_settings_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/profile/presentation/profile_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/profile/presentation/profile_settings_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/reminders/presentation/reminder_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/reports/presentation/yearly_report_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/security/presentation/security_settings_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/server_config/presentation/server_config_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/statistics/presentation/mobile_statistics_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/tags/presentation/tag_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/templates/presentation/template_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/transactions/presentation/quick_transaction_page.dart",
+      "violations": 0,
+      "score": 100
+    },
+    {
+      "page": "features/transactions/presentation/transaction_details_page.dart",
+      "violations": 0,
+      "score": 100
+    }
+  ],
+  "cleanliness": {
+    "generatedAt": "2026-06-07T18:00:39.337Z",
+    "totalPages": 27,
+    "average": 100,
+    "minScore": 100,
+    "rows": [
+      {
+        "page": "features/accounts/presentation/accounts_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 4,
+        "uiDensity": 4,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/ai/presentation/ai_reports_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 7,
+        "uiDensity": 2,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/api_tokens/presentation/api_token_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 2,
+        "uiDensity": 3,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/categories/presentation/categories_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 2,
+        "uiDensity": 3,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/family/presentation/family_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 3,
+        "uiDensity": 3,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/lendings/presentation/lending_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 7,
+        "uiDensity": 6,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/profile/presentation/profile_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 2,
+        "uiDensity": 1,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/profile/presentation/profile_settings_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 3,
+        "uiDensity": 1,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/reminders/presentation/reminder_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 3,
+        "uiDensity": 5,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/security/presentation/security_settings_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 2,
+        "uiDensity": 2,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/tags/presentation/tag_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 2,
+        "uiDensity": 3,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/templates/presentation/template_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 3,
+        "uiDensity": 3,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/transactions/presentation/transaction_details_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 1,
+        "longTextDensity": 0,
+        "interactive": 4,
+        "uiDensity": 2,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/account_logs/presentation/account_log_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 0,
+        "uiDensity": 1,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/attachments/presentation/attachment_picker_field.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 0,
+        "uiDensity": 3,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/auth/presentation/login_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 1,
+        "uiDensity": 1,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/auth/presentation/setup_password_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 1,
+        "uiDensity": 1,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/bootstrap/presentation/bootstrap_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 0,
+        "uiDensity": 0,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/budgets/presentation/budget_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 3,
+        "uiDensity": 5,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/data_management/presentation/data_management_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 4,
+        "uiDensity": 2,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/home/presentation/home_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 0,
+        "uiDensity": 1,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/main/presentation/main_shell_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 0,
+        "uiDensity": 2,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/notifications/presentation/notification_settings_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 4,
+        "uiDensity": 1,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/reports/presentation/yearly_report_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 0,
+        "uiDensity": 0,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/server_config/presentation/server_config_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 1,
+        "uiDensity": 0,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/statistics/presentation/mobile_statistics_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 0,
+        "uiDensity": 1,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      },
+      {
+        "page": "features/transactions/presentation/quick_transaction_page.dart",
+        "score": 100,
+        "forbidden": 0,
+        "helper": 0,
+        "longText": 0,
+        "action": 0,
+        "longTextDensity": 0,
+        "interactive": 7,
+        "uiDensity": 2,
+        "interactivePenalty": 0,
+        "uiDensityPenalty": 0,
+        "longTextDensityPenalty": 0,
+        "totalPenalty": 0
+      }
+    ]
+  },
+  "routeQuality": {
+    "version": 1,
+    "generatedAt": "2026-06-07T18:00:39.436Z",
+    "summary": {
+      "totalRoutes": 26,
+      "mappedRoutes": 26,
+      "missingRoutes": 0,
+      "allPass95": true,
+      "minScore": 100
+    },
+    "routeScoreRows": [
+      {
+        "route": "/",
+        "pageFile": "features/bootstrap/presentation/bootstrap_page.dart",
+        "widgetClass": "BootstrapPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/account-logs",
+        "pageFile": "features/account_logs/presentation/account_log_page.dart",
+        "widgetClass": "AccountLogPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/account-logs/:accountId",
+        "pageFile": "features/account_logs/presentation/account_log_page.dart",
+        "widgetClass": "AccountLogPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/accounts",
+        "pageFile": "features/accounts/presentation/accounts_page.dart",
+        "widgetClass": "AccountsPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/ai-reports",
+        "pageFile": "features/ai/presentation/ai_reports_page.dart",
+        "widgetClass": "AIReportsPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/api-tokens",
+        "pageFile": "features/api_tokens/presentation/api_token_page.dart",
+        "widgetClass": "ApiTokenPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/budgets",
+        "pageFile": "features/budgets/presentation/budget_page.dart",
+        "widgetClass": "BudgetPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/categories",
+        "pageFile": "features/categories/presentation/categories_page.dart",
+        "widgetClass": "CategoriesPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/data-management",
+        "pageFile": "features/data_management/presentation/data_management_page.dart",
+        "widgetClass": "DataManagementPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/family",
+        "pageFile": "features/family/presentation/family_page.dart",
+        "widgetClass": "FamilyPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/home",
+        "pageFile": "features/home/presentation/home_page.dart",
+        "widgetClass": "HomePage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/lendings",
+        "pageFile": "features/lendings/presentation/lending_page.dart",
+        "widgetClass": "LendingPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/login",
+        "pageFile": "features/auth/presentation/login_page.dart",
+        "widgetClass": "LoginPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/notifications",
+        "pageFile": "features/notifications/presentation/notification_settings_page.dart",
+        "widgetClass": "NotificationSettingsPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/profile",
+        "pageFile": "features/profile/presentation/profile_page.dart",
+        "widgetClass": "ProfilePage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/profile-settings",
+        "pageFile": "features/profile/presentation/profile_settings_page.dart",
+        "widgetClass": "ProfileSettingsPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/quick-transaction",
+        "pageFile": "features/transactions/presentation/quick_transaction_page.dart",
+        "widgetClass": "QuickTransactionPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/reminders",
+        "pageFile": "features/reminders/presentation/reminder_page.dart",
+        "widgetClass": "ReminderPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/security-settings",
+        "pageFile": "features/security/presentation/security_settings_page.dart",
+        "widgetClass": "SecuritySettingsPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/server-config",
+        "pageFile": "features/server_config/presentation/server_config_page.dart",
+        "widgetClass": "ServerConfigPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/setup-password",
+        "pageFile": "features/auth/presentation/setup_password_page.dart",
+        "widgetClass": "SetupPasswordPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/statistics",
+        "pageFile": "features/statistics/presentation/mobile_statistics_page.dart",
+        "widgetClass": "MobileStatisticsPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/tags",
+        "pageFile": "features/tags/presentation/tag_page.dart",
+        "widgetClass": "TagPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/templates",
+        "pageFile": "features/templates/presentation/template_page.dart",
+        "widgetClass": "TemplatePage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/transactions",
+        "pageFile": "features/transactions/presentation/transaction_details_page.dart",
+        "widgetClass": "TransactionDetailsPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      },
+      {
+        "route": "/yearly-report",
+        "pageFile": "features/reports/presentation/yearly_report_page.dart",
+        "widgetClass": "YearlyReportPage",
+        "score": 100,
+        "violations": 0,
+        "violationsLabel": "0",
+        "reason": "PASS"
+      }
+    ],
+    "missing": []
+  }
+}
