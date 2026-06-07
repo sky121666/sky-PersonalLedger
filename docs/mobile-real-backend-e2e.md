@@ -60,6 +60,15 @@ RUN_FLUTTER_TESTER_E2E=0 RUN_IOS_E2E=1 ./scripts/verify-mobile-e2e.sh
 
 The script selects `iPhone 17` when available, otherwise the first available iPhone simulator. If the script boots a simulator itself, it shuts that simulator down during cleanup.
 
+For quick iOS UI gating, use the same smoke flow:
+
+```bash
+RUN_FLUTTER_TESTER_E2E=0 \
+RUN_IOS_E2E=1 \
+LEDGER_MOBILE_E2E_TEST_FILE=integration_test/app_real_backend_smoke_test.dart \
+./scripts/verify-mobile-e2e.sh
+```
+
 ## CI coverage
 
 `.github/workflows/mobile-e2e.yml` runs the real-backend `flutter-tester` path on GitHub push and pull request events that touch backend, mobile, or the E2E script. The workflow is guarded with `github.server_url == 'https://github.com'` so Forgejo does not execute GitHub-specific jobs.

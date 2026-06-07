@@ -55,6 +55,24 @@ Result:
 - Opened the quick transaction form from the main shell `+` action.
 - Final result: `All tests passed!`
 
+Passed on iOS Simulator:
+
+```bash
+RUN_FLUTTER_TESTER_E2E=0 \
+RUN_IOS_E2E=1 \
+LEDGER_MOBILE_E2E_TEST_FILE=integration_test/app_real_backend_smoke_test.dart \
+./scripts/verify-mobile-e2e.sh
+```
+
+Result:
+
+- Started isolated Go backend with SQLite.
+- Selected `iPhone 17` Simulator.
+- Built and launched the iOS app.
+- Completed setup/login.
+- Opened the quick transaction form from the main shell `+` action.
+- Final result: `All tests passed!`
+
 Passed:
 
 ```bash
@@ -83,6 +101,6 @@ Result:
 
 ## Boundary
 
-This closes the real-backend `flutter-tester` regression gap and adds a stable Android emulator smoke gate for install, auth, and quick transaction entry.
+This closes the real-backend `flutter-tester` regression gap and adds stable Android/iOS simulator smoke gates for install/build, auth, and quick transaction entry.
 
 The full Android ledger mutation E2E was attempted, but it is too slow and brittle for this UI acceptance gate. Keep the full mutation flow on `flutter-tester`; use Android smoke for emulator install, launch, auth, and primary `+` interaction coverage.
