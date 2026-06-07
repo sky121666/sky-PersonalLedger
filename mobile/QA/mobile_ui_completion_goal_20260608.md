@@ -52,18 +52,23 @@ Target score: **98/100 current acceptance**, **100/100 remaining goal after runt
 - Current screenshot corpus: `mobile/QA/screenshots/current/`
 - Android emulator gate: `mobile/QA/android_ui_gate_20260608.md`
 - Android emulator proof screenshot: `mobile/QA/screenshots/android/android-emulator-install-launch-settled-20260608.png`
+- iOS Simulator proof screenshot: `mobile/QA/screenshots/ios/ios-simulator-debug-run-20260608.png`
 - Real backend E2E: `mobile/QA/mobile_real_backend_e2e_20260608.md`
 - Performance acceptance: `mobile/QA/mobile_performance_acceptance_20260608.md`
 
 ## Android policy
 
-Android QA must use an emulator by default.
+Android QA must use an emulator by default. The mobile UI score only counts `emulator-*` Android evidence unless a future task explicitly asks for physical-device validation.
 
 - Default target class: `emulator-*`
 - Current AVD used in evidence: `pld-emu-2`, serial `emulator-5554`
 - Host backend URL: `http://127.0.0.1:8080`
 - Emulator backend URL: `http://10.0.2.2:8080`
 - Scripts must not silently install to a physical Android phone unless explicitly overridden.
+
+## iOS Simulator policy
+
+iOS QA must use an Apple Simulator for this acceptance score. The current Simulator proof screenshot confirms the app shell renders through `flutter run` on iPhone 17, but also exposes one remaining non-scoring integration detail: plain launch currently falls back to `http://127.0.0.1:18080` instead of the active local backend address.
 
 ## Score
 

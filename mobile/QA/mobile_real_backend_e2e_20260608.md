@@ -73,6 +73,12 @@ Result:
 - Opened the quick transaction form from the main shell `+` action.
 - Final result: `All tests passed!`
 
+Visual proof:
+
+- `flutter run -d A12158E9-59BA-4797-B48A-D1B4AA8B7EEA --dart-define=LEDGER_E2E_SERVER_URL=http://127.0.0.1:8080`
+- Screenshot: `mobile/QA/screenshots/ios/ios-simulator-debug-run-20260608.png`
+- Result: iPhone 17 Simulator rendered the app connection UI. This screenshot is only visual simulator proof; the authenticated iOS smoke result above remains the functional proof.
+
 Passed:
 
 ```bash
