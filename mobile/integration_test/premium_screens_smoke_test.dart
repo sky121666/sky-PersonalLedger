@@ -1133,21 +1133,15 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('借贷往来', findsOneWidget);
-        _expectByKeyOrText(
-          key: const ValueKey('lending-relationship-hub'),
-          fallbackText: '借贷往来',
-          matcher: findsOneWidget,
-        );
-        _expectByKeyOrText(
-          key: const ValueKey('lending-risk-radar'),
-          fallbackText: '回款风险',
-          matcher: findsOneWidget,
-        );
-        _expectTextOrScaffold('往来关系中枢', findsOneWidget);
-        _expectTextOrScaffold('回款风险雷达', findsOneWidget);
-        _expectTextOrScaffoldContaining('静谧墨绿', findsOneWidget);
-        _expectTextOrScaffold('借贷往来总览', findsOneWidget);
         _expectTextOrScaffold('应收', findsAtLeastNWidgets(1));
+        _expectTextOrScaffold('应付', findsAtLeastNWidgets(1));
+        _expectTextOrScaffold('张三', findsOneWidget);
+        _expectTextOrScaffold('¥800.00', findsAtLeastNWidgets(1));
+        _expectTextOrScaffoldContaining('已收 ¥200.00', findsOneWidget);
+        expect(find.text('往来关系中枢'), findsNothing);
+        expect(find.text('回款风险雷达'), findsNothing);
+        expect(find.textContaining('证据覆盖'), findsNothing);
+        expect(find.textContaining('回款动线'), findsNothing);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -1159,7 +1153,7 @@ void main() {
         await _scrollUntilVisibleIfPresent(tester, find.text('张三'), 280);
         await tester.pumpAndSettle();
         _expectTextOrScaffold('张三', findsOneWidget);
-        _expectTextOrScaffold('剩余 ¥800.00', findsOneWidget);
+        _expectTextOrScaffold('¥800.00', findsAtLeastNWidgets(1));
         _expectStableVisualFrame(tester);
       });
 
