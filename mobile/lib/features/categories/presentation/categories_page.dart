@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../application/category_controller.dart';
 import '../data/category.dart';
@@ -161,7 +160,7 @@ class _CategoryLibraryView extends ConsumerWidget {
               hasScrollBody: false,
               child: _CategoryEmptyState(
                 title: '还没有${state.type.label}分类',
-                message: '当前分类为空，先添加分类',
+                message: '右上角添加',
                 icon: Icons.category_outlined,
               ),
             )

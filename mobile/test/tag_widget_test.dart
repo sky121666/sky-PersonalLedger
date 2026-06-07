@@ -157,7 +157,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有标签'), findsOneWidget);
-      expect(find.text('尚未创建标签，先添加标签'), findsOneWidget);
+      expect(find.text('右上角添加'), findsOneWidget);
+      expect(find.text('尚未创建标签，先添加标签'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
     });
 

@@ -281,15 +281,15 @@ class _TemplateEmptyState extends StatelessWidget {
 
   String get _message {
     if (hasAccounts && hasCategories) {
-      return '还没有模板，先补充账户和分类后创建';
+      return '右上角添加';
     }
     if (!hasAccounts && !hasCategories) {
-      return '先补充账户和分类后再创建';
+      return '补充账户和分类';
     }
     if (!hasAccounts) {
-      return '先补充账户后再创建';
+      return '补充账户';
     }
-    return '先补充分类后再创建';
+    return '补充分类';
   }
 
   List<_TemplateDependencyAction> _actions(BuildContext context) {

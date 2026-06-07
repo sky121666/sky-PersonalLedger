@@ -267,7 +267,7 @@ class _TagEmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '尚未创建标签，先添加标签',
+                  '右上角添加',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.4,

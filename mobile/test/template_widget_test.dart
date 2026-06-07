@@ -166,7 +166,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有模板'), findsOneWidget);
-      expect(find.text('还没有模板，先补充账户和分类后创建'), findsOneWidget);
+      expect(find.text('右上角添加'), findsOneWidget);
+      expect(find.text('还没有模板，先补充账户和分类后创建'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
       expect(find.text('新增模板'), findsNothing);
       expect(find.byKey(const ValueKey('template-add')), findsOneWidget);
@@ -180,7 +181,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有模板'), findsOneWidget);
-      expect(find.text('先补充账户和分类后再创建'), findsOneWidget);
+      expect(find.text('补充账户和分类'), findsOneWidget);
+      expect(find.text('先补充账户和分类后再创建'), findsNothing);
       expect(find.text('账户'), findsOneWidget);
       expect(find.text('分类'), findsOneWidget);
       expect(find.byKey(const ValueKey('template-add')), findsNothing);
