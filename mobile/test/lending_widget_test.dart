@@ -25,7 +25,7 @@ void main() {
       expect(find.text('结清率'), findsNothing);
       expect(find.text('张三'), findsOneWidget);
       expect(find.textContaining('剩余'), findsNothing);
-      expect(find.text('¥800.00'), findsOneWidget);
+      expect(find.text('¥800.00'), findsAtLeastNWidgets(1));
       expect(find.byKey(const ValueKey('lending-card-lend-1')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('lending-progress-lend-1')),
@@ -152,7 +152,8 @@ void main() {
       await _selectLendingMenuAction(tester, '还款记录');
 
       expect(find.text('还没有还款记录'), findsOneWidget);
-      expect(find.text('记录一次还款后会出现在这里'), findsOneWidget);
+      expect(find.text('暂无记录'), findsOneWidget);
+      expect(find.text('记录一次还款后会出现在这里'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
     });
 
@@ -297,7 +298,8 @@ void main() {
       await _pumpPage(tester, lendingRepository);
 
       expect(find.text('还没有借出记录'), findsOneWidget);
-      expect(find.text('还没有借贷记录，先创建一笔记录'), findsOneWidget);
+      expect(find.text('还没有借贷记录，先创建一笔记录'), findsNothing);
+      expect(find.text('右上角添加'), findsOneWidget);
       expect(find.text('¥0.00'), findsWidgets);
     });
 
@@ -367,7 +369,7 @@ void main() {
       expect(find.text('借贷记录保存失败'), findsOneWidget);
       expect(find.text('还款已记录'), findsNothing);
       expect(find.textContaining('剩余'), findsNothing);
-      expect(find.text('¥800.00'), findsOneWidget);
+      expect(find.text('¥800.00'), findsAtLeastNWidgets(1));
     });
   });
 }

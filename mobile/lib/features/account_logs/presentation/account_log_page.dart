@@ -95,7 +95,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('流水加载失败')));
+        ).showSnackBar(const SnackBar(content: Text('明细加载失败')));
       }
     } finally {
       if (mounted) {
@@ -122,7 +122,7 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
     final account = widget.account;
     return Scaffold(
       appBar: AppBar(
-        title: Text(account == null ? '账户流水' : '${account.name}流水'),
+        title: Text(account == null ? '账户明细' : '${account.name}明细'),
       ),
       body: AdaptivePageContainer(child: _buildBody(account)),
     );
@@ -130,11 +130,11 @@ class _AccountLogPageState extends ConsumerState<AccountLogPage> {
 
   Widget _buildBody(Account? account) {
     if (_loading && _logs.isEmpty) {
-      return const AppLoadingView(message: '流水加载中...');
+      return const AppLoadingView(message: '明细加载中...');
     }
     final error = _error;
     if (error != null && _logs.isEmpty) {
-      return AppErrorView(message: '流水加载失败', onRetry: _loadFirstPage);
+      return AppErrorView(message: '明细加载失败', onRetry: _loadFirstPage);
     }
     if (_logs.isEmpty) {
       const rows = [
@@ -227,14 +227,14 @@ class _AccountLogEmptyState extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '还没有流水',
+                  '还没有明细',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '记录交易后会在这里按时间展开',
+                  '记一笔后会在这里出现',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.4,

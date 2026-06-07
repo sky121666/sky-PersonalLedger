@@ -11,7 +11,7 @@ import 'package:personal_ledger/features/accounts/data/account.dart';
 
 void main() {
   group('AccountLogPage', () {
-    testWidgets('展示账户摘要和账户流水', (tester) async {
+    testWidgets('展示账户摘要和账户明细', (tester) async {
       final repository = _FakeAccountLogRepository();
       await _pumpPage(
         tester,
@@ -20,7 +20,7 @@ void main() {
         account: _account(),
       );
 
-      expect(find.text('现金流水'), findsOneWidget);
+      expect(find.text('现金明细'), findsOneWidget);
       expect(find.text('现金 · 当前余额 ¥1280.00'), findsNothing);
       expect(find.text('现金'), findsAtLeastNWidgets(1));
       expect(find.text('流水审计中枢'), findsNothing);
@@ -52,11 +52,11 @@ void main() {
       );
 
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
-      expect(find.text('现金流水'), findsOneWidget);
+      expect(find.text('现金明细'), findsOneWidget);
       expect(find.text('工资入账'), findsNothing);
     });
 
-    testWidgets('账户流水直接展示分组和记录', (tester) async {
+    testWidgets('账户明细直接展示分组和记录', (tester) async {
       final repository = _FakeAccountLogRepository(
         pages: {
           1: AccountLogListResult(
@@ -116,7 +116,7 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      expect(find.text('账户流水'), findsOneWidget);
+      expect(find.text('账户明细'), findsOneWidget);
       expect(find.textContaining('现金'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('加载更多'),
@@ -145,7 +145,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('出错了'), findsOneWidget);
-      expect(find.textContaining('流水加载失败'), findsOneWidget);
+      expect(find.textContaining('明细加载失败'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(FilledButton, '重试'));
       await tester.pumpAndSettle();
@@ -165,8 +165,8 @@ void main() {
       );
       await _pumpPage(tester, repository);
 
-      expect(find.text('还没有流水'), findsOneWidget);
-      expect(find.text('记录交易后会在这里按时间展开'), findsOneWidget);
+      expect(find.text('还没有明细'), findsOneWidget);
+      expect(find.text('记一笔后会在这里出现'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
     });
 
@@ -192,7 +192,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.listPages, [1, 2]);
-      expect(find.textContaining('流水加载失败'), findsOneWidget);
+      expect(find.textContaining('明细加载失败'), findsOneWidget);
       expect(find.text('工资入账'), findsNothing);
       await tester.tap(
         find.byKey(const ValueKey('account-log-remark-toggle-log-1')),
@@ -256,7 +256,7 @@ void main() {
       expect(find.text('-¥80.00'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('账户流水图标跟随主题色模板', (tester) async {
+    testWidgets('账户明细图标跟随主题色模板', (tester) async {
       final repository = _FakeAccountLogRepository();
       await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
 
@@ -403,7 +403,7 @@ class _FakeAccountLogRepository implements AccountLogRepository {
       return;
     }
     listErrors = {...listErrors, page: remaining - 1};
-    throw StateError('流水加载失败');
+    throw StateError('明细加载失败');
   }
 }
 
