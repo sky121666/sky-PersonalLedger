@@ -1779,11 +1779,6 @@ String _formatMoney(double value) {
   return '¥${buffer.toString()}.${parts.last}';
 }
 
-String _formatSignedMoney(double value) {
-  final prefix = value > 0 ? '+' : '';
-  return '$prefix${_formatMoney(value)}';
-}
-
 String _formatDate(DateTime value) {
   String two(int number) => number.toString().padLeft(2, '0');
   return '${value.year}/${two(value.month)}/${two(value.day)}';

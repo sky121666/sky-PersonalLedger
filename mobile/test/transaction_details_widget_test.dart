@@ -30,7 +30,7 @@ void main() {
             .widget<TextField>(find.byKey(const ValueKey('transaction-search')))
             .decoration
             ?.hintText,
-        '搜索备注、标签或账户',
+        '搜索明细',
       );
       expect(
         find.byKey(const ValueKey('transaction-filter-toggle')),
@@ -209,7 +209,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.listQueries.last.type, TransactionType.expense);
-      expect(find.text('2 项条件 · 1/1 笔'), findsOneWidget);
+      expect(find.text('2 项筛选 · 1/1'), findsOneWidget);
       expect(find.text('筛选构成'), findsNothing);
       expect(
         find.byKey(const ValueKey('transaction-filter-summary-clear')),
@@ -248,7 +248,7 @@ void main() {
             .widget<TextField>(find.byKey(const ValueKey('transaction-search')))
             .decoration
             ?.hintText,
-        '搜索备注、标签或账户',
+        '搜索明细',
       );
     });
 
@@ -283,7 +283,9 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有明细'), findsOneWidget);
-      expect(find.text('还没有明细，先创建一笔交易'), findsOneWidget);
+      expect(find.text('右上角添加'), findsOneWidget);
+      expect(find.text('右下角添加'), findsNothing);
+      expect(find.text('还没有明细，先创建一笔交易'), findsNothing);
       expect(find.byKey(const ValueKey('transaction-add')), findsOneWidget);
       expect(find.text('暂无交易明细'), findsNothing);
       expect(find.text('还没有交易记录。'), findsNothing);
@@ -397,7 +399,7 @@ Future<void> _pumpPage(
           final header = transaction == null
               ? '编辑 new'
               : '编辑 ${transaction.id}';
-          final subtitle = transaction?.remark?.trim();
+          final subtitle = transaction?.remark.trim();
           return Scaffold(
             appBar: AppBar(title: const Text('编辑页')),
             body: Text(
@@ -444,7 +446,7 @@ class _FixedThemeController extends ThemeController {
 }
 
 String _toggleActionLabel({required bool isTransactionExpanded}) =>
-    isTransactionExpanded ? '收起' : '展开';
+    isTransactionExpanded ? '收起' : '详情';
 
 Future<void> _tapTransactionMenuAction(
   WidgetTester tester, {

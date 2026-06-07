@@ -119,7 +119,7 @@ class _TransactionDetailsPageState
         _TransactionDetailsRow(
           _TransactionEmptyState(
             title: state.hasActiveFilter ? '没有匹配结果' : '还没有明细',
-            message: state.hasActiveFilter ? '清空筛选后查看全部' : '还没有明细，先创建一笔交易',
+            message: state.hasActiveFilter ? '清空筛选后查看全部' : '右上角添加',
           ),
           0,
         ),
@@ -354,7 +354,8 @@ class _TransactionFilterWorkbenchState
     ].where((active) => active).length;
     return PremiumSurface(
       key: const ValueKey('transaction-filter-workbench'),
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      radius: 14,
       accentColor: colorScheme.primary,
       child: FutureBuilder<List<LedgerAccount>>(
         future: _accountsFuture,
@@ -369,11 +370,14 @@ class _TransactionFilterWorkbenchState
                     child: TextField(
                       key: const ValueKey('transaction-search'),
                       controller: widget.controller,
+                      minLines: 1,
                       decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
                         hintText: widget.state.hasActiveFilter
-                            ? '$activeCount 项条件 · ${widget.state.items.length}/${widget.state.total} 笔'
-                            : '搜索备注、标签或账户',
-                        prefixIcon: const Icon(Icons.search),
+                            ? '$activeCount 项筛选 · ${widget.state.items.length}/${widget.state.total}'
+                            : '搜索明细',
+                        prefixIcon: const Icon(Icons.search, size: 20),
                         suffixIcon: widget.controller.text.isEmpty
                             ? widget.state.hasActiveFilter
                                   ? IconButton(
@@ -397,7 +401,6 @@ class _TransactionFilterWorkbenchState
                       onChanged: widget.onChanged,
                     ),
                   ),
-                  const SizedBox(width: 8),
                   _TransactionFilterBadgeButton(
                     activeCount: activeCount,
                     onPressed: () => _openFilterSheet(accounts),
@@ -405,7 +408,7 @@ class _TransactionFilterWorkbenchState
                 ],
               ),
               if (widget.state.hasActiveFilter) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 _TransactionActiveFiltersSummary(
                   state: widget.state,
                   onClear: widget.onClear,
@@ -449,40 +452,46 @@ class _TransactionEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
       child: PremiumSurface(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+        padding: EdgeInsets.zero,
+        radius: 14,
         accentColor: colorScheme.primary,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            IconBadge(
-              icon: Icons.receipt_long_outlined,
-              color: colorScheme.primary,
-              size: 44,
-              iconSize: 22,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 0, 14),
+              child: IconBadge(
+                icon: Icons.receipt_long_outlined,
+                color: colorScheme.primary,
+                size: 32,
+                iconSize: 17,
+              ),
             ),
-            const SizedBox(width: 14),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    message,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.4,
+                    const SizedBox(height: 2),
+                    Text(
+                      message,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -802,18 +811,19 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
       selected: selected,
       child: Padding(
         key: ValueKey('transaction-item-${item.id}'),
-        padding: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.only(bottom: 6),
         child: PremiumSurface(
           accentColor: selected ? colorScheme.primary : amountColor,
           padding: EdgeInsets.zero,
+          radius: 14,
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
-              borderRadius: BorderRadius.circular(AppTheme.surfaceRadius),
+              borderRadius: BorderRadius.circular(14),
               onTap: selectionMode ? onSelectionToggle : onTap,
               onLongPress: onSelectionToggle,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                padding: const EdgeInsets.fromLTRB(12, 9, 6, 9),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -838,8 +848,8 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
                       IconBadge(
                         icon: _typeIcon(item.type),
                         color: amountColor,
-                        size: 38,
-                        iconSize: 20,
+                        size: 34,
+                        iconSize: 18,
                       ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -872,9 +882,9 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Text(
-                            '${item.typeLabel} · $accountLabel · ${_formatDateTime(item.transactionDate)}',
+                            '$accountLabel · ${_formatDateTime(item.transactionDate)}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall
@@ -917,14 +927,18 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
                         children: [
                           PopupMenuButton<_TransactionListAction>(
                             key: ValueKey('transaction-more-menu-${item.id}'),
-                            icon: const Icon(Icons.more_horiz, size: 20),
-                            tooltip: null,
+                            icon: const Icon(
+                              Icons.more_horiz,
+                              size: 20,
+                              semanticLabel: '交易操作',
+                            ),
+                            tooltip: '交易操作',
                             onSelected: _onMenuSelected,
                             itemBuilder: (context) => [
                               _menuItem(
                                 action: _TransactionListAction.toggle,
                                 keySuffix: 'toggle',
-                                title: _expanded ? '收起' : '展开',
+                                title: _expanded ? '收起' : '详情',
                                 icon: _expanded
                                     ? Icons.keyboard_arrow_up_rounded
                                     : Icons.keyboard_arrow_down_rounded,
