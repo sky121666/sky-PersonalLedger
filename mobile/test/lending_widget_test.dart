@@ -152,7 +152,8 @@ void main() {
       await _selectLendingMenuAction(tester, '还款记录');
 
       expect(find.text('还没有还款记录'), findsOneWidget);
-      expect(find.text('暂无记录'), findsOneWidget);
+      expect(find.text('记录还款后显示'), findsOneWidget);
+      expect(find.text('暂无记录'), findsNothing);
       expect(find.text('记录一次还款后会出现在这里'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
     });

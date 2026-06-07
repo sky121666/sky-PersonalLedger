@@ -1093,7 +1093,7 @@ class _LendingRecordsDialog extends ConsumerWidget {
             if (records.isEmpty) {
               return const _LendingDialogEmptyState(
                 title: '还没有还款记录',
-                message: '暂无记录',
+                message: '记录还款后显示',
                 icon: Icons.receipt_long_outlined,
               );
             }
