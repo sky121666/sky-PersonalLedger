@@ -634,7 +634,7 @@ void main() {
         );
       });
 
-      testWidgets('renders premium data management vault (${variant.name})', (
+      testWidgets('renders premium data management surface (${variant.name})', (
         tester,
       ) async {
         await _prepareScreenshotCapture(binding);
@@ -656,38 +656,35 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('数据管理', findsOneWidget);
-        _expectTextOrScaffold('数据保险库', findsOneWidget);
-        _expectTextOrScaffold('保险库健康层', findsOneWidget);
-        _expectByKey(const ValueKey('data-vault-health-panel'));
-        _expectTextOrScaffold('留存水位', findsOneWidget);
-        _expectTextOrScaffold('恢复二次确认', findsOneWidget);
-        _expectTextOrScaffold('数据出口', findsOneWidget);
-        _expectTextOrScaffold('数据操作链路', findsOneWidget);
-        _expectByKey(const ValueKey('data-operation-rail'));
+        _expectTextOrScaffold('账本副本', findsOneWidget);
+        _expectTextOrScaffold('保存副本', findsOneWidget);
+        _expectTextOrScaffold('交易明细', findsOneWidget);
+        _expectTextOrScaffold('保存明细', findsOneWidget);
+        _expectTextOrScaffold('数据保险库', findsNothing);
+        _expectTextOrScaffold('数据操作链路', findsNothing);
         await _scrollUntilVisibleIfPresent(
           tester,
-          find.text('下载备份'),
+          find.text('保存副本'),
           240,
           scrollable: find.byType(Scrollable).first,
         );
         await tester.pumpAndSettle();
-        _expectTextOrScaffold('下载备份', findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'data-management-operations-${variant.name}',
+          'data-management-surface-${variant.name}',
         );
 
         await _scrollUntilVisibleIfPresent(
           tester,
-          find.text('导出 CSV'),
+          find.text('自动保存'),
           300,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('导出 CSV', findsOneWidget);
-        _expectTextOrScaffold('自动备份', findsWidgets);
+        _expectTextOrScaffold('自动保存', findsWidgets);
+        _expectTextOrScaffold('自动备份', findsNothing);
         _expectStableVisualFrame(tester);
 
         await _scrollUntilVisibleIfPresent(

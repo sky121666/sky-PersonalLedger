@@ -280,7 +280,7 @@ void main() {
       expect(find.text('自动备份编排'), findsNothing);
       expect(find.text('风险控制'), findsNothing);
       expect(find.text('服务器留存'), findsNothing);
-      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(4));
+      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(3));
       expect(find.text('自动保存'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('auto-backup-settings-toggle')),

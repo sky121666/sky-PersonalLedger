@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../data/data_management_repository.dart';
 
@@ -95,28 +94,15 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
           10,
         ),
       _DataManagementRow(
-        _ActionCard(
-          icon: Icons.backup_outlined,
-          accentColor: financeColors.asset,
-          title: '账本副本',
-          buttonLabel: '保存副本',
-          busy: _busyAction == 'backup',
+        _PrimaryDataActionsCard(
+          backupBusy: _busyAction == 'backup',
+          csvBusy: _busyAction == 'csv',
           enabled: !_isBusy,
-          onPressed: _downloadBackup,
-        ),
-      ),
-      _DataManagementRow(
-        _ActionCard(
-          icon: Icons.table_view_outlined,
-          accentColor: financeColors.income,
-          title: '交易明细',
-          buttonLabel: '保存明细',
-          secondaryLabel: '筛选明细',
-          busy: _busyAction == 'csv',
-          enabled: !_isBusy,
-          onPressed: _exportTransactionsCsv,
-          onSecondaryPressed: _showCsvExportSheet,
-          secondaryKey: const ValueKey('data-management-transactions-filter'),
+          backupColor: financeColors.asset,
+          csvColor: financeColors.income,
+          onBackup: _downloadBackup,
+          onExportCsv: _exportTransactionsCsv,
+          onFilterCsv: _showCsvExportSheet,
         ),
       ),
       _DataManagementRow(
@@ -895,74 +881,124 @@ class _RecoveryPanel extends StatelessWidget {
   }
 }
 
-class _ActionCard extends StatelessWidget {
-  const _ActionCard({
+class _PrimaryDataActionsCard extends StatelessWidget {
+  const _PrimaryDataActionsCard({
+    required this.backupBusy,
+    required this.csvBusy,
+    required this.enabled,
+    required this.backupColor,
+    required this.csvColor,
+    required this.onBackup,
+    required this.onExportCsv,
+    required this.onFilterCsv,
+  });
+
+  final bool backupBusy;
+  final bool csvBusy;
+  final bool enabled;
+  final Color backupColor;
+  final Color csvColor;
+  final VoidCallback onBackup;
+  final VoidCallback onExportCsv;
+  final VoidCallback onFilterCsv;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: backupColor,
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      child: Column(
+        children: [
+          _DataActionLine(
+            icon: Icons.backup_outlined,
+            color: backupColor,
+            title: '账本副本',
+            buttonLabel: backupBusy ? '处理中' : '保存副本',
+            busy: backupBusy,
+            enabled: enabled,
+            onPressed: onBackup,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+            ),
+          ),
+          _DataActionLine(
+            icon: Icons.table_view_outlined,
+            color: csvColor,
+            title: '交易明细',
+            buttonLabel: csvBusy ? '处理中' : '保存明细',
+            busy: csvBusy,
+            enabled: enabled,
+            onPressed: onExportCsv,
+            secondaryKey: const ValueKey('data-management-transactions-filter'),
+            onSecondaryPressed: onFilterCsv,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataActionLine extends StatelessWidget {
+  const _DataActionLine({
     required this.icon,
-    required this.accentColor,
+    required this.color,
     required this.title,
     required this.buttonLabel,
     required this.busy,
     required this.enabled,
     required this.onPressed,
-    this.secondaryLabel,
-    this.onSecondaryPressed,
     this.secondaryKey,
+    this.onSecondaryPressed,
   });
 
   final IconData icon;
-  final Color accentColor;
+  final Color color;
   final String title;
   final String buttonLabel;
   final bool busy;
   final bool enabled;
   final VoidCallback onPressed;
-  final String? secondaryLabel;
-  final VoidCallback? onSecondaryPressed;
   final Key? secondaryKey;
+  final VoidCallback? onSecondaryPressed;
 
   @override
   Widget build(BuildContext context) {
-    return PremiumSurface(
-      accentColor: accentColor,
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(icon, size: 18, color: accentColor),
-              ],
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
           ),
-          const SizedBox(width: 10),
-          if (secondaryLabel != null && onSecondaryPressed != null) ...[
-            IconButton(
-              key: secondaryKey,
-              onPressed: enabled ? onSecondaryPressed : null,
-              tooltip: null,
-              icon: const Icon(Icons.filter_alt_outlined),
-            ),
-            const SizedBox(width: 8),
-          ],
-          FilledButton.icon(
-            onPressed: enabled ? onPressed : null,
-            icon: _ButtonIcon(busy: busy, fallback: Icons.download_outlined),
-            label: Text(busy ? '处理中' : buttonLabel),
+        ),
+        if (onSecondaryPressed != null) ...[
+          IconButton(
+            key: secondaryKey,
+            onPressed: enabled ? onSecondaryPressed : null,
+            tooltip: null,
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.filter_alt_outlined),
           ),
+          const SizedBox(width: 4),
         ],
-      ),
+        FilledButton.icon(
+          onPressed: enabled ? onPressed : null,
+          icon: _ButtonIcon(busy: busy, fallback: Icons.download_outlined),
+          label: Text(buttonLabel),
+        ),
+      ],
     );
   }
 }
