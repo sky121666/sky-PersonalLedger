@@ -35,7 +35,7 @@ void main() {
       expect(find.text('待补凭证'), findsNothing);
       expect(find.textContaining('本金'), findsNothing);
       expect(find.textContaining('进行中'), findsAtLeastNWidgets(1));
-      expect(find.textContaining('已收 ¥200.00'), findsNothing);
+      expect(find.textContaining('已收 ¥200.00'), findsAtLeastNWidgets(1));
       expect(find.text('20%'), findsNothing);
       expect(find.textContaining('朋友周转'), findsNothing);
       await tester.ensureVisible(

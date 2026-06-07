@@ -827,7 +827,10 @@ class _LendingCardState extends ConsumerState<_LendingCard> {
     final detailLabel = item.totalRepaid > 0
         ? _formatMoney(item.totalRepaid)
         : null;
-    final shouldShowDetail = item.totalRepaid > 0;
+    final secondaryLabels = [
+      _buildTimingLabel(item),
+      if (detailLabel != null) '$repaidLabel $detailLabel',
+    ];
     return Semantics(
       container: true,
       label:
@@ -847,159 +850,198 @@ class _LendingCardState extends ConsumerState<_LendingCard> {
           key: ValueKey('lending-card-${item.id}'),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-              child: InkWell(
-                key: ValueKey('lending-detail-toggle-${item.id}'),
-                onTap: () {
-                  setState(() => _expanded = !_expanded);
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Column(
+            Material(
+              color: Colors.transparent,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
+                    Expanded(
+                      child: InkWell(
+                        key: ValueKey('lending-detail-toggle-${item.id}'),
+                        onTap: () {
+                          setState(() => _expanded = !_expanded);
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 2, 4, 2),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                item.contactName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 0.1,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 140),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                _formatMoney(item.currentBalance),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.end,
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(
-                                      color: statusColor,
-                                      fontWeight: FontWeight.w900,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures(),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _LendingDirectionMark(
+                                    icon: item.type == LendingType.lendOut
+                                        ? Icons.north_east
+                                        : Icons.south_west,
+                                    color: accent,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                item.contactName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleSmall
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                    ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _LendingMetaPill(
+                                              label: statusLabel,
+                                              color: statusColor,
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          secondaryLabels.join('  ·  '),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: colorScheme
+                                                    .onSurfaceVariant,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
                                       ],
                                     ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 136,
+                                    ),
+                                    child: Text(
+                                      _formatMoney(item.currentBalance),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.end,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            color: statusColor,
+                                            fontWeight: FontWeight.w900,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              if (!_expanded) ...[
-                                const SizedBox(height: 2),
-                                _LendingMetaPill(
-                                  label: statusLabel,
-                                  color: statusColor,
+                              if (_expanded && item.progress > 0) ...[
+                                const SizedBox(height: 9),
+                                if (!item.isSettled)
+                                  _LendingProgressLine(
+                                    progress: item.progress,
+                                    color: accent,
+                                  ),
+                              ],
+                              if (_expanded) ...[
+                                const SizedBox(height: 7),
+                                Text(
+                                  [
+                                    item.typeLabel,
+                                    '本金 ${_formatMoney(item.principal)}',
+                                    if (detailLabel != null)
+                                      '$repaidLabel $detailLabel',
+                                  ].join('  ·  '),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ],
+                              if (_expanded && item.remark.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.remark,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: colorScheme.outline),
                                 ),
                               ],
                             ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                    if (_expanded && item.progress > 0) ...[
-                      const SizedBox(height: 6),
-                      if (!item.isSettled)
-                        _LendingProgressLine(
-                          progress: item.progress,
-                          color: accent,
+                    if (widget.busy)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                    ],
-                    if (_expanded) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        [
-                          item.typeLabel,
-                          _buildTimingLabel(item),
-                          if (detailLabel != null) '$repaidLabel $detailLabel',
-                        ].join('  ·  '),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
+                      )
+                    else
+                      IconButton(
+                        key: ValueKey('lending-more-menu-${widget.item.id}'),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 36,
+                          height: 36,
+                        ),
+                        tooltip: '借贷操作',
+                        onPressed: _openActionSheet,
+                        icon: const Icon(
+                          Icons.more_horiz,
+                          size: 18,
+                          semanticLabel: '借贷操作',
                         ),
                       ),
-                    ] else
-                      const SizedBox(height: 2),
-                    const SizedBox(height: 1),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (widget.busy)
-                          const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        else ...[
-                          const Spacer(),
-                          IconButton(
-                            key: ValueKey(
-                              'lending-more-menu-${widget.item.id}',
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                              width: 32,
-                              height: 32,
-                            ),
-                            tooltip: '借贷操作',
-                            onPressed: _openActionSheet,
-                            icon: const Icon(
-                              Icons.more_horiz,
-                              size: 18,
-                              semanticLabel: '借贷操作',
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
                   ],
                 ),
               ),
             ),
-            if (_expanded && (shouldShowDetail || item.isOverdue)) ...[
-              const SizedBox(height: 4),
-              Text(
-                item.isOverdue
-                    ? shouldShowDetail
-                          ? '$repaidLabel ${detailLabel ?? _formatMoney(0)}（逾期）'
-                          : '已逾期'
-                    : '$repaidLabel ${detailLabel ?? _formatMoney(0)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(height: 4),
-            ],
-            if (_expanded && item.remark.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                item.remark,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-              ),
-            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LendingDirectionMark extends StatelessWidget {
+  const _LendingDirectionMark({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(
+          alpha: Theme.of(context).brightness == Brightness.dark ? 0.18 : 0.10,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: SizedBox.square(
+        dimension: 36,
+        child: Icon(icon, size: 18, color: color),
       ),
     );
   }
