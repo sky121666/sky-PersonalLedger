@@ -178,7 +178,9 @@ void main() {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('钉钉').last);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-channel-dingtalk')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(
@@ -192,7 +194,9 @@ void main() {
       );
       expect(dingtalkSecret.obscureText, isTrue);
 
-      await tester.tap(find.text('其他通道').last);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-channel-webhook')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(
@@ -213,7 +217,9 @@ void main() {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
-      await tester.tap(find.text('邮箱').last);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-channel-email')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('启用邮箱'), findsOneWidget);
@@ -232,7 +238,9 @@ void main() {
       expect(find.text('邮箱密码'), findsOneWidget);
       expect(find.text('邮件服务器'), findsNothing);
 
-      await tester.tap(find.text('其他通道').last);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-channel-webhook')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('启用其他通道'), findsOneWidget);

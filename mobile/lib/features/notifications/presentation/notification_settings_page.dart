@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../data/notification_repository.dart';
 
@@ -148,40 +147,13 @@ class _NotificationSettingsFormState
         ),
       ),
       _NotificationRow(
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SegmentedButton<_NotificationChannel>(
-            segments: const [
-              ButtonSegment(
-                value: _NotificationChannel.wecom,
-                icon: Icon(Icons.chat_outlined),
-                label: Text('企业微信'),
-              ),
-              ButtonSegment(
-                value: _NotificationChannel.dingtalk,
-                icon: Icon(Icons.forum_outlined),
-                label: Text('钉钉'),
-              ),
-              ButtonSegment(
-                value: _NotificationChannel.email,
-                icon: Icon(Icons.mail_outline),
-                label: Text('邮箱'),
-              ),
-              ButtonSegment(
-                value: _NotificationChannel.webhook,
-                icon: Icon(Icons.webhook_outlined),
-                label: Text('其他通道'),
-              ),
-            ],
-            selected: {_channel},
-            onSelectionChanged: _isBusy
-                ? null
-                : (value) => setState(() => _channel = value.single),
-          ),
+        _ChannelSettingsCard(
+          selected: _channel,
+          enabled: !_isBusy,
+          onSelectionChanged: (value) => setState(() => _channel = value),
+          child: _buildChannelCard(),
         ),
-        10,
       ),
-      _NotificationRow(_buildChannelCard()),
       _NotificationRow(
         _ReminderSummaryCard(
           enabledCount: _enabledReminderCount,
@@ -610,6 +582,161 @@ class _NotificationRow {
 
 enum _NotificationChannel { wecom, dingtalk, email, webhook }
 
+class _ChannelSettingsCard extends StatelessWidget {
+  const _ChannelSettingsCard({
+    required this.selected,
+    required this.enabled,
+    required this.onSelectionChanged,
+    required this.child,
+  });
+
+  final _NotificationChannel selected;
+  final bool enabled;
+  final ValueChanged<_NotificationChannel> onSelectionChanged;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      accentColor: financeColors.asset,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '通道',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '当前通道',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                _channelIcon(selected),
+                size: 18,
+                color: financeColors.asset,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ChannelChoice(
+                channel: _NotificationChannel.wecom,
+                selected: selected,
+                enabled: enabled,
+                keyValue: 'notification-channel-wecom',
+                label: '企业微信',
+                icon: Icons.chat_outlined,
+                onSelected: onSelectionChanged,
+              ),
+              _ChannelChoice(
+                channel: _NotificationChannel.dingtalk,
+                selected: selected,
+                enabled: enabled,
+                keyValue: 'notification-channel-dingtalk',
+                label: '钉钉',
+                icon: Icons.forum_outlined,
+                onSelected: onSelectionChanged,
+              ),
+              _ChannelChoice(
+                channel: _NotificationChannel.email,
+                selected: selected,
+                enabled: enabled,
+                keyValue: 'notification-channel-email',
+                label: '邮箱',
+                icon: Icons.mail_outline,
+                onSelected: onSelectionChanged,
+              ),
+              _ChannelChoice(
+                channel: _NotificationChannel.webhook,
+                selected: selected,
+                enabled: enabled,
+                keyValue: 'notification-channel-webhook',
+                label: '其他通道',
+                icon: Icons.webhook_outlined,
+                onSelected: onSelectionChanged,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Divider(
+            height: 1,
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+
+  static IconData _channelIcon(_NotificationChannel channel) {
+    return switch (channel) {
+      _NotificationChannel.wecom => Icons.chat_outlined,
+      _NotificationChannel.dingtalk => Icons.forum_outlined,
+      _NotificationChannel.email => Icons.mail_outline,
+      _NotificationChannel.webhook => Icons.webhook_outlined,
+    };
+  }
+}
+
+class _ChannelChoice extends StatelessWidget {
+  const _ChannelChoice({
+    required this.channel,
+    required this.selected,
+    required this.enabled,
+    required this.keyValue,
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+  });
+
+  final _NotificationChannel channel;
+  final _NotificationChannel selected;
+  final bool enabled;
+  final String keyValue;
+  final String label;
+  final IconData icon;
+  final ValueChanged<_NotificationChannel> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = channel == selected;
+    return ChoiceChip(
+      key: ValueKey(keyValue),
+      selected: isSelected,
+      onSelected: enabled ? (_) => onSelected(channel) : null,
+      showCheckmark: false,
+      avatar: Icon(icon, size: 16),
+      label: Text(label),
+      labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+      ),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+}
+
 class _ReminderSummaryCard extends StatelessWidget {
   const _ReminderSummaryCard({
     required this.enabledCount,
@@ -689,46 +816,42 @@ class _ChannelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
     final accentColor = enabled ? financeColors.income : financeColors.asset;
-    return PremiumSurface(
-      accentColor: accentColor,
-      padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _NotificationSwitchRow(
-            icon: _channelIcon(title),
-            color: accentColor,
-            title: enabledLabel,
-            value: enabled,
-            onChanged: onEnabledChanged,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _NotificationSwitchRow(
+          icon: _channelIcon(title),
+          color: accentColor,
+          title: enabledLabel,
+          value: enabled,
+          onChanged: onEnabledChanged,
+        ),
+        if (enabled) ...[
+          const SizedBox(height: 8),
+          Divider(
+            height: 1,
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
-          if (enabled) ...[
-            const SizedBox(height: 8),
-            Divider(
-              height: 1,
-              color: Theme.of(
-                context,
-              ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+          const SizedBox(height: 8),
+          ...children,
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: testing ? null : onTest,
+              icon: testing
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_outlined),
+              label: Text(testing ? '试发中' : testButtonText),
             ),
-            const SizedBox(height: 8),
-            ...children,
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton.icon(
-                onPressed: testing ? null : onTest,
-                icon: testing
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send_outlined),
-                label: Text(testing ? '试发中' : testButtonText),
-              ),
-            ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 
