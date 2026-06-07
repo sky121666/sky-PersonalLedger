@@ -6,7 +6,6 @@ import '../../../app/theme/app_theme.dart';
 import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../data/profile_repository.dart';
 
@@ -431,7 +430,17 @@ class _ProfileThemePanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<AppThemePalette>(
-            initialValue: settings.palette,
+            initialValue: settings.palette.selectableEquivalent,
+            menuMaxHeight: 360,
+            selectedItemBuilder: (context) => [
+              for (final option in AppThemePalette.selectableValues)
+                Text(
+                  option.label,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+            ],
             decoration: InputDecoration(
               labelText: '主题色',
               filled: true,
@@ -448,23 +457,23 @@ class _ProfileThemePanel extends StatelessWidget {
               ),
             ),
             items: [
-              for (final option in AppThemePalette.values)
+              for (final option in AppThemePalette.selectableValues)
                 DropdownMenuItem(
                   value: option,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ProfileThemeSwatches(palette: option),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: Text(
-                          option.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 132),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _ProfileThemeSwatches(
+                          palette: option,
+                          selected:
+                              option == settings.palette.selectableEquivalent,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        _ProfileThemeOptionLabel(palette: option),
+                      ],
+                    ),
                   ),
                 ),
             ],
@@ -485,42 +494,72 @@ String _profileSettingsThemeModeLabel(AppThemeMode mode) {
 }
 
 class _ProfileThemeSwatches extends StatelessWidget {
-  const _ProfileThemeSwatches({required this.palette});
+  const _ProfileThemeSwatches({required this.palette, required this.selected});
+
+  final AppThemePalette palette;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = palette.displayAccentColor;
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: selected ? 1 : 0.88),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: selected ? colorScheme.onSurface : colorScheme.outlineVariant,
+          width: selected ? 1.6 : 1,
+        ),
+        boxShadow: [
+          if (selected)
+            BoxShadow(
+              color: color.withValues(alpha: 0.22),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+        ],
+      ),
+      child: selected
+          ? Icon(Icons.check_rounded, color: colorScheme.onPrimary, size: 15)
+          : null,
+    );
+  }
+}
+
+class _ProfileThemeOptionLabel extends StatelessWidget {
+  const _ProfileThemeOptionLabel({required this.palette});
 
   final AppThemePalette palette;
 
   @override
   Widget build(BuildContext context) {
-    final colors = [
-      palette.seedColor,
-      palette.assetColor,
-      palette.incomeColor,
-      palette.expenseColor,
-    ];
-    return SizedBox(
-      width: 36,
-      height: 36,
-      child: Stack(
-        children: [
-          for (var index = 0; index < colors.length; index += 1)
-            Positioned(
-              left: (index % 2) * 17,
-              top: (index ~/ 2) * 17,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: colors[index],
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.surface,
-                    width: 1.4,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 48,
+          child: Text(
+            palette.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          palette.shortToneLabel,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

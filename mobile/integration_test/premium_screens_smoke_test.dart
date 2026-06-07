@@ -1360,59 +1360,79 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          _expectTextOrScaffold('我的', findsOneWidget);
-          _expectTextOrScaffold('个人记账', findsOneWidget);
-          _expectByKey(const ValueKey('profile-command-center'));
-          _expectTextOrScaffoldContaining('个人控制中枢', findsOneWidget);
-          _expectTextOrScaffold('家庭账本', findsOneWidget);
-          _expectTextOrScaffold('AI 周报', findsOneWidget);
-          _expectTextOrScaffold('资产配置', findsOneWidget);
+          expect(find.text('功能'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('profile-command-center')),
+            findsNothing,
+          );
+          expect(find.text('账本管理'), findsOneWidget);
+          expect(find.text('计划提醒'), findsOneWidget);
+          expect(find.text('智能与数据'), findsOneWidget);
+          expect(find.text('账户'), findsOneWidget);
+          expect(find.text('预算'), findsOneWidget);
+          expect(find.text('AI 分析'), findsOneWidget);
+          expect(find.text('数据备份'), findsOneWidget);
+          expect(find.text('功能中心'), findsNothing);
+          expect(find.textContaining('个人控制中枢'), findsNothing);
+          expect(find.text('资产配置'), findsNothing);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
-            'profile-command-center-${variant.name}',
+            'profile-sections-${variant.name}',
           );
 
-          await _scrollUntilVisibleIfPresent(
-            tester,
+          await tester.scrollUntilVisible(
             find.byKey(const ValueKey('profile-appearance-panel')),
             420,
             scrollable: find.byType(Scrollable).first,
           );
-          _expectByKey(const ValueKey('profile-appearance-panel'));
-          _expectTextOrScaffold('主题色模板', findsWidgets);
-          _expectTextOrScaffold('外观模式', findsOneWidget);
-          _expectTextOrScaffold('石墨蓝', findsOneWidget);
-          _expectByKey(const ValueKey('profile-theme-curation-rail'));
-          _expectTextOrScaffold('推荐主题策展', findsOneWidget);
-          _expectTextOrScaffold('快速切换', findsOneWidget);
-          _expectTextOrScaffold('旗舰夜间使用', findsOneWidget);
-          _expectTextOrScaffold('动效先锋界面', findsOneWidget);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('profile-appearance-panel')),
+            findsOneWidget,
+          );
+          expect(find.text('外观'), findsOneWidget);
+          expect(find.text('系统'), findsOneWidget);
+          expect(find.text('浅色'), findsOneWidget);
+          expect(find.text('深色'), findsOneWidget);
+          expect(find.text('主题'), findsOneWidget);
+          expect(find.text('主题色模板'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('profile-theme-curation-rail')),
+            findsNothing,
+          );
+          expect(find.text('推荐主题策展'), findsNothing);
+          expect(find.text('旗舰夜间使用'), findsNothing);
           expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
-            'profile-theme-templates-${variant.name}',
+            'profile-appearance-${variant.name}',
           );
 
-          await _scrollUntilVisibleIfPresent(
-            tester,
-            find.text('跨端体验预览'),
+          await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('profile-section-安全设置')),
             360,
             scrollable: find.byType(Scrollable).first,
           );
-          _expectTextOrScaffold('跨端体验预览', findsOneWidget);
-          _expectTextOrScaffold('iOS 原生感', findsOneWidget);
-          _expectTextOrScaffold('Android 动效', findsOneWidget);
-          _expectTextOrScaffold('数据看板', findsAtLeastNWidgets(1));
-          _expectTextOrScaffold('AI 报告', findsAtLeastNWidgets(1));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('profile-section-安全设置')),
+            findsOneWidget,
+          );
+          expect(find.text('设备授权'), findsOneWidget);
+          expect(find.text('账号安全'), findsOneWidget);
+          expect(find.text('更换账本'), findsOneWidget);
+          expect(find.text('跨端体验预览'), findsNothing);
+          expect(find.text('iOS 原生感'), findsNothing);
+          expect(find.text('Android 动效'), findsNothing);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
-            'profile-cross-platform-theme-preview-${variant.name}',
+            'profile-security-section-${variant.name}',
           );
         },
       );
@@ -1438,49 +1458,52 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('个人资料', findsOneWidget);
-        _expectTextOrScaffold('身份状态轨道', findsOneWidget);
-        _expectTextOrScaffold('身份可识别', findsOneWidget);
-        _expectByKey(const ValueKey('profile-identity-rail'));
-        _expectTextOrScaffold('资料完整度', findsOneWidget);
+        expect(find.text('个人资料'), findsOneWidget);
+        expect(find.text('身份状态轨道'), findsNothing);
+        expect(find.text('身份可识别'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('profile-identity-rail')),
+          findsNothing,
+        );
+        expect(find.text('资料完整度'), findsNothing);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'profile-identity-rail-${variant.name}',
+          'profile-settings-form-${variant.name}',
         );
 
-        await _scrollUntilVisibleIfPresent(
-          tester,
+        await tester.scrollUntilVisible(
           find.byKey(const ValueKey('profile-settings-theme-panel')),
           360,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectByKey(const ValueKey('profile-settings-theme-panel'));
-        _expectTextOrScaffold('设置主题中心', findsOneWidget);
-        _expectTextOrScaffold('模板数量', findsOneWidget);
-        _expectTextOrScaffold('12 套', findsOneWidget);
-        _expectTextOrScaffold('模式同步', findsOneWidget);
-        _expectByKey(const ValueKey('profile-settings-theme-template-matrix'));
-        _expectTextOrScaffold('模板适配矩阵', findsOneWidget);
-        _expectTextOrScaffold('点按切换', findsOneWidget);
-        _expectTextOrScaffold('家庭账本', findsOneWidget);
-        _expectTextOrScaffold('AI 分析', findsOneWidget);
-        _expectByKey(const ValueKey('profile-settings-template-indigo'));
-        _expectTextOrScaffold('推荐主题策展', findsOneWidget);
-        _expectTextOrScaffold('3 个高频场景', findsOneWidget);
-        _expectTextOrScaffold('旗舰夜间使用', findsOneWidget);
-        _expectTextOrScaffold('动效先锋界面', findsOneWidget);
-        _expectTextOrScaffold('财务语义预览', findsOneWidget);
-        _expectTextOrScaffold('周报高光', findsOneWidget);
-        _expectTextOrScaffold('预算状态', findsOneWidget);
-        _expectTextOrScaffold('黑曜蓝', findsWidgets);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('profile-settings-theme-panel')),
+          findsOneWidget,
+        );
+        expect(find.text('外观'), findsOneWidget);
+        expect(find.text('模式'), findsOneWidget);
+        expect(find.text('跟随系统'), findsOneWidget);
+        expect(find.text('浅色模式'), findsOneWidget);
+        expect(find.text('深色模式'), findsOneWidget);
+        expect(find.text('主题色'), findsOneWidget);
+        expect(find.text('设置主题中心'), findsNothing);
+        expect(find.text('模板数量'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('profile-settings-theme-template-matrix')),
+          findsNothing,
+        );
+        expect(find.text('推荐主题策展'), findsNothing);
+        expect(find.text('财务语义预览'), findsNothing);
+        expect(find.text('黑曜蓝'), findsNothing);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'profile-settings-theme-panel-${variant.name}',
+          'profile-settings-appearance-${variant.name}',
         );
       });
     }
