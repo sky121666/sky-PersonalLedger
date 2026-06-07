@@ -178,15 +178,6 @@ Future<void> _pumpUntilAnyFound(
   );
 }
 
-Future<void> _tapText(WidgetTester tester, String text) async {
-  final finder = find.text(text);
-  await _pumpUntilFound(tester, finder);
-  await tester.ensureVisible(finder.last);
-  await tester.pumpAndSettle();
-  await tester.tap(finder.last);
-  await tester.pumpAndSettle();
-}
-
 Future<void> _tapByKey(WidgetTester tester, Key key) async {
   final finder = find.byKey(key);
   await _pumpUntilFound(tester, finder);

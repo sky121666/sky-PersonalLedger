@@ -98,7 +98,7 @@ Future<void> _pumpUntilAtLeastFound(
   expect(
     finder.evaluate().length >= minMatches,
     isTrue,
-    reason: '未找到足够的匹配项（最低 ${minMatches.toString()} 个）: ${finder.description}',
+    reason: '未找到足够的匹配项（最低 ${minMatches.toString()} 个）',
   );
 }
 
@@ -527,21 +527,6 @@ Future<void> _verifyAccountBalance(
   await _pumpUntilFound(tester, find.text('我的'));
 }
 
-Future<void> _tapTextByCandidates(
-  WidgetTester tester,
-  List<String> texts,
-) async {
-  for (final text in texts) {
-    final finder = find.text(text);
-    if (finder.evaluate().isNotEmpty) {
-      await _tapText(tester, text);
-      return;
-    }
-  }
-
-  fail('未找到可点击文本（候选: $texts）');
-}
-
 Future<void> _openProfileAccounts(WidgetTester tester) async {
   if (find.byKey(const ValueKey('profile-entry-账户')).evaluate().isEmpty) {
     await _tapKey(tester, const ValueKey('profile-section-账本'));
@@ -760,11 +745,6 @@ Future<void> _bringIntoTapArea(WidgetTester tester, Finder finder) async {
     await tester.drag(scrollables.first, Offset(0, delta), warnIfMissed: false);
     await tester.pumpAndSettle();
   }
-}
-
-Future<void> _dismissKeyboard(WidgetTester tester) async {
-  await tester.testTextInput.receiveAction(TextInputAction.done);
-  await tester.pumpAndSettle();
 }
 
 class _MemorySecureStorageService extends SecureStorageService {
