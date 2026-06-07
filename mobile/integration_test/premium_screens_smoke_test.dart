@@ -261,14 +261,14 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          _expectTextOrScaffold('财务控制台', findsOneWidget);
-          _expectTextOrScaffold('主题仪表盘', findsOneWidget);
-          _expectTextOrScaffold('当前主题', findsOneWidget);
-          _expectTextOrScaffold('预算已接入', findsWidgets);
-          _expectByKey(const ValueKey('home-theme-signal-panel'));
-          _expectTextOrScaffold('行动编排层', findsOneWidget);
-          _expectByKey(const ValueKey('home-action-orchestration-panel'));
-          _expectTextOrScaffold('AI 周报', findsOneWidget);
+          _expectTextOrScaffold('首页', findsOneWidget);
+          _expectTextOrScaffold('净资产', findsOneWidget);
+          _expectByKey(const ValueKey('home-net-assets-card'));
+          _expectByKey(const ValueKey('home-action-rail'));
+          _expectTextOrScaffold('记一笔', findsOneWidget);
+          _expectTextOrScaffold('报告', findsOneWidget);
+          _expectTextOrScaffold('财务控制台', findsNothing);
+          _expectTextOrScaffold('行动编排层', findsNothing);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
@@ -278,10 +278,10 @@ void main() {
           await _scrollUntilVisibleIfPresent(tester, find.text('净资产'), 220);
           _expectTextOrScaffold('净资产', findsOneWidget);
 
-          await _scrollUntilVisibleIfPresent(tester, find.text('快速记账'), 260);
-          _expectTextOrScaffold('快速记账', findsOneWidget);
           await _scrollUntilVisibleIfPresent(tester, find.text('本月现金流'), 260);
           _expectTextOrScaffold('本月现金流', findsOneWidget);
+          await _scrollUntilVisibleIfPresent(tester, find.text('最近交易'), 260);
+          _expectTextOrScaffold('最近交易', findsOneWidget);
 
           await _scrollUntilVisibleIfPresent(tester, find.text('家庭支出'), 320);
           _expectTextOrScaffold('家庭支出', findsOneWidget);

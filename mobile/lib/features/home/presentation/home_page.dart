@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/app_route_paths.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
+import '../../../app/widgets/animated_money_text.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../transactions/data/transaction_models.dart';
@@ -21,33 +21,13 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  DateTime _selectedDate = _dateOnly(DateTime.now());
-
-  Future<void> _selectDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() => _selectedDate = _dateOnly(picked));
-  }
-
   /// 构建首页概览页面。
   @override
   Widget build(BuildContext context) {
     final summaryState = ref.watch(homeSummaryProvider);
-    final dateTransactionsState = ref.watch(
-      homeDateTransactionsProvider(_selectedDate),
-    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('首页'),
-      ),
+      appBar: AppBar(title: const Text('首页')),
       body: summaryState.when(
         loading: () => const AppLoadingView(message: '正在加载首页数据...'),
         error: (error, stackTrace) => _HomeErrorView(
@@ -57,9 +37,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
         data: (summary) => _HomeContent(
           summary: summary,
-          selectedDate: _selectedDate,
-          dateTransactionsState: dateTransactionsState,
-          onSelectDate: _selectDate,
           onRefresh: () => ref.refresh(homeSummaryProvider.future),
         ),
       ),
@@ -68,43 +45,36 @@ class _HomePageState extends ConsumerState<HomePage> {
 }
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent({
-    required this.summary,
-    required this.selectedDate,
-    required this.dateTransactionsState,
-    required this.onSelectDate,
-    required this.onRefresh,
-  });
+  const _HomeContent({required this.summary, required this.onRefresh});
 
   final HomeSummary summary;
-  final DateTime selectedDate;
-  final AsyncValue<List<TransactionItem>> dateTransactionsState;
-  final VoidCallback onSelectDate;
   final Future<void> Function() onRefresh;
 
   /// 构建首页数据内容。
   @override
   Widget build(BuildContext context) {
     final accounts = summary.accounts.activeAccounts;
-    final visibleAccounts = _prioritizedHomeAccounts(accounts).take(2).toList();
+    final visibleAccounts = _prioritizedHomeAccounts(
+      accounts
+          .where((account) => account.currentBalance.abs() > 0.005)
+          .toList(),
+    ).take(2).toList();
     final rows = [
       _HomeRow(_NetAssetsCard(accounts: summary.accounts)),
       _HomeRow(_MonthlyOverviewCard(overview: summary.overview)),
+      const _HomeRow(_HomeActionRail()),
       _HomeRow(
-        _TransactionsOverviewCard(
-          recentItems: summary.recentTransactions,
-          selectedDate: selectedDate,
-          dateTransactionsState: dateTransactionsState,
-          onSelectDate: onSelectDate,
-        ),
+        _TransactionsOverviewCard(recentItems: summary.recentTransactions),
       ),
-      _HomeRow(
-        _AccountOverviewCard(
-          accounts: visibleAccounts,
-          totalCount: accounts.length,
+      if (visibleAccounts.isNotEmpty)
+        _HomeRow(
+          _AccountOverviewCard(
+            accounts: visibleAccounts,
+            totalCount: accounts.length,
+          ),
         ),
-      ),
-      _HomeRow(_BudgetSummaryCard(summary: summary.budgetSummary)),
+      if (summary.budgetSummary.totalAmount > 0)
+        _HomeRow(_BudgetSummaryCard(summary: summary.budgetSummary)),
       if (summary.familySummary.totalExpense > 0 ||
           summary.familySummary.members.isNotEmpty)
         _HomeRow(FamilyHomeSummaryCard(summary: summary.familySummary)),
@@ -133,24 +103,135 @@ class _HomeRow {
   final Widget child;
 }
 
-class _TransactionsOverviewCard extends StatelessWidget {
-  const _TransactionsOverviewCard({
-    required this.recentItems,
-    required this.selectedDate,
-    required this.dateTransactionsState,
-    required this.onSelectDate,
-  });
-
-  static const _previewCount = 3;
-
-  final List<TransactionItem> recentItems;
-  final DateTime selectedDate;
-  final AsyncValue<List<TransactionItem>> dateTransactionsState;
-  final VoidCallback onSelectDate;
+class _HomeActionRail extends StatelessWidget {
+  const _HomeActionRail();
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final financeColors = AppTheme.financeColors(context);
+    final actions = [
+      _HomeAction(
+        icon: Icons.add_rounded,
+        label: '记一笔',
+        color: colorScheme.primary,
+        route: AppRoutePaths.quickTransaction,
+      ),
+      _HomeAction(
+        icon: Icons.attach_file_rounded,
+        label: '附件',
+        color: financeColors.asset,
+        route: AppRoutePaths.quickTransaction,
+      ),
+      _HomeAction(
+        icon: Icons.savings_outlined,
+        label: '预算',
+        color: financeColors.warning,
+        route: AppRoutePaths.budgets,
+      ),
+      _HomeAction(
+        icon: Icons.auto_awesome_outlined,
+        label: '报告',
+        color: colorScheme.tertiary,
+        route: AppRoutePaths.aiReports,
+      ),
+    ];
+
+    return PremiumSurface(
+      key: const ValueKey('home-action-rail'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      child: Row(
+        children: [
+          for (final entry in actions.indexed) ...[
+            Expanded(child: _HomeActionButton(action: entry.$2)),
+            if (entry.$1 != actions.length - 1) const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeAction {
+  const _HomeAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.route,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final String route;
+}
+
+class _HomeActionButton extends StatelessWidget {
+  const _HomeActionButton({required this.action});
+
+  final _HomeAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: action.label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey('home-action-${action.label}'),
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => context.push(action.route),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 64),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  action.color.withValues(alpha: 0.045),
+                  colorScheme.surface,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(action.icon, color: action.color, size: 22),
+                    const SizedBox(height: 5),
+                    Text(
+                      action.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TransactionsOverviewCard extends StatelessWidget {
+  const _TransactionsOverviewCard({required this.recentItems});
+
+  static const _previewCount = 3;
+
+  final List<TransactionItem> recentItems;
+
+  @override
+  Widget build(BuildContext context) {
     return PremiumSurface(
       accentColor: AppTheme.financeColors(context).asset,
       child: Column(
@@ -183,49 +264,6 @@ class _TransactionsOverviewCard extends StatelessWidget {
             ...recentItems
                 .take(_previewCount)
                 .map((item) => _HomeTransactionRow(item: item)),
-          const SizedBox(height: 10),
-          Divider(
-            height: 1,
-            thickness: 0.8,
-            color: colorScheme.outlineVariant,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              const Icon(Icons.calendar_month_outlined, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '当日交易',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: onSelectDate,
-                icon: const Icon(Icons.edit_calendar_outlined, size: 18),
-                label: Text(_formatDateLabel(selectedDate)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          dateTransactionsState.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: LinearProgressIndicator(),
-            ),
-            error: (error, stackTrace) =>
-                Text('明细加载失败', style: Theme.of(context).textTheme.bodySmall),
-            data: (items) => items.isEmpty
-                ? const _HomeEmptyLine(text: '当日无交易')
-                : Column(
-                    children: [
-                      for (final item in items.take(_previewCount))
-                        _HomeTransactionRow(item: item),
-                    ],
-                  ),
-          ),
         ],
       ),
     );
@@ -311,7 +349,7 @@ class _HomeEmptyLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Text(
         text,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -362,25 +400,99 @@ class _NetAssetsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
-    return FinanceHeroCard(
-      label: '净资产',
-      amount: accounts.netAssets,
+    final colorScheme = Theme.of(context).colorScheme;
+    return PremiumSurface(
+      key: const ValueKey('home-net-assets-card'),
       accentColor: financeColors.asset,
       semanticLabel: '净资产 ${_formatCurrency(accounts.netAssets)}',
-      metrics: [
-        FinanceMetricData(
-          label: '总资产',
-          value: _formatCurrency(accounts.totalAssets),
-          icon: Icons.account_balance_wallet_outlined,
-          color: financeColors.asset,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '净资产',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          AnimatedMoneyText(
+            amount: accounts.netAssets,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _InlineFinanceMetric(
+                  label: '资产',
+                  value: _formatCurrency(accounts.totalAssets),
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: financeColors.asset,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _InlineFinanceMetric(
+                  label: '负债',
+                  value: _formatCurrency(accounts.totalLiabilities),
+                  icon: Icons.credit_card_outlined,
+                  color: accounts.totalLiabilities > 0
+                      ? financeColors.expense
+                      : colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineFinanceMetric extends StatelessWidget {
+  const _InlineFinanceMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 17),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        FinanceMetricData(
-          label: '总负债',
-          value: _formatCurrency(accounts.totalLiabilities),
-          icon: Icons.credit_card_outlined,
-          color: accounts.totalLiabilities > 0
-              ? financeColors.expense
-              : Theme.of(context).colorScheme.outline,
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ),
       ],
     );
@@ -453,8 +565,10 @@ class _MonthlyOverviewCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          _CashFlowBar(overview: overview),
+          if (overview.income + overview.expense > 0) ...[
+            const SizedBox(height: 10),
+            _CashFlowBar(overview: overview),
+          ],
         ],
       ),
     );
@@ -604,10 +718,11 @@ class _BudgetSummaryCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         '已设置 ${summary.percentage.toStringAsFixed(0)}%',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: financeColors.warning,
-                          fontWeight: FontWeight.w800,
-                        ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: financeColors.warning,
+                              fontWeight: FontWeight.w800,
+                            ),
                       ),
                     ],
                   ],
@@ -789,9 +904,7 @@ class _AccountLine extends StatelessWidget {
         key: ValueKey('home-account-line-${account.id}'),
         constraints: const BoxConstraints(minHeight: 52),
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(14)),
         child: Row(
           children: [
             SizedBox(
@@ -975,14 +1088,6 @@ class _EmptyCardLine extends StatelessWidget {
 /// 格式化人民币金额。
 String _formatCurrency(double value) {
   return '¥${value.toStringAsFixed(2)}';
-}
-
-DateTime _dateOnly(DateTime date) {
-  return DateTime(date.year, date.month, date.day);
-}
-
-String _formatDateLabel(DateTime date) {
-  return '${date.month}月${date.day}日';
 }
 
 IconData _transactionIcon(TransactionType type) {

@@ -56,21 +56,12 @@ void main() {
       expect(find.text('预算缺口'), findsNothing);
       expect(find.text('AI 输入就绪'), findsNothing);
       expect(find.text('现金流稳定'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.text('还没有账户'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('还没有账户'), findsOneWidget);
+      expect(find.text('还没有账户'), findsNothing);
       expect(find.text('0 笔'), findsOneWidget);
-      expect(find.text('本月无现金流'), findsAtLeastNWidgets(1));
+      expect(find.text('本月无现金流'), findsNothing);
       expect(find.text('等待首笔记录'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.text('本月未设置预算'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('本月未设置预算'), findsOneWidget);
+      expect(find.text('预算摘要'), findsNothing);
+      expect(find.text('本月未设置预算'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });
 
@@ -144,10 +135,13 @@ void main() {
       expect(find.text('家庭数据在线'), findsNothing);
       expect(find.text('本月现金流'), findsOneWidget);
       expect(find.text('最近交易'), findsOneWidget);
-      expect(find.text('当日交易'), findsOneWidget);
+      expect(find.text('当日交易'), findsNothing);
       expect(find.byKey(const ValueKey('profile-logout')), findsNothing);
       expect(find.text('全部'), findsNothing);
-      expect(find.byKey(const ValueKey('home-recent-transactions-all')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-recent-transactions-all')),
+        findsOneWidget,
+      );
       expect(find.text('餐饮'), findsWidgets);
       expect(find.text('-¥28.00'), findsWidgets);
       expect(find.text('现金流充沛'), findsNothing);
@@ -196,8 +190,8 @@ void main() {
       final repository = _FakeHomeRepository();
       await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
 
-      final hero = tester.widget<FinanceHeroCard>(
-        find.byType(FinanceHeroCard).first,
+      final hero = tester.widget<PremiumSurface>(
+        find.byKey(const ValueKey('home-net-assets-card')),
       );
       expect(hero.accentColor, AppThemePalette.graphite.assetColor);
       expect(find.text('石墨蓝'), findsNothing);
