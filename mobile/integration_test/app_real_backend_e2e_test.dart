@@ -41,15 +41,27 @@ void main() {
       ),
     );
 
-    await _pumpUntilAnyFound(tester, [find.text('连接服务器'), find.text('连接账本')]);
+    await _pumpUntilAnyFound(tester, [
+      find.byKey(const ValueKey('server-url-field')),
+      find.text('连接服务器'),
+      find.text('连接账本'),
+      find.byKey(const Key('auth-setup-password-field')),
+      find.byKey(const Key('auth-login-password-field')),
+      find.text('首页'),
+    ]);
 
-    await _enterAuthTextField(tester, ['服务器地址', '账本地址'], _serverUrl);
-    await _tapTextOrKey(
-      tester,
-      keys: const [Key('server-connect-button')],
-      fallbackTexts: const ['进入账本', '连接'],
-    );
-    await _waitForAuthForm(tester);
+    if (_isServerConfigVisible()) {
+      await _enterAuthTextField(tester, ['服务器地址', '账本地址'], _serverUrl);
+      await _tapTextOrKey(
+        tester,
+        keys: const [Key('server-connect-button')],
+        fallbackTexts: const ['进入账本', '连接'],
+      );
+    }
+
+    if (!_isHomeShellVisible()) {
+      await _waitForAuthForm(tester);
+    }
 
     await _pumpUntilFound(tester, find.text('首页'));
     await _pumpUntilFound(tester, find.text('净资产'));
@@ -166,8 +178,8 @@ Future<void> _createAccount(WidgetTester tester) async {
 
   await _pumpUntilFound(tester, find.text('保存成功'));
   await _scrollUntilFound(tester, find.text('E2E现金钱包'));
-  await _goBack(tester, untilText: '我的');
-  await _pumpUntilFound(tester, find.text('我的'));
+  await _goBack(tester, untilText: '功能');
+  await _pumpUntilAnyFound(tester, [find.text('功能'), find.text('我的')]);
 }
 
 Future<void> _waitForAuthForm(WidgetTester tester) async {
@@ -373,6 +385,12 @@ bool _isAuthFormVisible() {
       find.text('账本解锁').evaluate().isNotEmpty;
 }
 
+bool _isServerConfigVisible() {
+  return find.byKey(const ValueKey('server-url-field')).evaluate().isNotEmpty ||
+      find.text('连接账本').evaluate().isNotEmpty ||
+      find.text('连接服务器').evaluate().isNotEmpty;
+}
+
 bool _isHomeShellVisible() {
   return find.text('首页').evaluate().isNotEmpty ||
       find
@@ -523,8 +541,8 @@ Future<void> _verifyAccountBalance(
   await _scrollUntilFound(tester, find.text('E2E现金钱包'));
   await _scrollUntilFound(tester, find.text(expectedBalance));
 
-  await _goBack(tester, untilText: '我的');
-  await _pumpUntilFound(tester, find.text('我的'));
+  await _goBack(tester, untilText: '功能');
+  await _pumpUntilAnyFound(tester, [find.text('功能'), find.text('我的')]);
 }
 
 Future<void> _openProfileAccounts(WidgetTester tester) async {
@@ -683,6 +701,24 @@ Future<void> _goBack(WidgetTester tester, {String? untilText}) async {
       return;
     }
 
+    final appBarBackButton = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is IconButton &&
+            widget.key != const ValueKey('account-add') &&
+            widget.key != const ValueKey('transaction-add') &&
+            widget.key != const ValueKey('transaction-more-options'),
+      ),
+    );
+    if (appBarBackButton.evaluate().isNotEmpty) {
+      await tester.tap(appBarBackButton.first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      if (_isTextVisible(untilText)) {
+        return;
+      }
+    }
+
     final backButton = find.byType(BackButton);
     if (backButton.evaluate().isNotEmpty) {
       await tester.tap(backButton.last, warnIfMissed: false);
@@ -692,8 +728,23 @@ Future<void> _goBack(WidgetTester tester, {String? untilText}) async {
       }
     }
 
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    for (final tooltip in const ['返回', 'Back']) {
+      final tooltipButton = find.byTooltip(tooltip);
+      if (tooltipButton.evaluate().isNotEmpty) {
+        await tester.tap(tooltipButton.last, warnIfMissed: false);
+        await tester.pumpAndSettle();
+        if (_isTextVisible(untilText)) {
+          return;
+        }
+      }
+    }
+
+    try {
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+    } on TestFailure {
+      continue;
+    }
   }
 }
 

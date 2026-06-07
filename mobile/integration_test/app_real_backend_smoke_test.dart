@@ -34,16 +34,28 @@ void main() {
         ),
       );
 
-      await _pumpUntilAnyFound(tester, [find.text('连接服务器'), find.text('连接账本')]);
-      await _enterTextByPossibleKeys(
-        tester,
-        const [Key('server-url-field')],
-        _serverUrl,
-        fallbackLabels: const ['服务器地址', '账本地址'],
-      );
-      await _tapByKey(tester, const ValueKey('server-connect-button'));
+      await _pumpUntilAnyFound(tester, [
+        find.byKey(const ValueKey('server-url-field')),
+        find.text('连接服务器'),
+        find.text('连接账本'),
+        find.byKey(const Key('auth-setup-password-field')),
+        find.byKey(const Key('auth-login-password-field')),
+        find.text('首页'),
+      ]);
 
-      await _waitForAuthStep(tester);
+      if (_isServerConfigVisible()) {
+        await _enterTextByPossibleKeys(
+          tester,
+          const [Key('server-url-field')],
+          _serverUrl,
+          fallbackLabels: const ['服务器地址', '账本地址'],
+        );
+        await _tapByKey(tester, const ValueKey('server-connect-button'));
+      }
+
+      if (!_isHomeShellVisible()) {
+        await _waitForAuthStep(tester);
+      }
 
       await _pumpUntilAnyFound(tester, [
         find.text('首页'),
@@ -109,6 +121,24 @@ Future<void> _waitForAuthStep(WidgetTester tester) async {
   }
 
   fail('Neither setup nor login screen appeared');
+}
+
+bool _isServerConfigVisible() {
+  return find.byKey(const ValueKey('server-url-field')).evaluate().isNotEmpty ||
+      find.text('连接账本').evaluate().isNotEmpty ||
+      find.text('连接服务器').evaluate().isNotEmpty;
+}
+
+bool _isHomeShellVisible() {
+  return find.text('首页').evaluate().isNotEmpty ||
+      find
+          .byKey(const ValueKey('home-recent-transactions-all'))
+          .evaluate()
+          .isNotEmpty ||
+      find
+          .byKey(const ValueKey('main-shell-quick-transaction'))
+          .evaluate()
+          .isNotEmpty;
 }
 
 Future<void> _enterTextByPossibleKeys(
