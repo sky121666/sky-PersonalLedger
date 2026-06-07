@@ -189,7 +189,8 @@ void main() {
       expect(find.text('提醒线预留'), findsNothing);
       expect(find.text('本月还没有总预算'), findsWidgets);
       expect(find.text('还没有分类预算'), findsOneWidget);
-      expect(find.text('还没有分类预算，先补充分类后添加'), findsOneWidget);
+      expect(find.text('还没有分类预算，先补充分类后添加'), findsNothing);
+      expect(find.text('右上角添加'), findsOneWidget);
       expect(find.text('未设置总预算'), findsNothing);
       expect(find.text('未设置分类预算'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
@@ -204,7 +205,9 @@ void main() {
       await _pumpPage(tester, budgetRepository, categories: const []);
 
       expect(find.text('还没有分类预算'), findsOneWidget);
-      expect(find.text('先补充支出分类后再添加'), findsOneWidget);
+      expect(find.text('先补充支出分类后再添加'), findsNothing);
+      expect(find.text('补充支出分类'), findsOneWidget);
+      expect(find.text('先补充支出分类'), findsNothing);
       expect(find.text('当前分类为空，先添加分类预算'), findsNothing);
       expect(find.byKey(const ValueKey('budget-category-add')), findsNothing);
       expect(
@@ -229,7 +232,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('还没有成员预算'), findsOneWidget);
-      expect(find.text('先补充家庭成员后再添加'), findsOneWidget);
+      expect(find.text('还没有成员预算，先补充家庭成员后添加'), findsNothing);
+      expect(find.text('先补充家庭成员后再添加'), findsNothing);
+      expect(find.text('补充家庭成员'), findsOneWidget);
+      expect(find.text('先补充家庭成员'), findsNothing);
       expect(find.text('尚未添加家庭成员，先添加成员预算'), findsNothing);
       expect(find.byKey(const ValueKey('budget-member-add')), findsNothing);
       expect(

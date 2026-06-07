@@ -129,7 +129,7 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
     if (enabledMembers.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('请先添加启用的家庭成员')));
+      ).showSnackBar(const SnackBar(content: Text('补充家庭成员')));
       return;
     }
 
@@ -735,7 +735,7 @@ class _EmptyCategoryBudgetCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 8),
       child: _CompactBudgetEmptyState(
         title: '还没有分类预算',
-        message: canAddCategoryBudget ? '还没有分类预算，先补充分类后添加' : '先补充支出分类后再添加',
+        message: canAddCategoryBudget ? '右上角添加' : '补充支出分类',
         icon: Icons.track_changes_outlined,
         actions: canAddCategoryBudget
             ? const []
@@ -875,7 +875,7 @@ class _EmptyMemberBudgetCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 8),
       child: _CompactBudgetEmptyState(
         title: '还没有成员预算',
-        message: canAddMemberBudget ? '还没有成员预算，先补充家庭成员后添加' : '先补充家庭成员后再添加',
+        message: canAddMemberBudget ? '右上角添加' : '补充家庭成员',
         icon: Icons.family_restroom_outlined,
         actions: canAddMemberBudget
             ? const []
@@ -907,54 +907,63 @@ class _CompactBudgetEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return PremiumSurface(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      accentColor: colorScheme.primary,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconBadge(
-            icon: icon,
-            color: colorScheme.primary,
-            size: 42,
-            iconSize: 20,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 0, 12),
+            child: IconBadge(
+              icon: icon,
+              color: colorScheme.primary,
+              size: 34,
+              iconSize: 18,
+            ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 11, 14, 11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.4,
+                  const SizedBox(height: 2),
+                  Text(
+                    message,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
                   ),
-                ),
-                if (actions.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final action in actions)
-                        OutlinedButton.icon(
-                          onPressed: action.onPressed,
-                          icon: Icon(action.icon, size: 18),
-                          label: Text(action.label),
-                        ),
-                    ],
-                  ),
+                  if (actions.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final action in actions)
+                          OutlinedButton.icon(
+                            onPressed: action.onPressed,
+                            icon: Icon(action.icon, size: 18),
+                            label: Text(action.label),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
