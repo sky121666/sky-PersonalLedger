@@ -28,12 +28,12 @@ class PremiumSurface extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tint = accentColor ?? colorScheme.primary;
     final background = Color.alphaBlend(
-      tint.withValues(alpha: isDark ? 0.08 : 0.04),
+      tint.withValues(alpha: isDark ? 0.06 : 0.025),
       colorScheme.surface,
     );
     final borderColor = Color.alphaBlend(
-      tint.withValues(alpha: isDark ? 0.20 : 0.12),
-      colorScheme.outlineVariant.withValues(alpha: isDark ? 0.42 : 0.52),
+      tint.withValues(alpha: isDark ? 0.16 : 0.08),
+      colorScheme.outlineVariant.withValues(alpha: isDark ? 0.34 : 0.40),
     );
 
     final surface = DecoratedBox(

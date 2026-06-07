@@ -61,7 +61,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           key: const ValueKey('auth-login-password-field'),
           controller: _passwordController,
           focusNode: _passwordFocusNode,
-          autofocus: true,
+          autofocus: false,
           autocorrect: false,
           enableSuggestions: false,
           autofillHints: const [AutofillHints.password],

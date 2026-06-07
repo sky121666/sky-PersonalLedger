@@ -61,24 +61,37 @@ void main() {
       ),
       findsWidgets,
     );
-
-    await tester.tap(find.byKey(const ValueKey('main-shell-tab-transactions')));
-    await tester.pumpAndSettle();
-    expect(find.text('transactions-content'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('main-shell-tab-statistics')));
-    await tester.pumpAndSettle();
-    expect(find.text('statistics-content'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('main-shell-tab-profile')));
-    await tester.pumpAndSettle();
-    expect(find.text('profile-content'), findsOneWidget);
-
     await tester.tap(
       find.byKey(const ValueKey('main-shell-quick-transaction')),
     );
     await tester.pumpAndSettle();
     expect(find.text('quick-content'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('main-shell-tab-transactions')));
+    await tester.pumpAndSettle();
+    expect(find.text('transactions-content'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('main-shell-quick-transaction')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('main-shell-tab-statistics')));
+    await tester.pumpAndSettle();
+    expect(find.text('statistics-content'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('main-shell-quick-transaction')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('main-shell-tab-profile')));
+    await tester.pumpAndSettle();
+    expect(find.text('profile-content'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('main-shell-quick-transaction')),
+      findsNothing,
+    );
   });
 
   testWidgets('MainShellPage 移动端胶囊导航跟随主题语义色', (tester) async {

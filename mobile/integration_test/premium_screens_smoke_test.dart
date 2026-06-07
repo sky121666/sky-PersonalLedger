@@ -135,14 +135,25 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('欢迎回来', findsOneWidget);
-        _expectTextOrScaffold('会话解锁信号', findsOneWidget);
-        _expectByKey(const ValueKey('auth-experience-deck'));
-        _expectTextOrScaffold('跨端安全控制台', findsOneWidget);
-        _expectTextOrScaffold('iOS 动效', findsOneWidget);
-        _expectTextOrScaffold('Android 状态层', findsOneWidget);
-        _expectTextOrScaffold('主题色联动', findsOneWidget);
-        _expectTextOrScaffold('私有服务', findsOneWidget);
+        expect(find.text('账本解锁'), findsOneWidget);
+        expect(find.text('登录'), findsWidgets);
+        expect(find.text('密码'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('auth-login-password-field')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('auth-login-submit-button')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('auth-experience-deck')),
+          findsNothing,
+        );
+        expect(find.text('跨端安全控制台'), findsNothing);
+        expect(find.text('iOS 动效'), findsNothing);
+        expect(find.text('Android 状态层'), findsNothing);
+        expect(find.text('主题色联动'), findsNothing);
         expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -176,11 +187,28 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('首次设置密码', findsOneWidget);
-        _expectTextOrScaffold('初始化保护', findsOneWidget);
-        _expectTextOrScaffold('初始化密钥策略', findsOneWidget);
-        _expectByKey(const ValueKey('auth-experience-deck'));
-        _expectTextOrScaffold('只初始化一次', findsOneWidget);
+        expect(find.text('设置密码'), findsOneWidget);
+        expect(find.text('账本保护'), findsOneWidget);
+        expect(find.text('密码'), findsOneWidget);
+        expect(find.text('确认密码'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('auth-setup-password-field')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('auth-setup-password-confirm-field')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('auth-setup-submit-button')),
+          findsOneWidget,
+        );
+        expect(find.text('初始化保护'), findsNothing);
+        expect(find.text('初始化密钥策略'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('auth-experience-deck')),
+          findsNothing,
+        );
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
@@ -189,7 +217,7 @@ void main() {
         );
       });
 
-      testWidgets('renders premium server topology entry (${variant.name})', (
+      testWidgets('renders premium server entry (${variant.name})', (
         tester,
       ) async {
         await _prepareScreenshotCapture(binding);
@@ -214,15 +242,21 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('连接服务器', findsOneWidget);
-        _expectTextOrScaffold('自托管入口', findsOneWidget);
-        _expectTextOrScaffold('连接策略', findsOneWidget);
-        _expectByKey(const ValueKey('server-topology-preview'));
-        _expectTextOrScaffold('部署拓扑预览', findsOneWidget);
-        _expectTextOrScaffold('等待输入服务地址', findsOneWidget);
-        _expectTextOrScaffold('Web', findsOneWidget);
-        _expectTextOrScaffold('iOS', findsOneWidget);
-        _expectTextOrScaffold('Android', findsOneWidget);
+        expect(find.text('连接账本'), findsOneWidget);
+        expect(find.text('个人账本'), findsOneWidget);
+        expect(find.text('账本地址'), findsOneWidget);
+        expect(find.text('进入账本'), findsOneWidget);
+        expect(find.byKey(const ValueKey('server-url-field')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('server-connect-button')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('server-topology-preview')),
+          findsNothing,
+        );
+        expect(find.text('部署拓扑预览'), findsNothing);
+        expect(find.text('连接策略'), findsNothing);
 
         await _safeEnterText(
           tester,
@@ -231,14 +265,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('https://ledger.example.com', findsWidgets);
-        _expectTextOrScaffold('地址就绪', findsOneWidget);
-        _expectTextOrScaffold('HTTPS 就绪', findsOneWidget);
+        expect(find.text('https://ledger.example.com'), findsWidgets);
+        expect(find.text('地址就绪'), findsNothing);
+        expect(find.text('HTTPS 就绪'), findsNothing);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'server-topology-entry-${variant.name}',
+          'server-entry-${variant.name}',
         );
       });
 

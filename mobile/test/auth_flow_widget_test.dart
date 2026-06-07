@@ -60,12 +60,17 @@ void main() {
         find.byKey(const ValueKey('auth-login-password-visibility-toggle')),
         findsOneWidget,
       );
-      await tester.tap(find.byKey(const ValueKey('auth-login-password-visibility-toggle')));
+      await tester.tap(
+        find.byKey(const ValueKey('auth-login-password-visibility-toggle')),
+      );
       await tester.pump();
       final passwordVisibilityButton = tester.widget<IconButton>(
         find.byKey(const ValueKey('auth-login-password-visibility-toggle')),
       );
-      expect((passwordVisibilityButton.icon as Icon).icon, Icons.visibility_off);
+      expect(
+        (passwordVisibilityButton.icon as Icon).icon,
+        Icons.visibility_off,
+      );
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -222,11 +227,12 @@ void main() {
       final setupPasswordVisibilityButtonSecond = tester.widget<IconButton>(
         find.byKey(const ValueKey('auth-setup-password-visibility-toggle')),
       );
-      final setupPasswordConfirmVisibilityButtonSecond = tester.widget<IconButton>(
-        find.byKey(
-          const ValueKey('auth-setup-confirm-password-visibility-toggle'),
-        ),
-      );
+      final setupPasswordConfirmVisibilityButtonSecond = tester
+          .widget<IconButton>(
+            find.byKey(
+              const ValueKey('auth-setup-confirm-password-visibility-toggle'),
+            ),
+          );
       expect(
         (setupPasswordVisibilityButtonSecond.icon as Icon).icon,
         Icons.visibility_off,
@@ -322,11 +328,6 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
-      final mainScrollable = find.byType(Scrollable).first;
-      final settingsSection = find.byKey(const ValueKey('profile-section-设置'));
-      await _scrollIntoTapArea(tester, settingsSection);
-      await tester.tap(settingsSection, warnIfMissed: false);
       await tester.pumpAndSettle();
       final changeServerEntry = find.byKey(
         const ValueKey('profile-entry-更换账本'),

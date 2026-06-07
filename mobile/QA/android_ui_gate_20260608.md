@@ -36,3 +36,13 @@
 - Login screenshot after entering `http://10.0.2.2:8080`: `mobile/QA/screenshots/android/android-after-enter-local-20260608-005204.png`.
 - Result: Android Emulator install, launch, local-backend address entry, and transition to ledger login passed.
 - Boundary: authenticated traversal is still not claimed because the current local ledger is already initialized and the plaintext password is unknown.
+
+## 2026-06-08 01:12 Clean Auth Entry Retest
+
+- AVD: `pld-emu-2`, serial `emulator-5554`.
+- Install command: `FLUTTER_BIN=$(command -v flutter) LEDGER_E2E_LOCAL_SERVER_URL=http://127.0.0.1:8080 ./mobile/QA/android_install.sh emulator-5554`.
+- App launch screenshot: `mobile/QA/screenshots/android/android-auth-entry-clean-20260608-011232.png`.
+- Login screenshot after entering `http://10.0.2.2:8080`: `mobile/QA/screenshots/android/android-login-entry-clean-20260608-011259.png`.
+- UI tree result: connection screen exposed `连接账本`, `账本地址`, `进入账本`; login screen exposed `账本解锁`, `登录`, `更换账本`.
+- Result: latest Android build keeps the clean auth/server entry layout and reaches the local-backend login page.
+- Boundary: authenticated traversal remains unclaimed because the current local ledger password is unknown.

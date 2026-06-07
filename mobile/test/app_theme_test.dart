@@ -48,13 +48,11 @@ void main() {
       expect(financeColors?.warning, AppThemePalette.graphite.warningColor);
     });
 
-    test('主题模板提供设置页策展语义', () {
-      expect(AppThemePalette.obsidian.sceneLabel, '夜间深蓝');
-      expect(AppThemePalette.aurora.sceneLabel, '前卫数据流');
-      expect(AppThemePalette.plasma.sceneLabel, '明亮蓝色');
-      expect(AppThemePalette.obsidian.platformCue, '夜间');
-      expect(AppThemePalette.aurora.platformCue, '清透');
-      expect(AppThemePalette.plasma.platformCue, '明亮');
+    test('旧主题标识会归并到可选主色', () {
+      expect(AppThemePalette.fromId('aurora'), AppThemePalette.cyan);
+      expect(AppThemePalette.fromId('obsidian'), AppThemePalette.plasma);
+      expect(AppThemePalette.fromId('rose'), AppThemePalette.violet);
+      expect(AppThemePalette.fromId('unknown'), AppThemePalette.teal);
     });
 
     test('主题切换动效使用统一高级节奏', () {
@@ -349,15 +347,15 @@ void main() {
       expect(scrollbarTheme.minThumbLength, 48);
     });
 
-    test('主题模板标识唯一并覆盖高端色板', () {
+    test('主题设置只暴露少量主色', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
-      final labels = AppThemePalette.values.map((palette) => palette.label);
+      final labels = AppThemePalette.selectableValues.map(
+        (palette) => palette.label,
+      );
 
       expect(ids.length, AppThemePalette.values.length);
-      expect(labels, containsAll(['冰川青', '星云紫', '曜石玫瑰', '钛金灰', '量子青橙', '鎏金黑']));
-      expect(AppThemePalette.kinetic.sceneLabel, '青橙对比');
-      expect(AppThemePalette.titanium.platformCue, '原生');
-      expect(AppThemePalette.values.length, 16);
+      expect(labels, ['绿色', '蓝色', '青色', '紫色', '橙色', '灰色']);
+      expect(AppThemePalette.selectableValues.length, 6);
     });
   });
 }

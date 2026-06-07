@@ -340,7 +340,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有负债提醒'), findsOneWidget);
-      expect(find.text('还没有负债提醒，先添加提醒'), findsOneWidget);
+      expect(find.text('右上角添加'), findsOneWidget);
+      expect(find.text('还没有负债提醒，先添加提醒'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });

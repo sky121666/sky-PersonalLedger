@@ -829,8 +829,12 @@ class _ReminderCardState extends ConsumerState<_ReminderCard> {
                       if (_expanded)
                         PopupMenuButton<_ReminderMenuAction>(
                           key: ValueKey('reminder-more-menu-${reminder.id}'),
-                          icon: const Icon(Icons.more_horiz, size: 20),
-                          tooltip: null,
+                          icon: const Icon(
+                            Icons.more_horiz,
+                            size: 20,
+                            semanticLabel: '提醒操作',
+                          ),
+                          tooltip: '提醒操作',
                           onSelected: _onMenuSelected,
                           itemBuilder: (context) => [
                             if (!widget.readOnly && reminder.principal != null)
@@ -999,7 +1003,7 @@ class _EmptyReminderCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '还没有负债提醒，先添加提醒',
+                    '右上角添加',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       height: 1.4,
@@ -1495,7 +1499,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     return AlertDialog(
       title: Text('记录还款：${widget.reminder.displayName}'),
       content: widget.paymentAccounts.isEmpty
-          ? const Text('还没有还款账户')
+          ? const Text('补充还款账户')
           : ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: SingleChildScrollView(

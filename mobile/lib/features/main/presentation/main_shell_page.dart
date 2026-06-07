@@ -29,10 +29,12 @@ class MainShellPage extends StatelessWidget {
           Expanded(child: navigationShell),
         ],
       ),
-      floatingActionButton: _QuickTransactionFab(
-        key: const ValueKey('main-shell-quick-transaction'),
-        onPressed: () => _openQuickTransaction(context),
-      ),
+      floatingActionButton: navigationShell.currentIndex == 0
+          ? _QuickTransactionFab(
+              key: const ValueKey('main-shell-quick-transaction'),
+              onPressed: () => _openQuickTransaction(context),
+            )
+          : null,
       floatingActionButtonLocation: isWideLayout
           ? FloatingActionButtonLocation.endFloat
           : FloatingActionButtonLocation.endFloat,
@@ -134,9 +136,9 @@ class _PremiumBottomNavigation extends StatelessWidget {
         color: financeColors.warning,
       ),
       _ShellDestination(
-        icon: Icons.person_outline,
-        selectedIcon: Icons.person_rounded,
-        label: '我的',
+        icon: Icons.grid_view_outlined,
+        selectedIcon: Icons.grid_view_rounded,
+        label: '功能',
         keyValue: 'profile',
         color: colorScheme.primary,
       ),
@@ -350,10 +352,10 @@ class _PremiumNavigationRail extends StatelessWidget {
                   ),
                 ),
                 NavigationRailDestination(
-                  icon: const Icon(Icons.person_outline),
-                  selectedIcon: const Icon(Icons.person_rounded),
+                  icon: const Icon(Icons.grid_view_outlined),
+                  selectedIcon: const Icon(Icons.grid_view_rounded),
                   label: const Text(
-                    '我的',
+                    '功能',
                     key: ValueKey('main-shell-rail-profile'),
                   ),
                 ),

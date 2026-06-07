@@ -73,7 +73,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
           key: const ValueKey('auth-setup-password-field'),
           controller: _passwordController,
           focusNode: _passwordFocusNode,
-          autofocus: true,
+          autofocus: false,
           autocorrect: false,
           enableSuggestions: false,
           autofillHints: const [AutofillHints.newPassword],
