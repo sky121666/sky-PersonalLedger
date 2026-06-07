@@ -57,3 +57,15 @@
 - UI tree result: login screen exposed `账本解锁`, `登录`, `http://10.0.2.2:8080`, and `更换账本`.
 - Result: Android emulator no longer requires manually retyping the current local backend address after install.
 - Boundary: authenticated traversal remains unclaimed because the current local ledger password is unknown.
+
+## 2026-06-08 01:52 Emulator-Only Install Retest
+
+- AVD: `pld-emu-2`, serial `emulator-5554`.
+- Backend check: `http://127.0.0.1:8080/api/v1/auth/status` returned `initialized=true`.
+- Script policy: `mobile/QA/android_install.sh` now defaults to `ANDROID_PREFER_EMULATOR=1`, filters online targets to `emulator-*`, rejects non-emulator Android targets unless explicitly overridden, and starts AVDs with detached stdio.
+- Install command: `FLUTTER_BIN=$(command -v flutter) LEDGER_E2E_LOCAL_SERVER_URL=http://127.0.0.1:8080 ./mobile/QA/android_install.sh emulator-5554`.
+- Script behavior: converted the host URL to `http://10.0.2.2:8080`, built a debug APK with `LEDGER_E2E_SERVER_URL`, and installed it on the Android emulator.
+- Launch screenshot: `mobile/QA/screenshots/android/android-emulator-install-launch-settled-20260608.png`.
+- Runtime result: app process stayed alive after settling, and the login screen showed `账本解锁`, `登录`, `http://10.0.2.2:8080`, and `更换账本`.
+- Logcat check: no `FATAL EXCEPTION`, `AndroidRuntime` crash, or ANR marker was observed for `com.skyapp.personal_ledger` during the launch window.
+- Boundary: authenticated traversal remains unclaimed because the current local ledger password is unknown.

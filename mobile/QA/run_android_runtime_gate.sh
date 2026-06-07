@@ -15,7 +15,7 @@ APP_PACKAGE="${APP_PACKAGE:-}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 ROUTE_SECONDS="${ROUTE_SECONDS:-30}"
 EMULATOR_BIN="${EMULATOR_BIN:-/opt/homebrew/share/android-commandlinetools/emulator/emulator}"
-ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-0}"
+ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-1}"
 EMULATOR_WAIT_SECONDS="${EMULATOR_WAIT_SECONDS:-120}"
 FLUTTER_NO_DDS_DEFAULT="${FLUTTER_NO_DDS_DEFAULT:-1}"
 FLUTTER_DISABLE_SERVICE_AUTH_CODES="${FLUTTER_DISABLE_SERVICE_AUTH_CODES:-1}"
@@ -227,7 +227,8 @@ ensure_emulator_started() {
 
   if ! printf '%s\n' "$($ADB_BIN devices -l | awk 'NR>1 {print $1}')" | awk '/^emulator-/ {found=1} END {exit !found}'; then
     echo "[信息] 未检测到在线模拟器，尝试启动 $avd_name"
-    "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect >/tmp/qa_runtime_boot.log 2>&1 &
+    nohup "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect >/tmp/qa_runtime_boot.log 2>&1 </dev/null &
+    disown "$!" 2>/dev/null || true
   fi
 }
 
@@ -240,6 +241,10 @@ wait_for_device_ready() {
 
     if [ -n "$target_device" ]; then
       if printf '%s\n' "$raw_devices" | awk -v device="$target_device" '$1 == device && $2 == "device" {found=1} END {exit !found}'; then
+        return 0
+      fi
+    elif [ "$ANDROID_PREFER_EMULATOR" = "1" ]; then
+      if printf '%s\n' "$raw_devices" | awk '$1 ~ /^emulator-/ && $2 == "device" {found=1} END {exit !found}'; then
         return 0
       fi
     elif printf '%s\n' "$raw_devices" | awk '$2 == "device" {found=1} END {exit !found}'; then
@@ -280,6 +285,30 @@ wait_for_device_services() {
   return 1
 }
 
+require_emulator_device() {
+  local device="$1"
+  if [ "$ANDROID_PREFER_EMULATOR" != "1" ]; then
+    return 0
+  fi
+
+  case "$device" in
+    emulator-*) return 0 ;;
+  esac
+
+  echo "[错误] Android 运行时门禁当前只接受模拟器目标，收到: $device"
+  echo "请启动 Android Emulator，并确认 adb devices -l 中出现 emulator-*。"
+  echo "如需临时验证真实设备，请显式设置 ANDROID_PREFER_EMULATOR=0。"
+  exit 4
+}
+
+list_online_android_targets() {
+  if [ "$ANDROID_PREFER_EMULATOR" = "1" ]; then
+    "$ADB_BIN" devices -l | awk 'NR>1 && $1 ~ /^emulator-/ && $2=="device" {print $1}'
+  else
+    "$ADB_BIN" devices -l | awk 'NR>1 && $2=="device" {print $1}'
+  fi
+}
+
 if ! command -v "$FLUTTER_BIN" >/dev/null 2>&1; then
   if command -v flutter >/dev/null 2>&1; then
     FLUTTER_BIN="$(command -v flutter)"
@@ -295,11 +324,11 @@ if ! command -v "$ADB_BIN" >/dev/null 2>&1; then
   exit 1
 fi
 
-ONLINE_DEVICES="$("$ADB_BIN" devices -l | awk 'NR>1 && $2=="device" {print $1}')"
+ONLINE_DEVICES="$(list_online_android_targets)"
 if [ -z "$ONLINE_DEVICES" ]; then
   ensure_emulator_started
   sleep 2
-  ONLINE_DEVICES="$($ADB_BIN devices -l | awk 'NR>1 && $2=="device" {print $1}')"
+  ONLINE_DEVICES="$(list_online_android_targets)"
 fi
 
 if [ -z "$ONLINE_DEVICES" ]; then
@@ -310,17 +339,15 @@ if [ -z "$ONLINE_DEVICES" ]; then
   fi
 
   if ! wait_for_device_ready "$DEVICE_ID"; then
-    echo "[错误] 当前无 online 的 Android 设备。"
+    echo "[错误] 当前无 online 的 Android 模拟器。"
     echo "建议排查："
-    echo " - 连接线是否支持数据传输"
-    echo " - 手机上是否开启开发者模式和 USB 调试"
-    echo " - 是否弹出并确认“是否允许 USB 调试”授权"
-    echo " - 运行 adb devices -l 查看状态"
-    echo " - 模拟器未启动或启动未完成"
-    echo " - 检查模拟器日志：/tmp/qa_runtime_boot.log"
+    echo " - Android Emulator 是否已启动并完成系统引导"
+    echo " - adb devices -l 是否出现 emulator-* 且状态为 device"
+    echo " - AVD 名称是否正确，可通过 ANDROID_EMULATOR_NAME 指定"
+    echo " - 如由脚本自动启动，检查 /tmp/qa_runtime_boot.log"
     exit 2
   fi
-  ONLINE_DEVICES="$($ADB_BIN devices -l | awk 'NR>1 && $2=="device" {print $1}')"
+  ONLINE_DEVICES="$(list_online_android_targets)"
 fi
 
 if [ -z "$DEVICE_ID" ]; then
@@ -334,6 +361,7 @@ else
     exit 3
   fi
 fi
+require_emulator_device "$DEVICE_ID"
 
 if ! wait_for_device_services "$DEVICE_ID"; then
   echo "[警告] 设备 $DEVICE_ID 的系统服务仍在启动（package service 未就绪）。"
