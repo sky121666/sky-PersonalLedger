@@ -236,18 +236,6 @@ extension AppThemePaletteCuration on AppThemePalette {
     };
   }
 
-  String get shortToneLabel {
-    return switch (selectableEquivalent) {
-      AppThemePalette.teal => '稳健',
-      AppThemePalette.plasma => '清晰',
-      AppThemePalette.cyan => '清爽',
-      AppThemePalette.violet => '柔和',
-      AppThemePalette.solaris => '温暖',
-      AppThemePalette.graphite => '低调',
-      _ => '',
-    };
-  }
-
   AppThemePalette get selectableEquivalent {
     return switch (this) {
       AppThemePalette.teal || AppThemePalette.emerald => AppThemePalette.teal,

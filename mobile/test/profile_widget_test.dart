@@ -145,6 +145,9 @@ void main() {
       260,
       scrollable: find.byType(Scrollable).first,
     );
+    expect(find.text('稳健'), findsNothing);
+    expect(find.text('清晰'), findsNothing);
+    expect(find.text('低调'), findsNothing);
     await tester.ensureVisible(find.text('深色'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('深色'));

@@ -60,6 +60,10 @@ void main() {
       expect(find.text('主题 DNA'), findsNothing);
       expect(find.text('预算状态'), findsNothing);
       expect(find.text('浅色模式'), findsOneWidget);
+      expect(find.text('绿色'), findsOneWidget);
+      expect(find.text('稳健'), findsNothing);
+      expect(find.text('清晰'), findsNothing);
+      expect(find.text('低调'), findsNothing);
 
       await tester.tap(find.text('深色模式'));
       await tester.pumpAndSettle();
