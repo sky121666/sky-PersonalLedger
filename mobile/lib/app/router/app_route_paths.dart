@@ -19,6 +19,7 @@ class AppRoutePaths {
   static const String reminders = '/reminders';
   static const String lendings = '/lendings';
   static const String notifications = '/notifications';
+  static const String smartQuickLedger = '/smart-quick-ledger';
   static const String dataManagement = '/data-management';
   static const String yearlyReport = '/yearly-report';
   static const String family = '/family';

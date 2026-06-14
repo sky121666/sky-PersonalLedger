@@ -100,6 +100,12 @@ class ProfilePage extends ConsumerWidget {
               onTap: () => context.push(AppRoutePaths.aiReports),
             ),
             _SettingsEntry(
+              icon: Icons.flash_on_outlined,
+              color: financeColors.income,
+              title: '智能快记',
+              onTap: () => context.push(AppRoutePaths.smartQuickLedger),
+            ),
+            _SettingsEntry(
               icon: Icons.summarize_outlined,
               color: financeColors.asset,
               title: '年度报告',

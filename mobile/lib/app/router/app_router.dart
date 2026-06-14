@@ -24,6 +24,7 @@ import '../../features/reminders/presentation/reminder_page.dart';
 import '../../features/reports/presentation/yearly_report_page.dart';
 import '../../features/server_config/presentation/server_config_page.dart';
 import '../../features/security/presentation/security_settings_page.dart';
+import '../../features/smart_quick_ledger/presentation/smart_quick_ledger_page.dart';
 import '../../features/statistics/presentation/mobile_statistics_page.dart';
 import '../../features/tags/presentation/tag_page.dart';
 import '../../features/templates/presentation/template_page.dart';
@@ -178,6 +179,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutePaths.notifications,
         builder: (context, state) => const NotificationSettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutePaths.smartQuickLedger,
+        builder: (context, state) => const SmartQuickLedgerPage(),
       ),
       GoRoute(
         path: AppRoutePaths.dataManagement,
