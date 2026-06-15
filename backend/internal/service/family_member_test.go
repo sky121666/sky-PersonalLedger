@@ -3,6 +3,7 @@ package service
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
@@ -163,6 +164,40 @@ func TestFamilySummaryGroupsMonthlyExpenseByMember(t *testing.T) {
 	createSummaryTransaction(t, transactionSvc, userID, accountID, "expense", 80, "2026-05-04", &family.ID)
 	createSummaryTransaction(t, transactionSvc, userID, accountID, "income", 1000, "2026-05-05", &self.ID)
 	createSummaryTransaction(t, transactionSvc, userID, accountID, "expense", 300, "2026-04-30", &self.ID)
+	createSummaryRawTransaction(t, repos, model.Transaction{
+		ID:              "summary-system-opening",
+		UserID:          userID,
+		AccountID:       accountID,
+		Type:            "expense",
+		Amount:          520000,
+		TransactionDate: mustSummaryDate(t, "2026-05-01"),
+		Remark:          "期初余额: 房贷",
+		Source:          "system",
+	})
+	createSummaryRawTransaction(t, repos, model.Transaction{
+		ID:              "summary-member-system",
+		UserID:          userID,
+		AccountID:       accountID,
+		Type:            "expense",
+		Amount:          9000,
+		TransactionDate: mustSummaryDate(t, "2026-05-02"),
+		MemberID:        &self.ID,
+		Remark:          "期初余额: 成员账户",
+		Source:          "system",
+	})
+	lendingID := "summary-lending-id"
+	createSummaryRawTransaction(t, repos, model.Transaction{
+		ID:              "summary-lending",
+		UserID:          userID,
+		AccountID:       accountID,
+		Type:            "expense",
+		Amount:          5000,
+		TransactionDate: mustSummaryDate(t, "2026-05-06"),
+		MemberID:        &self.ID,
+		Remark:          "借出给朋友",
+		Source:          "lending",
+		LendingID:       &lendingID,
+	})
 
 	summary, err := svc.Summary(userID, "2026-05")
 	if err != nil {
@@ -208,6 +243,22 @@ func createSummaryTransaction(t *testing.T, svc *TransactionService, userID uint
 	}); err != nil {
 		t.Fatalf("create %s transaction on %s: %v", txType, date, err)
 	}
+}
+
+func createSummaryRawTransaction(t *testing.T, repos *repository.Repositories, tx model.Transaction) {
+	t.Helper()
+	if err := repos.Transaction.Create(&tx); err != nil {
+		t.Fatalf("create raw summary transaction %s: %v", tx.ID, err)
+	}
+}
+
+func mustSummaryDate(t *testing.T, value string) time.Time {
+	t.Helper()
+	date, err := time.ParseInLocation("2006-01-02", value, time.Local)
+	if err != nil {
+		t.Fatalf("parse summary date %q: %v", value, err)
+	}
+	return date
 }
 
 func boolPtr(value bool) *bool {

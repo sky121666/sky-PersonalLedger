@@ -151,6 +151,35 @@ func TestFamilyHandlerStatistics(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("create transaction: %v", err)
 	}
+	if err := repos.Transaction.Create(&model.Transaction{
+		ID:              "tx-family-system-opening",
+		UserID:          userID,
+		AccountID:       account.ID,
+		CategoryID:      &category.ID,
+		Type:            "expense",
+		Amount:          520000,
+		TransactionDate: txDate,
+		Remark:          "期初余额: 房贷",
+		Source:          "system",
+	}); err != nil {
+		t.Fatalf("create system transaction: %v", err)
+	}
+	lendingID := "family-lending-id"
+	if err := repos.Transaction.Create(&model.Transaction{
+		ID:              "tx-family-lending",
+		UserID:          userID,
+		AccountID:       account.ID,
+		CategoryID:      &category.ID,
+		Type:            "expense",
+		Amount:          5000,
+		TransactionDate: txDate,
+		MemberID:        &memberID,
+		Remark:          "借出给朋友",
+		Source:          "lending",
+		LendingID:       &lendingID,
+	}); err != nil {
+		t.Fatalf("create lending transaction: %v", err)
+	}
 
 	response := performFamilyMemberRequest(handler, userID, http.MethodGet, "/family/statistics?month=2026-05", nil)
 	if response.Code != http.StatusOK {

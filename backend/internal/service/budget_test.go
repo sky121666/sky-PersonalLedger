@@ -3,6 +3,7 @@ package service
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/database"
@@ -38,6 +39,12 @@ func TestBudgetListIncludesMemberBudgets(t *testing.T) {
 		t.Fatalf("create member: %v", err)
 	}
 
+	if _, err := budgetSvc.SetTotalBudget(userID, SetBudgetRequest{Amount: 1000, AlertThreshold: 80}); err != nil {
+		t.Fatalf("set total budget: %v", err)
+	}
+	if _, err := budgetSvc.SetCategoryBudget(userID, SetBudgetRequest{CategoryID: &categoryID, Amount: 500, AlertThreshold: 80}); err != nil {
+		t.Fatalf("set category budget: %v", err)
+	}
 	if _, err := budgetSvc.SetTotalBudget(userID, SetBudgetRequest{MemberID: &member.ID, Amount: 300, AlertThreshold: 70}); err != nil {
 		t.Fatalf("set member total budget: %v", err)
 	}
@@ -45,10 +52,43 @@ func TestBudgetListIncludesMemberBudgets(t *testing.T) {
 		t.Fatalf("set member category budget: %v", err)
 	}
 	createBudgetTransaction(t, transactionSvc, userID, accountID, categoryID, member.ID, 80, "2026-05-12")
+	createBudgetRawTransaction(t, repos, model.Transaction{
+		ID:              "budget-member-system",
+		UserID:          userID,
+		AccountID:       accountID,
+		CategoryID:      &categoryID,
+		Type:            "expense",
+		Amount:          5000,
+		TransactionDate: mustBudgetDate(t, "2026-05-13"),
+		MemberID:        &member.ID,
+		Remark:          "期初余额: 成员账户",
+		Source:          "system",
+	})
+	lendingID := "budget-lending-id"
+	createBudgetRawTransaction(t, repos, model.Transaction{
+		ID:              "budget-member-lending",
+		UserID:          userID,
+		AccountID:       accountID,
+		CategoryID:      &categoryID,
+		Type:            "expense",
+		Amount:          3000,
+		TransactionDate: mustBudgetDate(t, "2026-05-14"),
+		MemberID:        &member.ID,
+		Remark:          "借出给朋友",
+		Source:          "lending",
+		LendingID:       &lendingID,
+	})
 
 	list, err := budgetSvc.List(userID, "2026-05")
 	if err != nil {
 		t.Fatalf("list budgets: %v", err)
+	}
+	if list.TotalBudget == nil || list.TotalBudget.Spent != 80 || list.TotalBudget.Remaining != 920 || list.TotalBudget.Percentage != 8 {
+		t.Fatalf("total budget = %#v, want spent 80 remaining 920 percentage 8", list.TotalBudget)
+	}
+	globalCategory := findBudgetItemByScope(t, list.CategoryBudgets, &categoryID, nil)
+	if globalCategory.CategoryName != "Food" || globalCategory.Spent != 80 || globalCategory.Remaining != 420 || globalCategory.Percentage != 16 {
+		t.Fatalf("category budget = %#v, want Food spent 80 remaining 420 percentage 16", globalCategory)
 	}
 	if len(list.MemberBudgets) != 2 {
 		t.Fatalf("member budgets len = %d, want 2", len(list.MemberBudgets))
@@ -125,6 +165,22 @@ func createBudgetTransaction(t *testing.T, svc *TransactionService, userID uint,
 	}); err != nil {
 		t.Fatalf("create budget transaction: %v", err)
 	}
+}
+
+func createBudgetRawTransaction(t *testing.T, repos *repository.Repositories, tx model.Transaction) {
+	t.Helper()
+	if err := repos.Transaction.Create(&tx); err != nil {
+		t.Fatalf("create raw budget transaction %s: %v", tx.ID, err)
+	}
+}
+
+func mustBudgetDate(t *testing.T, value string) time.Time {
+	t.Helper()
+	date, err := time.ParseInLocation("2006-01-02", value, time.Local)
+	if err != nil {
+		t.Fatalf("parse budget date %q: %v", value, err)
+	}
+	return date
 }
 
 func findBudgetItemByScope(t *testing.T, items []BudgetItem, categoryID, memberID *string) BudgetItem {

@@ -147,7 +147,7 @@ void main() {
     expect(find.text('分类统计'), findsNothing);
     expect(find.text('成员A'), findsWidgets);
     expect(find.text('家人'), findsOneWidget);
-    expect(find.text('常用'), findsOneWidget);
+    expect(find.text('常用 · 启用'), findsOneWidget);
     expect(find.text('成员B'), findsWidgets);
     expect(find.text('子女'), findsOneWidget);
     expect(find.text('停用'), findsOneWidget);

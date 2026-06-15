@@ -622,6 +622,8 @@ class _CategoryRankCard extends StatelessWidget {
     final accentColor = categoryType == 'expense'
         ? financeColors.expense
         : financeColors.income;
+    final rankedItems = [...response.items]
+      ..sort((a, b) => b.amount.compareTo(a.amount));
     return PremiumSurface(
       key: const ValueKey('statistics-category-rank-card'),
       accentColor: accentColor,
@@ -660,7 +662,7 @@ class _CategoryRankCard extends StatelessWidget {
           if (response.items.isEmpty)
             const _EmptyLine(text: '无分类')
           else ...[
-            for (final item in response.items.take(5).indexed)
+            for (final item in rankedItems.take(5).indexed)
               CategoryRankTile(
                 key: ValueKey('statistics-category-rank-${item.$2.categoryId}'),
                 name: item.$2.categoryName,

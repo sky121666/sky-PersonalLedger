@@ -159,9 +159,8 @@ void main() {
 
         expect(find.text('家庭成员'), findsOneWidget);
         expect(find.byKey(const ValueKey('family-add-member')), findsOneWidget);
-        await tester.scrollUntilVisible(find.text('常用'), 240);
-        expect(find.text('常用'), findsOneWidget);
-        expect(find.text('启用'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('常用 · 启用'), 240);
+        expect(find.text('常用 · 启用'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('停用'), 240);
         expect(find.text('停用'), findsOneWidget);
         _expectMinTapTarget(

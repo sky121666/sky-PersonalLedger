@@ -939,9 +939,8 @@ class _FamilyMemberCardState extends State<_FamilyMemberCard> {
 
     final accent = _memberColor(context, member.color);
     final colorScheme = Theme.of(context).colorScheme;
-    final relationship = member.relationship.isEmpty
-        ? '家庭成员'
-        : member.relationship;
+    final relationship = _formatRelationship(member.relationship);
+    final relationshipLabel = relationship == member.name ? '' : relationship;
     final initial = member.name.characters.isEmpty
         ? '?'
         : member.name.characters.first;
@@ -979,13 +978,15 @@ class _FamilyMemberCardState extends State<_FamilyMemberCard> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  relationship,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
-                ),
+                if (relationshipLabel.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    relationshipLabel,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                  ),
+                ],
               ],
             ),
           ),
@@ -993,27 +994,12 @@ class _FamilyMemberCardState extends State<_FamilyMemberCard> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Wrap(
-                spacing: 6,
-                runSpacing: 2,
-                alignment: WrapAlignment.end,
-                children: [
-                  if (member.isDefault)
-                    Text(
-                      '常用',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  Text(
-                    member.isEnabled ? '启用' : '停用',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+              Text(
+                _formatMemberState(member),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 4),
               IconButton(
@@ -1283,6 +1269,29 @@ Color _budgetStatusColor(BuildContext context, double percentage) {
     return financeColors.warning;
   }
   return financeColors.income;
+}
+
+String _formatRelationship(String relationship) {
+  return switch (relationship.trim()) {
+    'self' => '本人',
+    'spouse' => '伴侣',
+    'partner' => '伴侣',
+    'family' => '家人',
+    'child' => '孩子',
+    'parent' => '父母',
+    '' => '家庭成员',
+    final value => value,
+  };
+}
+
+String _formatMemberState(FamilyMember member) {
+  if (member.isDefault && member.isEnabled) {
+    return '常用 · 启用';
+  }
+  if (member.isDefault) {
+    return '常用 · 停用';
+  }
+  return member.isEnabled ? '启用' : '停用';
 }
 
 String _formatMoney(double value) {

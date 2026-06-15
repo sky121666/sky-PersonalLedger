@@ -106,10 +106,11 @@ func (r *TransactionRepository) DeleteBatch(ids []string) error {
 
 func (r *TransactionRepository) SumByCategory(userID uint, startDate, endDate time.Time, txType string) ([]CategorySum, error) {
 	var results []CategorySum
-	err := r.db.Model(&model.Transaction{}).
+	query := r.db.Model(&model.Transaction{}).
 		Select("category_id, SUM(amount) as total, COUNT(*) as count").
-		Where("user_id = ? AND type = ? AND transaction_date >= ? AND transaction_date <= ? AND COALESCE(source, '') <> ?",
-			userID, txType, startDate, endDate, "system").
+		Where("user_id = ? AND type = ? AND transaction_date >= ? AND transaction_date <= ?",
+			userID, txType, startDate, endDate)
+	err := applySpendingStatisticsScope(query).
 		Group("category_id").
 		Find(&results).Error
 	return results, err
@@ -141,10 +142,11 @@ type AccountBalanceDeltaSum struct {
 
 func (r *TransactionRepository) SumExpenseByMember(userID uint, startDate, endDate time.Time) ([]MemberExpenseSum, error) {
 	var results []MemberExpenseSum
-	err := r.db.Model(&model.Transaction{}).
+	query := r.db.Model(&model.Transaction{}).
 		Select("COALESCE(member_id, '') as member_id, SUM(amount) as total, COUNT(*) as count").
 		Where("user_id = ? AND type = ? AND transaction_date >= ? AND transaction_date <= ?",
-			userID, "expense", startDate, endDate).
+			userID, "expense", startDate, endDate)
+	err := applyMemberExpenseStatisticsScope(query).
 		Group("COALESCE(member_id, '')").
 		Order("total DESC").
 		Find(&results).Error
@@ -182,25 +184,37 @@ func (r *TransactionRepository) SumBalanceDeltaByAccount(userID uint, startDate,
 
 func (r *TransactionRepository) SumExpenseByMemberAndCategory(userID uint, startDate, endDate time.Time) ([]MemberCategoryExpenseSum, error) {
 	var results []MemberCategoryExpenseSum
-	err := r.db.Model(&model.Transaction{}).
+	query := r.db.Model(&model.Transaction{}).
 		Select("COALESCE(member_id, '') as member_id, COALESCE(category_id, '') as category_id, SUM(amount) as total, COUNT(*) as count").
 		Where("user_id = ? AND type = ? AND transaction_date >= ? AND transaction_date <= ?",
-			userID, "expense", startDate, endDate).
+			userID, "expense", startDate, endDate)
+	err := applyMemberExpenseStatisticsScope(query).
 		Group("COALESCE(member_id, ''), COALESCE(category_id, '')").
 		Find(&results).Error
 	return results, err
 }
 
+func applyMemberExpenseStatisticsScope(query *gorm.DB) *gorm.DB {
+	return applySpendingStatisticsScope(query)
+}
+
+func applySpendingStatisticsScope(query *gorm.DB) *gorm.DB {
+	return query.
+		Where("COALESCE(source, '') <> ?", "system").
+		Where("(lending_id IS NULL OR lending_id = '')")
+}
+
 func (r *TransactionRepository) SumByDateRange(userID uint, startDate, endDate time.Time) (*DateRangeSum, error) {
 	var result DateRangeSum
-	err := r.db.Model(&model.Transaction{}).
+	query := r.db.Model(&model.Transaction{}).
 		Select(`
 			SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
 			SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense,
 			COUNT(*) as count
 		`).
-		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND COALESCE(source, '') <> ?",
-			userID, startDate, endDate, "system").
+		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ?",
+			userID, startDate, endDate)
+	err := applySpendingStatisticsScope(query).
 		Scan(&result).Error
 	return &result, err
 }
@@ -220,14 +234,15 @@ type DailySum struct {
 func (r *TransactionRepository) SumByDay(userID uint, startDate, endDate time.Time) ([]DailySum, error) {
 	var results []DailySum
 	dayExpression := r.transactionDayExpression()
-	err := r.db.Model(&model.Transaction{}).
+	query := r.db.Model(&model.Transaction{}).
 		Select(fmt.Sprintf(`
 			%s as tx_date,
 			SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
 			SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
 		`, dayExpression)).
-		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND COALESCE(source, '') <> ?",
-			userID, startDate, endDate, "system").
+		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ?",
+			userID, startDate, endDate)
+	err := applySpendingStatisticsScope(query).
 		Group(dayExpression).
 		Order(dayExpression + " ASC").
 		Scan(&results).Error
@@ -237,14 +252,15 @@ func (r *TransactionRepository) SumByDay(userID uint, startDate, endDate time.Ti
 func (r *TransactionRepository) SumByMonth(userID uint, startDate, endDate time.Time) ([]DailySum, error) {
 	var results []DailySum
 	monthExpression := r.transactionMonthExpression()
-	err := r.db.Model(&model.Transaction{}).
+	query := r.db.Model(&model.Transaction{}).
 		Select(fmt.Sprintf(`
 			%s as tx_date,
 			SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
 			SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
 		`, monthExpression)).
-		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND COALESCE(source, '') <> ?",
-			userID, startDate, endDate, "system").
+		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ?",
+			userID, startDate, endDate)
+	err := applySpendingStatisticsScope(query).
 		Group(monthExpression).
 		Order(monthExpression + " ASC").
 		Scan(&results).Error
@@ -254,14 +270,15 @@ func (r *TransactionRepository) SumByMonth(userID uint, startDate, endDate time.
 func (r *TransactionRepository) SumByYear(userID uint, startDate, endDate time.Time) ([]DailySum, error) {
 	var results []DailySum
 	yearExpression := r.transactionYearExpression()
-	err := r.db.Model(&model.Transaction{}).
+	query := r.db.Model(&model.Transaction{}).
 		Select(fmt.Sprintf(`
 			%s as tx_date,
 			SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
 			SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
 		`, yearExpression)).
-		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND COALESCE(source, '') <> ?",
-			userID, startDate, endDate, "system").
+		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ?",
+			userID, startDate, endDate)
+	err := applySpendingStatisticsScope(query).
 		Group(yearExpression).
 		Order(yearExpression + " ASC").
 		Scan(&results).Error
