@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,16 +23,30 @@ class SmartQuickLedgerPage extends ConsumerStatefulWidget {
 class _SmartQuickLedgerPageState extends ConsumerState<SmartQuickLedgerPage> {
   final Set<String> _enabledSources = {'wechat', 'alipay', 'bank'};
   String? _busyDraftId;
+  bool? _notificationListenerEnabled;
 
   bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   @override
+  void initState() {
+    super.initState();
+    _loadPlatformState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final drafts = ref.watch(quickLedgerDraftsProvider);
     final rows = [
-      _SmartLedgerRow(_CapabilityCard(isAndroid: _isAndroid, isIOS: _isIOS)),
+      _SmartLedgerRow(
+        _CapabilityCard(
+          isAndroid: _isAndroid,
+          isIOS: _isIOS,
+          notificationListenerEnabled: _notificationListenerEnabled,
+          onOpenNotificationSettings: _openNotificationSettings,
+        ),
+      ),
       _SmartLedgerRow(
         _SourceSettingsCard(
           enabledSources: _enabledSources,
@@ -68,6 +84,23 @@ class _SmartQuickLedgerPageState extends ConsumerState<SmartQuickLedgerPage> {
     );
   }
 
+  Future<void> _loadPlatformState() async {
+    final controller = ref.read(quickLedgerDraftsProvider.notifier);
+    final notificationEnabled = await controller
+        .isNotificationListenerEnabled();
+    final enabledSources = await controller.getEnabledSources();
+    await controller.loadFromPlatform();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _notificationListenerEnabled = notificationEnabled;
+      _enabledSources
+        ..clear()
+        ..addAll(enabledSources);
+    });
+  }
+
   void _toggleSource(String id, bool enabled) {
     setState(() {
       if (enabled) {
@@ -76,6 +109,17 @@ class _SmartQuickLedgerPageState extends ConsumerState<SmartQuickLedgerPage> {
         _enabledSources.remove(id);
       }
     });
+    unawaited(
+      ref
+          .read(quickLedgerDraftsProvider.notifier)
+          .setEnabledSources(_enabledSources),
+    );
+  }
+
+  Future<void> _openNotificationSettings() async {
+    await ref
+        .read(quickLedgerDraftsProvider.notifier)
+        .openNotificationListenerSettings();
   }
 
   Future<void> _confirmDraft(QuickLedgerDraft draft) async {
@@ -103,7 +147,7 @@ class _SmartQuickLedgerPageState extends ConsumerState<SmartQuickLedgerPage> {
   }
 
   void _dismissDraft(QuickLedgerDraft draft) {
-    ref.read(quickLedgerDraftsProvider.notifier).dismiss(draft.id);
+    unawaited(ref.read(quickLedgerDraftsProvider.notifier).dismiss(draft.id));
   }
 }
 
@@ -115,10 +159,17 @@ class _SmartLedgerRow {
 }
 
 class _CapabilityCard extends StatelessWidget {
-  const _CapabilityCard({required this.isAndroid, required this.isIOS});
+  const _CapabilityCard({
+    required this.isAndroid,
+    required this.isIOS,
+    required this.notificationListenerEnabled,
+    required this.onOpenNotificationSettings,
+  });
 
   final bool isAndroid;
   final bool isIOS;
+  final bool? notificationListenerEnabled;
+  final VoidCallback onOpenNotificationSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -166,8 +217,9 @@ class _CapabilityCard extends StatelessWidget {
           _CapabilityLine(
             icon: Icons.android_outlined,
             title: 'Android',
-            value: isAndroid ? '通知监听可配置' : '通知监听',
+            value: _androidStatus,
             active: isAndroid,
+            onTap: isAndroid ? onOpenNotificationSettings : null,
           ),
           const SizedBox(height: 8),
           _CapabilityLine(
@@ -180,6 +232,13 @@ class _CapabilityCard extends StatelessWidget {
       ),
     );
   }
+
+  String get _androidStatus {
+    if (!isAndroid) {
+      return '通知监听';
+    }
+    return notificationListenerEnabled == true ? '已开启' : '待授权';
+  }
 }
 
 class _CapabilityLine extends StatelessWidget {
@@ -188,46 +247,55 @@ class _CapabilityLine extends StatelessWidget {
     required this.title,
     required this.value,
     required this.active,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String value;
   final bool active;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = active ? colorScheme.primary : colorScheme.onSurfaceVariant;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(alpha: 0.06),
-          colorScheme.surface,
-        ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              color.withValues(alpha: 0.06),
+              colorScheme.surface,
             ),
+            borderRadius: BorderRadius.circular(14),
           ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
-            ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

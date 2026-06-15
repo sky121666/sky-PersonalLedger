@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
+import 'package:personal_ledger/features/smart_quick_ledger/data/quick_ledger_draft.dart';
 import 'package:personal_ledger/features/smart_quick_ledger/data/quick_ledger_repository.dart';
 import 'package:personal_ledger/features/smart_quick_ledger/presentation/smart_quick_ledger_page.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
@@ -96,7 +97,10 @@ Future<void> _pumpPage(
     ProviderScope(
       overrides: [
         quickLedgerDraftsProvider.overrideWith(
-          (ref) => QuickLedgerDraftController(transactionWriter: writer),
+          (ref) => QuickLedgerDraftController(
+            transactionWriter: writer,
+            initialDrafts: _sampleDrafts(),
+          ),
         ),
       ],
       child: MaterialApp(
@@ -106,6 +110,40 @@ Future<void> _pumpPage(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+List<QuickLedgerDraft> _sampleDrafts() {
+  final now = DateTime.now();
+  return [
+    QuickLedgerDraft(
+      id: 'draft-wechat-coffee',
+      source: QuickLedgerDraftSource.androidNotification,
+      sourceName: '微信支付',
+      type: TransactionType.expense,
+      amount: 38.9,
+      merchant: '瑞幸咖啡',
+      occurredAt: DateTime(now.year, now.month, now.day, 9, 18),
+      confidence: 0.92,
+      suggestedAccountName: '微信钱包',
+      suggestedCategoryName: '餐饮',
+      rawText: '微信支付收款方 瑞幸咖啡 ¥38.90',
+      notificationHash: 'wechat-coffee-3890',
+    ),
+    QuickLedgerDraft(
+      id: 'draft-alipay-transport',
+      source: QuickLedgerDraftSource.androidNotification,
+      sourceName: '支付宝',
+      type: TransactionType.expense,
+      amount: 12,
+      merchant: '地铁出行',
+      occurredAt: DateTime(now.year, now.month, now.day, 8, 42),
+      confidence: 0.88,
+      suggestedAccountName: '支付宝',
+      suggestedCategoryName: '交通',
+      rawText: '支付宝付款 地铁出行 12.00元',
+      notificationHash: 'alipay-transport-1200',
+    ),
+  ];
 }
 
 class _FakeQuickLedgerWriter implements QuickLedgerTransactionWriter {

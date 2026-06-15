@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../../transactions/data/transaction_models.dart';
 import '../../transactions/data/transaction_repository.dart';
@@ -8,23 +11,56 @@ final quickLedgerDraftsProvider =
     StateNotifierProvider<QuickLedgerDraftController, List<QuickLedgerDraft>>((
       ref,
     ) {
-      return QuickLedgerDraftController(
+      final controller = QuickLedgerDraftController(
         transactionWriter: TransactionRepositoryQuickLedgerWriter(
           ref.watch(transactionRepositoryProvider),
         ),
+        platformClient: const MethodChannelQuickLedgerPlatformClient(),
+        initialDrafts: const [],
       );
+      unawaited(controller.loadFromPlatform());
+      return controller;
     });
 
 class QuickLedgerDraftController extends StateNotifier<List<QuickLedgerDraft>> {
   QuickLedgerDraftController({
     required QuickLedgerTransactionWriter transactionWriter,
+    QuickLedgerPlatformClient platformClient =
+        const NoopQuickLedgerPlatformClient(),
+    List<QuickLedgerDraft>? initialDrafts,
   }) : _transactionWriter = transactionWriter,
-       super(_initialDrafts());
+       _platformClient = platformClient,
+       super(initialDrafts ?? const []);
 
   final QuickLedgerTransactionWriter _transactionWriter;
+  final QuickLedgerPlatformClient _platformClient;
 
-  void dismiss(String id) {
+  Future<void> loadFromPlatform() async {
+    final drafts = await _platformClient.getPendingDrafts();
+    if (drafts.isNotEmpty) {
+      state = drafts;
+    }
+  }
+
+  Future<bool> isNotificationListenerEnabled() {
+    return _platformClient.isNotificationListenerEnabled();
+  }
+
+  Future<void> openNotificationListenerSettings() {
+    return _platformClient.openNotificationListenerSettings();
+  }
+
+  Future<Set<String>> getEnabledSources() {
+    return _platformClient.getEnabledSources();
+  }
+
+  Future<void> setEnabledSources(Set<String> sources) {
+    return _platformClient.setEnabledSources(sources);
+  }
+
+  Future<void> dismiss(String id) async {
     state = state.where((draft) => draft.id != id).toList();
+    await _platformClient.dismissDraft(id);
   }
 
   Future<TransactionItem> confirm(String id) async {
@@ -49,7 +85,7 @@ class QuickLedgerDraftController extends StateNotifier<List<QuickLedgerDraft>> {
     final transaction = await _transactionWriter.create(
       draft.toFormData(accountId: accountId, categoryId: categoryId),
     );
-    dismiss(id);
+    await dismiss(id);
     return transaction;
   }
 
@@ -77,6 +113,99 @@ class QuickLedgerDraftController extends StateNotifier<List<QuickLedgerDraft>> {
     }
     return categories.isEmpty ? null : categories.first.id;
   }
+}
+
+abstract class QuickLedgerPlatformClient {
+  Future<bool> isNotificationListenerEnabled();
+
+  Future<void> openNotificationListenerSettings();
+
+  Future<List<QuickLedgerDraft>> getPendingDrafts();
+
+  Future<void> dismissDraft(String id);
+
+  Future<Set<String>> getEnabledSources();
+
+  Future<void> setEnabledSources(Set<String> sources);
+}
+
+class MethodChannelQuickLedgerPlatformClient
+    implements QuickLedgerPlatformClient {
+  const MethodChannelQuickLedgerPlatformClient();
+
+  static const _channel = MethodChannel('personal_ledger/smart_quick_ledger');
+
+  @override
+  Future<bool> isNotificationListenerEnabled() async {
+    return await _safeInvoke<bool>('isNotificationListenerEnabled') ?? false;
+  }
+
+  @override
+  Future<void> openNotificationListenerSettings() async {
+    await _safeInvoke<void>('openNotificationListenerSettings');
+  }
+
+  @override
+  Future<List<QuickLedgerDraft>> getPendingDrafts() async {
+    final raw = await _safeInvoke<List<dynamic>>('getPendingDrafts');
+    if (raw == null) {
+      return const [];
+    }
+    return raw
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .map(QuickLedgerDraft.fromJson)
+        .where((draft) => draft.id.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  Future<void> dismissDraft(String id) async {
+    await _safeInvoke<void>('dismissDraft', {'id': id});
+  }
+
+  @override
+  Future<Set<String>> getEnabledSources() async {
+    final raw = await _safeInvoke<List<dynamic>>('getEnabledSources');
+    return raw?.whereType<String>().toSet() ?? {'wechat', 'alipay', 'bank'};
+  }
+
+  @override
+  Future<void> setEnabledSources(Set<String> sources) async {
+    await _safeInvoke<void>('setEnabledSources', {'sources': sources.toList()});
+  }
+
+  Future<T?> _safeInvoke<T>(String method, [Object? arguments]) async {
+    try {
+      return await _channel.invokeMethod<T>(method, arguments);
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+}
+
+class NoopQuickLedgerPlatformClient implements QuickLedgerPlatformClient {
+  const NoopQuickLedgerPlatformClient();
+
+  @override
+  Future<bool> isNotificationListenerEnabled() async => false;
+
+  @override
+  Future<void> openNotificationListenerSettings() async {}
+
+  @override
+  Future<List<QuickLedgerDraft>> getPendingDrafts() async => const [];
+
+  @override
+  Future<void> dismissDraft(String id) async {}
+
+  @override
+  Future<Set<String>> getEnabledSources() async => {'wechat', 'alipay', 'bank'};
+
+  @override
+  Future<void> setEnabledSources(Set<String> sources) async {}
 }
 
 abstract class QuickLedgerTransactionWriter {
@@ -107,38 +236,4 @@ class TransactionRepositoryQuickLedgerWriter
   Future<TransactionItem> create(TransactionFormData formData) {
     return _repository.create(formData);
   }
-}
-
-List<QuickLedgerDraft> _initialDrafts() {
-  final now = DateTime.now();
-  return [
-    QuickLedgerDraft(
-      id: 'draft-wechat-coffee',
-      source: QuickLedgerDraftSource.androidNotification,
-      sourceName: '微信支付',
-      type: TransactionType.expense,
-      amount: 38.9,
-      merchant: '瑞幸咖啡',
-      occurredAt: DateTime(now.year, now.month, now.day, 9, 18),
-      confidence: 0.92,
-      suggestedAccountName: '微信钱包',
-      suggestedCategoryName: '餐饮',
-      rawText: '微信支付收款方 瑞幸咖啡 ¥38.90',
-      notificationHash: 'wechat-coffee-3890',
-    ),
-    QuickLedgerDraft(
-      id: 'draft-alipay-transport',
-      source: QuickLedgerDraftSource.androidNotification,
-      sourceName: '支付宝',
-      type: TransactionType.expense,
-      amount: 12.0,
-      merchant: '地铁出行',
-      occurredAt: DateTime(now.year, now.month, now.day, 8, 42),
-      confidence: 0.88,
-      suggestedAccountName: '支付宝',
-      suggestedCategoryName: '交通',
-      rawText: '支付宝付款 地铁出行 12.00元',
-      notificationHash: 'alipay-transport-1200',
-    ),
-  ];
 }
