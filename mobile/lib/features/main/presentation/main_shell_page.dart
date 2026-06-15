@@ -87,7 +87,7 @@ class _QuickTransactionFab extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return FloatingActionButton(
       onPressed: onPressed,
-      tooltip: null,
+      tooltip: '记一笔',
       elevation: 1,
       focusElevation: 1,
       hoverElevation: 1,
