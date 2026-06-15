@@ -8,8 +8,11 @@ final statisticsRepositoryProvider = Provider<StatisticsRepository>((ref) {
   return StatisticsRepository(ref.watch(apiClientProvider));
 });
 
-final statisticsDashboardProvider = FutureProvider
-    .family<StatisticsDashboard, StatisticsDashboardQuery>((ref, query) {
+final statisticsDashboardProvider =
+    FutureProvider.family<StatisticsDashboard, StatisticsDashboardQuery>((
+      ref,
+      query,
+    ) {
       return ref.watch(statisticsRepositoryProvider).getDashboard(query);
     });
 
@@ -22,9 +25,13 @@ class StatisticsRepository {
     StatisticsDashboardQuery query,
   ) async {
     final results = await Future.wait<Object?>([
-      getOverview(query.month),
-      getTrend(query.month),
-      getCategoryStats(month: query.month, type: query.categoryType),
+      getOverview(query.month, period: query.period),
+      getTrend(query.month, period: query.period),
+      getCategoryStats(
+        month: query.month,
+        period: query.period,
+        type: query.categoryType,
+      ),
     ]);
 
     return StatisticsDashboard(
@@ -48,29 +55,40 @@ class StatisticsRepository {
     );
   }
 
-  Future<StatisticsOverviewData?> getOverview(String month) {
+  Future<StatisticsOverviewData?> getOverview(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) {
     return _apiClient.get<StatisticsOverviewData>(
       '/statistics/overview',
-      queryParameters: {'month': month},
+      queryParameters: {'month': month, 'period': period.apiValue},
       fromJsonT: StatisticsOverviewData.fromJson,
     );
   }
 
-  Future<TrendResponse?> getTrend(String month) {
+  Future<TrendResponse?> getTrend(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) {
     return _apiClient.get<TrendResponse>(
       '/statistics/trend',
-      queryParameters: {'month': month},
+      queryParameters: {'month': month, 'period': period.apiValue},
       fromJsonT: TrendResponse.fromJson,
     );
   }
 
   Future<CategoryStatResponse?> getCategoryStats({
     required String month,
+    StatisticsPeriod period = StatisticsPeriod.month,
     required String type,
   }) {
     return _apiClient.get<CategoryStatResponse>(
       '/statistics/categories',
-      queryParameters: {'month': month, 'type': type},
+      queryParameters: {
+        'month': month,
+        'period': period.apiValue,
+        'type': type,
+      },
       fromJsonT: CategoryStatResponse.fromJson,
     );
   }

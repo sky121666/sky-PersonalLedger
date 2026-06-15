@@ -262,7 +262,7 @@ const _aiReports = [
 
 class _FakeHomeRepository implements HomeRepository {
   @override
-  Future<HomeSummary> getSummary() async {
+  Future<HomeSummary> getSummary({HomeSummaryQuery? query}) async {
     return const HomeSummary(
       accounts: AccountListResponse(
         list: [

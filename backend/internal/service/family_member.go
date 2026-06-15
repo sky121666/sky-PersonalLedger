@@ -139,6 +139,8 @@ func (s *FamilyMemberService) Delete(id string, userID uint) error {
 
 type FamilySummaryResponse struct {
 	Month        string                `json:"month"`
+	Period       string                `json:"period"`
+	Label        string                `json:"label"`
 	TotalExpense float64               `json:"total_expense"`
 	Members      []FamilyMemberSummary `json:"members"`
 }
@@ -154,6 +156,8 @@ type FamilyMemberSummary struct {
 
 type FamilyStatisticsResponse struct {
 	Month        string                   `json:"month"`
+	Period       string                   `json:"period"`
+	Label        string                   `json:"label"`
 	TotalExpense float64                  `json:"total_expense"`
 	Members      []FamilyStatisticsMember `json:"members"`
 }
@@ -177,13 +181,19 @@ type FamilyStatisticsCategory struct {
 }
 
 func (s *FamilyMemberService) Summary(userID uint, month string) (*FamilySummaryResponse, error) {
-	startDate, endDate, normalizedMonth, err := familySummaryMonthRange(month)
+	return s.SummaryByPeriod(userID, month, "")
+}
+
+func (s *FamilyMemberService) SummaryByPeriod(userID uint, month, period string) (*FamilySummaryResponse, error) {
+	statRange, err := statisticsDateRange(month, period)
 	if err != nil {
 		return nil, err
 	}
 
 	response := &FamilySummaryResponse{
-		Month:   normalizedMonth,
+		Month:   familyRangeMonthLabel(statRange),
+		Period:  statRange.Period,
+		Label:   familyRangeDisplayLabel(statRange),
 		Members: []FamilyMemberSummary{},
 	}
 	if s.txRepo == nil {
@@ -199,7 +209,7 @@ func (s *FamilyMemberService) Summary(userID uint, month string) (*FamilySummary
 		memberByID[member.ID] = member
 	}
 
-	sums, err := s.txRepo.SumExpenseByMember(userID, startDate, endDate)
+	sums, err := s.txRepo.SumExpenseByMember(userID, statRange.Start, statRange.End)
 	if err != nil {
 		return nil, err
 	}
@@ -222,13 +232,19 @@ func (s *FamilyMemberService) Summary(userID uint, month string) (*FamilySummary
 }
 
 func (s *FamilyMemberService) Statistics(userID uint, month string) (*FamilyStatisticsResponse, error) {
-	startDate, endDate, normalizedMonth, err := familySummaryMonthRange(month)
+	return s.StatisticsByPeriod(userID, month, "")
+}
+
+func (s *FamilyMemberService) StatisticsByPeriod(userID uint, month, period string) (*FamilyStatisticsResponse, error) {
+	statRange, err := statisticsDateRange(month, period)
 	if err != nil {
 		return nil, err
 	}
 
 	response := &FamilyStatisticsResponse{
-		Month:   normalizedMonth,
+		Month:   familyRangeMonthLabel(statRange),
+		Period:  statRange.Period,
+		Label:   familyRangeDisplayLabel(statRange),
 		Members: []FamilyStatisticsMember{},
 	}
 	if s.txRepo == nil {
@@ -255,7 +271,7 @@ func (s *FamilyMemberService) Statistics(userID uint, month string) (*FamilyStat
 		}
 	}
 
-	sums, err := s.txRepo.SumExpenseByMember(userID, startDate, endDate)
+	sums, err := s.txRepo.SumExpenseByMember(userID, statRange.Start, statRange.End)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +294,7 @@ func (s *FamilyMemberService) Statistics(userID uint, month string) (*FamilyStat
 		})
 	}
 
-	categorySums, err := s.txRepo.SumExpenseByMemberAndCategory(userID, startDate, endDate)
+	categorySums, err := s.txRepo.SumExpenseByMemberAndCategory(userID, statRange.Start, statRange.End)
 	if err != nil {
 		return nil, err
 	}
@@ -316,4 +332,26 @@ func familySummaryMonthRange(month string) (time.Time, time.Time, string, error)
 	}
 	endDate := startDate.AddDate(0, 1, 0).Add(-time.Second)
 	return startDate, endDate, startDate.Format("2006-01"), nil
+}
+
+func familyRangeMonthLabel(statRange statisticsRange) string {
+	switch statRange.Period {
+	case "year":
+		return statRange.Start.Format("2006")
+	case "history":
+		return "往年"
+	default:
+		return statRange.Start.Format("2006-01")
+	}
+}
+
+func familyRangeDisplayLabel(statRange statisticsRange) string {
+	switch statRange.Period {
+	case "year":
+		return statRange.Start.Format("2006年")
+	case "history":
+		return "往年"
+	default:
+		return statRange.Start.Format("2006年1月")
+	}
 }

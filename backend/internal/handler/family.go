@@ -76,8 +76,9 @@ func (h *FamilyHandler) DeleteMember(c *gin.Context) {
 func (h *FamilyHandler) Summary(c *gin.Context) {
 	userID := c.GetUint("userID")
 	month := c.Query("month")
+	period := c.Query("period")
 
-	summary, err := h.memberService.Summary(userID, month)
+	summary, err := h.memberService.SummaryByPeriod(userID, month, period)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -88,8 +89,9 @@ func (h *FamilyHandler) Summary(c *gin.Context) {
 func (h *FamilyHandler) Statistics(c *gin.Context) {
 	userID := c.GetUint("userID")
 	month := c.Query("month")
+	period := c.Query("period")
 
-	statistics, err := h.memberService.Statistics(userID, month)
+	statistics, err := h.memberService.StatisticsByPeriod(userID, month, period)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

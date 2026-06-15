@@ -7,6 +7,7 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../budgets/data/budget_repository.dart';
+import '../../statistics/data/statistics_models.dart';
 import '../data/family_repository.dart';
 
 class FamilyPage extends ConsumerStatefulWidget {
@@ -18,12 +19,23 @@ class FamilyPage extends ConsumerStatefulWidget {
 
 class _FamilyPageState extends ConsumerState<FamilyPage> {
   var _submittingMember = false;
+  late DateTime _selectedMonth;
+  StatisticsPeriod _selectedPeriod = StatisticsPeriod.month;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month);
+  }
 
   void _invalidateFamilyData() {
     ref
       ..invalidate(familyMembersProvider)
       ..invalidate(familySummaryProvider)
+      ..invalidate(familySummaryByPeriodProvider)
       ..invalidate(familyStatisticsProvider)
+      ..invalidate(familyStatisticsByPeriodProvider)
       ..invalidate(memberBudgetsProvider);
   }
 
@@ -104,7 +116,11 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
   @override
   Widget build(BuildContext context) {
     final membersState = ref.watch(familyMembersProvider);
-    final summaryState = ref.watch(familySummaryProvider);
+    final query = FamilyPeriodQuery(
+      month: _formatPeriodMonth(_selectedMonth),
+      period: _selectedPeriod,
+    );
+    final summaryState = ref.watch(familySummaryByPeriodProvider(query));
     final memberBudgetsState = ref.watch(memberBudgetsProvider);
     return Scaffold(
       appBar: AppBar(
@@ -130,10 +146,13 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
               return const _FamilyEmptyState();
             }
             final summary = summaryState.valueOrNull;
-            final statisticsState = ref.watch(familyStatisticsProvider);
+            final statisticsState = ref.watch(
+              familyStatisticsByPeriodProvider(query),
+            );
             final statistics = statisticsState.valueOrNull;
             return _FamilyBody(
               members: members,
+              selectedPeriod: _selectedPeriod,
               summary: summary,
               loadingSummary: summaryState.isLoading,
               summaryHasError: summaryState.hasError,
@@ -141,6 +160,9 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
               statistics: statistics,
               statisticsHasError: statisticsState.hasError,
               submitting: _submittingMember,
+              onPeriodChanged: (value) {
+                setState(() => _selectedPeriod = value);
+              },
               onEdit: _showMemberSheet,
               onDisable: _disableMember,
             );
@@ -154,6 +176,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
 class _FamilyBody extends StatelessWidget {
   const _FamilyBody({
     required this.members,
+    required this.selectedPeriod,
     required this.summary,
     required this.loadingSummary,
     required this.summaryHasError,
@@ -161,11 +184,13 @@ class _FamilyBody extends StatelessWidget {
     required this.statistics,
     required this.statisticsHasError,
     required this.submitting,
+    required this.onPeriodChanged,
     required this.onEdit,
     required this.onDisable,
   });
 
   final List<FamilyMember> members;
+  final StatisticsPeriod selectedPeriod;
   final FamilySummary? summary;
   final bool loadingSummary;
   final bool summaryHasError;
@@ -173,6 +198,7 @@ class _FamilyBody extends StatelessWidget {
   final FamilyStatistics? statistics;
   final bool statisticsHasError;
   final bool submitting;
+  final ValueChanged<StatisticsPeriod> onPeriodChanged;
   final ValueChanged<FamilyMember> onEdit;
   final ValueChanged<FamilyMember> onDisable;
 
@@ -190,8 +216,10 @@ class _FamilyBody extends StatelessWidget {
           child: switch (row.kind) {
             _FamilyRowKind.summary => _FamilySummaryHeader(
               members: members,
+              selectedPeriod: selectedPeriod,
               summary: summary,
               loadingSummary: loadingSummary,
+              onPeriodChanged: onPeriodChanged,
             ),
             _FamilyRowKind.sectionTitle => _FamilySectionTitle(
               title: row.title!,
@@ -328,19 +356,25 @@ class _FamilyEmptyState extends StatelessWidget {
 class _FamilySummaryHeader extends StatelessWidget {
   const _FamilySummaryHeader({
     required this.members,
+    required this.selectedPeriod,
     required this.summary,
     required this.loadingSummary,
+    required this.onPeriodChanged,
   });
 
   final List<FamilyMember> members;
+  final StatisticsPeriod selectedPeriod;
   final FamilySummary? summary;
   final bool loadingSummary;
+  final ValueChanged<StatisticsPeriod> onPeriodChanged;
 
   @override
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
     final enabledCount = members.where((member) => member.isEnabled).length;
-    final month = summary?.month.isNotEmpty == true ? summary!.month : '本月';
+    final periodLabel = summary?.label.isNotEmpty == true
+        ? summary!.label
+        : selectedPeriod.label;
     return PremiumSurface(
       accentColor: financeColors.warning,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
@@ -348,10 +382,22 @@ class _FamilySummaryHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$month 家庭支出',
+            '$periodLabel 家庭支出',
             style: Theme.of(
               context,
             ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<StatisticsPeriod>(
+            key: const ValueKey('family-period-selector'),
+            segments: const [
+              ButtonSegment(value: StatisticsPeriod.month, label: Text('当月')),
+              ButtonSegment(value: StatisticsPeriod.year, label: Text('今年')),
+              ButtonSegment(value: StatisticsPeriod.history, label: Text('往年')),
+            ],
+            selected: {selectedPeriod},
+            showSelectedIcon: false,
+            onSelectionChanged: (values) => onPeriodChanged(values.first),
           ),
           const SizedBox(height: 8),
           Text(
@@ -1217,4 +1263,9 @@ Color _budgetStatusColor(BuildContext context, double percentage) {
 
 String _formatMoney(double value) {
   return '¥${value.toStringAsFixed(2)}';
+}
+
+String _formatPeriodMonth(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  return '${date.year}-$month';
 }

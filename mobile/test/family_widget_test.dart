@@ -6,6 +6,7 @@ import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/budgets/data/budget_repository.dart';
 import 'package:personal_ledger/features/family/data/family_repository.dart';
 import 'package:personal_ledger/features/family/presentation/family_page.dart';
+import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 
 void main() {
   testWidgets('FamilyPage 展示家庭成员数据', (tester) async {
@@ -34,9 +35,10 @@ void main() {
               ),
             ];
           }),
-          familySummaryProvider.overrideWith((ref) async {
+          familySummaryByPeriodProvider.overrideWith((ref, query) async {
             return const FamilySummary(
               month: '2026-05',
+              label: '2026年5月',
               totalExpense: 320,
               members: [
                 FamilyMemberSummary(
@@ -58,9 +60,10 @@ void main() {
               ],
             );
           }),
-          familyStatisticsProvider.overrideWith((ref) async {
+          familyStatisticsByPeriodProvider.overrideWith((ref, query) async {
             return const FamilyStatistics(
               month: '2026-05',
+              label: '2026年5月',
               totalExpense: 320,
               members: [
                 FamilyStatisticsMember(
@@ -108,7 +111,11 @@ void main() {
     expect(find.text('家庭成员'), findsOneWidget);
     expect(find.text('协同中'), findsNothing);
     expect(find.text('已汇总'), findsNothing);
-    expect(find.text('2026-05 家庭支出'), findsOneWidget);
+    expect(find.text('2026年5月 家庭支出'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('family-period-selector')),
+      findsOneWidget,
+    );
     expect(find.text('¥320.00'), findsAtLeastNWidgets(1));
     expect(find.text('家庭协同中枢'), findsNothing);
     expect(find.textContaining('成员、预算、分类归属统一展示'), findsNothing);
@@ -347,18 +354,26 @@ class _FakeFamilyRepository implements FamilyRepository {
   }
 
   @override
-  Future<FamilySummary> getSummary({String? month}) async {
+  Future<FamilySummary> getSummary({
+    String? month,
+    FamilyPeriodQuery? query,
+  }) async {
     return FamilySummary(
-      month: month ?? '2026-05',
+      month: query?.month ?? month ?? '2026-05',
+      period: query?.period ?? StatisticsPeriod.month,
       totalExpense: 0,
       members: const [],
     );
   }
 
   @override
-  Future<FamilyStatistics> getStatistics({String? month}) async {
+  Future<FamilyStatistics> getStatistics({
+    String? month,
+    FamilyPeriodQuery? query,
+  }) async {
     return FamilyStatistics(
-      month: month ?? '2026-05',
+      month: query?.month ?? month ?? '2026-05',
+      period: query?.period ?? StatisticsPeriod.month,
       totalExpense: 0,
       members: const [],
     );

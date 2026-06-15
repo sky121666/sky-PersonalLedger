@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../statistics/data/statistics_models.dart';
 import '../../transactions/data/transaction_models.dart';
 
 const debtAccountTypes = <String>{
@@ -188,6 +189,26 @@ class HomeSummary {
   final FamilyHomeSummary familySummary;
 }
 
+class HomeSummaryQuery {
+  const HomeSummaryQuery({
+    required this.month,
+    this.period = StatisticsPeriod.month,
+  });
+
+  final String month;
+  final StatisticsPeriod period;
+
+  @override
+  bool operator ==(Object other) {
+    return other is HomeSummaryQuery &&
+        other.month == month &&
+        other.period == period;
+  }
+
+  @override
+  int get hashCode => Object.hash(month, period);
+}
+
 class FamilyHomeSummary {
   const FamilyHomeSummary({
     required this.month,
@@ -279,7 +300,8 @@ class HomeRepository {
   );
 
   /// 获取首页需要的账户、统计、预算和最近交易数据。
-  Future<HomeSummary> getSummary() async {
+  Future<HomeSummary> getSummary({HomeSummaryQuery? query}) async {
+    final periodQuery = queryParametersForPeriod(query);
     final results = await Future.wait<Object?>([
       _apiClient.get<AccountListResponse>(
         '/accounts',
@@ -288,13 +310,14 @@ class HomeRepository {
       ),
       _apiClient.get<StatisticsOverview>(
         '/statistics/overview',
+        queryParameters: periodQuery,
         fromJsonT: StatisticsOverview.fromJson,
       ),
       _apiClient.get<BudgetSummary>(
         '/budgets/summary',
         fromJsonT: BudgetSummary.fromJson,
       ),
-      _getFamilySummaryOrEmpty(),
+      _getFamilySummaryOrEmpty(query),
       listRecentTransactions(),
     ]);
 
@@ -309,10 +332,13 @@ class HomeRepository {
     );
   }
 
-  Future<FamilyHomeSummary> _getFamilySummaryOrEmpty() async {
+  Future<FamilyHomeSummary> _getFamilySummaryOrEmpty(
+    HomeSummaryQuery? query,
+  ) async {
     try {
       return await _apiClient.get<FamilyHomeSummary>(
             '/family/summary',
+            queryParameters: queryParametersForPeriod(query),
             fromJsonT: FamilyHomeSummary.fromJson,
           ) ??
           const FamilyHomeSummary.empty();
@@ -361,6 +387,11 @@ final homeSummaryProvider = FutureProvider<HomeSummary>((ref) {
   return ref.watch(homeRepositoryProvider).getSummary();
 });
 
+final homeSummaryByPeriodProvider =
+    FutureProvider.family<HomeSummary, HomeSummaryQuery>((ref, query) {
+      return ref.watch(homeRepositoryProvider).getSummary(query: query);
+    });
+
 final homeDateTransactionsProvider =
     FutureProvider.family<List<TransactionItem>, DateTime>((ref, date) {
       return ref.watch(homeRepositoryProvider).listTransactionsForDate(date);
@@ -381,4 +412,11 @@ String _formatDate(DateTime date) {
   final month = date.month.toString().padLeft(2, '0');
   final day = date.day.toString().padLeft(2, '0');
   return '${date.year}-$month-$day';
+}
+
+Map<String, String>? queryParametersForPeriod(HomeSummaryQuery? query) {
+  if (query == null) {
+    return null;
+  }
+  return {'month': query.month, 'period': query.period.apiValue};
 }

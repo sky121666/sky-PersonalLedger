@@ -22,8 +22,9 @@ func NewStatisticsHandler(s *service.StatisticsService) *StatisticsHandler {
 func (h *StatisticsHandler) Overview(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	month := c.Query("month")
+	period := c.Query("period")
 
-	result, err := h.service.GetOverview(userID, month)
+	result, err := h.service.GetOverviewByPeriod(userID, month, period)
 	if err != nil {
 		if handleStatisticsRequestError(c, err) {
 			return
@@ -38,9 +39,10 @@ func (h *StatisticsHandler) Overview(c *gin.Context) {
 func (h *StatisticsHandler) Categories(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	month := c.Query("month")
+	period := c.Query("period")
 	txType := c.Query("type")
 
-	result, err := h.service.GetCategoryStats(userID, month, txType)
+	result, err := h.service.GetCategoryStatsByPeriod(userID, month, period, txType)
 	if err != nil {
 		if handleStatisticsRequestError(c, err) {
 			return
@@ -55,8 +57,9 @@ func (h *StatisticsHandler) Categories(c *gin.Context) {
 func (h *StatisticsHandler) Trend(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	month := c.Query("month")
+	period := c.Query("period")
 
-	result, err := h.service.GetTrend(userID, month)
+	result, err := h.service.GetTrendByPeriod(userID, month, period)
 	if err != nil {
 		if handleStatisticsRequestError(c, err) {
 			return

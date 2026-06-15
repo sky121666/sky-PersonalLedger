@@ -20,6 +20,7 @@ class MobileStatisticsPage extends ConsumerStatefulWidget {
 
 class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
   late DateTime _selectedMonth;
+  StatisticsPeriod _selectedPeriod = StatisticsPeriod.month;
   String _categoryType = 'expense';
 
   @override
@@ -33,6 +34,7 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
   Widget build(BuildContext context) {
     final query = StatisticsDashboardQuery(
       month: _formatMonth(_selectedMonth),
+      period: _selectedPeriod,
       categoryType: _categoryType,
     );
     final dashboardState = ref.watch(statisticsDashboardProvider(query));
@@ -52,9 +54,13 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
           dashboard: dashboard,
           themeSettings: themeSettings,
           selectedMonth: _selectedMonth,
+          selectedPeriod: _selectedPeriod,
           categoryType: _categoryType,
           onPreviousMonth: _goPreviousMonth,
           onNextMonth: _canGoNextMonth ? _goNextMonth : null,
+          onPeriodChanged: (value) {
+            setState(() => _selectedPeriod = value);
+          },
           onCategoryTypeChanged: (value) {
             setState(() => _categoryType = value);
           },
@@ -66,14 +72,24 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
   }
 
   bool get _canGoNextMonth {
+    if (_selectedPeriod == StatisticsPeriod.history) {
+      return false;
+    }
     final now = DateTime.now();
-    final currentMonth = DateTime(now.year, now.month);
-    return _selectedMonth.isBefore(currentMonth);
+    final currentAnchor = _selectedPeriod == StatisticsPeriod.year
+        ? DateTime(now.year)
+        : DateTime(now.year, now.month);
+    final selectedAnchor = _selectedPeriod == StatisticsPeriod.year
+        ? DateTime(_selectedMonth.year)
+        : _selectedMonth;
+    return selectedAnchor.isBefore(currentAnchor);
   }
 
   void _goPreviousMonth() {
     setState(() {
-      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
+      _selectedMonth = _selectedPeriod == StatisticsPeriod.year
+          ? DateTime(_selectedMonth.year - 1, _selectedMonth.month)
+          : DateTime(_selectedMonth.year, _selectedMonth.month - 1);
     });
   }
 
@@ -82,7 +98,9 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
       return;
     }
     setState(() {
-      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
+      _selectedMonth = _selectedPeriod == StatisticsPeriod.year
+          ? DateTime(_selectedMonth.year + 1, _selectedMonth.month)
+          : DateTime(_selectedMonth.year, _selectedMonth.month + 1);
     });
   }
 }
@@ -92,9 +110,11 @@ class _StatisticsContent extends StatelessWidget {
     required this.dashboard,
     required this.themeSettings,
     required this.selectedMonth,
+    required this.selectedPeriod,
     required this.categoryType,
     required this.onPreviousMonth,
     required this.onNextMonth,
+    required this.onPeriodChanged,
     required this.onCategoryTypeChanged,
     required this.onRefresh,
   });
@@ -102,9 +122,11 @@ class _StatisticsContent extends StatelessWidget {
   final StatisticsDashboard dashboard;
   final AppThemeSettings themeSettings;
   final DateTime selectedMonth;
+  final StatisticsPeriod selectedPeriod;
   final String categoryType;
   final VoidCallback onPreviousMonth;
   final VoidCallback? onNextMonth;
+  final ValueChanged<StatisticsPeriod> onPeriodChanged;
   final ValueChanged<String> onCategoryTypeChanged;
   final Future<void> Function() onRefresh;
 
@@ -114,16 +136,21 @@ class _StatisticsContent extends StatelessWidget {
       _StatisticsRow(
         _MonthHeader(
           selectedMonth: selectedMonth,
+          selectedPeriod: selectedPeriod,
           overview: dashboard.overview,
           settings: themeSettings,
           onPreviousMonth: onPreviousMonth,
           onNextMonth: onNextMonth,
+          onPeriodChanged: onPeriodChanged,
         ),
       ),
-      _StatisticsRow(_TrendCard(trend: dashboard.trend)),
+      _StatisticsRow(
+        _TrendCard(trend: dashboard.trend, period: selectedPeriod),
+      ),
       _StatisticsRow(
         _CategoryRankCard(
           response: dashboard.categories,
+          period: selectedPeriod,
           categoryType: categoryType,
           onCategoryTypeChanged: onCategoryTypeChanged,
         ),
@@ -220,24 +247,32 @@ class _StatisticsLoadingView extends StatelessWidget {
 class _MonthHeader extends StatelessWidget {
   const _MonthHeader({
     required this.selectedMonth,
+    required this.selectedPeriod,
     required this.overview,
     required this.settings,
     required this.onPreviousMonth,
     required this.onNextMonth,
+    required this.onPeriodChanged,
   });
 
   final DateTime selectedMonth;
+  final StatisticsPeriod selectedPeriod;
   final StatisticsOverviewData overview;
   final AppThemeSettings settings;
   final VoidCallback onPreviousMonth;
   final VoidCallback? onNextMonth;
+  final ValueChanged<StatisticsPeriod> onPeriodChanged;
 
   @override
   Widget build(BuildContext context) {
     final palette = settings.palette;
     final financeColors = AppTheme.financeColors(context);
-    final previousMonth = DateTime(selectedMonth.year, selectedMonth.month - 1);
-    final nextMonth = DateTime(selectedMonth.year, selectedMonth.month + 1);
+    final previousAnchor = selectedPeriod == StatisticsPeriod.year
+        ? DateTime(selectedMonth.year - 1, selectedMonth.month)
+        : DateTime(selectedMonth.year, selectedMonth.month - 1);
+    final nextAnchor = selectedPeriod == StatisticsPeriod.year
+        ? DateTime(selectedMonth.year + 1, selectedMonth.month)
+        : DateTime(selectedMonth.year, selectedMonth.month + 1);
     final balanceColor = overview.balance >= 0
         ? financeColors.income
         : financeColors.expense;
@@ -254,31 +289,47 @@ class _MonthHeader extends StatelessWidget {
             color: balanceColor,
           ),
           const SizedBox(height: 6),
+          SegmentedButton<StatisticsPeriod>(
+            key: const ValueKey('statistics-period-selector'),
+            segments: const [
+              ButtonSegment(value: StatisticsPeriod.month, label: Text('当月')),
+              ButtonSegment(value: StatisticsPeriod.year, label: Text('今年')),
+              ButtonSegment(value: StatisticsPeriod.history, label: Text('往年')),
+            ],
+            selected: {selectedPeriod},
+            showSelectedIcon: false,
+            onSelectionChanged: (values) => onPeriodChanged(values.first),
+          ),
+          const SizedBox(height: 6),
           Row(
             children: [
               IconButton(
                 key: ValueKey(
-                  'statistics-previous-month-${previousMonth.year}-${previousMonth.month.toString().padLeft(2, '0')}',
+                  'statistics-previous-period-${previousAnchor.year}-${previousAnchor.month.toString().padLeft(2, '0')}',
                 ),
-                onPressed: onPreviousMonth,
+                onPressed: selectedPeriod == StatisticsPeriod.history
+                    ? null
+                    : onPreviousMonth,
                 icon: const Icon(Icons.chevron_left),
-                tooltip: '切换到 ${_formatMonthLabel(previousMonth)}',
+                tooltip:
+                    '切换到 ${_periodAnchorLabel(previousAnchor, selectedPeriod)}',
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: _StatisticsPeriodCard(
-                  monthLabel: _formatMonthLabel(selectedMonth),
+                  monthLabel: _periodAnchorLabel(selectedMonth, selectedPeriod),
                   color: balanceColor,
                 ),
               ),
               const SizedBox(width: 6),
               IconButton(
                 key: ValueKey(
-                  'statistics-next-month-${nextMonth.year}-${nextMonth.month.toString().padLeft(2, '0')}',
+                  'statistics-next-period-${nextAnchor.year}-${nextAnchor.month.toString().padLeft(2, '0')}',
                 ),
                 onPressed: onNextMonth,
                 icon: const Icon(Icons.chevron_right),
-                tooltip: '切换到 ${_formatMonthLabel(nextMonth)}',
+                tooltip:
+                    '切换到 ${_periodAnchorLabel(nextAnchor, selectedPeriod)}',
               ),
             ],
           ),
@@ -452,9 +503,10 @@ class _StatisticsAmountPill extends StatelessWidget {
 }
 
 class _TrendCard extends StatelessWidget {
-  const _TrendCard({required this.trend});
+  const _TrendCard({required this.trend, required this.period});
 
   final TrendResponse trend;
+  final StatisticsPeriod period;
 
   @override
   Widget build(BuildContext context) {
@@ -489,7 +541,7 @@ class _TrendCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (items.isEmpty)
-            const _EmptyLine(text: '本月还没有趋势')
+            _EmptyLine(text: '${period.label}还没有趋势')
           else
             RoundedBarChart(
               maxValue: maxAmount,
@@ -497,7 +549,7 @@ class _TrendCard extends StatelessWidget {
               items: [
                 for (final item in items)
                   RoundedBarChartItem(
-                    label: _dayLabel(item.date),
+                    label: _trendLabel(item.date, period),
                     primaryValue: item.income,
                     secondaryValue: item.expense,
                     primaryColor: financeColors.income,
@@ -554,11 +606,13 @@ class _LegendDot extends StatelessWidget {
 class _CategoryRankCard extends StatelessWidget {
   const _CategoryRankCard({
     required this.response,
+    required this.period,
     required this.categoryType,
     required this.onCategoryTypeChanged,
   });
 
   final CategoryStatResponse response;
+  final StatisticsPeriod period;
   final String categoryType;
   final ValueChanged<String> onCategoryTypeChanged;
 
@@ -604,7 +658,7 @@ class _CategoryRankCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (response.items.isEmpty)
-            const _EmptyLine(text: '本月还没有分类')
+            _EmptyLine(text: '${period.label}还没有分类')
           else ...[
             for (final item in response.items.take(5).indexed)
               CategoryRankTile(
@@ -681,12 +735,31 @@ String _formatMonthLabel(DateTime date) {
   return '${date.year}年${date.month}月';
 }
 
+String _periodAnchorLabel(DateTime date, StatisticsPeriod period) {
+  return switch (period) {
+    StatisticsPeriod.month => _formatMonthLabel(date),
+    StatisticsPeriod.year => '${date.year}年',
+    StatisticsPeriod.history => '${date.year}年前',
+  };
+}
+
 String _dayLabel(String value) {
   final date = DateTime.tryParse(value);
   if (date == null) {
     return value.length >= 2 ? value.substring(value.length - 2) : value;
   }
   return date.day.toString();
+}
+
+String _trendLabel(String value, StatisticsPeriod period) {
+  if (period == StatisticsPeriod.month) {
+    return _dayLabel(value);
+  }
+  if (period == StatisticsPeriod.year) {
+    final parts = value.split('-');
+    return parts.length >= 2 ? '${int.tryParse(parts[1]) ?? parts[1]}月' : value;
+  }
+  return value.length >= 4 ? value.substring(0, 4) : value;
 }
 
 Color _parseColor(String value, Color fallback) {

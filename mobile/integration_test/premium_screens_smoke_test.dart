@@ -2310,7 +2310,7 @@ class _FakeApiTokenRepository implements ApiTokenRepository {
 
 class _FakeHomeRepository implements HomeRepository {
   @override
-  Future<HomeSummary> getSummary() async {
+  Future<HomeSummary> getSummary({HomeSummaryQuery? query}) async {
     return const HomeSummary(
       accounts: AccountListResponse(
         list: [
@@ -2983,18 +2983,25 @@ class _FakeStatisticsRepository implements StatisticsRepository {
   @override
   Future<CategoryStatResponse?> getCategoryStats({
     required String month,
+    StatisticsPeriod period = StatisticsPeriod.month,
     required String type,
   }) async {
     return _statisticsDashboard.categories;
   }
 
   @override
-  Future<StatisticsOverviewData?> getOverview(String month) async {
+  Future<StatisticsOverviewData?> getOverview(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) async {
     return _statisticsDashboard.overview;
   }
 
   @override
-  Future<TrendResponse?> getTrend(String month) async {
+  Future<TrendResponse?> getTrend(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) async {
     return _statisticsDashboard.trend;
   }
 }

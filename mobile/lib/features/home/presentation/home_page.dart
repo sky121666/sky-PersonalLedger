@@ -10,6 +10,7 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/ledger_icon.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../transactions/data/transaction_models.dart';
+import '../../statistics/data/statistics_models.dart';
 import '../data/home_repository.dart';
 import 'widgets/home_dashboard_widgets.dart';
 
@@ -21,10 +22,24 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
+  late DateTime _selectedMonth;
+  StatisticsPeriod _selectedPeriod = StatisticsPeriod.month;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month);
+  }
+
   /// 构建首页概览页面。
   @override
   Widget build(BuildContext context) {
-    final summaryState = ref.watch(homeSummaryProvider);
+    final query = HomeSummaryQuery(
+      month: _formatPeriodMonth(_selectedMonth),
+      period: _selectedPeriod,
+    );
+    final summaryState = ref.watch(homeSummaryByPeriodProvider(query));
 
     return Scaffold(
       appBar: AppBar(title: const Text('首页')),
@@ -32,12 +47,18 @@ class _HomePageState extends ConsumerState<HomePage> {
         loading: () => const AppLoadingView(message: '正在加载首页数据...'),
         error: (error, stackTrace) => _HomeErrorView(
           message: '首页数据加载失败',
-          onRefresh: () => ref.refresh(homeSummaryProvider.future),
-          onRetry: () => ref.invalidate(homeSummaryProvider),
+          onRefresh: () =>
+              ref.refresh(homeSummaryByPeriodProvider(query).future),
+          onRetry: () => ref.invalidate(homeSummaryByPeriodProvider(query)),
         ),
         data: (summary) => _HomeContent(
           summary: summary,
-          onRefresh: () => ref.refresh(homeSummaryProvider.future),
+          selectedPeriod: _selectedPeriod,
+          onPeriodChanged: (value) {
+            setState(() => _selectedPeriod = value);
+          },
+          onRefresh: () =>
+              ref.refresh(homeSummaryByPeriodProvider(query).future),
         ),
       ),
     );
@@ -45,9 +66,16 @@ class _HomePageState extends ConsumerState<HomePage> {
 }
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent({required this.summary, required this.onRefresh});
+  const _HomeContent({
+    required this.summary,
+    required this.selectedPeriod,
+    required this.onPeriodChanged,
+    required this.onRefresh,
+  });
 
   final HomeSummary summary;
+  final StatisticsPeriod selectedPeriod;
+  final ValueChanged<StatisticsPeriod> onPeriodChanged;
   final Future<void> Function() onRefresh;
 
   /// 构建首页数据内容。
@@ -61,7 +89,13 @@ class _HomeContent extends StatelessWidget {
     ).take(2).toList();
     final rows = [
       _HomeRow(_NetAssetsCard(accounts: summary.accounts)),
-      _HomeRow(_MonthlyOverviewCard(overview: summary.overview)),
+      _HomeRow(
+        _MonthlyOverviewCard(
+          overview: summary.overview,
+          selectedPeriod: selectedPeriod,
+          onPeriodChanged: onPeriodChanged,
+        ),
+      ),
       const _HomeRow(_HomeActionRail()),
       _HomeRow(
         _TransactionsOverviewCard(recentItems: summary.recentTransactions),
@@ -500,9 +534,15 @@ class _InlineFinanceMetric extends StatelessWidget {
 }
 
 class _MonthlyOverviewCard extends StatelessWidget {
-  const _MonthlyOverviewCard({required this.overview});
+  const _MonthlyOverviewCard({
+    required this.overview,
+    required this.selectedPeriod,
+    required this.onPeriodChanged,
+  });
 
   final StatisticsOverview overview;
+  final StatisticsPeriod selectedPeriod;
+  final ValueChanged<StatisticsPeriod> onPeriodChanged;
 
   /// 构建本月收支卡片。
   @override
@@ -522,7 +562,7 @@ class _MonthlyOverviewCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '本月现金流',
+                  '${selectedPeriod.label}现金流',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
@@ -536,6 +576,18 @@ class _MonthlyOverviewCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          SegmentedButton<StatisticsPeriod>(
+            key: const ValueKey('home-period-selector'),
+            segments: const [
+              ButtonSegment(value: StatisticsPeriod.month, label: Text('当月')),
+              ButtonSegment(value: StatisticsPeriod.year, label: Text('今年')),
+              ButtonSegment(value: StatisticsPeriod.history, label: Text('往年')),
+            ],
+            selected: {selectedPeriod},
+            showSelectedIcon: false,
+            onSelectionChanged: (values) => onPeriodChanged(values.first),
           ),
           const SizedBox(height: 10),
           Row(
@@ -640,7 +692,7 @@ class _CashFlowBar extends StatelessWidget {
 
     if (totalFlow <= 0) {
       return Text(
-        '本月无现金流',
+        '暂无现金流',
         style: Theme.of(
           context,
         ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
@@ -671,6 +723,11 @@ class _CashFlowBar extends StatelessWidget {
       ],
     );
   }
+}
+
+String _formatPeriodMonth(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  return '${date.year}-$month';
 }
 
 class _BudgetSummaryCard extends StatelessWidget {

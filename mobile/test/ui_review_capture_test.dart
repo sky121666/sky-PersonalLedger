@@ -36,9 +36,14 @@ final _boundaryKey = GlobalKey();
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   if (!_runUiReviewCapture) {
-    test('UI review capture is disabled in default run', () {
-      return;
-    }, skip: 'Set --dart-define=RUN_UI_REVIEW_CAPTURE=true to run capture tests.');
+    test(
+      'UI review capture is disabled in default run',
+      () {
+        return;
+      },
+      skip:
+          'Set --dart-define=RUN_UI_REVIEW_CAPTURE=true to run capture tests.',
+    );
     return;
   }
 
@@ -57,10 +62,7 @@ void main() {
             ),
           ],
           child: _host(
-            MaterialApp(
-              theme: AppTheme.lightTheme(),
-              home: const HomePage(),
-            ),
+            MaterialApp(theme: AppTheme.lightTheme(), home: const HomePage()),
           ),
         ),
       );
@@ -122,7 +124,9 @@ void main() {
             themeControllerProvider.overrideWith(
               (ref) => _FixedThemeController(AppThemePalette.teal),
             ),
-            accountRepositoryProvider.overrideWithValue(_FakeAccountRepository()),
+            accountRepositoryProvider.overrideWithValue(
+              _FakeAccountRepository(),
+            ),
           ],
           child: _host(
             MaterialApp(
@@ -158,10 +162,12 @@ Future<void> _capture(WidgetTester tester, String name) async {
   if (boundary == null) {
     throw StateError('screenshot boundary is not mounted');
   }
-  final image = await boundary.toImage(pixelRatio: 1).timeout(
-    const Duration(seconds: 8),
-    onTimeout: () => throw TimeoutException('screenshot capture timeout'),
-  );
+  final image = await boundary
+      .toImage(pixelRatio: 1)
+      .timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => throw TimeoutException('screenshot capture timeout'),
+      );
   final data = await image.toByteData(format: ui.ImageByteFormat.png);
   if (data == null) {
     throw StateError('failed to encode screenshot');
@@ -198,7 +204,9 @@ class _FixedThemeController extends ThemeController {
 
 class _FakeHomeRepository implements home_data.HomeRepository {
   @override
-  Future<home_data.HomeSummary> getSummary() async => home_data.HomeSummary(
+  Future<home_data.HomeSummary> getSummary({
+    home_data.HomeSummaryQuery? query,
+  }) async => home_data.HomeSummary(
     accounts: const home_data.AccountListResponse(
       list: [
         home_data.Account(
@@ -386,16 +394,16 @@ class _FakeLendingRepository implements LendingRepository {
 
   @override
   Future<LendingSummary?> summaryOverview() async => const LendingSummary(
-      totalLendOut: 2000,
-      totalBorrowIn: 1500,
-      activeLendOut: 1,
-      activeBorrowIn: 1,
-      settledLendOut: 0,
-      settledBorrowIn: 0,
-      totalReceivable: 1200,
-      totalPayable: 900,
-      netLending: 300,
-    );
+    totalLendOut: 2000,
+    totalBorrowIn: 1500,
+    activeLendOut: 1,
+    activeBorrowIn: 1,
+    settledLendOut: 0,
+    settledBorrowIn: 0,
+    totalReceivable: 1200,
+    totalPayable: 900,
+    netLending: 300,
+  );
 
   @override
   Future<LendingItem?> update(String id, UpdateLendingRequest request) async =>
@@ -485,13 +493,12 @@ class _FakeAttachmentRepository implements AttachmentRepository {
     required String category,
     required String refId,
     void Function(int sent, int total)? onSendProgress,
-  }) async =>
-      LedgerAttachment(
-        path: '$category/$refId/${file.name}',
-        filename: file.name,
-        size: 0,
-        mimeType: 'image/png',
-      );
+  }) async => LedgerAttachment(
+    path: '$category/$refId/${file.name}',
+    filename: file.name,
+    size: 0,
+    mimeType: 'image/png',
+  );
 }
 
 class _EmptyAttachmentPickerService implements AttachmentPickerService {

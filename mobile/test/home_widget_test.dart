@@ -80,7 +80,14 @@ void main() {
       final container = ProviderScope.containerOf(
         tester.element(find.byType(HomePage)),
       );
-      container.invalidate(homeSummaryProvider);
+      final now = DateTime.now();
+      container.invalidate(
+        homeSummaryByPeriodProvider(
+          HomeSummaryQuery(
+            month: '${now.year}-${now.month.toString().padLeft(2, '0')}',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(repository.summaryCalls, 2);
@@ -133,7 +140,11 @@ void main() {
       expect(find.text('预算输入'), findsNothing);
       expect(find.text('AI 输入就绪'), findsNothing);
       expect(find.text('家庭数据在线'), findsNothing);
-      expect(find.text('本月现金流'), findsOneWidget);
+      expect(find.text('当月现金流'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-period-selector')),
+        findsOneWidget,
+      );
       expect(find.text('最近交易'), findsOneWidget);
       expect(find.text('当日交易'), findsNothing);
       expect(find.byKey(const ValueKey('profile-logout')), findsNothing);
@@ -404,7 +415,7 @@ class _FakeHomeRepository implements HomeRepository {
   var dateTransactionCalls = 0;
 
   @override
-  Future<HomeSummary> getSummary() async {
+  Future<HomeSummary> getSummary({HomeSummaryQuery? query}) async {
     summaryCalls += 1;
     if (summaryErrors > 0) {
       summaryErrors -= 1;

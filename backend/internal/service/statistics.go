@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"time"
 
 	"github.com/sky/personal-ledger/internal/repository"
@@ -31,28 +32,23 @@ type OverviewResponse struct {
 }
 
 func (s *StatisticsService) GetOverview(userID uint, month string) (*OverviewResponse, error) {
-	var startDate, endDate time.Time
-	if month != "" {
-		t, err := time.Parse("2006-01", month)
-		if err != nil {
-			return nil, err
-		}
-		startDate = t
-		endDate = t.AddDate(0, 1, 0).Add(-time.Second)
-	} else {
-		now := time.Now()
-		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
-		endDate = startDate.AddDate(0, 1, 0).Add(-time.Second)
+	return s.GetOverviewByPeriod(userID, month, "")
+}
+
+func (s *StatisticsService) GetOverviewByPeriod(userID uint, month, period string) (*OverviewResponse, error) {
+	statRange, err := statisticsDateRange(month, period)
+	if err != nil {
+		return nil, err
 	}
+	startDate := statRange.Start
+	endDate := statRange.End
 
 	currentSum, err := s.txRepo.SumByDateRange(userID, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 
-	// Previous month for comparison
-	prevStart := startDate.AddDate(0, -1, 0)
-	prevEnd := startDate.Add(-time.Second)
+	prevStart, prevEnd := statRange.Previous()
 	prevSum, err := s.txRepo.SumByDateRange(userID, prevStart, prevEnd)
 	if err != nil {
 		return nil, err
@@ -65,16 +61,10 @@ func (s *StatisticsService) GetOverview(userID uint, month string) (*OverviewRes
 		TransactionCount: currentSum.Count,
 	}
 
-	// Calculate daily average
-	daysInMonth := endDate.Day()
-	if time.Now().Before(endDate) {
-		daysInMonth = time.Now().Day()
+	daysInPeriod := statRange.ElapsedDays()
+	if daysInPeriod > 0 {
+		response.DailyAverage = currentSum.Expense / float64(daysInPeriod)
 	}
-	if daysInMonth > 0 {
-		response.DailyAverage = currentSum.Expense / float64(daysInMonth)
-	}
-
-	// Calculate change percentages
 	if prevSum != nil && prevSum.Income > 0 {
 		response.IncomeChange = (currentSum.Income - prevSum.Income) / prevSum.Income * 100
 	}
@@ -114,21 +104,23 @@ type TrendResponse struct {
 }
 
 func (s *StatisticsService) GetTrend(userID uint, month string) (*TrendResponse, error) {
-	var startDate, endDate time.Time
-	if month != "" {
-		t, err := time.Parse("2006-01", month)
-		if err != nil {
-			return nil, err
-		}
-		startDate = t
-		endDate = t.AddDate(0, 1, 0).Add(-time.Second)
-	} else {
-		now := time.Now()
-		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
-		endDate = startDate.AddDate(0, 1, 0).Add(-time.Second)
-	}
+	return s.GetTrendByPeriod(userID, month, "")
+}
 
-	dailySums, err := s.txRepo.SumByDay(userID, startDate, endDate)
+func (s *StatisticsService) GetTrendByPeriod(userID uint, month, period string) (*TrendResponse, error) {
+	statRange, err := statisticsDateRange(month, period)
+	if err != nil {
+		return nil, err
+	}
+	var sums []repository.DailySum
+	switch statRange.Period {
+	case "year":
+		sums, err = s.txRepo.SumByMonth(userID, statRange.Start, statRange.End)
+	case "history":
+		sums, err = s.txRepo.SumByYear(userID, statRange.Start, statRange.End)
+	default:
+		sums, err = s.txRepo.SumByDay(userID, statRange.Start, statRange.End)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +129,7 @@ func (s *StatisticsService) GetTrend(userID uint, month string) (*TrendResponse,
 		Items: make([]TrendItem, 0),
 	}
 
-	for _, ds := range dailySums {
+	for _, ds := range sums {
 		response.Items = append(response.Items, TrendItem{
 			Date:    ds.Date,
 			Income:  ds.Income,
@@ -152,25 +144,20 @@ func (s *StatisticsService) GetTrend(userID uint, month string) (*TrendResponse,
 }
 
 func (s *StatisticsService) GetCategoryStats(userID uint, month, txType string) (*CategoryStatResponse, error) {
-	var startDate, endDate time.Time
-	if month != "" {
-		t, err := time.Parse("2006-01", month)
-		if err != nil {
-			return nil, err
-		}
-		startDate = t
-		endDate = t.AddDate(0, 1, 0).Add(-time.Second)
-	} else {
-		now := time.Now()
-		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
-		endDate = startDate.AddDate(0, 1, 0).Add(-time.Second)
+	return s.GetCategoryStatsByPeriod(userID, month, "", txType)
+}
+
+func (s *StatisticsService) GetCategoryStatsByPeriod(userID uint, month, period, txType string) (*CategoryStatResponse, error) {
+	statRange, err := statisticsDateRange(month, period)
+	if err != nil {
+		return nil, err
 	}
 
 	if txType == "" {
 		txType = "expense"
 	}
 
-	sums, err := s.txRepo.SumByCategory(userID, startDate, endDate, txType)
+	sums, err := s.txRepo.SumByCategory(userID, statRange.Start, statRange.End, txType)
 	if err != nil {
 		return nil, err
 	}
@@ -348,4 +335,76 @@ func isDebtAccountType(accType string) bool {
 		"other_debt":    true,
 	}
 	return debtTypes[accType]
+}
+
+type statisticsRange struct {
+	Period string
+	Start  time.Time
+	End    time.Time
+}
+
+func statisticsDateRange(month, period string) (statisticsRange, error) {
+	anchor, err := statisticsAnchorMonth(month)
+	if err != nil {
+		return statisticsRange{}, err
+	}
+	normalizedPeriod := strings.ToLower(strings.TrimSpace(period))
+	if normalizedPeriod == "" {
+		normalizedPeriod = "month"
+	}
+	switch normalizedPeriod {
+	case "year":
+		start := time.Date(anchor.Year(), 1, 1, 0, 0, 0, 0, time.Local)
+		return statisticsRange{
+			Period: "year",
+			Start:  start,
+			End:    start.AddDate(1, 0, 0).Add(-time.Second),
+		}, nil
+	case "history", "past":
+		currentYearStart := time.Date(anchor.Year(), 1, 1, 0, 0, 0, 0, time.Local)
+		return statisticsRange{
+			Period: "history",
+			Start:  time.Date(1970, 1, 1, 0, 0, 0, 0, time.Local),
+			End:    currentYearStart.Add(-time.Second),
+		}, nil
+	default:
+		return statisticsRange{
+			Period: "month",
+			Start:  anchor,
+			End:    anchor.AddDate(0, 1, 0).Add(-time.Second),
+		}, nil
+	}
+}
+
+func statisticsAnchorMonth(month string) (time.Time, error) {
+	if strings.TrimSpace(month) == "" {
+		now := time.Now()
+		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), nil
+	}
+	return time.ParseInLocation("2006-01", month, time.Local)
+}
+
+func (r statisticsRange) Previous() (time.Time, time.Time) {
+	switch r.Period {
+	case "year":
+		prevStart := r.Start.AddDate(-1, 0, 0)
+		return prevStart, r.Start.Add(-time.Second)
+	case "history":
+		return r.Start, r.Start.Add(-time.Second)
+	default:
+		prevStart := r.Start.AddDate(0, -1, 0)
+		return prevStart, r.Start.Add(-time.Second)
+	}
+}
+
+func (r statisticsRange) ElapsedDays() int {
+	now := time.Now()
+	end := r.End
+	if now.After(r.Start) && now.Before(r.End) {
+		end = now
+	}
+	if end.Before(r.Start) {
+		return 0
+	}
+	return int(end.Sub(r.Start).Hours()/24) + 1
 }
