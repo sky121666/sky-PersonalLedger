@@ -151,14 +151,11 @@ void main() {
     expect(find.text('成员B'), findsWidgets);
     expect(find.text('子女'), findsOneWidget);
     expect(find.text('停用'), findsOneWidget);
-    expect(find.text('家庭洞察'), findsOneWidget);
+    expect(find.text('统计'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('family-insights-surface')),
       findsOneWidget,
     );
-    expect(find.text('家庭预算'), findsNothing);
-    await tester.tap(find.text('家庭洞察'));
-    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('家庭预算'), 260);
     await tester.pumpAndSettle();
     expect(find.text('家庭预算'), findsAtLeastNWidgets(1));
@@ -175,7 +172,10 @@ void main() {
     expect(find.text('成员分类拆分'), findsOneWidget);
     expect(find.text('餐饮'), findsOneWidget);
     expect(find.text('¥160.00'), findsOneWidget);
-    expect(find.byType(PremiumSurface), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('family-insights-surface')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('FamilyPage 空态可见', (tester) async {
@@ -191,7 +191,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('还没有家庭成员'), findsOneWidget);
-    expect(find.text('右上角添加'), findsOneWidget);
+    expect(find.text('添加成员'), findsOneWidget);
+    expect(find.text('右上角添加'), findsNothing);
     expect(find.text('尚未添加家庭成员，先添加成员'), findsNothing);
     expect(find.byKey(const ValueKey('family-add-member')), findsOneWidget);
   });

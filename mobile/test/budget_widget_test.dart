@@ -190,7 +190,8 @@ void main() {
       expect(find.text('本月还没有总预算'), findsWidgets);
       expect(find.text('还没有分类预算'), findsOneWidget);
       expect(find.text('还没有分类预算，先补充分类后添加'), findsNothing);
-      expect(find.text('右上角添加'), findsOneWidget);
+      expect(find.text('添加分类预算'), findsOneWidget);
+      expect(find.text('右上角添加'), findsNothing);
       expect(find.text('未设置总预算'), findsNothing);
       expect(find.text('未设置分类预算'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);

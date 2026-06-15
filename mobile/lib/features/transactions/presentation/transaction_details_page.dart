@@ -119,7 +119,7 @@ class _TransactionDetailsPageState
         _TransactionDetailsRow(
           _TransactionEmptyState(
             title: state.hasActiveFilter ? '没有匹配结果' : '还没有明细',
-            message: state.hasActiveFilter ? '清空筛选后查看全部' : '右上角添加',
+            message: state.hasActiveFilter ? '清空筛选后查看全部' : '添加明细',
           ),
           0,
         ),

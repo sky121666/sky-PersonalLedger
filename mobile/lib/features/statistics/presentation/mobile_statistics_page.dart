@@ -541,7 +541,7 @@ class _TrendCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (items.isEmpty)
-            _EmptyLine(text: '${period.label}还没有趋势')
+            const _EmptyLine(text: '无趋势')
           else
             RoundedBarChart(
               maxValue: maxAmount,
@@ -658,7 +658,7 @@ class _CategoryRankCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (response.items.isEmpty)
-            _EmptyLine(text: '${period.label}还没有分类')
+            const _EmptyLine(text: '无分类')
           else ...[
             for (final item in response.items.take(5).indexed)
               CategoryRankTile(

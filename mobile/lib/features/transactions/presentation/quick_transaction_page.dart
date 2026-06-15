@@ -171,7 +171,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
         icon: Icon(
           _showMoreOptions
               ? Icons.keyboard_arrow_up_rounded
-              : Icons.add_rounded,
+              : Icons.more_horiz_rounded,
           color: Theme.of(context).colorScheme.primary,
         ),
       ),

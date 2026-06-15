@@ -338,7 +338,7 @@ class _FamilyEmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '右上角添加',
+                  '添加成员',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.4,
@@ -461,13 +461,14 @@ class _FamilyInsightsSurface extends StatelessWidget {
         ),
         child: ExpansionTile(
           key: const ValueKey('family-insights-toggle'),
+          initiallyExpanded: true,
           tilePadding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           title: Row(
             children: [
               Expanded(
                 child: Text(
-                  '家庭洞察',
+                  '统计',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -482,18 +483,11 @@ class _FamilyInsightsSurface extends StatelessWidget {
           ),
           children: [
             if (budgets.isNotEmpty) _FamilyBudgetSurface(budgets: budgets),
-            if (summaryHasError)
-              PremiumSurface(
-                accentColor: Theme.of(context).colorScheme.error,
-                child: const Text('家庭汇总加载失败'),
-              ),
+            if (summaryHasError) const _FamilyInlineMessage(text: '家庭汇总加载失败'),
             if (hasSummary) _FamilyRankingSurface(summary: summary!),
             if (hasCategory) _FamilyCategorySurface(statistics: statistics!),
             if (statisticsHasError)
-              PremiumSurface(
-                accentColor: Theme.of(context).colorScheme.error,
-                child: const Text('分类统计加载失败'),
-              ),
+              const _FamilyInlineMessage(text: '分类统计加载失败'),
           ],
         ),
       ),
@@ -508,7 +502,6 @@ class _FamilyBudgetSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
     final totalAmount = budgets.fold<double>(
       0,
       (sum, budget) => sum + budget.amount,
@@ -519,8 +512,8 @@ class _FamilyBudgetSurface extends StatelessWidget {
     );
     final remaining = totalAmount - totalSpent;
     final visibleBudgets = budgets.take(3).toList();
-    return PremiumSurface(
-      accentColor: financeColors.warning,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -564,6 +557,35 @@ class _FamilyBudgetSurface extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           ...visibleBudgets.map((budget) => _FamilyBudgetRow(budget: budget)),
+        ],
+      ),
+    );
+  }
+}
+
+class _FamilyInlineMessage extends StatelessWidget {
+  const _FamilyInlineMessage({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, size: 18, color: colorScheme.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -671,13 +693,12 @@ class _FamilyCategorySurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
     final visibleMembers = statistics.members
         .where((member) => member.categories.isNotEmpty)
         .take(4)
         .toList();
-    return PremiumSurface(
-      accentColor: financeColors.asset,
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -810,11 +831,10 @@ class _FamilyRankingSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
     final ranked = [...summary.members]
       ..sort((a, b) => b.expenseTotal.compareTo(a.expenseTotal));
-    return PremiumSurface(
-      accentColor: financeColors.asset,
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1002,7 +1022,11 @@ class _FamilyMemberCardState extends State<_FamilyMemberCard> {
                 onPressed: () => setState(() {
                   _expanded = !_expanded;
                 }),
-                icon: Icon(_expanded ? Icons.remove : Icons.add),
+                icon: Icon(
+                  _expanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.more_horiz_rounded,
+                ),
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
               ),
@@ -1024,7 +1048,7 @@ class _FamilyMemberCardState extends State<_FamilyMemberCard> {
                       ),
                       onPressed: onEdit,
                       icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: const Text('编辑成员'),
+                      label: const Text('编辑'),
                     ),
                     if (onDisable != null)
                       TextButton.icon(
@@ -1041,7 +1065,7 @@ class _FamilyMemberCardState extends State<_FamilyMemberCard> {
                         ),
                         onPressed: onDisable,
                         icon: const Icon(Icons.person_off_outlined, size: 16),
-                        label: const Text('停用成员'),
+                        label: const Text('停用'),
                       ),
                   ],
                 ),

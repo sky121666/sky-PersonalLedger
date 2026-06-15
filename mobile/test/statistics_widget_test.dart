@@ -131,14 +131,14 @@ void main() {
         find.byKey(const ValueKey('statistics-period-selector')),
         findsOneWidget,
       );
-      expect(find.text('当月还没有趋势'), findsOneWidget);
+      expect(find.text('无趋势'), findsOneWidget);
       expect(find.text('本月暂无趋势数据'), findsNothing);
       await tester.scrollUntilVisible(
-        find.text('当月还没有分类'),
+        find.text('无分类'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('当月还没有分类'), findsOneWidget);
+      expect(find.text('无分类'), findsOneWidget);
       expect(find.text('本月暂无分类数据'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });

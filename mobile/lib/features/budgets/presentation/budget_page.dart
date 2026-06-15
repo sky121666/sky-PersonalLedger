@@ -649,7 +649,7 @@ class _BudgetSummaryCard extends StatelessWidget {
           const SizedBox(height: 10),
           if (totalBudget == null)
             Text(
-              '本月还没有总预算',
+              '未设置',
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -735,7 +735,7 @@ class _EmptyCategoryBudgetCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 8),
       child: _CompactBudgetEmptyState(
         title: '还没有分类预算',
-        message: canAddCategoryBudget ? '右上角添加' : '补充支出分类',
+        message: canAddCategoryBudget ? '添加分类预算' : '补充支出分类',
         icon: Icons.track_changes_outlined,
         actions: canAddCategoryBudget
             ? const []
@@ -875,7 +875,7 @@ class _EmptyMemberBudgetCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 8),
       child: _CompactBudgetEmptyState(
         title: '还没有成员预算',
-        message: canAddMemberBudget ? '右上角添加' : '补充家庭成员',
+        message: canAddMemberBudget ? '添加成员预算' : '补充家庭成员',
         icon: Icons.family_restroom_outlined,
         actions: canAddMemberBudget
             ? const []

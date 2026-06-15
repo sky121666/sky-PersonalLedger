@@ -283,7 +283,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有明细'), findsOneWidget);
-      expect(find.text('右上角添加'), findsOneWidget);
+      expect(find.text('添加明细'), findsOneWidget);
+      expect(find.text('右上角添加'), findsNothing);
       expect(find.text('右下角添加'), findsNothing);
       expect(find.text('还没有明细，先创建一笔交易'), findsNothing);
       expect(find.byKey(const ValueKey('transaction-add')), findsOneWidget);
