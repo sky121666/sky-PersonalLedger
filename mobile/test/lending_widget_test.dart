@@ -24,7 +24,7 @@ void main() {
       expect(find.text('¥1,200.00'), findsAtLeastNWidgets(1));
       expect(find.text('结清率'), findsNothing);
       expect(find.text('张三'), findsOneWidget);
-      expect(find.textContaining('剩余'), findsNothing);
+      expect(find.text('剩余'), findsOneWidget);
       expect(find.text('¥800.00'), findsAtLeastNWidgets(1));
       expect(find.byKey(const ValueKey('lending-card-lend-1')), findsOneWidget);
       expect(
@@ -372,7 +372,7 @@ void main() {
       expect(lendingRepository.repaymentCalls, hasLength(1));
       expect(find.text('借贷记录保存失败'), findsOneWidget);
       expect(find.text('还款已记录'), findsNothing);
-      expect(find.textContaining('剩余'), findsNothing);
+      expect(find.text('剩余'), findsOneWidget);
       expect(find.text('¥800.00'), findsAtLeastNWidgets(1));
     });
   });

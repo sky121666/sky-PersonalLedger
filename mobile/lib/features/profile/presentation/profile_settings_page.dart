@@ -374,7 +374,6 @@ class _ProfileThemePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = settings.palette;
-    final colorScheme = Theme.of(context).colorScheme;
     return PremiumSurface(
       key: const ValueKey('profile-settings-theme-panel'),
       accentColor: palette.seedColor,
@@ -428,55 +427,16 @@ class _ProfileThemePanel extends StatelessWidget {
                   onModeChanged(selection.firstOrNull),
             ),
           ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<AppThemePalette>(
-            initialValue: settings.palette.selectableEquivalent,
-            menuMaxHeight: 360,
-            selectedItemBuilder: (context) => [
-              for (final option in AppThemePalette.selectableValues)
-                Text(
-                  option.label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
-                ),
-            ],
-            decoration: InputDecoration(
-              labelText: '主题色',
-              filled: true,
-              fillColor: colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.55,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: colorScheme.outlineVariant),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: colorScheme.outlineVariant),
-              ),
-            ),
-            items: [
-              for (final option in AppThemePalette.selectableValues)
-                DropdownMenuItem(
-                  value: option,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 132),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _ProfileThemeSwatches(
-                          palette: option,
-                          selected:
-                              option == settings.palette.selectableEquivalent,
-                        ),
-                        const SizedBox(width: 12),
-                        _ProfileThemeOptionLabel(palette: option),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            '主色',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          _ProfileThemeChoices(
+            selected: settings.palette.selectableEquivalent,
             onChanged: onPaletteChanged,
           ),
         ],
@@ -493,59 +453,68 @@ String _profileSettingsThemeModeLabel(AppThemeMode mode) {
   };
 }
 
-class _ProfileThemeSwatches extends StatelessWidget {
-  const _ProfileThemeSwatches({required this.palette, required this.selected});
+class _ProfileThemeChoices extends StatelessWidget {
+  const _ProfileThemeChoices({required this.selected, required this.onChanged});
+
+  final AppThemePalette selected;
+  final ValueChanged<AppThemePalette?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final palette in AppThemePalette.selectableValues)
+          _ProfileThemeChoice(
+            palette: palette,
+            selected: palette == selected,
+            onTap: () => onChanged(palette),
+          ),
+      ],
+    );
+  }
+}
+
+class _ProfileThemeChoice extends StatelessWidget {
+  const _ProfileThemeChoice({
+    required this.palette,
+    required this.selected,
+    required this.onTap,
+  });
 
   final AppThemePalette palette;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = palette.displayAccentColor;
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: selected ? 1 : 0.88),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: selected ? colorScheme.onSurface : colorScheme.outlineVariant,
-          width: selected ? 1.6 : 1,
+    return ChoiceChip(
+      key: ValueKey('profile-settings-theme-palette-${palette.id}'),
+      selected: selected,
+      showCheckmark: false,
+      label: Text(palette.label),
+      avatar: Container(
+        width: 14,
+        height: 14,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.outlineVariant),
         ),
-        boxShadow: [
-          if (selected)
-            BoxShadow(
-              color: color.withValues(alpha: 0.22),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-        ],
       ),
-      child: selected
-          ? Icon(Icons.check_rounded, color: colorScheme.onPrimary, size: 15)
-          : null,
-    );
-  }
-}
-
-class _ProfileThemeOptionLabel extends StatelessWidget {
-  const _ProfileThemeOptionLabel({required this.palette});
-
-  final AppThemePalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 52,
-      child: Text(
-        palette.label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+      selectedColor: Color.alphaBlend(
+        color.withValues(alpha: 0.14),
+        colorScheme.surface,
       ),
+      side: BorderSide(
+        color: selected
+            ? color
+            : colorScheme.outlineVariant.withValues(alpha: 0.7),
+      ),
+      onSelected: (_) => onTap(),
     );
   }
 }

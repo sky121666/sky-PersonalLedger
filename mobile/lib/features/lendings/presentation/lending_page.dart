@@ -836,18 +836,11 @@ class _LendingCardState extends ConsumerState<_LendingCard> {
       label:
           '${item.contactName}，${item.typeLabel}，本金${_formatMoney(item.principal)}，剩余${_formatMoney(item.currentBalance)}，$statusLabel',
       button: false,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: item.isOverdue
-                ? statusColor.withValues(alpha: 0.34)
-                : colorScheme.outlineVariant,
-          ),
-        ),
+      child: PremiumSurface(
+        key: ValueKey('lending-card-${item.id}'),
+        accentColor: statusColor,
+        padding: EdgeInsets.zero,
         child: Column(
-          key: ValueKey('lending-card-${item.id}'),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Material(
@@ -929,21 +922,39 @@ class _LendingCardState extends ConsumerState<_LendingCard> {
                                     constraints: const BoxConstraints(
                                       maxWidth: 136,
                                     ),
-                                    child: Text(
-                                      _formatMoney(item.currentBalance),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.end,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            color: statusColor,
-                                            fontWeight: FontWeight.w900,
-                                            fontFeatures: const [
-                                              FontFeature.tabularFigures(),
-                                            ],
-                                          ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '剩余',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall
+                                              ?.copyWith(
+                                                color: colorScheme
+                                                    .onSurfaceVariant,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _formatMoney(item.currentBalance),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.end,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                color: statusColor,
+                                                fontWeight: FontWeight.w900,
+                                                fontFeatures: const [
+                                                  FontFeature.tabularFigures(),
+                                                ],
+                                              ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],

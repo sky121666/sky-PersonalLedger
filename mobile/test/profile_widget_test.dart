@@ -153,16 +153,16 @@ void main() {
     await tester.tap(find.text('深色'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('主题'),
+      find.text('主色'),
       220,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('绿色').last);
+    await tester.tap(find.text('绿色主色').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('青色').last);
+    await tester.tap(find.text('青色主色').last);
     await tester.pumpAndSettle();
-    expect(find.text('青色'), findsOneWidget);
+    expect(find.text('青色主色'), findsOneWidget);
 
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
@@ -171,7 +171,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('个人控制中枢 · 青色'), findsNothing);
     expect(find.text('前卫清透'), findsNothing);
-    expect(find.text('当前已应用：青色'), findsNothing);
+    expect(find.text('当前已应用：青色主色'), findsNothing);
     expect(find.text('模板矩阵'), findsNothing);
     expect(find.text('16 套'), findsNothing);
     expect(find.text('体验定位'), findsNothing);

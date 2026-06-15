@@ -354,7 +354,7 @@ void main() {
       );
 
       expect(ids.length, AppThemePalette.values.length);
-      expect(labels, ['绿色', '蓝色', '青色', '紫色', '橙色', '灰色']);
+      expect(labels, ['绿色主色', '蓝色主色', '青色主色', '紫色主色', '橙色主色', '灰色主色']);
       expect(AppThemePalette.selectableValues.length, 6);
     });
   });

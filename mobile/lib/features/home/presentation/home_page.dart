@@ -96,7 +96,6 @@ class _HomeContent extends StatelessWidget {
           onPeriodChanged: onPeriodChanged,
         ),
       ),
-      const _HomeRow(_HomeActionRail()),
       _HomeRow(
         _TransactionsOverviewCard(recentItems: summary.recentTransactions),
       ),
@@ -135,126 +134,6 @@ class _HomeRow {
   const _HomeRow(this.child);
 
   final Widget child;
-}
-
-class _HomeActionRail extends StatelessWidget {
-  const _HomeActionRail();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    final actions = [
-      _HomeAction(
-        icon: Icons.add_rounded,
-        label: '记一笔',
-        color: colorScheme.primary,
-        route: AppRoutePaths.quickTransaction,
-      ),
-      _HomeAction(
-        icon: Icons.attach_file_rounded,
-        label: '附件',
-        color: financeColors.asset,
-        route: AppRoutePaths.quickTransaction,
-      ),
-      _HomeAction(
-        icon: Icons.savings_outlined,
-        label: '预算',
-        color: financeColors.warning,
-        route: AppRoutePaths.budgets,
-      ),
-      _HomeAction(
-        icon: Icons.auto_awesome_outlined,
-        label: '报告',
-        color: colorScheme.tertiary,
-        route: AppRoutePaths.aiReports,
-      ),
-    ];
-
-    return PremiumSurface(
-      key: const ValueKey('home-action-rail'),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      child: Row(
-        children: [
-          for (final entry in actions.indexed) ...[
-            Expanded(child: _HomeActionButton(action: entry.$2)),
-            if (entry.$1 != actions.length - 1) const SizedBox(width: 8),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _HomeAction {
-  const _HomeAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.route,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final String route;
-}
-
-class _HomeActionButton extends StatelessWidget {
-  const _HomeActionButton({required this.action});
-
-  final _HomeAction action;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Semantics(
-      button: true,
-      label: action.label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          key: ValueKey('home-action-${action.label}'),
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => context.push(action.route),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 64),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  action.color.withValues(alpha: 0.045),
-                  colorScheme.surface,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(action.icon, color: action.color, size: 22),
-                    const SizedBox(height: 5),
-                    Text(
-                      action.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _TransactionsOverviewCard extends StatelessWidget {

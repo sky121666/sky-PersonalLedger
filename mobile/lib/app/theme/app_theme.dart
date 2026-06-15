@@ -5,7 +5,7 @@ import 'motion_tokens.dart';
 enum AppThemePalette {
   teal(
     id: 'teal',
-    label: '绿色',
+    label: '绿色主色',
     signature: '默认稳健',
     description: '默认金融色，稳定、克制、耐看。',
     seedColor: Color(0xFF0F766E),
@@ -16,7 +16,7 @@ enum AppThemePalette {
   ),
   graphite(
     id: 'graphite',
-    label: '灰色',
+    label: '灰色主色',
     signature: '冷静仪表',
     description: '低饱和蓝灰，适合长期查看账本。',
     seedColor: Color(0xFF334155),
@@ -27,7 +27,7 @@ enum AppThemePalette {
   ),
   indigo(
     id: 'indigo',
-    label: '靛蓝',
+    label: '蓝色主色',
     signature: 'AI 科技',
     description: '更偏科技和 AI 分析场景。',
     seedColor: Color(0xFF4338CA),
@@ -38,7 +38,7 @@ enum AppThemePalette {
   ),
   emerald(
     id: 'emerald',
-    label: '绿色',
+    label: '绿色主色',
     signature: '轻量日常',
     description: '更清爽，适合轻量日常记账。',
     seedColor: Color(0xFF047857),
@@ -49,7 +49,7 @@ enum AppThemePalette {
   ),
   amber(
     id: 'amber',
-    label: '金色',
+    label: '橙色主色',
     signature: '温暖克制',
     description: '更温暖，但保留金融产品克制感。',
     seedColor: Color(0xFFB45309),
@@ -60,7 +60,7 @@ enum AppThemePalette {
   ),
   cyan(
     id: 'cyan',
-    label: '青色',
+    label: '青色主色',
     signature: '数据看板',
     description: '更清透的科技感，适合数据看板。',
     seedColor: Color(0xFF0891B2),
@@ -71,7 +71,7 @@ enum AppThemePalette {
   ),
   violet(
     id: 'violet',
-    label: '紫色',
+    label: '紫色主色',
     signature: '柔和紫色',
     description: '偏紫色的强调色，适合深色和浅色模式。',
     seedColor: Color(0xFF7C3AED),
@@ -82,7 +82,7 @@ enum AppThemePalette {
   ),
   rose(
     id: 'rose',
-    label: '玫瑰色',
+    label: '紫色主色',
     signature: '精致暗调',
     description: '玫瑰色强调，适合夜间低亮度使用。',
     seedColor: Color(0xFFBE185D),
@@ -93,7 +93,7 @@ enum AppThemePalette {
   ),
   slate(
     id: 'slate',
-    label: '灰色',
+    label: '灰色主色',
     signature: '商务低饱和',
     description: '低饱和商务风，适合长期使用。',
     seedColor: Color(0xFF475569),
@@ -104,7 +104,7 @@ enum AppThemePalette {
   ),
   aurora(
     id: 'aurora',
-    label: '青色',
+    label: '青色主色',
     signature: '前卫清透',
     description: '青蓝高光与冷绿色，强化数据流动感。',
     seedColor: Color(0xFF0E7490),
@@ -115,7 +115,7 @@ enum AppThemePalette {
   ),
   obsidian(
     id: 'obsidian',
-    label: '蓝色',
+    label: '蓝色主色',
     signature: '夜间深蓝',
     description: '深蓝底色与高亮资产色，适合夜间重度使用。',
     seedColor: Color(0xFF1E3A8A),
@@ -126,7 +126,7 @@ enum AppThemePalette {
   ),
   plasma(
     id: 'plasma',
-    label: '蓝色',
+    label: '蓝色主色',
     signature: '明亮蓝色',
     description: '蓝色主轴搭配明亮资产色。',
     seedColor: Color(0xFF2563EB),
@@ -137,7 +137,7 @@ enum AppThemePalette {
   ),
   kinetic(
     id: 'kinetic',
-    label: '青色',
+    label: '青色主色',
     signature: '青橙对比',
     description: '青色主轴与橙色提示，适合需要醒目提醒的账本。',
     seedColor: Color(0xFF0D9488),
@@ -148,7 +148,7 @@ enum AppThemePalette {
   ),
   titanium(
     id: 'titanium',
-    label: '灰色',
+    label: '灰色主色',
     signature: '银蓝低饱和',
     description: '银蓝低饱和底色，适合克制的日常使用。',
     seedColor: Color(0xFF64748B),
@@ -159,7 +159,7 @@ enum AppThemePalette {
   ),
   solaris(
     id: 'solaris',
-    label: '橙色',
+    label: '橙色主色',
     signature: '复盘高光',
     description: '暖橙主轴搭配冷蓝资产色，适合周报和预算复盘。',
     seedColor: Color(0xFFEA580C),
@@ -170,7 +170,7 @@ enum AppThemePalette {
   ),
   luxe(
     id: 'luxe',
-    label: '金色',
+    label: '橙色主色',
     signature: '深色暗金',
     description: '深色底色搭配暖色强调，适合夜间使用。',
     seedColor: Color(0xFF854D0E),
