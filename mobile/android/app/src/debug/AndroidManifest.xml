@@ -4,4 +4,13 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <application>
+        <receiver
+            android:name=".SmartQuickLedgerDebugReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.skyapp.personal_ledger.DEBUG_SMART_QUICK_LEDGER" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>

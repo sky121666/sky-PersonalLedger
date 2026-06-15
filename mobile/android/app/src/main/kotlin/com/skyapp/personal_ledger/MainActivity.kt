@@ -2,6 +2,7 @@ package com.skyapp.personal_ledger
 
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
@@ -50,6 +51,37 @@ class MainActivity : FlutterActivity() {
                     SmartQuickLedgerStore.setEnabledSources(this, sources.toSet())
                     result.success(null)
                 }
+                "debugInjectPaymentNotification" -> {
+                    if (!isDebuggable()) {
+                        result.notImplemented()
+                        return@setMethodCallHandler
+                    }
+                    val packageName = call.argument<String>("packageName").orEmpty()
+                    val title = call.argument<String>("title").orEmpty()
+                    val text = call.argument<String>("text").orEmpty()
+                    val postedAtMillis = call.argument<Long>("postedAtMillis")
+                        ?: System.currentTimeMillis()
+                    val draft = SmartQuickLedgerDebugTools.injectNotificationDraft(
+                        context = this,
+                        packageName = packageName,
+                        title = title,
+                        text = text,
+                        postedAtMillis = postedAtMillis,
+                    )
+                    if (draft == null) {
+                        result.error("unrecognized_notification", "Notification was not parsed", null)
+                    } else {
+                        result.success(jsonObjectToMap(draft))
+                    }
+                }
+                "debugClearPaymentNotifications" -> {
+                    if (!isDebuggable()) {
+                        result.notImplemented()
+                        return@setMethodCallHandler
+                    }
+                    SmartQuickLedgerStore.clearDrafts(this)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -77,18 +109,26 @@ class MainActivity : FlutterActivity() {
         return names.any { it.equals(flattened, ignoreCase = true) }
     }
 
+    private fun isDebuggable(): Boolean {
+        return applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+    }
+
     private fun jsonArrayToList(array: JSONArray): List<Map<String, Any?>> {
         val items = mutableListOf<Map<String, Any?>>()
         for (index in 0 until array.length()) {
             val item = array.optJSONObject(index) ?: continue
-            val map = mutableMapOf<String, Any?>()
-            val keys = item.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                map[key] = item.opt(key)
-            }
-            items.add(map)
+            items.add(jsonObjectToMap(item))
         }
         return items
+    }
+
+    private fun jsonObjectToMap(item: org.json.JSONObject): Map<String, Any?> {
+        val map = mutableMapOf<String, Any?>()
+        val keys = item.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            map[key] = item.opt(key)
+        }
+        return map
     }
 }

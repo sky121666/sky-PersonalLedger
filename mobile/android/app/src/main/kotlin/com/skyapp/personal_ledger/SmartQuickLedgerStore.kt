@@ -49,6 +49,10 @@ object SmartQuickLedgerStore {
         prefs(context).edit().putString(DRAFTS_KEY, next.toString()).apply()
     }
 
+    fun clearDrafts(context: Context) {
+        prefs(context).edit().putString(DRAFTS_KEY, "[]").apply()
+    }
+
     fun getEnabledSources(context: Context): Set<String> {
         return prefs(context).getStringSet(SOURCES_KEY, defaultSources) ?: defaultSources
     }

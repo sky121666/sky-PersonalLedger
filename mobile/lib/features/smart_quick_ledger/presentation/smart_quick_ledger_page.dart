@@ -20,7 +20,8 @@ class SmartQuickLedgerPage extends ConsumerStatefulWidget {
       _SmartQuickLedgerPageState();
 }
 
-class _SmartQuickLedgerPageState extends ConsumerState<SmartQuickLedgerPage> {
+class _SmartQuickLedgerPageState extends ConsumerState<SmartQuickLedgerPage>
+    with WidgetsBindingObserver {
   final Set<String> _enabledSources = {'wechat', 'alipay', 'bank'};
   String? _busyDraftId;
   bool? _notificationListenerEnabled;
@@ -32,7 +33,21 @@ class _SmartQuickLedgerPageState extends ConsumerState<SmartQuickLedgerPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPlatformState();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_loadPlatformState());
+    }
   }
 
   @override
@@ -313,20 +328,15 @@ class _SourceSettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sources = [
-      _SourceConfig('wechat', '微信支付', 'com.tencent.mm', Icons.chat_outlined),
-      _SourceConfig(
-        'alipay',
-        '支付宝',
-        'com.eg.android.AlipayGphone',
-        Icons.account_balance_wallet_outlined,
-      ),
-      _SourceConfig('bank', '银行提醒', '银行 App 白名单', Icons.account_balance),
-      _SourceConfig('unionpay', '云闪付', '支付通知', Icons.credit_card_outlined),
+      _SourceConfig('wechat', '微信支付', Icons.chat_outlined),
+      _SourceConfig('alipay', '支付宝', Icons.account_balance_wallet_outlined),
+      _SourceConfig('bank', '银行提醒', Icons.account_balance),
+      _SourceConfig('unionpay', '云闪付', Icons.credit_card_outlined),
     ];
     return PremiumSurface(
       key: const ValueKey('smart-ledger-source-card'),
       accentColor: AppTheme.financeColors(context).income,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -343,17 +353,6 @@ class _SourceSettingsCard extends StatelessWidget {
               enabled: enabledSources.contains(source.id),
               onChanged: (enabled) => onChanged(source.id, enabled),
             ),
-          const SizedBox(height: 4),
-          const Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _RuleChip(label: '金额'),
-              _RuleChip(label: '商户'),
-              _RuleChip(label: '收支'),
-              _RuleChip(label: '去重'),
-            ],
-          ),
         ],
       ),
     );
@@ -361,11 +360,10 @@ class _SourceSettingsCard extends StatelessWidget {
 }
 
 class _SourceConfig {
-  const _SourceConfig(this.id, this.title, this.subtitle, this.icon);
+  const _SourceConfig(this.id, this.title, this.icon);
 
   final String id;
   final String title;
-  final String subtitle;
   final IconData icon;
 }
 
@@ -396,29 +394,9 @@ class _SourceSwitchTile extends StatelessWidget {
             context,
           ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
-        subtitle: Text(
-          source.subtitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
         value: enabled,
         onChanged: onChanged,
       ),
-    );
-  }
-}
-
-class _RuleChip extends StatelessWidget {
-  const _RuleChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      label: Text(label),
     );
   }
 }
