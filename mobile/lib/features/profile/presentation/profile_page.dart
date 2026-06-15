@@ -263,7 +263,7 @@ class _SettingsSection extends StatelessWidget {
     final children = childrenBuilder();
     return PremiumSurface(
       key: ValueKey('profile-section-$title'),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -273,23 +273,18 @@ class _SettingsSection extends StatelessWidget {
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 10),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth < 300 ? 1 : 2;
-              final gap = 8.0;
-              final itemWidth =
-                  (constraints.maxWidth - gap * (columns - 1)) / columns;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final child in children)
-                    SizedBox(width: itemWidth, child: child),
-                ],
-              );
-            },
-          ),
+          const SizedBox(height: 6),
+          for (final entry in children.indexed) ...[
+            entry.$2,
+            if (entry.$1 != children.length - 1)
+              Divider(
+                height: 1,
+                indent: 40,
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.46),
+              ),
+          ],
         ],
       ),
     );
@@ -319,57 +314,37 @@ class _SettingsEntry extends StatelessWidget {
         key: ValueKey('profile-entry-$title'),
         color: Colors.transparent,
         child: InkWell(
+          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           hoverColor: color.withValues(alpha: 0.06),
           focusColor: color.withValues(alpha: 0.08),
           splashColor: color.withValues(alpha: 0.08),
           highlightColor: color.withValues(alpha: 0.05),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 64),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  color.withValues(alpha: 0.035),
-                  colorScheme.surface,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.58),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(9, 8, 7, 8),
-                child: Row(
-                  children: [
-                    IconBadge(icon: icon, color: color, size: 30, iconSize: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                          ),
-                        ],
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 7, 0, 7),
+              child: Row(
+                children: [
+                  IconBadge(icon: icon, color: color, size: 32, iconSize: 17),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.62,
-                      ),
-                      size: 18,
-                    ),
-                  ],
-                ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.62),
+                    size: 18,
+                  ),
+                ],
               ),
             ),
           ),
