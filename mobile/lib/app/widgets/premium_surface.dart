@@ -30,11 +30,10 @@ class PremiumSurface extends StatelessWidget {
         ? colorScheme.surfaceContainerLow
         : colorScheme.surface;
 
-    final surface = DecoratedBox(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(radius),
-      ),
+    final surface = Material(
+      color: background,
+      borderRadius: BorderRadius.circular(radius),
+      clipBehavior: Clip.antiAlias,
       child: Padding(padding: padding, child: child),
     );
 
