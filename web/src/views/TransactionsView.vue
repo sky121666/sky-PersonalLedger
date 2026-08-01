@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { Search, Trash2, ChevronDown, Calendar, X, List } from 'lucide-vue-next'
 import { transactionApi, type Transaction } from '@/api/transaction'
 import TransactionDialog from '@/components/TransactionDialog.vue'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 import { toast } from '@/composables/useToast'
 import { getCategoryEmoji } from '@/utils/constants'
+import { isManagedTransaction } from '@/utils/managedTransaction'
+import { buildTransactionListParams } from '@/utils/transactionListParams'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 
@@ -16,6 +18,8 @@ const loading = ref(false)
 const page = ref(1)
 const hasMore = ref(true)
 const total = ref(0)
+let listRequestGeneration = 0
+let keywordDebounceTimer: ReturnType<typeof setTimeout> | undefined
 
 const showDialog = ref(false)
 const editingId = ref<string | null>(null)
@@ -26,8 +30,8 @@ const deletingId = ref<string | null>(null)
 const showFilter = ref(false)
 const filters = ref({
   type: '' as string,
-  startDate: '',
-  endDate: '',
+  start_date: '',
+  end_date: '',
   keyword: ''
 })
 
@@ -85,8 +89,9 @@ onMounted(() => {
   loadTransactions()
 })
 
-function openEdit(id: string) {
-  editingId.value = id
+function openEdit(transaction: Transaction) {
+  if (isManagedTransaction(transaction)) return
+  editingId.value = transaction.id
   showDialog.value = true
 }
 
@@ -109,49 +114,44 @@ async function handleDelete() {
 }
 
 async function loadTransactions() {
+  const generation = ++listRequestGeneration
   loading.value = true
   try {
-    const params: any = { 
-      page: 1, 
-      page_size: 20,
-      ...filters.value
-    }
-    // Remove empty filters
-    Object.keys(params).forEach(key => {
-      if (params[key] === '') delete params[key]
-    })
-
+    const params = buildTransactionListParams(1, 20, filters.value)
     const data = await transactionApi.getList(params)
+    if (generation !== listRequestGeneration) return
     transactions.value = data.list
     total.value = data.total
-    hasMore.value = data.list.length >= 20
+    hasMore.value = data.list.length < data.total
     page.value = 1
   } catch (e) {
-    console.error('Load transactions failed:', e)
+    if (generation === listRequestGeneration) {
+      console.error('Load transactions failed:', e)
+    }
   } finally {
-    loading.value = false
+    if (generation === listRequestGeneration) {
+      loading.value = false
+    }
   }
 }
 
 async function loadMore() {
   if (!hasMore.value || loading.value) return
+  const generation = listRequestGeneration
+  const nextPage = page.value + 1
   loading.value = true
   try {
-    page.value++
-    const params: any = { 
-      page: page.value, 
-      page_size: 20,
-      ...filters.value
-    }
-    Object.keys(params).forEach(key => {
-      if (params[key] === '') delete params[key]
-    })
-
+    const params = buildTransactionListParams(nextPage, 20, filters.value)
     const data = await transactionApi.getList(params)
+    if (generation !== listRequestGeneration) return
     transactions.value.push(...data.list)
-    hasMore.value = data.list.length >= 20
+    total.value = data.total
+    page.value = nextPage
+    hasMore.value = transactions.value.length < data.total
   } finally {
-    loading.value = false
+    if (generation === listRequestGeneration) {
+      loading.value = false
+    }
   }
 }
 
@@ -163,9 +163,21 @@ function formatMoney(value: number) {
   return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-watch(filters, () => {
-  loadTransactions()
-}, { deep: true })
+watch(
+  () => [filters.value.type, filters.value.start_date, filters.value.end_date],
+  () => void loadTransactions()
+)
+
+watch(
+  () => filters.value.keyword,
+  () => {
+    listRequestGeneration++
+    clearTimeout(keywordDebounceTimer)
+    keywordDebounceTimer = setTimeout(() => void loadTransactions(), 300)
+  }
+)
+
+onBeforeUnmount(() => clearTimeout(keywordDebounceTimer))
 </script>
 
 <template>
@@ -225,15 +237,15 @@ watch(filters, () => {
           <!-- Date Filter -->
           <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
              <div class="relative">
-                <input v-model="filters.startDate" type="date" class="pl-8 pr-2 py-1 bg-white dark:bg-gray-700 rounded-lg text-xs border border-gray-200 dark:border-gray-600 outline-none" />
+                <input v-model="filters.start_date" type="date" class="pl-8 pr-2 py-1 bg-white dark:bg-gray-700 rounded-lg text-xs border border-gray-200 dark:border-gray-600 outline-none" />
                 <Calendar class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" :size="14" />
              </div>
              <span>至</span>
              <div class="relative">
-                <input v-model="filters.endDate" type="date" class="pl-8 pr-2 py-1 bg-white dark:bg-gray-700 rounded-lg text-xs border border-gray-200 dark:border-gray-600 outline-none" />
+                <input v-model="filters.end_date" type="date" class="pl-8 pr-2 py-1 bg-white dark:bg-gray-700 rounded-lg text-xs border border-gray-200 dark:border-gray-600 outline-none" />
                 <Calendar class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" :size="14" />
              </div>
-             <button v-if="filters.startDate || filters.endDate" @click="{ filters.startDate=''; filters.endDate='' }" class="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full">
+             <button v-if="filters.start_date || filters.end_date" @click="{ filters.start_date=''; filters.end_date='' }" class="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full">
                <X :size="14" />
              </button>
           </div>
@@ -275,8 +287,9 @@ watch(filters, () => {
             <div
               v-for="item in group.items"
               :key="item.id"
-              class="px-4 py-4 flex items-center justify-between active:bg-gray-50 dark:active:bg-white/5 transition-colors cursor-pointer group"
-              @click="openEdit(item.id)"
+              class="px-4 py-4 flex items-center justify-between active:bg-gray-50 dark:active:bg-white/5 transition-colors group"
+              :class="isManagedTransaction(item) ? 'cursor-default' : 'cursor-pointer'"
+              @click="openEdit(item)"
             >
               <div class="flex items-center gap-3.5">
                 <!-- Icon -->
@@ -310,9 +323,11 @@ watch(filters, () => {
                 >
                   {{ item.type === 'income' ? '+' : item.type === 'expense' ? '-' : '' }}{{ formatMoney(item.amount) }}
                 </div>
-                <!-- Delete Button (Desktop Hover) -->
+                <!-- Managed rows keep deletion reachable on touch screens. -->
                 <button
-                  class="md:flex hidden w-8 h-8 items-center justify-center opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all flex-shrink-0"
+                  class="w-8 h-8 items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all flex-shrink-0"
+                  :class="isManagedTransaction(item) ? 'flex opacity-100' : 'hidden md:flex opacity-0 group-hover:opacity-100'"
+                  :aria-label="`删除交易 ${item.remark || item.category?.name || item.id}`"
                   @click.stop="confirmDelete(item.id)"
                 >
                   <Trash2 :size="16" />

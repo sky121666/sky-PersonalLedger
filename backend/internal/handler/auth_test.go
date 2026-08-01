@@ -41,6 +41,122 @@ func TestAuthInitMalformedJSONDoesNotExposeParserDetails(t *testing.T) {
 	}
 }
 
+func TestBrowserAuthUsesSecureHttpOnlyRefreshCookieAndOmitsTokenBody(t *testing.T) {
+	handler := newAuthHandlerForTest(t)
+	handler.browserCookieSecure = true
+	router := gin.New()
+	router.POST("/api/v1/auth/init", handler.Init)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/init", strings.NewReader(`{"password":"strong-password"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(browserTokenModeHeader, browserTokenModeCookie)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body=%s", response.Code, response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "refresh_token") {
+		t.Fatalf("browser auth response exposed refresh token: %s", response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "access_token") {
+		t.Fatalf("browser auth response omitted access token: %s", response.Body.String())
+	}
+
+	refreshCookie := responseCookieByName(t, response.Result(), refreshTokenCookieName)
+	if !refreshCookie.HttpOnly || !refreshCookie.Secure || refreshCookie.SameSite != http.SameSiteStrictMode {
+		t.Fatalf("refresh cookie flags = HttpOnly:%v Secure:%v SameSite:%v", refreshCookie.HttpOnly, refreshCookie.Secure, refreshCookie.SameSite)
+	}
+	if refreshCookie.Path != refreshCookiePath || refreshCookie.Value == "" {
+		t.Fatalf("refresh cookie path/value = %q/%q", refreshCookie.Path, refreshCookie.Value)
+	}
+	csrfCookie := responseCookieByName(t, response.Result(), csrfTokenCookieName)
+	if csrfCookie.HttpOnly || !csrfCookie.Secure || csrfCookie.SameSite != http.SameSiteStrictMode || csrfCookie.Value == "" {
+		t.Fatalf("csrf cookie flags/value = HttpOnly:%v Secure:%v SameSite:%v value:%q", csrfCookie.HttpOnly, csrfCookie.Secure, csrfCookie.SameSite, csrfCookie.Value)
+	}
+}
+
+func TestBrowserRefreshRequiresSameOriginAndCSRFThenRotatesToken(t *testing.T) {
+	handler := newAuthHandlerForTest(t)
+	router := gin.New()
+	router.POST("/api/v1/auth/init", handler.Init)
+	router.POST("/api/v1/auth/refresh", handler.Refresh)
+
+	initRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/init", strings.NewReader(`{"password":"strong-password"}`))
+	initRequest.Header.Set("Content-Type", "application/json")
+	initRequest.Header.Set(browserTokenModeHeader, browserTokenModeCookie)
+	initResponse := httptest.NewRecorder()
+	router.ServeHTTP(initResponse, initRequest)
+	if initResponse.Code != http.StatusCreated {
+		t.Fatalf("init status = %d; body=%s", initResponse.Code, initResponse.Body.String())
+	}
+	refreshCookie := responseCookieByName(t, initResponse.Result(), refreshTokenCookieName)
+	csrfCookie := responseCookieByName(t, initResponse.Result(), csrfTokenCookieName)
+
+	for _, test := range []struct {
+		name   string
+		origin string
+		csrf   string
+	}{
+		{name: "missing origin", csrf: csrfCookie.Value},
+		{name: "cross origin", origin: "https://evil.test", csrf: csrfCookie.Value},
+		{name: "missing csrf", origin: "https://ledger.test"},
+		{name: "mismatched csrf", origin: "https://ledger.test", csrf: "wrong"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := browserRefreshRequest(refreshCookie, csrfCookie, test.origin, test.csrf)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("status = %d, want 403; body=%s", response.Code, response.Body.String())
+			}
+		})
+	}
+
+	validRequest := browserRefreshRequest(refreshCookie, csrfCookie, "https://ledger.test", csrfCookie.Value)
+	validResponse := httptest.NewRecorder()
+	router.ServeHTTP(validResponse, validRequest)
+	if validResponse.Code != http.StatusOK {
+		t.Fatalf("valid refresh status = %d, want 200; body=%s", validResponse.Code, validResponse.Body.String())
+	}
+	if strings.Contains(validResponse.Body.String(), "refresh_token") {
+		t.Fatalf("browser refresh response exposed token: %s", validResponse.Body.String())
+	}
+	rotatedRefresh := responseCookieByName(t, validResponse.Result(), refreshTokenCookieName)
+	rotatedCSRF := responseCookieByName(t, validResponse.Result(), csrfTokenCookieName)
+	if rotatedRefresh.Value == refreshCookie.Value || rotatedCSRF.Value == csrfCookie.Value {
+		t.Fatal("refresh or CSRF cookie was not rotated")
+	}
+
+	reusedRequest := browserRefreshRequest(refreshCookie, csrfCookie, "https://ledger.test", csrfCookie.Value)
+	reusedResponse := httptest.NewRecorder()
+	router.ServeHTTP(reusedResponse, reusedRequest)
+	if reusedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("reused refresh status = %d, want 401; body=%s", reusedResponse.Code, reusedResponse.Body.String())
+	}
+}
+
+func TestNativeAuthKeepsRefreshTokenInResponseBody(t *testing.T) {
+	handler := newAuthHandlerForTest(t)
+	router := gin.New()
+	router.POST("/api/v1/auth/init", handler.Init)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/init", strings.NewReader(`{"password":"strong-password"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "refresh_token") {
+		t.Fatalf("native auth response omitted refresh token: %s", response.Body.String())
+	}
+	if len(response.Result().Cookies()) != 0 {
+		t.Fatalf("native auth unexpectedly set cookies: %#v", response.Result().Cookies())
+	}
+}
+
 func TestAuthGetProfileMissingUserDoesNotExposeORMError(t *testing.T) {
 	handler := newAuthHandlerForTest(t)
 	response := httptest.NewRecorder()
@@ -124,4 +240,30 @@ func newAuthHandlerAndReposForTest(t *testing.T) (*AuthHandler, *repository.Repo
 		middleware.NewRateLimiter(),
 	)
 	return handler, repos
+}
+
+func responseCookieByName(t *testing.T, response *http.Response, name string) *http.Cookie {
+	t.Helper()
+	for _, cookie := range response.Cookies() {
+		if cookie.Name == name {
+			return cookie
+		}
+	}
+	t.Fatalf("response cookie %q not found", name)
+	return nil
+}
+
+func browserRefreshRequest(refreshCookie, csrfCookie *http.Cookie, origin, csrfHeader string) *http.Request {
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
+	request.Host = "ledger.test"
+	request.Header.Set(browserTokenModeHeader, browserTokenModeCookie)
+	if origin != "" {
+		request.Header.Set("Origin", origin)
+	}
+	if csrfHeader != "" {
+		request.Header.Set(csrfTokenHeader, csrfHeader)
+	}
+	request.AddCookie(refreshCookie)
+	request.AddCookie(csrfCookie)
+	return request
 }

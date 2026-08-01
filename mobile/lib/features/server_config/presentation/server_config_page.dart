@@ -55,7 +55,7 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
           key: const ValueKey('server-url-field'),
           controller: _serverUrlController,
           focusNode: _serverUrlFocusNode,
-          autofocus: true,
+          autofocus: false,
           autocorrect: false,
           enableSuggestions: false,
           autofillHints: const [AutofillHints.url],

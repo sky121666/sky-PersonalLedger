@@ -30,7 +30,7 @@ void main() {
             .widget<TextField>(find.byKey(const ValueKey('transaction-search')))
             .decoration
             ?.hintText,
-        '搜索备注、标签或账户',
+        '搜索明细',
       );
       expect(
         find.byKey(const ValueKey('transaction-filter-toggle')),
@@ -127,6 +127,59 @@ void main() {
       expect(repository.listQueries.length, greaterThanOrEqualTo(2));
     });
 
+    testWidgets('管理型交易可查看和删除但不提供普通编辑入口', (tester) async {
+      final repository = _FakeTransactionRepository(
+        items: [
+          _transaction(
+            id: 'managed-transaction',
+            remark: '提醒自动入账',
+            source: 'reminder',
+          ),
+        ],
+      );
+      await _pumpPage(tester, repository);
+
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-item-managed-transaction')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('编辑 managed-transaction'), findsNothing);
+      expect(find.text('提醒自动入账'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-more-menu-managed-transaction')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const ValueKey('transaction-action-edit-managed-transaction'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('transaction-action-delete-managed-transaction'),
+        ),
+        findsOneWidget,
+      );
+
+      await _tapTransactionMenuAction(
+        tester,
+        transactionId: 'managed-transaction',
+        actionLabel: '删除',
+        actionSuffix: 'delete',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '删除'));
+      await tester.pumpAndSettle();
+
+      expect(repository.deleteCalls, ['managed-transaction']);
+      expect(
+        find.byKey(const ValueKey('transaction-item-managed-transaction')),
+        findsNothing,
+      );
+    });
+
     testWidgets('可以选择多笔交易并批量删除', (tester) async {
       final repository = _FakeTransactionRepository(
         items: [
@@ -209,7 +262,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.listQueries.last.type, TransactionType.expense);
-      expect(find.text('2 项条件 · 1/1 笔'), findsOneWidget);
+      expect(find.text('2 项筛选 · 1/1'), findsOneWidget);
       expect(find.text('筛选构成'), findsNothing);
       expect(
         find.byKey(const ValueKey('transaction-filter-summary-clear')),
@@ -248,7 +301,7 @@ void main() {
             .widget<TextField>(find.byKey(const ValueKey('transaction-search')))
             .decoration
             ?.hintText,
-        '搜索备注、标签或账户',
+        '搜索明细',
       );
     });
 
@@ -265,7 +318,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('transaction-item-transaction-25')),
+        find.byKey(const ValueKey('transaction-item-transaction-20')),
         420,
         scrollable: find.byType(Scrollable).first,
       );
@@ -283,7 +336,10 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有明细'), findsOneWidget);
-      expect(find.text('还没有明细，先创建一笔交易'), findsOneWidget);
+      expect(find.text('添加明细'), findsOneWidget);
+      expect(find.text('右上角添加'), findsNothing);
+      expect(find.text('右下角添加'), findsNothing);
+      expect(find.text('还没有明细，先创建一笔交易'), findsNothing);
       expect(find.byKey(const ValueKey('transaction-add')), findsOneWidget);
       expect(find.text('暂无交易明细'), findsNothing);
       expect(find.text('还没有交易记录。'), findsNothing);
@@ -356,6 +412,38 @@ void main() {
         find.byKey(const ValueKey('transaction-item-transaction-1')),
         findsOneWidget,
       );
+      final firstClip = tester.widget<ClipRRect>(
+        find.byKey(const ValueKey('transaction-group-clip-transaction-1')),
+      );
+      final lastClip = tester.widget<ClipRRect>(
+        find.byKey(const ValueKey('transaction-group-clip-transaction-2')),
+      );
+      expect(
+        firstClip.borderRadius,
+        const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.surfaceRadius),
+        ),
+      );
+      expect(
+        lastClip.borderRadius,
+        const BorderRadius.vertical(
+          bottom: Radius.circular(AppTheme.surfaceRadius),
+        ),
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('transaction-item-transaction-1')),
+          matching: find.byType(Divider),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('transaction-item-transaction-2')),
+          matching: find.byType(Divider),
+        ),
+        findsNothing,
+      );
       await tester.tap(
         find.byKey(const ValueKey('transaction-more-menu-transaction-1')),
       );
@@ -397,7 +485,7 @@ Future<void> _pumpPage(
           final header = transaction == null
               ? '编辑 new'
               : '编辑 ${transaction.id}';
-          final subtitle = transaction?.remark?.trim();
+          final subtitle = transaction?.remark.trim();
           return Scaffold(
             appBar: AppBar(title: const Text('编辑页')),
             body: Text(
@@ -444,7 +532,7 @@ class _FixedThemeController extends ThemeController {
 }
 
 String _toggleActionLabel({required bool isTransactionExpanded}) =>
-    isTransactionExpanded ? '收起' : '展开';
+    isTransactionExpanded ? '收起' : '详情';
 
 Future<void> _tapTransactionMenuAction(
   WidgetTester tester, {
@@ -553,6 +641,9 @@ TransactionItem _transaction({
   String id = 'transaction-1',
   String remark = '午餐',
   TransactionType type = TransactionType.expense,
+  String source = 'manual',
+  String? lendingId,
+  String? reminderId,
 }) {
   return TransactionItem(
     id: id,
@@ -562,6 +653,9 @@ TransactionItem _transaction({
     categoryId: 'category-food',
     transactionDate: DateTime(2026, 5, 18, 12),
     remark: remark,
+    source: source,
+    lendingId: lendingId,
+    reminderId: reminderId,
     category: const LedgerCategory(
       id: 'category-food',
       name: '餐饮',

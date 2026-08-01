@@ -136,8 +136,27 @@ func TestAIProviderAllowsOnlyHTTPSOrLoopbackHTTPBaseURL(t *testing.T) {
 		}
 	}
 
-	for _, baseURL := range []string{"https://api.deepseek.com", "http://localhost:11434", "http://127.0.0.1:8080", "http://[::1]:8080"} {
-		if _, err := svc.Create(userID, SaveAIProviderRequest{
+	for _, baseURL := range []string{"https://api.deepseek.com", "http://localhost:11434", "http://127.0.0.1:8080", "http://[::1]:8080", "https://10.0.0.1"} {
+		_, err := svc.Create(userID, SaveAIProviderRequest{
+			Name:    "Secure default",
+			BaseURL: baseURL,
+			APIKey:  "sk-test",
+			Model:   "deepseek-v4-flash",
+		})
+		if baseURL == "https://api.deepseek.com" {
+			if err != nil {
+				t.Fatalf("base url %q err = %v, want nil", baseURL, err)
+			}
+			continue
+		}
+		if !errors.Is(err, ErrAIProviderBaseURLInvalid) {
+			t.Fatalf("base url %q err = %v, want ErrAIProviderBaseURLInvalid", baseURL, err)
+		}
+	}
+
+	privateSvc := svc.WithPrivateOutboundNetworks(true)
+	for _, baseURL := range []string{"http://localhost:11434", "http://127.0.0.1:8080", "http://[::1]:8080"} {
+		if _, err := privateSvc.Create(userID, SaveAIProviderRequest{
 			Name:    "Allowed",
 			BaseURL: baseURL,
 			APIKey:  "sk-test",
@@ -262,7 +281,8 @@ func TestAIProviderTestConnectionUsesOpenAICompatibleRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc, _, userID := newAIProviderTestService(t)
+	svc, repos, userID := newAIProviderTestService(t)
+	svc = NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(server.Client(), true)).WithPrivateOutboundNetworks(true)
 	provider, err := svc.Create(userID, SaveAIProviderRequest{
 		Name:    "Fake",
 		BaseURL: server.URL,

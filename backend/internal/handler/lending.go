@@ -72,13 +72,13 @@ func (h *LendingHandler) Update(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	id := c.Param("id")
 
-	var req service.UpdateLendingRequest
+	var req service.PatchLendingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "invalid request")
 		return
 	}
 
-	lending, err := h.service.Update(id, userID, req)
+	lending, err := h.service.Patch(id, userID, req)
 	if err != nil {
 		if handleLendingRequestError(c, err) {
 			return
@@ -175,6 +175,10 @@ func handleLendingRequestError(c *gin.Context, err error) bool {
 		response.BadRequest(c, "lending already settled")
 	case errors.Is(err, service.ErrInvalidAmount):
 		response.BadRequest(c, "invalid amount")
+	case errors.Is(err, service.ErrLendingOverpayment):
+		response.Error(c, 422, 42201, "repayment exceeds remaining balance")
+	case errors.Is(err, service.ErrInvalidLendingPatch):
+		response.Error(c, 422, 42204, "invalid lending update")
 	default:
 		return false
 	}

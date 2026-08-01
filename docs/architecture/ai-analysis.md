@@ -4,6 +4,8 @@
 
 Personal Ledger should add an optional AI analysis layer for weekly reports, monthly reports, family spending insights, budget suggestions, and anomaly explanations. The integration should use an OpenAI-compatible chat completions API so DeepSeek, OpenAI, One API, SiliconFlow, local gateways, and other compatible providers can be supported through the same adapter.
 
+Public HTTPS providers are allowed by default. Loopback/private gateways are blocked by the backend's SSRF policy unless the server operator explicitly sets `LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND=true`; this switch must not be exposed as a per-user setting.
+
 AI analysis must be disabled by default. Financial data is sensitive, so the backend should aggregate and minimize data before sending it to an external provider. Raw transaction remarks and full transaction lists should not be sent by default.
 
 ## Provider Model

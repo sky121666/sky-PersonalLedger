@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +30,13 @@ type BackupScheduler struct {
 	backupPath    string
 	stopChan      chan struct{}
 	mu            sync.Mutex
+	backupMu      sync.Mutex
+	settingsMu    sync.Mutex
 	running       bool
+	createBackup  func(userID uint) (*FullBackupData, error)
+	marshalBackup func(v any, prefix, indent string) ([]byte, error)
+	writeBackup   func(filePath string, data []byte) error
+	now           func() time.Time
 }
 
 type AutoBackupSettings struct {
@@ -47,6 +54,10 @@ func NewBackupScheduler(backupService *BackupService, systemRepo *repository.Sys
 		userRepo:      userRepo,
 		backupPath:    backupPath,
 		stopChan:      make(chan struct{}),
+		createBackup:  backupService.CreateBackup,
+		marshalBackup: json.MarshalIndent,
+		writeBackup:   writeFileAtomically,
+		now:           time.Now,
 	}
 }
 
@@ -94,7 +105,7 @@ func (s *BackupScheduler) checkAndBackup() {
 		return
 	}
 
-	now := time.Now()
+	now := s.now()
 
 	// Check if it's the right hour
 	if now.Hour() != settings.Hour {
@@ -106,67 +117,120 @@ func (s *BackupScheduler) checkAndBackup() {
 	if settings.LastBackup == "" {
 		shouldBackup = true
 	} else {
-		lastBackup, err := time.Parse("2006-01-02 15:04:05", settings.LastBackup)
+		lastBackup, err := time.ParseInLocation("2006-01-02 15:04:05", settings.LastBackup, now.Location())
 		if err != nil {
 			shouldBackup = true
 		} else {
-			switch settings.Frequency {
-			case "daily":
-				shouldBackup = now.Sub(lastBackup) >= 23*time.Hour
-			case "weekly":
-				shouldBackup = now.Sub(lastBackup) >= 6*24*time.Hour
-			case "monthly":
-				shouldBackup = now.Sub(lastBackup) >= 29*24*time.Hour
-			}
+			shouldBackup = autoBackupDue(now, lastBackup, settings.Frequency)
 		}
 	}
 
 	if shouldBackup {
-		s.performBackup(settings)
+		if err := s.performBackup(settings); err != nil {
+			log.Printf("Warning: automatic backup failed: %v", err)
+		}
 	}
 }
 
-func (s *BackupScheduler) performBackup(settings *AutoBackupSettings) {
+func (s *BackupScheduler) performBackup(settings *AutoBackupSettings) error {
+	s.backupMu.Lock()
+	defer s.backupMu.Unlock()
+
+	if settings == nil {
+		return ErrAutoBackupSettingsInvalid
+	}
+
 	// Get all users
 	users, err := s.userRepo.GetAll()
 	if err != nil {
-		return
+		return fmt.Errorf("list users for automatic backup: %w", err)
+	}
+	if len(users) == 0 {
+		return errors.New("no users available for automatic backup")
 	}
 
 	// Create backup directory if not exists
 	if err := os.MkdirAll(s.backupPath, 0755); err != nil {
-		return
+		return fmt.Errorf("create automatic backup directory: %w", err)
 	}
 
+	createdFiles := make([]string, 0, len(users))
+	rollback := func(backupErr error) error {
+		if err := removeBackupFiles(createdFiles); err != nil {
+			return errors.Join(backupErr, fmt.Errorf("remove incomplete automatic backup files: %w", err))
+		}
+		return backupErr
+	}
+	runTimestamp := s.now().Format("20060102_150405.000000000")
+
 	for _, user := range users {
-		backup, err := s.backupService.CreateBackup(user.ID)
+		backup, err := s.createBackup(user.ID)
 		if err != nil {
-			continue
+			return rollback(fmt.Errorf("create automatic backup for user %d: %w", user.ID, err))
 		}
 
 		// Save backup to file
-		filename := fmt.Sprintf("auto_backup_user%d_%s.json", user.ID, time.Now().Format("20060102_150405"))
+		filename := fmt.Sprintf("auto_backup_user%d_%s.json", user.ID, runTimestamp)
 		filePath := filepath.Join(s.backupPath, filename)
 
-		data, err := json.MarshalIndent(backup, "", "  ")
+		data, err := s.marshalBackup(backup, "", "  ")
 		if err != nil {
-			continue
+			return rollback(fmt.Errorf("serialize automatic backup for user %d: %w", user.ID, err))
+		}
+		if err := s.validateSerializedBackupSize(data); err != nil {
+			return rollback(fmt.Errorf("validate automatic backup size for user %d: %w", user.ID, err))
 		}
 
-		if err := os.WriteFile(filePath, data, 0600); err != nil {
-			continue
+		if err := s.writeBackup(filePath, data); err != nil {
+			return rollback(fmt.Errorf("write automatic backup for user %d: %w", user.ID, err))
 		}
-
-		// Clean up old backups
-		s.cleanupOldBackups(user.ID, settings.MaxBackups)
+		createdFiles = append(createdFiles, filePath)
 	}
 
-	// Update last backup time
-	settings.LastBackup = time.Now().Format("2006-01-02 15:04:05")
-	s.SaveSettings(settings)
+	// Merge only LastBackup into the latest persisted settings so a long-running
+	// backup cannot overwrite configuration changed through the API mid-run.
+	lastBackup := s.now().Format("2006-01-02 15:04:05")
+	latestSettings, err := s.recordSuccessfulBackup(settings, lastBackup)
+	if err != nil {
+		return rollback(fmt.Errorf("save automatic backup settings: %w", err))
+	}
+	settings.LastBackup = lastBackup
+
+	// Retention cleanup is best effort after the complete backup is committed.
+	for _, user := range users {
+		if err := s.cleanupOldBackups(user.ID, latestSettings.MaxBackups); err != nil {
+			log.Printf("Warning: failed to clean up old automatic backups for user %d: %v", user.ID, err)
+		}
+	}
+	return nil
 }
 
-func (s *BackupScheduler) cleanupOldBackups(userID uint, maxBackups int) {
+func autoBackupDue(now, lastBackup time.Time, frequency string) bool {
+	switch frequency {
+	case "daily":
+		return calendarDayDifference(lastBackup, now) >= 1
+	case "weekly":
+		return calendarDayDifference(lastBackup, now) >= 7
+	case "monthly":
+		lastMonth := lastBackup.Year()*12 + int(lastBackup.Month())
+		currentMonth := now.Year()*12 + int(now.Month())
+		return currentMonth > lastMonth
+	default:
+		return false
+	}
+}
+
+func removeBackupFiles(paths []string) error {
+	var cleanupErr error
+	for _, path := range paths {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			cleanupErr = errors.Join(cleanupErr, err)
+		}
+	}
+	return cleanupErr
+}
+
+func (s *BackupScheduler) cleanupOldBackups(userID uint, maxBackups int) error {
 	if maxBackups <= 0 {
 		maxBackups = 10
 	}
@@ -174,11 +238,11 @@ func (s *BackupScheduler) cleanupOldBackups(userID uint, maxBackups int) {
 	pattern := filepath.Join(s.backupPath, fmt.Sprintf("auto_backup_user%d_*.json", userID))
 	files, err := filepath.Glob(pattern)
 	if err != nil {
-		return
+		return err
 	}
 
 	if len(files) <= maxBackups {
-		return
+		return nil
 	}
 
 	// Sort by modification time (oldest first) and remove excess
@@ -187,11 +251,14 @@ func (s *BackupScheduler) cleanupOldBackups(userID uint, maxBackups int) {
 		modTime time.Time
 	}
 	var infos []fileInfo
+	var cleanupErr error
 	for _, f := range files {
 		info, err := os.Stat(f)
-		if err == nil {
-			infos = append(infos, fileInfo{path: f, modTime: info.ModTime()})
+		if err != nil {
+			cleanupErr = errors.Join(cleanupErr, err)
+			continue
 		}
+		infos = append(infos, fileInfo{path: f, modTime: info.ModTime()})
 	}
 
 	// Sort by modTime ascending
@@ -206,28 +273,61 @@ func (s *BackupScheduler) cleanupOldBackups(userID uint, maxBackups int) {
 	// Delete oldest files
 	toDelete := len(infos) - maxBackups
 	for i := 0; i < toDelete; i++ {
-		os.Remove(infos[i].path)
+		if err := os.Remove(infos[i].path); err != nil {
+			cleanupErr = errors.Join(cleanupErr, err)
+		}
 	}
+	return cleanupErr
 }
 
 func (s *BackupScheduler) GetSettings() (*AutoBackupSettings, error) {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+
+	settings, _, err := s.loadSettingsLocked()
+	return settings, err
+}
+
+func (s *BackupScheduler) loadSettingsLocked() (*AutoBackupSettings, bool, error) {
 	value, err := s.systemRepo.Get("auto_backup")
-	if err != nil || value == "" {
-		return defaultAutoBackupSettings(), nil
+	if err != nil {
+		return defaultAutoBackupSettings(), false, err
+	}
+	if value == "" {
+		return defaultAutoBackupSettings(), false, nil
 	}
 
 	var settings AutoBackupSettings
 	if err := json.Unmarshal([]byte(value), &settings); err != nil {
-		return defaultAutoBackupSettings(), nil
+		return defaultAutoBackupSettings(), true, nil
 	}
 	if err := normalizeAutoBackupSettings(&settings, true); err != nil {
-		return defaultAutoBackupSettings(), nil
+		return defaultAutoBackupSettings(), true, nil
 	}
 
-	return &settings, nil
+	return &settings, true, nil
 }
 
 func (s *BackupScheduler) SaveSettings(settings *AutoBackupSettings) error {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+
+	if settings == nil {
+		return ErrAutoBackupSettingsInvalid
+	}
+	if settings.LastBackup == "" {
+		current, exists, err := s.loadSettingsLocked()
+		if err != nil {
+			return err
+		}
+		if exists {
+			settings.LastBackup = current.LastBackup
+		}
+	}
+	return s.saveSettingsLocked(settings)
+}
+
+func (s *BackupScheduler) saveSettingsLocked(settings *AutoBackupSettings) error {
 	if err := normalizeAutoBackupSettings(settings, false); err != nil {
 		return err
 	}
@@ -239,13 +339,34 @@ func (s *BackupScheduler) SaveSettings(settings *AutoBackupSettings) error {
 	return s.systemRepo.Set("auto_backup", string(data))
 }
 
+func (s *BackupScheduler) recordSuccessfulBackup(fallback *AutoBackupSettings, lastBackup string) (*AutoBackupSettings, error) {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+
+	settings, exists, err := s.loadSettingsLocked()
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		if fallback == nil {
+			return nil, ErrAutoBackupSettingsInvalid
+		}
+		copy := *fallback
+		settings = &copy
+	}
+	settings.LastBackup = lastBackup
+	if err := s.saveSettingsLocked(settings); err != nil {
+		return nil, err
+	}
+	return settings, nil
+}
+
 func (s *BackupScheduler) TriggerBackup() error {
 	settings, err := s.GetSettings()
 	if err != nil {
-		settings = defaultAutoBackupSettings()
+		return err
 	}
-	s.performBackup(settings)
-	return nil
+	return s.performBackup(settings)
 }
 
 func (s *BackupScheduler) CreatePreRestoreBackup(userID uint) (*BackupFileInfo, error) {
@@ -256,17 +377,20 @@ func (s *BackupScheduler) CreatePreRestoreBackup(userID uint) (*BackupFileInfo, 
 		return nil, err
 	}
 
-	backup, err := s.backupService.CreateBackup(userID)
+	backup, err := s.createBackup(userID)
 	if err != nil {
 		return nil, err
 	}
 	filename := fmt.Sprintf("pre_restore_backup_user%d_%s.json", userID, time.Now().Format("20060102_150405"))
 	filePath := filepath.Join(s.backupPath, filename)
-	data, err := json.MarshalIndent(backup, "", "  ")
+	data, err := s.marshalBackup(backup, "", "  ")
 	if err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(filePath, data, 0600); err != nil {
+	if err := s.validateSerializedBackupSize(data); err != nil {
+		return nil, err
+	}
+	if err := s.writeBackup(filePath, data); err != nil {
 		return nil, err
 	}
 	info, err := os.Stat(filePath)
@@ -278,6 +402,49 @@ func (s *BackupScheduler) CreatePreRestoreBackup(userID uint) (*BackupFileInfo, 
 		Size:      info.Size(),
 		CreatedAt: info.ModTime().Format("2006-01-02 15:04:05"),
 	}, nil
+}
+
+func (s *BackupScheduler) validateSerializedBackupSize(data []byte) error {
+	if s == nil || s.backupService == nil {
+		return nil
+	}
+	if int64(len(data)) > s.backupService.MaxRestoreBytes() {
+		return ErrBackupFileTooLarge
+	}
+	return nil
+}
+
+func writeFileAtomically(filePath string, data []byte) error {
+	dir := filepath.Dir(filePath)
+	tempFile, err := os.CreateTemp(dir, "."+filepath.Base(filePath)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tempPath := tempFile.Name()
+	defer func() {
+		_ = tempFile.Close()
+		if tempPath != "" {
+			_ = os.Remove(tempPath)
+		}
+	}()
+
+	if err := tempFile.Chmod(0600); err != nil {
+		return err
+	}
+	if _, err := tempFile.Write(data); err != nil {
+		return err
+	}
+	if err := tempFile.Sync(); err != nil {
+		return err
+	}
+	if err := tempFile.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tempPath, filePath); err != nil {
+		return err
+	}
+	tempPath = ""
+	return nil
 }
 
 func (s *BackupScheduler) ListBackups() ([]BackupFileInfo, error) {

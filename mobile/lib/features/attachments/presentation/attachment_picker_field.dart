@@ -7,7 +7,6 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
-import '../../../app/widgets/premium_surface.dart';
 import '../data/attachment_models.dart';
 import '../data/attachment_picker_service.dart';
 import '../data/attachment_repository.dart';
@@ -45,9 +44,9 @@ class AttachmentPickerField extends ConsumerWidget {
           children: [
             Text(
               '附件',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const Spacer(),
             if (totalCount > 0)
@@ -58,6 +57,16 @@ class AttachmentPickerField extends ConsumerWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+            if (canAdd) ...[
+              const SizedBox(width: 4),
+              IconButton.filledTonal(
+                key: const ValueKey('attachment-add-button'),
+                onPressed: () => _showPickSheet(context, ref),
+                icon: const Icon(Icons.add_rounded),
+                tooltip: '添加附件',
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
           ],
         ),
         if (attachments.isNotEmpty || pendingFiles.isNotEmpty) ...[
@@ -103,14 +112,6 @@ class AttachmentPickerField extends ConsumerWidget {
         for (final progress in uploadProgress) ...[
           const SizedBox(height: 8),
           _UploadProgressTile(progress: progress),
-        ],
-        if (canAdd) ...[
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => _showPickSheet(context, ref),
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('添加附件'),
-          ),
         ],
       ],
     );
@@ -340,8 +341,6 @@ class _AttachmentTile extends StatefulWidget {
 }
 
 class _AttachmentTileState extends State<_AttachmentTile> {
-  bool _expanded = false;
-
   @override
   Widget build(BuildContext context) {
     final title = widget.title;
@@ -435,20 +434,12 @@ class _AttachmentTileState extends State<_AttachmentTile> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                IconButton(
-                  key: ValueKey('attachment-preview-$title'),
-                  onPressed: onPreview,
-                  icon: const Icon(Icons.visibility_outlined),
-                  tooltip: null,
-                ),
                 if (onDownload != null)
                   IconButton(
-                    key: ValueKey('attachment-action-toggle-$title'),
-                    tooltip: null,
-                    onPressed: () => setState(() {
-                      _expanded = !_expanded;
-                    }),
-                    icon: Icon(_expanded ? Icons.remove : Icons.add),
+                    key: ValueKey('attachment-action-save-$title'),
+                    onPressed: onDownload,
+                    icon: const Icon(Icons.save_alt_outlined),
+                    tooltip: '保存$title',
                     padding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
                   ),
@@ -457,27 +448,7 @@ class _AttachmentTileState extends State<_AttachmentTile> {
                     key: ValueKey('attachment-remove-$title'),
                     onPressed: onRemove,
                     icon: const Icon(Icons.close),
-                    tooltip: null,
-                  ),
-                if (_expanded && onDownload != null)
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton.icon(
-                        key: ValueKey('attachment-action-save-$title'),
-                        onPressed: onDownload,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          side: BorderSide(color: colorScheme.outline),
-                        ),
-                        icon: const Icon(Icons.save_alt_outlined, size: 16),
-                        label: const Text('保存'),
-                      ),
-                    ),
+                    tooltip: '移除$title',
                   ),
               ],
             ),

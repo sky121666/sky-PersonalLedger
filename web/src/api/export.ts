@@ -1,5 +1,6 @@
 import type { AxiosResponse } from 'axios'
 import { get } from '@/utils/request'
+import { formatLocalDate } from '@/utils/localDate'
 
 export interface MonthlyData {
   month: string
@@ -62,7 +63,7 @@ export const exportApi = {
     const downloadUrl = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = downloadUrl
-    a.download = `transactions_${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `transactions_${formatLocalDate()}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

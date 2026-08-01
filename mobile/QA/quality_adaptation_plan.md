@@ -24,13 +24,14 @@
   - `mobile/test/ui_pollution_guard_test.dart`
   - `mobile/QA/ui_score_scan.js`
 - 安装链路打通辅助：`mobile/QA/android_install.sh` 支持缺包自动构建 debug 包，并在超时等待期间输出安装进度片段，降低无响应误判。
-- 质量快照统一：`mobile/QA/quality_audit_latest.json` 由质量闸门脚本自动同步到最新报告，便于每次迭代后快速比对。
+- 质量快照统一：`mobile/QA/quality_audit_latest.json` 由 `generate_quality_report.sh` 或 `run_quality_complete.sh` 在静态阶段更新，便于每次迭代后快速比对。
 
 ## 后续验收节奏
 - 无设备：持续补齐静态规则与人工审阅，冻结高风险新提示文案。
 - 有设备：
   - `HOME=/private/tmp ANDROID_PREFER_EMULATOR=1 ./QA/android_install.sh`
   - `HOME=/private/tmp ANDROID_PREFER_EMULATOR=1 ./QA/run_android_runtime_gate.sh`
+  - `run_android_runtime_gate.sh` 输出以 `mobile/QA/runtime/runtime_report_latest.md` 为主（配套 `runtime/*.log` 与 `runtime/gfxinfo/*.txt`）。
   - 输出首屏、交互、滚动成绩后更新本表。
 
 ## 风险与阻塞

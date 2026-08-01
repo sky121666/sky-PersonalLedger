@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	ErrCategoryNotFound = errors.New("category not found")
+	ErrCategoryNotFound        = errors.New("category not found")
+	ErrSystemCategoryProtected = errors.New("system category cannot be modified or deleted")
 )
 
 type CategoryService struct {
@@ -70,6 +71,9 @@ func (s *CategoryService) Update(id string, userID uint, req UpdateCategoryReque
 	if err != nil {
 		return nil, err
 	}
+	if category.IsSystem {
+		return nil, ErrSystemCategoryProtected
+	}
 
 	if req.Name != "" {
 		category.Name = req.Name
@@ -89,9 +93,12 @@ func (s *CategoryService) Update(id string, userID uint, req UpdateCategoryReque
 }
 
 func (s *CategoryService) Delete(id string, userID uint) error {
-	_, err := s.GetByID(id, userID)
+	category, err := s.GetByID(id, userID)
 	if err != nil {
 		return err
+	}
+	if category.IsSystem {
+		return ErrSystemCategoryProtected
 	}
 	return s.repo.Delete(id)
 }

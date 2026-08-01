@@ -2,32 +2,33 @@ package service
 
 import (
 	"errors"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
+	"gorm.io/gorm"
 )
 
 var (
-	ErrTemplateNotFound = errors.New("template not found")
+	ErrTemplateNotFound      = errors.New("template not found")
+	ErrInvalidTemplateType   = errors.New("invalid template type")
+	ErrInvalidTemplateAmount = errors.New("template amount must not be negative")
 )
 
 type TemplateService struct {
 	templateRepo *repository.TemplateRepository
-	txRepo       *repository.TransactionRepository
-	accountRepo  *repository.AccountRepository
+	txService    *TransactionService
 }
 
 func NewTemplateService(
 	templateRepo *repository.TemplateRepository,
-	txRepo *repository.TransactionRepository,
-	accountRepo *repository.AccountRepository,
+	txService *TransactionService,
 ) *TemplateService {
 	return &TemplateService{
 		templateRepo: templateRepo,
-		txRepo:       txRepo,
-		accountRepo:  accountRepo,
+		txService:    txService,
 	}
 }
 
@@ -35,12 +36,19 @@ type CreateTemplateRequest struct {
 	Name       string  `json:"name" binding:"required"`
 	Type       string  `json:"type" binding:"required,oneof=income expense"`
 	Amount     float64 `json:"amount"`
-	AccountID  string  `json:"account_id"`
+	AccountID  string  `json:"account_id" binding:"required"`
 	CategoryID *string `json:"category_id"`
 	Remark     string  `json:"remark"`
 }
 
 func (s *TemplateService) Create(userID uint, req CreateTemplateRequest) (*model.QuickTemplate, error) {
+	if req.Type != "income" && req.Type != "expense" {
+		return nil, ErrInvalidTemplateType
+	}
+	if req.Amount < 0 || math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) {
+		return nil, ErrInvalidTemplateAmount
+	}
+
 	template := &model.QuickTemplate{
 		ID:         uuid.New().String(),
 		UserID:     userID,
@@ -52,7 +60,17 @@ func (s *TemplateService) Create(userID uint, req CreateTemplateRequest) (*model
 		Remark:     req.Remark,
 	}
 
-	if err := s.templateRepo.Create(template); err != nil {
+	err := s.txService.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		if err := s.txService.validateTransactionReferencesTx(txdb, userID, CreateTransactionRequest{
+			Type:       req.Type,
+			AccountID:  req.AccountID,
+			CategoryID: req.CategoryID,
+		}); err != nil {
+			return err
+		}
+		return s.templateRepo.CreateWithDB(txdb, template)
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -60,12 +78,12 @@ func (s *TemplateService) Create(userID uint, req CreateTemplateRequest) (*model
 }
 
 func (s *TemplateService) GetByID(id string, userID uint) (*model.QuickTemplate, error) {
-	template, err := s.templateRepo.GetByID(id)
+	template, err := s.templateRepo.GetByIDForUser(id, userID)
 	if err != nil {
-		return nil, ErrTemplateNotFound
-	}
-	if template.UserID != userID {
-		return nil, ErrTemplateNotFound
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrTemplateNotFound
+		}
+		return nil, err
 	}
 	return template, nil
 }
@@ -75,11 +93,13 @@ func (s *TemplateService) List(userID uint) ([]model.QuickTemplate, error) {
 }
 
 func (s *TemplateService) Delete(id string, userID uint) error {
-	_, err := s.GetByID(id, userID)
-	if err != nil {
+	if err := s.templateRepo.DeleteForUser(id, userID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrTemplateNotFound
+		}
 		return err
 	}
-	return s.templateRepo.Delete(id)
+	return nil
 }
 
 type ApplyTemplateRequest struct {
@@ -88,50 +108,48 @@ type ApplyTemplateRequest struct {
 }
 
 func (s *TemplateService) Apply(id string, userID uint, req ApplyTemplateRequest) (*model.Transaction, error) {
-	template, err := s.GetByID(id, userID)
+	var transaction *model.Transaction
+	err := s.txService.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		template, err := s.templateRepo.GetByIDForUserWithDB(txdb, id, userID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrTemplateNotFound
+			}
+			return err
+		}
+
+		amount := template.Amount
+		if req.Amount != nil {
+			amount = *req.Amount
+		}
+		transactionDate := req.TransactionDate
+		if transactionDate == "" {
+			transactionDate = time.Now().Format(time.RFC3339Nano)
+		}
+
+		transaction, err = s.txService.createWithTx(txdb, userID, CreateTransactionRequest{
+			Type:            template.Type,
+			Amount:          amount,
+			AccountID:       template.AccountID,
+			CategoryID:      template.CategoryID,
+			TransactionDate: transactionDate,
+			Remark:          template.Remark,
+		}, "template")
+		if err != nil {
+			return err
+		}
+
+		if err := s.templateRepo.IncrementUsageWithDB(txdb, id, userID, time.Now()); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrTemplateNotFound
+			}
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	txDate := time.Now()
-	if req.TransactionDate != "" {
-		txDate, _ = time.Parse("2006-01-02", req.TransactionDate)
-	}
-
-	amount := template.Amount
-	if req.Amount != nil {
-		amount = *req.Amount
-	}
-
-	tx := &model.Transaction{
-		ID:              uuid.New().String(),
-		UserID:          userID,
-		AccountID:       template.AccountID,
-		CategoryID:      template.CategoryID,
-		Type:            template.Type,
-		Amount:          amount,
-		TransactionDate: txDate,
-		Remark:          template.Remark,
-		Source:          "template",
-	}
-
-	if err := s.txRepo.Create(tx); err != nil {
-		return nil, err
-	}
-
-	// Update account balance
-	switch template.Type {
-	case "expense":
-		s.accountRepo.UpdateBalance(template.AccountID, -amount)
-	case "income":
-		s.accountRepo.UpdateBalance(template.AccountID, amount)
-	}
-
-	// Update template usage
-	now := time.Now()
-	template.UsedCount++
-	template.LastUsedAt = &now
-	s.templateRepo.Update(template)
-
-	return s.txRepo.GetByID(tx.ID)
+	return transaction, nil
 }

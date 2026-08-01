@@ -188,7 +188,7 @@ features/transactions/presentation/quick_transaction_page.dart    0    100
 
 ### 运行时采样命令（已新增）
 - 建议先使用（在 `mobile/` 目录内）：
-  - `cd mobile && HOME=/tmp ./QA/run_android_runtime_gate.sh <device_id> "/server-config,/login,/home,/transactions,/statistics,/accounts,/lendings,/templates"`
-- 脚本会对每个路由落盘 `trace` 与 `log`，供后续 FPS 与首帧时长回填。
+- `cd mobile && HOME=/tmp ./QA/run_android_runtime_gate.sh <device_id> "/server-config,/login,/home,/transactions,/statistics,/accounts,/lendings,/templates"`
+- 脚本会对每个路由落盘 `log`（默认关闭 `--trace-startup`，可通过 `FLUTTER_USE_TRACE_STARTUP=1` 开启），并补充 `dumpsys gfxinfo`，用于后续 FPS 与首帧时长评估。
 - 默认每个路由采样 30 秒（可用 `ROUTE_SECONDS=60` 调大）。
 - 目标机型若为 120Hz，建议以 60 秒滚动/交互窗口取 P99 响应和平均 FPS。

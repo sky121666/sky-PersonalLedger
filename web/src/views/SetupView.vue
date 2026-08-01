@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { setupApi, type SetupStatus } from '@/api/setup'
 import {
@@ -17,10 +17,12 @@ import {
   Wallet
 } from 'lucide-vue-next'
 import { toast } from '@/composables/useToast'
+import { setSetupToken } from '@/utils/setupAccess'
 
 type SetupStep = 'database' | 'password' | 'complete'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const setupStatus = ref<SetupStatus | null>(null)
@@ -79,6 +81,15 @@ watch(databaseForm, () => {
 }, { deep: true })
 
 onMounted(async () => {
+  const routeSetupToken = Array.isArray(route.query.setup_token)
+    ? route.query.setup_token[0]
+    : route.query.setup_token
+  if (setSetupToken(routeSetupToken)) {
+    const nextQuery = { ...route.query }
+    delete nextQuery.setup_token
+    await router.replace({ path: route.path, query: nextQuery })
+  }
+
   await authStore.checkAuth()
   if (authStore.initialized === true) {
     router.replace(authStore.isLoggedIn ? '/' : '/login')

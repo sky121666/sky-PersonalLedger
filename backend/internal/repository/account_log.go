@@ -29,11 +29,49 @@ type CreateAccountLogRequest struct {
 	Remark        string
 }
 
+type AccountBalanceSnapshot struct {
+	AccountID string  `gorm:"column:account_id"`
+	Balance   float64 `gorm:"column:balance"`
+}
+
+func (r *AccountLogRepository) LatestBalancesAt(userID uint, at time.Time) ([]AccountBalanceSnapshot, error) {
+	var snapshots []AccountBalanceSnapshot
+	err := r.db.Raw(`
+		SELECT current_log.account_id, current_log.balance_after AS balance
+		FROM account_logs AS current_log
+		WHERE current_log.user_id = ?
+		  AND current_log.created_at <= ?
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM account_logs AS newer_log
+			WHERE newer_log.user_id = current_log.user_id
+			  AND newer_log.account_id = current_log.account_id
+			  AND newer_log.created_at <= ?
+			  AND (
+				newer_log.created_at > current_log.created_at
+				OR (newer_log.created_at = current_log.created_at AND newer_log.id > current_log.id)
+			  )
+		  )
+		ORDER BY current_log.account_id ASC
+	`, userID, at, at).Scan(&snapshots).Error
+	return snapshots, err
+}
+
 func (r *AccountLogRepository) Create(req *CreateAccountLogRequest) error {
 	return r.CreateWithDB(r.db, req)
 }
 
 func (r *AccountLogRepository) CreateWithDB(db *gorm.DB, req *CreateAccountLogRequest) error {
+	var accountCount int64
+	if err := db.Model(&model.Account{}).
+		Where("id = ? AND user_id = ?", req.AccountID, req.UserID).
+		Count(&accountCount).Error; err != nil {
+		return err
+	}
+	if accountCount != 1 {
+		return gorm.ErrRecordNotFound
+	}
+
 	log := &model.AccountLog{
 		ID:            uuid.New().String(),
 		UserID:        req.UserID,
@@ -51,12 +89,15 @@ func (r *AccountLogRepository) CreateWithDB(db *gorm.DB, req *CreateAccountLogRe
 	return db.Create(log).Error
 }
 
-func (r *AccountLogRepository) GetByAccountID(accountID string, page, pageSize int) ([]model.AccountLog, int64, error) {
+func (r *AccountLogRepository) GetByAccountID(userID uint, accountID string, page, pageSize int) ([]model.AccountLog, int64, error) {
 	var logs []model.AccountLog
 	var total int64
 
-	query := r.db.Model(&model.AccountLog{}).Where("account_id = ?", accountID)
-	query.Count(&total)
+	query := r.db.Model(&model.AccountLog{}).
+		Where("user_id = ? AND account_id = ?", userID, accountID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
 
 	offset := (page - 1) * pageSize
 	err := query.Order("created_at DESC").
@@ -72,11 +113,13 @@ func (r *AccountLogRepository) GetByUserID(userID uint, page, pageSize int) ([]m
 	var total int64
 
 	query := r.db.Model(&model.AccountLog{}).Where("user_id = ?", userID)
-	query.Count(&total)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
 
 	offset := (page - 1) * pageSize
 	err := query.Order("created_at DESC").
-		Preload("Account").
+		Preload("Account", "user_id = ?", userID).
 		Offset(offset).
 		Limit(pageSize).
 		Find(&logs).Error
@@ -84,9 +127,9 @@ func (r *AccountLogRepository) GetByUserID(userID uint, page, pageSize int) ([]m
 	return logs, total, err
 }
 
-func (r *AccountLogRepository) GetByTransactionID(transactionID string) ([]model.AccountLog, error) {
+func (r *AccountLogRepository) GetByTransactionID(userID uint, transactionID string) ([]model.AccountLog, error) {
 	var logs []model.AccountLog
-	err := r.db.Where("transaction_id = ?", transactionID).
+	err := r.db.Where("user_id = ? AND transaction_id = ?", userID, transactionID).
 		Order("created_at DESC").
 		Find(&logs).Error
 	return logs, err

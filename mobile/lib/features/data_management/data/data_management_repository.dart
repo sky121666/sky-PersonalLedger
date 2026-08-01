@@ -58,6 +58,91 @@ class DataManagementRepository {
     await _apiClient.postMultipart<void>('/restore', data: formData);
   }
 
+  Future<TransactionImportPreview> previewTransactionImport(
+    PlatformFile file,
+  ) async {
+    final extension = (file.extension ?? '').toLowerCase();
+    if (extension != 'csv' && extension != 'json') {
+      throw const FormatException('请选择 CSV 或 JSON 交易文件');
+    }
+    if (file.size > transactionImportMaxFileBytes) {
+      throw const FormatException('交易文件不能超过 5 MB');
+    }
+    final multipartFile = await _platformMultipartFile(file);
+    final result = await _apiClient.postMultipart<TransactionImportPreview>(
+      '/imports/transactions/preview',
+      data: FormData.fromMap({'file': multipartFile}),
+      fromJsonT: TransactionImportPreview.fromJson,
+    );
+    if (result == null) {
+      throw const FormatException('交易导入预览响应为空');
+    }
+    return result;
+  }
+
+  Future<TransactionImportPreview?> getRecentTransactionImport() {
+    return _apiClient.get<TransactionImportPreview?>(
+      '/imports/transactions/recent',
+      fromJsonT: (json) =>
+          json == null ? null : TransactionImportPreview.fromJson(json),
+    );
+  }
+
+  Future<List<TransactionImportPreview>> listRecentTransactionImports() async {
+    final result = await _apiClient.get<List<TransactionImportPreview>>(
+      '/imports/transactions',
+      queryParameters: const {'limit': 64},
+      fromJsonT: (json) {
+        final map = json is Map ? json.cast<String, dynamic>() : const {};
+        final list = map['list'];
+        if (list is! List) {
+          return const <TransactionImportPreview>[];
+        }
+        return list
+            .map(TransactionImportPreview.fromJson)
+            .toList(growable: false);
+      },
+    );
+    return result ?? const [];
+  }
+
+  Future<TransactionImportPreview> getTransactionImport(String id) async {
+    final result = await _apiClient.get<TransactionImportPreview>(
+      '/imports/transactions/$id',
+      fromJsonT: TransactionImportPreview.fromJson,
+    );
+    if (result == null) {
+      throw const FormatException('交易导入状态响应为空');
+    }
+    return result;
+  }
+
+  Future<TransactionImportPreview> validateTransactionImport(String id) {
+    return _transactionImportAction(id, 'validate');
+  }
+
+  Future<TransactionImportPreview> commitTransactionImport(String id) {
+    return _transactionImportAction(id, 'commit');
+  }
+
+  Future<TransactionImportPreview> rollbackTransactionImport(String id) {
+    return _transactionImportAction(id, 'rollback');
+  }
+
+  Future<TransactionImportPreview> _transactionImportAction(
+    String id,
+    String action,
+  ) async {
+    final result = await _apiClient.post<TransactionImportPreview>(
+      '/imports/transactions/$id/$action',
+      fromJsonT: TransactionImportPreview.fromJson,
+    );
+    if (result == null) {
+      throw const FormatException('交易导入响应为空');
+    }
+    return result;
+  }
+
   Future<AutoBackupOverview> getAutoBackupOverview() async {
     final results = await Future.wait<Object?>([
       getAutoBackupSettings(),
@@ -126,6 +211,161 @@ class DataManagementRepository {
       size: bytes.length,
     );
   }
+}
+
+const transactionImportMaxFileBytes = 5 * 1024 * 1024;
+
+Future<MultipartFile> _platformMultipartFile(PlatformFile file) async {
+  final path = file.path;
+  if (path != null && path.isNotEmpty) {
+    return MultipartFile.fromFile(path, filename: file.name);
+  }
+  final bytes = file.bytes;
+  if (bytes != null && bytes.isNotEmpty) {
+    return MultipartFile.fromBytes(bytes, filename: file.name);
+  }
+  throw const FormatException('请选择可读取的交易文件');
+}
+
+class TransactionImportPreview {
+  const TransactionImportPreview({
+    required this.id,
+    required this.filename,
+    required this.format,
+    required this.status,
+    required this.totalRows,
+    required this.validRows,
+    required this.invalidRows,
+    required this.duplicateRows,
+    required this.createdRows,
+    required this.rolledBackRows,
+    required this.rows,
+    required this.rowsTruncated,
+    required this.createdAt,
+    required this.expiresAt,
+    this.committedAt,
+    this.rolledBackAt,
+  });
+
+  final String id;
+  final String filename;
+  final String format;
+  final String status;
+  final int totalRows;
+  final int validRows;
+  final int invalidRows;
+  final int duplicateRows;
+  final int createdRows;
+  final int rolledBackRows;
+  final List<TransactionImportRow> rows;
+  final bool rowsTruncated;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final DateTime? committedAt;
+  final DateTime? rolledBackAt;
+
+  bool get canCommit =>
+      (status == 'previewed' || status == 'validated') && invalidRows == 0;
+  bool get canRollback => status == 'committed';
+  int get importableRows => (validRows - duplicateRows).clamp(0, totalRows);
+
+  factory TransactionImportPreview.fromJson(Object? json) {
+    if (json is! Map) {
+      throw const FormatException('交易导入响应格式不正确');
+    }
+    final map = json.cast<String, dynamic>();
+    final rawRows = map['rows'];
+    return TransactionImportPreview(
+      id: map['id'] as String? ?? '',
+      filename: map['filename'] as String? ?? '',
+      format: map['format'] as String? ?? '',
+      status: map['status'] as String? ?? 'previewed',
+      totalRows: _toInt(map['total_rows']),
+      validRows: _toInt(map['valid_rows']),
+      invalidRows: _toInt(map['invalid_rows']),
+      duplicateRows: _toInt(map['duplicate_rows']),
+      createdRows: _toInt(map['created_rows']),
+      rolledBackRows: _toInt(map['rolled_back_rows']),
+      rows: rawRows is List
+          ? rawRows.map(TransactionImportRow.fromJson).toList(growable: false)
+          : const [],
+      rowsTruncated: map['rows_truncated'] as bool? ?? false,
+      createdAt:
+          _toDateTime(map['created_at']) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      expiresAt:
+          _toDateTime(map['expires_at']) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      committedAt: _toDateTime(map['committed_at']),
+      rolledBackAt: _toDateTime(map['rolled_back_at']),
+    );
+  }
+}
+
+class TransactionImportRow {
+  const TransactionImportRow({
+    required this.row,
+    required this.type,
+    required this.amount,
+    required this.transactionDate,
+    required this.account,
+    required this.category,
+    required this.valid,
+    required this.duplicate,
+    required this.errors,
+    required this.warnings,
+  });
+
+  final int row;
+  final String type;
+  final double amount;
+  final String transactionDate;
+  final String account;
+  final String category;
+  final bool valid;
+  final bool duplicate;
+  final List<String> errors;
+  final List<String> warnings;
+
+  factory TransactionImportRow.fromJson(Object? json) {
+    if (json is! Map) {
+      throw const FormatException('交易导入行格式不正确');
+    }
+    final map = json.cast<String, dynamic>();
+    return TransactionImportRow(
+      row: _toInt(map['row']),
+      type: map['type'] as String? ?? '',
+      amount: _toDouble(map['amount']),
+      transactionDate: map['transaction_date'] as String? ?? '',
+      account: map['account'] as String? ?? '',
+      category: map['category'] as String? ?? '',
+      valid: map['valid'] as bool? ?? false,
+      duplicate: map['duplicate'] as bool? ?? false,
+      errors: _toStringList(map['errors']),
+      warnings: _toStringList(map['warnings']),
+    );
+  }
+}
+
+double _toDouble(Object? value) {
+  if (value is num) {
+    return value.toDouble();
+  }
+  return double.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+DateTime? _toDateTime(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  return DateTime.tryParse(value.toString());
+}
+
+List<String> _toStringList(Object? value) {
+  if (value is! List) {
+    return const [];
+  }
+  return value.map((item) => item.toString()).toList(growable: false);
 }
 
 class ExportTransactionsFilter {

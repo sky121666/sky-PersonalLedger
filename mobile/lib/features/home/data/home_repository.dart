@@ -2,17 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../accounts/data/account_type_rules.dart';
+import '../../statistics/data/statistics_models.dart';
 import '../../transactions/data/transaction_models.dart';
-
-const debtAccountTypes = <String>{
-  'credit',
-  'loan',
-  'mortgage',
-  'car_loan',
-  'consumer_loan',
-  'huabei',
-  'baitiao',
-};
 
 class Account {
   const Account({
@@ -33,7 +25,7 @@ class Account {
   final double currentBalance;
   final bool isArchived;
 
-  bool get isDebt => debtAccountTypes.contains(type);
+  bool get isDebt => isDebtAccountType(type);
 
   /// 从账户 JSON 构建账户模型。
   factory Account.fromJson(Object? json) {
@@ -177,6 +169,11 @@ class HomeSummary {
     required this.accounts,
     required this.overview,
     required this.budgetSummary,
+    this.trend = const TrendResponse(
+      items: [],
+      totalIncome: 0,
+      totalExpense: 0,
+    ),
     this.recentTransactions = const [],
     this.familySummary = const FamilyHomeSummary.empty(),
   });
@@ -184,8 +181,29 @@ class HomeSummary {
   final AccountListResponse accounts;
   final StatisticsOverview overview;
   final BudgetSummary budgetSummary;
+  final TrendResponse trend;
   final List<TransactionItem> recentTransactions;
   final FamilyHomeSummary familySummary;
+}
+
+class HomeSummaryQuery {
+  const HomeSummaryQuery({
+    required this.month,
+    this.period = StatisticsPeriod.month,
+  });
+
+  final String month;
+  final StatisticsPeriod period;
+
+  @override
+  bool operator ==(Object other) {
+    return other is HomeSummaryQuery &&
+        other.month == month &&
+        other.period == period;
+  }
+
+  @override
+  int get hashCode => Object.hash(month, period);
 }
 
 class FamilyHomeSummary {
@@ -279,7 +297,8 @@ class HomeRepository {
   );
 
   /// 获取首页需要的账户、统计、预算和最近交易数据。
-  Future<HomeSummary> getSummary() async {
+  Future<HomeSummary> getSummary({HomeSummaryQuery? query}) async {
+    final periodQuery = queryParametersForPeriod(query);
     final results = await Future.wait<Object?>([
       _apiClient.get<AccountListResponse>(
         '/accounts',
@@ -288,30 +307,43 @@ class HomeRepository {
       ),
       _apiClient.get<StatisticsOverview>(
         '/statistics/overview',
+        queryParameters: periodQuery,
         fromJsonT: StatisticsOverview.fromJson,
       ),
       _apiClient.get<BudgetSummary>(
         '/budgets/summary',
         fromJsonT: BudgetSummary.fromJson,
       ),
-      _getFamilySummaryOrEmpty(),
+      _getFamilySummaryOrEmpty(query),
       listRecentTransactions(),
+      _apiClient.get<TrendResponse>(
+        '/statistics/trend',
+        queryParameters: periodQuery,
+        fromJsonT: TrendResponse.fromJson,
+      ),
     ]);
 
     return HomeSummary(
       accounts: results[0] as AccountListResponse? ?? _emptyAccounts,
       overview: results[1] as StatisticsOverview? ?? _emptyOverview,
       budgetSummary: results[2] as BudgetSummary? ?? _emptyBudgetSummary,
-      familySummary: results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
+      familySummary:
+          results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
       recentTransactions:
           results[4] as List<TransactionItem>? ?? const <TransactionItem>[],
+      trend:
+          results[5] as TrendResponse? ??
+          const TrendResponse(items: [], totalIncome: 0, totalExpense: 0),
     );
   }
 
-  Future<FamilyHomeSummary> _getFamilySummaryOrEmpty() async {
+  Future<FamilyHomeSummary> _getFamilySummaryOrEmpty(
+    HomeSummaryQuery? query,
+  ) async {
     try {
       return await _apiClient.get<FamilyHomeSummary>(
             '/family/summary',
+            queryParameters: queryParametersForPeriod(query),
             fromJsonT: FamilyHomeSummary.fromJson,
           ) ??
           const FamilyHomeSummary.empty();
@@ -323,11 +355,14 @@ class HomeRepository {
   Future<List<TransactionItem>> listRecentTransactions() async {
     final result = await _apiClient.get<TransactionListResult>(
       '/transactions',
-      queryParameters: const {'page': 1, 'page_size': 5},
+      queryParameters: const {'page': 1, 'page_size': 20},
       fromJsonT: (json) =>
           TransactionListResult.fromJson(json as Map<String, dynamic>? ?? {}),
     );
-    return result?.list ?? const [];
+    return (result?.list ?? const <TransactionItem>[])
+        .where((item) => !item.isSystemSeed)
+        .take(5)
+        .toList();
   }
 
   Future<List<TransactionItem>> listTransactionsForDate(DateTime date) async {
@@ -343,7 +378,9 @@ class HomeRepository {
       fromJsonT: (json) =>
           TransactionListResult.fromJson(json as Map<String, dynamic>? ?? {}),
     );
-    return result?.list ?? const [];
+    return (result?.list ?? const <TransactionItem>[])
+        .where((item) => !item.isSystemSeed)
+        .toList();
   }
 }
 
@@ -355,8 +392,13 @@ final homeSummaryProvider = FutureProvider<HomeSummary>((ref) {
   return ref.watch(homeRepositoryProvider).getSummary();
 });
 
-final homeDateTransactionsProvider = FutureProvider
-    .family<List<TransactionItem>, DateTime>((ref, date) {
+final homeSummaryByPeriodProvider =
+    FutureProvider.family<HomeSummary, HomeSummaryQuery>((ref, query) {
+      return ref.watch(homeRepositoryProvider).getSummary(query: query);
+    });
+
+final homeDateTransactionsProvider =
+    FutureProvider.family<List<TransactionItem>, DateTime>((ref, date) {
       return ref.watch(homeRepositoryProvider).listTransactionsForDate(date);
     });
 
@@ -375,4 +417,11 @@ String _formatDate(DateTime date) {
   final month = date.month.toString().padLeft(2, '0');
   final day = date.day.toString().padLeft(2, '0');
   return '${date.year}-$month-$day';
+}
+
+Map<String, String>? queryParametersForPeriod(HomeSummaryQuery? query) {
+  if (query == null) {
+    return null;
+  }
+  return {'month': query.month, 'period': query.period.apiValue};
 }

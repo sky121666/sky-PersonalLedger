@@ -214,7 +214,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有账户'), findsOneWidget);
-      expect(find.text('还没有账户，先添加账户'), findsOneWidget);
+      expect(find.text('还没有账户，先添加账户'), findsNothing);
+      expect(find.text('右上角添加'), findsOneWidget);
       expect(find.text('暂无数据'), findsNothing);
     });
 

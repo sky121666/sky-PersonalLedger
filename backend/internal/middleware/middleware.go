@@ -1,17 +1,21 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/sky/personal-ledger/internal/authz"
 	"github.com/sky/personal-ledger/pkg/jwt"
 	"github.com/sky/personal-ledger/pkg/logger"
 	"github.com/sky/personal-ledger/pkg/response"
 
 	"github.com/gin-gonic/gin"
 )
+
+const principalContextKey = "authPrincipal"
 
 // Note: sync was removed as rate limiter was removed
 
@@ -31,7 +35,9 @@ func CORS(allowedOrigins string) gin.HandlerFunc {
 		}
 
 		if allowAll {
-			c.Header("Access-Control-Allow-Origin", "*")
+			// Credentialed browser requests cannot use a wildcard origin.
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
 			setCORSCommonHeaders(c)
 			if c.Request.Method == http.MethodOptions {
 				c.AbortWithStatus(http.StatusNoContent)
@@ -44,6 +50,7 @@ func CORS(allowedOrigins string) gin.HandlerFunc {
 		for _, allowed := range origins {
 			if allowed == origin {
 				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Vary", "Origin")
 				setCORSCommonHeaders(c)
 				if c.Request.Method == http.MethodOptions {
 					c.AbortWithStatus(http.StatusNoContent)
@@ -56,6 +63,7 @@ func CORS(allowedOrigins string) gin.HandlerFunc {
 
 		if len(origins) == 0 && isSameHostOrigin(c.Request, origin) {
 			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
 			setCORSCommonHeaders(c)
 			if c.Request.Method == http.MethodOptions {
 				c.AbortWithStatus(http.StatusNoContent)
@@ -83,8 +91,9 @@ func parseAllowedOrigins(value string) []string {
 
 func setCORSCommonHeaders(c *gin.Context) {
 	c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-CSRF-Token, X-Refresh-Token-Mode, X-Session-Bootstrap, X-Setup-Token")
 	c.Header("Access-Control-Allow-Credentials", "true")
+	c.Header("Access-Control-Expose-Headers", "Content-Disposition")
 	c.Header("Access-Control-Max-Age", "86400")
 }
 
@@ -139,9 +148,9 @@ func Auth(jwtManager *jwt.Manager) gin.HandlerFunc {
 			return
 		}
 
-		claims, err := jwtManager.ValidateToken(parts[1])
+		claims, err := jwtManager.ValidateAccessToken(parts[1])
 		if err != nil {
-			if err == jwt.ErrExpiredToken {
+			if errors.Is(err, jwt.ErrExpiredToken) {
 				response.Error(c, 401, 40102, "token expired")
 			} else {
 				response.Unauthorized(c, "invalid token")
@@ -151,6 +160,7 @@ func Auth(jwtManager *jwt.Manager) gin.HandlerFunc {
 		}
 
 		c.Set("userID", claims.UserID)
+		c.Set(principalContextKey, authz.Principal{UserID: claims.UserID, CredentialType: authz.CredentialJWT})
 		c.Next()
 	}
 }
@@ -175,22 +185,29 @@ func AuthWithAPIToken(jwtManager *jwt.Manager, apiTokenValidator APITokenValidat
 		token := parts[1]
 
 		// 先尝试 JWT 验证
-		claims, err := jwtManager.ValidateToken(token)
+		claims, err := jwtManager.ValidateAccessToken(token)
 		if err == nil {
 			c.Set("userID", claims.UserID)
+			c.Set(principalContextKey, authz.Principal{UserID: claims.UserID, CredentialType: authz.CredentialJWT})
 			c.Next()
 			return
 		}
-		if err == jwt.ErrExpiredToken {
+		if errors.Is(err, jwt.ErrExpiredToken) {
 			response.Error(c, http.StatusUnauthorized, 40102, "token expired")
+			c.Abort()
+			return
+		}
+		if errors.Is(err, jwt.ErrInvalidTokenType) {
+			response.Unauthorized(c, "invalid token")
 			c.Abort()
 			return
 		}
 
 		// JWT 验证失败，尝试 API Token 验证
-		userID, err := apiTokenValidator.ValidateToken(token)
+		principal, err := validateAPITokenPrincipal(apiTokenValidator, token)
 		if err == nil {
-			c.Set("userID", userID)
+			c.Set("userID", principal.UserID)
+			c.Set(principalContextKey, principal)
 			c.Next()
 			return
 		}
@@ -214,6 +231,85 @@ type APITokenValidator interface {
 	ValidateToken(token string) (uint, error)
 }
 
+type apiTokenPrincipalValidator interface {
+	ValidatePrincipal(token string) (authz.Principal, error)
+}
+
+func validateAPITokenPrincipal(validator APITokenValidator, token string) (authz.Principal, error) {
+	if extended, ok := validator.(apiTokenPrincipalValidator); ok {
+		return extended.ValidatePrincipal(token)
+	}
+	userID, err := validator.ValidateToken(token)
+	if err != nil {
+		return authz.Principal{}, err
+	}
+	return authz.Principal{
+		UserID: userID, CredentialType: authz.CredentialAPIToken,
+		Scopes: append([]string(nil), authz.AllowedAPITokenScopes...),
+	}, nil
+}
+
+func GetPrincipal(c *gin.Context) (authz.Principal, bool) {
+	value, exists := c.Get(principalContextKey)
+	if !exists {
+		return authz.Principal{}, false
+	}
+	principal, ok := value.(authz.Principal)
+	return principal, ok
+}
+
+// EnforceAPITokenScopes applies a deny-by-default route policy to API tokens.
+// User JWTs retain the existing single-user application permissions.
+func EnforceAPITokenScopes() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		principal, exists := GetPrincipal(c)
+		if !exists || principal.CredentialType == authz.CredentialJWT {
+			c.Next()
+			return
+		}
+		required, allowed := requiredAPITokenScope(c.Request.Method, c.Request.URL.Path)
+		if !allowed || !principal.HasScope(required) {
+			response.Forbidden(c, "api token is not permitted for this operation")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+func requiredAPITokenScope(method string, path string) (string, bool) {
+	apiPath := path
+	if index := strings.Index(apiPath, "/api/v1/"); index >= 0 {
+		apiPath = apiPath[index+len("/api/v1"):]
+	}
+	for _, prefix := range []string{"/statistics", "/export"} {
+		if apiPath == prefix || strings.HasPrefix(apiPath, prefix+"/") {
+			if method == http.MethodGet || method == http.MethodHead {
+				return authz.ScopeReportRead, true
+			}
+			return "", false
+		}
+	}
+	if apiPath == "/upload" || strings.HasPrefix(apiPath, "/upload/") {
+		if method == http.MethodGet || method == http.MethodHead {
+			return authz.ScopeUploadRead, true
+		}
+		return authz.ScopeUploadWrite, true
+	}
+	for _, prefix := range []string{
+		"/accounts", "/categories", "/transactions", "/budgets", "/reminders",
+		"/debt", "/templates", "/lendings", "/account-logs", "/tags", "/family",
+	} {
+		if apiPath == prefix || strings.HasPrefix(apiPath, prefix+"/") {
+			if method == http.MethodGet || method == http.MethodHead {
+				return authz.ScopeLedgerRead, true
+			}
+			return authz.ScopeLedgerWrite, true
+		}
+	}
+	return "", false
+}
+
 // APITokenAuth API Token 认证中间件
 func APITokenAuth(validator APITokenValidator) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -231,14 +327,15 @@ func APITokenAuth(validator APITokenValidator) gin.HandlerFunc {
 			return
 		}
 
-		userID, err := validator.ValidateToken(parts[1])
+		principal, err := validateAPITokenPrincipal(validator, parts[1])
 		if err != nil {
 			response.Unauthorized(c, "invalid token")
 			c.Abort()
 			return
 		}
 
-		c.Set("userID", userID)
+		c.Set("userID", principal.UserID)
+		c.Set(principalContextKey, principal)
 		c.Next()
 	}
 }

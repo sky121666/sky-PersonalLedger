@@ -1,0 +1,4 @@
+services:
+  personal-ledger:
+    environment:
+      LEDGER_SERVER_MODE: debug

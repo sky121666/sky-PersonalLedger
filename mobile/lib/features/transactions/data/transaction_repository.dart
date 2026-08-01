@@ -22,8 +22,17 @@ class TransactionRepository {
         json as Map<String, dynamic>? ?? const {},
       ),
     );
-    return data ??
-        const TransactionListResult(list: [], total: 0, page: 1, pageSize: 20);
+    if (data == null) {
+      return const TransactionListResult(
+        list: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+      );
+    }
+    return data.copyWith(
+      list: data.list.where((item) => !item.isSystemSeed).toList(),
+    );
   }
 
   /// 获取交易详情。

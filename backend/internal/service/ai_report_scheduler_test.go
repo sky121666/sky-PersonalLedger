@@ -31,8 +31,8 @@ func TestAIReportSchedulerGeneratesPreviousWeekOncePerDay(t *testing.T) {
 	if err := repos.User.Create(user); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	providerSvc := NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil))
-	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil)).
+	providerSvc := NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil, true)).WithPrivateOutboundNetworks(true)
+	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil, true)).
 		WithBudgetRepository(repos.Budget).
 		WithAccountRepository(repos.Account)
 	seedAIReportFacts(t, providerSvc, user.ID, server.URL)

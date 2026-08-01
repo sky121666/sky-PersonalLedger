@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../auth/application/auth_controller.dart';
 import '../data/security_repository.dart';
@@ -211,7 +210,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
             key: const ValueKey('security-entry-refresh'),
             onPressed: _isBusy ? null : _loadEntryPath,
             icon: const Icon(Icons.refresh),
-            tooltip: null,
+            tooltip: '刷新登录入口',
           ),
         ],
       ),
@@ -328,7 +327,7 @@ class _PasswordSummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '修改后重新登录',
+                  '下次登录生效',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -541,20 +540,34 @@ class _EntryPathCard extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.save_outlined),
-                  label: Text(submitting ? '保存中' : '保存入口'),
+                  label: Text(submitting ? '保存中' : '保存'),
                 ),
               ),
               const SizedBox(width: 8),
-              OutlinedButton(
-                key: const ValueKey('security-entry-generate'),
-                onPressed: submitting ? null : onGenerate,
-                child: const Text('生成'),
+              Semantics(
+                label: '生成登录入口',
+                button: true,
+                excludeSemantics: true,
+                child: IconButton.filledTonal(
+                  key: const ValueKey('security-entry-generate'),
+                  onPressed: submitting ? null : onGenerate,
+                  icon: const Icon(Icons.auto_awesome_outlined),
+                  tooltip: '生成登录入口',
+                ),
               ),
               const SizedBox(width: 8),
-              OutlinedButton(
-                key: const ValueKey('security-entry-disable'),
-                onPressed: submitting || !entryPath.enabled ? null : onDisable,
-                child: const Text('禁用'),
+              Semantics(
+                label: '禁用登录保护',
+                button: true,
+                excludeSemantics: true,
+                child: IconButton.outlined(
+                  key: const ValueKey('security-entry-disable'),
+                  onPressed: submitting || !entryPath.enabled
+                      ? null
+                      : onDisable,
+                  icon: const Icon(Icons.block_outlined),
+                  tooltip: '禁用登录保护',
+                ),
               ),
             ],
           ),

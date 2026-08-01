@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -101,6 +102,35 @@ func TestRestoreBackupRejectsEmptyPayloadWithoutClearingData(t *testing.T) {
 	}
 	if accountCount != 1 {
 		t.Fatalf("active account count = %d, want original account to remain", accountCount)
+	}
+}
+
+func TestRestoreBackupRejectsFileLargerThanConfiguredLimit(t *testing.T) {
+	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))
+	if err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	repos := repository.NewRepositories(db)
+	backupSvc := NewBackupService(
+		db,
+		repos.Account,
+		repos.Category,
+		repos.Transaction,
+		repos.Budget,
+		repos.Reminder,
+		repos.Lending,
+		repos.Template,
+		repos.Notification,
+		repos.Tag,
+		repos.User,
+		repos.FamilyMember,
+		repos.AIReport,
+		16,
+	)
+
+	err = backupSvc.RestoreBackup(1, writeRawBackupFile(t, bytes.Repeat([]byte("x"), 17)))
+	if !errors.Is(err, ErrBackupFileTooLarge) {
+		t.Fatalf("restore error = %v, want ErrBackupFileTooLarge", err)
 	}
 }
 

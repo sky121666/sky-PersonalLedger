@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/response"
@@ -70,6 +72,10 @@ func (h *BudgetHandler) SetCategory(c *gin.Context) {
 
 	budget, err := h.service.SetCategoryBudget(userID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrCategoryNotFound) || errors.Is(err, service.ErrFamilyMemberNotFound) {
+			response.NotFound(c, "budget scope not found")
+			return
+		}
 		internalServerError(c, err, "failed to update category budget")
 		return
 	}

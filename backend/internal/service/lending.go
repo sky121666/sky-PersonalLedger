@@ -2,41 +2,33 @@ package service
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
-	ErrLendingNotFound       = errors.New("lending not found")
-	ErrLendingRecordNotFound = errors.New("lending record not found")
-	ErrInvalidAmount         = errors.New("invalid amount")
-	ErrInvalidDateTime       = errors.New("invalid date time format")
-	ErrAlreadySettled        = errors.New("lending already settled")
+	ErrLendingNotFound         = errors.New("lending not found")
+	ErrLendingRecordNotFound   = errors.New("lending record not found")
+	ErrInvalidAmount           = errors.New("invalid amount")
+	ErrInvalidDateTime         = errors.New("invalid date time format")
+	ErrAlreadySettled          = errors.New("lending already settled")
+	ErrConcurrentBalanceUpdate = errors.New("concurrent balance update")
+	ErrLendingOverpayment      = errors.New("repayment exceeds remaining balance")
+	ErrInvalidLendingPatch     = errors.New("invalid lending patch")
 )
 
-func parseDateTime(s string) (time.Time, error) {
-	// Get local timezone
-	loc := time.Local
+var sqliteFinanceWriteMu sync.Mutex
 
-	formats := []string{
-		"2006-01-02T15:04",
-		"2006-01-02 15:04",
-		"2006-01-02T15:04:05",
-		"2006-01-02 15:04:05",
-		"2006-01-02",
-	}
-	for _, f := range formats {
-		if t, err := time.ParseInLocation(f, s, loc); err == nil {
-			return t, nil
-		}
-	}
-	// Try RFC3339 which includes timezone
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t, nil
+func parseDateTime(s string) (time.Time, error) {
+	parsed, err := parseTransactionDate(s)
+	if err == nil {
+		return parsed, nil
 	}
 	return time.Time{}, ErrInvalidDateTime
 }
@@ -106,9 +98,11 @@ func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.L
 	}
 
 	if req.DueDate != nil {
-		if dueDate, err := parseDateTime(*req.DueDate); err == nil {
-			lending.DueDate = &dueDate
+		dueDate, err := parseDateTime(*req.DueDate)
+		if err != nil {
+			return nil, err
 		}
+		lending.DueDate = &dueDate
 	}
 
 	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
@@ -127,18 +121,36 @@ func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.L
 
 		if req.CreateTransaction && account != nil {
 			var txType string
-			var balanceDelta float64
+			var cashFlowDelta float64
 			if req.Type == "lend_out" {
 				txType = "expense"
-				balanceDelta = -req.Principal
+				cashFlowDelta = -req.Principal
 			} else {
 				txType = "income"
-				balanceDelta = req.Principal
+				cashFlowDelta = req.Principal
 			}
-			if _, err := s.createLendingTransactionTx(txdb, userID, lending.ID, account.ID, txType, req.Principal, lendDate, "借贷: "+req.ContactName); err != nil {
+			transaction, err := s.createLendingTransactionTx(txdb, userID, lending.ID, account.ID, txType, req.Principal, lendDate, "借贷: "+req.ContactName)
+			if err != nil {
 				return err
 			}
-			if err := updateAccountBalanceForUserTx(txdb, account.ID, userID, balanceDelta); err != nil {
+			balanceDelta, err := accountBalanceDeltaTx(txdb, userID, account.ID, cashFlowDelta)
+			if err != nil {
+				return err
+			}
+			if err := applyAccountBalanceMutationTx(
+				txdb,
+				s.accountLogSvc,
+				userID,
+				account.ID,
+				txType,
+				req.Principal,
+				balanceDelta,
+				&transaction.ID,
+				nil,
+				&lending.ID,
+				transaction.Remark,
+				true,
+			); err != nil {
 				return err
 			}
 		}
@@ -175,6 +187,77 @@ type UpdateLendingRequest struct {
 	Evidence      string   `json:"evidence"`
 }
 
+type PatchLendingRequest struct {
+	ContactName   Optional[string]  `json:"contact_name"`
+	ContactPhone  Optional[string]  `json:"contact_phone"`
+	ContactRemark Optional[string]  `json:"contact_remark"`
+	InterestRate  Optional[float64] `json:"interest_rate"`
+	DueDate       Optional[string]  `json:"due_date"`
+	Remark        Optional[string]  `json:"remark"`
+	Evidence      Optional[string]  `json:"evidence"`
+}
+
+func (s *LendingService) Patch(id string, userID uint, req PatchLendingRequest) (*model.Lending, error) {
+	lending, err := s.GetByID(id, userID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]any{}
+	if req.ContactName.Set {
+		if req.ContactName.Null || req.ContactName.Value == "" {
+			return nil, ErrInvalidLendingPatch
+		}
+		updates["contact_name"] = req.ContactName.Value
+	}
+	for column, field := range map[string]Optional[string]{
+		"contact_phone":  req.ContactPhone,
+		"contact_remark": req.ContactRemark,
+		"remark":         req.Remark,
+		"evidence":       req.Evidence,
+	} {
+		if field.Set {
+			if field.Null {
+				updates[column] = ""
+			} else {
+				updates[column] = field.Value
+			}
+		}
+	}
+	if req.InterestRate.Set {
+		if req.InterestRate.Null {
+			updates["interest_rate"] = nil
+		} else if req.InterestRate.Value < 0 || req.InterestRate.Value > 100 {
+			return nil, ErrInvalidLendingPatch
+		} else {
+			updates["interest_rate"] = req.InterestRate.Value
+		}
+	}
+	if req.DueDate.Set {
+		if req.DueDate.Null || req.DueDate.Value == "" {
+			updates["due_date"] = nil
+		} else {
+			dueDate, err := parseDateTime(req.DueDate.Value)
+			if err != nil {
+				return nil, err
+			}
+			updates["due_date"] = &dueDate
+		}
+	}
+	if len(updates) == 0 {
+		return lending, nil
+	}
+	result := s.txRepo.DB().Model(&model.Lending{}).
+		Where("id = ? AND user_id = ? AND updated_at = ?", id, userID, lending.UpdatedAt).
+		Updates(updates)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected != 1 {
+		return nil, ErrConcurrentBalanceUpdate
+	}
+	return s.repo.GetByID(id)
+}
+
 func (s *LendingService) Update(id string, userID uint, req UpdateLendingRequest) (*model.Lending, error) {
 	lending, err := s.GetByID(id, userID)
 	if err != nil {
@@ -189,14 +272,26 @@ func (s *LendingService) Update(id string, userID uint, req UpdateLendingRequest
 	lending.Evidence = req.Evidence
 
 	if req.DueDate != nil {
-		if dueDate, err := parseDateTime(*req.DueDate); err == nil {
-			lending.DueDate = &dueDate
+		dueDate, err := parseDateTime(*req.DueDate)
+		if err != nil {
+			return nil, err
 		}
+		lending.DueDate = &dueDate
 	} else {
 		lending.DueDate = nil
 	}
 
-	if err := s.repo.Update(lending); err != nil {
+	if err := s.txRepo.DB().Model(&model.Lending{}).
+		Where("id = ? AND user_id = ?", id, userID).
+		Updates(map[string]any{
+			"contact_name":   lending.ContactName,
+			"contact_phone":  lending.ContactPhone,
+			"contact_remark": lending.ContactRemark,
+			"interest_rate":  lending.InterestRate,
+			"due_date":       lending.DueDate,
+			"remark":         lending.Remark,
+			"evidence":       lending.Evidence,
+		}).Error; err != nil {
 		return nil, err
 	}
 
@@ -210,20 +305,6 @@ func (s *LendingService) Delete(id string, userID uint) error {
 	}
 
 	return s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
-		if err := txdb.Model(&model.Transaction{}).
-			Where("user_id = ? AND lending_id = ?", userID, lending.ID).
-			Update("lending_id", nil).Error; err != nil {
-			return err
-		}
-		if err := txdb.Model(&model.AccountLog{}).
-			Where("user_id = ? AND lending_id = ?", userID, lending.ID).
-			Update("lending_id", nil).Error; err != nil {
-			return err
-		}
-		if err := txdb.Where("user_id = ? AND lending_id = ?", userID, lending.ID).
-			Delete(&model.LendingRecord{}).Error; err != nil {
-			return err
-		}
 		result := txdb.Where("id = ? AND user_id = ?", lending.ID, userID).Delete(&model.Lending{})
 		if result.Error != nil {
 			return result.Error
@@ -245,21 +326,8 @@ type RecordRepaymentRequest struct {
 }
 
 func (s *LendingService) RecordRepayment(lendingID string, userID uint, req RecordRepaymentRequest) (*model.Lending, error) {
-	lending, err := s.GetByID(lendingID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	if lending.IsSettled {
-		return nil, ErrAlreadySettled
-	}
-
 	if req.Amount <= 0 {
 		return nil, ErrInvalidAmount
-	}
-
-	if req.Amount > lending.CurrentBalance {
-		req.Amount = lending.CurrentBalance
 	}
 
 	recordDate, err := parseDateTime(req.RecordDate)
@@ -268,7 +336,57 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 	}
 	accountID := normalizeOptionalString(req.AccountID)
 
-	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	if err := financeWriteTransaction(s.txRepo.DB(), func(txdb *gorm.DB) error {
+		var lending model.Lending
+		if err := financeQueryForUpdate(txdb).
+			First(&lending, "id = ? AND user_id = ?", lendingID, userID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrLendingNotFound
+			}
+			return err
+		}
+		if lending.IsSettled || lending.CurrentBalance <= 0 {
+			return ErrAlreadySettled
+		}
+
+		repaymentAmount := roundMoney(req.Amount)
+		if repaymentAmount > roundMoney(lending.CurrentBalance) {
+			return ErrLendingOverpayment
+		}
+
+		nextBalance := roundMoney(lending.CurrentBalance - repaymentAmount)
+		nextTotalRepaid := roundMoney(lending.TotalRepaid + repaymentAmount)
+		isSettled := lending.IsSettled
+		settledAt := lending.SettledAt
+		if nextBalance <= 0.01 {
+			nextBalance = 0
+			isSettled = true
+			now := time.Now()
+			settledAt = &now
+		}
+
+		result := txdb.Model(&model.Lending{}).
+			Where(
+				"id = ? AND user_id = ? AND current_balance = ? AND total_repaid = ? AND is_settled = ?",
+				lending.ID,
+				userID,
+				lending.CurrentBalance,
+				lending.TotalRepaid,
+				lending.IsSettled,
+			).
+			Updates(map[string]any{
+				"current_balance": nextBalance,
+				"total_repaid":    nextTotalRepaid,
+				"is_settled":      isSettled,
+				"settled_at":      settledAt,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrConcurrentBalanceUpdate
+		}
+
 		var account *model.Account
 		if accountID != nil {
 			foundAccount, err := getAccountForUserTx(txdb, *accountID, userID)
@@ -281,20 +399,37 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 		var transactionID *string
 		if req.CreateTransaction && account != nil {
 			var txType string
-			var balanceDelta float64
+			var cashFlowDelta float64
 			if lending.Type == "lend_out" {
 				txType = "income"
-				balanceDelta = req.Amount
+				cashFlowDelta = repaymentAmount
 			} else {
 				txType = "expense"
-				balanceDelta = -req.Amount
+				cashFlowDelta = -repaymentAmount
 			}
-			txID, err := s.createLendingTransactionTx(txdb, userID, lendingID, account.ID, txType, req.Amount, recordDate, "还款: "+lending.ContactName)
+			transaction, err := s.createLendingTransactionTx(txdb, userID, lendingID, account.ID, txType, repaymentAmount, recordDate, "还款: "+lending.ContactName)
 			if err != nil {
 				return err
 			}
-			transactionID = &txID
-			if err := updateAccountBalanceForUserTx(txdb, account.ID, userID, balanceDelta); err != nil {
+			transactionID = &transaction.ID
+			balanceDelta, err := accountBalanceDeltaTx(txdb, userID, account.ID, cashFlowDelta)
+			if err != nil {
+				return err
+			}
+			if err := applyAccountBalanceMutationTx(
+				txdb,
+				s.accountLogSvc,
+				userID,
+				account.ID,
+				txType,
+				repaymentAmount,
+				balanceDelta,
+				&transaction.ID,
+				nil,
+				&lending.ID,
+				transaction.Remark,
+				true,
+			); err != nil {
 				return err
 			}
 		}
@@ -304,7 +439,7 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 			LendingID:     lendingID,
 			UserID:        userID,
 			Type:          "repay",
-			Amount:        req.Amount,
+			Amount:        repaymentAmount,
 			RecordDate:    recordDate,
 			AccountID:     accountID,
 			TransactionID: transactionID,
@@ -316,37 +451,29 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 			return err
 		}
 
-		nextBalance := lending.CurrentBalance - req.Amount
-		nextTotalRepaid := lending.TotalRepaid + req.Amount
-		isSettled := lending.IsSettled
-		settledAt := lending.SettledAt
-		if nextBalance <= 0.01 {
-			nextBalance = 0
-			isSettled = true
-			now := time.Now()
-			settledAt = &now
-		}
-
-		result := txdb.Model(&model.Lending{}).
-			Where("id = ? AND user_id = ?", lending.ID, userID).
-			Updates(map[string]any{
-				"current_balance": nextBalance,
-				"total_repaid":    nextTotalRepaid,
-				"is_settled":      isSettled,
-				"settled_at":      settledAt,
-			})
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected != 1 {
-			return ErrLendingNotFound
-		}
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 
 	return s.repo.GetByID(lendingID)
+}
+
+func financeWriteTransaction(db *gorm.DB, fn func(*gorm.DB) error) error {
+	if db.Dialector.Name() == "sqlite" {
+		sqliteFinanceWriteMu.Lock()
+		defer sqliteFinanceWriteMu.Unlock()
+	}
+	return db.Transaction(fn)
+}
+
+func financeQueryForUpdate(db *gorm.DB) *gorm.DB {
+	switch db.Dialector.Name() {
+	case "postgres", "mysql":
+		return db.Clauses(clause.Locking{Strength: "UPDATE"})
+	default:
+		return db
+	}
 }
 
 func normalizeOptionalString(value *string) *string {
@@ -356,10 +483,10 @@ func normalizeOptionalString(value *string) *string {
 	return value
 }
 
-func (s *LendingService) createLendingTransactionTx(txdb *gorm.DB, userID uint, lendingID string, accountID string, txType string, amount float64, txDate time.Time, remark string) (string, error) {
+func (s *LendingService) createLendingTransactionTx(txdb *gorm.DB, userID uint, lendingID string, accountID string, txType string, amount float64, txDate time.Time, remark string) (*model.Transaction, error) {
 	categoryID, err := s.findOrCreateLendingCategoryTx(txdb, userID, txType)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	tx := &model.Transaction{
@@ -375,9 +502,9 @@ func (s *LendingService) createLendingTransactionTx(txdb *gorm.DB, userID uint, 
 		LendingID:       &lendingID,
 	}
 	if err := txdb.Create(tx).Error; err != nil {
-		return "", err
+		return nil, err
 	}
-	return tx.ID, nil
+	return tx, nil
 }
 
 func (s *LendingService) findOrCreateLendingCategoryTx(txdb *gorm.DB, userID uint, txType string) (*string, error) {
@@ -417,7 +544,7 @@ func (s *LendingService) findOrCreateLendingCategoryTx(txdb *gorm.DB, userID uin
 func updateAccountBalanceForUserTx(txdb *gorm.DB, accountID string, userID uint, delta float64) error {
 	result := txdb.Model(&model.Account{}).
 		Where("id = ? AND user_id = ?", accountID, userID).
-		Update("current_balance", gorm.Expr("current_balance + ?", delta))
+		Update("current_balance", roundedCurrentBalanceDelta(txdb, delta))
 	if result.Error != nil {
 		return result.Error
 	}

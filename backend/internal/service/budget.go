@@ -17,17 +17,20 @@ type BudgetService struct {
 	budgetRepo       *repository.BudgetRepository
 	txRepo           *repository.TransactionRepository
 	familyMemberRepo *repository.FamilyMemberRepository
+	categoryRepo     *repository.CategoryRepository
 }
 
-func NewBudgetService(budgetRepo *repository.BudgetRepository, txRepo *repository.TransactionRepository, familyMemberRepos ...*repository.FamilyMemberRepository) *BudgetService {
-	var familyMemberRepo *repository.FamilyMemberRepository
-	if len(familyMemberRepos) > 0 {
-		familyMemberRepo = familyMemberRepos[0]
-	}
+func NewBudgetService(
+	budgetRepo *repository.BudgetRepository,
+	txRepo *repository.TransactionRepository,
+	familyMemberRepo *repository.FamilyMemberRepository,
+	categoryRepo *repository.CategoryRepository,
+) *BudgetService {
 	return &BudgetService{
 		budgetRepo:       budgetRepo,
 		txRepo:           txRepo,
 		familyMemberRepo: familyMemberRepo,
+		categoryRepo:     categoryRepo,
 	}
 }
 
@@ -51,19 +54,9 @@ type BudgetListResponse struct {
 }
 
 func (s *BudgetService) List(userID uint, month string) (*BudgetListResponse, error) {
-	// Parse month
-	var startDate, endDate time.Time
-	if month != "" {
-		t, err := time.Parse("2006-01", month)
-		if err != nil {
-			return nil, err
-		}
-		startDate = t
-		endDate = t.AddDate(0, 1, 0).Add(-time.Second)
-	} else {
-		now := time.Now()
-		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
-		endDate = startDate.AddDate(0, 1, 0).Add(-time.Second)
+	startDate, endDate, err := budgetMonthRange(month)
+	if err != nil {
+		return nil, err
 	}
 
 	budgets, err := s.budgetRepo.GetByUserID(userID)
@@ -151,6 +144,23 @@ func (s *BudgetService) List(userID uint, month string) (*BudgetListResponse, er
 	return response, nil
 }
 
+func budgetMonthRange(month string) (time.Time, time.Time, error) {
+	var startDate time.Time
+	if month != "" {
+		parsed, err := time.ParseInLocation("2006-01", month, time.Local)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		startDate = parsed
+	} else {
+		now := time.Now()
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	}
+
+	endDate := startDate.AddDate(0, 1, 0).Add(-time.Nanosecond)
+	return startDate, endDate, nil
+}
+
 type BudgetSummary struct {
 	TotalAmount          float64     `json:"total_amount"`
 	TotalSpent           float64     `json:"total_spent"`
@@ -179,7 +189,7 @@ func (s *BudgetService) GetSummary(userID uint) (*BudgetSummary, error) {
 
 	// Calculate days remaining in month
 	firstOfNextMonth := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.Local)
-	daysRemaining := int(firstOfNextMonth.Sub(now).Hours()/24) + 1
+	daysRemaining := calendarDayDifference(now, firstOfNextMonth)
 	if daysRemaining < 1 {
 		daysRemaining = 1
 	}
@@ -263,6 +273,9 @@ func (s *BudgetService) SetCategoryBudget(userID uint, req SetBudgetRequest) (*m
 	if req.CategoryID == nil {
 		return s.SetTotalBudget(userID, req)
 	}
+	if err := s.ensureCategoryBelongsToUser(req.CategoryID, userID); err != nil {
+		return nil, err
+	}
 	if err := s.ensureFamilyMemberBelongsToUser(req.MemberID, userID); err != nil {
 		return nil, err
 	}
@@ -312,6 +325,17 @@ func (s *BudgetService) ensureFamilyMemberBelongsToUser(memberID *string, userID
 	member, err := s.familyMemberRepo.GetByID(*memberID)
 	if err != nil || member.UserID != userID {
 		return ErrFamilyMemberNotFound
+	}
+	return nil
+}
+
+func (s *BudgetService) ensureCategoryBelongsToUser(categoryID *string, userID uint) error {
+	if categoryID == nil || *categoryID == "" || s.categoryRepo == nil {
+		return ErrCategoryNotFound
+	}
+	category, err := s.categoryRepo.GetByID(*categoryID)
+	if err != nil || category.UserID != userID || category.Type != "expense" {
+		return ErrCategoryNotFound
 	}
 	return nil
 }

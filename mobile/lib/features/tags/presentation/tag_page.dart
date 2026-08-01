@@ -191,7 +191,7 @@ class _TagPageState extends ConsumerState<TagPage> {
           IconButton(
             key: const ValueKey('tag-add'),
             onPressed: _submitting ? null : () => _openTagForm(),
-            tooltip: null,
+            tooltip: '添加标签',
             icon: const Icon(Icons.add),
           ),
         ],
@@ -267,7 +267,7 @@ class _TagEmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '尚未创建标签，先添加标签',
+                  '右上角添加',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.4,
@@ -368,7 +368,7 @@ class _TagCardState extends State<_TagCard> {
                   ),
                   IconButton(
                     key: ValueKey('tag-toggle-details-${tag.id}'),
-                    tooltip: null,
+                    tooltip: _expanded ? '收起${tag.name}操作' : '展开${tag.name}操作',
                     onPressed: () => setState(() {
                       _expanded = !_expanded;
                     }),

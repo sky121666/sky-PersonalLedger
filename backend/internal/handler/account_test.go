@@ -67,7 +67,7 @@ func newAccountHandlerForTest(t *testing.T) (*AccountHandler, *repository.Reposi
 	if err := repos.User.Create(user); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	return NewAccountHandler(service.NewAccountService(repos.Account, repos.Transaction, repos.Category)), repos, user.ID
+	return NewAccountHandler(service.NewAccountService(repos.Account)), repos, user.ID
 }
 
 func performAccountListRequest(handler *AccountHandler, userID uint) *httptest.ResponseRecorder {

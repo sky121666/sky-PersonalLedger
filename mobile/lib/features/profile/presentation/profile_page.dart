@@ -14,49 +14,17 @@ import '../../auth/application/auth_controller.dart';
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
-  /// 构建我的页和主题设置。
+  /// 构建功能入口和主题设置。
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeSettings = ref.watch(themeControllerProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final financeColors = AppTheme.financeColors(context);
     final rows = [
-      _ProfileRow(_ProfileHero(onLogout: () => _confirmLogout(context, ref))),
       _ProfileRow(
         _SettingsSection(
-          title: '个人',
-          childrenBuilder: () => [
-            _SettingsEntry(
-              icon: Icons.manage_accounts_outlined,
-              color: colorScheme.primary,
-              title: '个人资料',
-              onTap: () => context.push(AppRoutePaths.profileSettings),
-            ),
-            _SettingsEntry(
-              icon: Icons.notifications_none_outlined,
-              color: colorScheme.secondary,
-              title: '通知设置',
-              onTap: () => context.push(AppRoutePaths.notifications),
-            ),
-            _SettingsEntry(
-              icon: Icons.security_outlined,
-              color: financeColors.expense,
-              title: '账号安全',
-              onTap: () => context.push(AppRoutePaths.securitySettings),
-            ),
-            _SettingsEntry(
-              icon: Icons.vpn_key_outlined,
-              color: financeColors.income,
-              title: '设备授权',
-              onTap: () => context.push(AppRoutePaths.apiTokens),
-            ),
-          ],
-        ),
-      ),
-      _ProfileRow(
-        _SettingsSection(
-          title: '账本',
-          initiallyExpanded: false,
+          title: '日常账本',
+          accentColor: financeColors.asset,
           childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.account_balance_wallet_outlined,
@@ -67,7 +35,7 @@ class ProfilePage extends ConsumerWidget {
             _SettingsEntry(
               icon: Icons.receipt_long_outlined,
               color: financeColors.warning,
-              title: '账户流水',
+              title: '账户明细',
               onTap: () => context.push(AppRoutePaths.accountLogs),
             ),
             _SettingsEntry(
@@ -93,8 +61,8 @@ class ProfilePage extends ConsumerWidget {
       ),
       _ProfileRow(
         _SettingsSection(
-          title: '日常',
-          initiallyExpanded: false,
+          title: '计划与往来',
+          accentColor: financeColors.income,
           childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.savings_outlined,
@@ -105,7 +73,7 @@ class ProfilePage extends ConsumerWidget {
             _SettingsEntry(
               icon: Icons.notifications_active_outlined,
               color: financeColors.warning,
-              title: '负债',
+              title: '负债提醒',
               onTap: () => context.push(AppRoutePaths.reminders),
             ),
             _SettingsEntry(
@@ -120,11 +88,25 @@ class ProfilePage extends ConsumerWidget {
               title: '家庭成员',
               onTap: () => context.push(AppRoutePaths.family),
             ),
+          ],
+        ),
+      ),
+      _ProfileRow(
+        _SettingsSection(
+          title: '智能与数据',
+          accentColor: colorScheme.primary,
+          childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.auto_awesome_outlined,
               color: colorScheme.primary,
-              title: '财务报告',
+              title: 'AI 分析',
               onTap: () => context.push(AppRoutePaths.aiReports),
+            ),
+            _SettingsEntry(
+              icon: Icons.flash_on_outlined,
+              color: financeColors.income,
+              title: '智能快记',
+              onTap: () => context.push(AppRoutePaths.smartQuickLedger),
             ),
             _SettingsEntry(
               icon: Icons.summarize_outlined,
@@ -132,19 +114,43 @@ class ProfilePage extends ConsumerWidget {
               title: '年度报告',
               onTap: () => context.push(AppRoutePaths.yearlyReport),
             ),
+            _SettingsEntry(
+              icon: Icons.storage_outlined,
+              color: financeColors.asset,
+              title: '数据备份',
+              onTap: () => context.push(AppRoutePaths.dataManagement),
+            ),
           ],
         ),
       ),
       _ProfileRow(
         _SettingsSection(
-          title: '设置',
-          initiallyExpanded: false,
+          title: '安全与数据',
+          accentColor: colorScheme.secondary,
           childrenBuilder: () => [
             _SettingsEntry(
-              icon: Icons.storage_outlined,
-              color: financeColors.asset,
-              title: '数据',
-              onTap: () => context.push(AppRoutePaths.dataManagement),
+              icon: Icons.manage_accounts_outlined,
+              color: colorScheme.primary,
+              title: '个人资料',
+              onTap: () => context.push(AppRoutePaths.profileSettings),
+            ),
+            _SettingsEntry(
+              icon: Icons.notifications_none_outlined,
+              color: colorScheme.secondary,
+              title: '通知设置',
+              onTap: () => context.push(AppRoutePaths.notifications),
+            ),
+            _SettingsEntry(
+              icon: Icons.vpn_key_outlined,
+              color: financeColors.income,
+              title: '设备授权',
+              onTap: () => context.push(AppRoutePaths.apiTokens),
+            ),
+            _SettingsEntry(
+              icon: Icons.security_outlined,
+              color: financeColors.expense,
+              title: '账号安全',
+              onTap: () => context.push(AppRoutePaths.securitySettings),
             ),
             _SettingsEntry(
               icon: Icons.swap_horiz,
@@ -166,9 +172,28 @@ class ProfilePage extends ConsumerWidget {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('我的')),
+      appBar: AppBar(
+        title: const Text('功能'),
+        toolbarHeight: 76,
+        titleSpacing: 20,
+        titleTextStyle: Theme.of(context).textTheme.displaySmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.8,
+        ),
+        actions: [
+          IconButton(
+            key: const ValueKey('profile-logout'),
+            onPressed: () => _confirmLogout(context, ref),
+            icon: const Icon(Icons.logout),
+            tooltip: '退出登录',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
       body: AdaptivePageContainer(
         child: ListView.builder(
+          padding: const EdgeInsets.only(bottom: 96),
           itemCount: rows.length,
           itemBuilder: (context, index) {
             final row = rows[index];
@@ -238,146 +263,47 @@ class _ProfileRow {
   final double bottomSpacing;
 }
 
-class _ProfileHero extends StatelessWidget {
-  const _ProfileHero({required this.onLogout});
-
-  final VoidCallback onLogout;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final financeColors = AppTheme.financeColors(context);
-    return PremiumSurface(
-      key: const ValueKey('profile-command-center'),
-      accentColor: colorScheme.primary,
-      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '个人记账',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconBadge(
-                      icon: Icons.account_balance_wallet_outlined,
-                      color: financeColors.asset,
-                      size: 24,
-                      iconSize: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    IconBadge(
-                      icon: Icons.palette_outlined,
-                      color: colorScheme.tertiary,
-                      size: 24,
-                      iconSize: 14,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            key: const ValueKey('profile-logout'),
-            onPressed: onLogout,
-            icon: const Icon(Icons.logout),
-            tooltip: null,
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SettingsSection extends StatelessWidget {
   const _SettingsSection({
     required this.title,
+    required this.accentColor,
     required this.childrenBuilder,
-    this.initiallyExpanded = true,
   });
 
   final String title;
+  final Color accentColor;
   final List<Widget> Function() childrenBuilder;
-  final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context) {
-    return _LazySettingsSection(
-      title: title,
-      childrenBuilder: childrenBuilder,
-      initiallyExpanded: initiallyExpanded,
-    );
-  }
-}
-
-class _LazySettingsSection extends StatefulWidget {
-  const _LazySettingsSection({
-    required this.title,
-    required this.childrenBuilder,
-    required this.initiallyExpanded,
-  });
-
-  final String title;
-  final List<Widget> Function() childrenBuilder;
-  final bool initiallyExpanded;
-
-  @override
-  State<_LazySettingsSection> createState() => _LazySettingsSectionState();
-}
-
-class _LazySettingsSectionState extends State<_LazySettingsSection> {
-  late bool _expanded = widget.initiallyExpanded;
-
-  @override
-  Widget build(BuildContext context) {
-    final children = _expanded ? widget.childrenBuilder() : const <Widget>[];
+    final children = childrenBuilder();
     return PremiumSurface(
-      padding: EdgeInsets.zero,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          key: ValueKey('profile-section-${widget.title}'),
-          initiallyExpanded: widget.initiallyExpanded,
-          maintainState: false,
-          onExpansionChanged: (expanded) {
-            if (_expanded == expanded) {
-              return;
-            }
-            setState(() => _expanded = expanded);
-          },
-          tilePadding: const EdgeInsets.fromLTRB(14, 0, 10, 0),
-          childrenPadding: const EdgeInsets.only(bottom: 4),
-          title: Text(
-            widget.title,
+      key: ValueKey('profile-section-$title'),
+      accentColor: accentColor,
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          children: [
-            for (final entry in children.indexed) ...[
-              if (entry.$1 > 0)
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  indent: 58,
-                  endIndent: 14,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outlineVariant.withValues(alpha: 0.62),
-                ),
-              entry.$2,
-            ],
+          const SizedBox(height: 6),
+          for (final entry in children.indexed) ...[
+            entry.$2,
+            if (entry.$1 != children.length - 1)
+              Divider(
+                height: 1,
+                indent: 42,
+                endIndent: 8,
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.56),
+              ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -402,39 +328,47 @@ class _SettingsEntry extends StatelessWidget {
     return Semantics(
       button: true,
       label: title,
-      child: Material(
-        key: ValueKey('profile-entry-$title'),
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          hoverColor: color.withValues(alpha: 0.06),
-          focusColor: color.withValues(alpha: 0.08),
-          splashColor: color.withValues(alpha: 0.08),
-          highlightColor: color.withValues(alpha: 0.05),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              child: Row(
-                children: [
-                  IconBadge(icon: icon, color: color, size: 30, iconSize: 16),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w800,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          key: ValueKey('profile-entry-$title'),
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onTap,
+            hoverColor: colorScheme.primary.withValues(alpha: 0.05),
+            focusColor: colorScheme.primary.withValues(alpha: 0.07),
+            splashColor: colorScheme.primary.withValues(alpha: 0.07),
+            highlightColor: colorScheme.primary.withValues(alpha: 0.04),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 7, 4, 7),
+                child: Row(
+                  children: [
+                    IconBadge(icon: icon, color: color, size: 32, iconSize: 17),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.1,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                    size: 22,
-                  ),
-                ],
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.46,
+                      ),
+                      size: 18,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -457,59 +391,44 @@ class _AppearancePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return PremiumSurface(
       key: const ValueKey('profile-appearance-panel'),
-      accentColor: settings.palette.seedColor,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              IconBadge(
-                icon: Icons.contrast_outlined,
-                color: colorScheme.tertiary,
-                size: 34,
-                iconSize: 18,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '外观',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
           Text(
-            '模式',
+            '外观',
             style: Theme.of(
               context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<AppThemeMode>(
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                textStyle: WidgetStatePropertyAll(
+                  TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+              showSelectedIcon: false,
               segments: const [
                 ButtonSegment(
                   value: AppThemeMode.system,
                   icon: Icon(Icons.brightness_auto_outlined),
-                  label: Text('跟随系统'),
+                  label: Text('系统'),
                 ),
                 ButtonSegment(
                   value: AppThemeMode.light,
                   icon: Icon(Icons.light_mode_outlined),
-                  label: Text('浅色模式'),
+                  label: Text('浅色'),
                 ),
                 ButtonSegment(
                   value: AppThemeMode.dark,
                   icon: Icon(Icons.dark_mode_outlined),
-                  label: Text('深色模式'),
+                  label: Text('深色'),
                 ),
               ],
               selected: {settings.mode},
@@ -517,45 +436,16 @@ class _AppearancePanel extends StatelessWidget {
                   onModeChanged(selection.firstOrNull),
             ),
           ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<AppThemePalette>(
-            initialValue: settings.palette,
-            decoration: InputDecoration(
-              labelText: '主题色',
-              filled: true,
-              fillColor: colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.55,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: colorScheme.outlineVariant),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: colorScheme.outlineVariant),
-              ),
-            ),
-            items: [
-              for (final palette in AppThemePalette.values)
-                DropdownMenuItem(
-                  value: palette,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ThemePaletteDot(palette: palette),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: Text(
-                          palette.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            '主色',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          _ThemePaletteChoices(
+            selected: settings.palette.selectableEquivalent,
             onChanged: onPaletteChanged,
           ),
         ],
@@ -564,39 +454,93 @@ class _AppearancePanel extends StatelessWidget {
   }
 }
 
-class _ThemePaletteDot extends StatelessWidget {
-  const _ThemePaletteDot({required this.palette});
+class _ThemePaletteChoices extends StatelessWidget {
+  const _ThemePaletteChoices({required this.selected, required this.onChanged});
 
-  final AppThemePalette palette;
+  final AppThemePalette selected;
+  final ValueChanged<AppThemePalette?> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 24,
-      height: 24,
-      child: Stack(
-        children: [
-          for (var index = 0; index < 3; index += 1)
-            Positioned(
-              left: index * 7,
-              child: Container(
-                width: 14,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: [
-                    palette.seedColor,
-                    palette.assetColor,
-                    palette.incomeColor,
-                  ][index],
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.surface,
-                    width: 1,
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final palette in AppThemePalette.selectableValues)
+          _ThemePaletteChoice(
+            palette: palette,
+            selected: palette == selected,
+            onTap: () => onChanged(palette),
+          ),
+      ],
+    );
+  }
+}
+
+class _ThemePaletteChoice extends StatelessWidget {
+  const _ThemePaletteChoice({
+    required this.palette,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppThemePalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = palette.displayAccentColor;
+    return Semantics(
+      key: ValueKey('profile-theme-palette-${palette.id}'),
+      selected: selected,
+      button: true,
+      label: '主色 ${palette.label}${selected ? '，已选择' : ''}',
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? colorScheme.surfaceContainerHigh
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colorScheme.outlineVariant),
                   ),
                 ),
-              ),
+                const SizedBox(width: 7),
+                Text(
+                  palette.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: selected
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+                if (selected) ...[
+                  const SizedBox(width: 6),
+                  Icon(Icons.check_rounded, size: 15, color: color),
+                ],
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

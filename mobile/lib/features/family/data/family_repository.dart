@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../statistics/data/statistics_models.dart';
 
 final familyRepositoryProvider = Provider<FamilyRepository>((ref) {
   return FamilyRepository(ref.watch(apiClientProvider));
@@ -22,6 +23,36 @@ final familyStatisticsProvider = FutureProvider.autoDispose<FamilyStatistics>((
 ) {
   return ref.watch(familyRepositoryProvider).getStatistics();
 });
+
+final familySummaryByPeriodProvider = FutureProvider.autoDispose
+    .family<FamilySummary, FamilyPeriodQuery>((ref, query) {
+      return ref.watch(familyRepositoryProvider).getSummary(query: query);
+    });
+
+final familyStatisticsByPeriodProvider = FutureProvider.autoDispose
+    .family<FamilyStatistics, FamilyPeriodQuery>((ref, query) {
+      return ref.watch(familyRepositoryProvider).getStatistics(query: query);
+    });
+
+class FamilyPeriodQuery {
+  const FamilyPeriodQuery({
+    required this.month,
+    this.period = StatisticsPeriod.month,
+  });
+
+  final String month;
+  final StatisticsPeriod period;
+
+  @override
+  bool operator ==(Object other) {
+    return other is FamilyPeriodQuery &&
+        other.month == month &&
+        other.period == period;
+  }
+
+  @override
+  int get hashCode => Object.hash(month, period);
+}
 
 class FamilyRepository {
   const FamilyRepository(this._apiClient);
@@ -75,24 +106,26 @@ class FamilyRepository {
     await _apiClient.delete<void>('/family/members/$id');
   }
 
-  Future<FamilySummary> getSummary({String? month}) async {
+  Future<FamilySummary> getSummary({
+    String? month,
+    FamilyPeriodQuery? query,
+  }) async {
     return await _apiClient.get<FamilySummary>(
           '/family/summary',
-          queryParameters: month == null || month.isEmpty
-              ? null
-              : {'month': month},
+          queryParameters: _familyPeriodParameters(month: month, query: query),
           fromJsonT: (json) =>
               FamilySummary.fromJson(json as Map<String, dynamic>? ?? const {}),
         ) ??
         const FamilySummary(month: '', totalExpense: 0, members: []);
   }
 
-  Future<FamilyStatistics> getStatistics({String? month}) async {
+  Future<FamilyStatistics> getStatistics({
+    String? month,
+    FamilyPeriodQuery? query,
+  }) async {
     return await _apiClient.get<FamilyStatistics>(
           '/family/statistics',
-          queryParameters: month == null || month.isEmpty
-              ? null
-              : {'month': month},
+          queryParameters: _familyPeriodParameters(month: month, query: query),
           fromJsonT: (json) => FamilyStatistics.fromJson(
             json as Map<String, dynamic>? ?? const {},
           ),
@@ -168,11 +201,15 @@ class FamilyMemberRequest {
 class FamilySummary {
   const FamilySummary({
     required this.month,
+    this.period = StatisticsPeriod.month,
+    this.label = '',
     required this.totalExpense,
     required this.members,
   });
 
   final String month;
+  final StatisticsPeriod period;
+  final String label;
   final double totalExpense;
   final List<FamilyMemberSummary> members;
 
@@ -180,6 +217,8 @@ class FamilySummary {
     final members = json['members'] as List? ?? const [];
     return FamilySummary(
       month: json['month'] as String? ?? '',
+      period: _parseStatisticsPeriod(json['period']),
+      label: json['label'] as String? ?? '',
       totalExpense: _toDouble(json['total_expense']),
       members: members
           .whereType<Map<String, dynamic>>()
@@ -221,11 +260,15 @@ class FamilyMemberSummary {
 class FamilyStatistics {
   const FamilyStatistics({
     required this.month,
+    this.period = StatisticsPeriod.month,
+    this.label = '',
     required this.totalExpense,
     required this.members,
   });
 
   final String month;
+  final StatisticsPeriod period;
+  final String label;
   final double totalExpense;
   final List<FamilyStatisticsMember> members;
 
@@ -233,6 +276,8 @@ class FamilyStatistics {
     final members = json['members'] as List? ?? const [];
     return FamilyStatistics(
       month: json['month'] as String? ?? '',
+      period: _parseStatisticsPeriod(json['period']),
+      label: json['label'] as String? ?? '',
       totalExpense: _toDouble(json['total_expense']),
       members: members
           .whereType<Map<String, dynamic>>()
@@ -319,4 +364,25 @@ int _toInt(Object? value) {
     return value.toInt();
   }
   return int.tryParse('$value') ?? 0;
+}
+
+Map<String, String>? _familyPeriodParameters({
+  String? month,
+  FamilyPeriodQuery? query,
+}) {
+  if (query != null) {
+    return {'month': query.month, 'period': query.period.apiValue};
+  }
+  if (month == null || month.isEmpty) {
+    return null;
+  }
+  return {'month': month};
+}
+
+StatisticsPeriod _parseStatisticsPeriod(Object? value) {
+  final text = value?.toString();
+  return StatisticsPeriod.values.firstWhere(
+    (period) => period.apiValue == text,
+    orElse: () => StatisticsPeriod.month,
+  );
 }

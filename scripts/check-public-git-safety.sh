@@ -32,6 +32,28 @@ if [[ -n "$secret_matches" ]]; then
   fail=1
 fi
 
+staged_review_artifacts='^(output/|mobile/QA/(design|reports|screenshots)/)'
+max_staged_file_bytes="${MAX_STAGED_FILE_BYTES:-5242880}"
+
+while IFS= read -r -d '' path; do
+  if [[ "$path" =~ $staged_review_artifacts && "${ALLOW_REVIEW_ARTIFACTS:-0}" != "1" ]]; then
+    echo "ERROR: local QA or generated artifact requires explicit review before staging: $path" >&2
+    echo "Set ALLOW_REVIEW_ARTIFACTS=1 only after reviewing the artifact intentionally." >&2
+    fail=1
+  fi
+
+  staged_size="$(git cat-file -s ":$path")"
+  if (( staged_size > max_staged_file_bytes )); then
+    echo "ERROR: staged file exceeds ${max_staged_file_bytes} bytes: $path ($staged_size bytes)" >&2
+    fail=1
+  fi
+
+  if git cat-file -p ":$path" | LC_ALL=C grep -IqE "$secret_pattern"; then
+    echo "ERROR: high-confidence secret pattern found in staged file: $path" >&2
+    fail=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
 unsafe_jwt_placeholders='LEDGER_JWT_SECRET=(change-me|change-this-secret|change-this-to-a-random-secret-key|please-change-this-to-a-random-secret-key|your-jwt-secret-change-this-in-production|your-random-secret-key)'
 if git grep -nI -E "$unsafe_jwt_placeholders" -- Dockerfile docker-compose.yml .env.example config.example.yaml README.md 2>/dev/null; then
   echo "ERROR: unsafe Docker JWT placeholder is tracked" >&2

@@ -431,8 +431,8 @@ func newAIReportTestServices(t *testing.T) (*AIReportService, *AIProviderService
 	if err := repos.User.Create(user); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	providerSvc := NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil))
-	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil)).
+	providerSvc := NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil, true)).WithPrivateOutboundNetworks(true)
+	reportSvc := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil, true)).
 		WithBudgetRepository(repos.Budget).
 		WithAccountRepository(repos.Account)
 	return reportSvc, providerSvc, user.ID

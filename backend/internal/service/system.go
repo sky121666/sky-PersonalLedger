@@ -65,6 +65,14 @@ func (s *SystemService) ValidateEntryPath(requestPath string) (bool, error) {
 		return true, nil
 	}
 
-	// Check if request path starts with entry path
-	return strings.HasPrefix(requestPath, entryPath), nil
+	return MatchesEntryPath(requestPath, entryPath), nil
+}
+
+func MatchesEntryPath(requestPath string, entryPath string) bool {
+	requestPath = strings.TrimSpace(requestPath)
+	entryPath = strings.TrimSuffix(strings.TrimSpace(entryPath), "/")
+	if entryPath == "" {
+		return true
+	}
+	return requestPath == entryPath || strings.HasPrefix(requestPath, entryPath+"/")
 }

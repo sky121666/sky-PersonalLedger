@@ -1,21 +1,35 @@
+enum StatisticsPeriod {
+  month('month', '当月'),
+  year('year', '今年'),
+  history('history', '往年');
+
+  const StatisticsPeriod(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+}
+
 class StatisticsDashboardQuery {
   const StatisticsDashboardQuery({
     required this.month,
+    this.period = StatisticsPeriod.month,
     required this.categoryType,
   });
 
   final String month;
+  final StatisticsPeriod period;
   final String categoryType;
 
   @override
   bool operator ==(Object other) {
     return other is StatisticsDashboardQuery &&
         other.month == month &&
+        other.period == period &&
         other.categoryType == categoryType;
   }
 
   @override
-  int get hashCode => Object.hash(month, categoryType);
+  int get hashCode => Object.hash(month, period, categoryType);
 }
 
 class StatisticsDashboard {

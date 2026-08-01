@@ -150,7 +150,9 @@ void main() {
           ProviderScope(
             overrides: [
               familyMembersProvider.overrideWith((ref) async => _familyMembers),
-              familySummaryProvider.overrideWith((ref) async => _familySummary),
+              familySummaryByPeriodProvider.overrideWith(
+                (ref, query) async => _familySummary,
+              ),
             ],
             child: _premiumApp(const FamilyPage()),
           ),
@@ -159,9 +161,8 @@ void main() {
 
         expect(find.text('家庭成员'), findsOneWidget);
         expect(find.byKey(const ValueKey('family-add-member')), findsOneWidget);
-        await tester.scrollUntilVisible(find.text('常用'), 240);
-        expect(find.text('常用'), findsOneWidget);
-        expect(find.text('启用'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('常用 · 启用'), 240);
+        expect(find.text('常用 · 启用'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('停用'), 240);
         expect(find.text('停用'), findsOneWidget);
         _expectMinTapTarget(
@@ -225,6 +226,7 @@ const _familyMembers = [
 
 const _familySummary = FamilySummary(
   month: '2026-05',
+  label: '2026年5月',
   totalExpense: 320,
   members: [
     FamilyMemberSummary(
@@ -262,7 +264,7 @@ const _aiReports = [
 
 class _FakeHomeRepository implements HomeRepository {
   @override
-  Future<HomeSummary> getSummary() async {
+  Future<HomeSummary> getSummary({HomeSummaryQuery? query}) async {
     return const HomeSummary(
       accounts: AccountListResponse(
         list: [

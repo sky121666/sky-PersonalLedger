@@ -15,6 +15,8 @@ web/.vite
 node_modules
 
 # Go
+backend/.codex-go-cache
+backend/.codex-*
 backend/data/*.db*
 backend/tmp
 vendor
@@ -28,6 +30,7 @@ web/dist
 backend/server
 dist
 build
+output
 
 # 本地配置和敏感文件
 .env

@@ -47,12 +47,9 @@ jobs:
 
       - name: Set version
         id: version
-        run: |
-          if [ -z "${{ inputs.version }}" ]; then
-            echo "::error title=Missing Docker version::version input is required"
-            exit 1
-          fi
-          echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: ./scripts/resolve-release-version.sh --version-only
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

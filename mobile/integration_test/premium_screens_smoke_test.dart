@@ -135,14 +135,25 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('欢迎回来', findsOneWidget);
-        _expectTextOrScaffold('会话解锁信号', findsOneWidget);
-        _expectByKey(const ValueKey('auth-experience-deck'));
-        _expectTextOrScaffold('跨端安全控制台', findsOneWidget);
-        _expectTextOrScaffold('iOS 动效', findsOneWidget);
-        _expectTextOrScaffold('Android 状态层', findsOneWidget);
-        _expectTextOrScaffold('主题色联动', findsOneWidget);
-        _expectTextOrScaffold('私有服务', findsOneWidget);
+        expect(find.text('账本解锁'), findsOneWidget);
+        expect(find.text('登录'), findsWidgets);
+        expect(find.text('密码'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('auth-login-password-field')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('auth-login-submit-button')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('auth-experience-deck')),
+          findsNothing,
+        );
+        expect(find.text('跨端安全控制台'), findsNothing);
+        expect(find.text('iOS 动效'), findsNothing);
+        expect(find.text('Android 状态层'), findsNothing);
+        expect(find.text('主题色联动'), findsNothing);
         expect(find.byType(PremiumSurface), findsAtLeastNWidgets(1));
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -176,11 +187,28 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('首次设置密码', findsOneWidget);
-        _expectTextOrScaffold('初始化保护', findsOneWidget);
-        _expectTextOrScaffold('初始化密钥策略', findsOneWidget);
-        _expectByKey(const ValueKey('auth-experience-deck'));
-        _expectTextOrScaffold('只初始化一次', findsOneWidget);
+        expect(find.text('设置密码'), findsOneWidget);
+        expect(find.text('账本保护'), findsOneWidget);
+        expect(find.text('密码'), findsOneWidget);
+        expect(find.text('确认密码'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('auth-setup-password-field')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('auth-setup-password-confirm-field')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('auth-setup-submit-button')),
+          findsOneWidget,
+        );
+        expect(find.text('初始化保护'), findsNothing);
+        expect(find.text('初始化密钥策略'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('auth-experience-deck')),
+          findsNothing,
+        );
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
@@ -189,7 +217,7 @@ void main() {
         );
       });
 
-      testWidgets('renders premium server topology entry (${variant.name})', (
+      testWidgets('renders premium server entry (${variant.name})', (
         tester,
       ) async {
         await _prepareScreenshotCapture(binding);
@@ -214,15 +242,21 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('连接服务器', findsOneWidget);
-        _expectTextOrScaffold('自托管入口', findsOneWidget);
-        _expectTextOrScaffold('连接策略', findsOneWidget);
-        _expectByKey(const ValueKey('server-topology-preview'));
-        _expectTextOrScaffold('部署拓扑预览', findsOneWidget);
-        _expectTextOrScaffold('等待输入服务地址', findsOneWidget);
-        _expectTextOrScaffold('Web', findsOneWidget);
-        _expectTextOrScaffold('iOS', findsOneWidget);
-        _expectTextOrScaffold('Android', findsOneWidget);
+        expect(find.text('连接账本'), findsOneWidget);
+        expect(find.text('个人账本'), findsOneWidget);
+        expect(find.text('账本地址'), findsOneWidget);
+        expect(find.text('进入账本'), findsOneWidget);
+        expect(find.byKey(const ValueKey('server-url-field')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('server-connect-button')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('server-topology-preview')),
+          findsNothing,
+        );
+        expect(find.text('部署拓扑预览'), findsNothing);
+        expect(find.text('连接策略'), findsNothing);
 
         await _safeEnterText(
           tester,
@@ -231,14 +265,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('https://ledger.example.com', findsWidgets);
-        _expectTextOrScaffold('地址就绪', findsOneWidget);
-        _expectTextOrScaffold('HTTPS 就绪', findsOneWidget);
+        expect(find.text('https://ledger.example.com'), findsWidgets);
+        expect(find.text('地址就绪'), findsNothing);
+        expect(find.text('HTTPS 就绪'), findsNothing);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'server-topology-entry-${variant.name}',
+          'server-entry-${variant.name}',
         );
       });
 
@@ -261,14 +295,14 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          _expectTextOrScaffold('财务控制台', findsOneWidget);
-          _expectTextOrScaffold('主题仪表盘', findsOneWidget);
-          _expectTextOrScaffold('当前主题', findsOneWidget);
-          _expectTextOrScaffold('预算已接入', findsWidgets);
-          _expectByKey(const ValueKey('home-theme-signal-panel'));
-          _expectTextOrScaffold('行动编排层', findsOneWidget);
-          _expectByKey(const ValueKey('home-action-orchestration-panel'));
-          _expectTextOrScaffold('AI 周报', findsOneWidget);
+          _expectTextOrScaffold('首页', findsOneWidget);
+          _expectTextOrScaffold('净资产', findsOneWidget);
+          _expectByKey(const ValueKey('home-net-assets-card'));
+          _expectByKey(const ValueKey('home-action-rail'));
+          _expectTextOrScaffold('记一笔', findsOneWidget);
+          _expectTextOrScaffold('报告', findsOneWidget);
+          _expectTextOrScaffold('财务控制台', findsNothing);
+          _expectTextOrScaffold('行动编排层', findsNothing);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
@@ -278,10 +312,10 @@ void main() {
           await _scrollUntilVisibleIfPresent(tester, find.text('净资产'), 220);
           _expectTextOrScaffold('净资产', findsOneWidget);
 
-          await _scrollUntilVisibleIfPresent(tester, find.text('快速记账'), 260);
-          _expectTextOrScaffold('快速记账', findsOneWidget);
           await _scrollUntilVisibleIfPresent(tester, find.text('本月现金流'), 260);
           _expectTextOrScaffold('本月现金流', findsOneWidget);
+          await _scrollUntilVisibleIfPresent(tester, find.text('最近交易'), 260);
+          _expectTextOrScaffold('最近交易', findsOneWidget);
 
           await _scrollUntilVisibleIfPresent(tester, find.text('家庭支出'), 320);
           _expectTextOrScaffold('家庭支出', findsOneWidget);
@@ -445,7 +479,7 @@ void main() {
         );
       });
 
-      testWidgets('renders premium accounts control room (${variant.name})', (
+      testWidgets('renders premium accounts surface (${variant.name})', (
         tester,
       ) async {
         await _prepareScreenshotCapture(binding);
@@ -470,30 +504,16 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('账户', findsOneWidget);
-        _expectTextOrScaffold('资产概览', findsOneWidget);
-        _expectByKey(const ValueKey('account-portfolio-control-strip'));
-        _expectTextOrScaffold('资产控制中枢', findsOneWidget);
-        _expectTextOrScaffold('静谧墨绿', findsOneWidget);
+        _expectTextOrScaffold('净资产', findsOneWidget);
+        _expectTextOrScaffold('招商银行', findsWidgets);
+        _expectTextOrScaffold('账户资产矩阵', findsNothing);
+        _expectTextOrScaffold('资产控制中枢', findsNothing);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'accounts-control-room-${variant.name}',
+          'accounts-surface-${variant.name}',
         );
-
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('账户资产矩阵'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        _expectByKey(const ValueKey('account-portfolio-matrix-panel'));
-        _expectTextOrScaffold('账户资产矩阵', findsOneWidget);
-        _expectTextOrScaffold('流动优先', findsOneWidget);
-        _expectTextOrScaffold('主资产账户', findsOneWidget);
-        _expectTextOrScaffold('主要负债', findsOneWidget);
-        _expectTextOrScaffold('结构比例', findsOneWidget);
-        _expectStableVisualFrame(tester);
 
         await _scrollUntilVisibleIfPresent(
           tester,
@@ -502,9 +522,9 @@ void main() {
           scrollable: find.byType(Scrollable).first,
         );
         _expectTextOrScaffold('正常账户', findsOneWidget);
-        _expectTextOrScaffold('支持排序', findsOneWidget);
-        _expectTextOrScaffold('资产类', findsAtLeastNWidgets(1));
         _expectTextOrScaffold('招商银行', findsWidgets);
+        _expectTextOrScaffold('资产类', findsNothing);
+        _expectTextOrScaffold('支持排序', findsNothing);
         _expectStableVisualFrame(tester);
         await _scrollUntilVisibleIfPresent(
           tester,
@@ -513,8 +533,8 @@ void main() {
           scrollable: find.byType(Scrollable).first,
         );
         _expectTextOrScaffold('已归档账户', findsOneWidget);
-        _expectTextOrScaffold('负债类', findsOneWidget);
         _expectTextOrScaffold('住房贷款', findsOneWidget);
+        _expectTextOrScaffold('负债类', findsNothing);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
       });
@@ -648,7 +668,7 @@ void main() {
         );
       });
 
-      testWidgets('renders premium data management vault (${variant.name})', (
+      testWidgets('renders premium data management surface (${variant.name})', (
         tester,
       ) async {
         await _prepareScreenshotCapture(binding);
@@ -670,38 +690,35 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('数据管理', findsOneWidget);
-        _expectTextOrScaffold('数据保险库', findsOneWidget);
-        _expectTextOrScaffold('保险库健康层', findsOneWidget);
-        _expectByKey(const ValueKey('data-vault-health-panel'));
-        _expectTextOrScaffold('留存水位', findsOneWidget);
-        _expectTextOrScaffold('恢复二次确认', findsOneWidget);
-        _expectTextOrScaffold('数据出口', findsOneWidget);
-        _expectTextOrScaffold('数据操作链路', findsOneWidget);
-        _expectByKey(const ValueKey('data-operation-rail'));
+        _expectTextOrScaffold('账本副本', findsOneWidget);
+        _expectTextOrScaffold('保存副本', findsOneWidget);
+        _expectTextOrScaffold('交易明细', findsOneWidget);
+        _expectTextOrScaffold('保存明细', findsOneWidget);
+        _expectTextOrScaffold('数据保险库', findsNothing);
+        _expectTextOrScaffold('数据操作链路', findsNothing);
         await _scrollUntilVisibleIfPresent(
           tester,
-          find.text('下载备份'),
+          find.text('保存副本'),
           240,
           scrollable: find.byType(Scrollable).first,
         );
         await tester.pumpAndSettle();
-        _expectTextOrScaffold('下载备份', findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'data-management-operations-${variant.name}',
+          'data-management-surface-${variant.name}',
         );
 
         await _scrollUntilVisibleIfPresent(
           tester,
-          find.text('导出 CSV'),
+          find.text('自动保存'),
           300,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('导出 CSV', findsOneWidget);
-        _expectTextOrScaffold('自动备份', findsWidgets);
+        _expectTextOrScaffold('自动保存', findsWidgets);
+        _expectTextOrScaffold('自动备份', findsNothing);
         _expectStableVisualFrame(tester);
 
         await _scrollUntilVisibleIfPresent(
@@ -741,16 +758,20 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('API Token', findsOneWidget);
-        _expectTextOrScaffold('API 安全访问', findsOneWidget);
-        _expectByKey(const ValueKey('api-token-channel-console'));
-        _expectTextOrScaffold('接口通道控制台', findsOneWidget);
-        _expectTextOrScaffold('OpenAPI', findsOneWidget);
-        _expectTextOrScaffold('AI/自动化', findsOneWidget);
-        _expectTextOrScaffold('完整 Token 不进入列表，仅保留前缀和撤销入口', findsOneWidget);
-        _expectTextOrScaffold('授权暴露面雷达', findsOneWidget);
-        _expectByKey(const ValueKey('api-token-exposure-radar'));
-        _expectTextOrScaffold('创建新令牌', findsOneWidget);
+        expect(find.text('设备授权'), findsOneWidget);
+        expect(find.byKey(const ValueKey('api-token-add')), findsOneWidget);
+        expect(find.text('我的手机'), findsOneWidget);
+        expect(find.text('未启用 · 持续有效'), findsOneWidget);
+        expect(find.text('接口通道控制台'), findsNothing);
+        expect(find.text('授权暴露面雷达'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('api-token-channel-console')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('api-token-exposure-radar')),
+          findsNothing,
+        );
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -761,13 +782,13 @@ void main() {
 
         await _scrollUntilVisibleIfPresent(
           tester,
-          find.text('已创建的令牌'),
+          find.text('授权设备'),
           300,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('已创建的令牌', findsOneWidget);
-        _expectTextOrScaffold('我的手机', findsOneWidget);
-        _expectTextOrScaffold('abcd1234... · 未使用 · 永不过期', findsOneWidget);
+        expect(find.text('授权设备'), findsOneWidget);
+        expect(find.text('我的手机'), findsOneWidget);
+        expect(find.text('未启用 · 持续有效'), findsOneWidget);
         _expectStableVisualFrame(tester);
       });
 
@@ -904,10 +925,18 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('统计分析', findsOneWidget);
-        _expectByKey(const ValueKey('statistics-period-command-center'));
-        _expectTextOrScaffoldContaining('周期指挥台', findsOneWidget);
-        _expectTextOrScaffold('本月总支出', findsOneWidget);
+        expect(find.text('统计'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('statistics-period-header')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('statistics-period-command-center')),
+          findsNothing,
+        );
+        expect(find.textContaining('周期指挥台'), findsNothing);
+        expect(find.text('收入'), findsWidgets);
+        expect(find.text('支出'), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
@@ -917,54 +946,33 @@ void main() {
 
         await _scrollUntilVisibleIfPresent(
           tester,
-          find.text('现金流驾驶舱'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        _expectByKey(const ValueKey('statistics-data-cockpit'));
-        _expectTextOrScaffold('现金流驾驶舱', findsOneWidget);
-        _expectTextOrScaffold('可持续', findsOneWidget);
-        _expectTextOrScaffold('收入池', findsOneWidget);
-        _expectTextOrScaffold('支出池', findsOneWidget);
-        _expectTextOrScaffold('结余效率', findsOneWidget);
-        _expectTextOrScaffold('支出压力', findsOneWidget);
-        _expectTextOrScaffold('趋势覆盖', findsOneWidget);
-        _expectTextOrScaffold('首要分类', findsOneWidget);
-        _expectStableVisualFrame(tester);
-
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('数据洞察台'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        _expectByKey(const ValueKey('statistics-insight-deck'));
-        _expectTextOrScaffold('数据洞察台', findsOneWidget);
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('数据皮肤'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        _expectTextOrScaffold('数据皮肤', findsOneWidget);
-        _expectByKey(const ValueKey('statistics-theme-data-strip'));
-        _expectTextOrScaffold('现金流正向', findsOneWidget);
-        await _scrollUntilVisibleIfPresent(
-          tester,
           find.text('收支趋势'),
           300,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('收支趋势', findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('statistics-data-cockpit')),
+          findsNothing,
+        );
+        expect(find.text('现金流驾驶舱'), findsNothing);
+        expect(find.text('收支趋势'), findsOneWidget);
+        _expectStableVisualFrame(tester);
+
+        expect(
+          find.byKey(const ValueKey('statistics-insight-deck')),
+          findsNothing,
+        );
+        expect(find.text('数据洞察台'), findsNothing);
+        expect(find.text('数据皮肤'), findsNothing);
         await _scrollUntilVisibleIfPresent(
           tester,
           find.text('分类排行'),
           300,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('分类排行', findsOneWidget);
-        _expectTextOrScaffold('餐饮', findsOneWidget);
-        _expectTextOrScaffold('交通', findsOneWidget);
+        expect(find.text('分类排行'), findsOneWidget);
+        expect(find.text('餐饮'), findsOneWidget);
+        expect(find.text('交通'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -1125,21 +1133,15 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('借贷往来', findsOneWidget);
-        _expectByKeyOrText(
-          key: const ValueKey('lending-relationship-hub'),
-          fallbackText: '借贷往来',
-          matcher: findsOneWidget,
-        );
-        _expectByKeyOrText(
-          key: const ValueKey('lending-risk-radar'),
-          fallbackText: '回款风险',
-          matcher: findsOneWidget,
-        );
-        _expectTextOrScaffold('往来关系中枢', findsOneWidget);
-        _expectTextOrScaffold('回款风险雷达', findsOneWidget);
-        _expectTextOrScaffoldContaining('静谧墨绿', findsOneWidget);
-        _expectTextOrScaffold('借贷往来总览', findsOneWidget);
         _expectTextOrScaffold('应收', findsAtLeastNWidgets(1));
+        _expectTextOrScaffold('应付', findsAtLeastNWidgets(1));
+        _expectTextOrScaffold('张三', findsOneWidget);
+        _expectTextOrScaffold('¥800.00', findsAtLeastNWidgets(1));
+        _expectTextOrScaffoldContaining('已收 ¥200.00', findsOneWidget);
+        expect(find.text('往来关系中枢'), findsNothing);
+        expect(find.text('回款风险雷达'), findsNothing);
+        expect(find.textContaining('证据覆盖'), findsNothing);
+        expect(find.textContaining('回款动线'), findsNothing);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -1151,7 +1153,7 @@ void main() {
         await _scrollUntilVisibleIfPresent(tester, find.text('张三'), 280);
         await tester.pumpAndSettle();
         _expectTextOrScaffold('张三', findsOneWidget);
-        _expectTextOrScaffold('剩余 ¥800.00', findsOneWidget);
+        _expectTextOrScaffold('¥800.00', findsAtLeastNWidgets(1));
         _expectStableVisualFrame(tester);
       });
 
@@ -1192,46 +1194,49 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          _expectTextOrScaffold('AI 财务报告', findsOneWidget);
-          _expectByKey(const ValueKey('ai-report-command-center'));
-          _expectByKey(const ValueKey('ai-provider-orchestration-panel'));
-          _expectByKey(const ValueKey('ai-production-readiness-panel'));
-          _expectTextOrScaffold('AI 分析控制台', findsOneWidget);
-          _expectTextOrScaffold('AI 模型编排', findsOneWidget);
-          _expectTextOrScaffold('AI 生产就绪层', findsOneWidget);
-          _expectTextOrScaffold('生产可用', findsOneWidget);
-          _expectTextOrScaffold('就绪度', findsOneWidget);
-          _expectTextOrScaffold('100%', findsWidgets);
-          _expectTextOrScaffold('DeepSeek 就绪', findsOneWidget);
-          _expectTextOrScaffold('周报自动化', findsOneWidget);
-          _expectTextOrScaffold('密钥不出屏', findsOneWidget);
-          _expectTextOrScaffold('报告留痕', findsOneWidget);
-          _expectTextOrScaffold('OpenAI-compatible', findsWidgets);
-          _expectTextOrScaffold('分析就绪', findsOneWidget);
-          _expectTextOrScaffold('报告总数', findsOneWidget);
+          expect(find.text('财务报告'), findsOneWidget);
+          expect(find.text('分析方式'), findsOneWidget);
+          expect(find.text('定期报告'), findsOneWidget);
+          expect(find.text('每周总结'), findsOneWidget);
+          expect(find.text('AI 分析控制台'), findsNothing);
+          expect(find.text('AI 模型编排'), findsNothing);
+          expect(find.text('AI 生产就绪层'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('ai-report-command-center')),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('ai-provider-orchestration-panel')),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('ai-production-readiness-panel')),
+            findsNothing,
+          );
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
-            'ai-report-command-center-${variant.name}',
+            'ai-report-list-${variant.name}',
           );
 
-          await _scrollIntoTapArea(tester, find.text('AI 洞察质量层'));
-          _expectByKey(const ValueKey('ai-insight-quality-panel'));
-          _expectTextOrScaffold('AI 洞察质量层', findsOneWidget);
-          _expectTextOrScaffold('Provider 就绪', findsOneWidget);
-          _expectTextOrScaffold('默认脱敏', findsOneWidget);
-          _expectTextOrScaffold('OpenAI API', findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('ai-insight-quality-panel')),
+            findsNothing,
+          );
+          expect(find.text('AI 洞察质量层'), findsNothing);
+          expect(find.text('Provider 就绪'), findsNothing);
+          expect(find.text('默认脱敏'), findsNothing);
+          expect(find.text('OpenAI API'), findsNothing);
 
           await _scrollIntoTapArea(tester, find.text('每周总结'));
-          _expectTextOrScaffold('DeepSeek / deepseek-v4-flash', findsOneWidget);
           await _safeTapByText(tester, '每周总结', useLast: true);
           await tester.pumpAndSettle();
 
-          _expectTextOrScaffold('支出结构稳定', findsWidgets);
-          _expectTextOrScaffold('• 净现金流为正', findsOneWidget);
-          _expectTextOrScaffold('• 餐饮预算接近上限', findsOneWidget);
-          _expectTextOrScaffold('• 下周继续保持每日记录', findsOneWidget);
+          expect(find.text('支出结构稳定'), findsWidgets);
+          expect(find.text('• 净现金流为正'), findsOneWidget);
+          expect(find.text('• 餐饮预算接近上限'), findsOneWidget);
+          expect(find.text('• 下周继续保持每日记录'), findsOneWidget);
           expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
@@ -1252,8 +1257,8 @@ void main() {
                 familyMembersProvider.overrideWith(
                   (ref) async => _familyMembers,
                 ),
-                familySummaryProvider.overrideWith(
-                  (ref) async => _familySummary,
+                familySummaryByPeriodProvider.overrideWith(
+                  (ref, query) async => _familySummary,
                 ),
               ],
               child: _screenshotHost(
@@ -1266,29 +1271,37 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          _expectTextOrScaffold('家庭成员', findsOneWidget);
-          _expectTextOrScaffold('2026-05 家庭支出', findsOneWidget);
-          _expectTextOrScaffold('家庭协同中枢', findsOneWidget);
-          _expectByKey(const ValueKey('family-collaboration-hub'));
-          _expectTextOrScaffold('家庭治理预留', findsOneWidget);
-          _expectByKey(const ValueKey('family-governance-surface'));
-          _expectTextOrScaffold('权限预留', findsOneWidget);
-          _expectTextOrScaffold('¥320.00', findsAtLeastNWidgets(1));
+          expect(find.text('家庭成员'), findsOneWidget);
+          expect(find.text('2026年5月 家庭支出'), findsOneWidget);
+          expect(find.text('家庭协同中枢'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('family-collaboration-hub')),
+            findsNothing,
+          );
+          expect(find.text('家庭治理预留'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('family-governance-surface')),
+            findsNothing,
+          );
+          expect(find.text('权限预留'), findsNothing);
+          expect(find.text('¥320.00'), findsAtLeastNWidgets(1));
           expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
-            'family-hub-summary-${variant.name}',
+            'family-summary-${variant.name}',
           );
 
+          await _scrollUntilVisibleIfPresent(tester, find.text('家庭洞察'), 360);
+          await _safeTapByText(tester, '家庭洞察');
           await _scrollUntilVisibleIfPresent(tester, find.text('成员支出排行'), 360);
-          _expectTextOrScaffold('成员支出排行', findsOneWidget);
+          expect(find.text('成员支出排行'), findsOneWidget);
           await _scrollUntilVisibleIfPresent(tester, find.text('停用'), 360);
-          _expectTextOrScaffold('成员A', findsWidgets);
-          _expectTextOrScaffold('成员B', findsWidgets);
-          _expectTextOrScaffold('默认', findsOneWidget);
-          _expectTextOrScaffold('停用', findsOneWidget);
+          expect(find.text('成员A'), findsWidgets);
+          expect(find.text('成员B'), findsWidgets);
+          expect(find.text('常用 · 启用'), findsOneWidget);
+          expect(find.text('停用'), findsOneWidget);
         },
       );
 
@@ -1313,28 +1326,33 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('年度报告', findsWidgets);
-        _expectTextOrScaffold('2026 年账本汇总', findsOneWidget);
-        _expectByKey(const ValueKey('yearly-insight-deck'));
-        _expectByKey(const ValueKey('yearly-narrative-radar'));
-        _expectTextOrScaffold('年度洞察台', findsOneWidget);
-        _expectTextOrScaffold('年度叙事雷达', findsOneWidget);
-        _expectTextOrScaffold('年度正结余', findsOneWidget);
-        _expectTextOrScaffold('净结余', findsAtLeastNWidgets(1));
+        expect(find.text('年度报告'), findsWidgets);
+        expect(find.text('2026 年'), findsWidgets);
+        expect(find.byKey(const ValueKey('yearly-insight-deck')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('yearly-narrative-radar')),
+          findsNothing,
+        );
+        expect(find.text('年度洞察台'), findsNothing);
+        expect(find.text('年度叙事雷达'), findsNothing);
+        expect(find.text('收入'), findsWidgets);
+        expect(find.text('支出'), findsWidgets);
+        expect(find.text('储蓄率'), findsOneWidget);
+        expect(find.text('净结余'), findsAtLeastNWidgets(1));
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'yearly-insight-deck-${variant.name}',
+          'yearly-summary-${variant.name}',
         );
 
         await _scrollUntilVisibleIfPresent(
           tester,
-          find.text('年度摘要'),
+          find.text('摘要'),
           260,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('年度摘要', findsOneWidget);
+        expect(find.text('摘要'), findsOneWidget);
 
         await _scrollUntilVisibleIfPresent(
           tester,
@@ -1342,16 +1360,24 @@ void main() {
           320,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('月度收支', findsOneWidget);
+        expect(find.text('月度收支'), findsOneWidget);
 
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('年度收入 Top'),
-          360,
+        await tester.scrollUntilVisible(
+          find.text('餐饮'),
+          320,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('餐饮', findsOneWidget);
-        _expectTextOrScaffold('工资', findsOneWidget);
+        await tester.pumpAndSettle();
+        expect(find.text('支出 Top'), findsOneWidget);
+        expect(find.text('餐饮'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('工资'),
+          320,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('收入 Top'), findsOneWidget);
+        expect(find.text('工资'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -1377,59 +1403,85 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          _expectTextOrScaffold('我的', findsOneWidget);
-          _expectTextOrScaffold('个人记账', findsOneWidget);
-          _expectByKey(const ValueKey('profile-command-center'));
-          _expectTextOrScaffoldContaining('个人控制中枢', findsOneWidget);
-          _expectTextOrScaffold('家庭账本', findsOneWidget);
-          _expectTextOrScaffold('AI 周报', findsOneWidget);
-          _expectTextOrScaffold('资产配置', findsOneWidget);
+          expect(find.text('功能'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('profile-command-center')),
+            findsNothing,
+          );
+          expect(find.text('日常账本'), findsOneWidget);
+          expect(find.text('计划与往来'), findsOneWidget);
+          expect(find.text('账户'), findsOneWidget);
+          expect(find.text('预算'), findsOneWidget);
+          await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('profile-section-智能与数据')),
+            320,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('智能与数据'), findsOneWidget);
+          expect(find.text('AI 分析'), findsOneWidget);
+          expect(find.text('数据备份'), findsOneWidget);
+          expect(find.text('功能中心'), findsNothing);
+          expect(find.textContaining('个人控制中枢'), findsNothing);
+          expect(find.text('资产配置'), findsNothing);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
-            'profile-command-center-${variant.name}',
+            'profile-sections-${variant.name}',
           );
 
-          await _scrollUntilVisibleIfPresent(
-            tester,
+          await tester.scrollUntilVisible(
             find.byKey(const ValueKey('profile-appearance-panel')),
             420,
             scrollable: find.byType(Scrollable).first,
           );
-          _expectByKey(const ValueKey('profile-appearance-panel'));
-          _expectTextOrScaffold('主题色模板', findsWidgets);
-          _expectTextOrScaffold('外观模式', findsOneWidget);
-          _expectTextOrScaffold('石墨蓝', findsOneWidget);
-          _expectByKey(const ValueKey('profile-theme-curation-rail'));
-          _expectTextOrScaffold('推荐主题策展', findsOneWidget);
-          _expectTextOrScaffold('快速切换', findsOneWidget);
-          _expectTextOrScaffold('旗舰夜间使用', findsOneWidget);
-          _expectTextOrScaffold('动效先锋界面', findsOneWidget);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('profile-appearance-panel')),
+            findsOneWidget,
+          );
+          expect(find.text('外观'), findsOneWidget);
+          expect(find.text('系统'), findsOneWidget);
+          expect(find.text('浅色'), findsOneWidget);
+          expect(find.text('深色'), findsOneWidget);
+          expect(find.text('主色'), findsOneWidget);
+          expect(find.text('主题色模板'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('profile-theme-curation-rail')),
+            findsNothing,
+          );
+          expect(find.text('推荐主题策展'), findsNothing);
+          expect(find.text('旗舰夜间使用'), findsNothing);
           expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
-            'profile-theme-templates-${variant.name}',
+            'profile-appearance-${variant.name}',
           );
 
-          await _scrollUntilVisibleIfPresent(
-            tester,
-            find.text('跨端体验预览'),
-            360,
+          await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('profile-section-安全与数据')),
+            -360,
             scrollable: find.byType(Scrollable).first,
           );
-          _expectTextOrScaffold('跨端体验预览', findsOneWidget);
-          _expectTextOrScaffold('iOS 原生感', findsOneWidget);
-          _expectTextOrScaffold('Android 动效', findsOneWidget);
-          _expectTextOrScaffold('数据看板', findsAtLeastNWidgets(1));
-          _expectTextOrScaffold('AI 报告', findsAtLeastNWidgets(1));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('profile-section-安全与数据')),
+            findsOneWidget,
+          );
+          expect(find.text('设备授权'), findsOneWidget);
+          expect(find.text('账号安全'), findsOneWidget);
+          expect(find.text('更换账本'), findsOneWidget);
+          expect(find.text('跨端体验预览'), findsNothing);
+          expect(find.text('iOS 原生感'), findsNothing);
+          expect(find.text('Android 动效'), findsNothing);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
-            'profile-cross-platform-theme-preview-${variant.name}',
+            'profile-security-section-${variant.name}',
           );
         },
       );
@@ -1455,49 +1507,52 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('个人资料', findsOneWidget);
-        _expectTextOrScaffold('身份状态轨道', findsOneWidget);
-        _expectTextOrScaffold('身份可识别', findsOneWidget);
-        _expectByKey(const ValueKey('profile-identity-rail'));
-        _expectTextOrScaffold('资料完整度', findsOneWidget);
+        expect(find.text('个人资料'), findsOneWidget);
+        expect(find.text('身份状态轨道'), findsNothing);
+        expect(find.text('身份可识别'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('profile-identity-rail')),
+          findsNothing,
+        );
+        expect(find.text('资料完整度'), findsNothing);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'profile-identity-rail-${variant.name}',
+          'profile-settings-form-${variant.name}',
         );
 
-        await _scrollUntilVisibleIfPresent(
-          tester,
+        await tester.scrollUntilVisible(
           find.byKey(const ValueKey('profile-settings-theme-panel')),
           360,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectByKey(const ValueKey('profile-settings-theme-panel'));
-        _expectTextOrScaffold('设置主题中心', findsOneWidget);
-        _expectTextOrScaffold('模板数量', findsOneWidget);
-        _expectTextOrScaffold('12 套', findsOneWidget);
-        _expectTextOrScaffold('模式同步', findsOneWidget);
-        _expectByKey(const ValueKey('profile-settings-theme-template-matrix'));
-        _expectTextOrScaffold('模板适配矩阵', findsOneWidget);
-        _expectTextOrScaffold('点按切换', findsOneWidget);
-        _expectTextOrScaffold('家庭账本', findsOneWidget);
-        _expectTextOrScaffold('AI 分析', findsOneWidget);
-        _expectByKey(const ValueKey('profile-settings-template-indigo'));
-        _expectTextOrScaffold('推荐主题策展', findsOneWidget);
-        _expectTextOrScaffold('3 个高频场景', findsOneWidget);
-        _expectTextOrScaffold('旗舰夜间使用', findsOneWidget);
-        _expectTextOrScaffold('动效先锋界面', findsOneWidget);
-        _expectTextOrScaffold('财务语义预览', findsOneWidget);
-        _expectTextOrScaffold('周报高光', findsOneWidget);
-        _expectTextOrScaffold('预算状态', findsOneWidget);
-        _expectTextOrScaffold('黑曜蓝', findsWidgets);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('profile-settings-theme-panel')),
+          findsOneWidget,
+        );
+        expect(find.text('外观'), findsOneWidget);
+        expect(find.text('模式'), findsOneWidget);
+        expect(find.text('跟随系统'), findsOneWidget);
+        expect(find.text('浅色模式'), findsOneWidget);
+        expect(find.text('深色模式'), findsOneWidget);
+        expect(find.text('主色'), findsOneWidget);
+        expect(find.text('设置主题中心'), findsNothing);
+        expect(find.text('模板数量'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('profile-settings-theme-template-matrix')),
+          findsNothing,
+        );
+        expect(find.text('推荐主题策展'), findsNothing);
+        expect(find.text('财务语义预览'), findsNothing);
+        expect(find.text('黑曜蓝'), findsNothing);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
           tester,
-          'profile-settings-theme-panel-${variant.name}',
+          'profile-settings-appearance-${variant.name}',
         );
       });
     }
@@ -1869,6 +1924,7 @@ const _familyMembers = [
 
 const _familySummary = FamilySummary(
   month: '2026-05',
+  label: '2026年5月',
   totalExpense: 320,
   members: [
     FamilyMemberSummary(
@@ -2229,6 +2285,43 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   Future<void> restoreBackup(PlatformFile file) async {}
 
   @override
+  Future<TransactionImportPreview> previewTransactionImport(
+    PlatformFile file,
+  ) async {
+    throw UnsupportedError('视觉冒烟流程不会选择真实导入文件');
+  }
+
+  @override
+  Future<TransactionImportPreview?> getRecentTransactionImport() async {
+    return null;
+  }
+
+  @override
+  Future<List<TransactionImportPreview>> listRecentTransactionImports() async {
+    return const [];
+  }
+
+  @override
+  Future<TransactionImportPreview> getTransactionImport(String id) async {
+    throw UnsupportedError('视觉冒烟流程没有导入会话');
+  }
+
+  @override
+  Future<TransactionImportPreview> validateTransactionImport(String id) async {
+    throw UnsupportedError('视觉冒烟流程没有导入会话');
+  }
+
+  @override
+  Future<TransactionImportPreview> commitTransactionImport(String id) async {
+    throw UnsupportedError('视觉冒烟流程没有导入会话');
+  }
+
+  @override
+  Future<TransactionImportPreview> rollbackTransactionImport(String id) async {
+    throw UnsupportedError('视觉冒烟流程没有导入会话');
+  }
+
+  @override
   Future<AutoBackupSettings?> saveAutoBackupSettings(
     AutoBackupSettings settings,
   ) async {
@@ -2248,6 +2341,7 @@ class _FakeApiTokenRepository implements ApiTokenRepository {
       token: 'full-token-value',
       tokenPrefix: 'ffff0000',
       createdAt: DateTime(2026, 5, 2, 9),
+      scopes: request.scopes,
     );
   }
 
@@ -2262,6 +2356,7 @@ class _FakeApiTokenRepository implements ApiTokenRepository {
         name: '我的手机',
         tokenPrefix: 'abcd1234',
         createdAt: DateTime(2026, 5, 1, 9),
+        scopes: apiTokenDefaultScopes,
       ),
     ];
   }
@@ -2269,7 +2364,7 @@ class _FakeApiTokenRepository implements ApiTokenRepository {
 
 class _FakeHomeRepository implements HomeRepository {
   @override
-  Future<HomeSummary> getSummary() async {
+  Future<HomeSummary> getSummary({HomeSummaryQuery? query}) async {
     return const HomeSummary(
       accounts: AccountListResponse(
         list: [
@@ -2942,18 +3037,25 @@ class _FakeStatisticsRepository implements StatisticsRepository {
   @override
   Future<CategoryStatResponse?> getCategoryStats({
     required String month,
+    StatisticsPeriod period = StatisticsPeriod.month,
     required String type,
   }) async {
     return _statisticsDashboard.categories;
   }
 
   @override
-  Future<StatisticsOverviewData?> getOverview(String month) async {
+  Future<StatisticsOverviewData?> getOverview(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) async {
     return _statisticsDashboard.overview;
   }
 
   @override
-  Future<TrendResponse?> getTrend(String month) async {
+  Future<TrendResponse?> getTrend(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) async {
     return _statisticsDashboard.trend;
   }
 }

@@ -7,6 +7,20 @@ final apiTokenRepositoryProvider = Provider<ApiTokenRepository>((ref) {
   return ApiTokenRepository(ref.watch(apiClientProvider));
 });
 
+const apiTokenAllowedScopes = <String>[
+  'ledger:read',
+  'ledger:write',
+  'report:read',
+  'upload:read',
+  'upload:write',
+];
+
+const apiTokenDefaultScopes = <String>[
+  'ledger:read',
+  'ledger:write',
+  'report:read',
+];
+
 class ApiTokenRepository {
   const ApiTokenRepository(this._apiClient);
 
@@ -53,6 +67,7 @@ class ApiTokenItem {
     required this.name,
     required this.tokenPrefix,
     required this.createdAt,
+    this.scopes = apiTokenAllowedScopes,
     this.lastUsedAt,
     this.expiresAt,
   });
@@ -61,6 +76,7 @@ class ApiTokenItem {
   final String name;
   final String tokenPrefix;
   final DateTime createdAt;
+  final List<String> scopes;
   final DateTime? lastUsedAt;
   final DateTime? expiresAt;
 
@@ -75,6 +91,7 @@ class ApiTokenItem {
       createdAt:
           _toDateTime(map['created_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      scopes: _toScopes(map['scopes']),
       lastUsedAt: _toDateTime(map['last_used_at']),
       expiresAt: _toDateTime(map['expires_at']),
     );
@@ -88,6 +105,7 @@ class ApiTokenCreateResult extends ApiTokenItem {
     required super.tokenPrefix,
     required super.createdAt,
     required this.token,
+    super.scopes,
     super.lastUsedAt,
     super.expiresAt,
   });
@@ -104,6 +122,7 @@ class ApiTokenCreateResult extends ApiTokenItem {
       createdAt:
           _toDateTime(map['created_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      scopes: _toScopes(map['scopes']),
       lastUsedAt: _toDateTime(map['last_used_at']),
       expiresAt: _toDateTime(map['expires_at']),
     );
@@ -114,13 +133,15 @@ class ApiTokenCreateRequest {
   const ApiTokenCreateRequest({
     required this.name,
     required this.expiresInDays,
+    this.scopes = apiTokenDefaultScopes,
   });
 
   final String name;
   final int expiresInDays;
+  final List<String> scopes;
 
   Map<String, dynamic> toJson() {
-    return {'name': name, 'expires_in_days': expiresInDays};
+    return {'name': name, 'expires_in_days': expiresInDays, 'scopes': scopes};
   }
 }
 
@@ -139,4 +160,15 @@ DateTime? _toDateTime(Object? value) {
     return null;
   }
   return DateTime.tryParse(value.toString());
+}
+
+List<String> _toScopes(Object? value) {
+  if (value is! List) {
+    return apiTokenAllowedScopes;
+  }
+  final scopes = value
+      .map((item) => item.toString())
+      .where(apiTokenAllowedScopes.contains)
+      .toList(growable: false);
+  return scopes.isEmpty ? apiTokenAllowedScopes : scopes;
 }

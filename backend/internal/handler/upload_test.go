@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -42,6 +44,12 @@ func TestUploadDownloadAcceptsBearerToken(t *testing.T) {
 	}
 	if got := w.Body.String(); got != "ledger attachment" {
 		t.Fatalf("body = %q, want fixture content", got)
+	}
+	if got := w.Header().Get("Content-Disposition"); !strings.HasPrefix(got, "attachment;") {
+		t.Fatalf("content disposition = %q, want attachment", got)
+	}
+	if got := w.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("X-Content-Type-Options = %q, want nosniff", got)
 	}
 }
 
@@ -153,6 +161,41 @@ func TestUploadListDoesNotExposeStoragePathOnInternalError(t *testing.T) {
 	}
 }
 
+func TestUploadAvatarRejectsOversizedMultipartBody(t *testing.T) {
+	uploadService := service.NewUploadService(&config.StorageConfig{
+		UploadPath:   t.TempDir(),
+		MaxFileSize:  1,
+		AllowedTypes: "txt",
+	})
+	handler := NewUploadHandler(uploadService, nil, nil)
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", "oversized.txt")
+	if err != nil {
+		t.Fatalf("create multipart file: %v", err)
+	}
+	if _, err := part.Write(bytes.Repeat([]byte("x"), (2<<20)+1)); err != nil {
+		t.Fatalf("write multipart file: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/avatar", body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	response := httptest.NewRecorder()
+	router := gin.New()
+	router.POST("/avatar", func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		handler.UploadAvatar(c)
+	})
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("upload status = %d, want 413; body=%s", response.Code, response.Body.String())
+	}
+}
+
 func TestUploadServiceRejectsTraversalRefID(t *testing.T) {
 	_, uploadPath, _ := newUploadDownloadTestHandler(t)
 	uploadService := service.NewUploadService(&config.StorageConfig{
@@ -186,7 +229,12 @@ func newUploadDownloadTestHandler(t *testing.T) (*UploadHandler, string, *jwt.Ma
 func performUploadDownloadRequest(handler *UploadHandler, path string, token string) *httptest.ResponseRecorder {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.GET("/download", handler.Download)
+	router.GET("/download", func(c *gin.Context) {
+		if c.GetHeader("Authorization") != "" {
+			c.Set("userID", uint(1))
+		}
+		handler.Download(c)
+	})
 
 	req := httptest.NewRequest(
 		http.MethodGet,

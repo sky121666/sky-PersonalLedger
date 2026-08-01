@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
 import 'package:personal_ledger/core/providers/core_providers.dart';
+import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/storage/secure_storage_service.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -49,31 +50,89 @@ void main() {
     expect(state.errorMessage, isNot(contains('raw socket failure')));
   });
 
-  test('bootstrap falls back to login when stored token is unauthorized', () async {
-    final storage = _FakeSecureStorage()
-      ..serverUrl = 'https://ledger.example.com'
-      ..accessToken = 'expired-access'
-      ..refreshToken = 'expired-refresh';
+  test(
+    'bootstrap falls back to login when stored token is unauthorized',
+    () async {
+      final storage = _FakeSecureStorage()
+        ..serverUrl = 'https://ledger.example.com'
+        ..accessToken = 'expired-access'
+        ..refreshToken = 'expired-refresh';
+      final container = ProviderContainer(
+        overrides: [
+          secureStorageServiceProvider.overrideWithValue(storage),
+          authRepositoryProvider.overrideWithValue(
+            _FakeAuthRepository(sessionValid: false),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await _waitForAuthStage(
+        container,
+        predicate: (stage) => stage != AuthStage.checking,
+      );
+
+      final state = container.read(authControllerProvider);
+      expect(state.stage, AuthStage.loginRequired);
+      expect(await storage.readAccessToken(), isNull);
+      expect(await storage.readRefreshToken(), isNull);
+    },
+  );
+
+  test('login distinguishes invalid password from a network failure', () async {
     final container = ProviderContainer(
       overrides: [
-        secureStorageServiceProvider.overrideWithValue(storage),
+        secureStorageServiceProvider.overrideWithValue(_FakeSecureStorage()),
         authRepositoryProvider.overrideWithValue(
-          _FakeAuthRepository(sessionValid: false),
+          _FakeAuthRepository(
+            loginError: const ApiException(
+              statusCode: 401,
+              code: 40101,
+              message: 'invalid password',
+            ),
+          ),
         ),
       ],
     );
     addTearDown(container.dispose);
+    final controller = container.read(authControllerProvider.notifier);
+    await controller.connectServer('https://ledger.example.com');
 
-    await _waitForAuthStage(
-      container,
-      predicate: (stage) => stage != AuthStage.checking,
-    );
+    await controller.login('wrong-password');
 
     final state = container.read(authControllerProvider);
     expect(state.stage, AuthStage.loginRequired);
-    expect(await storage.readAccessToken(), isNull);
-    expect(await storage.readRefreshToken(), isNull);
+    expect(state.errorMessage, '密码错误，请重试');
   });
+
+  test(
+    'logout clears local tokens when remote revocation is unavailable',
+    () async {
+      final storage = _FakeSecureStorage();
+      final container = ProviderContainer(
+        overrides: [
+          secureStorageServiceProvider.overrideWithValue(storage),
+          authRepositoryProvider.overrideWithValue(
+            _FakeAuthRepository(logoutError: Exception('server offline')),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(authControllerProvider.notifier);
+      await controller.connectServer('https://ledger.example.com');
+      await storage.saveTokens(
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+      );
+
+      await controller.logout();
+
+      final state = container.read(authControllerProvider);
+      expect(state.stage, AuthStage.loginRequired);
+      expect(await storage.readAccessToken(), isNull);
+      expect(await storage.readRefreshToken(), isNull);
+    },
+  );
 }
 
 Future<void> _waitForAuthStage(
@@ -145,9 +204,16 @@ class _FakeSecureStorage extends SecureStorageService {
 }
 
 class _FakeAuthRepository implements AuthRepository {
-  const _FakeAuthRepository({this.statusError, this.sessionValid = true});
+  const _FakeAuthRepository({
+    this.statusError,
+    this.loginError,
+    this.logoutError,
+    this.sessionValid = true,
+  });
 
   final Object? statusError;
+  final Object? loginError;
+  final Object? logoutError;
   final bool sessionValid;
 
   @override
@@ -169,6 +235,10 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<AuthTokenPair> login(String password) async {
+    final error = loginError;
+    if (error != null) {
+      throw error;
+    }
     return const AuthTokenPair(
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -179,5 +249,10 @@ class _FakeAuthRepository implements AuthRepository {
   Future<bool> validateSession() async => sessionValid;
 
   @override
-  Future<void> logout() async {}
+  Future<void> logout() async {
+    final error = logoutError;
+    if (error != null) {
+      throw error;
+    }
+  }
 }

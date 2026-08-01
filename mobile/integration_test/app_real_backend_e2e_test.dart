@@ -41,18 +41,33 @@ void main() {
       ),
     );
 
-    await _pumpUntilAnyFound(tester, [find.text('连接服务器'), find.text('连接账本')]);
+    await _pumpUntilAnyFound(tester, [
+      find.byKey(const ValueKey('server-url-field')),
+      find.text('连接服务器'),
+      find.text('连接账本'),
+      find.byKey(const Key('auth-setup-password-field')),
+      find.byKey(const Key('auth-login-password-field')),
+      find.text('首页'),
+    ]);
 
-    await _enterAuthTextField(tester, ['服务器地址', '账本地址'], _serverUrl);
-    await _tapTextOrKey(
-      tester,
-      keys: const [Key('server-connect-button')],
-      fallbackTexts: const ['进入账本', '连接'],
-    );
-    await _waitForAuthForm(tester);
+    if (_isServerConfigVisible()) {
+      await _enterAuthTextField(tester, ['服务器地址', '账本地址'], _serverUrl);
+      await _tapTextOrKey(
+        tester,
+        keys: const [Key('server-connect-button')],
+        fallbackTexts: const ['进入账本', '连接'],
+      );
+    }
+
+    if (!_isHomeShellVisible()) {
+      await _waitForAuthForm(tester);
+    }
 
     await _pumpUntilFound(tester, find.text('首页'));
-    await _pumpUntilFound(tester, find.text('净资产'));
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const ValueKey('home-net-assets-card')),
+    );
 
     await _createAccount(tester);
     await _createExpenseTransaction(tester);
@@ -98,7 +113,7 @@ Future<void> _pumpUntilAtLeastFound(
   expect(
     finder.evaluate().length >= minMatches,
     isTrue,
-    reason: '未找到足够的匹配项（最低 ${minMatches.toString()} 个）: ${finder.description}',
+    reason: '未找到足够的匹配项（最低 ${minMatches.toString()} 个）',
   );
 }
 
@@ -166,8 +181,8 @@ Future<void> _createAccount(WidgetTester tester) async {
 
   await _pumpUntilFound(tester, find.text('保存成功'));
   await _scrollUntilFound(tester, find.text('E2E现金钱包'));
-  await _goBack(tester, untilText: '我的');
-  await _pumpUntilFound(tester, find.text('我的'));
+  await _goBack(tester, untilText: '功能');
+  await _pumpUntilAnyFound(tester, [find.text('功能'), find.text('我的')]);
 }
 
 Future<void> _waitForAuthForm(WidgetTester tester) async {
@@ -305,8 +320,13 @@ Future<void> _tapTextOrKey(
   for (final key in keys) {
     final finder = find.byKey(key);
     if (finder.evaluate().isNotEmpty) {
-      await _tapKey(tester, key);
-      return;
+      try {
+        await _tapKey(tester, key);
+        return;
+      } catch (_) {
+        // Android emulator layout can move bottom actions after keyboard/scroll
+        // changes. Fall through to text/button based candidates.
+      }
     }
   }
   for (final text in fallbackTexts) {
@@ -373,6 +393,12 @@ bool _isAuthFormVisible() {
       find.text('账本解锁').evaluate().isNotEmpty;
 }
 
+bool _isServerConfigVisible() {
+  return find.byKey(const ValueKey('server-url-field')).evaluate().isNotEmpty ||
+      find.text('连接账本').evaluate().isNotEmpty ||
+      find.text('连接服务器').evaluate().isNotEmpty;
+}
+
 bool _isHomeShellVisible() {
   return find.text('首页').evaluate().isNotEmpty ||
       find
@@ -391,7 +417,7 @@ Future<void> _createExpenseTransaction(WidgetTester tester) async {
     find.byKey(const ValueKey('main-shell-quick-transaction')),
     find.byKey(const ValueKey('home-recent-transactions-all')),
     find.text('首页'),
-    find.text('净资产'),
+    find.byKey(const ValueKey('home-net-assets-card')),
   ]);
 
   await _tapKey(tester, const ValueKey('main-shell-quick-transaction'));
@@ -523,34 +549,21 @@ Future<void> _verifyAccountBalance(
   await _scrollUntilFound(tester, find.text('E2E现金钱包'));
   await _scrollUntilFound(tester, find.text(expectedBalance));
 
-  await _goBack(tester, untilText: '我的');
-  await _pumpUntilFound(tester, find.text('我的'));
-}
-
-Future<void> _tapTextByCandidates(
-  WidgetTester tester,
-  List<String> texts,
-) async {
-  for (final text in texts) {
-    final finder = find.text(text);
-    if (finder.evaluate().isNotEmpty) {
-      await _tapText(tester, text);
-      return;
-    }
-  }
-
-  fail('未找到可点击文本（候选: $texts）');
+  await _goBack(tester, untilText: '功能');
+  await _pumpUntilAnyFound(tester, [find.text('功能'), find.text('我的')]);
 }
 
 Future<void> _openProfileAccounts(WidgetTester tester) async {
-  if (find.byKey(const ValueKey('profile-entry-账户')).evaluate().isEmpty) {
-    await _tapKey(tester, const ValueKey('profile-section-账本'));
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const ValueKey('profile-entry-账户')),
-    );
+  if (find.byKey(const ValueKey('profile-entry-账户')).evaluate().isNotEmpty) {
+    await _tapKey(tester, const ValueKey('profile-entry-账户'));
+    return;
   }
-  await _tapKey(tester, const ValueKey('profile-entry-账户'));
+
+  await _openRoute(tester, AppRoutePaths.accounts);
+  await _pumpUntilAnyFound(tester, [
+    find.text('账户'),
+    find.byKey(const ValueKey('account-add')),
+  ]);
 }
 
 Future<Finder> _findTransaction(
@@ -635,7 +648,34 @@ Future<void> _openShellTab(
     return;
   }
 
+  final route = switch (keyValue) {
+    'home' => AppRoutePaths.home,
+    'transactions' => AppRoutePaths.transactions,
+    'statistics' => AppRoutePaths.statistics,
+    'profile' => AppRoutePaths.profile,
+    _ => null,
+  };
+  if (route != null) {
+    await _openRoute(tester, route);
+    return;
+  }
+
   await _tapText(tester, label);
+}
+
+Future<void> _openRoute(WidgetTester tester, String location) async {
+  final appFinder = find.byType(PersonalLedgerApp);
+  if (appFinder.evaluate().isEmpty) {
+    return;
+  }
+
+  final context = tester.element(appFinder);
+  final router = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(appRouterProvider);
+  router.go(location);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _openTransactionListByRoute(WidgetTester tester) async {
@@ -698,6 +738,24 @@ Future<void> _goBack(WidgetTester tester, {String? untilText}) async {
       return;
     }
 
+    final appBarBackButton = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is IconButton &&
+            widget.key != const ValueKey('account-add') &&
+            widget.key != const ValueKey('transaction-add') &&
+            widget.key != const ValueKey('transaction-more-options'),
+      ),
+    );
+    if (appBarBackButton.evaluate().isNotEmpty) {
+      await tester.tap(appBarBackButton.first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      if (_isTextVisible(untilText)) {
+        return;
+      }
+    }
+
     final backButton = find.byType(BackButton);
     if (backButton.evaluate().isNotEmpty) {
       await tester.tap(backButton.last, warnIfMissed: false);
@@ -707,8 +765,23 @@ Future<void> _goBack(WidgetTester tester, {String? untilText}) async {
       }
     }
 
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    for (final tooltip in const ['返回', 'Back']) {
+      final tooltipButton = find.byTooltip(tooltip);
+      if (tooltipButton.evaluate().isNotEmpty) {
+        await tester.tap(tooltipButton.last, warnIfMissed: false);
+        await tester.pumpAndSettle();
+        if (_isTextVisible(untilText)) {
+          return;
+        }
+      }
+    }
+
+    try {
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+    } on TestFailure {
+      continue;
+    }
   }
 }
 
@@ -760,11 +833,6 @@ Future<void> _bringIntoTapArea(WidgetTester tester, Finder finder) async {
     await tester.drag(scrollables.first, Offset(0, delta), warnIfMissed: false);
     await tester.pumpAndSettle();
   }
-}
-
-Future<void> _dismissKeyboard(WidgetTester tester) async {
-  await tester.testTextInput.receiveAction(TextInputAction.done);
-  await tester.pumpAndSettle();
 }
 
 class _MemorySecureStorageService extends SecureStorageService {

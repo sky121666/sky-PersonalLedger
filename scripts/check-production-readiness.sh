@@ -51,6 +51,7 @@ require_file ".forgejo/workflows/ci.yml"
 require_file ".github/workflows/android.yml"
 require_file ".github/workflows/ios.yml"
 require_file ".github/workflows/release.yml"
+require_file ".github/workflows/web.yml"
 require_file "scripts/check-public-git-safety.sh"
 require_file "scripts/check-backup-restore-rehearsal.sh"
 require_file "scripts/check-backup-operator-drill.sh"
@@ -68,6 +69,7 @@ require_file "scripts/check-final-release-runbook.sh"
 require_file "scripts/check-mobile-device-qa-preflight.sh"
 require_file "scripts/check-final-release-gates.sh"
 require_file "scripts/verify-mobile-e2e.sh"
+require_file "mobile/test/core_response_parsing_test.dart"
 
 require_absent_text "backend/internal/service/health.go" 'Message: err\.Error\(\)'
 require_text "backend/internal/service/health.go" 'database check failed'
@@ -157,7 +159,11 @@ require_absent_text "web/src/utils/request.ts" 'error\.message'
 require_text "web/src/utils/request.ts" "error\\.response \\? '请求失败' : '网络连接失败'"
 require_absent_text "mobile/lib/core/network/api_client.dart" 'message: error\.message'
 require_text "mobile/lib/core/network/api_client.dart" "message: error\\.response == null \\? '网络连接失败' : '请求失败'"
-require_text "mobile/lib/core/config/server_config_service.dart" '远程服务器必须使用 HTTPS'
+require_text "mobile/lib/core/config/server_config_service.dart" 'if \(!_isAllowedScheme\(uri\)\)'
+require_text "mobile/lib/core/config/server_config_service.dart" "if \\(uri\\.scheme == 'https'\\)"
+require_text "mobile/lib/core/config/server_config_service.dart" "return uri\\.scheme == 'http' && _isPrivateOrLoopbackHost\\(uri\\.host\\);"
+require_text "mobile/test/core_response_parsing_test.dart" "normalizeServerUrl\\('http://ledger\\.example\\.com'\\)"
+require_text "mobile/test/core_response_parsing_test.dart" "normalizeServerUrl\\('http://192\\.168\\.1\\.10:8080'\\)"
 require_absent_text "backend/internal/service/auth.go" 'password must be at least 6 characters'
 require_absent_text "backend/internal/handler/auth.go" 'invalid request: "\+err\.Error\(\)'
 require_absent_text "backend/internal/handler/setup.go" 'invalid request: "\+err\.Error\(\)'
@@ -191,9 +197,9 @@ require_text ".github/workflows/release.yml" "subosito/flutter-action@v2"
 require_text ".github/workflows/release.yml" "build-tools;35\\.0\\.0"
 require_text ".github/workflows/release.yml" "sdkmanager"
 require_text ".github/workflows/release.yml" "actions: read"
-require_text ".github/workflows/release.yml" "REQUIRE_ANDROID_ARTIFACTS=0"
-require_text ".github/workflows/release.yml" "REQUIRE_IOS_ARTIFACT=0"
-require_text ".github/workflows/release.yml" "VERIFY_ARTIFACT_SIGNATURES=1"
+require_text ".github/workflows/release.yml" "REQUIRE_ANDROID_ARTIFACTS: '0'"
+require_text ".github/workflows/release.yml" "REQUIRE_IOS_ARTIFACT: '0'"
+require_text ".github/workflows/release.yml" "VERIFY_ARTIFACT_SIGNATURES: '1'"
 require_text "scripts/check-docker-release-evidence.sh" 'pick_port'
 require_text "scripts/check-docker-release-evidence.sh" 'Image healthcheck: healthy'
 require_text "scripts/check-docker-release-evidence.sh" 'Persistent paths: ledger\.db, uploads, backups'
@@ -226,7 +232,7 @@ require_text "docs/quality/mobile-device-qa-checklist-2026-05-27.md" 'Android st
 require_text "docs/quality/mobile-device-qa-checklist-2026-05-27.md" 'on iOS and Android'
 require_text "docs/quality/production-readiness-2026-05-27.md" 'REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1'
 require_text "docs/quality/production-readiness-2026-05-27.md" 'iOS/Android device validation'
-require_text "docs/quality/production-readiness-2026-05-27.md" 'USB iPhone and Android release-device evidence remain missing'
+require_text "docs/quality/production-readiness-2026-05-27.md" '^\| Mobile device QA \|.*REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'iOS/Android device QA'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'iOS signatures on macOS'
@@ -246,7 +252,7 @@ require_text "docs/quality/final-release-runbook-2026-05-27.md" 'clean `git stat
 require_text "docs/quality/final-release-runbook-2026-05-27.md" 'DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z'
 require_text "docs/quality/final-release-runbook-2026-05-27.md" 'release-image compose smoke'
 require_text "docs/quality/final-release-runbook-2026-05-27.md" '^## 4\. Mobile Device QA'
-require_text "docs/quality/final-release-runbook-2026-05-27.md" 'Android device not detected'
+require_text "docs/quality/final-release-runbook-2026-05-27.md" '^\| Android (device|emulator) not detected \|.*Start Android emulator.*rerun preflight'
 require_text "docs/quality/release-artifact-evidence-2026-05-27.md" 'VERIFY_ARTIFACT_SIGNATURES=1'
 require_text "docs/quality/docker-release-evidence-2026-05-27.md" 'STRICT_DOCKER_RELEASE_EVIDENCE=1'
 require_text "docs/quality/docker-release-evidence-2026-05-27.md" 'RUN_DOCKER_RELEASE_SMOKE=1'
@@ -281,6 +287,8 @@ if [[ "${RUN_EXPENSIVE:-0}" == "1" ]]; then
   (
     cd "$ROOT_DIR/web"
     pnpm install --frozen-lockfile
+    pnpm test
+    pnpm verify:attachments
     pnpm run build
   )
 
@@ -288,7 +296,7 @@ if [[ "${RUN_EXPENSIVE:-0}" == "1" ]]; then
     cd "$ROOT_DIR/mobile"
     flutter analyze
     flutter test
-    flutter test integration_test/premium_screens_smoke_test.dart
+    flutter test -d flutter-tester integration_test/premium_screens_smoke_test.dart
   )
 
   "$ROOT_DIR/scripts/verify-mobile-e2e.sh"

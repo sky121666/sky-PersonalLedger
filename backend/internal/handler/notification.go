@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/model"
@@ -39,6 +41,10 @@ func (h *NotificationHandler) Update(c *gin.Context) {
 
 	setting, err := h.service.Update(userID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrNotificationEndpointInvalid) {
+			response.BadRequest(c, "notification endpoint is not allowed")
+			return
+		}
 		internalServerError(c, err, "failed to update notification settings")
 		return
 	}
@@ -67,13 +73,15 @@ type TestDingtalkRequest struct {
 }
 
 func (h *NotificationHandler) TestDingtalk(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
 	var req TestDingtalkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "invalid request")
 		return
 	}
 
-	result := h.service.TestDingtalk(req.Webhook, req.Secret)
+	result := h.service.TestDingtalkForUser(userID, req.Webhook, req.Secret)
 	response.Success(c, result)
 }
 
@@ -83,7 +91,7 @@ type TestEmailRequest struct {
 	SmtpUser     string `json:"smtp_user" binding:"required"`
 	SmtpPassword string `json:"smtp_password"`
 	SmtpFrom     string `json:"smtp_from"`
-	EmailTo      string `json:"email_to" binding:"required"`
+	EmailTo      string `json:"email_to"`
 }
 
 func (h *NotificationHandler) TestEmail(c *gin.Context) {
@@ -130,12 +138,14 @@ type TestWebhookRequest struct {
 }
 
 func (h *NotificationHandler) TestWebhook(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
 	var req TestWebhookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "invalid request")
 		return
 	}
 
-	result := h.service.TestWebhook(req.URL, req.Secret)
+	result := h.service.TestWebhookForUser(userID, req.URL, req.Secret)
 	response.Success(c, result)
 }

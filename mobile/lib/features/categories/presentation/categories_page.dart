@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../application/category_controller.dart';
 import '../data/category.dart';
@@ -78,7 +77,7 @@ class CategoriesPage extends ConsumerWidget {
           IconButton(
             key: const ValueKey('category-add'),
             onPressed: () => _openCategoryForm(context, selectedType),
-            tooltip: null,
+            tooltip: '添加分类',
             icon: const Icon(Icons.add),
           ),
         ],
@@ -161,7 +160,7 @@ class _CategoryLibraryView extends ConsumerWidget {
               hasScrollBody: false,
               child: _CategoryEmptyState(
                 title: '还没有${state.type.label}分类',
-                message: '当前分类为空，先添加分类',
+                message: '右上角添加',
                 icon: Icons.category_outlined,
               ),
             )
@@ -265,52 +264,39 @@ class _CategoryHeader extends StatelessWidget {
         : financeColors.income;
     return PremiumSurface(
       accentColor: accentColor,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${selectedType.label}分类',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '默认分类与自建分类集中管理',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Expanded(
+            child: Text(
+              '${selectedType.label}分类',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
           ),
-          const SizedBox(height: 12),
-          SegmentedButton<CategoryType>(
-            segments: const [
-              ButtonSegment(
-                value: CategoryType.expense,
-                label: Text('支出'),
-                icon: Icon(Icons.remove_circle_outline),
-              ),
-              ButtonSegment(
-                value: CategoryType.income,
-                label: Text('收入'),
-                icon: Icon(Icons.add_circle_outline),
-              ),
-            ],
-            selected: {selectedType},
-            onSelectionChanged: (values) => onTypeChanged(values.first),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 184,
+            child: SegmentedButton<CategoryType>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: CategoryType.expense,
+                  label: Text('支出'),
+                  icon: Icon(Icons.remove_circle_outline),
+                ),
+                ButtonSegment(
+                  value: CategoryType.income,
+                  label: Text('收入'),
+                  icon: Icon(Icons.add_circle_outline),
+                ),
+              ],
+              selected: {selectedType},
+              onSelectionChanged: (values) => onTypeChanged(values.first),
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            ),
           ),
         ],
       ),
@@ -340,7 +326,7 @@ class _CategoryCardState extends ConsumerState<_CategoryCard> {
     final ownershipLabel = category.isSystem ? '默认分类' : '自建分类';
     return Semantics(
       label: '${category.name}，${category.type.label}分类，$ownershipLabel',
-      button: true,
+      button: !category.isSystem,
       child: PremiumSurface(
         key: ValueKey('category-card-${category.id}'),
         accentColor: color,
@@ -349,7 +335,7 @@ class _CategoryCardState extends ConsumerState<_CategoryCard> {
           type: MaterialType.transparency,
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
-            onTap: () => _openEdit(context),
+            onTap: category.isSystem ? null : () => _openEdit(context),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
               child: Column(
@@ -398,23 +384,28 @@ class _CategoryCardState extends ConsumerState<_CategoryCard> {
                           ],
                         ),
                       ),
-                      IconButton(
-                        key: ValueKey('category-toggle-details-${category.id}'),
-                        tooltip: null,
-                        onPressed: () => setState(() {
-                          _expanded = !_expanded;
-                        }),
-                        icon: Icon(
-                          _expanded
-                              ? Icons.keyboard_arrow_up
-                              : Icons.keyboard_arrow_down,
+                      if (!category.isSystem)
+                        IconButton(
+                          key: ValueKey(
+                            'category-toggle-details-${category.id}',
+                          ),
+                          tooltip: _expanded
+                              ? '收起${category.name}操作'
+                              : '展开${category.name}操作',
+                          onPressed: () => setState(() {
+                            _expanded = !_expanded;
+                          }),
+                          icon: Icon(
+                            _expanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                          ),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
                         ),
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                      ),
                     ],
                   ),
-                  if (_expanded) ...[
+                  if (_expanded && !category.isSystem) ...[
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
@@ -453,6 +444,9 @@ class _CategoryCardState extends ConsumerState<_CategoryCard> {
 
   /// 打开编辑分类表单。
   Future<void> _openEdit(BuildContext context) async {
+    if (category.isSystem) {
+      return;
+    }
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -468,6 +462,9 @@ class _CategoryCardState extends ConsumerState<_CategoryCard> {
     WidgetRef ref,
     _CategoryAction action,
   ) async {
+    if (category.isSystem) {
+      return;
+    }
     switch (action) {
       case _CategoryAction.edit:
         await _openEdit(context);

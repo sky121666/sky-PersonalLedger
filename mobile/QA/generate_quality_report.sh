@@ -15,6 +15,7 @@ TIMESTAMP_CLEAN_CHECK_FILE="$REPORT_DIR/quality_cleanliness_${TIMESTAMP}.json"
 TMP_GATE_LOG="$(mktemp)"
 TMP_SCORE_REPORT="$(mktemp)"
 TMP_SCORE_JSON="$(mktemp)"
+TMP_SCORE_TSV="$(mktemp)"
 TMP_CLEAN_REPORT="$(mktemp)"
 TMP_CLEAN_JSON="$(mktemp)"
 TMP_ROUTE_REPORT="$(mktemp)"
@@ -54,11 +55,51 @@ cd "$PROJECT_ROOT/mobile"
 
 # 2) 生成逐页静态评分与 JSON 详情
 set +e
-HOME="$HOME_ENV" node ./QA/ui_score_scan.js --json > "$TMP_SCORE_JSON"
+HOME="$HOME_ENV" node ./QA/ui_score_scan.js > "$TMP_SCORE_TSV"
 SCORE_SCAN_EXIT=$?
 HOME="$HOME_ENV" node ./QA/ui_cleanliness_audit.js --json > "$TMP_CLEAN_JSON"
 CLEAN_EXIT=$?
 set -e
+
+node - "$TMP_SCORE_TSV" "$TMP_SCORE_JSON" <<'NODE'
+const fs = require('node:fs');
+
+const sourcePath = process.argv[2];
+const targetPath = process.argv[3];
+const raw = fs.readFileSync(sourcePath, 'utf8').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+
+const dataLines = raw.filter((line) => line.includes('\t') && !line.startsWith('page\t') && !line.startsWith('✅') && !line.startsWith('❌'));
+const minScore = 95;
+
+const pages = dataLines.map((line) => {
+  const [page, violationsStr, scoreStr] = line.split('\t');
+  const violations = Number.parseInt(violationsStr || '0', 10) || 0;
+  const score = Number.parseInt(scoreStr || '0', 10) || 0;
+  return { page, violations, score };
+}).filter((item) => item.page);
+
+const totalPages = pages.length;
+const totalViolations = pages.reduce((sum, item) => sum + item.violations, 0);
+const avgScore = totalPages > 0
+  ? Math.round((pages.reduce((sum, item) => sum + item.score, 0) / totalPages) * 100) / 100
+  : 0;
+const minCalcScore = totalPages > 0 ? Math.min(...pages.map((item) => item.score)) : 100;
+
+const jsonData = {
+  generatedAt: new Date().toISOString(),
+  version: 1,
+  summary: {
+    totalPages,
+    totalViolations,
+    avgScore,
+    minScore: minCalcScore,
+    allPass95: pages.every((item) => item.score >= minScore),
+  },
+  pages,
+};
+
+fs.writeFileSync(targetPath, JSON.stringify(jsonData, null, 2));
+NODE
 
 node - <<'NODE' "$TMP_SCORE_JSON" "$TMP_CLEAN_JSON" "$JSON_REPORT_FILE" > "$TMP_SCORE_REPORT"
 const fs = require('node:fs');
@@ -268,7 +309,7 @@ mkdir -p "$REPORT_DIR"
 ln -sfn "$JSON_REPORT_FILE" "$REPORT_DIR/quality_audit_latest.json"
 echo "[完成] 已生成报告: $REPORT_FILE"
 cat "$REPORT_FILE"
-rm -f "$TMP_GATE_LOG" "$TMP_SCORE_REPORT" "$TMP_SCORE_JSON" "$TMP_CLEAN_REPORT" "$TMP_CLEAN_JSON"
+rm -f "$TMP_GATE_LOG" "$TMP_SCORE_REPORT" "$TMP_SCORE_JSON" "$TMP_SCORE_TSV" "$TMP_CLEAN_REPORT" "$TMP_CLEAN_JSON"
 rm -f "$TMP_ROUTE_REPORT" "$TMP_ROUTE_JSON"
 
 if [ "$SCORE_PASS" -ne 0 ] || [ "$ROUTE_MATRIX_EXIT" -ne 0 ]; then

@@ -43,9 +43,10 @@ jobs:
 
       - name: Set version
         id: version
-        run: |
-          echo "VERSION=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          echo "BUILD_NUMBER=${{ inputs.build_number }}" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+        run: ./scripts/resolve-release-version.sh --require-build-number
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -107,20 +108,27 @@ jobs:
 
       - name: Build IPA
         working-directory: mobile
-        run: flutter build ipa --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }} --export-options-plist=ios/ExportOptions.plist
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          BUILD_NUMBER: ${{ steps.version.outputs.BUILD_NUMBER }}
+        run: flutter build ipa --release --build-name="$VERSION" --build-number="$BUILD_NUMBER" --export-options-plist=ios/ExportOptions.plist
 
       - name: Rename IPA
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           ipa_path="$(find mobile/build/ios/ipa -maxdepth 1 -name '*.ipa' -print -quit)"
           if [ -z "$ipa_path" ]; then
             echo "::error title=Missing IPA::No IPA produced under mobile/build/ios/ipa"
             exit 1
           fi
-          mv "$ipa_path" "mobile/build/ios/ipa/personal-ledger-${{ steps.version.outputs.VERSION }}-ios.ipa"
+          mv "$ipa_path" "mobile/build/ios/ipa/personal-ledger-${VERSION}-ios.ipa"
 
       - name: Verify iOS IPA signature
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          IPA_PATH="mobile/build/ios/ipa/personal-ledger-${{ steps.version.outputs.VERSION }}-ios.ipa"
+          IPA_PATH="mobile/build/ios/ipa/personal-ledger-${VERSION}-ios.ipa"
           WORK_DIR="$(mktemp -d)"
           trap 'rm -rf "$WORK_DIR"' EXIT
           unzip -q "$IPA_PATH" -d "$WORK_DIR"
@@ -137,10 +145,12 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
       - name: Generate IPA checksum
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           (
             cd mobile/build/ios/ipa
-            shasum -a 256 personal-ledger-${{ steps.version.outputs.VERSION }}-ios.ipa > personal-ledger-${{ steps.version.outputs.VERSION }}-ios.ipa.sha256
+            shasum -a 256 "personal-ledger-${VERSION}-ios.ipa" > "personal-ledger-${VERSION}-ios.ipa.sha256"
           )
 
       - name: Upload IPA

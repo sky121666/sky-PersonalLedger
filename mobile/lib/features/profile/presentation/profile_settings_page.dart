@@ -6,7 +6,6 @@ import '../../../app/theme/app_theme.dart';
 import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
-import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../data/profile_repository.dart';
 
@@ -105,7 +104,8 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
 
   Future<void> _pickAndUploadAvatar() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
       allowMultiple: false,
       withData: false,
     );
@@ -161,7 +161,7 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
             key: const ValueKey('profile-settings-refresh'),
             onPressed: _submitting ? null : _loadProfile,
             icon: const Icon(Icons.refresh),
-            tooltip: null,
+            tooltip: '刷新个人资料',
           ),
         ],
       ),
@@ -375,7 +375,6 @@ class _ProfileThemePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = settings.palette;
-    final colorScheme = Theme.of(context).colorScheme;
     return PremiumSurface(
       key: const ValueKey('profile-settings-theme-panel'),
       accentColor: palette.seedColor,
@@ -429,45 +428,16 @@ class _ProfileThemePanel extends StatelessWidget {
                   onModeChanged(selection.firstOrNull),
             ),
           ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<AppThemePalette>(
-            initialValue: settings.palette,
-            decoration: InputDecoration(
-              labelText: '主题色',
-              filled: true,
-              fillColor: colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.55,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: colorScheme.outlineVariant),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: colorScheme.outlineVariant),
-              ),
-            ),
-            items: [
-              for (final option in AppThemePalette.values)
-                DropdownMenuItem(
-                  value: option,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ProfileThemeSwatches(palette: option),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: Text(
-                          option.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            '主色',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          _ProfileThemeChoices(
+            selected: settings.palette.selectableEquivalent,
             onChanged: onPaletteChanged,
           ),
         ],
@@ -484,42 +454,95 @@ String _profileSettingsThemeModeLabel(AppThemeMode mode) {
   };
 }
 
-class _ProfileThemeSwatches extends StatelessWidget {
-  const _ProfileThemeSwatches({required this.palette});
+class _ProfileThemeChoices extends StatelessWidget {
+  const _ProfileThemeChoices({required this.selected, required this.onChanged});
 
-  final AppThemePalette palette;
+  final AppThemePalette selected;
+  final ValueChanged<AppThemePalette?> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final colors = [
-      palette.seedColor,
-      palette.assetColor,
-      palette.incomeColor,
-      palette.expenseColor,
-    ];
-    return SizedBox(
-      width: 36,
-      height: 36,
-      child: Stack(
-        children: [
-          for (var index = 0; index < colors.length; index += 1)
-            Positioned(
-              left: (index % 2) * 17,
-              top: (index ~/ 2) * 17,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: colors[index],
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.surface,
-                    width: 1.4,
-                  ),
-                ),
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final palette in AppThemePalette.selectableValues)
+          _ProfileThemeChoice(
+            palette: palette,
+            selected: palette == selected,
+            onTap: () => onChanged(palette),
+          ),
+      ],
+    );
+  }
+}
+
+class _ProfileThemeChoice extends StatelessWidget {
+  const _ProfileThemeChoice({
+    required this.palette,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppThemePalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = palette.displayAccentColor;
+    return Semantics(
+      key: ValueKey('profile-settings-theme-palette-${palette.id}'),
+      selected: selected,
+      button: true,
+      label: '主色 ${palette.label}${selected ? '，已选择' : ''}',
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? Color.alphaBlend(
+                      color.withValues(alpha: 0.14),
+                      colorScheme.surface,
+                    )
+                  : colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected
+                    ? color.withValues(alpha: 0.72)
+                    : colorScheme.outlineVariant.withValues(alpha: 0.7),
               ),
             ),
-        ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  palette.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: selected ? color : colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

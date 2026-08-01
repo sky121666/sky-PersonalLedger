@@ -39,7 +39,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
           IconButton(
             key: const ValueKey('reminder-add'),
             onPressed: _isBusy ? null : () => _openReminderForm(),
-            tooltip: null,
+            tooltip: '添加负债提醒',
             icon: const Icon(Icons.add),
           ),
         ],
@@ -818,7 +818,9 @@ class _ReminderCardState extends ConsumerState<_ReminderCard> {
                     children: [
                       IconButton(
                         key: ValueKey('reminder-toggle-details-${reminder.id}'),
-                        tooltip: null,
+                        tooltip: _expanded
+                            ? '收起${reminder.name}详情'
+                            : '展开${reminder.name}详情',
                         onPressed: () => setState(() {
                           _expanded = !_expanded;
                         }),
@@ -829,8 +831,12 @@ class _ReminderCardState extends ConsumerState<_ReminderCard> {
                       if (_expanded)
                         PopupMenuButton<_ReminderMenuAction>(
                           key: ValueKey('reminder-more-menu-${reminder.id}'),
-                          icon: const Icon(Icons.more_horiz, size: 20),
-                          tooltip: null,
+                          icon: const Icon(
+                            Icons.more_horiz,
+                            size: 20,
+                            semanticLabel: '提醒操作',
+                          ),
+                          tooltip: '提醒操作',
                           onSelected: _onMenuSelected,
                           itemBuilder: (context) => [
                             if (!widget.readOnly && reminder.principal != null)
@@ -999,7 +1005,7 @@ class _EmptyReminderCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '还没有负债提醒，先添加提醒',
+                    '右上角添加',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       height: 1.4,
@@ -1301,7 +1307,7 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
                           ? Icons.remove_rounded
                           : Icons.add_rounded,
                     ),
-                    tooltip: null,
+                    tooltip: _showMoreDetails ? '收起更多负债信息' : '展开更多负债信息',
                   ),
                 ),
                 if (_showMoreDetails) ...[
@@ -1495,7 +1501,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     return AlertDialog(
       title: Text('记录还款：${widget.reminder.displayName}'),
       content: widget.paymentAccounts.isEmpty
-          ? const Text('还没有还款账户')
+          ? const Text('补充还款账户')
           : ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: SingleChildScrollView(

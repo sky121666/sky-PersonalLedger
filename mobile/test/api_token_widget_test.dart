@@ -66,12 +66,18 @@ void main() {
         find.byKey(const ValueKey('api-token-name')),
         'iPhone',
       );
+      await tester.scrollUntilVisible(
+        find.text('生成授权'),
+        320,
+        scrollable: find.byType(Scrollable).last,
+      );
       await tester.tap(find.text('生成授权'));
       await tester.pumpAndSettle();
 
       expect(repository.createCalls, hasLength(1));
       expect(repository.createCalls.single.name, 'iPhone');
-      expect(repository.createCalls.single.expiresInDays, 0);
+      expect(repository.createCalls.single.expiresInDays, 90);
+      expect(repository.createCalls.single.scopes, apiTokenDefaultScopes);
       expect(
         find.byKey(const ValueKey('api-token-created-value')),
         findsOneWidget,
@@ -107,6 +113,10 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('api-token-add')));
       await tester.pumpAndSettle();
+      final scopeSurface = tester.widget<Material>(
+        find.byKey(const ValueKey('api-token-scope-surface')),
+      );
+      expect(scopeSurface.clipBehavior, Clip.antiAlias);
       await tester.enterText(
         find.byKey(const ValueKey('api-token-name')),
         '自动化脚本',
@@ -116,11 +126,24 @@ void main() {
       expect(find.text('永不过期'), findsNothing);
       await tester.tap(find.text('90 天').last);
       await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('api-token-scope-report:read')),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('生成授权'),
+        320,
+        scrollable: find.byType(Scrollable).last,
+      );
       await tester.tap(find.text('生成授权'));
       await tester.pumpAndSettle();
 
       expect(repository.createCalls.single.name, '自动化脚本');
       expect(repository.createCalls.single.expiresInDays, 90);
+      expect(repository.createCalls.single.scopes, [
+        'ledger:read',
+        'ledger:write',
+      ]);
       expect(find.text('ffff0000... · 未使用 · 2026-07-31 过期'), findsNothing);
       expect(find.text('未启用 · 有效至 2026-07-31'), findsOneWidget);
       expect(find.text('未连接 · 有效至 2026-07-31'), findsNothing);
@@ -147,10 +170,11 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有授权'), findsOneWidget);
-      expect(find.text('还没有授权设备'), findsOneWidget);
+      expect(find.text('还没有授权设备'), findsNothing);
+      expect(find.text('右上角添加'), findsOneWidget);
       expect(find.text('暂无令牌'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
-      expect(find.text('未启用'), findsOneWidget);
+      expect(find.text('未启用'), findsNothing);
     });
 
     testWidgets('初始加载失败时展示错误并可重试', (tester) async {
@@ -173,6 +197,7 @@ void main() {
 
       expect(find.text('设备授权'), findsOneWidget);
       expect(find.byKey(const ValueKey('api-token-add')), findsOneWidget);
+      expect(find.byTooltip('添加授权'), findsOneWidget);
     });
   });
 }
@@ -222,6 +247,7 @@ class _FakeApiTokenRepository implements ApiTokenRepository {
       token: 'full-token-value',
       tokenPrefix: 'ffff0000',
       createdAt: DateTime(2026, 5, 2, 9),
+      scopes: request.scopes,
       expiresAt: request.expiresInDays == 0
           ? null
           : DateTime(2026, 5, 2).add(Duration(days: request.expiresInDays)),
@@ -253,5 +279,6 @@ ApiTokenItem _token() {
     name: '我的手机',
     tokenPrefix: 'abcd1234',
     createdAt: DateTime(2026, 5, 1, 9),
+    scopes: apiTokenDefaultScopes,
   );
 }

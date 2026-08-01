@@ -1,4 +1,4 @@
-import { get, post, put, del } from '@/utils/request'
+import { get, post, patch, del } from '@/utils/request'
 
 export interface Lending {
   id: string
@@ -68,13 +68,13 @@ export interface CreateLendingParams {
 }
 
 export interface UpdateLendingParams {
-  contact_name: string
-  contact_phone?: string
-  contact_remark?: string
-  interest_rate?: number
-  due_date?: string
-  remark?: string
-  evidence?: string
+	contact_name?: string
+	contact_phone?: string | null
+	contact_remark?: string | null
+	interest_rate?: number | null
+	due_date?: string | null
+	remark?: string | null
+	evidence?: string | null
 }
 
 export interface RecordRepaymentParams {
@@ -101,8 +101,8 @@ export const lendingApi = {
     return post<Lending>('/lendings', params)
   },
 
-  update(id: string, params: UpdateLendingParams): Promise<Lending> {
-    return put<Lending>(`/lendings/${id}`, params)
+	update(id: string, params: UpdateLendingParams): Promise<Lending> {
+		return patch<Lending>(`/lendings/${id}`, params)
   },
 
   delete(id: string): Promise<void> {

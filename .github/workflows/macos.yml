@@ -32,14 +32,10 @@ jobs:
 
       - name: Set version
         id: version
-        run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
-            echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=0.0.0" >> $GITHUB_OUTPUT
-            echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_OUTPUT
-          fi
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+        run: ./scripts/resolve-release-version.sh --require-build-number
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -48,8 +44,11 @@ jobs:
 
       - name: Update version in pubspec.yaml
         working-directory: mobile
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          BUILD_NUMBER: ${{ steps.version.outputs.BUILD_NUMBER }}
         run: |
-          sed -i '' "s/version: .*/version: ${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD_NUMBER }}/" pubspec.yaml
+          sed -i '' "s/^version: .*/version: ${VERSION}+${BUILD_NUMBER}/" pubspec.yaml
 
       - name: Get dependencies
         working-directory: mobile
@@ -57,12 +56,17 @@ jobs:
 
       - name: Build macOS
         working-directory: mobile
-        run: flutter build macos --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          BUILD_NUMBER: ${{ steps.version.outputs.BUILD_NUMBER }}
+        run: flutter build macos --release --build-name="$VERSION" --build-number="$BUILD_NUMBER"
 
       - name: Create ZIP
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           cd mobile/build/macos/Build/Products/Release
-          zip -r personal-ledger-${{ steps.version.outputs.VERSION }}-macos.zip personal_ledger.app
+          zip -r "personal-ledger-${VERSION}-macos.zip" personal_ledger.app
 
       - name: Upload macOS App
         uses: actions/upload-artifact@v4

@@ -73,7 +73,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
           key: const ValueKey('auth-setup-password-field'),
           controller: _passwordController,
           focusNode: _passwordFocusNode,
-          autofocus: true,
+          autofocus: false,
           autocorrect: false,
           enableSuggestions: false,
           autofillHints: const [AutofillHints.newPassword],
@@ -85,7 +85,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
             prefixIcon: const Icon(Icons.password_outlined),
             suffixIcon: IconButton(
               key: const ValueKey('auth-setup-password-visibility-toggle'),
-              tooltip: null,
+              tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
               onPressed: () => setState(() {
                 _obscurePassword = !_obscurePassword;
               }),
@@ -116,7 +116,7 @@ class _SetupPasswordPageState extends ConsumerState<SetupPasswordPage> {
               key: const ValueKey(
                 'auth-setup-confirm-password-visibility-toggle',
               ),
-              tooltip: null,
+              tooltip: _obscureConfirmPassword ? '显示确认密码' : '隐藏确认密码',
               onPressed: () => setState(() {
                 _obscureConfirmPassword = !_obscureConfirmPassword;
               }),

@@ -6,6 +6,7 @@ import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
+import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,7 +23,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.summaryCalls, 2);
-      expect(find.text('净资产'), findsOneWidget);
+      expect(find.text('资产概览'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('现金'),
         300,
@@ -56,21 +57,12 @@ void main() {
       expect(find.text('预算缺口'), findsNothing);
       expect(find.text('AI 输入就绪'), findsNothing);
       expect(find.text('现金流稳定'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.text('还没有账户'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('还没有账户'), findsOneWidget);
+      expect(find.text('还没有账户'), findsNothing);
       expect(find.text('0 笔'), findsOneWidget);
-      expect(find.text('本月无现金流'), findsAtLeastNWidgets(1));
+      expect(find.text('本月无现金流'), findsNothing);
       expect(find.text('等待首笔记录'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.text('本月未设置预算'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('本月未设置预算'), findsOneWidget);
+      expect(find.text('预算摘要'), findsNothing);
+      expect(find.text('本月未设置预算'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });
 
@@ -89,7 +81,14 @@ void main() {
       final container = ProviderScope.containerOf(
         tester.element(find.byType(HomePage)),
       );
-      container.invalidate(homeSummaryProvider);
+      final now = DateTime.now();
+      container.invalidate(
+        homeSummaryByPeriodProvider(
+          HomeSummaryQuery(
+            month: '${now.year}-${now.month.toString().padLeft(2, '0')}',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(repository.summaryCalls, 2);
@@ -108,6 +107,32 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('午餐'), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('首页管理型交易不提供普通编辑入口', (tester) async {
+      final repository = _FakeHomeRepository(
+        summaries: [
+          _summary(
+            recentTransactions: [
+              TransactionItem(
+                id: 'managed-transaction',
+                type: TransactionType.expense,
+                amount: 28,
+                accountId: 'account-1',
+                transactionDate: DateTime(2026, 5, 20),
+                source: 'reminder',
+                reminderId: 'reminder-1',
+              ),
+            ],
+          ),
+        ],
+      );
+      await _pumpPage(tester, repository);
+
+      final row = tester.widget<InkWell>(
+        find.byKey(const ValueKey('home-transaction-managed-transaction')),
+      );
+      expect(row.onTap, isNull);
     });
 
     testWidgets('首页展示现金流、预算、快捷入口和家庭摘要', (tester) async {
@@ -142,12 +167,28 @@ void main() {
       expect(find.text('预算输入'), findsNothing);
       expect(find.text('AI 输入就绪'), findsNothing);
       expect(find.text('家庭数据在线'), findsNothing);
-      expect(find.text('本月现金流'), findsOneWidget);
+      expect(find.text('当月结余'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('corgi-illustration-sitting')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('home-period-selector')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-cash-flow-trend')),
+        findsOneWidget,
+      );
+      expect(find.byType(CashFlowLineChart), findsOneWidget);
       expect(find.text('最近交易'), findsOneWidget);
-      expect(find.text('当日交易'), findsOneWidget);
+      expect(find.text('当日交易'), findsNothing);
       expect(find.byKey(const ValueKey('profile-logout')), findsNothing);
       expect(find.text('全部'), findsNothing);
-      expect(find.byKey(const ValueKey('home-recent-transactions-all')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-recent-transactions-all')),
+        findsOneWidget,
+      );
       expect(find.text('餐饮'), findsWidgets);
       expect(find.text('-¥28.00'), findsWidgets);
       expect(find.text('现金流充沛'), findsNothing);
@@ -196,8 +237,8 @@ void main() {
       final repository = _FakeHomeRepository();
       await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
 
-      final hero = tester.widget<FinanceHeroCard>(
-        find.byType(FinanceHeroCard).first,
+      final hero = tester.widget<PremiumSurface>(
+        find.byKey(const ValueKey('home-net-assets-card')),
       );
       expect(hero.accentColor, AppThemePalette.graphite.assetColor);
       expect(find.text('石墨蓝'), findsNothing);
@@ -410,7 +451,7 @@ class _FakeHomeRepository implements HomeRepository {
   var dateTransactionCalls = 0;
 
   @override
-  Future<HomeSummary> getSummary() async {
+  Future<HomeSummary> getSummary({HomeSummaryQuery? query}) async {
     summaryCalls += 1;
     if (summaryErrors > 0) {
       summaryErrors -= 1;
@@ -438,6 +479,7 @@ HomeSummary _summary({
   List<Account>? accounts,
   bool emptyBudget = false,
   double familyExpense = 0,
+  List<TransactionItem>? recentTransactions,
 }) {
   final accountList =
       accounts ??
@@ -473,6 +515,32 @@ HomeSummary _summary({
       daysRemaining: emptyBudget ? 0 : 20,
       overBudgetCategories: const [],
     ),
+    trend: emptyBudget
+        ? const TrendResponse(items: [], totalIncome: 0, totalExpense: 0)
+        : const TrendResponse(
+            totalIncome: 1000,
+            totalExpense: 400,
+            items: [
+              TrendItem(
+                date: '2026-05-01',
+                income: 180,
+                expense: 80,
+                balance: 100,
+              ),
+              TrendItem(
+                date: '2026-05-08',
+                income: 320,
+                expense: 110,
+                balance: 210,
+              ),
+              TrendItem(
+                date: '2026-05-15',
+                income: 500,
+                expense: 210,
+                balance: 290,
+              ),
+            ],
+          ),
     familySummary: FamilyHomeSummary(
       month: '2026-05',
       totalExpense: familyExpense,
@@ -487,22 +555,28 @@ HomeSummary _summary({
             ]
           : const [],
     ),
-    recentTransactions: [
-      TransactionItem(
-        id: 'tx-1',
-        type: TransactionType.expense,
-        amount: 28,
-        accountId: 'account-1',
-        categoryId: 'category-food',
-        transactionDate: DateTime(2026, 5, 20),
-        remark: '午餐',
-        account: const LedgerAccount(id: 'account-1', name: '现金', type: 'cash'),
-        category: const LedgerCategory(
-          id: 'category-food',
-          name: '餐饮',
-          type: 'expense',
-        ),
-      ),
-    ],
+    recentTransactions:
+        recentTransactions ??
+        [
+          TransactionItem(
+            id: 'tx-1',
+            type: TransactionType.expense,
+            amount: 28,
+            accountId: 'account-1',
+            categoryId: 'category-food',
+            transactionDate: DateTime(2026, 5, 20),
+            remark: '午餐',
+            account: const LedgerAccount(
+              id: 'account-1',
+              name: '现金',
+              type: 'cash',
+            ),
+            category: const LedgerCategory(
+              id: 'category-food',
+              name: '餐饮',
+              type: 'expense',
+            ),
+          ),
+        ],
   );
 }

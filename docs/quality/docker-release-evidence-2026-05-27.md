@@ -22,7 +22,8 @@ Before publishing, verify that the current worktree can build and boot as a Dock
 ./scripts/check-docker-local-smoke.sh
 ```
 
-For a closer local compose rehearsal, including the `LEDGER_JWT_SECRET` guard:
+For a closer local compose rehearsal, including the `LEDGER_JWT_SECRET` and
+`LEDGER_SETUP_TOKEN` guards:
 
 ```bash
 ./scripts/check-docker-compose-local-smoke.sh
@@ -59,12 +60,14 @@ DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z RUN_DOCKER_RELEASE_SMOKE=1 ./s
 
 ## Deployment Smoke
 
-Use a non-production test directory and a real random JWT secret. Do not paste the secret into this document.
+Use a non-production test directory, a real random JWT secret, and a separate
+random setup token. Do not paste either secret into this document.
 
 ```bash
 mkdir -p /tmp/personal-ledger-release-smoke/data
 cd /tmp/personal-ledger-release-smoke
-printf 'LEDGER_JWT_SECRET=%s\n' '<random-secret>' > .env
+printf 'LEDGER_JWT_SECRET=%s\nLEDGER_SETUP_TOKEN=%s\n' \
+  '<random-jwt-secret>' '<random-setup-token>' > .env
 curl -fsSLO https://raw.githubusercontent.com/<owner>/<repo>/refs/tags/vX.Y.Z/docker-compose.yml
 export LEDGER_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z
 export LEDGER_SERVER_MODE=release
@@ -81,7 +84,7 @@ docker compose down
 | Container start | Container enters running/healthy state | PENDING |  |
 | HTTP health | `curl -fsS http://127.0.0.1:8080/api/v1/health` succeeds | PENDING |  |
 | Persistence | `/data` contains database/config/uploads/backups paths as expected | PENDING |  |
-| JWT guard | Starting without `LEDGER_JWT_SECRET` fails before container launch | PASS local, PENDING release image | Local compose config guard passed; repeat against published release compose/image |
+| Secret guards | Starting without `LEDGER_JWT_SECRET` or `LEDGER_SETUP_TOKEN` fails before container launch | PASS local, PENDING release image | Local compose config guards passed; repeat against published release compose/image |
 
 ## Release Decision
 

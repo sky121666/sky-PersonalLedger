@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/response"
@@ -39,6 +41,9 @@ func (h *TemplateHandler) Create(c *gin.Context) {
 
 	template, err := h.service.Create(userID, req)
 	if err != nil {
+		if handleTemplateRequestError(c, err) {
+			return
+		}
 		internalServerError(c, err, "failed to create template")
 		return
 	}
@@ -51,7 +56,10 @@ func (h *TemplateHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.service.Delete(id, userID); err != nil {
-		response.NotFound(c, "template not found")
+		if handleTemplateRequestError(c, err) {
+			return
+		}
+		internalServerError(c, err, "failed to delete template")
 		return
 	}
 
@@ -70,9 +78,26 @@ func (h *TemplateHandler) Apply(c *gin.Context) {
 
 	tx, err := h.service.Apply(id, userID, req)
 	if err != nil {
-		response.NotFound(c, "template not found")
+		if handleTemplateRequestError(c, err) {
+			return
+		}
+		internalServerError(c, err, "failed to apply template")
 		return
 	}
 
 	response.Created(c, tx)
+}
+
+func handleTemplateRequestError(c *gin.Context, err error) bool {
+	switch {
+	case errors.Is(err, service.ErrTemplateNotFound):
+		response.NotFound(c, "template not found")
+	case errors.Is(err, service.ErrInvalidTemplateType):
+		response.BadRequest(c, "invalid transaction type")
+	case errors.Is(err, service.ErrInvalidTemplateAmount):
+		response.BadRequest(c, "template amount must not be negative")
+	default:
+		return handleTransactionRequestError(c, err)
+	}
+	return true
 }

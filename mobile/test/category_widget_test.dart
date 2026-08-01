@@ -32,6 +32,7 @@ void main() {
       expect(find.text('支出'), findsAtLeastNWidgets(1));
       expect(find.text('支出分类库'), findsNothing);
       expect(find.text('支出分类'), findsOneWidget);
+      expect(find.text('默认分类与自建分类集中管理'), findsNothing);
       expect(find.text('2 个分类用于快速归集交易'), findsNothing);
       expect(find.text('稳定基础'), findsNothing);
       expect(find.text('个性归类'), findsNothing);
@@ -61,6 +62,7 @@ void main() {
 
       expect(find.text('支出分类库'), findsNothing);
       expect(find.text('支出分类'), findsOneWidget);
+      expect(find.text('默认分类与自建分类集中管理'), findsNothing);
       expect(find.text('2 个分类用于快速归集交易'), findsNothing);
       expect(find.text('分类颜色系统'), findsNothing);
       expect(find.text('自定义占比 50%'), findsNothing);
@@ -163,7 +165,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有支出分类'), findsOneWidget);
-      expect(find.text('当前分类为空，先添加分类'), findsOneWidget);
+      expect(find.text('右上角添加'), findsOneWidget);
+      expect(find.text('当前分类为空，先添加分类'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
     });
 

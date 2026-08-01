@@ -28,7 +28,11 @@ func (r *BudgetRepository) GetByID(id string) (*model.Budget, error) {
 
 func (r *BudgetRepository) GetByUserID(userID uint) ([]model.Budget, error) {
 	var budgets []model.Budget
-	err := r.db.Preload("Category").Preload("Member").Where("user_id = ?", userID).Find(&budgets).Error
+	err := r.db.
+		Preload("Category", "user_id = ?", userID).
+		Preload("Member", "user_id = ?", userID).
+		Where("user_id = ?", userID).
+		Find(&budgets).Error
 	return budgets, err
 }
 

@@ -129,7 +129,7 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
     if (enabledMembers.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('请先添加启用的家庭成员')));
+      ).showSnackBar(const SnackBar(content: Text('补充家庭成员')));
       return;
     }
 
@@ -594,13 +594,20 @@ class _BudgetSummaryCard extends StatelessWidget {
 
     return PremiumSurface(
       accentColor: statusColor,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              IconBadge(
+                icon: Icons.savings_outlined,
+                color: statusColor,
+                size: 40,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -608,7 +615,7 @@ class _BudgetSummaryCard extends StatelessWidget {
                     Text(
                       '本月预算',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -617,22 +624,13 @@ class _BudgetSummaryCard extends StatelessWidget {
                           ? '本月还没有总预算'
                           : _budgetStatusText(totalBudget),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (totalBudget != null)
-                Text(
-                  '${percentage.toStringAsFixed(0)}%',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: statusColor,
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              const SizedBox(width: 6),
               IconButton(
                 key: const ValueKey('budget-total-edit'),
                 onPressed: busy ? null : onEdit,
@@ -641,20 +639,47 @@ class _BudgetSummaryCard extends StatelessWidget {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Icon(totalBudget == null ? Icons.add : Icons.edit),
-                tooltip: null,
+                    : Icon(
+                        totalBudget == null
+                            ? Icons.add_rounded
+                            : Icons.edit_outlined,
+                      ),
+                tooltip: totalBudget == null ? '设置本月总预算' : '编辑本月总预算',
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           if (totalBudget == null)
             Text(
-              '本月还没有总预算',
+              '未设置',
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             )
           else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Text(
+                    '剩余预算',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${percentage.toStringAsFixed(0)}%',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
             Text(
               _formatMoney(remaining),
               maxLines: 1,
@@ -667,22 +692,28 @@ class _BudgetSummaryCard extends StatelessWidget {
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            const SizedBox(height: 8),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: Theme.of(
-                context,
-              ).colorScheme.outlineVariant.withValues(alpha: 0.58),
+            const SizedBox(height: 10),
+            _BudgetProgressBar(percentage: percentage),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _BudgetMetricLine(
+                    label: '已用',
+                    value: _formatMoney(used),
+                    valueColor: statusColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _BudgetMetricLine(
+                    label: '总额',
+                    value: _formatMoney(amount),
+                    alignEnd: true,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            _BudgetMetricLine(
-              label: '已用',
-              value: _formatMoney(used),
-              valueColor: statusColor,
-            ),
-            const SizedBox(height: 6),
-            _BudgetMetricLine(label: '总额', value: _formatMoney(amount)),
           ],
         ],
       ),
@@ -717,7 +748,7 @@ class _CategoryBudgetHeader extends StatelessWidget {
             onPressed: onAdd,
             icon: const Icon(Icons.add),
             key: const ValueKey('budget-category-add'),
-            tooltip: null,
+            tooltip: '添加分类预算',
           ),
       ],
     );
@@ -735,7 +766,7 @@ class _EmptyCategoryBudgetCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 8),
       child: _CompactBudgetEmptyState(
         title: '还没有分类预算',
-        message: canAddCategoryBudget ? '还没有分类预算，先补充分类后添加' : '先补充支出分类后再添加',
+        message: canAddCategoryBudget ? '添加分类预算' : '补充支出分类',
         icon: Icons.track_changes_outlined,
         actions: canAddCategoryBudget
             ? const []
@@ -779,6 +810,13 @@ class _CategoryBudgetCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              IconBadge(
+                icon: Icons.category_outlined,
+                color: statusColor,
+                size: 36,
+                iconSize: 18,
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -790,14 +828,15 @@ class _CategoryBudgetCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '已用 ${_formatMoney(budget.spent)} / ${_formatMoney(budget.amount)}',
+                      '${_formatMoney(budget.spent)} / ${_formatMoney(budget.amount)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
@@ -819,7 +858,8 @@ class _CategoryBudgetCard extends StatelessWidget {
                   Text(
                     '剩余 ${_formatMoney(budget.remaining)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -837,7 +877,8 @@ class _CategoryBudgetCard extends StatelessWidget {
                       )
                     : const Icon(Icons.delete_outline),
                 color: colorScheme.error,
-                tooltip: null,
+                tooltip:
+                    '删除${budget.categoryName.isEmpty ? '未命名分类' : budget.categoryName}预算',
               ),
             ],
           ),
@@ -875,7 +916,7 @@ class _EmptyMemberBudgetCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 8),
       child: _CompactBudgetEmptyState(
         title: '还没有成员预算',
-        message: canAddMemberBudget ? '还没有成员预算，先补充家庭成员后添加' : '先补充家庭成员后再添加',
+        message: canAddMemberBudget ? '添加成员预算' : '补充家庭成员',
         icon: Icons.family_restroom_outlined,
         actions: canAddMemberBudget
             ? const []
@@ -907,54 +948,63 @@ class _CompactBudgetEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return PremiumSurface(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      accentColor: colorScheme.primary,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconBadge(
-            icon: icon,
-            color: colorScheme.primary,
-            size: 42,
-            iconSize: 20,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 0, 12),
+            child: IconBadge(
+              icon: icon,
+              color: colorScheme.primary,
+              size: 34,
+              iconSize: 18,
+            ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 11, 14, 11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.4,
+                  const SizedBox(height: 2),
+                  Text(
+                    message,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
                   ),
-                ),
-                if (actions.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final action in actions)
-                        OutlinedButton.icon(
-                          onPressed: action.onPressed,
-                          icon: Icon(action.icon, size: 18),
-                          label: Text(action.label),
-                        ),
-                    ],
-                  ),
+                  if (actions.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final action in actions)
+                          OutlinedButton.icon(
+                            onPressed: action.onPressed,
+                            icon: Icon(action.icon, size: 18),
+                            label: Text(action.label),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -1006,7 +1056,7 @@ class _MemberBudgetPanel extends StatelessWidget {
                 key: const ValueKey('budget-member-add'),
                 onPressed: onAdd,
                 icon: const Icon(Icons.add),
-                tooltip: null,
+                tooltip: '添加成员预算',
               ),
           ],
         ),
@@ -1070,6 +1120,13 @@ class _MemberBudgetCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              IconBadge(
+                icon: Icons.person_outline,
+                color: statusColor,
+                size: 36,
+                iconSize: 18,
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1079,14 +1136,15 @@ class _MemberBudgetCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '已用 ${_formatMoney(budget.spent)} / ${_formatMoney(budget.amount)}',
+                      '${_formatMoney(budget.spent)} / ${_formatMoney(budget.amount)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
@@ -1108,7 +1166,8 @@ class _MemberBudgetCard extends StatelessWidget {
                   Text(
                     '剩余 ${_formatMoney(budget.remaining)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -1126,7 +1185,7 @@ class _MemberBudgetCard extends StatelessWidget {
                       )
                     : const Icon(Icons.delete_outline),
                 color: colorScheme.error,
-                tooltip: null,
+                tooltip: '删除$title预算',
               ),
             ],
           ),
@@ -1158,32 +1217,38 @@ class _BudgetMetricLine extends StatelessWidget {
     required this.label,
     required this.value,
     this.valueColor,
+    this.alignEnd = false,
   });
 
   final String label;
   final String value;
   final Color? valueColor;
+  final bool alignEnd;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
+    return Column(
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(height: 2),
         Text(
           value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: valueColor ?? colorScheme.onSurface,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w900,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
@@ -1205,7 +1270,12 @@ class _SectionTitle extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: colorScheme.primary),
+        IconBadge(
+          icon: icon,
+          color: colorScheme.primary,
+          size: 34,
+          iconSize: 17,
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -1215,15 +1285,16 @@ class _SectionTitle extends StatelessWidget {
                 title,
                 style: Theme.of(
                   context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
               ),
               if (subtitle != null) ...[
                 const SizedBox(height: 2),
                 Text(
                   subtitle!,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ],

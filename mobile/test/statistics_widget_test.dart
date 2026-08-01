@@ -81,9 +81,8 @@ void main() {
         find.byKey(const ValueKey('statistics-category-rank-cat-1')),
         findsOneWidget,
       );
-      expect(find.text('#1'), findsOneWidget);
-      expect(find.text('5 笔'), findsAtLeastNWidgets(1));
-      expect(find.text('100.0%'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('5 笔 · 100.0%'), findsOneWidget);
     });
 
     testWidgets('统计页展示空统计摘要', (tester) async {
@@ -128,11 +127,18 @@ void main() {
       expect(find.text('收入变化'), findsNothing);
       expect(find.text('支出变化'), findsNothing);
       expect(find.text('0 笔'), findsNothing);
-      await tester.scrollUntilVisible(find.text('本月还没有趋势'), 300);
-      expect(find.text('本月还没有趋势'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('statistics-period-selector')),
+        findsOneWidget,
+      );
+      expect(find.text('无趋势'), findsOneWidget);
       expect(find.text('本月暂无趋势数据'), findsNothing);
-      await tester.scrollUntilVisible(find.text('本月还没有分类'), 300);
-      expect(find.text('本月还没有分类'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('无分类'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('无分类'), findsOneWidget);
       expect(find.text('本月暂无分类数据'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });
@@ -144,6 +150,10 @@ void main() {
       expect(
         find.byKey(const ValueKey('statistics-period-header')),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('corgi-illustration-sitting')),
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('statistics-category-rank-card')),
@@ -186,7 +196,7 @@ void main() {
       expect(
         find.byKey(
           ValueKey(
-            'statistics-previous-month-${previousMonth.year}-${previousMonth.month.toString().padLeft(2, '0')}',
+            'statistics-previous-period-${previousMonth.year}-${previousMonth.month.toString().padLeft(2, '0')}',
           ),
         ),
         findsOneWidget,
@@ -255,24 +265,43 @@ class _FakeStatisticsRepository implements StatisticsRepository {
   @override
   Future<CategoryStatResponse?> getCategoryStats({
     required String month,
+    StatisticsPeriod period = StatisticsPeriod.month,
     required String type,
   }) async {
     return getDashboard(
-      StatisticsDashboardQuery(month: month, categoryType: type),
+      StatisticsDashboardQuery(
+        month: month,
+        period: period,
+        categoryType: type,
+      ),
     ).then((dashboard) => dashboard.categories);
   }
 
   @override
-  Future<StatisticsOverviewData?> getOverview(String month) async {
+  Future<StatisticsOverviewData?> getOverview(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) async {
     return getDashboard(
-      StatisticsDashboardQuery(month: month, categoryType: 'expense'),
+      StatisticsDashboardQuery(
+        month: month,
+        period: period,
+        categoryType: 'expense',
+      ),
     ).then((dashboard) => dashboard.overview);
   }
 
   @override
-  Future<TrendResponse?> getTrend(String month) async {
+  Future<TrendResponse?> getTrend(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) async {
     return getDashboard(
-      StatisticsDashboardQuery(month: month, categoryType: 'expense'),
+      StatisticsDashboardQuery(
+        month: month,
+        period: period,
+        categoryType: 'expense',
+      ),
     ).then((dashboard) => dashboard.trend);
   }
 }

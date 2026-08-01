@@ -42,6 +42,10 @@ class ProfileRepository {
     if (filePath == null || filePath.isEmpty) {
       throw const FormatException('请选择可读取的头像文件');
     }
+    final extension = file.name.split('.').last.toLowerCase();
+    if (!const {'jpg', 'jpeg', 'png', 'webp'}.contains(extension)) {
+      throw const FormatException('头像仅支持 JPEG、PNG 或 WebP');
+    }
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath, filename: file.name),
     });

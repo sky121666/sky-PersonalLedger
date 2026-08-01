@@ -45,6 +45,7 @@ require_text './scripts/check-docker-local-smoke.sh'
 require_text 'linux/amd64'
 require_text 'linux/arm64'
 require_text 'LEDGER_JWT_SECRET'
+require_text 'LEDGER_SETUP_TOKEN'
 
 if [[ "${STRICT_DOCKER_RELEASE_EVIDENCE:-0}" == "1" ]]; then
   if grep -nE '\bPENDING\b|<[^>]+>|X\.Y\.Z' "$ROOT_DIR/$EVIDENCE_FILE" >&2; then
@@ -117,6 +118,7 @@ services:
       - ./data:/data
     environment:
       - LEDGER_JWT_SECRET=local-docker-smoke-only-change-me-32-characters
+      - LEDGER_SETUP_TOKEN=local-docker-setup-token-only-32-characters
       - LEDGER_SERVER_MODE=release
       - LEDGER_DATABASE_DRIVER=sqlite
       - LEDGER_DATABASE_PATH=/data/ledger.db

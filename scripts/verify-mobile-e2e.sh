@@ -157,6 +157,7 @@ run_flutter_e2e() {
   local device_id="$1"
   local server_url="$2"
   local storage_mode="$3"
+  local test_file="${LEDGER_MOBILE_E2E_TEST_FILE:-integration_test/app_real_backend_e2e_test.dart}"
 
   (
     cd "$repo_root/mobile"
@@ -166,7 +167,7 @@ run_flutter_e2e() {
       --dart-define="LEDGER_E2E_SERVER_URL=$server_url" \
       --dart-define="LEDGER_E2E_PASSWORD=$LEDGER_E2E_PASSWORD" \
       --dart-define="LEDGER_E2E_USE_IN_MEMORY_STORAGE=$storage_mode" \
-      integration_test/app_real_backend_e2e_test.dart
+      "$test_file"
   )
 }
 
@@ -383,13 +384,18 @@ fi
 
 backend_port="${LEDGER_E2E_BACKEND_PORT:-$(pick_port)}"
 backend_base_url="http://127.0.0.1:$backend_port"
+backend_binary="$tmp_dir/ledger-server"
 mkdir -p "$tmp_dir/uploads" "$tmp_dir/backups" "$tmp_dir/web"
 
 echo "Mobile E2E targets: flutter-tester=$RUN_FLUTTER_TESTER_E2E android=$RUN_ANDROID_E2E ios=$RUN_IOS_E2E"
+echo "Building isolated backend before starting the readiness timeout..."
+(
+  cd "$repo_root/backend"
+  go build -o "$backend_binary" ./cmd/server
+)
 echo "Starting isolated SQLite backend at $backend_base_url"
 
 (
-  cd "$repo_root/backend"
   LEDGER_SERVER_PORT="$backend_port" \
   LEDGER_SERVER_MODE=debug \
   LEDGER_SERVER_WEB_PATH="$tmp_dir/web" \
@@ -400,7 +406,7 @@ echo "Starting isolated SQLite backend at $backend_base_url"
   LEDGER_STORAGE_UPLOAD_PATH="$tmp_dir/uploads" \
   LEDGER_STORAGE_BACKUP_PATH="$tmp_dir/backups" \
   LEDGER_CORS_ALLOWED_ORIGINS='*' \
-  go run ./cmd/server
+  "$backend_binary"
 ) >"$tmp_dir/backend.log" 2>&1 &
 backend_pid="$!"
 

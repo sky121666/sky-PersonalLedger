@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"sort"
+
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
 	"gorm.io/gorm"
@@ -12,6 +14,10 @@ type TagRepository struct {
 
 func NewTagRepository(db *gorm.DB) *TagRepository {
 	return &TagRepository{db: db}
+}
+
+func (r *TagRepository) DB() *gorm.DB {
+	return r.db
 }
 
 func (r *TagRepository) Create(tag *model.Tag) error {
@@ -63,6 +69,43 @@ func (r *TagRepository) IncrementUsedCount(id string) error {
 
 func (r *TagRepository) DecrementUsedCount(id string) error {
 	return r.db.Model(&model.Tag{}).Where("id = ?", id).UpdateColumn("used_count", gorm.Expr("CASE WHEN used_count > 0 THEN used_count - 1 ELSE 0 END")).Error
+}
+
+func (r *TagRepository) IncrementUsedCountsByNames(userID uint, names []string) error {
+	names = uniqueTagNames(names)
+	if len(names) == 0 {
+		return nil
+	}
+	return r.db.Model(&model.Tag{}).
+		Where("user_id = ? AND name IN ?", userID, names).
+		UpdateColumn("used_count", gorm.Expr("COALESCE(used_count, 0) + 1")).Error
+}
+
+func (r *TagRepository) DecrementUsedCountsByNames(userID uint, names []string) error {
+	names = uniqueTagNames(names)
+	if len(names) == 0 {
+		return nil
+	}
+	return r.db.Model(&model.Tag{}).
+		Where("user_id = ? AND name IN ?", userID, names).
+		UpdateColumn("used_count", gorm.Expr("CASE WHEN COALESCE(used_count, 0) > 0 THEN used_count - 1 ELSE 0 END")).Error
+}
+
+func uniqueTagNames(names []string) []string {
+	seen := make(map[string]struct{}, len(names))
+	unique := make([]string, 0, len(names))
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		unique = append(unique, name)
+	}
+	sort.Strings(unique)
+	return unique
 }
 
 // CreateSystemTags creates default system tags for a user

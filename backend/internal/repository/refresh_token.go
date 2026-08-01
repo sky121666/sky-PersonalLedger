@@ -28,6 +28,18 @@ func (r *RefreshTokenRepository) GetByToken(token string) (*model.RefreshToken, 
 	return &rt, nil
 }
 
+// Consume atomically removes one unexpired refresh token. RowsAffected is the
+// compare-and-swap result: concurrent callers can never consume the same token
+// twice, even when both validated the JWT before reaching the database.
+func (r *RefreshTokenRepository) Consume(token string, userID uint, now time.Time) (bool, error) {
+	result := r.db.Where("token = ? AND user_id = ? AND expires_at > ?", token, userID, now).
+		Delete(&model.RefreshToken{})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected == 1, nil
+}
+
 func (r *RefreshTokenRepository) UpdateToken(id string, token string) error {
 	return r.db.Model(&model.RefreshToken{}).Where("id = ?", id).Update("token", token).Error
 }

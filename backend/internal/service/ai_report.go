@@ -570,7 +570,7 @@ func parseAIReportPeriod(startText string, endText string) (time.Time, time.Time
 	if err != nil || end.Before(start) {
 		return time.Time{}, time.Time{}, ErrAIReportPeriodInvalid
 	}
-	end = time.Date(end.Year(), end.Month(), end.Day(), 23, 59, 59, 0, time.Local)
+	end = endOfCalendarDay(end)
 	return start, end, nil
 }
 

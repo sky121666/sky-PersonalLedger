@@ -84,5 +84,7 @@ fi
 
 (
   cd "$repo_root/backend"
-  go test ./...
+  # Integration packages share the same temporary databases. Serialize
+  # packages so two first-run AutoMigrate calls cannot race each other.
+  go test -p 1 ./...
 )

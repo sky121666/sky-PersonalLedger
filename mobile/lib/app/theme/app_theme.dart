@@ -5,7 +5,7 @@ import 'motion_tokens.dart';
 enum AppThemePalette {
   teal(
     id: 'teal',
-    label: '静谧墨绿',
+    label: '绿色',
     signature: '默认稳健',
     description: '默认金融色，稳定、克制、耐看。',
     seedColor: Color(0xFF0F766E),
@@ -16,7 +16,7 @@ enum AppThemePalette {
   ),
   graphite(
     id: 'graphite',
-    label: '石墨蓝',
+    label: '灰色',
     signature: '冷静仪表',
     description: '低饱和蓝灰，适合长期查看账本。',
     seedColor: Color(0xFF334155),
@@ -27,7 +27,7 @@ enum AppThemePalette {
   ),
   indigo(
     id: 'indigo',
-    label: '深海靛蓝',
+    label: '蓝色',
     signature: 'AI 科技',
     description: '更偏科技和 AI 分析场景。',
     seedColor: Color(0xFF4338CA),
@@ -38,7 +38,7 @@ enum AppThemePalette {
   ),
   emerald(
     id: 'emerald',
-    label: '翡翠绿',
+    label: '绿色',
     signature: '轻量日常',
     description: '更清爽，适合轻量日常记账。',
     seedColor: Color(0xFF047857),
@@ -49,7 +49,7 @@ enum AppThemePalette {
   ),
   amber(
     id: 'amber',
-    label: '琥珀金',
+    label: '橙色',
     signature: '温暖克制',
     description: '更温暖，但保留金融产品克制感。',
     seedColor: Color(0xFFB45309),
@@ -60,7 +60,7 @@ enum AppThemePalette {
   ),
   cyan(
     id: 'cyan',
-    label: '冰川青',
+    label: '青色',
     signature: '数据看板',
     description: '更清透的科技感，适合数据看板。',
     seedColor: Color(0xFF0891B2),
@@ -71,7 +71,7 @@ enum AppThemePalette {
   ),
   violet(
     id: 'violet',
-    label: '星云紫',
+    label: '紫色',
     signature: '柔和紫色',
     description: '偏紫色的强调色，适合深色和浅色模式。',
     seedColor: Color(0xFF7C3AED),
@@ -82,7 +82,7 @@ enum AppThemePalette {
   ),
   rose(
     id: 'rose',
-    label: '曜石玫瑰',
+    label: '紫色',
     signature: '精致暗调',
     description: '玫瑰色强调，适合夜间低亮度使用。',
     seedColor: Color(0xFFBE185D),
@@ -93,7 +93,7 @@ enum AppThemePalette {
   ),
   slate(
     id: 'slate',
-    label: '钛金灰',
+    label: '灰色',
     signature: '商务低饱和',
     description: '低饱和商务风，适合长期使用。',
     seedColor: Color(0xFF475569),
@@ -104,7 +104,7 @@ enum AppThemePalette {
   ),
   aurora(
     id: 'aurora',
-    label: '极光青',
+    label: '青色',
     signature: '前卫清透',
     description: '青蓝高光与冷绿色，强化数据流动感。',
     seedColor: Color(0xFF0E7490),
@@ -115,7 +115,7 @@ enum AppThemePalette {
   ),
   obsidian(
     id: 'obsidian',
-    label: '黑曜蓝',
+    label: '蓝色',
     signature: '夜间深蓝',
     description: '深蓝底色与高亮资产色，适合夜间重度使用。',
     seedColor: Color(0xFF1E3A8A),
@@ -126,7 +126,7 @@ enum AppThemePalette {
   ),
   plasma(
     id: 'plasma',
-    label: '电浆蓝',
+    label: '蓝色',
     signature: '明亮蓝色',
     description: '蓝色主轴搭配明亮资产色。',
     seedColor: Color(0xFF2563EB),
@@ -137,7 +137,7 @@ enum AppThemePalette {
   ),
   kinetic(
     id: 'kinetic',
-    label: '量子青橙',
+    label: '青色',
     signature: '青橙对比',
     description: '青色主轴与橙色提示，适合需要醒目提醒的账本。',
     seedColor: Color(0xFF0D9488),
@@ -148,7 +148,7 @@ enum AppThemePalette {
   ),
   titanium(
     id: 'titanium',
-    label: '钛银蓝',
+    label: '灰色',
     signature: '银蓝低饱和',
     description: '银蓝低饱和底色，适合克制的日常使用。',
     seedColor: Color(0xFF64748B),
@@ -159,7 +159,7 @@ enum AppThemePalette {
   ),
   solaris(
     id: 'solaris',
-    label: '日冕橙',
+    label: '橙色',
     signature: '复盘高光',
     description: '暖橙主轴搭配冷蓝资产色，适合周报和预算复盘。',
     seedColor: Color(0xFFEA580C),
@@ -170,7 +170,7 @@ enum AppThemePalette {
   ),
   luxe(
     id: 'luxe',
-    label: '鎏金黑',
+    label: '橙色',
     signature: '深色暗金',
     description: '深色底色搭配暖色强调，适合夜间使用。',
     seedColor: Color(0xFF854D0E),
@@ -202,15 +202,59 @@ enum AppThemePalette {
   final Color assetColor;
   final Color warningColor;
 
+  static const selectableValues = [
+    teal,
+    plasma,
+    cyan,
+    violet,
+    solaris,
+    graphite,
+  ];
+
+  bool get isSelectable => selectableValues.contains(this);
+
   static AppThemePalette fromId(String? id) {
-    return AppThemePalette.values.firstWhere(
-      (palette) => palette.id == id,
-      orElse: () => AppThemePalette.teal,
-    );
+    return AppThemePalette.values
+        .firstWhere(
+          (palette) => palette.id == id,
+          orElse: () => AppThemePalette.teal,
+        )
+        .selectableEquivalent;
   }
 }
 
 extension AppThemePaletteCuration on AppThemePalette {
+  Color get displayAccentColor {
+    return switch (selectableEquivalent) {
+      AppThemePalette.teal => const Color(0xFF0F766E),
+      AppThemePalette.plasma => const Color(0xFF2563EB),
+      AppThemePalette.cyan => const Color(0xFF0891B2),
+      AppThemePalette.violet => const Color(0xFF7C3AED),
+      AppThemePalette.solaris => const Color(0xFFEA580C),
+      AppThemePalette.graphite => const Color(0xFF475569),
+      _ => seedColor,
+    };
+  }
+
+  AppThemePalette get selectableEquivalent {
+    return switch (this) {
+      AppThemePalette.teal || AppThemePalette.emerald => AppThemePalette.teal,
+      AppThemePalette.graphite ||
+      AppThemePalette.slate ||
+      AppThemePalette.titanium => AppThemePalette.graphite,
+      AppThemePalette.indigo ||
+      AppThemePalette.obsidian ||
+      AppThemePalette.plasma => AppThemePalette.plasma,
+      AppThemePalette.amber ||
+      AppThemePalette.solaris ||
+      AppThemePalette.luxe => AppThemePalette.solaris,
+      AppThemePalette.cyan ||
+      AppThemePalette.aurora ||
+      AppThemePalette.kinetic => AppThemePalette.cyan,
+      AppThemePalette.violet || AppThemePalette.rose => AppThemePalette.violet,
+    };
+  }
+
   String get sceneLabel {
     return switch (this) {
       AppThemePalette.teal => '长期稳健记账',
@@ -260,20 +304,22 @@ class AppTheme {
   static const Color expenseColor = Color(0xFFDC2626);
   static const Color assetColor = Color(0xFF2563EB);
   static const Color warningColor = Color(0xFFF59E0B);
-  static const double surfaceRadius = 12;
+  static const double surfaceRadius = 16;
   static const Duration themeAnimationDuration = MotionTokens.long;
   static const Curve themeAnimationCurve = MotionTokens.curveEmphasized;
 
   /// 构建浅色主题。
   static ThemeData lightTheme([
-    AppThemePalette palette = AppThemePalette.teal,
+    AppThemePalette selectedPalette = AppThemePalette.teal,
   ]) {
-    final colorScheme = ColorScheme.fromSeed(seedColor: palette.seedColor);
+    const palette = AppThemePalette.teal;
+    final colorScheme = _colorScheme(Brightness.light);
     return ThemeData(
       colorScheme: colorScheme,
       scaffoldBackgroundColor: _scaffoldBackgroundColor(colorScheme, palette),
-      extensions: [AppFinanceColors.fromPalette(palette)],
+      extensions: [AppFinanceColors.fromPalette(selectedPalette)],
       useMaterial3: true,
+      textTheme: _textTheme(colorScheme),
       inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
       snackBarTheme: _snackBarTheme(colorScheme, palette),
       segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
@@ -321,16 +367,17 @@ class AppTheme {
   }
 
   /// 构建深色主题。
-  static ThemeData darkTheme([AppThemePalette palette = AppThemePalette.teal]) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: palette.seedColor,
-      brightness: Brightness.dark,
-    );
+  static ThemeData darkTheme([
+    AppThemePalette selectedPalette = AppThemePalette.teal,
+  ]) {
+    const palette = AppThemePalette.teal;
+    final colorScheme = _colorScheme(Brightness.dark);
     return ThemeData(
       colorScheme: colorScheme,
       scaffoldBackgroundColor: _scaffoldBackgroundColor(colorScheme, palette),
-      extensions: [AppFinanceColors.fromPalette(palette)],
+      extensions: [AppFinanceColors.fromPalette(selectedPalette)],
       useMaterial3: true,
+      textTheme: _textTheme(colorScheme),
       inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
       snackBarTheme: _snackBarTheme(colorScheme, palette),
       segmentedButtonTheme: _segmentedButtonTheme(colorScheme, palette),
@@ -382,17 +429,130 @@ class AppTheme {
         AppFinanceColors.fromPalette(AppThemePalette.teal);
   }
 
+  static ColorScheme _colorScheme(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    return ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: brightness,
+    ).copyWith(
+      primary: isDark ? const Color(0xFF45C7B8) : seedColor,
+      onPrimary: Colors.white,
+      primaryContainer: isDark
+          ? const Color(0xFF153F3A)
+          : const Color(0xFFD9F1EE),
+      onPrimaryContainer: isDark
+          ? const Color(0xFFB7F2EB)
+          : const Color(0xFF0A4A43),
+      surface: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      onSurface: isDark ? const Color(0xFFF5F5F7) : const Color(0xFF111111),
+      surfaceContainerLowest: isDark ? Colors.black : const Color(0xFFF2F2F7),
+      surfaceContainerLow: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      surfaceContainer: isDark
+          ? const Color(0xFF242426)
+          : const Color(0xFFF7F7F8),
+      surfaceContainerHigh: isDark
+          ? const Color(0xFF2C2C2E)
+          : const Color(0xFFF2F2F7),
+      surfaceContainerHighest: isDark
+          ? const Color(0xFF3A3A3C)
+          : const Color(0xFFE5E5EA),
+      onSurfaceVariant: isDark
+          ? const Color(0xFFA1A1A6)
+          : const Color(0xFF6E6E73),
+      outline: isDark ? const Color(0xFF636366) : const Color(0xFF8E8E93),
+      outlineVariant: isDark
+          ? const Color(0xFF38383A)
+          : const Color(0xFFC6C6C8),
+      error: isDark ? const Color(0xFFFF453A) : const Color(0xFFFF3B30),
+    );
+  }
+
   static Color _scaffoldBackgroundColor(
     ColorScheme colorScheme,
-    AppThemePalette palette,
+    AppThemePalette _,
   ) {
-    final tintAlpha = colorScheme.brightness == Brightness.dark ? 0.10 : 0.05;
-    final baseColor = colorScheme.brightness == Brightness.dark
-        ? colorScheme.surface
-        : colorScheme.surfaceContainerLowest;
-    return Color.alphaBlend(
-      palette.seedColor.withValues(alpha: tintAlpha),
-      baseColor,
+    return colorScheme.surfaceContainerLowest;
+  }
+
+  static TextTheme _textTheme(ColorScheme colorScheme) {
+    final baseColor = colorScheme.onSurface;
+    final mutedColor = colorScheme.onSurfaceVariant;
+    return TextTheme(
+      displaySmall: TextStyle(
+        color: baseColor,
+        fontSize: 34,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
+      ),
+      headlineMedium: TextStyle(
+        color: baseColor,
+        fontSize: 27,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
+      ),
+      headlineSmall: TextStyle(
+        color: baseColor,
+        fontSize: 23,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
+      ),
+      titleLarge: TextStyle(
+        color: baseColor,
+        fontSize: 21,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
+      ),
+      titleMedium: TextStyle(
+        color: baseColor,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0,
+      ),
+      titleSmall: TextStyle(
+        color: baseColor,
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0,
+      ),
+      bodyLarge: TextStyle(
+        color: baseColor,
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.42,
+      ),
+      bodyMedium: TextStyle(
+        color: baseColor,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.38,
+      ),
+      bodySmall: TextStyle(
+        color: mutedColor,
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.32,
+      ),
+      labelLarge: TextStyle(
+        color: baseColor,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0,
+      ),
+      labelMedium: TextStyle(
+        color: mutedColor,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+      ),
+      labelSmall: TextStyle(
+        color: mutedColor,
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+      ),
     );
   }
 
@@ -407,10 +567,10 @@ class AppTheme {
           EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         ),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         textStyle: const WidgetStatePropertyAll(
-          TextStyle(fontWeight: FontWeight.w900),
+          TextStyle(fontWeight: FontWeight.w600),
         ),
         backgroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
@@ -444,10 +604,10 @@ class AppTheme {
           EdgeInsets.symmetric(horizontal: 18, vertical: 13),
         ),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         textStyle: const WidgetStatePropertyAll(
-          TextStyle(fontWeight: FontWeight.w800),
+          TextStyle(fontWeight: FontWeight.w600),
         ),
         foregroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
@@ -461,21 +621,16 @@ class AppTheme {
           return BorderSide(
             color: disabled
                 ? colorScheme.outlineVariant
-                : palette.seedColor.withValues(alpha: focused ? 0.86 : 0.42),
-            width: focused ? 1.4 : 1,
+                : focused
+                ? colorScheme.primary
+                : colorScheme.outlineVariant,
+            width: focused ? 1.2 : 1,
           );
         }),
         overlayColor: WidgetStatePropertyAll(
           palette.seedColor.withValues(alpha: 0.08),
         ),
-        backgroundColor: WidgetStatePropertyAll(
-          Color.alphaBlend(
-            palette.seedColor.withValues(
-              alpha: colorScheme.brightness == Brightness.dark ? 0.08 : 0.035,
-            ),
-            colorScheme.surface,
-          ),
-        ),
+        backgroundColor: WidgetStatePropertyAll(colorScheme.surface),
       ),
     );
   }
@@ -494,7 +649,7 @@ class AppTheme {
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         textStyle: const WidgetStatePropertyAll(
-          TextStyle(fontWeight: FontWeight.w800),
+          TextStyle(fontWeight: FontWeight.w600),
         ),
         foregroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
@@ -520,32 +675,22 @@ class AppTheme {
           EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         ),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         textStyle: const WidgetStatePropertyAll(
-          TextStyle(fontWeight: FontWeight.w900),
+          TextStyle(fontWeight: FontWeight.w600),
         ),
         backgroundColor: WidgetStatePropertyAll(
-          Color.alphaBlend(
-            palette.seedColor.withValues(
-              alpha: colorScheme.brightness == Brightness.dark ? 0.18 : 0.08,
-            ),
-            colorScheme.surface,
-          ),
+          colorScheme.surfaceContainerHigh,
         ),
         foregroundColor: WidgetStatePropertyAll(palette.seedColor),
         elevation: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
             return 0;
           }
-          if (states.contains(WidgetState.pressed)) {
-            return 1;
-          }
-          return 2;
+          return 0;
         }),
-        shadowColor: WidgetStatePropertyAll(
-          palette.seedColor.withValues(alpha: 0.18),
-        ),
+        shadowColor: const WidgetStatePropertyAll(Colors.transparent),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
     );
@@ -559,9 +704,7 @@ class AppTheme {
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
         tapTargetSize: MaterialTapTargetSize.padded,
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        ),
+        shape: WidgetStatePropertyAll(const CircleBorder()),
         foregroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
             return colorScheme.onSurface.withValues(alpha: 0.38);
@@ -590,44 +733,37 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
-    final fillAlpha = isDark ? 0.12 : 0.055;
-    final borderAlpha = isDark ? 0.28 : 0.16;
-    final fillColor = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: fillAlpha),
-      colorScheme.surfaceContainerHighest,
-    );
-    final enabledColor = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: borderAlpha),
-      colorScheme.outlineVariant,
-    );
+    final fillColor = isDark
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.62);
     final baseBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(color: enabledColor),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
     );
 
     return InputDecorationThemeData(
       filled: true,
       fillColor: fillColor,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       border: baseBorder,
       enabledBorder: baseBorder,
       disabledBorder: baseBorder.copyWith(
         borderSide: BorderSide(color: colorScheme.outlineVariant),
       ),
       focusedBorder: baseBorder.copyWith(
-        borderSide: BorderSide(color: palette.seedColor, width: 1.6),
+        borderSide: BorderSide(color: colorScheme.primary, width: 1.2),
       ),
       errorBorder: baseBorder.copyWith(
         borderSide: BorderSide(color: colorScheme.error),
       ),
       focusedErrorBorder: baseBorder.copyWith(
-        borderSide: BorderSide(color: colorScheme.error, width: 1.6),
+        borderSide: BorderSide(color: colorScheme.error, width: 1.2),
       ),
       labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
       floatingLabelStyle: TextStyle(
-        color: palette.seedColor,
-        fontWeight: FontWeight.w600,
+        color: colorScheme.primary,
+        fontWeight: FontWeight.w500,
       ),
       hintStyle: TextStyle(
         color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
@@ -646,10 +782,9 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
-    final backgroundColor = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.08),
-      isDark ? colorScheme.surfaceContainerHigh : colorScheme.inverseSurface,
-    );
+    final backgroundColor = isDark
+        ? colorScheme.surfaceContainerHighest
+        : colorScheme.inverseSurface;
     final foregroundColor = isDark
         ? colorScheme.onSurface
         : colorScheme.onInverseSurface;
@@ -660,13 +795,13 @@ class AppTheme {
       showCloseIcon: true,
       backgroundColor: backgroundColor,
       closeIconColor: foregroundColor.withValues(alpha: 0.82),
-      actionTextColor: palette.seedColor,
+      actionTextColor: colorScheme.primary,
       disabledActionTextColor: foregroundColor.withValues(alpha: 0.45),
       contentTextStyle: TextStyle(
         color: foregroundColor,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w500,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
       actionOverflowThreshold: 0.42,
     );
@@ -676,54 +811,35 @@ class AppTheme {
     ColorScheme colorScheme,
     AppThemePalette palette,
   ) {
-    final selectedFill = Color.alphaBlend(
-      palette.seedColor.withValues(
-        alpha: colorScheme.brightness == Brightness.dark ? 0.24 : 0.12,
-      ),
-      colorScheme.surface,
-    );
-    final hoveredFill = Color.alphaBlend(
-      palette.seedColor.withValues(
-        alpha: colorScheme.brightness == Brightness.dark ? 0.14 : 0.07,
-      ),
-      colorScheme.surface,
-    );
+    final selectedFill = colorScheme.surface;
+    final hoveredFill = colorScheme.surfaceContainerHigh;
 
     return SegmentedButtonThemeData(
-      selectedIcon: const Icon(Icons.check_rounded, size: 18),
+      selectedIcon: const SizedBox.shrink(),
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(48, 44)),
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         ),
         textStyle: const WidgetStatePropertyAll(
-          TextStyle(fontWeight: FontWeight.w800),
+          TextStyle(fontWeight: FontWeight.w600),
         ),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        side: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          final focused = states.contains(WidgetState.focused);
-          return BorderSide(
-            color: selected || focused
-                ? palette.seedColor
-                : colorScheme.outlineVariant,
-            width: selected || focused ? 1.4 : 1,
-          );
-        }),
+        side: const WidgetStatePropertyAll(BorderSide.none),
         foregroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
             return colorScheme.onSurface.withValues(alpha: 0.38);
           }
           if (states.contains(WidgetState.selected)) {
-            return palette.seedColor;
+            return colorScheme.primary;
           }
           return colorScheme.onSurfaceVariant;
         }),
         iconColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return palette.seedColor;
+            return colorScheme.primary;
           }
           return colorScheme.onSurfaceVariant;
         }),
@@ -735,10 +851,10 @@ class AppTheme {
               states.contains(WidgetState.focused)) {
             return hoveredFill;
           }
-          return colorScheme.surface;
+          return colorScheme.surfaceContainerHighest;
         }),
         overlayColor: WidgetStatePropertyAll(
-          palette.seedColor.withValues(alpha: 0.08),
+          colorScheme.primary.withValues(alpha: 0.08),
         ),
       ),
     );
@@ -749,14 +865,10 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
-    final baseBackground = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.10 : 0.045),
-      colorScheme.surfaceContainerHighest,
-    );
-    final selectedBackground = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.24 : 0.13),
-      colorScheme.surface,
-    );
+    final baseBackground = colorScheme.surfaceContainerHigh;
+    final selectedBackground = isDark
+        ? colorScheme.primaryContainer
+        : colorScheme.primaryContainer.withValues(alpha: 0.72);
     final disabledBackground = Color.alphaBlend(
       colorScheme.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
       colorScheme.surface,
@@ -781,22 +893,22 @@ class AppTheme {
       selectedShadowColor: Colors.transparent,
       elevation: 0,
       pressElevation: 0,
-      showCheckmark: true,
-      checkmarkColor: palette.seedColor,
+      showCheckmark: false,
+      checkmarkColor: colorScheme.primary,
       deleteIconColor: colorScheme.onSurfaceVariant,
-      side: BorderSide(color: palette.seedColor.withValues(alpha: 0.16)),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
       labelPadding: const EdgeInsets.symmetric(horizontal: 6),
       labelStyle: TextStyle(
         color: colorScheme.onSurfaceVariant,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w500,
       ),
       secondaryLabelStyle: TextStyle(
-        color: palette.seedColor,
-        fontWeight: FontWeight.w900,
+        color: colorScheme.primary,
+        fontWeight: FontWeight.w600,
       ),
-      iconTheme: IconThemeData(size: 18, color: palette.seedColor),
+      iconTheme: IconThemeData(size: 18, color: colorScheme.primary),
       brightness: colorScheme.brightness,
     );
   }
@@ -806,14 +918,8 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     final foregroundColor = colorScheme.onSurface;
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final backgroundColor = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.10 : 0.045),
-      colorScheme.surface,
-    );
-
     return AppBarThemeData(
-      backgroundColor: backgroundColor,
+      backgroundColor: colorScheme.surfaceContainerLowest,
       foregroundColor: foregroundColor,
       elevation: 0,
       scrolledUnderElevation: 0,
@@ -821,18 +927,18 @@ class AppTheme {
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
       titleSpacing: 16,
-      toolbarHeight: 60,
+      toolbarHeight: 64,
       iconTheme: IconThemeData(color: foregroundColor, size: 22),
-      actionsIconTheme: IconThemeData(color: palette.seedColor, size: 22),
+      actionsIconTheme: IconThemeData(color: colorScheme.primary, size: 22),
       titleTextStyle: TextStyle(
         color: foregroundColor,
         fontSize: 20,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w700,
       ),
       toolbarTextStyle: TextStyle(
         color: colorScheme.onSurfaceVariant,
         fontSize: 14,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
@@ -854,7 +960,7 @@ class AppTheme {
           return colorScheme.onSurface.withValues(alpha: 0.38);
         }
         if (states.contains(WidgetState.selected)) {
-          return palette.seedColor;
+          return colorScheme.primary;
         }
         return colorScheme.surface;
       }),
@@ -863,13 +969,13 @@ class AppTheme {
           return colorScheme.onSurface.withValues(alpha: 0.10);
         }
         if (states.contains(WidgetState.selected)) {
-          return palette.seedColor.withValues(alpha: 0.26);
+          return colorScheme.primary.withValues(alpha: 0.26);
         }
         return inactiveTrack;
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return palette.seedColor.withValues(alpha: 0.42);
+          return colorScheme.primary.withValues(alpha: 0.42);
         }
         return colorScheme.outlineVariant;
       }),
@@ -877,7 +983,7 @@ class AppTheme {
         return states.contains(WidgetState.selected) ? 1.2 : 1;
       }),
       overlayColor: WidgetStatePropertyAll(
-        palette.seedColor.withValues(alpha: 0.10),
+        colorScheme.primary.withValues(alpha: 0.10),
       ),
       thumbIcon: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -906,13 +1012,13 @@ class AppTheme {
           return colorScheme.onSurface.withValues(alpha: 0.12);
         }
         if (states.contains(WidgetState.selected)) {
-          return palette.seedColor;
+          return colorScheme.primary;
         }
         return Colors.transparent;
       }),
       checkColor: WidgetStatePropertyAll(colorScheme.onPrimary),
       overlayColor: WidgetStatePropertyAll(
-        palette.seedColor.withValues(alpha: 0.10),
+        colorScheme.primary.withValues(alpha: 0.10),
       ),
     );
   }
@@ -922,22 +1028,22 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     return FloatingActionButtonThemeData(
-      backgroundColor: palette.seedColor,
+      backgroundColor: colorScheme.primary,
       foregroundColor: colorScheme.onPrimary,
       focusColor: palette.seedColor.withValues(alpha: 0.16),
       hoverColor: palette.seedColor.withValues(alpha: 0.12),
       splashColor: colorScheme.onPrimary.withValues(alpha: 0.16),
-      elevation: 1,
-      focusElevation: 2,
-      hoverElevation: 2,
-      highlightElevation: 2,
+      elevation: 0,
+      focusElevation: 0,
+      hoverElevation: 0,
+      highlightElevation: 0,
       disabledElevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: const CircleBorder(),
       enableFeedback: true,
       iconSize: 24,
       extendedIconLabelSpacing: 10,
       extendedPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      extendedTextStyle: const TextStyle(fontWeight: FontWeight.w900),
+      extendedTextStyle: const TextStyle(fontWeight: FontWeight.w600),
       mouseCursor: WidgetStateProperty.resolveWith((states) {
         return states.contains(WidgetState.disabled)
             ? SystemMouseCursors.basic
@@ -953,30 +1059,30 @@ class AppTheme {
     return ListTileThemeData(
       dense: false,
       style: ListTileStyle.list,
-      selectedColor: palette.seedColor,
+      selectedColor: colorScheme.primary,
       iconColor: colorScheme.onSurfaceVariant,
       textColor: colorScheme.onSurface,
       titleTextStyle: TextStyle(
         color: colorScheme.onSurface,
-        fontSize: 15,
-        fontWeight: FontWeight.w800,
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
       ),
       subtitleTextStyle: TextStyle(
         color: colorScheme.onSurfaceVariant,
         fontSize: 13,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w400,
       ),
       leadingAndTrailingTextStyle: TextStyle(
         color: colorScheme.onSurfaceVariant,
         fontSize: 12,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w500,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: const RoundedRectangleBorder(),
       horizontalTitleGap: 12,
-      minVerticalPadding: 8,
+      minVerticalPadding: 6,
       minLeadingWidth: 32,
-      minTileHeight: 56,
+      minTileHeight: 52,
       enableFeedback: true,
       visualDensity: VisualDensity.standard,
       mouseCursor: WidgetStateProperty.resolveWith((states) {
@@ -993,19 +1099,16 @@ class AppTheme {
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
     return PopupMenuThemeData(
-      color: Color.alphaBlend(
-        palette.seedColor.withValues(alpha: isDark ? 0.10 : 0.035),
-        colorScheme.surface,
-      ),
+      color: isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
       surfaceTintColor: Colors.transparent,
       shadowColor: Colors.black.withValues(alpha: isDark ? 0.32 : 0.12),
       elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       menuPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       textStyle: TextStyle(
         color: colorScheme.onSurface,
         fontSize: 14,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w500,
       ),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final disabled = states.contains(WidgetState.disabled);
@@ -1013,10 +1116,10 @@ class AppTheme {
           color: disabled
               ? colorScheme.onSurface.withValues(alpha: 0.38)
               : colorScheme.onSurface,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
         );
       }),
-      iconColor: palette.seedColor,
+      iconColor: colorScheme.primary,
       iconSize: 20,
       enableFeedback: true,
       position: PopupMenuPosition.under,
@@ -1032,21 +1135,17 @@ class AppTheme {
     ColorScheme colorScheme,
     AppThemePalette palette,
   ) {
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final trackColor = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.08),
-      colorScheme.surfaceContainerHighest,
-    );
+    final trackColor = colorScheme.surfaceContainerHighest;
     return ProgressIndicatorThemeData(
-      color: palette.seedColor,
+      color: colorScheme.primary,
       linearTrackColor: trackColor,
       circularTrackColor: trackColor,
       refreshBackgroundColor: colorScheme.surface,
-      linearMinHeight: 7,
+      linearMinHeight: 4,
       strokeWidth: 3,
       strokeCap: StrokeCap.round,
       borderRadius: BorderRadius.circular(999),
-      stopIndicatorColor: palette.seedColor,
+      stopIndicatorColor: colorScheme.primary,
       stopIndicatorRadius: 3,
       trackGap: 3,
       circularTrackPadding: const EdgeInsets.all(1),
@@ -1058,15 +1157,12 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     return DividerThemeData(
-      color: Color.alphaBlend(
-        palette.seedColor.withValues(
-          alpha: colorScheme.brightness == Brightness.dark ? 0.16 : 0.08,
-        ),
-        colorScheme.outlineVariant,
+      color: colorScheme.outlineVariant.withValues(
+        alpha: colorScheme.brightness == Brightness.dark ? 0.76 : 0.68,
       ),
       space: 1,
-      thickness: 1,
-      radius: BorderRadius.circular(999),
+      thickness: 0.6,
+      radius: BorderRadius.circular(1),
     );
   }
 
@@ -1075,10 +1171,9 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
-    final backgroundColor = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.12 : 0.04),
-      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
-    );
+    final backgroundColor = isDark
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.surface;
 
     return DialogThemeData(
       backgroundColor: backgroundColor,
@@ -1088,18 +1183,18 @@ class AppTheme {
       barrierColor: Colors.black.withValues(alpha: isDark ? 0.62 : 0.42),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      iconColor: palette.seedColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      iconColor: colorScheme.primary,
       titleTextStyle: TextStyle(
         color: colorScheme.onSurface,
         fontSize: 20,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w700,
       ),
       contentTextStyle: TextStyle(
         color: colorScheme.onSurfaceVariant,
         fontSize: 14,
         height: 1.45,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w400,
       ),
       actionsPadding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
     );
@@ -1110,10 +1205,9 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
-    final backgroundColor = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.14 : 0.045),
-      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
-    );
+    final backgroundColor = isDark
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.surface;
 
     return BottomSheetThemeData(
       backgroundColor: backgroundColor,
@@ -1124,13 +1218,11 @@ class AppTheme {
       shadowColor: Colors.black.withValues(alpha: isDark ? 0.36 : 0.12),
       modalBarrierColor: Colors.black.withValues(alpha: isDark ? 0.58 : 0.38),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       showDragHandle: true,
-      dragHandleColor: palette.seedColor.withValues(
-        alpha: isDark ? 0.48 : 0.32,
-      ),
-      dragHandleSize: const Size(44, 5),
+      dragHandleColor: colorScheme.outline.withValues(alpha: 0.52),
+      dragHandleSize: const Size(36, 5),
       clipBehavior: Clip.antiAlias,
     );
   }
@@ -1140,13 +1232,12 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
-    final surface = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.12 : 0.04),
-      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
-    );
+    final surface = isDark
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.surface;
     final selectedForeground = colorScheme.onPrimary;
     final stateOverlay = WidgetStatePropertyAll(
-      palette.seedColor.withValues(alpha: isDark ? 0.16 : 0.10),
+      colorScheme.primary.withValues(alpha: isDark ? 0.16 : 0.10),
     );
 
     return DatePickerThemeData(
@@ -1154,19 +1245,19 @@ class AppTheme {
       elevation: 0,
       shadowColor: Colors.black.withValues(alpha: isDark ? 0.42 : 0.14),
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      headerBackgroundColor: palette.seedColor,
-      headerForegroundColor: selectedForeground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      headerBackgroundColor: surface,
+      headerForegroundColor: colorScheme.onSurface,
       headerHeadlineStyle: const TextStyle(
         fontSize: 28,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w700,
       ),
-      headerHelpStyle: const TextStyle(fontWeight: FontWeight.w800),
+      headerHelpStyle: const TextStyle(fontWeight: FontWeight.w500),
       weekdayStyle: TextStyle(
         color: colorScheme.onSurfaceVariant,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w500,
       ),
-      dayStyle: const TextStyle(fontWeight: FontWeight.w800),
+      dayStyle: const TextStyle(fontWeight: FontWeight.w500),
       dayForegroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) {
           return colorScheme.onSurface.withValues(alpha: 0.32);
@@ -1178,11 +1269,11 @@ class AppTheme {
       }),
       dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return palette.seedColor;
+          return colorScheme.primary;
         }
         if (states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.focused)) {
-          return palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.10);
+          return colorScheme.primary.withValues(alpha: isDark ? 0.18 : 0.10);
         }
         return Colors.transparent;
       }),
@@ -1190,10 +1281,10 @@ class AppTheme {
       dayShape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      todayForegroundColor: WidgetStatePropertyAll(palette.seedColor),
+      todayForegroundColor: WidgetStatePropertyAll(colorScheme.primary),
       todayBackgroundColor: const WidgetStatePropertyAll(Colors.transparent),
-      todayBorder: BorderSide(color: palette.seedColor, width: 1.4),
-      yearStyle: const TextStyle(fontWeight: FontWeight.w800),
+      todayBorder: BorderSide(color: colorScheme.primary, width: 1.2),
+      yearStyle: const TextStyle(fontWeight: FontWeight.w500),
       yearForegroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return selectedForeground;
@@ -1202,7 +1293,7 @@ class AppTheme {
       }),
       yearBackgroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return palette.seedColor;
+          return colorScheme.primary;
         }
         return Colors.transparent;
       }),
@@ -1210,10 +1301,10 @@ class AppTheme {
       yearShape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
-      dividerColor: palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.10),
+      dividerColor: colorScheme.outlineVariant,
       toggleButtonTextStyle: TextStyle(
-        color: palette.seedColor,
-        fontWeight: FontWeight.w900,
+        color: colorScheme.primary,
+        fontWeight: FontWeight.w600,
       ),
       subHeaderForegroundColor: colorScheme.onSurfaceVariant,
       cancelButtonStyle: _textButtonTheme(colorScheme, palette).style,
@@ -1226,33 +1317,29 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
-    final surface = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.12 : 0.04),
-      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
-    );
-    final controlFill = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.22 : 0.10),
-      surface,
-    );
+    final surface = isDark
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.surface;
+    final controlFill = colorScheme.surfaceContainerHighest;
 
     return TimePickerThemeData(
       backgroundColor: surface,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-      entryModeIconColor: palette.seedColor,
+      entryModeIconColor: colorScheme.primary,
       helpTextStyle: TextStyle(
         color: colorScheme.onSurfaceVariant,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w500,
       ),
       hourMinuteColor: controlFill,
-      hourMinuteTextColor: palette.seedColor,
+      hourMinuteTextColor: colorScheme.onSurface,
       hourMinuteTextStyle: const TextStyle(
         fontSize: 48,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w700,
       ),
       hourMinuteShape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
       ),
       timeSelectorSeparatorColor: WidgetStatePropertyAll(
         colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
@@ -1260,25 +1347,20 @@ class AppTheme {
       timeSelectorSeparatorTextStyle: WidgetStatePropertyAll(
         TextStyle(
           color: colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
         ),
       ),
       dayPeriodColor: controlFill,
-      dayPeriodTextColor: palette.seedColor,
-      dayPeriodTextStyle: const TextStyle(fontWeight: FontWeight.w900),
-      dayPeriodBorderSide: BorderSide(
-        color: palette.seedColor.withValues(alpha: isDark ? 0.32 : 0.20),
-      ),
+      dayPeriodTextColor: colorScheme.primary,
+      dayPeriodTextStyle: const TextStyle(fontWeight: FontWeight.w600),
+      dayPeriodBorderSide: BorderSide(color: colorScheme.outlineVariant),
       dayPeriodShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
       ),
-      dialBackgroundColor: Color.alphaBlend(
-        palette.seedColor.withValues(alpha: isDark ? 0.16 : 0.075),
-        colorScheme.surfaceContainerHighest,
-      ),
-      dialHandColor: palette.seedColor,
+      dialBackgroundColor: colorScheme.surfaceContainerHighest,
+      dialHandColor: colorScheme.primary,
       dialTextColor: colorScheme.onSurface,
-      dialTextStyle: const TextStyle(fontWeight: FontWeight.w800),
+      dialTextStyle: const TextStyle(fontWeight: FontWeight.w500),
       cancelButtonStyle: _textButtonTheme(colorScheme, palette).style,
       confirmButtonStyle: _filledButtonTheme(colorScheme, palette).style,
     );
@@ -1292,7 +1374,7 @@ class AppTheme {
       textStyle: TextStyle(
         color: colorScheme.onSurface,
         fontSize: 14,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w500,
       ),
       inputDecorationTheme: _inputDecorationTheme(colorScheme, palette),
       menuStyle: _menuStyle(colorScheme, palette),
@@ -1321,7 +1403,7 @@ class AppTheme {
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         textStyle: const WidgetStatePropertyAll(
-          TextStyle(fontWeight: FontWeight.w800),
+          TextStyle(fontWeight: FontWeight.w600),
         ),
         foregroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) {
@@ -1332,16 +1414,16 @@ class AppTheme {
         backgroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.hovered) ||
               states.contains(WidgetState.focused)) {
-            return palette.seedColor.withValues(
+            return colorScheme.primary.withValues(
               alpha: colorScheme.brightness == Brightness.dark ? 0.14 : 0.08,
             );
           }
           return Colors.transparent;
         }),
         overlayColor: WidgetStatePropertyAll(
-          palette.seedColor.withValues(alpha: 0.10),
+          colorScheme.primary.withValues(alpha: 0.10),
         ),
-        iconColor: WidgetStatePropertyAll(palette.seedColor),
+        iconColor: WidgetStatePropertyAll(colorScheme.primary),
         enableFeedback: true,
       ),
     );
@@ -1352,10 +1434,9 @@ class AppTheme {
     AppThemePalette palette,
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
-    final backgroundColor = Color.alphaBlend(
-      palette.seedColor.withValues(alpha: isDark ? 0.12 : 0.04),
-      isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
-    );
+    final backgroundColor = isDark
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.surface;
 
     return MenuStyle(
       backgroundColor: WidgetStatePropertyAll(backgroundColor),
@@ -1370,12 +1451,10 @@ class AppTheme {
       minimumSize: const WidgetStatePropertyAll(Size(180, 44)),
       maximumSize: const WidgetStatePropertyAll(Size(420, 420)),
       side: WidgetStatePropertyAll(
-        BorderSide(
-          color: palette.seedColor.withValues(alpha: isDark ? 0.18 : 0.10),
-        ),
+        BorderSide(color: colorScheme.outlineVariant),
       ),
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       mouseCursor: WidgetStateProperty.resolveWith((states) {
         return states.contains(WidgetState.disabled)
@@ -1391,9 +1470,11 @@ class AppTheme {
   ) {
     final isDark = colorScheme.brightness == Brightness.dark;
     return TextSelectionThemeData(
-      cursorColor: palette.seedColor,
-      selectionColor: palette.seedColor.withValues(alpha: isDark ? 0.34 : 0.22),
-      selectionHandleColor: palette.seedColor,
+      cursorColor: colorScheme.primary,
+      selectionColor: colorScheme.primary.withValues(
+        alpha: isDark ? 0.34 : 0.22,
+      ),
+      selectionHandleColor: colorScheme.primary,
     );
   }
 
@@ -1421,12 +1502,12 @@ class AppTheme {
         final active =
             states.contains(WidgetState.dragged) ||
             states.contains(WidgetState.hovered);
-        return palette.seedColor.withValues(
+        return colorScheme.primary.withValues(
           alpha: active ? (isDark ? 0.66 : 0.46) : (isDark ? 0.38 : 0.24),
         );
       }),
       trackColor: WidgetStatePropertyAll(
-        palette.seedColor.withValues(alpha: isDark ? 0.10 : 0.06),
+        colorScheme.primary.withValues(alpha: isDark ? 0.10 : 0.06),
       ),
       trackBorderColor: const WidgetStatePropertyAll(Colors.transparent),
     );
@@ -1450,7 +1531,7 @@ class AppFinanceColors extends ThemeExtension<AppFinanceColors> {
 
   factory AppFinanceColors.fromPalette(AppThemePalette palette) {
     return AppFinanceColors(
-      brand: palette.seedColor,
+      brand: AppTheme.seedColor,
       income: palette.incomeColor,
       expense: palette.expenseColor,
       asset: palette.assetColor,

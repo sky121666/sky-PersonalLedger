@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
 )
+
+const transactionExportPageSize = 10000
 
 type ExportService struct {
 	txRepo       *repository.TransactionRepository
@@ -36,32 +39,18 @@ type ExportFilter struct {
 
 // ExportTransactionsCSV exports transactions to CSV format
 func (s *ExportService) ExportTransactionsCSV(userID uint, filter ExportFilter) ([]byte, error) {
-	// Parse dates
-	var startDate, endDate *time.Time
-	if filter.StartDate != "" {
-		t, err := time.Parse("2006-01-02", filter.StartDate)
-		if err == nil {
-			startDate = &t
-		}
-	}
-	if filter.EndDate != "" {
-		t, err := time.Parse("2006-01-02", filter.EndDate)
-		if err == nil {
-			// Set to end of day (23:59:59)
-			endOfDay := t.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-			endDate = &endOfDay
-		}
+	startDate, endDate, err := exportDateRange(filter.StartDate, filter.EndDate)
+	if err != nil {
+		return nil, err
 	}
 
-	// Get transactions
-	transactions, _, err := s.txRepo.List(repository.TransactionFilter{
-		UserID:    userID,
-		StartDate: startDate,
-		EndDate:   endDate,
-		Type:      filter.Type,
-		AccountID: filter.AccountID,
-		PageSize:  10000, // Large limit for export
-	})
+	transactions, err := s.listTransactionsForExport(
+		userID,
+		filter,
+		startDate,
+		endDate,
+		transactionExportPageSize,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +104,57 @@ func (s *ExportService) ExportTransactionsCSV(userID uint, filter ExportFilter) 
 	return buf.Bytes(), nil
 }
 
+func (s *ExportService) listTransactionsForExport(
+	userID uint,
+	filter ExportFilter,
+	startDate, endDate *time.Time,
+	pageSize int,
+) ([]model.Transaction, error) {
+	if pageSize <= 0 {
+		pageSize = transactionExportPageSize
+	}
+
+	transactions := make([]model.Transaction, 0)
+	for page := 1; ; page++ {
+		batch, total, err := s.txRepo.List(repository.TransactionFilter{
+			UserID:    userID,
+			StartDate: startDate,
+			EndDate:   endDate,
+			Type:      filter.Type,
+			AccountID: filter.AccountID,
+			Page:      page,
+			PageSize:  pageSize,
+		})
+		if err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, batch...)
+		if len(batch) == 0 || int64(len(transactions)) >= total {
+			return transactions, nil
+		}
+	}
+}
+
+func exportDateRange(startValue, endValue string) (*time.Time, *time.Time, error) {
+	var startDate, endDate *time.Time
+	if startValue != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", startValue, time.Local)
+		if err != nil {
+			return nil, nil, err
+		}
+		startDate = &parsed
+	}
+	if endValue != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", endValue, time.Local)
+		if err != nil {
+			return nil, nil, err
+		}
+		endOfDay := parsed.AddDate(0, 0, 1).Add(-time.Nanosecond)
+		endDate = &endOfDay
+	}
+	return startDate, endDate, nil
+}
+
 // YearlyReport represents annual statistics
 type YearlyReport struct {
 	Year             int            `json:"year"`
@@ -153,198 +193,125 @@ type CategoryStat struct {
 	Count        int     `json:"count"`
 }
 
-// GetYearlyReport generates annual report
+// GetYearlyReport generates an annual report from bounded SQL aggregates.
 func (s *ExportService) GetYearlyReport(userID uint, year int) (*YearlyReport, error) {
 	startDate := time.Date(year, 1, 1, 0, 0, 0, 0, time.Local)
-	endDate := time.Date(year, 12, 31, 23, 59, 59, 0, time.Local)
+	endDate := startDate.AddDate(1, 0, 0).Add(-time.Nanosecond)
 
-	// Get all transactions for the year
-	transactions, _, err := s.txRepo.List(repository.TransactionFilter{
-		UserID:    userID,
-		StartDate: &startDate,
-		EndDate:   &endDate,
-		PageSize:  100000,
-	})
+	totals, err := s.txRepo.SumByDateRange(userID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	monthlySums, err := s.txRepo.SumByMonth(userID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	expenseCategories, err := s.txRepo.SumByCategoryForReport(userID, startDate, endDate, "expense")
+	if err != nil {
+		return nil, err
+	}
+	incomeCategories, err := s.txRepo.SumByCategoryForReport(userID, startDate, endDate, "income")
+	if err != nil {
+		return nil, err
+	}
+	activeDays, err := s.txRepo.CountDistinctDays(userID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	maxSingleExpense, err := s.txRepo.MaxExpenseForReport(userID, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 
 	report := &YearlyReport{
-		Year:        year,
-		MonthlyData: make([]MonthlyData, 12),
+		Year:             year,
+		TotalIncome:      totals.Income,
+		TotalExpense:     totals.Expense,
+		TransactionCount: totals.Count,
+		ActiveDays:       activeDays,
+		MaxSingleExpense: maxSingleExpense.Amount,
+		MonthlyData:      make([]MonthlyData, 12),
 	}
-
-	// Initialize monthly data
 	monthNames := []string{"1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"}
-	for i := 0; i < 12; i++ {
-		report.MonthlyData[i] = MonthlyData{Month: monthNames[i]}
+	for index := range report.MonthlyData {
+		report.MonthlyData[index] = MonthlyData{Month: monthNames[index]}
+	}
+	for _, monthly := range monthlySums {
+		parsedMonth, err := time.Parse("2006-01", monthly.Date)
+		if err != nil || parsedMonth.Year() != year {
+			continue
+		}
+		index := int(parsedMonth.Month()) - 1
+		report.MonthlyData[index].Income = monthly.Income
+		report.MonthlyData[index].Expense = monthly.Expense
 	}
 
-	// Category aggregation maps
-	expenseByCategory := make(map[string]*CategoryStat)
-	incomeByCategory := make(map[string]*CategoryStat)
-
-	var maxExpense, minExpense float64 = 0, 999999999
-	var maxMonth, minMonth int = 0, 0
-	var maxSingleExpense float64 = 0
-	var maxExpenseRemark string = ""
-	activeDays := make(map[string]bool)
-
-	// Process transactions
-	for _, tx := range transactions {
-		// Track active days
-		dayKey := tx.TransactionDate.Format("2006-01-02")
-		activeDays[dayKey] = true
-		month := int(tx.TransactionDate.Month()) - 1
-		report.TransactionCount++
-
-		if tx.Type == "income" {
-			report.TotalIncome += tx.Amount
-			report.MonthlyData[month].Income += tx.Amount
-
-			if tx.CategoryID != nil {
-				if _, ok := incomeByCategory[*tx.CategoryID]; !ok {
-					incomeByCategory[*tx.CategoryID] = &CategoryStat{
-						CategoryID: *tx.CategoryID,
-					}
-					if tx.Category != nil {
-						incomeByCategory[*tx.CategoryID].CategoryName = tx.Category.Name
-						incomeByCategory[*tx.CategoryID].CategoryIcon = tx.Category.Icon
-					}
-				}
-				incomeByCategory[*tx.CategoryID].Amount += tx.Amount
-				incomeByCategory[*tx.CategoryID].Count++
-			}
-		} else if tx.Type == "expense" {
-			report.TotalExpense += tx.Amount
-			report.MonthlyData[month].Expense += tx.Amount
-
-			// Track max single expense
-			if tx.Amount > maxSingleExpense {
-				maxSingleExpense = tx.Amount
-				maxExpenseRemark = tx.Remark
-				if tx.Category != nil {
-					maxExpenseRemark = tx.Category.Name
-					if tx.Remark != "" {
-						maxExpenseRemark += ": " + tx.Remark
-					}
-				}
-			}
-
-			if tx.CategoryID != nil {
-				if _, ok := expenseByCategory[*tx.CategoryID]; !ok {
-					expenseByCategory[*tx.CategoryID] = &CategoryStat{
-						CategoryID: *tx.CategoryID,
-					}
-					if tx.Category != nil {
-						expenseByCategory[*tx.CategoryID].CategoryName = tx.Category.Name
-						expenseByCategory[*tx.CategoryID].CategoryIcon = tx.Category.Icon
-					}
-				}
-				expenseByCategory[*tx.CategoryID].Amount += tx.Amount
-				expenseByCategory[*tx.CategoryID].Count++
-			}
+	maxExpense := float64(0)
+	minExpense := float64(0)
+	maxMonth := 0
+	minMonth := 0
+	bestSavings := -999999999.0
+	bestSavingsMonth := 0
+	for index := range report.MonthlyData {
+		monthly := &report.MonthlyData[index]
+		monthly.Balance = monthly.Income - monthly.Expense
+		if monthly.Expense > maxExpense {
+			maxExpense = monthly.Expense
+			maxMonth = index
+		}
+		if monthly.Expense > 0 && (minExpense == 0 || monthly.Expense < minExpense) {
+			minExpense = monthly.Expense
+			minMonth = index
+		}
+		if monthly.Balance > bestSavings {
+			bestSavings = monthly.Balance
+			bestSavingsMonth = index
 		}
 	}
 
-	// Calculate monthly balance and find max/min
-	var bestSavings float64 = -999999999
-	var bestSavingsMonth int = 0
-	for i := 0; i < 12; i++ {
-		report.MonthlyData[i].Balance = report.MonthlyData[i].Income - report.MonthlyData[i].Expense
-		if report.MonthlyData[i].Expense > maxExpense {
-			maxExpense = report.MonthlyData[i].Expense
-			maxMonth = i
-		}
-		if report.MonthlyData[i].Expense < minExpense && report.MonthlyData[i].Expense > 0 {
-			minExpense = report.MonthlyData[i].Expense
-			minMonth = i
-		}
-		if report.MonthlyData[i].Balance > bestSavings {
-			bestSavings = report.MonthlyData[i].Balance
-			bestSavingsMonth = i
-		}
-	}
-
-	// Calculate totals
 	report.NetSavings = report.TotalIncome - report.TotalExpense
 	if report.TotalIncome > 0 {
-		report.SavingsRate = (report.NetSavings / report.TotalIncome) * 100
+		report.SavingsRate = report.NetSavings / report.TotalIncome * 100
 	}
-	if report.TransactionCount > 0 {
-		report.AverageExpense = report.TotalExpense / 12
-	}
+	report.AverageExpense = report.TotalExpense / 12
+	report.AverageIncome = report.TotalIncome / 12
 	report.MaxExpenseMonth = monthNames[maxMonth]
 	report.MinExpenseMonth = monthNames[minMonth]
 	report.BestSavingsMonth = monthNames[bestSavingsMonth]
-	report.MaxSingleExpense = maxSingleExpense
-	report.MaxExpenseRemark = maxExpenseRemark
-	report.ActiveDays = len(activeDays)
-	report.AverageIncome = report.TotalIncome / 12
+	report.MaxExpenseRemark = maxSingleExpense.Remark
+	if maxSingleExpense.CategoryName != "" {
+		report.MaxExpenseRemark = maxSingleExpense.CategoryName
+		if maxSingleExpense.Remark != "" {
+			report.MaxExpenseRemark += ": " + maxSingleExpense.Remark
+		}
+	}
 	if report.ActiveDays > 0 {
 		report.DailyAvgExpense = report.TotalExpense / float64(report.ActiveDays)
 	}
-
-	// Convert maps to sorted slices (top 10)
-	report.TopExpenses = mapToSortedSlice(expenseByCategory, report.TotalExpense, 10)
-	report.TopIncomes = mapToSortedSlice(incomeByCategory, report.TotalIncome, 10)
-
+	report.TopExpenses = reportCategorySumsToStats(expenseCategories, report.TotalExpense, 10)
+	report.TopIncomes = reportCategorySumsToStats(incomeCategories, report.TotalIncome, 10)
 	return report, nil
 }
 
-func mapToSortedSlice(m map[string]*CategoryStat, total float64, limit int) []CategoryStat {
-	result := make([]CategoryStat, 0, len(m))
-	for _, v := range m {
+func reportCategorySumsToStats(sums []repository.ReportCategorySum, total float64, limit int) []CategoryStat {
+	if limit > 0 && len(sums) > limit {
+		sums = sums[:limit]
+	}
+	result := make([]CategoryStat, 0, len(sums))
+	for _, sum := range sums {
+		item := CategoryStat{
+			CategoryID: sum.CategoryID, CategoryName: sum.CategoryName, CategoryIcon: sum.CategoryIcon,
+			Amount: sum.Total, Count: sum.Count,
+		}
 		if total > 0 {
-			v.Percentage = (v.Amount / total) * 100
+			item.Percentage = sum.Total / total * 100
 		}
-		result = append(result, *v)
-	}
-
-	// Sort by amount descending
-	for i := 0; i < len(result)-1; i++ {
-		for j := i + 1; j < len(result); j++ {
-			if result[j].Amount > result[i].Amount {
-				result[i], result[j] = result[j], result[i]
-			}
-		}
-	}
-
-	if len(result) > limit {
-		return result[:limit]
+		result = append(result, item)
 	}
 	return result
 }
 
 // GetAvailableYears returns years that have transactions
 func (s *ExportService) GetAvailableYears(userID uint) ([]int, error) {
-	// Get transactions and extract distinct years
-	transactions, _, err := s.txRepo.List(repository.TransactionFilter{
-		UserID:   userID,
-		PageSize: 100000,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	yearMap := make(map[int]bool)
-	for _, tx := range transactions {
-		yearMap[tx.TransactionDate.Year()] = true
-	}
-
-	years := make([]int, 0, len(yearMap))
-	for y := range yearMap {
-		years = append(years, y)
-	}
-
-	// Sort descending
-	for i := 0; i < len(years)-1; i++ {
-		for j := i + 1; j < len(years); j++ {
-			if years[j] > years[i] {
-				years[i], years[j] = years[j], years[i]
-			}
-		}
-	}
-
-	return years, nil
+	return s.txRepo.DistinctStatisticsYears(userID)
 }

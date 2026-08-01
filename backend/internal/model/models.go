@@ -62,24 +62,25 @@ type Category struct {
 }
 
 type Transaction struct {
-	ID              string    `gorm:"primaryKey;size:36" json:"id"`
-	UserID          uint      `gorm:"not null;index" json:"user_id"`
-	AccountID       string    `gorm:"size:36;not null;index" json:"account_id"`
-	CategoryID      *string   `gorm:"size:36;index" json:"category_id"`
-	Type            string    `gorm:"size:20;not null" json:"type"` // income / expense / transfer
-	Amount          float64   `gorm:"type:decimal(15,2);not null" json:"amount"`
-	PrincipalAmount float64   `gorm:"type:decimal(15,2);default:0" json:"principal_amount,omitempty"`
-	InterestAmount  float64   `gorm:"type:decimal(15,2);default:0" json:"interest_amount,omitempty"`
-	TransactionDate time.Time `gorm:"not null;index" json:"transaction_date"`
-	Remark          string    `gorm:"type:text" json:"remark"`
-	Images          string    `gorm:"type:text" json:"images"` // JSON array
-	Tags            string    `gorm:"type:text" json:"tags"`   // JSON array of tag names
-	ToAccountID     *string   `gorm:"size:36" json:"to_account_id"`
-	MemberID        *string   `gorm:"size:36;index" json:"member_id,omitempty"`
-	PaidByMemberID  *string   `gorm:"size:36;index" json:"paid_by_member_id,omitempty"`
-	Source          string    `gorm:"size:50;default:manual" json:"source"`
-	ReminderID      *string   `gorm:"size:36;index" json:"reminder_id,omitempty"`
-	LendingID       *string   `gorm:"size:36;index" json:"lending_id,omitempty"`
+	ID                string    `gorm:"primaryKey;size:36" json:"id"`
+	UserID            uint      `gorm:"not null;index;uniqueIndex:idx_transactions_user_import_fingerprint,priority:1" json:"user_id"`
+	AccountID         string    `gorm:"size:36;not null;index" json:"account_id"`
+	CategoryID        *string   `gorm:"size:36;index" json:"category_id"`
+	Type              string    `gorm:"size:20;not null" json:"type"` // income / expense / transfer
+	Amount            float64   `gorm:"type:decimal(15,2);not null" json:"amount"`
+	PrincipalAmount   float64   `gorm:"type:decimal(15,2);default:0" json:"principal_amount,omitempty"`
+	InterestAmount    float64   `gorm:"type:decimal(15,2);default:0" json:"interest_amount,omitempty"`
+	TransactionDate   time.Time `gorm:"not null;index" json:"transaction_date"`
+	Remark            string    `gorm:"type:text" json:"remark"`
+	Images            string    `gorm:"type:text" json:"images"` // JSON array
+	Tags              string    `gorm:"type:text" json:"tags"`   // JSON array of tag names
+	ToAccountID       *string   `gorm:"size:36" json:"to_account_id"`
+	MemberID          *string   `gorm:"size:36;index" json:"member_id,omitempty"`
+	PaidByMemberID    *string   `gorm:"size:36;index" json:"paid_by_member_id,omitempty"`
+	Source            string    `gorm:"size:50;default:manual" json:"source"`
+	ImportFingerprint *string   `gorm:"size:64;uniqueIndex:idx_transactions_user_import_fingerprint,priority:2" json:"-"`
+	ReminderID        *string   `gorm:"size:36;index" json:"reminder_id,omitempty"`
+	LendingID         *string   `gorm:"size:36;index" json:"lending_id,omitempty"`
 	// RecurringID is reserved for a future full recurring transaction workflow.
 	RecurringID *string        `gorm:"size:36;index" json:"recurring_id,omitempty"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -184,21 +185,21 @@ type NotificationSetting struct {
 	// 钉钉
 	DingtalkEnabled bool   `gorm:"default:false" json:"dingtalk_enabled"`
 	DingtalkWebhook string `gorm:"size:500" json:"dingtalk_webhook"`
-	DingtalkSecret  string `gorm:"size:100" json:"-"`
+	DingtalkSecret  string `gorm:"type:text" json:"-"`
 
 	// 邮箱
 	EmailEnabled bool   `gorm:"default:false" json:"email_enabled"`
 	SmtpHost     string `gorm:"size:100" json:"smtp_host"`
 	SmtpPort     int    `gorm:"default:587" json:"smtp_port"`
 	SmtpUser     string `gorm:"size:100" json:"smtp_user"`
-	SmtpPassword string `gorm:"size:200" json:"-"`
+	SmtpPassword string `gorm:"type:text" json:"-"`
 	SmtpFrom     string `gorm:"size:100" json:"smtp_from"`
 	EmailTo      string `gorm:"size:200" json:"email_to"`
 
 	// 自定义Webhook
 	WebhookEnabled bool   `gorm:"default:false" json:"webhook_enabled"`
 	WebhookURL     string `gorm:"size:500" json:"webhook_url"`
-	WebhookSecret  string `gorm:"size:100" json:"-"`
+	WebhookSecret  string `gorm:"type:text" json:"-"`
 
 	// 通知选项
 	NotifyPaymentDue   bool `gorm:"default:true" json:"notify_payment_due"`

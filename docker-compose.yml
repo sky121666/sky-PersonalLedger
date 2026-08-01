@@ -19,13 +19,15 @@ services:
       # JWT 密钥 (至少32位随机字符串)。建议在 .env 中设置:
       # LEDGER_JWT_SECRET=$(openssl rand -base64 32)
       - LEDGER_JWT_SECRET=${LEDGER_JWT_SECRET:?Set LEDGER_JWT_SECRET in .env before starting}
+      # 首次远程安装令牌；初始化完成后接口会自动禁用。
+      - LEDGER_SETUP_TOKEN=${LEDGER_SETUP_TOKEN:?Set LEDGER_SETUP_TOKEN in .env before starting}
       
       # ========== 安全配置 (可选) ==========
       # 自定义入口路径 (设置后只能通过 /your-path 访问)
       # - LEDGER_SECURITY_BASE_PATH=/my-secret-path
       
-      # API Token (移动端访问验证，留空不验证)
-      # - LEDGER_SECURITY_API_TOKEN=<api-token>
+      # 默认阻止用户配置的 AI/Webhook/SMTP 访问容器内网；本地网关场景需由部署者显式开启。
+      - LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND=false
       # 跨域白名单 (留空仅允许同站 Host/无 Origin 请求，多个来源用逗号分隔)
       # release 模式禁止使用 *；前后端分离部署时设置为具体 HTTPS 域名。
       # - LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.com
@@ -36,6 +38,7 @@ services:
       
       # ========== 存储配置 ==========
       - LEDGER_STORAGE_MAX_FILE_SIZE=10   # 最大上传文件(MB)
+      - LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE=64 # 最大恢复备份(MB)
       # - LEDGER_STORAGE_ALLOWED_TYPES=jpg,jpeg,png,gif,webp,pdf
 
       # ========== 数据库配置 ==========
@@ -53,7 +56,9 @@ services:
       # - LEDGER_LOG_FORMAT=json          # json/text
       
       # ========== 限流配置 ==========
-      - LEDGER_SERVER_MODE=debug          # 本地联调与真机采样关闭全局限流
+      - LEDGER_SERVER_MODE=release        # 生产基础配置默认启用限流
+      # 仅在反向代理部署时填写实际代理 IP/CIDR；留空时忽略 X-Forwarded-For。
+      - LEDGER_SERVER_TRUSTED_PROXIES=
       - LEDGER_RATE_LIMIT_MAX_REQUESTS=2000    # 每分钟最大请求数 (仅 release 模式)
       - LEDGER_RATE_LIMIT_WINDOW_SECS=60       # 限流时间窗口(秒，仅 release 模式)
       

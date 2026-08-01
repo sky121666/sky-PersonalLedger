@@ -1,26 +1,32 @@
-import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios'
+import axios, {
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
+import { createRefreshCoordinator } from '@/utils/refreshCoordinator'
+import {
+  decideTokenRefreshAction,
+  decideUnauthorizedFallback
+} from '@/utils/tokenRefreshPolicy'
 
 const instance = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
+  withCredentials: true,
+  xsrfCookieName: 'ledger_csrf_token',
+  xsrfHeaderName: 'X-CSRF-Token',
   headers: {
     'Content-Type': 'application/json'
   }
 })
 
-let isRefreshing = false
-let refreshSubscribers: ((token: string) => void)[] = []
-
-function onRefreshed(token: string) {
-  refreshSubscribers.forEach(callback => callback(token))
-  refreshSubscribers = []
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean
 }
 
-function addRefreshSubscriber(callback: (token: string) => void) {
-  refreshSubscribers.push(callback)
-}
+const refreshCoordinator = createRefreshCoordinator()
 
 instance.interceptors.request.use(
   (config) => {
@@ -45,41 +51,61 @@ instance.interceptors.response.use(
     return data.data
   },
   async (error) => {
-    const originalRequest = error.config
+    const originalRequest = error.config as RetryableRequestConfig | undefined
     const authStore = useAuthStore()
 
     // Handle 401 Unauthorized
     if (error.response?.status === 401) {
-      // Token expired, try refresh
-      if (error.response?.data?.code === 40102) {
-        if (!isRefreshing) {
-          isRefreshing = true
-          const success = await authStore.refresh()
-          isRefreshing = false
-
-          if (success) {
-            onRefreshed(authStore.accessToken!)
-            originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
-            return instance(originalRequest)
-          } else {
-            authStore.logout()
-            router.replace('/login?reason=expired')
-            return Promise.reject(new Error('登录已过期，请重新登录'))
-          }
-        } else {
-          return new Promise((resolve) => {
-            addRefreshSubscriber((token: string) => {
-              originalRequest.headers.Authorization = `Bearer ${token}`
-              resolve(instance(originalRequest))
-            })
-          })
-        }
-      } else {
-        // Other 401 errors (invalid token, etc.) - redirect to login
-        authStore.logout()
-        router.replace('/login?reason=expired')
-        return Promise.reject(new Error('登录已过期，请重新登录'))
+      const isSilentBootstrap = originalRequest?.headers.get('X-Session-Bootstrap') === '1'
+      if (isSilentBootstrap) {
+        return Promise.reject(new Error('未找到可恢复的浏览器会话'))
       }
+
+      const refreshAction = originalRequest
+        ? decideTokenRefreshAction({
+            status: error.response.status,
+            code: error.response?.data?.code,
+            requestUrl: originalRequest.url,
+            alreadyRetried: originalRequest._retry,
+            requestAuthorization: originalRequest.headers.get('Authorization'),
+            currentAccessToken: authStore.accessToken
+          })
+        : 'reject'
+
+      // Token expired, try refresh
+      if (originalRequest && refreshAction !== 'reject') {
+        originalRequest._retry = true
+
+        if (refreshAction === 'retry-with-current-token' && authStore.accessToken) {
+          originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
+          return instance(originalRequest)
+        }
+
+        let success = false
+        try {
+          success = await refreshCoordinator.run(() => authStore.refresh())
+        } catch {
+          success = false
+        }
+
+        if (success && authStore.accessToken) {
+          originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
+          return instance(originalRequest)
+        }
+      }
+
+      const fallback = decideUnauthorizedFallback({
+        status: error.response.status,
+        code: error.response?.data?.code,
+        requestUrl: originalRequest?.url
+      })
+      if (fallback.type === 'return-safe-error') {
+        return Promise.reject(new Error(fallback.message))
+      }
+
+      authStore.clearSession()
+      void router.replace('/login?reason=expired')
+      return Promise.reject(new Error('登录已过期，请重新登录'))
     }
 
     // Handle rate limiting (429)

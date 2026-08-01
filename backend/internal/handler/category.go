@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/response"
@@ -72,7 +74,15 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 
 	category, err := h.service.Update(id, userID, req)
 	if err != nil {
-		response.NotFound(c, "category not found")
+		if errors.Is(err, service.ErrSystemCategoryProtected) {
+			response.Forbidden(c, "system category cannot be modified")
+			return
+		}
+		if errors.Is(err, service.ErrCategoryNotFound) {
+			response.NotFound(c, "category not found")
+			return
+		}
+		internalServerError(c, err, "failed to update category")
 		return
 	}
 
@@ -84,7 +94,15 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.service.Delete(id, userID); err != nil {
-		response.NotFound(c, "category not found")
+		if errors.Is(err, service.ErrSystemCategoryProtected) {
+			response.Forbidden(c, "system category cannot be deleted")
+			return
+		}
+		if errors.Is(err, service.ErrCategoryNotFound) {
+			response.NotFound(c, "category not found")
+			return
+		}
+		internalServerError(c, err, "failed to delete category")
 		return
 	}
 

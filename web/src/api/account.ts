@@ -1,18 +1,8 @@
 import { get, post, put, del, patch } from '@/utils/request'
+import type { AccountType } from '@/utils/accountTypeRules'
 
-export type AccountType = 
-  | 'cash' | 'bank_card' | 'alipay' | 'wechat' | 'savings' | 'investment' 
-  | 'fund' | 'stock' | 'crypto' | 'prepaid' | 'qq_pay' | 'jd_pay' | 'apple_pay'
-  | 'credit' | 'loan' | 'mortgage' | 'car_loan' | 'consumer_loan' 
-  | 'huabei' | 'baitiao' | 'other'
-
-export const DEBT_ACCOUNT_TYPES: AccountType[] = [
-  'credit', 'loan', 'mortgage', 'car_loan', 'consumer_loan', 'huabei', 'baitiao'
-]
-
-export function isDebtAccount(type: string): boolean {
-  return DEBT_ACCOUNT_TYPES.includes(type as AccountType)
-}
+export type { AccountType } from '@/utils/accountTypeRules'
+export { DEBT_ACCOUNT_TYPES, isDebtAccount } from '@/utils/accountTypeRules'
 
 export interface Account {
   id: string
@@ -61,13 +51,13 @@ export interface UpdateAccountParams {
   name?: string
   icon?: string
   color?: string
-  payment_day?: number
-  billing_day?: number
-  credit_limit?: number
-  interest_rate?: number
-  start_date?: string
-  target_date?: string
-  remark?: string
+	payment_day?: number | null
+	billing_day?: number | null
+	credit_limit?: number | null
+	interest_rate?: number | null
+	start_date?: string | null
+	target_date?: string | null
+	remark?: string | null
 }
 
 export const accountApi = {
@@ -85,8 +75,8 @@ export const accountApi = {
     return post<Account>('/accounts', params)
   },
 
-  update(id: string, params: UpdateAccountParams): Promise<Account> {
-    return put<Account>(`/accounts/${id}`, params)
+	update(id: string, params: UpdateAccountParams): Promise<Account> {
+		return patch<Account>(`/accounts/${id}`, params)
   },
 
   delete(id: string): Promise<void> {

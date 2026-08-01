@@ -43,7 +43,7 @@ class _AIReportsPageState extends ConsumerState<AIReportsPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.auto_awesome_outlined),
-            tooltip: null,
+            tooltip: '生成财务报告',
           ),
         ],
       ),
@@ -814,7 +814,9 @@ class _AIProviderCompactRowState extends State<_AIProviderCompactRow> {
                   else
                     IconButton(
                       key: ValueKey('ai-provider-toggle-${provider.id}'),
-                      tooltip: null,
+                      tooltip: _expanded
+                          ? '收起${provider.name}设置'
+                          : '展开${provider.name}设置',
                       onPressed: disabled
                           ? null
                           : () => setState(() {
@@ -1583,7 +1585,7 @@ class _AIReportsEmptyState extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '先添加分析方式，再生成报告',
+                      '添加分析方式',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                         height: 1.4,

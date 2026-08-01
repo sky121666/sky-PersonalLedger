@@ -26,6 +26,18 @@ ANDROID_PREFER_EMULATOR=1 RUN_FLUTTER_TESTER_E2E=0 RUN_ANDROID_E2E=1 ./scripts/v
 
 该链路已按 Android Emulator 为默认策略；请保持 `ANDROID_PREFER_EMULATOR=1`（默认）。脚本会在未检测到 emulator 时自动尝试启动并阻断非模拟器路径。
 
+For quick Android UI gating, run the shorter smoke flow instead of the full ledger mutation E2E:
+
+```bash
+ANDROID_PREFER_EMULATOR=1 \
+RUN_FLUTTER_TESTER_E2E=0 \
+RUN_ANDROID_E2E=1 \
+LEDGER_MOBILE_E2E_TEST_FILE=integration_test/app_real_backend_smoke_test.dart \
+./scripts/verify-mobile-e2e.sh
+```
+
+Use the full E2E for `flutter-tester` first, then use Android smoke for emulator install, launch, auth, and quick-transaction entry coverage.
+
 The script looks for a complete Android SDK under `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `/opt/homebrew/share/android-commandlinetools`, or `$HOME/Library/Android/sdk`. If no emulator is already running, it creates a temporary AVD from `ANDROID_E2E_SYSTEM_IMAGE`.
 
 On Apple Silicon local machines the default image is:
@@ -47,6 +59,15 @@ RUN_FLUTTER_TESTER_E2E=0 RUN_IOS_E2E=1 ./scripts/verify-mobile-e2e.sh
 ```
 
 The script selects `iPhone 17` when available, otherwise the first available iPhone simulator. If the script boots a simulator itself, it shuts that simulator down during cleanup.
+
+For quick iOS UI gating, use the same smoke flow:
+
+```bash
+RUN_FLUTTER_TESTER_E2E=0 \
+RUN_IOS_E2E=1 \
+LEDGER_MOBILE_E2E_TEST_FILE=integration_test/app_real_backend_smoke_test.dart \
+./scripts/verify-mobile-e2e.sh
+```
 
 ## CI coverage
 

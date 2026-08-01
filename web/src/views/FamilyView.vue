@@ -5,6 +5,7 @@ import { ArrowLeft, BarChart3, CheckCircle2, Plus, RefreshCw, ShieldCheck, Trash
 import { budgetApi, type Budget } from '@/api/budget'
 import { familyApi, type FamilyMember, type FamilyStatistics, type FamilyStatisticsCategory, type FamilyStatisticsMember, type FamilySummary } from '@/api/family'
 import { toast } from '@/composables/useToast'
+import { formatLocalMonth } from '@/utils/localDate'
 
 const router = useRouter()
 const loading = ref(false)
@@ -14,7 +15,7 @@ const summary = ref<FamilySummary | null>(null)
 const statistics = ref<FamilyStatistics | null>(null)
 const memberBudgets = ref<Budget[]>([])
 const editingId = ref<string | null>(null)
-const month = ref(new Date().toISOString().slice(0, 7))
+const month = ref(formatLocalMonth())
 
 const form = reactive({
   name: '',

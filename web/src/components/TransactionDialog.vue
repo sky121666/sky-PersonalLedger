@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { X, ChevronDown, Calendar, FileText, CreditCard, Paperclip, Users } from 'lucide-vue-next'
+import { X, ChevronDown, Calendar, FileText, CreditCard, Paperclip, Users, Tag as TagIcon } from 'lucide-vue-next'
 import FileUpload from '@/components/FileUpload.vue'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 import { transactionApi, type CreateTransactionParams } from '@/api/transaction'
 import { categoryApi, type Category } from '@/api/category'
 import { accountApi, type Account } from '@/api/account'
 import { familyApi, type FamilyMember } from '@/api/family'
+import { tagApi, type Tag } from '@/api/tag'
 import { toast } from '@/composables/useToast'
 import { deleteRemovedAttachments } from '@/utils/attachmentCleanup'
 import { getCategoryEmoji } from '@/utils/constants'
+import { encodeTransactionTags, parseTransactionTags } from '@/utils/tagValues'
+import { loadTransactionDialogOptions } from '@/utils/transactionDialogOptions'
+import { toLedgerInstant } from '@/utils/ledgerDate'
 import dayjs from 'dayjs'
 
 const props = defineProps<{
@@ -23,9 +27,12 @@ const emit = defineEmits<{
 }>()
 
 const loading = ref(false)
+const loadingInitialData = ref(false)
+const transactionLoadFailed = ref(false)
 const categories = ref<Category[]>([])
 const accounts = ref<Account[]>([])
 const familyMembers = ref<FamilyMember[]>([])
+const tags = ref<Tag[]>([])
 
 const form = ref({
   type: 'expense' as 'income' | 'expense' | 'transfer',
@@ -34,6 +41,7 @@ const form = ref({
   to_account_id: '',
   category_id: '',
   member_id: '',
+  tag_names: [] as string[],
   transaction_date: dayjs().format('YYYY-MM-DDTHH:mm'),
   remark: '',
   images: ''
@@ -54,6 +62,7 @@ const filteredCategories = computed(() => {
 })
 
 const isValid = computed(() => {
+  if (loadingInitialData.value || transactionLoadFailed.value) return false
   const { type, amount, account_id, to_account_id, category_id } = form.value
   if (!amount || parseFloat(amount) <= 0) return false
   if (!account_id) return false
@@ -64,11 +73,18 @@ const isValid = computed(() => {
 
 watch(() => props.visible, async (val) => {
   if (val) {
-    await loadData()
-    if (props.editId) {
-      await loadTransaction()
-    } else {
-      resetForm()
+    loadingInitialData.value = true
+    transactionLoadFailed.value = false
+    resetForm('')
+    try {
+      await loadData()
+      if (props.editId) {
+        transactionLoadFailed.value = !(await loadTransaction())
+      } else {
+        resetForm()
+      }
+    } finally {
+      loadingInitialData.value = false
     }
   }
 })
@@ -81,26 +97,28 @@ watch(() => form.value.type, () => {
 })
 
 async function loadData() {
-  try {
-    const [catList, accData, members] = await Promise.all([
-      categoryApi.getList(),
-      accountApi.getList(),
-      familyApi.listMembers()
-    ])
-    categories.value = catList
-    accounts.value = accData.list
-    familyMembers.value = members.filter(member => member.is_enabled)
-    
-    if (accounts.value.length > 0 && !form.value.account_id) {
-      form.value.account_id = accounts.value[0].id
-    }
-  } catch (e) {
-    console.error('Load data failed:', e)
+  const options = await loadTransactionDialogOptions({
+    categories: categoryApi.getList,
+    accounts: accountApi.getList,
+    familyMembers: familyApi.listMembers,
+    tags: tagApi.list,
+  })
+  categories.value = options.categories
+  accounts.value = options.accounts
+  familyMembers.value = options.familyMembers.filter(member => member.is_enabled)
+  tags.value = options.tags
+
+  for (const [source, error] of Object.entries(options.failures)) {
+    console.error(`Load transaction dialog ${source} failed:`, error)
+  }
+
+  if (accounts.value.length > 0 && !form.value.account_id) {
+    form.value.account_id = accounts.value[0].id
   }
 }
 
 async function loadTransaction() {
-  if (!props.editId) return
+  if (!props.editId) return false
   try {
     const tx = await transactionApi.getById(props.editId)
     form.value = {
@@ -110,25 +128,30 @@ async function loadTransaction() {
       to_account_id: tx.to_account_id || '',
       category_id: tx.category_id || '',
       member_id: tx.member_id || tx.paid_by_member_id || '',
+      tag_names: parseTransactionTags(tx.tags),
       transaction_date: dayjs(tx.transaction_date).format('YYYY-MM-DDTHH:mm'),
       remark: tx.remark || '',
       images: tx.images || ''
     }
     originalImages.value = tx.images || ''
     savedTransactionId.value = tx.id
+    return true
   } catch (e) {
     console.error('Load transaction failed:', e)
+    toast.error('交易详情加载失败，请关闭后重试')
+    return false
   }
 }
 
-function resetForm() {
+function resetForm(accountId = accounts.value[0]?.id || '') {
   form.value = {
     type: 'expense',
     amount: '',
-    account_id: accounts.value[0]?.id || '',
+    account_id: accountId,
     to_account_id: '',
     category_id: '',
     member_id: '',
+    tag_names: [],
     transaction_date: dayjs().format('YYYY-MM-DDTHH:mm'),
     remark: '',
     images: ''
@@ -147,7 +170,7 @@ async function submit() {
   loading.value = true
   try {
     // Convert datetime-local to ISO string
-    const txDate = dayjs(form.value.transaction_date).toISOString()
+    const txDate = toLedgerInstant(form.value.transaction_date)
     
     const params: CreateTransactionParams = {
       type: form.value.type,
@@ -155,7 +178,8 @@ async function submit() {
       account_id: form.value.account_id,
       transaction_date: txDate,
       remark: form.value.remark || undefined,
-      images: form.value.images || undefined
+      images: form.value.images || undefined,
+      tags: encodeTransactionTags(form.value.tag_names)
     }
 
     if (form.value.member_id) {
@@ -189,6 +213,13 @@ async function submit() {
   } finally {
     loading.value = false
   }
+}
+
+function toggleTag(name: string) {
+  const selected = form.value.tag_names
+  form.value.tag_names = selected.includes(name)
+    ? selected.filter((value) => value !== name)
+    : [...selected, name]
 }
 </script>
 
@@ -339,6 +370,27 @@ async function submit() {
                 </option>
               </select>
               <ChevronDown class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" :size="18" />
+            </div>
+          </div>
+
+          <!-- Tags -->
+          <div v-if="tags.length > 0">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              <TagIcon :size="14" class="inline mr-1" />标签
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="tag in tags"
+                :key="tag.id"
+                type="button"
+                class="px-3 py-1.5 rounded-full text-xs font-medium border transition-all"
+                :class="form.tag_names.includes(tag.name)
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-gray-200/70 dark:border-white/10 bg-gray-50/70 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:border-primary/40'"
+                @click="toggleTag(tag.name)"
+              >
+                {{ tag.name }}
+              </button>
             </div>
           </div>
           

@@ -24,7 +24,7 @@ This document defines the remaining gates for a 100/100 release. The current sta
 | Gate | Required Evidence | Status | Command / Artifact |
 | --- | --- | --- | --- |
 | Backend regression | All backend unit/integration-safe tests pass | REQUIRED | `cd backend && go test ./...` |
-| Web build | Web production build passes with pnpm only | REQUIRED | `cd web && pnpm install && pnpm build` |
+| Web quality gate | Web tests, deferred-attachment contract, and production build pass with pnpm only | REQUIRED | `cd web && pnpm install && pnpm test && pnpm verify:attachments && pnpm build` |
 | Mobile static gate | Flutter analyzer and widget tests pass | PASS in latest QA | `cd mobile && flutter analyze && flutter test` |
 | Real backend E2E | Mobile app exercises real auth/account/transaction flow | PASS on flutter-tester, iOS Simulator, Android Emulator | `./scripts/verify-mobile-e2e.sh` plus platform flags |
 | Premium screen smoke | Home, Quick Transaction, AI Reports, Family Hub render in light/dark | PASS | `cd mobile && flutter test integration_test/premium_screens_smoke_test.dart` |

@@ -126,6 +126,8 @@ export const ACCOUNT_TYPES: Record<string, string> = {
   'consumer_loan': '消费贷',
   'huabei': '花呗',
   'baitiao': '白条',
+  'receivable': '应收款',
+  'payable': '应付款',
   'other': '其他'
 }
 
@@ -150,6 +152,8 @@ export const ACCOUNT_ICONS: Record<string, string> = {
   'consumer_loan': '💳',
   'huabei': '🌼',
   'baitiao': '📝',
+  'receivable': '🤝',
+  'payable': '🧾',
   'other': '📦'
 }
 

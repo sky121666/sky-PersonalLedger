@@ -33,10 +33,6 @@ val allowReleaseCleartext = providers
     .gradleProperty("ledgerAllowReleaseCleartext")
     .map { it.equals("true", ignoreCase = true) }
     .getOrElse(false)
-val allowLocalReleaseDebugSigning = providers
-    .gradleProperty("ledgerAllowLocalReleaseDebugSigning")
-    .map { it.equals("true", ignoreCase = true) }
-    .getOrElse(false)
 
 android {
     namespace = "com.skyapp.personal_ledger"
@@ -78,15 +74,12 @@ android {
         }
         getByName("profile") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
-            isProfileable = true
         }
         release {
             manifestPlaceholders["usesCleartextTraffic"] =
                 allowReleaseCleartext.toString()
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("release")
-            } else if (allowLocalReleaseDebugSigning) {
-                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }
@@ -98,16 +91,18 @@ gradle.taskGraph.whenReady {
         path.contains("release") &&
             (path.contains("assemble") || path.contains("bundle") || path.contains("package"))
     }
-    if (releaseBuildRequested && !releaseSigningConfigured && !allowLocalReleaseDebugSigning) {
+    if (releaseBuildRequested && !releaseSigningConfigured) {
         throw GradleException(
             "Release signing is not configured. Create mobile/android/key.properties " +
-                "from key.properties.example with a valid storeFile, or configure the Android signing secrets in CI. " +
-                "For local device profiling only, you may opt in with " +
-                "-PledgerAllowLocalReleaseDebugSigning=true to sign release builds with the debug keystore.",
+                "from key.properties.example with a valid storeFile, or configure the Android signing secrets in CI.",
         )
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
 }

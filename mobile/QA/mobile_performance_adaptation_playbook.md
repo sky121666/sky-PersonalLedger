@@ -21,7 +21,7 @@ HOME=/private/tmp FLUTTER_SUPPRESS_ANALYTICS=true DART_SUPPRESS_ANALYTICS=true A
 HOME=/private/tmp FLUTTER_SUPPRESS_ANALYTICS=true DART_SUPPRESS_ANALYTICS=true ANDROID_PREFER_EMULATOR=1 ./QA/run_android_runtime_gate.sh
 ```
 - `run_android_runtime_gate.sh` 现已优先采集 Android 系统级 `dumpsys gfxinfo` 帧统计，不再只依赖 Flutter timeline。
-- 关键热区（交易列表、借贷、记一笔）会自动执行一次基础交互，补到 `mobile/QA/runtime/gfxinfo/` 与 runtime report。
+- 关键热区的人工复测路径应由测试者执行，路由路径与日志会落在 `mobile/QA/runtime/`，用于后续对比。
 
 ### 2.3 模拟器性能验收（建议）
 - 进入主要路径（记一笔、交易列表、预算/统计）快速 1 分钟操作

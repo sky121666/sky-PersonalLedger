@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -24,9 +23,10 @@ var (
 const aiProviderTypeOpenAICompatible = "openai_compatible"
 
 type AIProviderService struct {
-	repo   *repository.AIProviderRepository
-	client *OpenAICompatibleClient
-	secret string
+	repo                 *repository.AIProviderRepository
+	client               *OpenAICompatibleClient
+	secret               string
+	allowPrivateNetworks bool
 }
 
 func NewAIProviderService(repo *repository.AIProviderRepository, client *OpenAICompatibleClient, encryptionSecrets ...string) *AIProviderService {
@@ -38,6 +38,16 @@ func NewAIProviderService(repo *repository.AIProviderRepository, client *OpenAIC
 		secret = encryptionSecrets[0]
 	}
 	return &AIProviderService{repo: repo, client: client, secret: secret}
+}
+
+// WithPrivateOutboundNetworks enables local/private AI gateways only when the
+// server operator has explicitly opted in through trusted configuration.
+func (s *AIProviderService) WithPrivateOutboundNetworks(allow bool) *AIProviderService {
+	s.allowPrivateNetworks = allow
+	if s.client == nil || s.client.allowPrivateNetworks != allow {
+		s.client = NewOpenAICompatibleClient(nil, allow)
+	}
+	return s
 }
 
 type SaveAIProviderRequest struct {
@@ -109,7 +119,7 @@ func (s *AIProviderService) ListPresets() []AIProviderPresetResponse {
 }
 
 func (s *AIProviderService) Create(userID uint, req SaveAIProviderRequest) (*AIProviderResponse, error) {
-	normalized, err := normalizeSaveAIProviderRequest(req)
+	normalized, err := normalizeSaveAIProviderRequest(req, s.allowPrivateNetworks)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +159,7 @@ func (s *AIProviderService) Update(id string, userID uint, req SaveAIProviderReq
 	if err != nil {
 		return nil, err
 	}
-	normalized, err := normalizeSaveAIProviderRequest(req)
+	normalized, err := normalizeSaveAIProviderRequest(req, s.allowPrivateNetworks)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +213,7 @@ func (s *AIProviderService) getOwnedProvider(id string, userID uint) (*model.AIP
 	return provider, nil
 }
 
-func normalizeSaveAIProviderRequest(req SaveAIProviderRequest) (SaveAIProviderRequest, error) {
+func normalizeSaveAIProviderRequest(req SaveAIProviderRequest, allowPrivateNetworks bool) (SaveAIProviderRequest, error) {
 	req.Name = strings.TrimSpace(req.Name)
 	req.ProviderType = strings.TrimSpace(req.ProviderType)
 	req.BaseURL = strings.TrimRight(strings.TrimSpace(req.BaseURL), "/")
@@ -220,7 +230,7 @@ func normalizeSaveAIProviderRequest(req SaveAIProviderRequest) (SaveAIProviderRe
 	if req.BaseURL == "" {
 		return req, ErrAIProviderBaseURLRequired
 	}
-	if !isValidAIProviderBaseURL(req.BaseURL) {
+	if !isValidAIProviderBaseURL(req.BaseURL, allowPrivateNetworks) {
 		return req, ErrAIProviderBaseURLInvalid
 	}
 	if req.Model == "" {
@@ -229,7 +239,7 @@ func normalizeSaveAIProviderRequest(req SaveAIProviderRequest) (SaveAIProviderRe
 	return req, nil
 }
 
-func isValidAIProviderBaseURL(baseURL string) bool {
+func isValidAIProviderBaseURL(baseURL string, allowPrivateNetworks bool) bool {
 	parsed, err := url.ParseRequestURI(baseURL)
 	if err != nil || parsed == nil {
 		return false
@@ -240,19 +250,7 @@ func isValidAIProviderBaseURL(baseURL string) bool {
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return false
 	}
-	if parsed.Scheme == "https" {
-		return true
-	}
-	return parsed.Scheme == "http" && isLoopbackHost(parsed.Hostname())
-}
-
-func isLoopbackHost(host string) bool {
-	host = strings.TrimSpace(strings.ToLower(host))
-	if host == "localhost" {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
+	return validateOutboundURL(baseURL, allowPrivateNetworks) == nil
 }
 
 func aiProviderResponse(provider *model.AIProvider) *AIProviderResponse {

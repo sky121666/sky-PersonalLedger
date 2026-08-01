@@ -59,7 +59,7 @@ class LendingRepository {
   }
 
   Future<LendingItem?> update(String id, UpdateLendingRequest request) {
-    return _apiClient.put<LendingItem>(
+    return _apiClient.patch<LendingItem>(
       '/lendings/$id',
       data: request.toJson(),
       fromJsonT: LendingItem.fromJson,

@@ -281,7 +281,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('reminder-more-details')));
       await tester.pumpAndSettle();
-      final addAttachmentButton = find.text('添加附件', skipOffstage: false);
+      final addAttachmentButton = find.byKey(
+        const ValueKey('attachment-add-button'),
+        skipOffstage: false,
+      );
       await tester.ensureVisible(addAttachmentButton);
       await tester.pumpAndSettle();
       await tester.tap(addAttachmentButton);
@@ -340,7 +343,8 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('还没有负债提醒'), findsOneWidget);
-      expect(find.text('还没有负债提醒，先添加提醒'), findsOneWidget);
+      expect(find.text('右上角添加'), findsOneWidget);
+      expect(find.text('还没有负债提醒，先添加提醒'), findsNothing);
       expect(find.text('暂无数据'), findsNothing);
       expect(find.text('¥0.00'), findsWidgets);
     });

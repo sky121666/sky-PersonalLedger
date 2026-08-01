@@ -15,6 +15,7 @@ import { lendingApi, type LendingSummary } from '@/api/lending'
 import { familyApi, type FamilySummary } from '@/api/family'
 import { aiApi, type AIReport } from '@/api/ai'
 import { getAccountTypeName, AMOUNT_COLORS } from '@/utils/constants'
+import { isManagedTransaction } from '@/utils/managedTransaction'
 import TransactionDialog from '@/components/TransactionDialog.vue'
 import CalendarView from '@/components/CalendarView.vue'
 import DynamicIcon from '@/components/DynamicIcon.vue'
@@ -149,8 +150,9 @@ function addTransaction() {
   showDialog.value = true
 }
 
-function editTransaction(id: string) {
-  editingId.value = id
+function editTransaction(transaction: Transaction) {
+  if (isManagedTransaction(transaction)) return
+  editingId.value = transaction.id
   showDialog.value = true
 }
 
@@ -545,8 +547,9 @@ function onTransactionSuccess() {
             <div
               v-for="item in recentTransactions"
               :key="item.id"
-              class="flex items-center p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition border border-transparent hover:border-gray-100 dark:hover:border-gray-600 group"
-              @click="editTransaction(item.id)"
+              class="flex items-center p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition border border-transparent hover:border-gray-100 dark:hover:border-gray-600 group"
+              :class="isManagedTransaction(item) ? 'cursor-default' : 'cursor-pointer'"
+              @click="editTransaction(item)"
             >
               <div
                 class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mr-4 transition-transform group-hover:scale-110"
@@ -607,8 +610,9 @@ function onTransactionSuccess() {
               <div
                 v-for="item in dateTransactions"
                 :key="item.id"
-                class="flex items-center p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition border border-transparent hover:border-gray-100 dark:hover:border-gray-600"
-                @click="editTransaction(item.id)"
+                class="flex items-center p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition border border-transparent hover:border-gray-100 dark:hover:border-gray-600"
+                :class="isManagedTransaction(item) ? 'cursor-default' : 'cursor-pointer'"
+                @click="editTransaction(item)"
               >
                 <div
                   class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl mr-3"

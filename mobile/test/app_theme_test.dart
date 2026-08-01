@@ -4,37 +4,25 @@ import 'package:personal_ledger/app/theme/app_theme.dart';
 
 void main() {
   group('AppTheme', () {
-    test('浅色页面背景跟随主题模板', () {
+    test('浅色页面背景保持中性一致', () {
       final teal = AppTheme.lightTheme(AppThemePalette.teal);
       final graphite = AppTheme.lightTheme(AppThemePalette.graphite);
 
-      expect(
-        teal.scaffoldBackgroundColor,
-        isNot(graphite.scaffoldBackgroundColor),
-      );
+      expect(teal.scaffoldBackgroundColor, graphite.scaffoldBackgroundColor);
       expect(
         graphite.scaffoldBackgroundColor,
-        Color.alphaBlend(
-          AppThemePalette.graphite.seedColor.withValues(alpha: 0.05),
-          graphite.colorScheme.surfaceContainerLowest,
-        ),
+        graphite.colorScheme.surfaceContainerLowest,
       );
     });
 
-    test('深色页面背景跟随主题模板', () {
+    test('深色页面背景保持中性一致', () {
       final teal = AppTheme.darkTheme(AppThemePalette.teal);
       final graphite = AppTheme.darkTheme(AppThemePalette.graphite);
 
-      expect(
-        teal.scaffoldBackgroundColor,
-        isNot(graphite.scaffoldBackgroundColor),
-      );
+      expect(teal.scaffoldBackgroundColor, graphite.scaffoldBackgroundColor);
       expect(
         graphite.scaffoldBackgroundColor,
-        Color.alphaBlend(
-          AppThemePalette.graphite.seedColor.withValues(alpha: 0.10),
-          graphite.colorScheme.surface,
-        ),
+        graphite.colorScheme.surfaceContainerLowest,
       );
     });
 
@@ -42,19 +30,18 @@ void main() {
       final theme = AppTheme.lightTheme(AppThemePalette.graphite);
       final financeColors = theme.extension<AppFinanceColors>();
 
+      expect(financeColors?.brand, AppTheme.seedColor);
       expect(financeColors?.asset, AppThemePalette.graphite.assetColor);
       expect(financeColors?.income, AppThemePalette.graphite.incomeColor);
       expect(financeColors?.expense, AppThemePalette.graphite.expenseColor);
       expect(financeColors?.warning, AppThemePalette.graphite.warningColor);
     });
 
-    test('主题模板提供设置页策展语义', () {
-      expect(AppThemePalette.obsidian.sceneLabel, '夜间深蓝');
-      expect(AppThemePalette.aurora.sceneLabel, '前卫数据流');
-      expect(AppThemePalette.plasma.sceneLabel, '明亮蓝色');
-      expect(AppThemePalette.obsidian.platformCue, '夜间');
-      expect(AppThemePalette.aurora.platformCue, '清透');
-      expect(AppThemePalette.plasma.platformCue, '明亮');
+    test('旧主题标识会归并到可选主色', () {
+      expect(AppThemePalette.fromId('aurora'), AppThemePalette.cyan);
+      expect(AppThemePalette.fromId('obsidian'), AppThemePalette.plasma);
+      expect(AppThemePalette.fromId('rose'), AppThemePalette.violet);
+      expect(AppThemePalette.fromId('unknown'), AppThemePalette.teal);
     });
 
     test('主题切换动效使用统一高级节奏', () {
@@ -72,9 +59,9 @@ void main() {
 
       expect(inputTheme.filled, isTrue);
       expect(inputTheme.fillColor, isNotNull);
-      expect(focusedBorder.borderRadius, BorderRadius.circular(16));
-      expect(focusedBorder.borderSide.color, AppThemePalette.plasma.seedColor);
-      expect(focusedBorder.borderSide.width, 1.6);
+      expect(focusedBorder.borderRadius, BorderRadius.circular(12));
+      expect(focusedBorder.borderSide.color, theme.colorScheme.primary);
+      expect(focusedBorder.borderSide.width, 1.2);
     });
 
     test('深色输入框填充与浅色区分', () {
@@ -95,7 +82,7 @@ void main() {
       expect(snackBarTheme.behavior, SnackBarBehavior.floating);
       expect(snackBarTheme.showCloseIcon, isTrue);
       expect(snackBarTheme.elevation, 0);
-      expect(snackBarTheme.actionTextColor, AppThemePalette.rose.seedColor);
+      expect(snackBarTheme.actionTextColor, theme.colorScheme.primary);
       expect(snackBarTheme.shape, isA<RoundedRectangleBorder>());
       expect(
         snackBarTheme.insetPadding,
@@ -111,9 +98,9 @@ void main() {
       });
       final minimumSize = segmentedTheme.style?.minimumSize?.resolve({});
 
-      expect(selectedColor, AppThemePalette.cyan.seedColor);
+      expect(selectedColor, theme.colorScheme.primary);
       expect(minimumSize, const Size(48, 44));
-      expect(segmentedTheme.selectedIcon, isA<Icon>());
+      expect(segmentedTheme.selectedIcon, isA<SizedBox>());
       expect(
         segmentedTheme.style?.shape?.resolve({}),
         isA<RoundedRectangleBorder>(),
@@ -126,8 +113,8 @@ void main() {
       final selectedColor = chipTheme.color?.resolve({WidgetState.selected});
       final disabledColor = chipTheme.color?.resolve({WidgetState.disabled});
 
-      expect(chipTheme.showCheckmark, isTrue);
-      expect(chipTheme.checkmarkColor, AppThemePalette.emerald.seedColor);
+      expect(chipTheme.showCheckmark, isFalse);
+      expect(chipTheme.checkmarkColor, theme.colorScheme.primary);
       expect(chipTheme.elevation, 0);
       expect(chipTheme.pressElevation, 0);
       expect(chipTheme.shape, isA<RoundedRectangleBorder>());
@@ -142,12 +129,9 @@ void main() {
       expect(appBarTheme.elevation, 0);
       expect(appBarTheme.scrolledUnderElevation, 0);
       expect(appBarTheme.surfaceTintColor, Colors.transparent);
-      expect(
-        appBarTheme.actionsIconTheme?.color,
-        AppThemePalette.obsidian.seedColor,
-      );
-      expect(appBarTheme.titleTextStyle?.fontWeight, FontWeight.w900);
-      expect(appBarTheme.toolbarHeight, 60);
+      expect(appBarTheme.actionsIconTheme?.color, theme.colorScheme.primary);
+      expect(appBarTheme.titleTextStyle?.fontWeight, FontWeight.w700);
+      expect(appBarTheme.toolbarHeight, 64);
     });
 
     test('开关和复选框使用主题化交互状态', () {
@@ -157,11 +141,11 @@ void main() {
 
       expect(
         switchTheme.thumbColor?.resolve({WidgetState.selected}),
-        AppThemePalette.violet.seedColor,
+        theme.colorScheme.primary,
       );
       expect(
         checkboxTheme.fillColor?.resolve({WidgetState.selected}),
-        AppThemePalette.violet.seedColor,
+        theme.colorScheme.primary,
       );
       expect(checkboxTheme.shape, isA<RoundedRectangleBorder>());
       expect(switchTheme.materialTapTargetSize, MaterialTapTargetSize.padded);
@@ -172,12 +156,12 @@ void main() {
       final theme = AppTheme.lightTheme(AppThemePalette.plasma);
       final fabTheme = theme.floatingActionButtonTheme;
 
-      expect(fabTheme.backgroundColor, AppThemePalette.plasma.seedColor);
+      expect(fabTheme.backgroundColor, theme.colorScheme.primary);
       expect(fabTheme.foregroundColor, theme.colorScheme.onPrimary);
       expect(fabTheme.enableFeedback, isTrue);
-      expect(fabTheme.elevation, 1);
-      expect(fabTheme.shape, isA<RoundedRectangleBorder>());
-      expect(fabTheme.extendedTextStyle?.fontWeight, FontWeight.w900);
+      expect(fabTheme.elevation, 0);
+      expect(fabTheme.shape, isA<CircleBorder>());
+      expect(fabTheme.extendedTextStyle?.fontWeight, FontWeight.w600);
     });
 
     test('按钮体系使用统一触控尺寸和主题色状态', () {
@@ -191,15 +175,15 @@ void main() {
       expect(filledStyle?.minimumSize?.resolve({}), const Size(48, 48));
       expect(
         filledStyle?.backgroundColor?.resolve({}),
-        AppThemePalette.cyan.seedColor,
+        theme.colorScheme.primary,
       );
       expect(outlinedStyle?.minimumSize?.resolve({}), const Size(48, 48));
       expect(textStyle?.minimumSize?.resolve({}), const Size(44, 44));
-      expect(elevatedStyle?.elevation?.resolve({}), 2);
+      expect(elevatedStyle?.elevation?.resolve({}), 0);
       expect(iconStyle?.minimumSize?.resolve({}), const Size(48, 48));
       expect(
         iconStyle?.backgroundColor?.resolve({WidgetState.selected}),
-        AppThemePalette.cyan.seedColor.withValues(alpha: 0.14),
+        theme.colorScheme.primary.withValues(alpha: 0.14),
       );
     });
 
@@ -208,12 +192,12 @@ void main() {
       final listTileTheme = theme.listTileTheme;
       final popupMenuTheme = theme.popupMenuTheme;
 
-      expect(listTileTheme.selectedColor, AppThemePalette.rose.seedColor);
-      expect(listTileTheme.minTileHeight, 56);
+      expect(listTileTheme.selectedColor, theme.colorScheme.primary);
+      expect(listTileTheme.minTileHeight, 52);
       expect(listTileTheme.shape, isA<RoundedRectangleBorder>());
       expect(listTileTheme.tileColor, isNull);
       expect(listTileTheme.selectedTileColor, isNull);
-      expect(popupMenuTheme.iconColor, AppThemePalette.rose.seedColor);
+      expect(popupMenuTheme.iconColor, theme.colorScheme.primary);
       expect(popupMenuTheme.position, PopupMenuPosition.under);
       expect(popupMenuTheme.surfaceTintColor, Colors.transparent);
       expect(popupMenuTheme.shape, isA<RoundedRectangleBorder>());
@@ -224,14 +208,14 @@ void main() {
       final progressTheme = theme.progressIndicatorTheme;
       final dividerTheme = theme.dividerTheme;
 
-      expect(progressTheme.color, AppThemePalette.aurora.seedColor);
-      expect(progressTheme.linearMinHeight, 7);
+      expect(progressTheme.color, theme.colorScheme.primary);
+      expect(progressTheme.linearMinHeight, 4);
       expect(progressTheme.strokeWidth, 3);
       expect(progressTheme.strokeCap, StrokeCap.round);
       expect(progressTheme.borderRadius, BorderRadius.circular(999));
-      expect(dividerTheme.thickness, 1);
+      expect(dividerTheme.thickness, 0.6);
       expect(dividerTheme.space, 1);
-      expect(dividerTheme.radius, BorderRadius.circular(999));
+      expect(dividerTheme.radius, BorderRadius.circular(1));
     });
 
     test('对话框和底部弹层使用主题化高级表面', () {
@@ -243,8 +227,8 @@ void main() {
       expect(dialogTheme.elevation, 0);
       expect(dialogTheme.surfaceTintColor, Colors.transparent);
       expect(dialogTheme.shape, isA<RoundedRectangleBorder>());
-      expect(dialogTheme.iconColor, AppThemePalette.plasma.seedColor);
-      expect(dialogTheme.titleTextStyle?.fontWeight, FontWeight.w900);
+      expect(dialogTheme.iconColor, theme.colorScheme.primary);
+      expect(dialogTheme.titleTextStyle?.fontWeight, FontWeight.w700);
       expect(dialogTheme.clipBehavior, Clip.antiAlias);
 
       expect(bottomSheetTheme.backgroundColor, isNotNull);
@@ -254,7 +238,7 @@ void main() {
       expect(bottomSheetTheme.surfaceTintColor, Colors.transparent);
       expect(bottomSheetTheme.shape, isA<RoundedRectangleBorder>());
       expect(bottomSheetTheme.showDragHandle, isTrue);
-      expect(bottomSheetTheme.dragHandleSize, const Size(44, 5));
+      expect(bottomSheetTheme.dragHandleSize, const Size(36, 5));
       expect(bottomSheetTheme.clipBehavior, Clip.antiAlias);
     });
 
@@ -266,37 +250,28 @@ void main() {
       expect(datePickerTheme.backgroundColor, isNotNull);
       expect(datePickerTheme.elevation, 0);
       expect(datePickerTheme.surfaceTintColor, Colors.transparent);
-      expect(
-        datePickerTheme.headerBackgroundColor,
-        AppThemePalette.cyan.seedColor,
-      );
-      expect(datePickerTheme.headerHeadlineStyle?.fontWeight, FontWeight.w900);
+      expect(datePickerTheme.headerBackgroundColor, theme.colorScheme.surface);
+      expect(datePickerTheme.headerHeadlineStyle?.fontWeight, FontWeight.w700);
       expect(
         datePickerTheme.dayShape?.resolve({}),
         isA<RoundedRectangleBorder>(),
       );
       expect(
         datePickerTheme.dayBackgroundColor?.resolve({WidgetState.selected}),
-        AppThemePalette.cyan.seedColor,
+        theme.colorScheme.primary,
       );
       expect(
         datePickerTheme.todayForegroundColor?.resolve({}),
-        AppThemePalette.cyan.seedColor,
+        theme.colorScheme.primary,
       );
       expect(datePickerTheme.confirmButtonStyle, isNotNull);
 
       expect(timePickerTheme.backgroundColor, isNotNull);
       expect(timePickerTheme.elevation, 0);
       expect(timePickerTheme.shape, isA<RoundedRectangleBorder>());
-      expect(
-        timePickerTheme.entryModeIconColor,
-        AppThemePalette.cyan.seedColor,
-      );
-      expect(
-        timePickerTheme.hourMinuteTextColor,
-        AppThemePalette.cyan.seedColor,
-      );
-      expect(timePickerTheme.dialHandColor, AppThemePalette.cyan.seedColor);
+      expect(timePickerTheme.entryModeIconColor, theme.colorScheme.primary);
+      expect(timePickerTheme.hourMinuteTextColor, theme.colorScheme.onSurface);
+      expect(timePickerTheme.dialHandColor, theme.colorScheme.primary);
       expect(timePickerTheme.dayPeriodShape, isA<RoundedRectangleBorder>());
       expect(timePickerTheme.confirmButtonStyle, isNotNull);
     });
@@ -307,7 +282,7 @@ void main() {
       final menuTheme = theme.menuTheme;
       final menuButtonTheme = theme.menuButtonTheme;
 
-      expect(dropdownTheme.textStyle?.fontWeight, FontWeight.w800);
+      expect(dropdownTheme.textStyle?.fontWeight, FontWeight.w500);
       expect(dropdownTheme.inputDecorationTheme?.filled, isTrue);
       expect(dropdownTheme.menuStyle, isNotNull);
       expect(dropdownTheme.disabledColor, isNotNull);
@@ -321,10 +296,7 @@ void main() {
 
       final buttonStyle = menuButtonTheme.style;
       expect(buttonStyle?.minimumSize?.resolve({}), const Size(44, 44));
-      expect(
-        buttonStyle?.iconColor?.resolve({}),
-        AppThemePalette.aurora.seedColor,
-      );
+      expect(buttonStyle?.iconColor?.resolve({}), theme.colorScheme.primary);
       expect(buttonStyle?.enableFeedback, isTrue);
     });
 
@@ -333,10 +305,10 @@ void main() {
       final textSelectionTheme = theme.textSelectionTheme;
       final scrollbarTheme = theme.scrollbarTheme;
 
-      expect(textSelectionTheme.cursorColor, AppThemePalette.rose.seedColor);
+      expect(textSelectionTheme.cursorColor, theme.colorScheme.primary);
       expect(
         textSelectionTheme.selectionHandleColor,
-        AppThemePalette.rose.seedColor,
+        theme.colorScheme.primary,
       );
       expect(textSelectionTheme.selectionColor, isNotNull);
 
@@ -349,15 +321,15 @@ void main() {
       expect(scrollbarTheme.minThumbLength, 48);
     });
 
-    test('主题模板标识唯一并覆盖高端色板', () {
+    test('主题设置只暴露少量主色', () {
       final ids = AppThemePalette.values.map((palette) => palette.id).toSet();
-      final labels = AppThemePalette.values.map((palette) => palette.label);
+      final labels = AppThemePalette.selectableValues.map(
+        (palette) => palette.label,
+      );
 
       expect(ids.length, AppThemePalette.values.length);
-      expect(labels, containsAll(['冰川青', '星云紫', '曜石玫瑰', '钛金灰', '量子青橙', '鎏金黑']));
-      expect(AppThemePalette.kinetic.sceneLabel, '青橙对比');
-      expect(AppThemePalette.titanium.platformCue, '原生');
-      expect(AppThemePalette.values.length, 16);
+      expect(labels, ['绿色', '蓝色', '青色', '紫色', '橙色', '灰色']);
+      expect(AppThemePalette.selectableValues.length, 6);
     });
   });
 }

@@ -1,4 +1,4 @@
-import { get, post, put, del, patch } from '@/utils/request'
+import { get, post, del, patch } from '@/utils/request'
 
 export type LoanType = 'credit_card' | 'mortgage' | 'car_loan' | 'consumer_loan' | 'other'
 
@@ -47,6 +47,10 @@ export interface CreateReminderParams {
   evidence?: string
 }
 
+export type UpdateReminderParams = Partial<{
+	[K in keyof CreateReminderParams]: CreateReminderParams[K] | null
+}>
+
 export interface DebtSummary {
   total_debt: number
   total_paid: number
@@ -74,8 +78,8 @@ export const reminderApi = {
     return post<Reminder>('/reminders', params)
   },
 
-  update(id: string, params: CreateReminderParams): Promise<Reminder> {
-    return put<Reminder>(`/reminders/${id}`, params)
+	update(id: string, params: UpdateReminderParams): Promise<Reminder> {
+		return patch<Reminder>(`/reminders/${id}`, params)
   },
 
   delete(id: string): Promise<void> {

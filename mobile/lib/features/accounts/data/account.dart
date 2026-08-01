@@ -223,25 +223,13 @@ class UpdateAccountRequest {
       'icon': icon,
       'color': color,
       'remark': remark,
+      'payment_day': paymentDay,
+      'billing_day': billingDay,
+      'credit_limit': creditLimit,
+      'interest_rate': interestRate,
+      'start_date': startDate,
+      'target_date': targetDate,
     };
-    if (paymentDay != null) {
-      data['payment_day'] = paymentDay;
-    }
-    if (billingDay != null) {
-      data['billing_day'] = billingDay;
-    }
-    if (creditLimit != null) {
-      data['credit_limit'] = creditLimit;
-    }
-    if (interestRate != null) {
-      data['interest_rate'] = interestRate;
-    }
-    if (startDate != null) {
-      data['start_date'] = startDate;
-    }
-    if (targetDate != null) {
-      data['target_date'] = targetDate;
-    }
     return data;
   }
 }

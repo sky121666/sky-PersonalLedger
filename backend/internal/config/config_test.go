@@ -56,6 +56,15 @@ func TestLoadDatabaseCompatibilityDefaults(t *testing.T) {
 	if cfg.RateLimit.WindowSecs != 60 {
 		t.Fatalf("rate limit window secs = %d, want 60", cfg.RateLimit.WindowSecs)
 	}
+	if cfg.Security.AllowPrivateOutbound {
+		t.Fatal("private outbound networks must be disabled by default")
+	}
+	if cfg.Server.TrustedProxies != "" {
+		t.Fatalf("trusted proxies = %q, want empty secure default", cfg.Server.TrustedProxies)
+	}
+	if cfg.Storage.RestoreMaxFileSize != 64 {
+		t.Fatalf("restore max file size = %d, want 64MB", cfg.Storage.RestoreMaxFileSize)
+	}
 }
 
 func TestLoadDatabaseCompatibilityConfigFromEnv(t *testing.T) {
@@ -69,6 +78,9 @@ func TestLoadDatabaseCompatibilityConfigFromEnv(t *testing.T) {
 	t.Setenv("LEDGER_SETUP_CONFIG_PATH", "/data/config.yaml")
 	t.Setenv("LEDGER_RATE_LIMIT_MAX_REQUESTS", "321")
 	t.Setenv("LEDGER_RATE_LIMIT_WINDOW_SECS", "45")
+	t.Setenv("LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND", "true")
+	t.Setenv("LEDGER_SERVER_TRUSTED_PROXIES", "10.0.0.10,10.0.0.0/24")
+	t.Setenv("LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE", "96")
 
 	cfg, err := Load()
 	if err != nil {
@@ -95,6 +107,15 @@ func TestLoadDatabaseCompatibilityConfigFromEnv(t *testing.T) {
 	}
 	if cfg.RateLimit.WindowSecs != 45 {
 		t.Fatalf("rate limit window secs = %d, want 45", cfg.RateLimit.WindowSecs)
+	}
+	if !cfg.Security.AllowPrivateOutbound {
+		t.Fatal("private outbound network opt-in was not loaded from env")
+	}
+	if cfg.Server.TrustedProxies != "10.0.0.10,10.0.0.0/24" {
+		t.Fatalf("trusted proxies = %q, want env value", cfg.Server.TrustedProxies)
+	}
+	if cfg.Storage.RestoreMaxFileSize != 96 {
+		t.Fatalf("restore max file size = %d, want 96MB", cfg.Storage.RestoreMaxFileSize)
 	}
 }
 

@@ -54,6 +54,75 @@ func TestAuthStoresOnlyRefreshTokenHashAndRefreshesRawToken(t *testing.T) {
 	}
 }
 
+func TestAuthRefreshRejectsAccessTokenEvenIfStoredAsRefreshToken(t *testing.T) {
+	svc, repos := newAuthServiceForTest(t)
+
+	result, err := svc.Init("LedgerInitPass123!")
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	users, err := repos.User.GetAll()
+	if err != nil || len(users) != 1 {
+		t.Fatalf("get initialized user: users=%d err=%v", len(users), err)
+	}
+
+	if err := repos.RefreshToken.Create(&model.RefreshToken{
+		ID:        uuid.New().String(),
+		UserID:    users[0].ID,
+		Token:     hashRefreshToken(result.AccessToken),
+		ExpiresAt: time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatalf("store access token in refresh table: %v", err)
+	}
+
+	if _, err := svc.RefreshToken(result.AccessToken); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("refresh with access token error = %v, want %v", err, ErrInvalidToken)
+	}
+}
+
+func TestAuthRefreshRotationRejectsOldRefreshToken(t *testing.T) {
+	svc, _ := newAuthServiceForTest(t)
+
+	result, err := svc.Init("LedgerInitPass123!")
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	rotated, err := svc.RefreshToken(result.RefreshToken)
+	if err != nil {
+		t.Fatalf("rotate refresh token: %v", err)
+	}
+	if rotated.RefreshToken == result.RefreshToken {
+		t.Fatal("rotation returned the old refresh token")
+	}
+
+	if _, err := svc.RefreshToken(result.RefreshToken); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("reuse rotated refresh token error = %v, want %v", err, ErrInvalidToken)
+	}
+	if _, err := svc.RefreshToken(rotated.RefreshToken); err != nil {
+		t.Fatalf("refresh with rotated token: %v", err)
+	}
+}
+
+func TestAuthLogoutInvalidatesRefreshToken(t *testing.T) {
+	svc, _ := newAuthServiceForTest(t)
+
+	result, err := svc.Init("LedgerInitPass123!")
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	claims, err := svc.jwtManager.ValidateAccessToken(result.AccessToken)
+	if err != nil {
+		t.Fatalf("validate access token: %v", err)
+	}
+	if err := svc.Logout(claims.UserID); err != nil {
+		t.Fatalf("logout: %v", err)
+	}
+
+	if _, err := svc.RefreshToken(result.RefreshToken); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("refresh after logout error = %v, want %v", err, ErrInvalidToken)
+	}
+}
+
 func TestAuthRefreshMigratesLegacyPlaintextRefreshToken(t *testing.T) {
 	svc, repos := newAuthServiceForTest(t)
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte("LedgerInitPass123!"), 12)
