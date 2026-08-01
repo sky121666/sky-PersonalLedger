@@ -52,6 +52,16 @@ const router = createRouter({
           component: () => import('@/views/CategoryView.vue')
         },
         {
+          path: 'tags',
+          name: 'tags',
+          component: () => import('@/views/TagView.vue')
+        },
+        {
+          path: 'templates',
+          name: 'templates',
+          component: () => import('@/views/TemplateView.vue')
+        },
+        {
           path: 'budgets',
           name: 'budgets',
           component: () => import('@/views/BudgetView.vue')

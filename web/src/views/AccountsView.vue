@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { accountApi, type Account, type CreateAccountParams, type AccountType, isDebtAccount } from '@/api/account'
+import { accountApi, type Account, type CreateAccountParams, type AccountType } from '@/api/account'
 import { Plus, X, ChevronDown, Trash2, Archive, Wallet, CreditCard, ArchiveRestore, ChevronLeft, Pen, ScrollText } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
+import { accountSummaryTotals } from '@/utils/accountSummary'
 
 const router = useRouter()
 import { toast } from '@/composables/useToast'
@@ -54,6 +55,8 @@ const accountTypes = [
   { value: 'mortgage', label: '房贷', icon: 'home' },
   { value: 'car_loan', label: '车贷', icon: 'car' },
   { value: 'consumer_loan', label: '消费贷', icon: 'wallet' },
+  { value: 'payable', label: '应付款', icon: 'wallet' },
+  { value: 'receivable', label: '应收款', icon: 'wallet' },
   // 投资
   { value: 'investment', label: '投资账户', icon: 'trending-up' },
   { value: 'fund', label: '基金', icon: 'pie-chart' },
@@ -79,12 +82,9 @@ async function loadAccounts() {
     const allData = await accountApi.getList(true)
     accounts.value = allData.list.filter(a => !a.is_archived)
     archivedAccounts.value = allData.list.filter(a => a.is_archived)
-    totalAssets.value = accounts.value
-      .filter(a => !isDebtAccount(a.type))
-      .reduce((sum, a) => sum + a.current_balance, 0)
-    totalLiabilities.value = accounts.value
-      .filter(a => isDebtAccount(a.type))
-      .reduce((sum, a) => sum + Math.abs(a.current_balance), 0)
+    const totals = accountSummaryTotals(allData)
+    totalAssets.value = totals.totalAssets
+    totalLiabilities.value = totals.totalLiabilities
   } catch (e) {
     console.error('Load accounts failed:', e)
   }

@@ -20,7 +20,7 @@ const tabs = [
 ]
 
 // Routes that should highlight "我的" tab
-const settingsChildRoutes = ['accounts', 'categories', 'budgets', 'reminders', 'lendings', 'report', 'family', 'ai']
+const settingsChildRoutes = ['accounts', 'categories', 'tags', 'templates', 'budgets', 'reminders', 'lendings', 'report', 'family', 'ai']
 
 const currentTab = computed(() => {
   const name = route.name as string

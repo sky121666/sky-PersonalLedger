@@ -11,11 +11,19 @@ import { toast } from '@/composables/useToast'
 import {
   Lock, Upload, Download, Info, ChevronRight,
   User, Shield, Database, X, Check, LogOut, Wallet, Moon, HardDrive, Bell,
-  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone, Sparkles
+  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone, Sparkles, Tag, Bolt
 } from 'lucide-vue-next'
 import { notificationApi, type UpdateNotificationParams } from '@/api/notification'
 import { systemApi } from '@/api/system'
-import { apiTokenApi, type APIToken } from '@/api/apiToken'
+import {
+  apiTokenApi,
+  type APIToken,
+  type APITokenScope
+} from '@/api/apiToken'
+import {
+  transactionImportApi,
+  type TransactionImportPreview
+} from '@/api/import'
 import { get, post, put } from '@/utils/request'
 import dayjs from 'dayjs'
 
@@ -34,6 +42,8 @@ const userStats = ref({
 const services = [
   { icon: Wallet, label: '账户管理', route: 'accounts', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
   { icon: FolderOpen, label: '分类管理', route: 'categories', color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+  { icon: Tag, label: '标签管理', route: 'tags', color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-900/20' },
+  { icon: Bolt, label: '快捷模板', route: 'templates', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
   { icon: Target, label: '预算设置', route: 'budgets', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
   { icon: Bell, label: '负债管理', route: 'reminders', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' },
   { icon: Users, label: '借贷往来', route: 'lendings', color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20' },
@@ -71,6 +81,7 @@ const showLogoutModal = ref(false)
 const showAboutModal = ref(false)
 const showPasswordModal = ref(false)
 const showRestoreModal = ref(false)
+const showTransactionImportModal = ref(false)
 const showSecurityModal = ref(false)
 const showProfileModal = ref(false)
 const showAutoBackupModal = ref(false)
@@ -121,8 +132,26 @@ const showApiTokenModal = ref(false)
 const apiTokens = ref<APIToken[]>([])
 const apiTokenLoading = ref(false)
 const newTokenName = ref('')
-const newTokenExpiry = ref(0) // 0 = never
+const newTokenExpiry = ref(90)
+const apiTokenScopeOptions: Array<{
+  value: APITokenScope
+  label: string
+  description: string
+}> = [
+  { value: 'ledger:read', label: '读取账本', description: '查看账户、交易与分类' },
+  { value: 'ledger:write', label: '修改账本', description: '新增、编辑与删除账本数据' },
+  { value: 'report:read', label: '查看报表', description: '读取统计与导出结果' },
+  { value: 'upload:read', label: '下载附件', description: '读取头像与交易附件' },
+  { value: 'upload:write', label: '管理附件', description: '上传或删除附件' }
+]
+const defaultApiTokenScopes: APITokenScope[] = [
+  'ledger:read',
+  'ledger:write',
+  'report:read'
+]
+const newTokenScopes = ref<APITokenScope[]>([...defaultApiTokenScopes])
 const createdToken = ref<string | null>(null)
+const createdTokenScopes = ref<APITokenScope[]>([])
 
 // Password form
 const passwordForm = ref({
@@ -138,6 +167,23 @@ const passwordSuccess = ref(false)
 const backupLoading = ref(false)
 const restoreLoading = ref(false)
 const restoreFile = ref<File | null>(null)
+const transactionImportFile = ref<File | null>(null)
+const transactionImportPreview = ref<TransactionImportPreview | null>(null)
+const transactionImportHistory = ref<TransactionImportPreview[]>([])
+const transactionImportLoading = ref(false)
+const transactionImportOtherHistory = computed(() =>
+  transactionImportHistory.value.filter(
+    item => item.id !== transactionImportPreview.value?.id
+  )
+)
+const transactionImportCanCommit = computed(() => {
+  const preview = transactionImportPreview.value
+  return Boolean(
+    preview &&
+    (preview.status === 'previewed' || preview.status === 'validated') &&
+    preview.invalid_rows === 0
+  )
+})
 
 // Notification settings
 const showNotificationModal = ref(false)
@@ -184,6 +230,7 @@ const menuGroups = [
     items: [
       { icon: HardDrive, label: '数据备份', desc: '导出全部数据', action: handleBackup, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/30' },
       { icon: Download, label: '恢复备份', desc: '导入数据文件', action: () => showRestoreModal.value = true, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/30' },
+      { icon: Upload, label: '交易导入', desc: '预览并导入 CSV / JSON', action: openTransactionImport, color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-900/30' },
       { icon: Clock, label: '自动备份', desc: '定时自动备份数据', action: openAutoBackupModal, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-900/30' },
     ]
   },
@@ -195,9 +242,15 @@ const menuGroups = [
   }
 ]
 
-function handleLogout() {
-  authStore.logout()
-  router.replace('/login')
+async function handleLogout() {
+  showLogoutModal.value = false
+  try {
+    await authStore.logout()
+  } catch {
+    toast.warning('本地已退出，但服务端会话撤销失败')
+  } finally {
+    await router.replace('/login')
+  }
 }
 
 // Profile functions
@@ -237,8 +290,12 @@ async function handleAvatarUpload(e: Event) {
   if (!target.files || !target.files[0]) return
   
   const file = target.files[0]
-  if (!file.type.startsWith('image/')) {
-    toast.error('请选择图片文件')
+  const extension = file.name.split('.').pop()?.toLowerCase() || ''
+  const allowedAvatarTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
+  const allowedAvatarExtensions = new Set(['jpg', 'jpeg', 'png', 'webp'])
+  if (!allowedAvatarTypes.has(file.type.toLowerCase()) || !allowedAvatarExtensions.has(extension)) {
+    toast.error('头像仅支持 JPEG、PNG 或 WebP')
+    target.value = ''
     return
   }
   
@@ -256,6 +313,7 @@ async function handleAvatarUpload(e: Event) {
     toast.error(e.message || '上传失败')
   } finally {
     avatarUploading.value = false
+    target.value = ''
   }
 }
 
@@ -329,8 +387,10 @@ function copyEntryUrl() {
 async function openApiTokenModal() {
   showApiTokenModal.value = true
   createdToken.value = null
+  createdTokenScopes.value = []
   newTokenName.value = ''
-  newTokenExpiry.value = 0
+  newTokenExpiry.value = 90
+  newTokenScopes.value = [...defaultApiTokenScopes]
   await loadApiTokens()
 }
 
@@ -351,13 +411,19 @@ async function createApiToken() {
     toast.error('请输入令牌名称')
     return
   }
+  if (newTokenScopes.value.length === 0) {
+    toast.error('请至少选择一项访问权限')
+    return
+  }
   apiTokenLoading.value = true
   try {
     const res = await apiTokenApi.create({
       name: newTokenName.value.trim(),
-      expires_in_days: newTokenExpiry.value
+      expires_in_days: newTokenExpiry.value,
+      scopes: newTokenScopes.value
     })
     createdToken.value = res.token
+    createdTokenScopes.value = res.scopes
     toast.success('令牌创建成功，请立即复制保存')
     await loadApiTokens()
     newTokenName.value = ''
@@ -366,6 +432,10 @@ async function createApiToken() {
   } finally {
     apiTokenLoading.value = false
   }
+}
+
+function apiTokenScopeLabel(scope: string) {
+  return apiTokenScopeOptions.find(option => option.value === scope)?.label || scope
 }
 
 async function deleteApiToken(id: number) {
@@ -518,7 +588,7 @@ async function handleChangePassword() {
     passwordSuccess.value = true
     setTimeout(() => {
       showPasswordModal.value = false
-      authStore.logout()
+      authStore.clearSession()
       router.replace('/login')
     }, 1500)
   } catch (e: any) {
@@ -588,6 +658,136 @@ async function handleRestore() {
   } finally {
     restoreLoading.value = false
   }
+}
+
+async function openTransactionImport() {
+  showTransactionImportModal.value = true
+  transactionImportFile.value = null
+  transactionImportPreview.value = null
+  transactionImportHistory.value = []
+  transactionImportLoading.value = true
+  try {
+    const history = await transactionImportApi.list()
+    transactionImportHistory.value = history.list || []
+    const latest = transactionImportHistory.value[0]
+    transactionImportPreview.value = latest
+      ? await transactionImportApi.get(latest.id)
+      : null
+  } catch (error: any) {
+    toast.error(error.message || '恢复最近导入状态失败')
+  } finally {
+    transactionImportLoading.value = false
+  }
+}
+
+function closeTransactionImport() {
+  if (transactionImportLoading.value) return
+  showTransactionImportModal.value = false
+  transactionImportFile.value = null
+  transactionImportPreview.value = null
+  transactionImportHistory.value = []
+}
+
+function handleTransactionImportFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  transactionImportFile.value = target.files?.[0] || null
+  transactionImportPreview.value = null
+}
+
+async function previewTransactionImport() {
+  if (!transactionImportFile.value) {
+    toast.warning('请选择 CSV 或 JSON 文件')
+    return
+  }
+  transactionImportLoading.value = true
+  try {
+    const preview = await transactionImportApi.preview(transactionImportFile.value)
+    setTransactionImportPreview(preview)
+    toast.success('导入预览已生成，尚未修改账本')
+  } catch (error: any) {
+    toast.error(error.message || '导入预览失败')
+  } finally {
+    transactionImportLoading.value = false
+  }
+}
+
+async function validateTransactionImport() {
+  const preview = transactionImportPreview.value
+  if (!preview) return
+  transactionImportLoading.value = true
+  try {
+    setTransactionImportPreview(await transactionImportApi.validate(preview.id))
+    toast.success('已按当前账户和分类重新验证')
+  } catch (error: any) {
+    toast.error(error.message || '重新验证失败')
+  } finally {
+    transactionImportLoading.value = false
+  }
+}
+
+async function commitTransactionImport() {
+  const preview = transactionImportPreview.value
+  if (!preview || !transactionImportCanCommit.value) return
+  transactionImportLoading.value = true
+  try {
+    setTransactionImportPreview(await transactionImportApi.commit(preview.id))
+    toast.success('交易已原子导入，可在 24 小时内撤销')
+  } catch (error: any) {
+    toast.error(error.message || '导入提交失败，请重新验证')
+  } finally {
+    transactionImportLoading.value = false
+  }
+}
+
+async function rollbackTransactionImport() {
+  const preview = transactionImportPreview.value
+  if (!preview || preview.status !== 'committed') return
+  transactionImportLoading.value = true
+  try {
+    setTransactionImportPreview(await transactionImportApi.rollback(preview.id))
+    toast.success('本次导入已完整撤销')
+  } catch (error: any) {
+    toast.error(error.message || '撤销导入失败')
+  } finally {
+    transactionImportLoading.value = false
+  }
+}
+
+function setTransactionImportPreview(preview: TransactionImportPreview) {
+  transactionImportPreview.value = preview
+  transactionImportHistory.value = [
+    preview,
+    ...transactionImportHistory.value.filter(item => item.id !== preview.id)
+  ]
+}
+
+async function selectTransactionImport(preview: TransactionImportPreview) {
+  if (transactionImportLoading.value) return
+  transactionImportLoading.value = true
+  try {
+    setTransactionImportPreview(await transactionImportApi.get(preview.id))
+    transactionImportFile.value = null
+  } catch (error: any) {
+    toast.error(error.message || '加载导入批次失败')
+  } finally {
+    transactionImportLoading.value = false
+  }
+}
+
+function transactionImportTypeLabel(type: string) {
+  return type === 'income' ? '收入' : type === 'expense' ? '支出' : type === 'transfer' ? '转账' : type
+}
+
+function transactionImportStatusLabel(status: string) {
+  return status === 'previewed'
+    ? '待确认'
+    : status === 'validated'
+      ? '已验证'
+      : status === 'committed'
+        ? '可撤销'
+        : status === 'rolled_back'
+          ? '已撤销'
+          : status
 }
 
 // Auto backup functions
@@ -958,6 +1158,166 @@ function formatFileSize(bytes: number) {
       </div>
     </Teleport>
 
+    <!-- Transaction Import Modal -->
+    <Teleport to="body">
+      <div v-if="showTransactionImportModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeTransactionImport"></div>
+        <div class="relative bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl rounded-[24px] w-full max-w-2xl max-h-[90vh] shadow-2xl border border-white/20 dark:border-white/10 flex flex-col">
+          <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-white/10 shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-2xl bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 flex items-center justify-center">
+                <Upload :size="22" />
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">交易导入</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">先预览和验证，确认后才写入账本</p>
+              </div>
+            </div>
+            <button class="min-w-11 min-h-11 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition" aria-label="关闭交易导入" @click="closeTransactionImport">
+              <X :size="20" class="text-gray-500" />
+            </button>
+          </div>
+
+          <div class="p-6 space-y-5 overflow-y-auto">
+            <label v-if="!transactionImportPreview" class="block">
+              <div
+                class="border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all"
+                :class="transactionImportFile ? 'border-cyan-400 bg-cyan-50 dark:bg-cyan-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-cyan-400'"
+              >
+                <input type="file" accept=".csv,.json,text/csv,application/json" class="hidden" @change="handleTransactionImportFileSelect" />
+                <Check v-if="transactionImportFile" :size="32" class="mx-auto mb-2 text-cyan-600" />
+                <Upload v-else :size="32" class="mx-auto mb-2 text-gray-400" />
+                <p class="font-medium text-sm text-gray-800 dark:text-gray-100">
+                  {{ transactionImportFile ? transactionImportFile.name : '选择交易 CSV 或 JSON 文件' }}
+                </p>
+                <p class="text-xs text-gray-400 mt-1">最大 5 MB、10,000 行；支持导出的中文 CSV 列名</p>
+              </div>
+            </label>
+
+            <template v-if="transactionImportPreview">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="rounded-2xl bg-gray-50 dark:bg-white/5 p-3">
+                  <div class="text-xs text-gray-400">总行数</div>
+                  <div class="text-xl font-bold text-gray-900 dark:text-white mt-1">{{ transactionImportPreview.total_rows }}</div>
+                </div>
+                <div class="rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 p-3">
+                  <div class="text-xs text-emerald-600">有效</div>
+                  <div class="text-xl font-bold text-emerald-700 dark:text-emerald-400 mt-1">{{ transactionImportPreview.valid_rows }}</div>
+                </div>
+                <div class="rounded-2xl bg-red-50 dark:bg-red-900/20 p-3">
+                  <div class="text-xs text-red-500">错误</div>
+                  <div class="text-xl font-bold text-red-600 dark:text-red-400 mt-1">{{ transactionImportPreview.invalid_rows }}</div>
+                </div>
+                <div class="rounded-2xl bg-amber-50 dark:bg-amber-900/20 p-3">
+                  <div class="text-xs text-amber-600">重复跳过</div>
+                  <div class="text-xl font-bold text-amber-700 dark:text-amber-400 mt-1">{{ transactionImportPreview.duplicate_rows }}</div>
+                </div>
+              </div>
+
+              <div v-if="transactionImportPreview.status === 'committed'" class="rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+                已导入 {{ transactionImportPreview.created_rows }} 条；会话到期前可原子撤销。
+              </div>
+              <div v-else-if="transactionImportPreview.status === 'rolled_back'" class="rounded-2xl bg-gray-100 dark:bg-white/5 p-4 text-sm text-gray-600 dark:text-gray-300">
+                已撤销 {{ transactionImportPreview.rolled_back_rows }} 条，本次导入未再影响账本。
+              </div>
+
+              <div v-if="transactionImportPreview.rows.length" class="border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden">
+                <div class="max-h-72 overflow-auto">
+                  <table class="w-full text-sm">
+                    <thead class="sticky top-0 bg-gray-50 dark:bg-[#252527] text-left text-xs text-gray-500">
+                      <tr>
+                        <th class="px-3 py-2.5">行</th>
+                        <th class="px-3 py-2.5">交易</th>
+                        <th class="px-3 py-2.5">账户 / 分类</th>
+                        <th class="px-3 py-2.5">校验</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+                      <tr v-for="row in transactionImportPreview.rows" :key="row.row">
+                        <td class="px-3 py-3 text-gray-400">{{ row.row }}</td>
+                        <td class="px-3 py-3 text-gray-800 dark:text-gray-100">
+                          <div class="font-medium">{{ transactionImportTypeLabel(row.type) }} · {{ row.amount.toFixed(2) }}</div>
+                          <div class="text-xs text-gray-400 mt-0.5">{{ row.transaction_date }}</div>
+                        </td>
+                        <td class="px-3 py-3 text-gray-600 dark:text-gray-300">
+                          <div>{{ row.account || '—' }}</div>
+                          <div class="text-xs text-gray-400 mt-0.5">{{ row.category || '无分类' }}</div>
+                        </td>
+                        <td class="px-3 py-3">
+                          <span v-if="row.valid && !row.duplicate" class="text-emerald-600">可导入</span>
+                          <span v-else-if="row.duplicate" class="text-amber-600">已导入，将跳过</span>
+                          <span v-else class="text-red-500">{{ row.errors?.join('；') }}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div v-if="transactionImportPreview.rows_truncated" class="px-3 py-2 text-xs text-gray-400 bg-gray-50 dark:bg-white/5">
+                  仅展示前 200 行；所有错误行会优先显示。
+                </div>
+              </div>
+            </template>
+
+            <label v-if="transactionImportPreview" class="min-h-11 inline-flex items-center gap-2 px-3 rounded-xl text-sm font-medium text-cyan-700 dark:text-cyan-300 cursor-pointer hover:bg-cyan-50 dark:hover:bg-cyan-900/20">
+              <input type="file" accept=".csv,.json,text/csv,application/json" class="hidden" @change="handleTransactionImportFileSelect" />
+              <FolderOpen :size="17" />
+              选择其他文件
+            </label>
+
+            <section v-if="transactionImportOtherHistory.length" aria-labelledby="transaction-import-history-title" class="space-y-2">
+              <h4 id="transaction-import-history-title" class="text-sm font-semibold text-gray-700 dark:text-gray-200">近期批次</h4>
+              <div class="rounded-2xl bg-gray-50 dark:bg-white/5 divide-y divide-gray-100 dark:divide-white/5 overflow-hidden">
+                <button
+                  v-for="item in transactionImportOtherHistory"
+                  :key="item.id"
+                  type="button"
+                  class="w-full min-h-11 px-3 py-2 flex items-center gap-3 text-left hover:bg-gray-100 dark:hover:bg-white/5 disabled:opacity-50"
+                  :disabled="transactionImportLoading"
+                  @click="selectTransactionImport(item)"
+                >
+                  <span class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{{ item.filename }}</span>
+                    <span class="block text-xs text-gray-400">{{ item.total_rows }} 条 · {{ transactionImportStatusLabel(item.status) }}</span>
+                  </span>
+                  <ChevronRight :size="17" class="text-gray-400" />
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <div class="p-5 border-t border-gray-100 dark:border-white/10 flex flex-wrap gap-3 justify-end shrink-0">
+            <button class="min-h-11 px-5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium" :disabled="transactionImportLoading" @click="closeTransactionImport">
+              {{ transactionImportPreview?.status === 'committed' || transactionImportPreview?.status === 'rolled_back' ? '关闭' : '取消' }}
+            </button>
+            <button
+              v-if="!transactionImportPreview"
+              class="min-h-11 px-5 rounded-xl bg-cyan-600 text-white font-semibold disabled:opacity-50"
+              :disabled="!transactionImportFile || transactionImportLoading"
+              @click="previewTransactionImport"
+            >
+              {{ transactionImportLoading ? '解析中...' : '生成预览' }}
+            </button>
+            <template v-else-if="transactionImportPreview.status === 'previewed' || transactionImportPreview.status === 'validated'">
+              <button class="min-h-11 px-5 rounded-xl border border-cyan-200 text-cyan-700 dark:text-cyan-300 font-medium disabled:opacity-50" :disabled="transactionImportLoading" @click="validateTransactionImport">
+                重新验证
+              </button>
+              <button class="min-h-11 px-5 rounded-xl bg-cyan-600 text-white font-semibold disabled:opacity-50" :disabled="!transactionImportCanCommit || transactionImportLoading" @click="commitTransactionImport">
+                {{ transactionImportLoading ? '提交中...' : `确认导入 ${transactionImportPreview.valid_rows - transactionImportPreview.duplicate_rows} 条` }}
+              </button>
+            </template>
+            <button
+              v-else-if="transactionImportPreview.status === 'committed'"
+              class="min-h-11 px-5 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-semibold disabled:opacity-50"
+              :disabled="transactionImportLoading"
+              @click="rollbackTransactionImport"
+            >
+              {{ transactionImportLoading ? '撤销中...' : '撤销本次导入' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Notification Settings Modal -->
     <Teleport to="body">
       <div v-if="showNotificationModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1285,7 +1645,11 @@ function formatFileSize(bytes: number) {
         <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10 max-h-[90vh] flex flex-col">
           <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-white/10 shrink-0">
             <h3 class="text-lg font-bold text-gray-900 dark:text-white">API Token 管理</h3>
-            <button class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" @click="showApiTokenModal = false">
+            <button
+              class="min-w-11 min-h-11 p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition flex items-center justify-center"
+              aria-label="关闭 API Token 管理"
+              @click="showApiTokenModal = false"
+            >
               <X :size="20" class="text-gray-500" />
             </button>
           </div>
@@ -1307,23 +1671,53 @@ function formatFileSize(bytes: number) {
             <!-- Create New Token -->
             <div class="space-y-3">
               <h4 class="text-sm font-bold text-gray-500">创建新令牌</h4>
-              <div class="flex gap-2">
-                <input
-                  v-model="newTokenName"
-                  type="text"
-                  placeholder="令牌名称（如：我的手机）"
-                  class="flex-1 h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
-                />
-                <select v-model.number="newTokenExpiry" class="h-11 px-3 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none text-sm text-gray-900 dark:text-white">
-                  <option :value="0">永不过期</option>
-                  <option :value="30">30 天</option>
-                  <option :value="90">90 天</option>
-                  <option :value="365">1 年</option>
-                </select>
+              <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_8.5rem] gap-3">
+                <label class="space-y-1.5">
+                  <span class="block text-xs font-medium text-gray-500 dark:text-gray-400">令牌名称</span>
+                  <input
+                    v-model="newTokenName"
+                    type="text"
+                    maxlength="100"
+                    autocomplete="off"
+                    placeholder="例如：我的手机"
+                    class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
+                  />
+                </label>
+                <label class="space-y-1.5">
+                  <span class="block text-xs font-medium text-gray-500 dark:text-gray-400">有效期</span>
+                  <select v-model.number="newTokenExpiry" class="w-full h-11 px-3 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none text-sm text-gray-900 dark:text-white">
+                    <option :value="30">30 天</option>
+                    <option :value="90">90 天</option>
+                    <option :value="365">1 年</option>
+                    <option :value="0">永不过期</option>
+                  </select>
+                </label>
               </div>
+              <fieldset class="space-y-2">
+                <legend class="text-xs font-medium text-gray-500 dark:text-gray-400">最小访问权限</legend>
+                <label
+                  v-for="scope in apiTokenScopeOptions"
+                  :key="scope.value"
+                  class="min-h-11 flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-50 dark:bg-black/20 cursor-pointer"
+                >
+                  <input
+                    v-model="newTokenScopes"
+                    type="checkbox"
+                    :value="scope.value"
+                    class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/30"
+                  />
+                  <span class="min-w-0">
+                    <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ scope.label }}</span>
+                    <span class="block text-xs text-gray-500 dark:text-gray-400">{{ scope.description }}</span>
+                  </span>
+                </label>
+              </fieldset>
+              <p v-if="newTokenExpiry === 0" class="text-xs text-amber-600 dark:text-amber-400">
+                永不过期令牌风险更高，建议仅用于无法定期轮换的受控设备。
+              </p>
               <button
                 class="w-full h-11 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 disabled:opacity-50 transition flex items-center justify-center gap-2"
-                :disabled="apiTokenLoading || !newTokenName.trim()"
+                :disabled="apiTokenLoading || !newTokenName.trim() || newTokenScopes.length === 0"
                 @click="createApiToken"
               >
                 <Plus :size="18" />
@@ -1344,11 +1738,20 @@ function formatFileSize(bytes: number) {
                 </code>
                 <button
                   @click="copyToken(createdToken)"
-                  class="p-2 hover:bg-green-100 dark:hover:bg-green-800/30 rounded-lg transition"
-                  title="复制"
+                  class="min-w-11 min-h-11 p-2 hover:bg-green-100 dark:hover:bg-green-800/30 rounded-lg transition flex items-center justify-center"
+                  aria-label="复制新令牌"
                 >
                   <Copy :size="16" class="text-green-500" />
                 </button>
+              </div>
+              <div class="flex flex-wrap gap-1.5 mt-3" aria-label="新令牌权限">
+                <span
+                  v-for="scope in createdTokenScopes"
+                  :key="scope"
+                  class="px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-[11px] font-medium text-green-700 dark:text-green-300"
+                >
+                  {{ apiTokenScopeLabel(scope) }}
+                </span>
               </div>
             </div>
 
@@ -1373,11 +1776,20 @@ function formatFileSize(bytes: number) {
                       <span v-if="token.last_used_at" class="ml-2">最后使用: {{ dayjs(token.last_used_at).format('MM-DD HH:mm') }}</span>
                       <span v-if="token.expires_at" class="ml-2 text-orange-500">{{ dayjs(token.expires_at).format('YYYY-MM-DD') }} 过期</span>
                     </p>
+                    <div class="flex flex-wrap gap-1 mt-1.5" :aria-label="`${token.name} 的权限`">
+                      <span
+                        v-for="scope in token.scopes || []"
+                        :key="scope"
+                        class="px-1.5 py-0.5 rounded-md bg-white dark:bg-white/10 text-[10px] font-medium text-gray-600 dark:text-gray-300"
+                      >
+                        {{ apiTokenScopeLabel(scope) }}
+                      </span>
+                    </div>
                   </div>
                   <button
                     @click="deleteApiToken(token.id)"
-                    class="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition"
-                    title="删除"
+                    class="min-w-11 min-h-11 p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition flex items-center justify-center"
+                    :aria-label="`撤销令牌 ${token.name}`"
                   >
                     <Trash2 :size="16" class="text-red-500" />
                   </button>
@@ -1439,7 +1851,7 @@ function formatFileSize(bytes: number) {
                   >
                     {{ avatarUploading ? '上传中...' : '点击上传头像' }}
                   </div>
-                  <input type="file" accept="image/*" class="hidden" :disabled="avatarUploading" @change="handleAvatarUpload" />
+                  <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" :disabled="avatarUploading" @change="handleAvatarUpload" />
                 </label>
               </div>
             </div>

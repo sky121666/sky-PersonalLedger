@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { AlertTriangle, ArrowLeft, Bot, CalendarClock, KeyRound, PlayCircle, RefreshCw, ShieldCheck, Sparkles, Trash2, TrendingUp, Zap } from 'lucide-vue-next'
 import { aiApi, type AIProvider, type AIProviderPreset, type AIReport, type AIReportScheduleRunResult, type SaveAIProviderParams } from '@/api/ai'
 import { toast } from '@/composables/useToast'
+import { formatLocalDate } from '@/utils/localDate'
 
 const router = useRouter()
 const loading = ref(false)
@@ -279,13 +280,14 @@ function defaultWeekStart() {
   const date = new Date()
   const day = date.getDay() || 7
   date.setDate(date.getDate() - day + 1)
-  return date.toISOString().slice(0, 10)
+  return formatLocalDate(date)
 }
 
 function defaultWeekEnd() {
-  const date = new Date(defaultWeekStart())
-  date.setDate(date.getDate() + 6)
-  return date.toISOString().slice(0, 10)
+  const date = new Date()
+  const day = date.getDay() || 7
+  date.setDate(date.getDate() - day + 7)
+  return formatLocalDate(date)
 }
 </script>
 

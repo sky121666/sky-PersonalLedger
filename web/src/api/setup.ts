@@ -1,4 +1,5 @@
 import { get, post } from '@/utils/request'
+import { setupAccessConfig } from '@/utils/setupAccess'
 
 export interface SetupDatabaseStatus {
   driver: string
@@ -34,7 +35,7 @@ export const setupApi = {
   },
 
   testDatabase(data: TestDatabaseRequest): Promise<{ ok: boolean }> {
-    return post<{ ok: boolean }>('/setup/test-database', data)
+    return post<{ ok: boolean }>('/setup/test-database', data, setupAccessConfig())
   },
 
   applyDatabase(data: TestDatabaseRequest): Promise<{
@@ -42,6 +43,6 @@ export const setupApi = {
     config_path: string
     database: SetupDatabaseStatus
   }> {
-    return post('/setup/apply', data)
+    return post('/setup/apply', data, setupAccessConfig())
   }
 }

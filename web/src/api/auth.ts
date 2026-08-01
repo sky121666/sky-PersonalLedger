@@ -1,4 +1,7 @@
+import type { AxiosRequestConfig } from 'axios'
+
 import { get, post, put } from '@/utils/request'
+import { setupAccessConfig } from '@/utils/setupAccess'
 
 export interface AuthStatus {
   initialized: boolean
@@ -6,7 +9,7 @@ export interface AuthStatus {
 
 export interface AuthResponse {
   access_token: string
-  refresh_token: string
+  refresh_token?: string
   expires_in: number
 }
 
@@ -34,19 +37,29 @@ export const authApi = {
   },
 
   init(password: string): Promise<AuthResponse> {
-    return post<AuthResponse>('/auth/init', { password })
+    return post<AuthResponse>(
+      '/auth/init',
+      { password },
+      withBrowserSession(setupAccessConfig())
+    )
   },
 
   login(password: string): Promise<AuthResponse> {
-    return post<AuthResponse>('/auth/login', { password })
+    return post<AuthResponse>('/auth/login', { password }, withBrowserSession())
   },
 
-  refresh(refreshToken: string): Promise<AuthResponse> {
-    return post<AuthResponse>('/auth/refresh', { refresh_token: refreshToken })
+  refresh(silent = false): Promise<AuthResponse> {
+    return post<AuthResponse>(
+      '/auth/refresh',
+      {},
+      withBrowserSession(
+        silent ? { headers: { 'X-Session-Bootstrap': '1' } } : undefined
+      )
+    )
   },
 
   logout(): Promise<void> {
-    return post<void>('/auth/logout')
+    return post<void>('/auth/logout', undefined, withBrowserSession())
   },
 
   changePassword(oldPassword: string, newPassword: string): Promise<void> {
@@ -62,5 +75,15 @@ export const authApi = {
 
   updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
     return put<UserProfile>('/auth/profile', data)
+  }
+}
+
+function withBrowserSession(config: AxiosRequestConfig = {}): AxiosRequestConfig {
+  return {
+    ...config,
+    headers: {
+      ...config.headers,
+      'X-Refresh-Token-Mode': 'cookie'
+    }
   }
 }

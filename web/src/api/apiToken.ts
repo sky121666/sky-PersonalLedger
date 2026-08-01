@@ -1,9 +1,17 @@
 import { get, post, del } from '@/utils/request'
 
+export type APITokenScope =
+  | 'ledger:read'
+  | 'ledger:write'
+  | 'report:read'
+  | 'upload:read'
+  | 'upload:write'
+
 export interface APIToken {
   id: number
   name: string
   token_prefix: string
+  scopes: APITokenScope[]
   last_used_at: string | null
   expires_at: string | null
   created_at: string
@@ -14,6 +22,7 @@ export interface APITokenResponse {
   name: string
   token: string
   token_prefix: string
+  scopes: APITokenScope[]
   expires_at: string | null
   created_at: string
 }
@@ -21,6 +30,7 @@ export interface APITokenResponse {
 export interface CreateTokenRequest {
   name: string
   expires_in_days?: number
+  scopes: APITokenScope[]
 }
 
 interface APITokenListResponse {

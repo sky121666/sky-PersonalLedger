@@ -13,6 +13,9 @@ export interface Transaction {
   to_account_id: string | null
   member_id?: string | null
   paid_by_member_id?: string | null
+  source: string
+  reminder_id?: string | null
+  lending_id?: string | null
   recurring_id: string | null
   // Nested objects from backend
   account?: {
@@ -55,6 +58,7 @@ export interface TransactionListParams {
   type?: string
   account_id?: string
   category_id?: string
+  keyword?: string
 }
 
 export interface CreateTransactionParams {
@@ -66,6 +70,7 @@ export interface CreateTransactionParams {
   transaction_date: string
   remark?: string
   images?: string
+  tags?: string
   member_id?: string
   paid_by_member_id?: string
 }
