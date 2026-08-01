@@ -384,13 +384,18 @@ fi
 
 backend_port="${LEDGER_E2E_BACKEND_PORT:-$(pick_port)}"
 backend_base_url="http://127.0.0.1:$backend_port"
+backend_binary="$tmp_dir/ledger-server"
 mkdir -p "$tmp_dir/uploads" "$tmp_dir/backups" "$tmp_dir/web"
 
 echo "Mobile E2E targets: flutter-tester=$RUN_FLUTTER_TESTER_E2E android=$RUN_ANDROID_E2E ios=$RUN_IOS_E2E"
+echo "Building isolated backend before starting the readiness timeout..."
+(
+  cd "$repo_root/backend"
+  go build -o "$backend_binary" ./cmd/server
+)
 echo "Starting isolated SQLite backend at $backend_base_url"
 
 (
-  cd "$repo_root/backend"
   LEDGER_SERVER_PORT="$backend_port" \
   LEDGER_SERVER_MODE=debug \
   LEDGER_SERVER_WEB_PATH="$tmp_dir/web" \
@@ -401,7 +406,7 @@ echo "Starting isolated SQLite backend at $backend_base_url"
   LEDGER_STORAGE_UPLOAD_PATH="$tmp_dir/uploads" \
   LEDGER_STORAGE_BACKUP_PATH="$tmp_dir/backups" \
   LEDGER_CORS_ALLOWED_ORIGINS='*' \
-  go run ./cmd/server
+  "$backend_binary"
 ) >"$tmp_dir/backend.log" 2>&1 &
 backend_pid="$!"
 
