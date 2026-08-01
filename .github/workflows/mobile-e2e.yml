@@ -1,6 +1,7 @@
 name: Mobile Real Backend E2E
 
 on:
+  workflow_call:
   push:
     branches: [main]
     paths:

@@ -32,6 +32,7 @@ docker run -d \
   -p 127.0.0.1::8080 \
   -v "$DATA_DIR:/data" \
   -e LEDGER_JWT_SECRET=local-docker-smoke-only-change-me-32-characters \
+  -e LEDGER_SETUP_TOKEN=local-docker-setup-token-only-32-characters \
   -e LEDGER_SERVER_MODE=release \
   -e LEDGER_DATABASE_DRIVER=sqlite \
   -e LEDGER_DATABASE_PATH=/data/ledger.db \

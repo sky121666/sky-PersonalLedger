@@ -13,17 +13,78 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
-      build_number: ${{ github.run_number }}
+      build_number: ${{ steps.version.outputs.BUILD_NUMBER }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Get version from tag
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        env:
+          INPUT_VERSION: ${{ github.ref_name }}
+          INPUT_BUILD_NUMBER: ${{ github.run_number }}
+        run: ./scripts/resolve-release-version.sh --require-build-number
+
+  web:
+    name: Web quality gate
+    if: ${{ github.server_url == 'https://github.com' }}
+    uses: ./.github/workflows/web.yml
+
+  backend:
+    name: Backend and database quality gate
+    if: ${{ github.server_url == 'https://github.com' }}
+    uses: ./.github/workflows/backend-database.yml
+
+  mobile-quality:
+    name: Flutter quality gate
+    if: ${{ github.server_url == 'https://github.com' }}
+    uses: ./.github/workflows/mobile-quality.yml
+
+  mobile-e2e:
+    name: Mobile real-backend E2E gate
+    if: ${{ github.server_url == 'https://github.com' }}
+    uses: ./.github/workflows/mobile-e2e.yml
+
+  public-git-safety:
+    name: Public repository safety gate
+    if: ${{ github.server_url == 'https://github.com' }}
+    uses: ./.github/workflows/public-git-safety.yml
+
+  backup-security:
+    name: Backup and security contracts
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Vet backend
+        working-directory: backend
+        run: go vet ./...
+
+      - name: Verify runtime health contract
+        run: ./scripts/check-runtime-health-contract.sh
+
+      - name: Verify AI privacy contract
+        run: ./scripts/check-ai-privacy-contract.sh
+
+      - name: Rehearse backup and restore
+        run: ./scripts/check-backup-restore-rehearsal.sh
 
   # 调用 Docker 构建
   docker:
     name: Docker
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: prepare
+    needs: [prepare, backend, web, mobile-quality, mobile-e2e, public-git-safety, backup-security]
     uses: ./.github/workflows/docker.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -35,7 +96,7 @@ jobs:
   android:
     name: Android
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: prepare
+    needs: [prepare, backend, web, mobile-quality, mobile-e2e, public-git-safety, backup-security]
     uses: ./.github/workflows/android.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -82,18 +143,18 @@ jobs:
           path: artifacts/android-release
 
       - name: Verify Android artifact signatures
-        run: |
-          RELEASE_ARTIFACT_DIR=artifacts \
-          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
-          REQUIRE_IOS_ARTIFACT=0 \
-          VERIFY_ARTIFACT_SIGNATURES=1 \
-          ./scripts/check-release-artifact-files.sh
+        env:
+          RELEASE_ARTIFACT_DIR: artifacts
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          REQUIRE_IOS_ARTIFACT: '0'
+          VERIFY_ARTIFACT_SIGNATURES: '1'
+        run: ./scripts/check-release-artifact-files.sh
 
   # 调用 iOS 构建
   ios:
     name: iOS
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: prepare
+    needs: [prepare, backend, web, mobile-quality, mobile-e2e, public-git-safety, backup-security]
     uses: ./.github/workflows/ios.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -119,19 +180,19 @@ jobs:
           path: artifacts/ios-ipa
 
       - name: Verify iOS artifact signature
-        run: |
-          RELEASE_ARTIFACT_DIR=artifacts \
-          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
-          REQUIRE_ANDROID_ARTIFACTS=0 \
-          REQUIRE_IOS_ARTIFACT=1 \
-          VERIFY_ARTIFACT_SIGNATURES=1 \
-          ./scripts/check-release-artifact-files.sh
+        env:
+          RELEASE_ARTIFACT_DIR: artifacts
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          REQUIRE_ANDROID_ARTIFACTS: '0'
+          REQUIRE_IOS_ARTIFACT: '1'
+          VERIFY_ARTIFACT_SIGNATURES: '1'
+        run: ./scripts/check-release-artifact-files.sh
 
   # 创建 GitHub Release
   release:
     name: Create Release
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: [prepare, docker, android, verify-android-artifact, ios, verify-ios-artifact]
+    needs: [prepare, backend, web, mobile-quality, mobile-e2e, public-git-safety, backup-security, docker, android, verify-android-artifact, ios, verify-ios-artifact]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -150,19 +211,19 @@ jobs:
         run: find artifacts -type f
 
       - name: Verify Android release artifact checksums
-        run: |
-          RELEASE_ARTIFACT_DIR=artifacts \
-          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
-          REQUIRE_IOS_ARTIFACT=0 \
-          ./scripts/check-release-artifact-files.sh
+        env:
+          RELEASE_ARTIFACT_DIR: artifacts
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          REQUIRE_IOS_ARTIFACT: '0'
+        run: ./scripts/check-release-artifact-files.sh
 
       - name: Verify iOS release artifact checksums
-        run: |
-          RELEASE_ARTIFACT_DIR=artifacts \
-          RELEASE_VERSION=${{ needs.prepare.outputs.version }} \
-          REQUIRE_ANDROID_ARTIFACTS=0 \
-          REQUIRE_IOS_ARTIFACT=1 \
-          ./scripts/check-release-artifact-files.sh
+        env:
+          RELEASE_ARTIFACT_DIR: artifacts
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          REQUIRE_ANDROID_ARTIFACTS: '0'
+          REQUIRE_IOS_ARTIFACT: '1'
+        run: ./scripts/check-release-artifact-files.sh
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

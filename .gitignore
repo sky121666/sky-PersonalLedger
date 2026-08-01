@@ -5,6 +5,7 @@ vendor/
 # ===== 构建产物 =====
 web/dist/
 mobile/build/
+output/
 *.tsbuildinfo
 *.exe
 *.dll
@@ -72,6 +73,7 @@ temp/
 
 # ===== 测试 =====
 coverage/
+mobile/QA/design/
 *.cover
 *.out
 *.test

@@ -47,8 +47,13 @@ elif ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   exit 1
 fi
 
-if env -u LEDGER_JWT_SECRET docker compose -f "$ROOT_DIR/docker-compose.yml" config >/dev/null 2>&1; then
+if env -u LEDGER_JWT_SECRET LEDGER_SETUP_TOKEN=local-compose-setup-token-32-characters docker compose --env-file /dev/null -f "$ROOT_DIR/docker-compose.yml" config >/dev/null 2>&1; then
   echo "docker-compose.yml did not require LEDGER_JWT_SECRET." >&2
+  exit 1
+fi
+
+if env -u LEDGER_SETUP_TOKEN LEDGER_JWT_SECRET=local-compose-jwt-secret-32-characters docker compose --env-file /dev/null -f "$ROOT_DIR/docker-compose.yml" config >/dev/null 2>&1; then
+  echo "docker-compose.yml did not require LEDGER_SETUP_TOKEN." >&2
   exit 1
 fi
 
@@ -64,6 +69,7 @@ services:
       - ./data:/data
     environment:
       - LEDGER_JWT_SECRET=local-compose-smoke-only-32-characters
+      - LEDGER_SETUP_TOKEN=local-compose-setup-token-32-characters
       - LEDGER_SERVER_MODE=release
       - LEDGER_DATABASE_DRIVER=sqlite
       - LEDGER_DATABASE_PATH=/data/ledger.db
@@ -118,5 +124,6 @@ done
 
 echo "Docker compose local smoke checks passed for $IMAGE on 127.0.0.1:$PORT."
 echo "JWT guard: PASS"
+echo "Setup token guard: PASS"
 echo "Image healthcheck: healthy"
 echo "Persistent paths: ledger.db, uploads, backups"

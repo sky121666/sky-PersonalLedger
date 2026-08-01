@@ -48,14 +48,10 @@ jobs:
 
       - name: Set version
         id: version
-        run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
-            echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=0.0.0" >> $GITHUB_OUTPUT
-            echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_OUTPUT
-          fi
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+        run: ./scripts/resolve-release-version.sh --require-build-number
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -70,8 +66,11 @@ jobs:
 
       - name: Update version in pubspec.yaml
         working-directory: mobile
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          BUILD_NUMBER: ${{ steps.version.outputs.BUILD_NUMBER }}
         run: |
-          sed -i "s/version: .*/version: ${{ steps.version.outputs.VERSION }}+${{ steps.version.outputs.BUILD_NUMBER }}/" pubspec.yaml
+          sed -i "s/^version: .*/version: ${VERSION}+${BUILD_NUMBER}/" pubspec.yaml
 
       - name: Get dependencies
         working-directory: mobile
@@ -84,6 +83,10 @@ jobs:
       - name: Run Flutter tests
         working-directory: mobile
         run: flutter test
+
+      - name: Run Android native unit tests
+        working-directory: mobile/android
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
 
       - name: Configure Android release signing
         if: inputs.version != ''
@@ -116,30 +119,42 @@ jobs:
       - name: Build APK
         if: inputs.version != ''
         working-directory: mobile
-        run: flutter build apk --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          BUILD_NUMBER: ${{ steps.version.outputs.BUILD_NUMBER }}
+        run: flutter build apk --release --build-name="$VERSION" --build-number="$BUILD_NUMBER"
 
       - name: Build App Bundle
         if: inputs.version != ''
         working-directory: mobile
-        run: flutter build appbundle --release --build-name=${{ steps.version.outputs.VERSION }} --build-number=${{ steps.version.outputs.BUILD_NUMBER }}
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          BUILD_NUMBER: ${{ steps.version.outputs.BUILD_NUMBER }}
+        run: flutter build appbundle --release --build-name="$VERSION" --build-number="$BUILD_NUMBER"
 
       - name: Rename APK
         if: inputs.version != ''
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           mv mobile/build/app/outputs/flutter-apk/app-release.apk \
-             mobile/build/app/outputs/flutter-apk/personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk
+             "mobile/build/app/outputs/flutter-apk/personal-ledger-${VERSION}-android.apk"
 
       - name: Rename App Bundle
         if: inputs.version != ''
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           mv mobile/build/app/outputs/bundle/release/app-release.aab \
-             mobile/build/app/outputs/bundle/release/personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab
+             "mobile/build/app/outputs/bundle/release/personal-ledger-${VERSION}-android.aab"
 
       - name: Verify Android release signatures
         if: inputs.version != ''
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          APK_PATH="mobile/build/app/outputs/flutter-apk/personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk"
-          AAB_PATH="mobile/build/app/outputs/bundle/release/personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab"
+          APK_PATH="mobile/build/app/outputs/flutter-apk/personal-ledger-${VERSION}-android.apk"
+          AAB_PATH="mobile/build/app/outputs/bundle/release/personal-ledger-${VERSION}-android.aab"
           SDK_ROOTS=()
           if [ -n "${ANDROID_HOME:-}" ]; then
             SDK_ROOTS+=("$ANDROID_HOME")
@@ -193,14 +208,16 @@ jobs:
 
       - name: Generate Android checksums
         if: inputs.version != ''
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           (
             cd mobile/build/app/outputs/flutter-apk
-            shasum -a 256 personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk > personal-ledger-${{ steps.version.outputs.VERSION }}-android.apk.sha256
+            shasum -a 256 "personal-ledger-${VERSION}-android.apk" > "personal-ledger-${VERSION}-android.apk.sha256"
           )
           (
             cd mobile/build/app/outputs/bundle/release
-            shasum -a 256 personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab > personal-ledger-${{ steps.version.outputs.VERSION }}-android.aab.sha256
+            shasum -a 256 "personal-ledger-${VERSION}-android.aab" > "personal-ledger-${VERSION}-android.aab.sha256"
           )
 
       - name: Upload Android artifacts
