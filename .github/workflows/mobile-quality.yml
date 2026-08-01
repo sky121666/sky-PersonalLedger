@@ -49,4 +49,4 @@ jobs:
         run: flutter test
 
       - name: Run premium screen smoke tests
-        run: flutter test integration_test/premium_screens_smoke_test.dart
+        run: flutter test -d flutter-tester integration_test/premium_screens_smoke_test.dart

@@ -296,7 +296,7 @@ if [[ "${RUN_EXPENSIVE:-0}" == "1" ]]; then
     cd "$ROOT_DIR/mobile"
     flutter analyze
     flutter test
-    flutter test integration_test/premium_screens_smoke_test.dart
+    flutter test -d flutter-tester integration_test/premium_screens_smoke_test.dart
   )
 
   "$ROOT_DIR/scripts/verify-mobile-e2e.sh"

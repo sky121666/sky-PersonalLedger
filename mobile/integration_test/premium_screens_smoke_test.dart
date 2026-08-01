@@ -1410,9 +1410,15 @@ void main() {
           );
           expect(find.text('日常账本'), findsOneWidget);
           expect(find.text('计划与往来'), findsOneWidget);
-          expect(find.text('智能与数据'), findsOneWidget);
           expect(find.text('账户'), findsOneWidget);
           expect(find.text('预算'), findsOneWidget);
+          await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('profile-section-智能与数据')),
+            320,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('智能与数据'), findsOneWidget);
           expect(find.text('AI 分析'), findsOneWidget);
           expect(find.text('数据备份'), findsOneWidget);
           expect(find.text('功能中心'), findsNothing);
