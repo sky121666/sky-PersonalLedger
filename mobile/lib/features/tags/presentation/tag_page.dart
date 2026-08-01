@@ -191,7 +191,7 @@ class _TagPageState extends ConsumerState<TagPage> {
           IconButton(
             key: const ValueKey('tag-add'),
             onPressed: _submitting ? null : () => _openTagForm(),
-            tooltip: null,
+            tooltip: '添加标签',
             icon: const Icon(Icons.add),
           ),
         ],
@@ -368,7 +368,7 @@ class _TagCardState extends State<_TagCard> {
                   ),
                   IconButton(
                     key: ValueKey('tag-toggle-details-${tag.id}'),
-                    tooltip: null,
+                    tooltip: _expanded ? '收起${tag.name}操作' : '展开${tag.name}操作',
                     onPressed: () => setState(() {
                       _expanded = !_expanded;
                     }),

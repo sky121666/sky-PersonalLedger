@@ -49,10 +49,14 @@ void main() {
     expect(find.text('功能中心'), findsNothing);
     expect(find.byKey(const ValueKey('profile-logout')), findsOneWidget);
     expect(find.text('账本管理、计划提醒、智能数据和安全设置'), findsNothing);
-    expect(find.text('账本管理'), findsOneWidget);
-    expect(find.text('计划提醒'), findsOneWidget);
+    expect(find.text('日常账本'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('corgi-illustration-sitting')),
+      findsNothing,
+    );
+    expect(find.text('计划与往来'), findsOneWidget);
     expect(find.text('智能与数据'), findsOneWidget);
-    expect(find.text('安全设置'), findsOneWidget);
+    expect(find.text('安全与数据'), findsOneWidget);
     expect(find.text('资产配置'), findsNothing);
     expect(find.text('常用功能'), findsNothing);
     expect(find.text('个人控制中枢 · 绿色'), findsNothing);
@@ -90,7 +94,7 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('profile-section-安全设置')),
+      find.byKey(const ValueKey('profile-section-安全与数据')),
       180,
       scrollable: find.byType(Scrollable).first,
     );
@@ -112,6 +116,7 @@ void main() {
 
   testWidgets('ProfilePage 可切换外观模式和主题色模板', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    final semantics = tester.ensureSemantics();
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -158,11 +163,13 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('绿色主色').last);
+    await tester.tap(find.byKey(const ValueKey('profile-theme-palette-teal')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('青色主色').last);
+    await tester.tap(find.byKey(const ValueKey('profile-theme-palette-cyan')));
     await tester.pumpAndSettle();
-    expect(find.text('青色主色'), findsOneWidget);
+    expect(find.text('青色'), findsOneWidget);
+    expect(find.bySemanticsLabel('主色 青色，已选择'), findsOneWidget);
+    expect(find.bySemanticsLabel('主色 绿色，已选择'), findsNothing);
 
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
@@ -171,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('个人控制中枢 · 青色'), findsNothing);
     expect(find.text('前卫清透'), findsNothing);
-    expect(find.text('当前已应用：青色主色'), findsNothing);
+    expect(find.text('当前已应用：青色'), findsNothing);
     expect(find.text('模板矩阵'), findsNothing);
     expect(find.text('16 套'), findsNothing);
     expect(find.text('体验定位'), findsNothing);
@@ -202,6 +209,7 @@ void main() {
     expect(find.text('iOS 原生感'), findsNothing);
     expect(find.text('Android 动效'), findsNothing);
     expect(find.text('预算洞察输入框'), findsNothing);
+    semantics.dispose();
   });
 
   testWidgets('ProfilePage 设置入口跟随主题色模板', (tester) async {
@@ -262,6 +270,42 @@ void main() {
       find.byKey(const ValueKey('profile-appearance-panel')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('ProfilePage 功能入口使用紧凑触控行降低设置感', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final authRepository = _FakeAuthRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(authRepository),
+          authControllerProvider.overrideWith((ref) {
+            return _TestAuthController(ref);
+          }),
+        ],
+        child: const MaterialApp(home: ProfilePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final accountTileSize = tester.getSize(
+      find.byKey(const ValueKey('profile-entry-账户')),
+    );
+    final tagTileSize = tester.getSize(
+      find.byKey(const ValueKey('profile-entry-标签')),
+    );
+
+    expect(accountTileSize.height, greaterThanOrEqualTo(52));
+    expect(accountTileSize.height, lessThanOrEqualTo(64));
+    expect(tagTileSize.height, greaterThanOrEqualTo(52));
+    expect(tagTileSize.height, lessThanOrEqualTo(64));
+    expect(find.text('日常账本'), findsOneWidget);
+    expect(find.text('账本管理'), findsNothing);
   });
 }
 

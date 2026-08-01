@@ -2,18 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../accounts/data/account_type_rules.dart';
 import '../../statistics/data/statistics_models.dart';
 import '../../transactions/data/transaction_models.dart';
-
-const debtAccountTypes = <String>{
-  'credit',
-  'loan',
-  'mortgage',
-  'car_loan',
-  'consumer_loan',
-  'huabei',
-  'baitiao',
-};
 
 class Account {
   const Account({
@@ -34,7 +25,7 @@ class Account {
   final double currentBalance;
   final bool isArchived;
 
-  bool get isDebt => debtAccountTypes.contains(type);
+  bool get isDebt => isDebtAccountType(type);
 
   /// 从账户 JSON 构建账户模型。
   factory Account.fromJson(Object? json) {
@@ -178,6 +169,11 @@ class HomeSummary {
     required this.accounts,
     required this.overview,
     required this.budgetSummary,
+    this.trend = const TrendResponse(
+      items: [],
+      totalIncome: 0,
+      totalExpense: 0,
+    ),
     this.recentTransactions = const [],
     this.familySummary = const FamilyHomeSummary.empty(),
   });
@@ -185,6 +181,7 @@ class HomeSummary {
   final AccountListResponse accounts;
   final StatisticsOverview overview;
   final BudgetSummary budgetSummary;
+  final TrendResponse trend;
   final List<TransactionItem> recentTransactions;
   final FamilyHomeSummary familySummary;
 }
@@ -319,6 +316,11 @@ class HomeRepository {
       ),
       _getFamilySummaryOrEmpty(query),
       listRecentTransactions(),
+      _apiClient.get<TrendResponse>(
+        '/statistics/trend',
+        queryParameters: periodQuery,
+        fromJsonT: TrendResponse.fromJson,
+      ),
     ]);
 
     return HomeSummary(
@@ -329,6 +331,9 @@ class HomeRepository {
           results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
       recentTransactions:
           results[4] as List<TransactionItem>? ?? const <TransactionItem>[],
+      trend:
+          results[5] as TrendResponse? ??
+          const TrendResponse(items: [], totalIncome: 0, totalExpense: 0),
     );
   }
 

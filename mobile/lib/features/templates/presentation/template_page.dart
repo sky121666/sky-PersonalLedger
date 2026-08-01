@@ -203,7 +203,7 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
                 IconButton(
                   key: const ValueKey('template-add'),
                   onPressed: _openTemplateForm,
-                  tooltip: null,
+                  tooltip: '添加快捷模板',
                   icon: const Icon(Icons.add),
                 ),
               ]
@@ -538,7 +538,9 @@ class _TemplateCardState extends State<_TemplateCard> {
                   icon: Icon(
                     _showRemark ? Icons.remove_rounded : Icons.add_rounded,
                   ),
-                  tooltip: null,
+                  tooltip: _showRemark
+                      ? '收起${template.name}备注'
+                      : '展开${template.name}备注',
                 ),
               _TemplateMetaPill(
                 icon: Icons.repeat_outlined,
@@ -554,7 +556,9 @@ class _TemplateCardState extends State<_TemplateCard> {
               ),
               IconButton(
                 key: ValueKey('template-toggle-details-${template.id}'),
-                tooltip: null,
+                tooltip: _expanded
+                    ? '收起${template.name}操作'
+                    : '展开${template.name}操作',
                 onPressed: () => setState(() {
                   _expanded = !_expanded;
                 }),
@@ -794,7 +798,7 @@ class _TemplateFormSheetState extends ConsumerState<_TemplateFormSheet> {
                   icon: Icon(
                     _showMoreOptions ? Icons.remove_rounded : Icons.add_rounded,
                   ),
-                  tooltip: null,
+                  tooltip: _showMoreOptions ? '收起模板备注' : '展开模板备注',
                 ),
               ),
               if (_showMoreOptions) ...[

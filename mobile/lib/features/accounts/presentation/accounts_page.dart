@@ -12,6 +12,7 @@ import '../../../app/widgets/premium_surface.dart';
 import '../../account_logs/presentation/account_log_page.dart';
 import '../application/account_controller.dart';
 import '../data/account.dart';
+import '../data/account_type_rules.dart';
 
 const _accountTypes = [
   _AccountTypeOption('cash', '现金'),
@@ -38,16 +39,6 @@ const _accountTypes = [
   _AccountTypeOption('prepaid', '充值卡'),
   _AccountTypeOption('other', '其他'),
 ];
-
-const _debtAccountTypes = {
-  'credit',
-  'loan',
-  'mortgage',
-  'car_loan',
-  'consumer_loan',
-  'huabei',
-  'baitiao',
-};
 
 const _accountColors = [
   '#3B82F6',
@@ -85,7 +76,7 @@ class AccountsPage extends ConsumerWidget {
           IconButton(
             key: const ValueKey('account-add'),
             onPressed: () => _openAccountForm(context, ref),
-            tooltip: null,
+            tooltip: '添加账户',
             icon: const Icon(Icons.add),
           ),
         ],
@@ -358,51 +349,87 @@ class _AccountSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final financeColors = AppTheme.financeColors(context);
     final colorScheme = Theme.of(context).colorScheme;
-    return Semantics(
-      label: '净资产 ${_formatMoney(result.netAssets)}',
-      child: PremiumSurface(
-        accentColor: financeColors.asset,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '净资产',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
+    return PremiumSurface(
+      accentColor: financeColors.asset,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: Icons.account_balance_wallet_outlined,
+                color: financeColors.asset,
+                size: 40,
+                iconSize: 20,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _formatMoney(result.netAssets),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-                fontFeatures: const [FontFeature.tabularFigures()],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '净资产',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '账户、负债和净值',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '当前净值',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 12),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _formatMoney(result.netAssets),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: result.netAssets >= 0
+                  ? colorScheme.onSurface
+                  : colorScheme.error,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
-            const SizedBox(height: 10),
-            _AccountSummaryLine(
-              label: '总资产',
-              value: _formatMoney(result.totalAssets),
-              color: financeColors.income,
-            ),
-            const SizedBox(height: 6),
-            _AccountSummaryLine(
-              label: '总负债',
-              value: _formatMoney(result.totalLiabilities),
-              color: financeColors.expense,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _AccountSummaryLine(
+                  label: '总资产',
+                  value: _formatMoney(result.totalAssets),
+                  color: financeColors.income,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AccountSummaryLine(
+                  label: '总负债',
+                  value: _formatMoney(result.totalLiabilities),
+                  color: financeColors.expense,
+                  alignEnd: true,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -413,38 +440,39 @@ class _AccountSummaryLine extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.alignEnd = false,
   });
 
   final String label;
   final String value;
   final Color color;
+  final bool alignEnd;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
+    return Column(
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.right,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w900,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
@@ -460,16 +488,7 @@ class _AccountLeadingIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surface = Theme.of(context).colorScheme.surfaceContainerHighest;
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(color.withValues(alpha: 0.1), surface),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(icon, size: 19, color: color),
-    );
+    return IconBadge(icon: icon, color: color, size: 38, iconSize: 19);
   }
 }
 
@@ -628,11 +647,17 @@ class _AccountListTileState extends ConsumerState<_AccountListTile> {
                       ),
                       IconButton(
                         key: ValueKey('account-toggle-details-${account.id}'),
-                        tooltip: null,
+                        tooltip: _expanded
+                            ? '收起${account.name}操作'
+                            : '展开${account.name}操作',
                         onPressed: () => setState(() {
                           _expanded = !_expanded;
                         }),
-                        icon: Icon(_expanded ? Icons.remove : Icons.add),
+                        icon: Icon(
+                          _expanded
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                        ),
                         iconSize: 19,
                         padding: EdgeInsets.zero,
                         visualDensity: VisualDensity.compact,
@@ -984,7 +1009,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        tooltip: null,
+                        tooltip: '关闭账户表单',
                         icon: const Icon(Icons.close),
                       ),
                     ],
@@ -1120,7 +1145,7 @@ class _AccountFormSheetState extends ConsumerState<_AccountFormSheet> {
                             onPressed: () => setState(() {
                               _showDebtOptions = !_showDebtOptions;
                             }),
-                            tooltip: null,
+                            tooltip: _showDebtOptions ? '收起负债账户信息' : '展开负债账户信息',
                             icon: Icon(
                               _showDebtOptions ? Icons.remove : Icons.add,
                             ),
@@ -1307,7 +1332,7 @@ class _VisualOptionsToggle extends StatelessWidget {
     return IconButton(
       key: const ValueKey('account-style-toggle'),
       onPressed: onPressed,
-      tooltip: null,
+      tooltip: expanded ? '收起账户外观设置' : '展开账户外观设置',
       icon: Icon(expanded ? Icons.remove_rounded : Icons.add_rounded, size: 18),
       color: color,
       style: IconButton.styleFrom(
@@ -1675,7 +1700,7 @@ String _accountTypeLabel(String type) {
 
 /// 判断账户类型是否需要负债扩展字段。
 bool _isDebtAccount(String type) {
-  return _debtAccountTypes.contains(type);
+  return isDebtAccountType(type);
 }
 
 IconData _accountIconData(Account account) {

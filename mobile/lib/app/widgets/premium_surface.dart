@@ -7,7 +7,7 @@ class PremiumSurface extends StatelessWidget {
   const PremiumSurface({
     required this.child,
     this.onTap,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(16),
     this.radius = AppTheme.surfaceRadius,
     this.accentColor,
     this.semanticLabel,
@@ -26,21 +26,14 @@ class PremiumSurface extends StatelessWidget {
     final trimmedSemanticLabel = semanticLabel?.trim();
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final tint = accentColor ?? colorScheme.primary;
-    final background = Color.alphaBlend(
-      tint.withValues(alpha: isDark ? 0.06 : 0.025),
-      colorScheme.surface,
-    );
-    final borderColor = Color.alphaBlend(
-      tint.withValues(alpha: isDark ? 0.16 : 0.08),
-      colorScheme.outlineVariant.withValues(alpha: isDark ? 0.34 : 0.40),
-    );
+    final background = isDark
+        ? colorScheme.surfaceContainerLow
+        : colorScheme.surface;
 
     final surface = DecoratedBox(
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: borderColor),
       ),
       child: Padding(padding: padding, child: child),
     );

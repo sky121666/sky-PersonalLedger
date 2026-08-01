@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class PressableScale extends StatelessWidget {
+import '../theme/motion_tokens.dart';
+
+class PressableScale extends StatefulWidget {
   const PressableScale({
     required this.child,
     this.onTap,
     this.semanticLabel,
-    this.scale = 0.98,
+    this.scale = 0.985,
     super.key,
   });
 
@@ -15,27 +17,57 @@ class PressableScale extends StatelessWidget {
   final String? semanticLabel;
   final double scale;
 
+  @override
+  State<PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<PressableScale> {
+  bool _pressed = false;
+
   void _handleTap() {
-    onTap?.call();
+    widget.onTap?.call();
+  }
+
+  void _setPressed(bool pressed) {
+    if (_pressed == pressed) {
+      return;
+    }
+    setState(() => _pressed = pressed);
   }
 
   @override
   Widget build(BuildContext context) {
-    final interactive = onTap != null;
+    final interactive = widget.onTap != null;
     final content = ConstrainedBox(
       constraints: interactive
           ? const BoxConstraints(minWidth: 44, minHeight: 44)
           : const BoxConstraints(),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(onTap: interactive ? _handleTap : null, child: child),
+      child: AnimatedOpacity(
+        opacity: interactive && _pressed ? 0.92 : 1,
+        duration: MotionTokens.short,
+        curve: MotionTokens.curveStandard,
+        child: AnimatedScale(
+          scale: interactive && _pressed ? widget.scale : 1,
+          duration: MotionTokens.short,
+          curve: MotionTokens.curveStandard,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: interactive ? _handleTap : null,
+              onTapDown: interactive ? (_) => _setPressed(true) : null,
+              onTapCancel: interactive ? () => _setPressed(false) : null,
+              onTapUp: interactive ? (_) => _setPressed(false) : null,
+              child: widget.child,
+            ),
+          ),
+        ),
       ),
     );
 
     return Semantics(
       button: interactive,
       enabled: interactive,
-      label: semanticLabel,
+      label: widget.semanticLabel,
       onTap: interactive ? _handleTap : null,
       child: FocusableActionDetector(
         enabled: interactive,

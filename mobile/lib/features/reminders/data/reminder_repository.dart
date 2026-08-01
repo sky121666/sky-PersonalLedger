@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../accounts/data/account_type_rules.dart';
 import '../../accounts/application/account_controller.dart';
 import '../../accounts/data/account.dart';
 
@@ -67,7 +68,7 @@ class ReminderRepository {
   }
 
   Future<ReminderItem?> updateReminder(String id, ReminderFormRequest request) {
-    return _apiClient.put<ReminderItem>(
+    return _apiClient.patch<ReminderItem>(
       '/reminders/$id',
       data: request.toJson(),
       fromJsonT: ReminderItem.fromJson,
@@ -130,8 +131,7 @@ class ReminderDashboard {
   List<Account> get paymentAccounts {
     return accounts
         .where(
-          (account) =>
-              !account.isArchived && !_debtAccountTypes.contains(account.type),
+          (account) => !account.isArchived && !isDebtAccountType(account.type),
         )
         .toList();
   }
@@ -139,8 +139,7 @@ class ReminderDashboard {
   List<Account> get debtAccounts {
     return accounts
         .where(
-          (account) =>
-              !account.isArchived && _debtAccountTypes.contains(account.type),
+          (account) => !account.isArchived && isDebtAccountType(account.type),
         )
         .toList();
   }
@@ -192,16 +191,15 @@ class ReminderFormRequest {
       'color': color,
       'remark': remark,
       'evidence': evidence,
-      if (accountId != null && accountId!.isNotEmpty) 'account_id': accountId,
-      if (billingDay != null) 'billing_day': billingDay,
-      if (amount != null) 'amount': amount,
-      if (principal != null) 'principal': principal,
-      if (currentBalance != null) 'current_balance': currentBalance,
-      if (interestRate != null) 'interest_rate': interestRate,
-      if (totalInterest != null) 'total_interest': totalInterest,
-      if (startDate != null && startDate!.isNotEmpty) 'start_date': startDate,
-      if (targetDate != null && targetDate!.isNotEmpty)
-        'target_date': targetDate,
+      'account_id': accountId,
+      'billing_day': billingDay,
+      'amount': amount,
+      'principal': principal,
+      'current_balance': currentBalance,
+      'interest_rate': interestRate,
+      'total_interest': totalInterest,
+      'start_date': startDate,
+      'target_date': targetDate,
     };
   }
 
@@ -437,17 +435,6 @@ class DebtSummary {
     );
   }
 }
-
-const _debtAccountTypes = <String>{
-  'credit',
-  'loan',
-  'mortgage',
-  'car_loan',
-  'consumer_loan',
-  'huabei',
-  'baitiao',
-  'other_debt',
-};
 
 double _toDouble(Object? value) {
   if (value is num) {

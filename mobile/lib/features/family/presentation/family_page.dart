@@ -129,7 +129,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
           IconButton(
             key: const ValueKey('family-add-member'),
             onPressed: _submittingMember ? null : () => _showMemberSheet(),
-            tooltip: null,
+            tooltip: '添加家庭成员',
             icon: const Icon(Icons.add),
           ),
         ],
@@ -1004,7 +1004,9 @@ class _FamilyMemberCardState extends State<_FamilyMemberCard> {
               const SizedBox(height: 4),
               IconButton(
                 key: ValueKey('family-member-toggle-${member.id}'),
-                tooltip: null,
+                tooltip: _expanded
+                    ? '收起${member.name}操作'
+                    : '展开${member.name}操作',
                 onPressed: () => setState(() {
                   _expanded = !_expanded;
                 }),
@@ -1155,7 +1157,7 @@ class _FamilyMemberFormSheetState extends State<_FamilyMemberFormSheet> {
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close),
-                    tooltip: null,
+                    tooltip: '关闭成员表单',
                   ),
                 ],
               ),

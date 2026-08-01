@@ -73,7 +73,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             prefixIcon: const Icon(Icons.password_outlined),
             suffixIcon: IconButton(
               key: const ValueKey('auth-login-password-visibility-toggle'),
-              tooltip: null,
+              tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
               onPressed: () => setState(() {
                 _obscurePassword = !_obscurePassword;
               }),

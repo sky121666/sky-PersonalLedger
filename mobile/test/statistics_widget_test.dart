@@ -81,7 +81,7 @@ void main() {
         find.byKey(const ValueKey('statistics-category-rank-cat-1')),
         findsOneWidget,
       );
-      expect(find.text('#1'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
       expect(find.text('5 笔 · 100.0%'), findsOneWidget);
     });
 
@@ -150,6 +150,10 @@ void main() {
       expect(
         find.byKey(const ValueKey('statistics-period-header')),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('corgi-illustration-sitting')),
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('statistics-category-rank-card')),

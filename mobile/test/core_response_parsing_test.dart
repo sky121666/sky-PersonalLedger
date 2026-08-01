@@ -10,6 +10,7 @@ import 'package:personal_ledger/core/network/api_exception.dart';
 import 'package:personal_ledger/core/network/api_response.dart';
 import 'package:personal_ledger/core/storage/secure_storage_service.dart';
 import 'package:personal_ledger/features/account_logs/data/account_log_repository.dart';
+import 'package:personal_ledger/features/accounts/data/account_type_rules.dart';
 import 'package:personal_ledger/features/api_tokens/data/api_token_repository.dart';
 import 'package:personal_ledger/features/attachments/data/attachment_models.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
@@ -114,6 +115,7 @@ void main() {
 
       expect(summary.accounts.activeAccounts, hasLength(1));
       expect(summary.overview.transactionCount, 6);
+      expect(summary.trend.items, hasLength(2));
       expect(summary.budgetSummary.totalAmount, 3000);
       expect(summary.recentTransactions, hasLength(1));
       expect(summary.familySummary.month, isEmpty);
@@ -123,6 +125,24 @@ void main() {
   });
 
   group('核心模型解析', () {
+    test('应付款与应收款使用统一账户类型语义', () {
+      expect(isDebtAccountType('payable'), isTrue);
+      expect(isDebtAccountType('receivable'), isFalse);
+    });
+
+    test('交易请求使用带时区的 UTC instant', () {
+      final localDate = DateTime(2026, 5, 31, 23, 30);
+      final payload = TransactionFormData(
+        type: TransactionType.expense,
+        amount: 12,
+        accountId: 'account-1',
+        categoryId: 'category-1',
+        transactionDate: localDate,
+      ).toJson();
+
+      expect(payload['transaction_date'], localDate.toUtc().toIso8601String());
+    });
+
     test('ServerConfig 生成 API 基础地址', () {
       const config = ServerConfig(baseUrl: 'https://ledger.example.com');
 
@@ -233,6 +253,59 @@ void main() {
 
       expect(sourceRow.isSystemSeed, isTrue);
       expect(remarkRow.isSystemSeed, isTrue);
+    });
+
+    test('TransactionItem 只用稳定字段识别管理型流水', () {
+      TransactionItem item({
+        String source = 'manual',
+        String? lendingId,
+        String? reminderId,
+      }) {
+        return TransactionItem.fromJson({
+          'id': 'transaction',
+          'type': 'expense',
+          'amount': 10,
+          'account_id': 'account',
+          'transaction_date': '2026-07-13T10:00:00Z',
+          'source': source,
+          'lending_id': lendingId,
+          'reminder_id': reminderId,
+          'category': {'id': 'category', 'name': '借贷', 'type': 'expense'},
+        });
+      }
+
+      expect(item().isLendingLinked, isFalse);
+      expect(item().isReminderLinked, isFalse);
+      expect(item().isManagedTransaction, isFalse);
+      expect(item(source: 'lending').isLendingLinked, isTrue);
+      expect(item(lendingId: 'lending-1').isLendingLinked, isTrue);
+      expect(item(source: 'reminder').isReminderLinked, isTrue);
+      expect(item(reminderId: 'reminder-1').isReminderLinked, isTrue);
+      expect(item(lendingId: '').isManagedTransaction, isTrue);
+      expect(item(source: 'reminder').isManagedTransaction, isTrue);
+      expect(item(reminderId: 'reminder-1').reminderId, 'reminder-1');
+    });
+
+    test('展示备注清理只移除带分隔符的种子标记', () {
+      expect(cleanTransactionDisplayRemark('SHOWCASE 工资收入'), '工资收入');
+      expect(cleanTransactionDisplayRemark('展示：家庭晚餐'), '家庭晚餐');
+      expect(cleanTransactionDisplayRemark('SHOWCASE项目'), 'SHOWCASE项目');
+      expect(cleanTransactionDisplayRemark('展示柜购买'), '展示柜购买');
+    });
+
+    test('TransactionItem 兼容标量 JSON 和旧逗号格式标签', () {
+      TransactionItem item(String tags) => TransactionItem.fromJson({
+        'id': 'transaction',
+        'type': 'expense',
+        'amount': 10,
+        'account_id': 'account',
+        'transaction_date': '2026-07-13T10:00:00Z',
+        'tags': tags,
+      });
+
+      expect(item('"报销"').tags, ['报销']);
+      expect(item(' 餐饮, 报销,餐饮 ').tags, ['餐饮', '报销']);
+      expect(item('[" 餐饮 ","餐饮","报销"]').tags, ['餐饮', '报销']);
     });
 
     test('附件路径兼容 JSON 和逗号分隔格式', () {
@@ -505,6 +578,7 @@ void main() {
         'id': '3',
         'name': '我的手机',
         'token_prefix': 'abcd1234',
+        'scopes': ['ledger:read', 'report:read'],
         'last_used_at': null,
         'expires_at': '2026-06-01T09:00:00Z',
         'created_at': '2026-05-01T09:00:00Z',
@@ -514,6 +588,7 @@ void main() {
         'name': 'iPhone',
         'token': 'full-token',
         'token_prefix': 'ffff0000',
+        'scopes': ['ledger:read'],
         'expires_at': null,
         'created_at': '2026-05-02T09:00:00Z',
       });
@@ -522,7 +597,9 @@ void main() {
       expect(token.name, '我的手机');
       expect(token.tokenPrefix, 'abcd1234');
       expect(token.neverExpires, isFalse);
+      expect(token.scopes, ['ledger:read', 'report:read']);
       expect(created.token, 'full-token');
+      expect(created.scopes, ['ledger:read']);
       expect(created.neverExpires, isTrue);
     });
 
@@ -701,6 +778,28 @@ class _HomeSummaryAdapter implements HttpClientAdapter {
           'expense': 420,
           'balance': 1180,
           'transaction_count': 6,
+        },
+      }),
+      '/statistics/trend' => _jsonPayload({
+        'code': 0,
+        'message': 'ok',
+        'data': {
+          'items': [
+            {
+              'date': '2026-05-01',
+              'income': 600,
+              'expense': 180,
+              'balance': 420,
+            },
+            {
+              'date': '2026-05-15',
+              'income': 1000,
+              'expense': 240,
+              'balance': 760,
+            },
+          ],
+          'total_income': 1600,
+          'total_expense': 420,
         },
       }),
       '/budgets/summary' => _jsonPayload({

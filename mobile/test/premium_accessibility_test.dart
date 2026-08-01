@@ -150,7 +150,9 @@ void main() {
           ProviderScope(
             overrides: [
               familyMembersProvider.overrideWith((ref) async => _familyMembers),
-              familySummaryProvider.overrideWith((ref) async => _familySummary),
+              familySummaryByPeriodProvider.overrideWith(
+                (ref, query) async => _familySummary,
+              ),
             ],
             child: _premiumApp(const FamilyPage()),
           ),
@@ -224,6 +226,7 @@ const _familyMembers = [
 
 const _familySummary = FamilySummary(
   month: '2026-05',
+  label: '2026年5月',
   totalExpense: 320,
   members: [
     FamilyMemberSummary(

@@ -127,6 +127,59 @@ void main() {
       expect(repository.listQueries.length, greaterThanOrEqualTo(2));
     });
 
+    testWidgets('管理型交易可查看和删除但不提供普通编辑入口', (tester) async {
+      final repository = _FakeTransactionRepository(
+        items: [
+          _transaction(
+            id: 'managed-transaction',
+            remark: '提醒自动入账',
+            source: 'reminder',
+          ),
+        ],
+      );
+      await _pumpPage(tester, repository);
+
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-item-managed-transaction')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('编辑 managed-transaction'), findsNothing);
+      expect(find.text('提醒自动入账'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-more-menu-managed-transaction')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const ValueKey('transaction-action-edit-managed-transaction'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('transaction-action-delete-managed-transaction'),
+        ),
+        findsOneWidget,
+      );
+
+      await _tapTransactionMenuAction(
+        tester,
+        transactionId: 'managed-transaction',
+        actionLabel: '删除',
+        actionSuffix: 'delete',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '删除'));
+      await tester.pumpAndSettle();
+
+      expect(repository.deleteCalls, ['managed-transaction']);
+      expect(
+        find.byKey(const ValueKey('transaction-item-managed-transaction')),
+        findsNothing,
+      );
+    });
+
     testWidgets('可以选择多笔交易并批量删除', (tester) async {
       final repository = _FakeTransactionRepository(
         items: [
@@ -265,7 +318,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('transaction-item-transaction-25')),
+        find.byKey(const ValueKey('transaction-item-transaction-20')),
         420,
         scrollable: find.byType(Scrollable).first,
       );
@@ -358,6 +411,38 @@ void main() {
       expect(
         find.byKey(const ValueKey('transaction-item-transaction-1')),
         findsOneWidget,
+      );
+      final firstClip = tester.widget<ClipRRect>(
+        find.byKey(const ValueKey('transaction-group-clip-transaction-1')),
+      );
+      final lastClip = tester.widget<ClipRRect>(
+        find.byKey(const ValueKey('transaction-group-clip-transaction-2')),
+      );
+      expect(
+        firstClip.borderRadius,
+        const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.surfaceRadius),
+        ),
+      );
+      expect(
+        lastClip.borderRadius,
+        const BorderRadius.vertical(
+          bottom: Radius.circular(AppTheme.surfaceRadius),
+        ),
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('transaction-item-transaction-1')),
+          matching: find.byType(Divider),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('transaction-item-transaction-2')),
+          matching: find.byType(Divider),
+        ),
+        findsNothing,
       );
       await tester.tap(
         find.byKey(const ValueKey('transaction-more-menu-transaction-1')),
@@ -556,6 +641,9 @@ TransactionItem _transaction({
   String id = 'transaction-1',
   String remark = '午餐',
   TransactionType type = TransactionType.expense,
+  String source = 'manual',
+  String? lendingId,
+  String? reminderId,
 }) {
   return TransactionItem(
     id: id,
@@ -565,6 +653,9 @@ TransactionItem _transaction({
     categoryId: 'category-food',
     transactionDate: DateTime(2026, 5, 18, 12),
     remark: remark,
+    source: source,
+    lendingId: lendingId,
+    reminderId: reminderId,
     category: const LedgerCategory(
       id: 'category-food',
       name: '餐饮',

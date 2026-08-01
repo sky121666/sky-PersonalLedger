@@ -57,4 +57,30 @@ void main() {
     expect(find.bySemanticsLabel('近七日收支对比，收入稳定高于支出'), findsOneWidget);
     semantics.dispose();
   });
+
+  testWidgets('CategoryRankTile exposes compact semantics only once', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: CategoryRankTile(
+            name: '居住',
+            icon: 'home',
+            amount: '¥4200.00',
+            percentage: 74.3,
+            count: 1,
+            color: Colors.green,
+            rank: 1,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('第1名，居住，¥4200.00，74.3%，1 笔'), findsOneWidget);
+    expect(find.bySemanticsLabel('#1 居住 1 笔 · 74.3% ¥4200.00'), findsNothing);
+    semantics.dispose();
+  });
 }

@@ -318,7 +318,7 @@ void main() {
       final overviewSurface = tester.widget<PremiumSurface>(
         find
             .ancestor(
-              of: find.text('往来金额'),
+              of: find.text('净应收'),
               matching: find.byType(PremiumSurface),
             )
             .first,

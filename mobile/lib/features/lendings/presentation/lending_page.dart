@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
+import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
@@ -42,7 +43,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
                   onPressed: _isBusy
                       ? null
                       : () => _openCreateChoice(dashboard.accounts),
-                  tooltip: null,
+                  tooltip: '添加借贷记录',
                   icon: const Icon(Icons.add),
                 ),
               ],
@@ -360,21 +361,38 @@ class _SummarySection extends StatelessWidget {
         : colorScheme.error;
     return PremiumSurface(
       accentColor: netColor,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              IconBadge(
+                icon: summary.netLending >= 0
+                    ? Icons.call_received_outlined
+                    : Icons.call_made_outlined,
+                color: netColor,
+                size: 40,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '往来金额',
+                      summary.netLending >= 0 ? '净应收' : '净应付',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '借出、借入和结清汇总',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -652,15 +670,11 @@ class _LendingEmptyState extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 0, 12),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: SizedBox.square(
-                dimension: 34,
-                child: Icon(icon, size: 18, color: colorScheme.primary),
-              ),
+            child: IconBadge(
+              icon: icon,
+              color: colorScheme.primary,
+              size: 34,
+              iconSize: 18,
             ),
           ),
           const SizedBox(width: 12),
@@ -729,7 +743,12 @@ class _LendingCardState extends ConsumerState<_LendingCard> {
     return ListTile(
       key: ValueKey('lending-action-$keySuffix-${widget.item.id}'),
       enabled: enabled,
-      leading: Icon(icon, size: 18),
+      leading: IconBadge(
+        icon: icon,
+        color: Theme.of(context).colorScheme.primary,
+        size: 34,
+        iconSize: 17,
+      ),
       title: Text(title),
       contentPadding: EdgeInsets.zero,
       minLeadingWidth: 0,
@@ -1043,18 +1062,7 @@ class _LendingDirectionMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(
-          alpha: Theme.of(context).brightness == Brightness.dark ? 0.18 : 0.10,
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: SizedBox.square(
-        dimension: 36,
-        child: Icon(icon, size: 18, color: color),
-      ),
-    );
+    return IconBadge(icon: icon, color: color, size: 36, iconSize: 18);
   }
 }
 
@@ -1396,7 +1404,7 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
                       : IconButton(
                           onPressed: () => setState(() => _dueDate = null),
                           icon: const Icon(Icons.clear),
-                          tooltip: null,
+                          tooltip: '清除到期日期',
                         ),
                   onTap: () => _pickDueDate(context),
                 ),
@@ -1444,7 +1452,7 @@ class _LendingFormDialogState extends State<_LendingFormDialog> {
                           ? Icons.remove_rounded
                           : Icons.add_rounded,
                     ),
-                    tooltip: null,
+                    tooltip: _showMoreDetails ? '收起更多借贷信息' : '展开更多借贷信息',
                   ),
                 ),
                 if (_showMoreDetails) ...[

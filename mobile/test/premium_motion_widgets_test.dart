@@ -69,6 +69,58 @@ void main() {
     expect(tapped, isTrue);
   });
 
+  testWidgets('PressableScale gives subtle feedback during pointer press', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: PressableScale(
+              onTap: () {},
+              child: const SizedBox(
+                width: 120,
+                height: 48,
+                child: Center(child: Text('动态按压')),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('动态按压')),
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+
+    final pressedScale = tester.widget<AnimatedScale>(
+      find.descendant(
+        of: find.byType(PressableScale),
+        matching: find.byType(AnimatedScale),
+      ),
+    );
+    expect(pressedScale.scale, 0.985);
+    final pressedOpacity = tester.widget<AnimatedOpacity>(
+      find.descendant(
+        of: find.byType(PressableScale),
+        matching: find.byType(AnimatedOpacity),
+      ),
+    );
+    expect(pressedOpacity.opacity, 0.92);
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final releasedScale = tester.widget<AnimatedScale>(
+      find.descendant(
+        of: find.byType(PressableScale),
+        matching: find.byType(AnimatedScale),
+      ),
+    );
+    expect(releasedScale.scale, 1);
+  });
+
   testWidgets('PressableScale supports keyboard activation', (tester) async {
     var tapped = false;
 

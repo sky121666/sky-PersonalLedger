@@ -332,7 +332,8 @@ void main() {
       expect(repository.createCalls.single.paidByMemberId, 'member-1');
     });
 
-    testWidgets('嵌入式快速记账使用纯表单结构', (tester) async {
+    testWidgets('嵌入式快速记账使用金额优先的原生感 sheet', (tester) async {
+      final semantics = tester.ensureSemantics();
       final repository = _FakeTransactionRepository();
       await _pumpTransactionPage(
         tester,
@@ -341,6 +342,22 @@ void main() {
       );
 
       expect(find.text('记一笔'), findsAtLeastNWidgets(1));
+      expect(
+        find.byKey(const ValueKey('transaction-sheet-handle')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('transaction-amount-panel')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('transaction-required-fields')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('transaction-sheet-action-bar')),
+        findsOneWidget,
+      );
       expect(find.byKey(const ValueKey('transaction-amount')), findsOneWidget);
       expect(find.text('账户'), findsOneWidget);
       expect(find.text('分类'), findsOneWidget);
@@ -363,13 +380,13 @@ void main() {
       expect(find.text('录入质量层'), findsNothing);
       expect(find.text('记账动线'), findsNothing);
       expect(find.text('等待金额'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('transaction-save')),
-        260,
-        scrollable: find.byType(Scrollable).first,
-      );
       expect(find.widgetWithText(FilledButton, '记一笔'), findsOneWidget);
       expect(find.byType(PremiumSurface), findsNothing);
+      expect(find.bySemanticsLabel('支出'), findsOneWidget);
+      expect(find.bySemanticsLabel('收入'), findsOneWidget);
+      expect(find.bySemanticsLabel('转账'), findsOneWidget);
+      expect(find.bySemanticsLabel('支出 支出'), findsNothing);
+      semantics.dispose();
     });
 
     testWidgets('类型切换保留纯表单字段', (tester) async {

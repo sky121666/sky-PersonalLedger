@@ -39,7 +39,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
           IconButton(
             key: const ValueKey('reminder-add'),
             onPressed: _isBusy ? null : () => _openReminderForm(),
-            tooltip: null,
+            tooltip: '添加负债提醒',
             icon: const Icon(Icons.add),
           ),
         ],
@@ -818,7 +818,9 @@ class _ReminderCardState extends ConsumerState<_ReminderCard> {
                     children: [
                       IconButton(
                         key: ValueKey('reminder-toggle-details-${reminder.id}'),
-                        tooltip: null,
+                        tooltip: _expanded
+                            ? '收起${reminder.name}详情'
+                            : '展开${reminder.name}详情',
                         onPressed: () => setState(() {
                           _expanded = !_expanded;
                         }),
@@ -1305,7 +1307,7 @@ class _ReminderFormDialogState extends State<_ReminderFormDialog> {
                           ? Icons.remove_rounded
                           : Icons.add_rounded,
                     ),
-                    tooltip: null,
+                    tooltip: _showMoreDetails ? '收起更多负债信息' : '展开更多负债信息',
                   ),
                 ),
                 if (_showMoreDetails) ...[

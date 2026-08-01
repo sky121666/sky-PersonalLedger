@@ -3,6 +3,7 @@ package com.skyapp.personal_ledger
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
@@ -88,7 +89,16 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun preferHighestRefreshRate() {
-        val modes = windowManager.defaultDisplay.supportedModes
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return
+        }
+        val currentDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay
+        } ?: return
+        val modes = currentDisplay.supportedModes
         val preferredMode = modes.maxByOrNull { it.refreshRate } ?: return
         val params = window.attributes
         if (params.preferredDisplayModeId == preferredMode.modeId) {

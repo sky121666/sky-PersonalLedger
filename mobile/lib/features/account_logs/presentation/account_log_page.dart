@@ -581,7 +581,7 @@ class _AccountLogTileState extends State<_AccountLogTile> {
                   _showRemark = !_showRemark;
                 }),
                 icon: Icon(_showRemark ? Icons.remove : Icons.add, size: 20),
-                tooltip: null,
+                tooltip: _showRemark ? '收起账户变动备注' : '展开账户变动备注',
               ),
           ],
         ),

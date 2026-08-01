@@ -64,7 +64,10 @@ void main() {
     }
 
     await _pumpUntilFound(tester, find.text('首页'));
-    await _pumpUntilFound(tester, find.text('净资产'));
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const ValueKey('home-net-assets-card')),
+    );
 
     await _createAccount(tester);
     await _createExpenseTransaction(tester);
@@ -414,7 +417,7 @@ Future<void> _createExpenseTransaction(WidgetTester tester) async {
     find.byKey(const ValueKey('main-shell-quick-transaction')),
     find.byKey(const ValueKey('home-recent-transactions-all')),
     find.text('首页'),
-    find.text('净资产'),
+    find.byKey(const ValueKey('home-net-assets-card')),
   ]);
 
   await _tapKey(tester, const ValueKey('main-shell-quick-transaction'));

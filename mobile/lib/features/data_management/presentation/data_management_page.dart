@@ -6,6 +6,7 @@ import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../transactions/application/ledger_refresh.dart';
 import '../data/data_management_repository.dart';
 
 class DataManagementPage extends ConsumerStatefulWidget {
@@ -31,6 +32,10 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   bool _showAutoBackupSettings = false;
   bool _showAutoBackupFiles = false;
   bool _showRecovery = false;
+  bool _showTransactionImport = false;
+  bool _transactionImportLoading = true;
+  TransactionImportPreview? _transactionImportPreview;
+  List<TransactionImportPreview> _transactionImportHistory = const [];
 
   bool get _isBusy => _busyAction != null;
 
@@ -38,6 +43,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   void initState() {
     super.initState();
     _loadAutoBackup();
+    _loadRecentTransactionImport();
   }
 
   @override
@@ -103,6 +109,24 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
           onBackup: _downloadBackup,
           onExportCsv: _exportTransactionsCsv,
           onFilterCsv: _showCsvExportSheet,
+        ),
+      ),
+      _DataManagementRow(
+        _TransactionImportPanel(
+          preview: _transactionImportPreview,
+          history: _transactionImportHistory,
+          loading:
+              _transactionImportLoading || _busyAction == 'transaction-import',
+          enabled: !_isBusy,
+          expanded: _showTransactionImport,
+          onToggle: () {
+            setState(() => _showTransactionImport = !_showTransactionImport);
+          },
+          onPick: _pickTransactionImport,
+          onValidate: _validateTransactionImport,
+          onCommit: _commitTransactionImport,
+          onRollback: _rollbackTransactionImport,
+          onSelect: _selectTransactionImport,
         ),
       ),
       _DataManagementRow(
@@ -254,6 +278,212 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         setState(() => _busyAction = null);
       }
     }
+  }
+
+  Future<void> _loadRecentTransactionImport() async {
+    setState(() => _transactionImportLoading = true);
+    try {
+      final repository = ref.read(dataManagementRepositoryProvider);
+      final history = await repository.listRecentTransactionImports();
+      final preview = history.isEmpty
+          ? null
+          : await repository.getTransactionImport(history.first.id);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _transactionImportHistory = history;
+        _transactionImportPreview = preview;
+        if (preview != null) {
+          _upsertTransactionImport(preview);
+        }
+        _showTransactionImport = history.isNotEmpty;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _errorMessage = _friendlyDataMessage(error));
+    } finally {
+      if (mounted) {
+        setState(() => _transactionImportLoading = false);
+      }
+    }
+  }
+
+  Future<void> _pickTransactionImport() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['csv', 'json'],
+      allowMultiple: false,
+      withData: false,
+    );
+    final files = result?.files ?? const <PlatformFile>[];
+    if (files.isEmpty || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _busyAction = 'transaction-import';
+      _errorMessage = null;
+      _lastSavedName = null;
+    });
+    try {
+      final preview = await ref
+          .read(dataManagementRepositoryProvider)
+          .previewTransactionImport(files.single);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _upsertTransactionImport(preview));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('预览已生成，账本尚未发生变化')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = _friendlyDataMessage(error);
+      setState(() => _errorMessage = message);
+      _showDataError(message);
+    } finally {
+      if (mounted) {
+        setState(() => _busyAction = null);
+      }
+    }
+  }
+
+  Future<void> _validateTransactionImport() async {
+    final preview = _transactionImportPreview;
+    if (preview == null) {
+      return;
+    }
+    await _runTransactionImportAction(
+      request: () => ref
+          .read(dataManagementRepositoryProvider)
+          .validateTransactionImport(preview.id),
+      successMessage: '已按当前账户和分类重新检查',
+    );
+  }
+
+  Future<void> _selectTransactionImport(
+    TransactionImportPreview summary,
+  ) async {
+    setState(() {
+      _busyAction = 'transaction-import';
+      _errorMessage = null;
+    });
+    try {
+      final preview = await ref
+          .read(dataManagementRepositoryProvider)
+          .getTransactionImport(summary.id);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _upsertTransactionImport(preview));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = _friendlyDataMessage(error);
+      setState(() => _errorMessage = message);
+      _showDataError(message);
+    } finally {
+      if (mounted) {
+        setState(() => _busyAction = null);
+      }
+    }
+  }
+
+  Future<void> _commitTransactionImport() async {
+    final preview = _transactionImportPreview;
+    if (preview == null || !preview.canCommit) {
+      return;
+    }
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '导入 ${preview.importableRows} 条交易',
+      message: '系统会一次性写入全部有效交易；24 小时内可以完整撤销。',
+      confirmText: '确认导入',
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    await _runTransactionImportAction(
+      request: () => ref
+          .read(dataManagementRepositoryProvider)
+          .commitTransactionImport(preview.id),
+      successMessage: '交易已导入，24 小时内可以撤销',
+      refreshLedger: true,
+    );
+  }
+
+  Future<void> _rollbackTransactionImport() async {
+    final preview = _transactionImportPreview;
+    if (preview == null || !preview.canRollback) {
+      return;
+    }
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '撤销本次导入',
+      message: '将删除本批次创建的 ${preview.createdRows} 条交易，并原子恢复账户余额。',
+      confirmText: '撤销导入',
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    await _runTransactionImportAction(
+      request: () => ref
+          .read(dataManagementRepositoryProvider)
+          .rollbackTransactionImport(preview.id),
+      successMessage: '本次导入已完整撤销',
+      refreshLedger: true,
+    );
+  }
+
+  Future<void> _runTransactionImportAction({
+    required Future<TransactionImportPreview> Function() request,
+    required String successMessage,
+    bool refreshLedger = false,
+  }) async {
+    setState(() {
+      _busyAction = 'transaction-import';
+      _errorMessage = null;
+    });
+    try {
+      final preview = await request();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _upsertTransactionImport(preview));
+      if (refreshLedger) {
+        ref.invalidateLedgerMutationViews();
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = _friendlyDataMessage(error);
+      setState(() => _errorMessage = message);
+      _showDataError(message);
+    } finally {
+      if (mounted) {
+        setState(() => _busyAction = null);
+      }
+    }
+  }
+
+  void _upsertTransactionImport(TransactionImportPreview preview) {
+    _transactionImportPreview = preview;
+    _transactionImportHistory = [
+      preview,
+      for (final item in _transactionImportHistory)
+        if (item.id != preview.id) item,
+    ];
   }
 
   Future<void> _loadAutoBackup() async {
@@ -496,7 +726,7 @@ class _AutoBackupCard extends StatelessWidget {
                 key: const ValueKey('auto-backup-reload'),
                 onPressed: enabled && !loading ? onReload : null,
                 icon: const Icon(Icons.refresh),
-                tooltip: null,
+                tooltip: '刷新保存记录',
               ),
             ],
           ),
@@ -805,6 +1035,437 @@ class _MessagePanel extends StatelessWidget {
   }
 }
 
+class _TransactionImportPanel extends StatelessWidget {
+  const _TransactionImportPanel({
+    required this.preview,
+    required this.history,
+    required this.loading,
+    required this.enabled,
+    required this.expanded,
+    required this.onToggle,
+    required this.onPick,
+    required this.onValidate,
+    required this.onCommit,
+    required this.onRollback,
+    required this.onSelect,
+  });
+
+  final TransactionImportPreview? preview;
+  final List<TransactionImportPreview> history;
+  final bool loading;
+  final bool enabled;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final VoidCallback onPick;
+  final VoidCallback onValidate;
+  final VoidCallback onCommit;
+  final VoidCallback onRollback;
+  final ValueChanged<TransactionImportPreview> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final activePreview = preview;
+    return PremiumSurface(
+      accentColor: colorScheme.primary,
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          Semantics(
+            button: true,
+            enabled: enabled,
+            label: expanded ? '收起导入交易' : '展开导入交易',
+            onTap: enabled ? onToggle : null,
+            child: ExcludeSemantics(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: const ValueKey('transaction-import-toggle'),
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: enabled ? onToggle : null,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 64),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.file_upload_outlined,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '导入交易',
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  activePreview == null
+                                      ? '先预览，再一次性写入账本'
+                                      : '${_transactionImportStatusLabel(activePreview.status)} · ${activePreview.filename}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (loading)
+                            const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else
+                            Icon(
+                              expanded
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (expanded) ...[
+            Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+              child: activePreview == null
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        key: const ValueKey('transaction-import-pick'),
+                        onPressed: enabled && !loading ? onPick : null,
+                        icon: const Icon(Icons.folder_open_outlined),
+                        label: const Text('选择 CSV 或 JSON'),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        _TransactionImportDetails(
+                          preview: activePreview,
+                          loading: loading,
+                          enabled: enabled,
+                          onPick: onPick,
+                          onValidate: onValidate,
+                          onCommit: onCommit,
+                          onRollback: onRollback,
+                        ),
+                        if (history.any(
+                          (item) => item.id != activePreview.id,
+                        )) ...[
+                          const SizedBox(height: 12),
+                          _TransactionImportHistory(
+                            items: history
+                                .where((item) => item.id != activePreview.id)
+                                .toList(growable: false),
+                            enabled: enabled && !loading,
+                            onSelect: onSelect,
+                          ),
+                        ],
+                      ],
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionImportDetails extends StatelessWidget {
+  const _TransactionImportDetails({
+    required this.preview,
+    required this.loading,
+    required this.enabled,
+    required this.onPick,
+    required this.onValidate,
+    required this.onCommit,
+    required this.onRollback,
+  });
+
+  final TransactionImportPreview preview;
+  final bool loading;
+  final bool enabled;
+  final VoidCallback onPick;
+  final VoidCallback onValidate;
+  final VoidCallback onCommit;
+  final VoidCallback onRollback;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final diagnosticRows = preview.rows
+        .where((row) => row.errors.isNotEmpty || row.warnings.isNotEmpty)
+        .take(3)
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                preview.filename,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _transactionImportStatusLabel(preview.status),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: preview.invalidRows > 0
+                    ? colorScheme.error
+                    : colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _ImportStat(label: '总计', value: preview.totalRows),
+            _ImportStat(label: '有效', value: preview.validRows),
+            _ImportStat(label: '错误', value: preview.invalidRows),
+            _ImportStat(label: '重复', value: preview.duplicateRows),
+          ],
+        ),
+        if (diagnosticRows.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          for (final row in diagnosticRows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      (row.errors.isNotEmpty
+                              ? colorScheme.errorContainer
+                              : colorScheme.tertiaryContainer)
+                          .withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '第 ${row.row} 行 · ${(row.errors.isNotEmpty ? row.errors : row.warnings).join('；')}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+        ],
+        if (preview.rowsTruncated) ...[
+          const SizedBox(height: 4),
+          Text(
+            '仅显示前 200 行预览，提交仍会处理全部记录。',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        if (preview.canRollback)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              key: const ValueKey('transaction-import-rollback'),
+              onPressed: enabled && !loading ? onRollback : null,
+              icon: const Icon(Icons.undo_outlined),
+              label: Text('撤销已导入的 ${preview.createdRows} 条'),
+            ),
+          )
+        else if (preview.status == 'rolled_back')
+          Text(
+            '本批次已撤销，账户余额已恢复。',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        else ...[
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  key: const ValueKey('transaction-import-validate'),
+                  onPressed: enabled && !loading ? onValidate : null,
+                  child: const Text('重新检查'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  key: const ValueKey('transaction-import-commit'),
+                  onPressed: enabled && !loading && preview.canCommit
+                      ? onCommit
+                      : null,
+                  child: Text('导入 ${preview.importableRows} 条'),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            key: const ValueKey('transaction-import-pick-another'),
+            onPressed: enabled && !loading ? onPick : null,
+            icon: const Icon(Icons.folder_open_outlined),
+            label: const Text('选择其他文件'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TransactionImportHistory extends StatelessWidget {
+  const _TransactionImportHistory({
+    required this.items,
+    required this.enabled,
+    required this.onSelect,
+  });
+
+  final List<TransactionImportPreview> items;
+  final bool enabled;
+  final ValueChanged<TransactionImportPreview> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '近期批次',
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        for (final item in items)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: ValueKey('transaction-import-history-${item.id}'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: enabled ? () => onSelect(item) : null,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 7,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.filename,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              '${_transactionImportStatusLabel(item.status)} · ${item.totalRows} 条',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ImportStat extends StatelessWidget {
+  const _ImportStat({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            '$value',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _transactionImportStatusLabel(String status) {
+  return switch (status) {
+    'previewed' => '待确认',
+    'validated' => '已检查',
+    'committed' => '可撤销',
+    'rolled_back' => '已撤销',
+    _ => status,
+  };
+}
+
 class _RecoveryPanel extends StatelessWidget {
   const _RecoveryPanel({
     required this.icon,
@@ -853,7 +1514,7 @@ class _RecoveryPanel extends StatelessWidget {
               IconButton(
                 key: const ValueKey('restore-panel-toggle'),
                 onPressed: enabled ? onToggle : null,
-                tooltip: null,
+                tooltip: expanded ? '收起恢复账本' : '展开恢复账本',
                 icon: Icon(expanded ? Icons.remove : Icons.add),
               ),
             ],
@@ -987,7 +1648,7 @@ class _DataActionLine extends StatelessWidget {
           IconButton(
             key: secondaryKey,
             onPressed: enabled ? onSecondaryPressed : null,
-            tooltip: null,
+            tooltip: '筛选交易明细',
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.filter_alt_outlined),
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/auth_interceptor.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/config/server_config_service.dart';
 import '../../../core/providers/core_providers.dart';
 import '../data/auth_repository.dart';
@@ -216,7 +217,11 @@ class AuthController extends StateNotifier<AuthState> {
     final secureStorage = _ref.read(secureStorageServiceProvider);
     try {
       await repository.logout();
-    } catch (_) {}
+    } catch (_) {
+      // Local logout must remain available when the server is offline or the
+      // remote session has already expired. Tokens are cleared below in every
+      // case, so a best-effort server revocation cannot trap the user locally.
+    }
     await secureStorage.clearTokens();
     _emitState(
       state.copyWith(stage: AuthStage.loginRequired, clearError: true),
@@ -331,6 +336,20 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   String _formatError(Object error) {
+    if (error is ApiException) {
+      if (error.statusCode == 401) {
+        return '密码错误，请重试';
+      }
+      if (error.statusCode == 429) {
+        return '尝试次数过多，请稍后再试';
+      }
+      if (error.statusCode == 403) {
+        return '账本暂时锁定，请稍后再试';
+      }
+      if (error.statusCode != null && error.statusCode! >= 500) {
+        return '账本服务暂时不可用，请稍后再试';
+      }
+    }
     final message = error.toString();
     final lowerMessage = message.toLowerCase();
     if (lowerMessage.contains('dioexception') ||

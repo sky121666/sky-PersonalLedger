@@ -23,7 +23,8 @@ class ProfilePage extends ConsumerWidget {
     final rows = [
       _ProfileRow(
         _SettingsSection(
-          title: '账本管理',
+          title: '日常账本',
+          accentColor: financeColors.asset,
           childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.account_balance_wallet_outlined,
@@ -60,7 +61,8 @@ class ProfilePage extends ConsumerWidget {
       ),
       _ProfileRow(
         _SettingsSection(
-          title: '计划提醒',
+          title: '计划与往来',
+          accentColor: financeColors.income,
           childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.savings_outlined,
@@ -92,6 +94,7 @@ class ProfilePage extends ConsumerWidget {
       _ProfileRow(
         _SettingsSection(
           title: '智能与数据',
+          accentColor: colorScheme.primary,
           childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.auto_awesome_outlined,
@@ -122,7 +125,8 @@ class ProfilePage extends ConsumerWidget {
       ),
       _ProfileRow(
         _SettingsSection(
-          title: '安全设置',
+          title: '安全与数据',
+          accentColor: colorScheme.secondary,
           childrenBuilder: () => [
             _SettingsEntry(
               icon: Icons.manage_accounts_outlined,
@@ -170,12 +174,19 @@ class ProfilePage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('功能'),
+        toolbarHeight: 76,
+        titleSpacing: 20,
+        titleTextStyle: Theme.of(context).textTheme.displaySmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.8,
+        ),
         actions: [
           IconButton(
             key: const ValueKey('profile-logout'),
             onPressed: () => _confirmLogout(context, ref),
             icon: const Icon(Icons.logout),
-            tooltip: null,
+            tooltip: '退出登录',
             visualDensity: VisualDensity.compact,
           ),
         ],
@@ -253,9 +264,14 @@ class _ProfileRow {
 }
 
 class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({required this.title, required this.childrenBuilder});
+  const _SettingsSection({
+    required this.title,
+    required this.accentColor,
+    required this.childrenBuilder,
+  });
 
   final String title;
+  final Color accentColor;
   final List<Widget> Function() childrenBuilder;
 
   @override
@@ -263,7 +279,8 @@ class _SettingsSection extends StatelessWidget {
     final children = childrenBuilder();
     return PremiumSurface(
       key: ValueKey('profile-section-$title'),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      accentColor: accentColor,
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -271,7 +288,7 @@ class _SettingsSection extends StatelessWidget {
             title,
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           for (final entry in children.indexed) ...[
@@ -279,10 +296,11 @@ class _SettingsSection extends StatelessWidget {
             if (entry.$1 != children.length - 1)
               Divider(
                 height: 1,
-                indent: 40,
+                indent: 42,
+                endIndent: 8,
                 color: Theme.of(
                   context,
-                ).colorScheme.outlineVariant.withValues(alpha: 0.46),
+                ).colorScheme.outlineVariant.withValues(alpha: 0.56),
               ),
           ],
         ],
@@ -310,41 +328,47 @@ class _SettingsEntry extends StatelessWidget {
     return Semantics(
       button: true,
       label: title,
-      child: Material(
-        key: ValueKey('profile-entry-$title'),
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          hoverColor: color.withValues(alpha: 0.06),
-          focusColor: color.withValues(alpha: 0.08),
-          splashColor: color.withValues(alpha: 0.08),
-          highlightColor: color.withValues(alpha: 0.05),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(0, 7, 0, 7),
-              child: Row(
-                children: [
-                  IconBadge(icon: icon, color: color, size: 32, iconSize: 17),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w900,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          key: ValueKey('profile-entry-$title'),
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onTap,
+            hoverColor: colorScheme.primary.withValues(alpha: 0.05),
+            focusColor: colorScheme.primary.withValues(alpha: 0.07),
+            splashColor: colorScheme.primary.withValues(alpha: 0.07),
+            highlightColor: colorScheme.primary.withValues(alpha: 0.04),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 7, 4, 7),
+                child: Row(
+                  children: [
+                    IconBadge(icon: icon, color: color, size: 32, iconSize: 17),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.1,
+                        ),
                       ),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.62),
-                    size: 18,
-                  ),
-                ],
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.46,
+                      ),
+                      size: 18,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -369,8 +393,7 @@ class _AppearancePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return PremiumSurface(
       key: const ValueKey('profile-appearance-panel'),
-      accentColor: settings.palette.seedColor,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -378,13 +401,19 @@ class _AppearancePanel extends StatelessWidget {
             '外观',
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<AppThemeMode>(
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                textStyle: WidgetStatePropertyAll(
+                  TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+              showSelectedIcon: false,
               segments: const [
                 ButtonSegment(
                   value: AppThemeMode.system,
@@ -412,7 +441,7 @@ class _AppearancePanel extends StatelessWidget {
             '主色',
             style: Theme.of(
               context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           _ThemePaletteChoices(
@@ -463,30 +492,56 @@ class _ThemePaletteChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = palette.displayAccentColor;
-    return ChoiceChip(
+    return Semantics(
       key: ValueKey('profile-theme-palette-${palette.id}'),
       selected: selected,
-      showCheckmark: false,
-      label: Text(palette.label),
-      avatar: Container(
-        width: 14,
-        height: 14,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: colorScheme.outlineVariant),
+      button: true,
+      label: '主色 ${palette.label}${selected ? '，已选择' : ''}',
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? colorScheme.surfaceContainerHigh
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  palette.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: selected
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+                if (selected) ...[
+                  const SizedBox(width: 6),
+                  Icon(Icons.check_rounded, size: 15, color: color),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
-      selectedColor: Color.alphaBlend(
-        color.withValues(alpha: 0.14),
-        colorScheme.surface,
-      ),
-      side: BorderSide(
-        color: selected
-            ? color
-            : colorScheme.outlineVariant.withValues(alpha: 0.7),
-      ),
-      onSelected: (_) => onTap(),
     );
   }
 }

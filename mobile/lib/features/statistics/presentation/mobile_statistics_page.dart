@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/app_theme.dart';
-import '../../../app/theme/theme_mode_controller.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
@@ -38,10 +37,19 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
       categoryType: _categoryType,
     );
     final dashboardState = ref.watch(statisticsDashboardProvider(query));
-    final themeSettings = ref.watch(themeControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('统计')),
+      appBar: AppBar(
+        toolbarHeight: 76,
+        titleSpacing: 20,
+        title: Text(
+          '统计',
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.8,
+          ),
+        ),
+      ),
       body: dashboardState.when(
         loading: () => const _StatisticsLoadingView(),
         error: (error, _) => _StatisticsErrorView(
@@ -52,7 +60,6 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
         ),
         data: (dashboard) => _StatisticsContent(
           dashboard: dashboard,
-          themeSettings: themeSettings,
           selectedMonth: _selectedMonth,
           selectedPeriod: _selectedPeriod,
           categoryType: _categoryType,
@@ -108,7 +115,6 @@ class _MobileStatisticsPageState extends ConsumerState<MobileStatisticsPage> {
 class _StatisticsContent extends StatelessWidget {
   const _StatisticsContent({
     required this.dashboard,
-    required this.themeSettings,
     required this.selectedMonth,
     required this.selectedPeriod,
     required this.categoryType,
@@ -120,7 +126,6 @@ class _StatisticsContent extends StatelessWidget {
   });
 
   final StatisticsDashboard dashboard;
-  final AppThemeSettings themeSettings;
   final DateTime selectedMonth;
   final StatisticsPeriod selectedPeriod;
   final String categoryType;
@@ -138,7 +143,6 @@ class _StatisticsContent extends StatelessWidget {
           selectedMonth: selectedMonth,
           selectedPeriod: selectedPeriod,
           overview: dashboard.overview,
-          settings: themeSettings,
           onPreviousMonth: onPreviousMonth,
           onNextMonth: onNextMonth,
           onPeriodChanged: onPeriodChanged,
@@ -249,7 +253,6 @@ class _MonthHeader extends StatelessWidget {
     required this.selectedMonth,
     required this.selectedPeriod,
     required this.overview,
-    required this.settings,
     required this.onPreviousMonth,
     required this.onNextMonth,
     required this.onPeriodChanged,
@@ -258,14 +261,12 @@ class _MonthHeader extends StatelessWidget {
   final DateTime selectedMonth;
   final StatisticsPeriod selectedPeriod;
   final StatisticsOverviewData overview;
-  final AppThemeSettings settings;
   final VoidCallback onPreviousMonth;
   final VoidCallback? onNextMonth;
   final ValueChanged<StatisticsPeriod> onPeriodChanged;
 
   @override
   Widget build(BuildContext context) {
-    final palette = settings.palette;
     final financeColors = AppTheme.financeColors(context);
     final previousAnchor = selectedPeriod == StatisticsPeriod.year
         ? DateTime(selectedMonth.year - 1, selectedMonth.month)
@@ -273,22 +274,18 @@ class _MonthHeader extends StatelessWidget {
     final nextAnchor = selectedPeriod == StatisticsPeriod.year
         ? DateTime(selectedMonth.year + 1, selectedMonth.month)
         : DateTime(selectedMonth.year, selectedMonth.month + 1);
-    final balanceColor = overview.balance >= 0
-        ? financeColors.income
-        : financeColors.expense;
     return PremiumSurface(
       key: const ValueKey('statistics-period-header'),
-      accentColor: palette.seedColor,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      accentColor: Theme.of(context).colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _StatisticsBalanceHero(
             label: '结余',
             value: _formatCurrency(overview.balance),
-            color: balanceColor,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 14),
           SegmentedButton<StatisticsPeriod>(
             key: const ValueKey('statistics-period-selector'),
             segments: const [
@@ -300,7 +297,7 @@ class _MonthHeader extends StatelessWidget {
             showSelectedIcon: false,
             onSelectionChanged: (values) => onPeriodChanged(values.first),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Row(
             children: [
               IconButton(
@@ -318,7 +315,6 @@ class _MonthHeader extends StatelessWidget {
               Expanded(
                 child: _StatisticsPeriodCard(
                   monthLabel: _periodAnchorLabel(selectedMonth, selectedPeriod),
-                  color: balanceColor,
                 ),
               ),
               const SizedBox(width: 6),
@@ -333,23 +329,32 @@ class _MonthHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 14),
+          Divider(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _StatisticsAmountPill(
                   label: '收入',
                   value: _formatCurrency(overview.income),
-                  icon: Icons.south_west_rounded,
                   color: financeColors.income,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(
+                height: 34,
+                child: VerticalDivider(
+                  width: 24,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
               Expanded(
                 child: _StatisticsAmountPill(
                   label: '支出',
                   value: _formatCurrency(overview.expense),
-                  icon: Icons.north_east_rounded,
                   color: financeColors.expense,
                 ),
               ),
@@ -362,28 +367,19 @@ class _MonthHeader extends StatelessWidget {
 }
 
 class _StatisticsPeriodCard extends StatelessWidget {
-  const _StatisticsPeriodCard({required this.monthLabel, required this.color});
+  const _StatisticsPeriodCard({required this.monthLabel});
 
   final String monthLabel;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      constraints: const BoxConstraints(minHeight: 48),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      constraints: const BoxConstraints(minHeight: 42),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark
-                ? 0.18
-                : 0.09,
-          ),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -393,7 +389,7 @@ class _StatisticsPeriodCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
@@ -404,45 +400,37 @@ class _StatisticsPeriodCard extends StatelessWidget {
 }
 
 class _StatisticsBalanceHero extends StatelessWidget {
-  const _StatisticsBalanceHero({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+  const _StatisticsBalanceHero({required this.label, required this.value});
 
   final String label;
   final String value;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(2, 2, 2, 2),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
-              ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          Flexible(
-            flex: 2,
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -455,49 +443,49 @@ class _StatisticsAmountPill extends StatelessWidget {
   const _StatisticsAmountPill({
     required this.label,
     required this.value,
-    required this.icon,
     required this.color,
   });
 
   final String label;
   final String value;
-  final IconData icon;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 40),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 17),
-          const SizedBox(width: 7),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-                fontFeatures: const [FontFeature.tabularFigures()],
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -510,16 +498,7 @@ class _TrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
     final items = trend.items;
-    final maxAmount = items.fold<double>(
-      0,
-      (maxValue, item) => [
-        maxValue,
-        item.income.abs(),
-        item.expense.abs(),
-      ].reduce((a, b) => a > b ? a : b),
-    );
 
     return PremiumSurface(
       accentColor: Theme.of(context).colorScheme.primary,
@@ -532,7 +511,7 @@ class _TrendCard extends StatelessWidget {
                 child: Text(
                   '收支趋势',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -543,17 +522,14 @@ class _TrendCard extends StatelessWidget {
           if (items.isEmpty)
             const _EmptyLine(text: '无趋势')
           else
-            RoundedBarChart(
-              maxValue: maxAmount,
-              height: 132,
+            CashFlowLineChart(
+              height: 172,
               items: [
                 for (final item in items)
-                  RoundedBarChartItem(
+                  CashFlowLineChartItem(
                     label: _trendLabel(item.date, period),
-                    primaryValue: item.income,
-                    secondaryValue: item.expense,
-                    primaryColor: financeColors.income,
-                    secondaryColor: Theme.of(context).colorScheme.error,
+                    income: item.income,
+                    expense: item.expense,
                   ),
               ],
             ),
@@ -618,10 +594,7 @@ class _CategoryRankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final financeColors = AppTheme.financeColors(context);
-    final accentColor = categoryType == 'expense'
-        ? financeColors.expense
-        : financeColors.income;
+    final accentColor = Theme.of(context).colorScheme.primary;
     final rankedItems = [...response.items]
       ..sort((a, b) => b.amount.compareTo(a.amount));
     return PremiumSurface(
@@ -636,14 +609,11 @@ class _CategoryRankCard extends StatelessWidget {
                 child: Text(
                   '分类排行',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              _CategoryRankTotalPill(
-                amount: _formatCurrency(response.total),
-                color: accentColor,
-              ),
+              _CategoryRankTotalPill(amount: _formatCurrency(response.total)),
             ],
           ),
           const SizedBox(height: 8),
@@ -670,10 +640,7 @@ class _CategoryRankCard extends StatelessWidget {
                 amount: _formatCurrency(item.$2.amount),
                 percentage: item.$2.percentage,
                 count: item.$2.count,
-                color: _parseColor(
-                  item.$2.color,
-                  Theme.of(context).colorScheme.primary,
-                ),
+                color: accentColor,
                 rank: item.$1 + 1,
               ),
           ],
@@ -684,10 +651,9 @@ class _CategoryRankCard extends StatelessWidget {
 }
 
 class _CategoryRankTotalPill extends StatelessWidget {
-  const _CategoryRankTotalPill({required this.amount, required this.color});
+  const _CategoryRankTotalPill({required this.amount});
 
   final String amount;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -698,7 +664,7 @@ class _CategoryRankTotalPill extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.labelMedium?.copyWith(
         color: colorScheme.onSurfaceVariant,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w600,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
@@ -762,10 +728,4 @@ String _trendLabel(String value, StatisticsPeriod period) {
     return parts.length >= 2 ? '${int.tryParse(parts[1]) ?? parts[1]}月' : value;
   }
   return value.length >= 4 ? value.substring(0, 4) : value;
-}
-
-Color _parseColor(String value, Color fallback) {
-  final hex = value.replaceFirst('#', '');
-  final colorValue = int.tryParse(hex.length == 6 ? 'FF$hex' : hex, radix: 16);
-  return colorValue == null ? fallback : Color(colorValue);
 }

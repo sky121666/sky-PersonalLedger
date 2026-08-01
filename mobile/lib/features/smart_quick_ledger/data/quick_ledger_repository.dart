@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../transactions/data/transaction_models.dart';
 import '../../transactions/data/transaction_repository.dart';
 import 'quick_ledger_draft.dart';
+import 'quick_ledger_text_parser.dart';
 
 final quickLedgerDraftsProvider =
     StateNotifierProvider<QuickLedgerDraftController, List<QuickLedgerDraft>>((
@@ -58,61 +59,117 @@ class QuickLedgerDraftController extends StateNotifier<List<QuickLedgerDraft>> {
     return _platformClient.setEnabledSources(sources);
   }
 
+  QuickLedgerDraft importText(String text) {
+    final draft = QuickLedgerTextParser.parse(text);
+    if (draft == null) {
+      throw const FormatException('未识别到明确的收支金额');
+    }
+    state = [draft, ...state.where((item) => item.id != draft.id)];
+    return draft;
+  }
+
   Future<void> dismiss(String id) async {
     state = state.where((draft) => draft.id != id).toList();
     await _platformClient.dismissDraft(id);
   }
 
-  Future<TransactionItem> confirm(String id) async {
-    final draft = state.firstWhere((item) => item.id == id);
+  Future<QuickLedgerConfirmationOptions> loadConfirmationOptions() async {
     final accounts = await _transactionWriter.listAccounts();
-    final accountId = _resolveAccountId(draft, accounts);
-    if (accountId == null) {
-      throw const FormatException('缺少可用账户');
+    final categories = await _transactionWriter.listCategories();
+    return QuickLedgerConfirmationOptions(
+      accounts: accounts.where((account) => !account.isArchived).toList(),
+      categories: categories,
+    );
+  }
+
+  Future<TransactionItem> confirm(
+    String id,
+    TransactionFormData formData,
+  ) async {
+    if (!state.any((item) => item.id == id)) {
+      throw const FormatException('候选已不存在');
     }
 
-    String? categoryId;
-    if (draft.type != TransactionType.transfer) {
-      final categories = await _transactionWriter.listCategories(
-        type: draft.type.value,
-      );
-      categoryId = _resolveCategoryId(draft, categories);
-      if (categoryId == null) {
-        throw const FormatException('缺少可用分类');
+    _validateAmount(formData.amount);
+    final accounts = await _transactionWriter.listAccounts();
+    _validateAccount(accounts, formData.accountId, errorMessage: '所选账户不可用或已归档');
+
+    if (formData.type == TransactionType.transfer) {
+      final toAccountId = formData.toAccountId;
+      if (toAccountId == null || toAccountId.isEmpty) {
+        throw const FormatException('请选择转入账户');
+      }
+      if (toAccountId == formData.accountId) {
+        throw const FormatException('转出和转入账户不能相同');
+      }
+      _validateAccount(accounts, toAccountId, errorMessage: '所选转入账户不可用或已归档');
+    } else {
+      final categoryId = formData.categoryId;
+      if (categoryId == null || categoryId.isEmpty) {
+        throw const FormatException('请选择分类');
+      }
+      final categories = await _transactionWriter.listCategories();
+      final category = _findCategory(categories, categoryId);
+      if (category == null) {
+        throw const FormatException('所选分类不可用');
+      }
+      if (category.type != formData.type.value) {
+        throw const FormatException('分类与收支方向不匹配');
       }
     }
 
-    final transaction = await _transactionWriter.create(
-      draft.toFormData(accountId: accountId, categoryId: categoryId),
-    );
+    final transaction = await _transactionWriter.create(formData);
     await dismiss(id);
     return transaction;
   }
 
-  static String? _resolveAccountId(
-    QuickLedgerDraft draft,
-    List<LedgerAccount> accounts,
-  ) {
-    if (draft.suggestedAccountId != null &&
-        accounts.any((account) => account.id == draft.suggestedAccountId)) {
-      return draft.suggestedAccountId;
+  static void _validateAmount(double amount) {
+    if (!amount.isFinite || amount <= 0) {
+      throw const FormatException('请输入有效金额');
     }
-    final active = accounts.where((account) => !account.isArchived).toList();
-    return active.isEmpty ? null : active.first.id;
   }
 
-  static String? _resolveCategoryId(
-    QuickLedgerDraft draft,
-    List<LedgerCategory> categories,
-  ) {
-    if (draft.suggestedCategoryId != null &&
-        categories.any(
-          (category) => category.id == draft.suggestedCategoryId,
-        )) {
-      return draft.suggestedCategoryId;
+  static void _validateAccount(
+    List<LedgerAccount> accounts,
+    String accountId, {
+    required String errorMessage,
+  }) {
+    final account = _findAccount(accounts, accountId);
+    if (account == null || account.isArchived) {
+      throw FormatException(errorMessage);
     }
-    return categories.isEmpty ? null : categories.first.id;
   }
+
+  static LedgerAccount? _findAccount(List<LedgerAccount> accounts, String id) {
+    for (final account in accounts) {
+      if (account.id == id) {
+        return account;
+      }
+    }
+    return null;
+  }
+
+  static LedgerCategory? _findCategory(
+    List<LedgerCategory> categories,
+    String id,
+  ) {
+    for (final category in categories) {
+      if (category.id == id) {
+        return category;
+      }
+    }
+    return null;
+  }
+}
+
+class QuickLedgerConfirmationOptions {
+  const QuickLedgerConfirmationOptions({
+    required this.accounts,
+    required this.categories,
+  });
+
+  final List<LedgerAccount> accounts;
+  final List<LedgerCategory> categories;
 }
 
 abstract class QuickLedgerPlatformClient {

@@ -39,6 +39,7 @@ void main() {
     });
 
     testWidgets('个人资料设置页可直接切换主题模式和主题色模板', (tester) async {
+      final semantics = tester.ensureSemantics();
       final repository = _FakeProfileRepository();
       await _pumpPage(tester, repository);
 
@@ -60,15 +61,17 @@ void main() {
       expect(find.text('主题 DNA'), findsNothing);
       expect(find.text('预算状态'), findsNothing);
       expect(find.text('浅色模式'), findsOneWidget);
-      expect(find.text('绿色主色'), findsOneWidget);
+      expect(find.text('绿色'), findsOneWidget);
       expect(find.text('稳健'), findsNothing);
       expect(find.text('清晰'), findsNothing);
       expect(find.text('低调'), findsNothing);
+      expect(find.bySemanticsLabel('主色 绿色，已选择'), findsOneWidget);
 
       await tester.tap(find.text('深色模式'));
       await tester.pumpAndSettle();
       final preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('app_theme_mode'), AppThemeMode.dark.name);
+      semantics.dispose();
     });
 
     testWidgets('个人资料头部展示身份状态摘要', (tester) async {

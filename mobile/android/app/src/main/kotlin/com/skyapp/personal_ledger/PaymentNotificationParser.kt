@@ -6,7 +6,9 @@ import java.util.Locale
 import kotlin.math.min
 
 object PaymentNotificationParser {
-    private val amountPattern = Regex("""(?:¥|￥)?\s*(\d+(?:\.\d{1,2})?)\s*(?:元)?""")
+    private val amountPattern = Regex(
+        """(?:¥|￥)?\s*(?<![\d,.])((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)(?![\d,.])\s*(?:元)?""",
+    )
 
     fun sourceId(packageName: String): String? {
         return when (packageName) {
@@ -53,7 +55,7 @@ object PaymentNotificationParser {
 
         val type = inferType(combined) ?: return null
         val amount = findAmount(combined, type) ?: return null
-        val merchant = inferMerchant(title, text, amount).ifBlank { sourceName(source) }
+        val merchant = inferMerchant(title, text, amount.matchedText).ifBlank { sourceName(source) }
         val hash = sha1("$packageName|$postedAtMillis|$combined")
         val confidence = confidenceFor(source, combined)
 
@@ -63,7 +65,7 @@ object PaymentNotificationParser {
             sourceName = sourceName(source),
             sourceId = source,
             type = type,
-            amount = amount,
+            amount = amount.value,
             merchant = merchant,
             occurredAt = postedAtMillis,
             confidence = confidence,
@@ -72,44 +74,69 @@ object PaymentNotificationParser {
         )
     }
 
-    private fun findAmount(text: String, type: String): Double? {
+    private fun findAmount(text: String, type: String): AmountCandidate? {
         val directionalWords = if (type == "income") {
             listOf("收款", "到账", "收入", "转入", "退款", "退回", "收到")
         } else {
             listOf("付款", "支付", "消费", "扣款", "支出", "转出")
         }
-        return amountPattern.findAll(text)
-            .mapNotNull { match ->
-                val value = match.groupValues.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null
-                if (value <= 0) {
-                    return@mapNotNull null
-                }
-                val before = text
-                    .substring(maxOf(0, match.range.first - 14), match.range.first)
-                val after = text
-                    .substring(match.range.last + 1, min(text.length, match.range.last + 15))
-                val balanceWords = listOf("余额", "可用", "剩余")
-                val afterWithoutUnit = after.trimStart()
-                    .removePrefix("元")
-                    .trimStart()
-                val isBalance = balanceWords.any { before.contains(it) } ||
-                    balanceWords.any { afterWithoutUnit.startsWith(it) }
-                val hasDirectionalCue = directionalWords.any {
-                    before.contains(it) || after.contains(it)
-                }
-                AmountCandidate(
-                    value = value,
-                    score = when {
-                        isBalance -> -4
-                        hasDirectionalCue -> 4
-                        else -> 0
-                    },
-                    index = match.range.first,
-                )
+        var best: AmountCandidate? = null
+        for (match in amountPattern.findAll(text)) {
+            val amountToken = match.groupValues.getOrNull(1).orEmpty()
+            val value = amountToken.replace(",", "").toDoubleOrNull() ?: continue
+            if (value <= 0 || looksLikeDateOrTime(text, match.range)) {
+                continue
             }
-            .maxWithOrNull(compareBy<AmountCandidate> { it.score }.thenByDescending { -it.index })
-            ?.takeIf { it.score >= 0 }
-            ?.value
+            val before = text
+                .substring(maxOf(0, match.range.first - 14), match.range.first)
+            val after = text
+                .substring(match.range.last + 1, min(text.length, match.range.last + 15))
+            val afterWithoutUnit = after.trimStart()
+                .removePrefix("元")
+                .trimStart()
+            val isBalance = Regex("""(?:余额|可用|剩余)\s*[:：]?\s*[¥￥]?\s*$""")
+                .containsMatchIn(before) ||
+                listOf("余额", "可用", "剩余").any { afterWithoutUnit.startsWith(it) }
+            if (isBalance) {
+                continue
+            }
+            val hasDirectionalCue = directionalWords.any {
+                before.contains(it) || after.contains(it)
+            }
+            val matchedText = match.value
+            val hasCurrencyUnit = matchedText.contains('¥') ||
+                matchedText.contains('￥') ||
+                matchedText.trimEnd().endsWith("元")
+            val hasAmountLabel = listOf("金额", "实付", "合计").any {
+                before.contains(it) || after.startsWith(it)
+            }
+            val hasUnlabeledDecimalAmount = hasDirectionalCue && amountToken.contains('.')
+            if (!hasCurrencyUnit && !hasAmountLabel && !hasUnlabeledDecimalAmount) {
+                continue
+            }
+            val candidate = AmountCandidate(
+                value = value,
+                score = (if (hasDirectionalCue) 4 else 0) +
+                    (if (hasCurrencyUnit) 4 else 0) +
+                    (if (hasAmountLabel) 3 else 0),
+                index = match.range.first,
+                matchedText = matchedText,
+            )
+            if (best == null ||
+                candidate.score > best.score ||
+                (candidate.score == best.score && candidate.index < best.index)
+            ) {
+                best = candidate
+            }
+        }
+        return best
+    }
+
+    private fun looksLikeDateOrTime(text: String, range: IntRange): Boolean {
+        val previous = text.getOrNull(range.first - 1)
+        val next = text.getOrNull(range.last + 1)
+        return previous == '-' || previous == '/' || previous == ':' ||
+            next == '-' || next == '/' || next == ':'
     }
 
     private fun inferType(text: String): String? {
@@ -122,11 +149,10 @@ object PaymentNotificationParser {
         }
     }
 
-    private fun inferMerchant(title: String, text: String, amount: Double): String {
-        val normalizedAmount = amount.toString().trimEnd('0').trimEnd('.')
+    private fun inferMerchant(title: String, text: String, matchedAmount: String): String {
         val source = if (title.length >= 2 && !title.contains("支付")) title else text
         return source
-            .replace(Regex("""(?:¥|￥)?\s*${Regex.escape(normalizedAmount)}0?\s*(?:元)?"""), "")
+            .replace(Regex(Regex.escape(matchedAmount)), "")
             .replace(Regex("""(微信支付|支付宝|银行|云闪付|付款|支付|消费|扣款|收款|到账|收入|支出|通知|提醒)"""), "")
             .replace(Regex("""\s+"""), " ")
             .trim()
@@ -167,6 +193,7 @@ object PaymentNotificationParser {
         val value: Double,
         val score: Int,
         val index: Int,
+        val matchedText: String,
     )
 
     data class ParsedPaymentNotification(

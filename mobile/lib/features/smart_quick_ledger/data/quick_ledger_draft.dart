@@ -4,7 +4,8 @@ enum QuickLedgerDraftSource {
   androidNotification,
   iosShortcut,
   share,
-  ocr;
+  ocr,
+  manualPaste;
 
   String get label {
     return switch (this) {
@@ -12,6 +13,7 @@ enum QuickLedgerDraftSource {
       QuickLedgerDraftSource.iosShortcut => '快捷指令',
       QuickLedgerDraftSource.share => '分享导入',
       QuickLedgerDraftSource.ocr => '截图识别',
+      QuickLedgerDraftSource.manualPaste => '粘贴导入',
     };
   }
 
@@ -21,6 +23,7 @@ enum QuickLedgerDraftSource {
       QuickLedgerDraftSource.iosShortcut => 'ios_shortcut',
       QuickLedgerDraftSource.share => 'share',
       QuickLedgerDraftSource.ocr => 'ocr',
+      QuickLedgerDraftSource.manualPaste => 'manual_paste',
     };
   }
 
@@ -29,6 +32,7 @@ enum QuickLedgerDraftSource {
       'ios_shortcut' => QuickLedgerDraftSource.iosShortcut,
       'share' => QuickLedgerDraftSource.share,
       'ocr' => QuickLedgerDraftSource.ocr,
+      'manual_paste' => QuickLedgerDraftSource.manualPaste,
       _ => QuickLedgerDraftSource.androidNotification,
     };
   }

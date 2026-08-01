@@ -1257,8 +1257,8 @@ void main() {
                 familyMembersProvider.overrideWith(
                   (ref) async => _familyMembers,
                 ),
-                familySummaryProvider.overrideWith(
-                  (ref) async => _familySummary,
+                familySummaryByPeriodProvider.overrideWith(
+                  (ref, query) async => _familySummary,
                 ),
               ],
               child: _screenshotHost(
@@ -1272,7 +1272,7 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.text('家庭成员'), findsOneWidget);
-          expect(find.text('2026-05 家庭支出'), findsOneWidget);
+          expect(find.text('2026年5月 家庭支出'), findsOneWidget);
           expect(find.text('家庭协同中枢'), findsNothing);
           expect(
             find.byKey(const ValueKey('family-collaboration-hub')),
@@ -1300,7 +1300,7 @@ void main() {
           await _scrollUntilVisibleIfPresent(tester, find.text('停用'), 360);
           expect(find.text('成员A'), findsWidgets);
           expect(find.text('成员B'), findsWidgets);
-          expect(find.text('常用'), findsOneWidget);
+          expect(find.text('常用 · 启用'), findsOneWidget);
           expect(find.text('停用'), findsOneWidget);
         },
       );
@@ -1362,13 +1362,21 @@ void main() {
         );
         expect(find.text('月度收支'), findsOneWidget);
 
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('收入 Top'),
-          360,
+        await tester.scrollUntilVisible(
+          find.text('餐饮'),
+          320,
           scrollable: find.byType(Scrollable).first,
         );
+        await tester.pumpAndSettle();
+        expect(find.text('支出 Top'), findsOneWidget);
         expect(find.text('餐饮'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('工资'),
+          320,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('收入 Top'), findsOneWidget);
         expect(find.text('工资'), findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
@@ -1400,8 +1408,8 @@ void main() {
             find.byKey(const ValueKey('profile-command-center')),
             findsNothing,
           );
-          expect(find.text('账本管理'), findsOneWidget);
-          expect(find.text('计划提醒'), findsOneWidget);
+          expect(find.text('日常账本'), findsOneWidget);
+          expect(find.text('计划与往来'), findsOneWidget);
           expect(find.text('智能与数据'), findsOneWidget);
           expect(find.text('账户'), findsOneWidget);
           expect(find.text('预算'), findsOneWidget);
@@ -1431,7 +1439,7 @@ void main() {
           expect(find.text('系统'), findsOneWidget);
           expect(find.text('浅色'), findsOneWidget);
           expect(find.text('深色'), findsOneWidget);
-          expect(find.text('主题'), findsOneWidget);
+          expect(find.text('主色'), findsOneWidget);
           expect(find.text('主题色模板'), findsNothing);
           expect(
             find.byKey(const ValueKey('profile-theme-curation-rail')),
@@ -1448,13 +1456,13 @@ void main() {
           );
 
           await tester.scrollUntilVisible(
-            find.byKey(const ValueKey('profile-section-安全设置')),
-            360,
+            find.byKey(const ValueKey('profile-section-安全与数据')),
+            -360,
             scrollable: find.byType(Scrollable).first,
           );
           await tester.pumpAndSettle();
           expect(
-            find.byKey(const ValueKey('profile-section-安全设置')),
+            find.byKey(const ValueKey('profile-section-安全与数据')),
             findsOneWidget,
           );
           expect(find.text('设备授权'), findsOneWidget);
@@ -1524,7 +1532,7 @@ void main() {
         expect(find.text('跟随系统'), findsOneWidget);
         expect(find.text('浅色模式'), findsOneWidget);
         expect(find.text('深色模式'), findsOneWidget);
-        expect(find.text('主题色'), findsOneWidget);
+        expect(find.text('主色'), findsOneWidget);
         expect(find.text('设置主题中心'), findsNothing);
         expect(find.text('模板数量'), findsNothing);
         expect(
@@ -1910,6 +1918,7 @@ const _familyMembers = [
 
 const _familySummary = FamilySummary(
   month: '2026-05',
+  label: '2026年5月',
   totalExpense: 320,
   members: [
     FamilyMemberSummary(
@@ -2270,6 +2279,43 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   Future<void> restoreBackup(PlatformFile file) async {}
 
   @override
+  Future<TransactionImportPreview> previewTransactionImport(
+    PlatformFile file,
+  ) async {
+    throw UnsupportedError('视觉冒烟流程不会选择真实导入文件');
+  }
+
+  @override
+  Future<TransactionImportPreview?> getRecentTransactionImport() async {
+    return null;
+  }
+
+  @override
+  Future<List<TransactionImportPreview>> listRecentTransactionImports() async {
+    return const [];
+  }
+
+  @override
+  Future<TransactionImportPreview> getTransactionImport(String id) async {
+    throw UnsupportedError('视觉冒烟流程没有导入会话');
+  }
+
+  @override
+  Future<TransactionImportPreview> validateTransactionImport(String id) async {
+    throw UnsupportedError('视觉冒烟流程没有导入会话');
+  }
+
+  @override
+  Future<TransactionImportPreview> commitTransactionImport(String id) async {
+    throw UnsupportedError('视觉冒烟流程没有导入会话');
+  }
+
+  @override
+  Future<TransactionImportPreview> rollbackTransactionImport(String id) async {
+    throw UnsupportedError('视觉冒烟流程没有导入会话');
+  }
+
+  @override
   Future<AutoBackupSettings?> saveAutoBackupSettings(
     AutoBackupSettings settings,
   ) async {
@@ -2289,6 +2335,7 @@ class _FakeApiTokenRepository implements ApiTokenRepository {
       token: 'full-token-value',
       tokenPrefix: 'ffff0000',
       createdAt: DateTime(2026, 5, 2, 9),
+      scopes: request.scopes,
     );
   }
 
@@ -2303,6 +2350,7 @@ class _FakeApiTokenRepository implements ApiTokenRepository {
         name: '我的手机',
         tokenPrefix: 'abcd1234',
         createdAt: DateTime(2026, 5, 1, 9),
+        scopes: apiTokenDefaultScopes,
       ),
     ];
   }

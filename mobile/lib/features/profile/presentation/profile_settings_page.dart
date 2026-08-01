@@ -104,7 +104,8 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
 
   Future<void> _pickAndUploadAvatar() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
       allowMultiple: false,
       withData: false,
     );
@@ -160,7 +161,7 @@ class _ProfileSettingsPageState extends ConsumerState<ProfileSettingsPage> {
             key: const ValueKey('profile-settings-refresh'),
             onPressed: _submitting ? null : _loadProfile,
             icon: const Icon(Icons.refresh),
-            tooltip: null,
+            tooltip: '刷新个人资料',
           ),
         ],
       ),
@@ -491,30 +492,58 @@ class _ProfileThemeChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = palette.displayAccentColor;
-    return ChoiceChip(
+    return Semantics(
       key: ValueKey('profile-settings-theme-palette-${palette.id}'),
       selected: selected,
-      showCheckmark: false,
-      label: Text(palette.label),
-      avatar: Container(
-        width: 14,
-        height: 14,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: colorScheme.outlineVariant),
+      button: true,
+      label: '主色 ${palette.label}${selected ? '，已选择' : ''}',
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? Color.alphaBlend(
+                      color.withValues(alpha: 0.14),
+                      colorScheme.surface,
+                    )
+                  : colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected
+                    ? color.withValues(alpha: 0.72)
+                    : colorScheme.outlineVariant.withValues(alpha: 0.7),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  palette.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: selected ? color : colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      selectedColor: Color.alphaBlend(
-        color.withValues(alpha: 0.14),
-        colorScheme.surface,
-      ),
-      side: BorderSide(
-        color: selected
-            ? color
-            : colorScheme.outlineVariant.withValues(alpha: 0.7),
-      ),
-      onSelected: (_) => onTap(),
     );
   }
 }

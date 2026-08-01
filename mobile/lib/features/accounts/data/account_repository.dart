@@ -46,7 +46,7 @@ class AccountRepository {
 
   /// 更新账户基础信息。
   Future<Account> update(String id, UpdateAccountRequest request) async {
-    final result = await _apiClient.put<Account>(
+    final result = await _apiClient.patch<Account>(
       '/accounts/$id',
       data: request.toJson(),
       fromJsonT: (json) =>

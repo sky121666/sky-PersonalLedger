@@ -210,7 +210,7 @@ class _SecuritySettingsPageState extends ConsumerState<SecuritySettingsPage> {
             key: const ValueKey('security-entry-refresh'),
             onPressed: _isBusy ? null : _loadEntryPath,
             icon: const Icon(Icons.refresh),
-            tooltip: null,
+            tooltip: '刷新登录入口',
           ),
         ],
       ),
@@ -547,24 +547,26 @@ class _EntryPathCard extends StatelessWidget {
               Semantics(
                 label: '生成登录入口',
                 button: true,
+                excludeSemantics: true,
                 child: IconButton.filledTonal(
                   key: const ValueKey('security-entry-generate'),
                   onPressed: submitting ? null : onGenerate,
                   icon: const Icon(Icons.auto_awesome_outlined),
-                  tooltip: null,
+                  tooltip: '生成登录入口',
                 ),
               ),
               const SizedBox(width: 8),
               Semantics(
                 label: '禁用登录保护',
                 button: true,
+                excludeSemantics: true,
                 child: IconButton.outlined(
                   key: const ValueKey('security-entry-disable'),
                   onPressed: submitting || !entryPath.enabled
                       ? null
                       : onDisable,
                   icon: const Icon(Icons.block_outlined),
-                  tooltip: null,
+                  tooltip: '禁用登录保护',
                 ),
               ),
             ],

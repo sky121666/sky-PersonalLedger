@@ -27,10 +27,13 @@ void main() {
       expect(find.text('导出 CSV'), findsNothing);
       expect(find.text('恢复账本'), findsOneWidget);
       expect(find.text('选择副本'), findsNothing);
+      expect(find.bySemanticsLabel('展开导入交易'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('restore-panel-toggle')),
         findsOneWidget,
       );
+      expect(find.byTooltip('展开恢复账本'), findsOneWidget);
+      expect(find.byTooltip('筛选交易明细'), findsOneWidget);
       expect(find.text('选择备份'), findsNothing);
       expect(find.text('数据操作链路'), findsNothing);
       expect(find.byKey(const ValueKey('data-operation-rail')), findsNothing);
@@ -246,6 +249,7 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
+      expect(find.byTooltip('刷新保存记录'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('auto-backup-reload')));
       await tester.pumpAndSettle();
 
@@ -260,6 +264,110 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('user1_20260516'), findsOneWidget);
       expect(repository.getAutoBackupOverviewCalls, 2);
+    });
+
+    testWidgets('恢复最近交易预览并通过确认后原子提交', (tester) async {
+      final repository = _FakeDataManagementRepository()
+        ..recentTransactionImport = _transactionImportPreview();
+      await _pumpPage(tester, repository);
+
+      expect(repository.listRecentTransactionImportsCalls, 1);
+      expect(repository.getTransactionImportCalls, 1);
+      expect(find.text('transactions.csv'), findsAtLeastNWidgets(1));
+      expect(find.text('总计'), findsOneWidget);
+      expect(find.text('有效'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('transaction-import-commit')));
+      await tester.pumpAndSettle();
+      expect(find.text('导入 2 条交易'), findsOneWidget);
+      await tester.tap(find.text('确认导入'));
+      await tester.pumpAndSettle();
+
+      expect(repository.commitTransactionImportCalls, 1);
+      expect(
+        find.byKey(const ValueKey('transaction-import-rollback')),
+        findsOneWidget,
+      );
+      expect(find.text('可撤销'), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('页面恢复时会用完整批次详情补回行级诊断', (tester) async {
+      final summary = _transactionImportPreview(invalidRows: 1);
+      final detail = _transactionImportPreview(
+        invalidRows: 1,
+        rows: const [
+          TransactionImportRow(
+            row: 2,
+            type: 'expense',
+            amount: 12,
+            transactionDate: '2026-08-01',
+            account: '',
+            category: '餐饮',
+            valid: false,
+            duplicate: false,
+            errors: ['账户不存在'],
+            warnings: [],
+          ),
+        ],
+      );
+      final repository = _FakeDataManagementRepository()
+        ..transactionImportHistory = [summary]
+        ..transactionImportDetails[summary.id] = detail;
+
+      await _pumpPage(tester, repository);
+
+      expect(repository.listRecentTransactionImportsCalls, 1);
+      expect(repository.getTransactionImportCalls, 1);
+      expect(find.text('第 2 行 · 账户不存在'), findsOneWidget);
+    });
+
+    testWidgets('已提交导入在页面重开后仍可完整撤销', (tester) async {
+      final repository = _FakeDataManagementRepository()
+        ..recentTransactionImport = _transactionImportPreview(
+          status: 'committed',
+        );
+      await _pumpPage(tester, repository);
+
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-import-rollback')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('撤销本次导入'), findsOneWidget);
+      await tester.tap(find.text('撤销导入'));
+      await tester.pumpAndSettle();
+
+      expect(repository.rollbackTransactionImportCalls, 1);
+      expect(find.text('已撤销'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('账户余额已恢复'), findsOneWidget);
+    });
+
+    testWidgets('多个可撤销批次都能从近期记录重新打开', (tester) async {
+      final repository = _FakeDataManagementRepository()
+        ..transactionImportHistory = [
+          _transactionImportPreview(
+            id: 'import-2',
+            filename: 'july.csv',
+            status: 'committed',
+          ),
+          _transactionImportPreview(
+            id: 'import-1',
+            filename: 'june.csv',
+            status: 'committed',
+          ),
+        ];
+      await _pumpPage(tester, repository);
+
+      expect(find.text('近期批次'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('transaction-import-history-import-1')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.getTransactionImportCalls, 2);
+      expect(find.text('june.csv'), findsAtLeastNWidgets(1));
+      expect(
+        find.byKey(const ValueKey('transaction-import-rollback')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('数据管理页使用高级表面和清晰操作层级', (tester) async {
@@ -341,10 +449,19 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   int getAutoBackupSettingsCalls = 0;
   int triggerAutoBackupCalls = 0;
   int listAutoBackupFilesCalls = 0;
+  int getRecentTransactionImportCalls = 0;
+  int listRecentTransactionImportsCalls = 0;
+  int getTransactionImportCalls = 0;
+  int validateTransactionImportCalls = 0;
+  int commitTransactionImportCalls = 0;
+  int rollbackTransactionImportCalls = 0;
   final List<AutoBackupSettings> saveAutoBackupCalls = [];
   String? downloadBackupError;
   String? triggerAutoBackupError;
   int getAutoBackupOverviewErrors = 0;
+  TransactionImportPreview? recentTransactionImport;
+  List<TransactionImportPreview> transactionImportHistory = const [];
+  final Map<String, TransactionImportPreview> transactionImportDetails = {};
   AutoBackupSettings autoBackupSettings = const AutoBackupSettings(
     enabled: false,
     frequency: 'daily',
@@ -392,6 +509,67 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   }
 
   @override
+  Future<TransactionImportPreview> previewTransactionImport(
+    PlatformFile file,
+  ) async {
+    return recentTransactionImport ?? _transactionImportPreview();
+  }
+
+  @override
+  Future<TransactionImportPreview?> getRecentTransactionImport() async {
+    getRecentTransactionImportCalls += 1;
+    return recentTransactionImport;
+  }
+
+  @override
+  Future<List<TransactionImportPreview>> listRecentTransactionImports() async {
+    listRecentTransactionImportsCalls += 1;
+    if (transactionImportHistory.isNotEmpty) {
+      return transactionImportHistory;
+    }
+    final preview = recentTransactionImport;
+    return preview == null ? const [] : [preview];
+  }
+
+  @override
+  Future<TransactionImportPreview> getTransactionImport(String id) async {
+    getTransactionImportCalls += 1;
+    final detail = transactionImportDetails[id];
+    if (detail != null) {
+      recentTransactionImport = detail;
+      return detail;
+    }
+    for (final preview in transactionImportHistory) {
+      if (preview.id == id) {
+        recentTransactionImport = preview;
+        return preview;
+      }
+    }
+    return recentTransactionImport ?? _transactionImportPreview();
+  }
+
+  @override
+  Future<TransactionImportPreview> validateTransactionImport(String id) async {
+    validateTransactionImportCalls += 1;
+    recentTransactionImport = _transactionImportPreview(status: 'validated');
+    return recentTransactionImport!;
+  }
+
+  @override
+  Future<TransactionImportPreview> commitTransactionImport(String id) async {
+    commitTransactionImportCalls += 1;
+    recentTransactionImport = _transactionImportPreview(status: 'committed');
+    return recentTransactionImport!;
+  }
+
+  @override
+  Future<TransactionImportPreview> rollbackTransactionImport(String id) async {
+    rollbackTransactionImportCalls += 1;
+    recentTransactionImport = _transactionImportPreview(status: 'rolled_back');
+    return recentTransactionImport!;
+  }
+
+  @override
   Future<AutoBackupOverview> getAutoBackupOverview() async {
     getAutoBackupOverviewCalls += 1;
     if (getAutoBackupOverviewErrors > 0) {
@@ -435,4 +613,32 @@ class _FakeDataManagementRepository implements DataManagementRepository {
       throw Exception(error);
     }
   }
+}
+
+TransactionImportPreview _transactionImportPreview({
+  String id = 'import-1',
+  String filename = 'transactions.csv',
+  String status = 'previewed',
+  int invalidRows = 0,
+  List<TransactionImportRow> rows = const [],
+}) {
+  final now = DateTime(2026, 8, 1, 10);
+  return TransactionImportPreview(
+    id: id,
+    filename: filename,
+    format: 'csv',
+    status: status,
+    totalRows: 2,
+    validRows: 2 - invalidRows,
+    invalidRows: invalidRows,
+    duplicateRows: 0,
+    createdRows: status == 'committed' || status == 'rolled_back' ? 2 : 0,
+    rolledBackRows: status == 'rolled_back' ? 2 : 0,
+    rows: rows,
+    rowsTruncated: false,
+    createdAt: now,
+    expiresAt: now.add(const Duration(hours: 24)),
+    committedAt: status == 'committed' ? now : null,
+    rolledBackAt: status == 'rolled_back' ? now : null,
+  );
 }

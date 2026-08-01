@@ -117,6 +117,8 @@ class TransactionItem {
     this.memberId,
     this.paidByMemberId,
     this.source = 'manual',
+    this.lendingId,
+    this.reminderId,
     this.account,
     this.toAccount,
     this.category,
@@ -135,6 +137,8 @@ class TransactionItem {
   final String? memberId;
   final String? paidByMemberId;
   final String source;
+  final String? lendingId;
+  final String? reminderId;
   final LedgerAccount? account;
   final LedgerAccount? toAccount;
   final LedgerCategory? category;
@@ -145,6 +149,16 @@ class TransactionItem {
     return source.trim().toLowerCase() == 'system' ||
         remark.trimLeft().startsWith('期初余额:');
   }
+
+  bool get isLendingLinked {
+    return lendingId != null || source.trim().toLowerCase() == 'lending';
+  }
+
+  bool get isReminderLinked {
+    return reminderId != null || source.trim().toLowerCase() == 'reminder';
+  }
+
+  bool get isManagedTransaction => isLendingLinked || isReminderLinked;
 
   String get displayTitle {
     if (type == TransactionType.transfer) {
@@ -171,6 +185,8 @@ class TransactionItem {
       memberId: json['member_id'] as String?,
       paidByMemberId: json['paid_by_member_id'] as String?,
       source: json['source'] as String? ?? 'manual',
+      lendingId: json['lending_id'] as String?,
+      reminderId: json['reminder_id'] as String?,
       account: json['account'] is Map<String, dynamic>
           ? LedgerAccount.fromJson(json['account'] as Map<String, dynamic>)
           : null,
@@ -182,6 +198,18 @@ class TransactionItem {
           : null,
     );
   }
+}
+
+/// Removes an explicit showcase seed prefix without truncating legitimate
+/// remarks such as `SHOWCASE项目` or `展示柜购买`.
+String cleanTransactionDisplayRemark(String remark) {
+  return remark
+      .trimLeft()
+      .replaceFirst(
+        RegExp(r'^(?:SHOWCASE|展示)(?:\s+|[-:：]\s*)', caseSensitive: false),
+        '',
+      )
+      .trim();
 }
 
 class TransactionListResult {
@@ -301,7 +329,7 @@ class TransactionFormData {
       'type': type.value,
       'amount': amount,
       'account_id': accountId,
-      'transaction_date': transactionDate.toIso8601String(),
+      'transaction_date': transactionDate.toUtc().toIso8601String(),
       'remark': remark.trim(),
       'images': images,
       'tags': jsonEncode(tags),
@@ -348,23 +376,31 @@ DateTime _parseDateTime(Object? value) {
 
 List<String> _parseTags(Object? value) {
   if (value is List) {
-    return value.whereType<String>().toList();
+    return _normalizeTags(value);
   }
   if (value is String && value.trim().isNotEmpty) {
     try {
       final decoded = jsonDecode(value);
       if (decoded is List) {
-        return decoded.whereType<String>().toList();
+        return _normalizeTags(decoded);
+      }
+      if (decoded is String) {
+        return _normalizeTags([decoded]);
       }
     } catch (_) {
-      return value
-          .split(',')
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
+      return _normalizeTags(value.split(','));
     }
   }
   return const [];
+}
+
+List<String> _normalizeTags(Iterable<Object?> values) {
+  final seen = <String>{};
+  return values
+      .whereType<String>()
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty && seen.add(item))
+      .toList();
 }
 
 String _formatDate(DateTime date) {

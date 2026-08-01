@@ -42,7 +42,7 @@ class FinanceHeroCard extends StatelessWidget {
                     label,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -52,7 +52,7 @@ class FinanceHeroCard extends StatelessWidget {
             AnimatedMoneyText(
               amount: amount,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -66,7 +66,7 @@ class FinanceHeroCard extends StatelessWidget {
                     icon: entry.$2.icon,
                     color: entry.$2.color,
                   ),
-                  if (entry.$1 != metrics.length - 1) const SizedBox(height: 8),
+                  if (entry.$1 != metrics.length - 1) const Divider(indent: 24),
                 ],
               ],
             ),
@@ -110,7 +110,7 @@ class MetricPill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -121,7 +121,7 @@ class MetricPill extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.right,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
@@ -189,14 +189,14 @@ class IconBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fill = colorScheme.surfaceContainerHigh;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color.withValues(
-          alpha: Theme.of(context).brightness == Brightness.dark ? 0.20 : 0.12,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.34),
+        color: fill,
+        borderRadius: BorderRadius.circular(size <= 34 ? 9 : 10),
       ),
       child: Icon(icon, size: iconSize, color: color),
     );
@@ -276,6 +276,65 @@ class RoundedBarChartItem {
   final Color secondaryColor;
 }
 
+class CashFlowLineChart extends StatelessWidget {
+  const CashFlowLineChart({
+    required this.items,
+    this.height = 188,
+    this.semanticLabel,
+    super.key,
+  });
+
+  final List<CashFlowLineChartItem> items;
+  final double height;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final financeColors = AppTheme.financeColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      container: true,
+      label:
+          semanticLabel ??
+          '收支趋势，${items.map((item) => '${item.label}收入${item.income.toStringAsFixed(0)}支出${item.expense.toStringAsFixed(0)}').join('；')}',
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: CustomPaint(
+          painter: _CashFlowLineChartPainter(
+            items: items,
+            incomeColor: financeColors.income,
+            expenseColor: financeColors.expense,
+            gridColor: colorScheme.outlineVariant.withValues(alpha: 0.58),
+            labelColor: colorScheme.onSurfaceVariant,
+            labelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+            ),
+            surfaceColor: colorScheme.surface,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CashFlowLineChartItem {
+  const CashFlowLineChartItem({
+    required this.label,
+    required this.income,
+    required this.expense,
+  });
+
+  final String label;
+  final double income;
+  final double expense;
+}
+
 class CategoryRankTile extends StatelessWidget {
   const CategoryRankTile({
     required this.name,
@@ -300,71 +359,74 @@ class CategoryRankTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = (percentage / 100).clamp(0.0, 1.0);
     final colorScheme = Theme.of(context).colorScheme;
+    final effectiveColor = colorScheme.primary;
     final displayName = name.isEmpty ? '未分类' : name;
     return Semantics(
       label:
           '${rank == null ? '' : '第$rank名，'}$displayName，$amount，${percentage.toStringAsFixed(1)}%，$count 笔',
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                if (rank != null) ...[
-                  _RankBadge(rank: rank!, color: color),
-                  const SizedBox(width: 8),
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  if (rank != null) ...[
+                    _RankBadge(rank: rank!, color: effectiveColor),
+                    const SizedBox(width: 8),
+                  ],
+                  IconBadge(
+                    icon: _categoryIconData(icon),
+                    color: effectiveColor,
+                    size: 34,
+                    iconSize: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$count 笔 · ${percentage.toStringAsFixed(1)}%',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w400,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    amount,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
                 ],
-                IconBadge(
-                  icon: _categoryIconData(icon),
-                  color: color,
-                  size: 34,
-                  iconSize: 18,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$count 笔 · ${percentage.toStringAsFixed(1)}%',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  amount,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 4,
-                color: color,
-                backgroundColor: color.withValues(alpha: 0.10),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 4,
+                  color: effectiveColor,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -379,21 +441,16 @@ class _RankBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 30,
-      height: 30,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Text(
-        '#$rank',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w900,
-          fontFeatures: const [FontFeature.tabularFigures()],
+    return SizedBox(
+      width: 24,
+      child: Center(
+        child: Text(
+          '$rank',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
         ),
       ),
     );
@@ -515,6 +572,191 @@ IconData _categoryIconData(String value) {
     'education' || '学习' => Icons.school_outlined,
     _ => Icons.category_outlined,
   };
+}
+
+class _CashFlowLineChartPainter extends CustomPainter {
+  const _CashFlowLineChartPainter({
+    required this.items,
+    required this.incomeColor,
+    required this.expenseColor,
+    required this.gridColor,
+    required this.labelColor,
+    required this.labelStyle,
+    required this.surfaceColor,
+  });
+
+  final List<CashFlowLineChartItem> items;
+  final Color incomeColor;
+  final Color expenseColor;
+  final Color gridColor;
+  final Color labelColor;
+  final TextStyle? labelStyle;
+  final Color surfaceColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const leftInset = 38.0;
+    const rightInset = 8.0;
+    const topInset = 8.0;
+    const bottomInset = 24.0;
+    final chartRect = Rect.fromLTRB(
+      leftInset,
+      topInset,
+      size.width - rightInset,
+      size.height - bottomInset,
+    );
+    final maxValue = items.fold<double>(0, (current, item) {
+      return math.max(current, math.max(item.income, item.expense));
+    });
+    final axisMax = maxValue <= 0 ? 1.0 : maxValue * 1.08;
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.6;
+
+    for (var index = 0; index < 4; index += 1) {
+      final ratio = index / 3;
+      final y = chartRect.bottom - chartRect.height * ratio;
+      canvas.drawLine(
+        Offset(chartRect.left, y),
+        Offset(chartRect.right, y),
+        gridPaint,
+      );
+      final label = _compactAxisValue(axisMax * ratio);
+      _paintText(
+        canvas,
+        label,
+        Offset(0, y - 7),
+        width: leftInset - 8,
+        textAlign: TextAlign.right,
+      );
+    }
+
+    final incomePoints = _pointsFor(chartRect, axisMax, (item) => item.income);
+    final expensePoints = _pointsFor(
+      chartRect,
+      axisMax,
+      (item) => item.expense,
+    );
+    _drawSeries(canvas, chartRect, incomePoints, incomeColor, fill: true);
+    _drawSeries(canvas, chartRect, expensePoints, expenseColor, fill: false);
+
+    for (var index = 0; index < items.length; index += 1) {
+      final x = incomePoints[index].dx;
+      final width = math.min(52.0, chartRect.width / items.length);
+      _paintText(
+        canvas,
+        items[index].label,
+        Offset(x - width / 2, chartRect.bottom + 7),
+        width: width,
+        textAlign: TextAlign.center,
+      );
+    }
+  }
+
+  List<Offset> _pointsFor(
+    Rect rect,
+    double axisMax,
+    double Function(CashFlowLineChartItem item) valueOf,
+  ) {
+    final divisor = math.max(items.length - 1, 1);
+    return [
+      for (var index = 0; index < items.length; index += 1)
+        Offset(
+          rect.left + rect.width * index / divisor,
+          rect.bottom -
+              rect.height * (valueOf(items[index]).clamp(0, axisMax) / axisMax),
+        ),
+    ];
+  }
+
+  void _drawSeries(
+    Canvas canvas,
+    Rect rect,
+    List<Offset> points,
+    Color color, {
+    required bool fill,
+  }) {
+    if (points.isEmpty) {
+      return;
+    }
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    if (fill) {
+      final area = Path.from(path)
+        ..lineTo(points.last.dx, rect.bottom)
+        ..lineTo(points.first.dx, rect.bottom)
+        ..close();
+      canvas.drawPath(area, Paint()..color = color.withValues(alpha: 0.07));
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    final pointFill = Paint()..color = surfaceColor;
+    final pointStroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    for (final point in points) {
+      canvas
+        ..drawCircle(point, 4, pointFill)
+        ..drawCircle(point, 4, pointStroke);
+    }
+  }
+
+  void _paintText(
+    Canvas canvas,
+    String value,
+    Offset offset, {
+    required double width,
+    required TextAlign textAlign,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value,
+        style:
+            labelStyle ??
+            TextStyle(
+              color: labelColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+            ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: textAlign,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: width);
+    painter.paint(canvas, offset);
+  }
+
+  String _compactAxisValue(double value) {
+    if (value >= 10000) {
+      return '${(value / 10000).toStringAsFixed(value >= 100000 ? 0 : 1)}万';
+    }
+    if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(value >= 10000 ? 0 : 1)}k';
+    }
+    return value.toStringAsFixed(0);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CashFlowLineChartPainter oldDelegate) {
+    return oldDelegate.items != items ||
+        oldDelegate.incomeColor != incomeColor ||
+        oldDelegate.expenseColor != expenseColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.labelColor != labelColor ||
+        oldDelegate.labelStyle != labelStyle ||
+        oldDelegate.surfaceColor != surfaceColor;
+  }
 }
 
 class _ProgressRingPainter extends CustomPainter {

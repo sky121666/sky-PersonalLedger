@@ -1,11 +1,12 @@
 import 'dart:io';
-import 'dart:ui' as ui;
-import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:personal_ledger/app/router/app_route_paths.dart';
 import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/theme/theme_mode_controller.dart';
 import 'package:personal_ledger/features/accounts/application/account_controller.dart';
@@ -20,9 +21,18 @@ import 'package:personal_ledger/features/home/data/home_repository.dart'
 import 'package:personal_ledger/features/home/presentation/home_page.dart';
 import 'package:personal_ledger/features/lendings/data/lending_repository.dart';
 import 'package:personal_ledger/features/lendings/presentation/lending_page.dart';
+import 'package:personal_ledger/features/main/presentation/main_shell_page.dart';
+import 'package:personal_ledger/features/profile/presentation/profile_page.dart';
+import 'package:personal_ledger/features/smart_quick_ledger/data/quick_ledger_draft.dart';
+import 'package:personal_ledger/features/smart_quick_ledger/data/quick_ledger_repository.dart';
+import 'package:personal_ledger/features/smart_quick_ledger/presentation/smart_quick_ledger_page.dart';
+import 'package:personal_ledger/features/statistics/data/statistics_models.dart';
+import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
+import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_repository.dart';
 import 'package:personal_ledger/features/transactions/presentation/quick_transaction_page.dart';
+import 'package:personal_ledger/features/transactions/presentation/transaction_details_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _outputDir = String.fromEnvironment(
@@ -47,6 +57,8 @@ void main() {
     return;
   }
 
+  setUpAll(_loadReviewFonts);
+
   group('UI review capture', () {
     testWidgets('capture home page', (tester) async {
       await _preparePhoneViewport(tester);
@@ -62,14 +74,40 @@ void main() {
             ),
           ],
           child: _host(
-            MaterialApp(theme: AppTheme.lightTheme(), home: const HomePage()),
+            MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: _reviewTheme(),
+              home: const HomePage(),
+            ),
           ),
         ),
       );
       await _stabilize(tester);
 
       await _capture(tester, 'home-phone');
-      await _disposeTree(tester);
+    });
+
+    for (final target in const [
+      (name: 'home', path: AppRoutePaths.home),
+      (name: 'transactions', path: AppRoutePaths.transactions),
+      (name: 'statistics', path: AppRoutePaths.statistics),
+      (name: 'profile', path: AppRoutePaths.profile),
+    ]) {
+      testWidgets('capture Apple minimal ${target.name} shell page', (
+        tester,
+      ) async {
+        await _pumpCoreShell(tester, initialLocation: target.path);
+        await _capture(tester, 'apple-minimal-${target.name}-shell-phone');
+      });
+    }
+
+    testWidgets('capture Apple minimal quick sheet', (tester) async {
+      await _pumpCoreShell(tester, initialLocation: AppRoutePaths.home);
+      await tester.tap(
+        find.byKey(const ValueKey('main-shell-quick-transaction')),
+      );
+      await _stabilize(tester);
+      await _capture(tester, 'apple-minimal-quick-sheet-phone');
     });
 
     testWidgets('capture quick transaction collapsed and expanded', (
@@ -96,7 +134,8 @@ void main() {
           ],
           child: _host(
             MaterialApp(
-              theme: AppTheme.lightTheme(),
+              debugShowCheckedModeBanner: false,
+              theme: _reviewTheme(),
               home: const Scaffold(body: QuickTransactionPage(embedded: true)),
             ),
           ),
@@ -109,7 +148,6 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('transaction-more-options')));
       await _stabilize(tester);
       await _capture(tester, 'quick-transaction-expanded-phone');
-      await _disposeTree(tester);
     });
 
     testWidgets('capture lending page', (tester) async {
@@ -130,7 +168,8 @@ void main() {
           ],
           child: _host(
             MaterialApp(
-              theme: AppTheme.lightTheme(),
+              debugShowCheckedModeBanner: false,
+              theme: _reviewTheme(),
               home: const LendingPage(),
             ),
           ),
@@ -139,9 +178,239 @@ void main() {
       await _stabilize(tester);
 
       await _capture(tester, 'lending-phone');
-      await _disposeTree(tester);
+    });
+
+    testWidgets('capture smart quick ledger Android page', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      try {
+        await _pumpSmartQuickLedger(tester, initialDrafts: [_smartLedgerDraft]);
+
+        await _capture(tester, 'smart-quick-ledger-android-phone');
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('capture smart quick ledger iOS import flow', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        await _pumpSmartQuickLedger(tester, initialDrafts: const []);
+
+        await _capture(tester, 'smart-quick-ledger-ios-phone');
+        final importButton = find.byKey(
+          const ValueKey('smart-ledger-open-import'),
+        );
+        await tester.scrollUntilVisible(importButton, 120);
+        await tester.tap(importButton);
+        await _stabilize(tester);
+        await _capture(tester, 'smart-quick-ledger-ios-import-sheet-phone');
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     });
   });
+}
+
+Future<void> _loadReviewFonts() async {
+  await Future.wait([
+    _loadFont('ReviewSans', '/Library/Fonts/Arial Unicode.ttf'),
+    _loadFont(
+      'MaterialIcons',
+      '/opt/homebrew/share/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+    ),
+  ]);
+}
+
+Future<void> _loadFont(String family, String path) async {
+  final bytes = await File(path).readAsBytes();
+  final loader = FontLoader(family)
+    ..addFont(Future.value(ByteData.sublistView(bytes)));
+  await loader.load();
+}
+
+ThemeData _reviewTheme() {
+  final base = AppTheme.lightTheme();
+  final reviewLabel = (base.textTheme.labelLarge ?? const TextStyle()).copyWith(
+    fontFamily: 'ReviewSans',
+  );
+  final reviewButtonLabel = reviewLabel.copyWith(fontWeight: FontWeight.w600);
+  ButtonStyle reviewButtonStyle(ButtonStyle? style) {
+    return (style ?? const ButtonStyle()).copyWith(
+      textStyle: WidgetStatePropertyAll(reviewButtonLabel),
+    );
+  }
+
+  return base.copyWith(
+    textTheme: base.textTheme.apply(fontFamily: 'ReviewSans'),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'ReviewSans'),
+    appBarTheme: base.appBarTheme.copyWith(
+      titleTextStyle: base.appBarTheme.titleTextStyle?.copyWith(
+        fontFamily: 'ReviewSans',
+      ),
+      toolbarTextStyle: base.appBarTheme.toolbarTextStyle?.copyWith(
+        fontFamily: 'ReviewSans',
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      selectedIcon: base.segmentedButtonTheme.selectedIcon,
+      style: base.segmentedButtonTheme.style?.copyWith(
+        textStyle: WidgetStatePropertyAll(reviewLabel),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: reviewButtonStyle(base.filledButtonTheme.style),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: reviewButtonStyle(base.outlinedButtonTheme.style),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: reviewButtonStyle(base.textButtonTheme.style),
+    ),
+  );
+}
+
+Future<void> _pumpCoreShell(
+  WidgetTester tester, {
+  required String initialLocation,
+}) async {
+  await _preparePhoneViewport(tester);
+  SharedPreferences.setMockInitialValues({
+    'app_theme_palette': AppThemePalette.teal.id,
+  });
+
+  final router = GoRouter(
+    initialLocation: initialLocation,
+    routes: [
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            MainShellPage(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutePaths.home,
+                builder: (context, state) => const HomePage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutePaths.transactions,
+                builder: (context, state) => const TransactionDetailsPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutePaths.statistics,
+                builder: (context, state) => const MobileStatisticsPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutePaths.profile,
+                builder: (context, state) => const ProfilePage(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        home_data.homeRepositoryProvider.overrideWithValue(
+          _FakeHomeRepository(),
+        ),
+        transactionRepositoryProvider.overrideWithValue(
+          _FakeTransactionRepository(),
+        ),
+        statisticsRepositoryProvider.overrideWithValue(
+          _FakeStatisticsRepository(),
+        ),
+        familyMembersProvider.overrideWith((ref) async => _familyMembers),
+        themeControllerProvider.overrideWith(
+          (ref) => _FixedThemeController(AppThemePalette.teal),
+        ),
+        attachmentPickerServiceProvider.overrideWithValue(
+          const _EmptyAttachmentPickerService(),
+        ),
+        attachmentRepositoryProvider.overrideWithValue(
+          _FakeAttachmentRepository(),
+        ),
+      ],
+      child: _host(
+        MaterialApp.router(
+          debugShowCheckedModeBanner: false,
+          theme: _reviewTheme(),
+          routerConfig: router,
+        ),
+      ),
+    ),
+  );
+  await _stabilize(tester);
+}
+
+Future<void> _pumpSmartQuickLedger(
+  WidgetTester tester, {
+  required List<QuickLedgerDraft> initialDrafts,
+}) async {
+  await _preparePhoneViewport(tester);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        quickLedgerDraftsProvider.overrideWith(
+          (ref) => QuickLedgerDraftController(
+            transactionWriter: const _ReviewQuickLedgerWriter(),
+            initialDrafts: initialDrafts,
+          ),
+        ),
+      ],
+      child: _host(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: _reviewTheme(),
+          home: const SmartQuickLedgerPage(),
+        ),
+      ),
+    ),
+  );
+  await _stabilize(tester);
+}
+
+final _smartLedgerDraft = QuickLedgerDraft(
+  id: 'review-smart-ledger-draft',
+  source: QuickLedgerDraftSource.androidNotification,
+  sourceName: '微信支付',
+  type: TransactionType.expense,
+  amount: 38.9,
+  merchant: '瑞幸咖啡',
+  occurredAt: DateTime(2026, 7, 31, 9, 18),
+  confidence: 0.92,
+  suggestedAccountName: '微信钱包',
+  suggestedCategoryName: '餐饮',
+);
+
+class _ReviewQuickLedgerWriter implements QuickLedgerTransactionWriter {
+  const _ReviewQuickLedgerWriter();
+
+  @override
+  Future<List<LedgerAccount>> listAccounts() async => const [];
+
+  @override
+  Future<List<LedgerCategory>> listCategories({String? type}) async => const [];
+
+  @override
+  Future<TransactionItem> create(TransactionFormData formData) {
+    throw UnsupportedError('截图流程不会直接创建交易');
+  }
 }
 
 Widget _host(Widget child) {
@@ -157,35 +426,15 @@ Future<void> _preparePhoneViewport(WidgetTester tester) async {
 
 Future<void> _capture(WidgetTester tester, String name) async {
   await _stabilize(tester);
-  final boundary =
-      _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-  if (boundary == null) {
-    throw StateError('screenshot boundary is not mounted');
-  }
-  final image = await boundary
-      .toImage(pixelRatio: 1)
-      .timeout(
-        const Duration(seconds: 8),
-        onTimeout: () => throw TimeoutException('screenshot capture timeout'),
-      );
-  final data = await image.toByteData(format: ui.ImageByteFormat.png);
-  if (data == null) {
-    throw StateError('failed to encode screenshot');
-  }
   final file = File('$_outputDir/$name.png');
   file.parent.createSync(recursive: true);
-  file.writeAsBytesSync(data.buffer.asUint8List(), flush: true);
+  await expectLater(find.byKey(_boundaryKey), matchesGoldenFile(file.path));
 }
 
 Future<void> _stabilize(WidgetTester tester) async {
   for (var index = 0; index < 6; index += 1) {
     await tester.pump(const Duration(milliseconds: 120));
   }
-}
-
-Future<void> _disposeTree(WidgetTester tester) async {
-  await tester.pumpWidget(const SizedBox.shrink());
-  await tester.pump(const Duration(milliseconds: 32));
 }
 
 class _FixedThemeController extends ThemeController {
@@ -255,6 +504,7 @@ class _FakeHomeRepository implements home_data.HomeRepository {
       daysRemaining: 20,
       overBudgetCategories: [],
     ),
+    trend: _reviewStatisticsDashboard.trend,
     familySummary: const home_data.FamilyHomeSummary(
       month: '2026-06',
       totalExpense: 1260,
@@ -340,6 +590,89 @@ class _FakeTransactionRepository implements TransactionRepository {
     throw UnimplementedError();
   }
 }
+
+class _FakeStatisticsRepository implements StatisticsRepository {
+  @override
+  Future<StatisticsDashboard> getDashboard(
+    StatisticsDashboardQuery query,
+  ) async => _reviewStatisticsDashboard;
+
+  @override
+  Future<CategoryStatResponse?> getCategoryStats({
+    required String month,
+    StatisticsPeriod period = StatisticsPeriod.month,
+    required String type,
+  }) async => _reviewStatisticsDashboard.categories;
+
+  @override
+  Future<StatisticsOverviewData?> getOverview(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) async => _reviewStatisticsDashboard.overview;
+
+  @override
+  Future<TrendResponse?> getTrend(
+    String month, {
+    StatisticsPeriod period = StatisticsPeriod.month,
+  }) async => _reviewStatisticsDashboard.trend;
+}
+
+final _reviewStatisticsDashboard = StatisticsDashboard(
+  overview: const StatisticsOverviewData(
+    income: 10000,
+    expense: 4200,
+    balance: 5800,
+    incomeChange: 8.4,
+    expenseChange: -5.2,
+    dailyAverage: 140,
+    transactionCount: 28,
+  ),
+  trend: const TrendResponse(
+    totalIncome: 10000,
+    totalExpense: 4200,
+    items: [
+      TrendItem(date: '2026-06-01', income: 900, expense: 480, balance: 420),
+      TrendItem(date: '2026-06-05', income: 1200, expense: 720, balance: 480),
+      TrendItem(date: '2026-06-10', income: 1800, expense: 650, balance: 1150),
+      TrendItem(date: '2026-06-15', income: 1400, expense: 900, balance: 500),
+      TrendItem(date: '2026-06-20', income: 2100, expense: 560, balance: 1540),
+      TrendItem(date: '2026-06-25', income: 1300, expense: 470, balance: 830),
+      TrendItem(date: '2026-06-30', income: 1300, expense: 420, balance: 880),
+    ],
+  ),
+  categories: const CategoryStatResponse(
+    total: 4200,
+    items: [
+      CategoryStatItem(
+        categoryId: 'category-food',
+        categoryName: '餐饮',
+        icon: 'restaurant',
+        color: '#FF3B30',
+        amount: 1680,
+        percentage: 40,
+        count: 12,
+      ),
+      CategoryStatItem(
+        categoryId: 'category-transport',
+        categoryName: '交通',
+        icon: 'directions_car',
+        color: '#0F766E',
+        amount: 1050,
+        percentage: 25,
+        count: 7,
+      ),
+      CategoryStatItem(
+        categoryId: 'category-shopping',
+        categoryName: '购物',
+        icon: 'shopping_bag',
+        color: '#8E8E93',
+        amount: 840,
+        percentage: 20,
+        count: 5,
+      ),
+    ],
+  ),
+);
 
 class _FakeLendingRepository implements LendingRepository {
   @override
