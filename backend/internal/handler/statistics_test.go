@@ -54,6 +54,19 @@ func TestStatisticsCategoryInvalidMonthIsBadRequest(t *testing.T) {
 	}
 }
 
+func TestStatisticsAssetTrendRejectsUnboundedMonthRange(t *testing.T) {
+	handler, _, userID := newStatisticsHandlerForTest(t)
+
+	response := performStatisticsRequest(handler, userID, "/statistics/asset-trend?months=121")
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "between 1 and 120") {
+		t.Fatalf("body = %s, want bounded range guidance", response.Body.String())
+	}
+}
+
 func newStatisticsHandlerForTest(t *testing.T) (*StatisticsHandler, *repository.Repositories, uint) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -66,7 +79,7 @@ func newStatisticsHandlerForTest(t *testing.T) (*StatisticsHandler, *repository.
 	if err := repos.User.Create(user); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	return NewStatisticsHandler(service.NewStatisticsService(repos.Transaction, repos.Category, repos.Account)), repos, user.ID
+	return NewStatisticsHandler(service.NewStatisticsService(repos.Transaction, repos.Category, repos.Account, repos.AccountLog)), repos, user.ID
 }
 
 func performStatisticsRequest(handler *StatisticsHandler, userID uint, target string) *httptest.ResponseRecorder {
@@ -78,6 +91,10 @@ func performStatisticsRequest(handler *StatisticsHandler, userID uint, target st
 	router.GET("/statistics/categories", func(c *gin.Context) {
 		c.Set("userID", userID)
 		handler.Categories(c)
+	})
+	router.GET("/statistics/asset-trend", func(c *gin.Context) {
+		c.Set("userID", userID)
+		handler.AssetTrend(c)
 	})
 	request := httptest.NewRequest(http.MethodGet, target, nil)
 	response := httptest.NewRecorder()

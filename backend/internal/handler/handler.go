@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strings"
+
 	"github.com/sky/personal-ledger/internal/config"
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/service"
@@ -13,6 +15,7 @@ type Handlers struct {
 	Account      *AccountHandler
 	Category     *CategoryHandler
 	Transaction  *TransactionHandler
+	Import       *TransactionImportHandler
 	Budget       *BudgetHandler
 	Reminder     *ReminderHandler
 	Statistics   *StatisticsHandler
@@ -30,14 +33,17 @@ type Handlers struct {
 	Family       *FamilyHandler
 	AI           *AIHandler
 	Health       *HealthHandler
+	setupToken   string
 }
 
 func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler, rateLimiter *middleware.RateLimiter, cfg *config.Config) *Handlers {
+	secureBrowserCookies := cfg != nil && strings.EqualFold(strings.TrimSpace(cfg.Server.Mode), "release")
 	return &Handlers{
-		Auth:         NewAuthHandler(services.Auth, services.APIToken, services.Notification, rateLimiter),
+		Auth:         NewAuthHandler(services.Auth, services.APIToken, services.Notification, rateLimiter, secureBrowserCookies),
 		Account:      NewAccountHandler(services.Account),
 		Category:     NewCategoryHandler(services.Category),
 		Transaction:  NewTransactionHandler(services.Transaction),
+		Import:       NewTransactionImportHandler(services.TransactionImport),
 		Budget:       NewBudgetHandler(services.Budget),
 		Reminder:     NewReminderHandler(services.Reminder),
 		Statistics:   NewStatisticsHandler(services.Statistics),
@@ -55,6 +61,7 @@ func NewHandlers(services *service.Services, backupScheduler *service.BackupSche
 		Family:       NewFamilyHandler(services.FamilyMember),
 		AI:           NewAIHandler(services.AIProvider, services.AIReport, services.AIReportSchedule),
 		Health:       NewHealthHandler(services.Health),
+		setupToken:   cfg.Setup.Token,
 	}
 }
 
@@ -64,11 +71,13 @@ func SetupRoutes(r *gin.Engine, h *Handlers, authService *service.AuthService, a
 }
 
 func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *service.AuthService, apiTokenService *service.APITokenService) {
+	setupAccess := middleware.RequireSetupAccess(authService, h.setupToken)
+
 	// Public routes
 	auth := api.Group("/auth")
 	{
 		auth.GET("/status", h.Auth.Status)
-		auth.POST("/init", h.Auth.Init)
+		auth.POST("/init", setupAccess, h.Auth.Init)
 		auth.POST("/login", h.Auth.Login)
 		auth.POST("/refresh", h.Auth.Refresh)
 		auth.POST("/verify-token", h.Auth.VerifyAPIToken) // API Token 验证（App 端使用）
@@ -79,13 +88,14 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 	setup := api.Group("/setup")
 	{
 		setup.GET("/status", h.Setup.Status)
-		setup.POST("/test-database", h.Setup.TestDatabase)
-		setup.POST("/apply", h.Setup.Apply)
+		setup.POST("/test-database", setupAccess, h.Setup.TestDatabase)
+		setup.POST("/apply", setupAccess, h.Setup.Apply)
 	}
 
 	// Protected routes - 支持 JWT 和 API Token
 	protected := api.Group("")
 	protected.Use(middleware.AuthWithAPIToken(authService.GetJWTManager(), apiTokenService))
+	protected.Use(middleware.EnforceAPITokenScopes())
 	{
 		// Auth
 		protected.POST("/auth/logout", h.Auth.Logout)
@@ -100,6 +110,7 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 			accounts.POST("", h.Account.Create)
 			accounts.GET("/:id", h.Account.GetByID)
 			accounts.PUT("/:id", h.Account.Update)
+			accounts.PATCH("/:id", h.Account.Update)
 			accounts.DELETE("/:id", h.Account.Delete)
 			accounts.PATCH("/:id/archive", h.Account.Archive)
 			accounts.PUT("/sort", h.Account.UpdateSortOrder)
@@ -126,6 +137,17 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 			transactions.POST("/batch-delete", h.Transaction.BatchDelete)
 		}
 
+		transactionImports := protected.Group("/imports/transactions")
+		{
+			transactionImports.GET("", h.Import.List)
+			transactionImports.POST("/preview", h.Import.Preview)
+			transactionImports.GET("/recent", h.Import.Recent)
+			transactionImports.GET("/:id", h.Import.Get)
+			transactionImports.POST("/:id/validate", h.Import.Validate)
+			transactionImports.POST("/:id/commit", h.Import.Commit)
+			transactionImports.POST("/:id/rollback", h.Import.Rollback)
+		}
+
 		// Budgets
 		budgets := protected.Group("/budgets")
 		{
@@ -144,6 +166,7 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 			reminders.POST("", h.Reminder.Create)
 			reminders.GET("/:id", h.Reminder.GetByID)
 			reminders.PUT("/:id", h.Reminder.Update)
+			reminders.PATCH("/:id", h.Reminder.Update)
 			reminders.DELETE("/:id", h.Reminder.Delete)
 			reminders.PATCH("/:id/toggle", h.Reminder.Toggle)
 			reminders.POST("/:id/payment", h.Reminder.RecordPayment)
@@ -194,6 +217,7 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 			lendings.GET("/summary", h.Lending.GetSummary)
 			lendings.GET("/:id", h.Lending.GetByID)
 			lendings.PUT("/:id", h.Lending.Update)
+			lendings.PATCH("/:id", h.Lending.Update)
 			lendings.DELETE("/:id", h.Lending.Delete)
 			lendings.POST("/:id/repay", h.Lending.RecordRepayment)
 			lendings.GET("/:id/records", h.Lending.GetRecords)

@@ -2,8 +2,9 @@ package handler
 
 import (
 	"errors"
+	"net/http"
+	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/middleware"
@@ -13,15 +14,11 @@ import (
 
 type UploadHandler struct {
 	uploadService *service.UploadService
-	apiToken      *service.APITokenService
-	authService   *service.AuthService
 }
 
 func NewUploadHandler(uploadService *service.UploadService, apiToken *service.APITokenService, authService *service.AuthService) *UploadHandler {
 	return &UploadHandler{
 		uploadService: uploadService,
-		apiToken:      apiToken,
-		authService:   authService,
 	}
 }
 
@@ -32,16 +29,21 @@ type UploadRequest struct {
 
 func (h *UploadHandler) UploadAvatar(c *gin.Context) {
 	userID := middleware.GetUserID(c)
+	h.limitMultipartBody(c)
 
 	file, err := c.FormFile("file")
 	if err != nil {
+		if isMultipartBodyTooLarge(err) {
+			response.Error(c, http.StatusRequestEntityTooLarge, 41300, "file size exceeds configured limit")
+			return
+		}
 		response.BadRequest(c, "file is required")
 		return
 	}
 
 	result, err := h.uploadService.Upload(userID, "avatars", "profile", file)
 	if err != nil {
-		response.BadRequest(c, err.Error())
+		h.respondUploadError(c, err)
 		return
 	}
 
@@ -50,26 +52,60 @@ func (h *UploadHandler) UploadAvatar(c *gin.Context) {
 
 func (h *UploadHandler) Upload(c *gin.Context) {
 	userID := middleware.GetUserID(c)
+	h.limitMultipartBody(c)
 
 	var req UploadRequest
 	if err := c.ShouldBind(&req); err != nil {
+		if isMultipartBodyTooLarge(err) {
+			response.Error(c, http.StatusRequestEntityTooLarge, 41300, "file size exceeds configured limit")
+			return
+		}
 		response.BadRequest(c, "category and ref_id are required")
 		return
 	}
 
 	file, err := c.FormFile("file")
 	if err != nil {
+		if isMultipartBodyTooLarge(err) {
+			response.Error(c, http.StatusRequestEntityTooLarge, 41300, "file size exceeds configured limit")
+			return
+		}
 		response.BadRequest(c, "file is required")
 		return
 	}
 
 	result, err := h.uploadService.Upload(userID, req.Category, req.RefID, file)
 	if err != nil {
-		response.BadRequest(c, err.Error())
+		h.respondUploadError(c, err)
 		return
 	}
 
 	response.Success(c, result)
+}
+
+func (h *UploadHandler) respondUploadError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, service.ErrUploadFileTooLarge):
+		response.Error(c, http.StatusRequestEntityTooLarge, 41300, err.Error())
+	case errors.Is(err, service.ErrUploadTypeNotAllowed):
+		response.Error(c, http.StatusUnsupportedMediaType, 41500, "file type is not allowed")
+	case errors.Is(err, service.ErrUploadContentMismatch):
+		response.Error(c, http.StatusUnsupportedMediaType, 41501, "file content does not match its type")
+	case errors.Is(err, service.ErrUploadScopeInvalid):
+		response.BadRequest(c, "invalid upload scope")
+	default:
+		internalServerError(c, err, "failed to store uploaded file")
+	}
+}
+
+func (h *UploadHandler) limitMultipartBody(c *gin.Context) {
+	maxFileSize := h.uploadService.MaxFileSizeBytes()
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxFileSize+(1<<20))
+}
+
+func isMultipartBodyTooLarge(err error) bool {
+	var maxBytesErr *http.MaxBytesError
+	return errors.As(err, &maxBytesErr)
 }
 
 func (h *UploadHandler) Delete(c *gin.Context) {
@@ -87,6 +123,14 @@ func (h *UploadHandler) Delete(c *gin.Context) {
 		}
 		if errors.Is(err, service.ErrUploadPathForbidden) {
 			response.Forbidden(c, "file path does not belong to current user")
+			return
+		}
+		if errors.Is(err, service.ErrUploadReferenced) {
+			response.Error(c, http.StatusConflict, 40901, "file is still referenced")
+			return
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			response.NotFound(c, "file not found")
 			return
 		}
 		internalServerError(c, err, "failed to delete uploaded file")
@@ -126,33 +170,10 @@ func (h *UploadHandler) Download(c *gin.Context) {
 		return
 	}
 
-	token := c.Query("token")
-	if token == "" {
-		authHeader := c.GetHeader("Authorization")
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) == 2 && parts[0] == "Bearer" {
-			token = parts[1]
-		}
-	}
-	if token == "" {
-		response.Unauthorized(c, "missing authorization token")
+	userID := middleware.GetUserID(c)
+	if userID == 0 {
+		response.Unauthorized(c, "unauthorized")
 		return
-	}
-
-	var userID uint
-	if claims, err := h.authService.GetJWTManager().ValidateToken(token); err == nil {
-		userID = claims.UserID
-	} else {
-		if h.apiToken == nil {
-			response.Unauthorized(c, "invalid token")
-			return
-		}
-		apiTokenUserID, apiErr := h.apiToken.ValidateToken(token)
-		if apiErr != nil {
-			response.Unauthorized(c, "invalid token")
-			return
-		}
-		userID = apiTokenUserID
 	}
 
 	fullPath, err := h.uploadService.GetUserFilePath(userID, filePath)
@@ -165,6 +186,10 @@ func (h *UploadHandler) Download(c *gin.Context) {
 			response.Forbidden(c, "file path does not belong to current user")
 			return
 		}
+		if errors.Is(err, os.ErrNotExist) {
+			response.NotFound(c, "file not found")
+			return
+		}
 		internalServerError(c, err, "failed to resolve uploaded file")
 		return
 	}
@@ -172,5 +197,7 @@ func (h *UploadHandler) Download(c *gin.Context) {
 
 	setAttachmentHeader(c, filename)
 	c.Header("Content-Type", "application/octet-stream")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Cache-Control", "private, no-store")
 	c.File(fullPath)
 }

@@ -75,9 +75,12 @@ func (h *StatisticsHandler) AssetTrend(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	months := 12
 	if m := c.Query("months"); m != "" {
-		if v, err := strconv.Atoi(m); err == nil && v > 0 {
-			months = v
+		v, err := strconv.Atoi(m)
+		if err != nil || v < 1 || v > 120 {
+			response.BadRequest(c, "months must be between 1 and 120")
+			return
 		}
+		months = v
 	}
 
 	result, err := h.service.GetAssetTrend(userID, months)

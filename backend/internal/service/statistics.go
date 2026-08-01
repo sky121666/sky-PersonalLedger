@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -11,13 +12,20 @@ type StatisticsService struct {
 	txRepo       *repository.TransactionRepository
 	categoryRepo *repository.CategoryRepository
 	accountRepo  *repository.AccountRepository
+	accountLogs  *repository.AccountLogRepository
 }
 
-func NewStatisticsService(txRepo *repository.TransactionRepository, categoryRepo *repository.CategoryRepository, accountRepo *repository.AccountRepository) *StatisticsService {
+func NewStatisticsService(
+	txRepo *repository.TransactionRepository,
+	categoryRepo *repository.CategoryRepository,
+	accountRepo *repository.AccountRepository,
+	accountLogs *repository.AccountLogRepository,
+) *StatisticsService {
 	return &StatisticsService{
 		txRepo:       txRepo,
 		categoryRepo: categoryRepo,
 		accountRepo:  accountRepo,
+		accountLogs:  accountLogs,
 	}
 }
 
@@ -229,19 +237,23 @@ func (s *StatisticsService) GetAssetTrend(userID uint, months int) (*AssetTrendR
 	if months <= 0 {
 		months = 12
 	}
+	if months > 120 {
+		months = 120
+	}
 
-	accounts, err := s.accountRepo.GetByUserID(userID, true)
+	accounts, err := s.accountRepo.GetByUserIDForHistory(userID)
 	if err != nil {
 		return nil, err
 	}
 
 	var currentAssets, currentDebts float64
 	for _, acc := range accounts {
-		if isDebtAccountType(acc.Type) {
-			currentDebts += acc.CurrentBalance
-		} else {
-			currentAssets += acc.CurrentBalance
+		if acc.DeletedAt.Valid {
+			continue
 		}
+		accountAssets, accountDebts := classifyAccountBalance(acc.Type, acc.CurrentBalance)
+		currentAssets += accountAssets
+		currentDebts += accountDebts
 	}
 
 	response := &AssetTrendResponse{
@@ -252,89 +264,72 @@ func (s *StatisticsService) GetAssetTrend(userID uint, months int) (*AssetTrendR
 	}
 
 	now := time.Now()
-	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
-
-	// First pass: collect all monthly data
-	type monthData struct {
-		month   string
-		income  float64
-		expense float64
-		hasData bool
+	currentMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	oldestMonthStart := currentMonthStart.AddDate(0, -(months - 1), 0)
+	currentMonthEnd := currentMonthStart.AddDate(0, 1, 0).Add(-time.Nanosecond)
+	monthlySums, err := s.txRepo.SumByMonth(userID, oldestMonthStart, currentMonthEnd)
+	if err != nil {
+		return nil, err
 	}
-	monthsData := make([]monthData, months)
-
-	for i := 0; i < months; i++ {
-		monthStart := time.Date(now.Year(), now.Month()-time.Month(i), 1, 0, 0, 0, 0, time.Local)
-		monthEnd := monthStart.AddDate(0, 1, 0).Add(-time.Second)
-
-		monthSum, err := s.txRepo.SumByDateRange(userID, monthStart, monthEnd)
-		if err != nil {
-			return nil, err
-		}
-
-		hasData := monthSum.Income > 0 || monthSum.Expense > 0
-		monthsData[i] = monthData{
-			month:   monthStart.Format("2006-01"),
-			income:  monthSum.Income,
-			expense: monthSum.Expense,
-			hasData: hasData,
-		}
+	monthlyByDate := make(map[string]repository.DailySum, len(monthlySums))
+	for _, sum := range monthlySums {
+		monthlyByDate[sum.Date] = sum
 	}
 
-	// Calculate net worth for each month
-	// Start from current month and work backwards
-	runningNetWorth := currentAssets - currentDebts
-
-	for i := 0; i < months; i++ {
-		md := monthsData[i]
-		monthStart := time.Date(now.Year(), now.Month()-time.Month(i), 1, 0, 0, 0, 0, time.Local)
-
+	for index := 0; index < months; index++ {
+		monthStart := oldestMonthStart.AddDate(0, index, 0)
+		monthKey := monthStart.Format("2006-01")
+		monthSum := monthlyByDate[monthKey]
+		assets := currentAssets
+		debts := currentDebts
+		if !monthStart.Equal(currentMonthStart) {
+			monthEnd := monthStart.AddDate(0, 1, 0).Add(-time.Nanosecond)
+			snapshots, err := s.accountLogs.LatestBalancesAt(userID, monthEnd)
+			if err != nil {
+				return nil, err
+			}
+			assets, debts = balancesFromAccountSnapshots(accounts, snapshots, monthEnd)
+		}
 		item := AssetTrendItem{
-			Month:        md.month,
-			MonthIncome:  md.income,
-			MonthExpense: md.expense,
+			Month:        monthKey,
+			TotalAssets:  assets,
+			TotalDebts:   debts,
+			NetWorth:     assets - debts,
+			MonthIncome:  monthSum.Income,
+			MonthExpense: monthSum.Expense,
 		}
-
-		if monthStart.Equal(currentMonth) {
-			// Current month: use actual current values
-			item.TotalAssets = currentAssets
-			item.TotalDebts = currentDebts
-			item.NetWorth = runningNetWorth
-		} else if md.hasData {
-			// Has transaction data: calculate based on running total
-			// Subtract this month's net change to get previous month's value
-			netChange := md.income - md.expense
-			runningNetWorth -= netChange
-			item.NetWorth = runningNetWorth
-			item.TotalAssets = runningNetWorth + currentDebts
-			item.TotalDebts = currentDebts
-		} else {
-			// No data for this month: show 0
-			item.NetWorth = 0
-			item.TotalAssets = 0
-			item.TotalDebts = 0
-		}
-
 		response.Items = append(response.Items, item)
-	}
-
-	// Reverse to chronological order
-	for i, j := 0, len(response.Items)-1; i < j; i, j = i+1, j-1 {
-		response.Items[i], response.Items[j] = response.Items[j], response.Items[i]
 	}
 
 	return response, nil
 }
 
-func isDebtAccountType(accType string) bool {
-	debtTypes := map[string]bool{
-		"credit_card":   true,
-		"mortgage":      true,
-		"car_loan":      true,
-		"consumer_loan": true,
-		"other_debt":    true,
+func balancesFromAccountSnapshots(
+	accounts []model.Account,
+	snapshots []repository.AccountBalanceSnapshot,
+	at time.Time,
+) (float64, float64) {
+	balances := make(map[string]float64, len(snapshots))
+	for _, snapshot := range snapshots {
+		balances[snapshot.AccountID] = snapshot.Balance
 	}
-	return debtTypes[accType]
+	var assets, debts float64
+	for _, account := range accounts {
+		if !account.CreatedAt.IsZero() && account.CreatedAt.After(at) {
+			continue
+		}
+		if account.DeletedAt.Valid && !account.DeletedAt.Time.After(at) {
+			continue
+		}
+		balance, exists := balances[account.ID]
+		if !exists {
+			balance = account.InitialBalance
+		}
+		accountAssets, accountDebts := classifyAccountBalance(account.Type, balance)
+		assets += accountAssets
+		debts += accountDebts
+	}
+	return assets, debts
 }
 
 type statisticsRange struct {
@@ -358,20 +353,20 @@ func statisticsDateRange(month, period string) (statisticsRange, error) {
 		return statisticsRange{
 			Period: "year",
 			Start:  start,
-			End:    start.AddDate(1, 0, 0).Add(-time.Second),
+			End:    start.AddDate(1, 0, 0).Add(-time.Nanosecond),
 		}, nil
 	case "history", "past":
 		currentYearStart := time.Date(anchor.Year(), 1, 1, 0, 0, 0, 0, time.Local)
 		return statisticsRange{
 			Period: "history",
 			Start:  time.Date(1970, 1, 1, 0, 0, 0, 0, time.Local),
-			End:    currentYearStart.Add(-time.Second),
+			End:    currentYearStart.Add(-time.Nanosecond),
 		}, nil
 	default:
 		return statisticsRange{
 			Period: "month",
 			Start:  anchor,
-			End:    anchor.AddDate(0, 1, 0).Add(-time.Second),
+			End:    anchor.AddDate(0, 1, 0).Add(-time.Nanosecond),
 		}, nil
 	}
 }
@@ -388,12 +383,12 @@ func (r statisticsRange) Previous() (time.Time, time.Time) {
 	switch r.Period {
 	case "year":
 		prevStart := r.Start.AddDate(-1, 0, 0)
-		return prevStart, r.Start.Add(-time.Second)
+		return prevStart, r.Start.Add(-time.Nanosecond)
 	case "history":
-		return r.Start, r.Start.Add(-time.Second)
+		return r.Start, r.Start.Add(-time.Nanosecond)
 	default:
 		prevStart := r.Start.AddDate(0, -1, 0)
-		return prevStart, r.Start.Add(-time.Second)
+		return prevStart, r.Start.Add(-time.Nanosecond)
 	}
 }
 
@@ -406,5 +401,5 @@ func (r statisticsRange) ElapsedDays() int {
 	if end.Before(r.Start) {
 		return 0
 	}
-	return int(end.Sub(r.Start).Hours()/24) + 1
+	return calendarDayDifference(r.Start, end) + 1
 }

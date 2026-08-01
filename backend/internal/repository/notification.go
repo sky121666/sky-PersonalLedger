@@ -42,3 +42,42 @@ func (r *NotificationRepository) Upsert(setting *model.NotificationSetting) erro
 	setting.ID = existing.ID
 	return r.db.Save(setting).Error
 }
+
+func (r *NotificationRepository) GetAll() ([]model.NotificationSetting, error) {
+	var settings []model.NotificationSetting
+	if err := r.db.Order("id ASC").Find(&settings).Error; err != nil {
+		return nil, err
+	}
+	return settings, nil
+}
+
+// UpdateSecrets updates only credential columns. Keeping this narrow avoids
+// overwriting notification preferences while a legacy credential is migrated.
+func (r *NotificationRepository) UpdateSecrets(setting *model.NotificationSetting) error {
+	return updateNotificationSecrets(r.db, setting)
+}
+
+func (r *NotificationRepository) UpdateSecretsBatch(settings []model.NotificationSetting) error {
+	if len(settings) == 0 {
+		return nil
+	}
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		for index := range settings {
+			if err := updateNotificationSecrets(tx, &settings[index]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func updateNotificationSecrets(db *gorm.DB, setting *model.NotificationSetting) error {
+	return db.Model(&model.NotificationSetting{}).
+		Where("id = ?", setting.ID).
+		Select("dingtalk_secret", "smtp_password", "webhook_secret").
+		Updates(map[string]interface{}{
+			"dingtalk_secret": setting.DingtalkSecret,
+			"smtp_password":   setting.SmtpPassword,
+			"webhook_secret":  setting.WebhookSecret,
+		}).Error
+}

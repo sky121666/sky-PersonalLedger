@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
@@ -30,19 +31,34 @@ func (r *TransactionRepository) GetByID(id string) (*model.Transaction, error) {
 	return &tx, nil
 }
 
+func (r *TransactionRepository) GetByIDForUser(id string, userID uint) (*model.Transaction, error) {
+	return r.GetByIDForUserWithDB(r.db, id, userID)
+}
+
+func (r *TransactionRepository) GetByIDForUserWithDB(db *gorm.DB, id string, userID uint) (*model.Transaction, error) {
+	var tx model.Transaction
+	err := db.Preload("Account").Preload("Category").Preload("ToAccount").
+		First(&tx, "id = ? AND user_id = ?", id, userID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &tx, nil
+}
+
 type TransactionFilter struct {
-	UserID        uint
-	StartDate     *time.Time
-	EndDate       *time.Time
-	Type          string
-	AccountID     string
-	CategoryID    string
-	MinAmount     *float64
-	MaxAmount     *float64
-	Keyword       string
-	IncludeSystem bool
-	Page          int
-	PageSize      int
+	UserID          uint
+	StartDate       *time.Time
+	EndDate         *time.Time
+	Type            string
+	AccountID       string
+	CategoryID      string
+	MinAmount       *float64
+	MaxAmount       *float64
+	Keyword         string
+	IncludeSystem   bool
+	StatisticsScope bool
+	Page            int
+	PageSize        int
 }
 
 func (r *TransactionRepository) List(filter TransactionFilter) ([]model.Transaction, int64, error) {
@@ -75,7 +91,9 @@ func (r *TransactionRepository) List(filter TransactionFilter) ([]model.Transact
 	if filter.Keyword != "" {
 		query = query.Where("remark LIKE ?", "%"+filter.Keyword+"%")
 	}
-	if !filter.IncludeSystem {
+	if filter.StatisticsScope {
+		query = applySpendingStatisticsScope(query)
+	} else if !filter.IncludeSystem {
 		query = query.Where("COALESCE(source, '') <> ?", "system")
 	}
 
@@ -122,6 +140,86 @@ type CategorySum struct {
 	Count      int     `json:"count"`
 }
 
+type ReportCategorySum struct {
+	CategoryID   string  `gorm:"column:category_id"`
+	CategoryName string  `gorm:"column:category_name"`
+	CategoryIcon string  `gorm:"column:category_icon"`
+	Total        float64 `gorm:"column:total"`
+	Count        int     `gorm:"column:count"`
+}
+
+type MaxExpenseSummary struct {
+	Amount       float64 `gorm:"column:amount"`
+	Remark       string  `gorm:"column:remark"`
+	CategoryName string  `gorm:"column:category_name"`
+}
+
+func (r *TransactionRepository) SumByCategoryForReport(userID uint, startDate, endDate time.Time, txType string) ([]ReportCategorySum, error) {
+	var results []ReportCategorySum
+	query := r.db.Model(&model.Transaction{}).
+		Select(`
+			transactions.category_id AS category_id,
+			COALESCE(categories.name, '') AS category_name,
+			COALESCE(categories.icon, '') AS category_icon,
+			SUM(transactions.amount) AS total,
+			COUNT(*) AS count
+		`).
+		Joins("LEFT JOIN categories ON categories.id = transactions.category_id AND categories.user_id = transactions.user_id").
+		Where("transactions.user_id = ? AND transactions.type = ? AND transactions.transaction_date >= ? AND transactions.transaction_date <= ?", userID, txType, startDate, endDate).
+		Where("transactions.category_id IS NOT NULL AND transactions.category_id <> ''")
+	err := applySpendingStatisticsScope(query).
+		Group("transactions.category_id, categories.name, categories.icon").
+		Order("total DESC, transactions.category_id ASC").
+		Scan(&results).Error
+	return results, err
+}
+
+func (r *TransactionRepository) CountDistinctDays(userID uint, startDate, endDate time.Time) (int, error) {
+	var result struct {
+		Count int `gorm:"column:count"`
+	}
+	dayExpression := r.transactionDayExpression()
+	query := r.db.Model(&model.Transaction{}).
+		Select(fmt.Sprintf("COUNT(DISTINCT %s) AS count", dayExpression)).
+		Where("user_id = ? AND transaction_date >= ? AND transaction_date <= ?", userID, startDate, endDate)
+	err := applySpendingStatisticsScope(query).Scan(&result).Error
+	return result.Count, err
+}
+
+func (r *TransactionRepository) MaxExpenseForReport(userID uint, startDate, endDate time.Time) (MaxExpenseSummary, error) {
+	var result MaxExpenseSummary
+	query := r.db.Model(&model.Transaction{}).
+		Select("transactions.amount, transactions.remark, COALESCE(categories.name, '') AS category_name").
+		Joins("LEFT JOIN categories ON categories.id = transactions.category_id AND categories.user_id = transactions.user_id").
+		Where("transactions.user_id = ? AND transactions.type = ? AND transactions.transaction_date >= ? AND transactions.transaction_date <= ?", userID, "expense", startDate, endDate)
+	err := applySpendingStatisticsScope(query).
+		Order("transactions.amount DESC, transactions.transaction_date DESC, transactions.id ASC").
+		Limit(1).
+		Scan(&result).Error
+	return result, err
+}
+
+func (r *TransactionRepository) DistinctStatisticsYears(userID uint) ([]int, error) {
+	var rows []struct {
+		Year string `gorm:"column:tx_year"`
+	}
+	yearExpression := r.transactionYearExpression()
+	query := r.db.Model(&model.Transaction{}).
+		Select(fmt.Sprintf("DISTINCT %s AS tx_year", yearExpression)).
+		Where("user_id = ?", userID)
+	if err := applySpendingStatisticsScope(query).Order("tx_year DESC").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	years := make([]int, 0, len(rows))
+	for _, row := range rows {
+		year, err := strconv.Atoi(row.Year)
+		if err == nil {
+			years = append(years, year)
+		}
+	}
+	return years, nil
+}
+
 type MemberExpenseSum struct {
 	MemberID string  `json:"member_id"`
 	Total    float64 `json:"total"`
@@ -156,7 +254,14 @@ func (r *TransactionRepository) SumExpenseByMember(userID uint, startDate, endDa
 func (r *TransactionRepository) SumBalanceDeltaByAccount(userID uint, startDate, endDate time.Time) ([]AccountBalanceDeltaSum, error) {
 	var results []AccountBalanceDeltaSum
 	err := r.db.Raw(`
-		SELECT account_id, SUM(balance_delta) AS balance_delta
+		SELECT
+			account_deltas.account_id,
+			SUM(
+				CASE
+					WHEN accounts.type IN ? THEN -account_deltas.cash_flow_delta
+					ELSE account_deltas.cash_flow_delta
+				END
+			) AS balance_delta
 		FROM (
 			SELECT
 				account_id,
@@ -165,20 +270,26 @@ func (r *TransactionRepository) SumBalanceDeltaByAccount(userID uint, startDate,
 					WHEN type = 'expense' THEN -amount
 					WHEN type = 'transfer' THEN -amount
 					ELSE 0
-				END AS balance_delta
+				END AS cash_flow_delta
 			FROM transactions
 			WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND deleted_at IS NULL
 			UNION ALL
-			SELECT to_account_id AS account_id, amount AS balance_delta
+			SELECT to_account_id AS account_id, amount AS cash_flow_delta
 			FROM transactions
 			WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND type = 'transfer' AND to_account_id IS NOT NULL AND to_account_id <> '' AND deleted_at IS NULL
 		) account_deltas
-		WHERE account_id IS NOT NULL AND account_id <> ''
-		GROUP BY account_id
-		HAVING SUM(balance_delta) <> 0
-		ORDER BY ABS(SUM(balance_delta)) DESC, account_id ASC
+		JOIN accounts ON accounts.id = account_deltas.account_id AND accounts.user_id = ?
+		WHERE account_deltas.account_id IS NOT NULL AND account_deltas.account_id <> ''
+		GROUP BY account_deltas.account_id
+		HAVING SUM(
+			CASE
+				WHEN accounts.type IN ? THEN -account_deltas.cash_flow_delta
+				ELSE account_deltas.cash_flow_delta
+			END
+		) <> 0
+		ORDER BY ABS(balance_delta) DESC, account_deltas.account_id ASC
 		LIMIT 10
-	`, userID, startDate, endDate, userID, startDate, endDate).Scan(&results).Error
+	`, model.DebtAccountTypeValues(), userID, startDate, endDate, userID, startDate, endDate, userID, model.DebtAccountTypeValues()).Scan(&results).Error
 	return results, err
 }
 

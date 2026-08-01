@@ -69,7 +69,11 @@ func (h *TransactionHandler) GetByID(c *gin.Context) {
 
 	tx, err := h.service.GetByID(id, userID)
 	if err != nil {
-		response.NotFound(c, "transaction not found")
+		if errors.Is(err, service.ErrTransactionNotFound) {
+			response.NotFound(c, "transaction not found")
+			return
+		}
+		internalServerError(c, err, "failed to load transaction")
 		return
 	}
 
@@ -91,7 +95,11 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 		if handleTransactionRequestError(c, err) {
 			return
 		}
-		response.NotFound(c, "transaction not found")
+		if errors.Is(err, service.ErrTransactionNotFound) {
+			response.NotFound(c, "transaction not found")
+			return
+		}
+		internalServerError(c, err, "failed to update transaction")
 		return
 	}
 
@@ -103,7 +111,15 @@ func (h *TransactionHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.service.Delete(id, userID); err != nil {
-		response.NotFound(c, "transaction not found")
+		if errors.Is(err, service.ErrTransactionNotFound) {
+			response.NotFound(c, "transaction not found")
+			return
+		}
+		if errors.Is(err, service.ErrSystemTransactionImmutable) {
+			response.BadRequest(c, "system transaction cannot be changed directly")
+			return
+		}
+		internalServerError(c, err, "failed to delete transaction")
 		return
 	}
 
@@ -124,6 +140,14 @@ func (h *TransactionHandler) BatchDelete(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteBatch(req.IDs, userID); err != nil {
+		if errors.Is(err, service.ErrTransactionNotFound) {
+			response.NotFound(c, "transaction not found")
+			return
+		}
+		if errors.Is(err, service.ErrSystemTransactionImmutable) {
+			response.BadRequest(c, "system transaction cannot be changed directly")
+			return
+		}
 		internalServerError(c, err, "failed to delete transactions")
 		return
 	}
@@ -146,6 +170,10 @@ func (h *TransactionHandler) Export(c *gin.Context) {
 	if err != nil {
 		response.BadRequest(c, "invalid end date")
 		return
+	}
+	if end != nil {
+		endOfDay := end.AddDate(0, 0, 1).Add(-time.Nanosecond)
+		end = &endOfDay
 	}
 
 	transactions, err := h.service.Export(userID, start, end)
@@ -201,47 +229,26 @@ func (h *TransactionHandler) Export(c *gin.Context) {
 	}
 }
 
-func (h *TransactionHandler) Backup(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-
-	backup, err := h.service.Backup(userID)
-	if err != nil {
-		internalServerError(c, err, "failed to create transaction backup")
-		return
-	}
-
-	filename := fmt.Sprintf("backup_%s.json", time.Now().Format("20060102_150405"))
-	c.Header("Content-Type", "application/json; charset=utf-8")
-	setAttachmentHeader(c, filename)
-	c.JSON(200, backup)
-}
-
-func (h *TransactionHandler) Import(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-
-	file, err := c.FormFile("file")
-	if err != nil {
-		response.BadRequest(c, "file is required")
-		return
-	}
-
-	count, err := h.service.Import(userID, file)
-	if err != nil {
-		internalServerError(c, err, "failed to import transactions")
-		return
-	}
-
-	response.Success(c, gin.H{"count": count})
-}
-
 func handleTransactionRequestError(c *gin.Context, err error) bool {
 	switch {
 	case errors.Is(err, service.ErrSameAccount):
 		response.BadRequest(c, "source and target account must be different")
 	case errors.Is(err, service.ErrAccountNotFound):
 		response.BadRequest(c, "account not found")
+	case errors.Is(err, service.ErrCategoryNotFound):
+		response.BadRequest(c, "category not found")
+	case errors.Is(err, service.ErrCategoryTypeMismatch):
+		response.BadRequest(c, "category type does not match transaction type")
+	case errors.Is(err, service.ErrInvalidTransactionAmount):
+		response.BadRequest(c, "amount must be greater than zero")
+	case errors.Is(err, service.ErrInvalidTransactionType):
+		response.BadRequest(c, "invalid transaction type")
 	case errors.Is(err, service.ErrFamilyMemberNotFound):
 		response.BadRequest(c, "family member not found")
+	case errors.Is(err, service.ErrManagedTransactionImmutable):
+		response.BadRequest(c, "managed transaction cannot be updated directly")
+	case errors.Is(err, service.ErrSystemTransactionImmutable):
+		response.BadRequest(c, "system transaction cannot be changed directly")
 	case isTransactionDateParseError(err):
 		response.BadRequest(c, "invalid transaction date")
 	default:
@@ -259,7 +266,7 @@ func parseTransactionExportDate(value string) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	t, err := time.Parse("2006-01-02", value)
+	t, err := time.ParseInLocation("2006-01-02", value, time.Local)
 	if err != nil {
 		return nil, err
 	}

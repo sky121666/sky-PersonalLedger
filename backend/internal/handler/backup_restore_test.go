@@ -226,6 +226,81 @@ func TestRestoreRejectsMalformedBackupPayload(t *testing.T) {
 	}
 }
 
+func TestRestoreRejectsOversizedMultipartBody(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "ledger.db")
+	db, err := database.Init(dbPath)
+	if err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	repos := repository.NewRepositories(db)
+	backupSvc := service.NewBackupService(
+		db,
+		repos.Account,
+		repos.Category,
+		repos.Transaction,
+		repos.Budget,
+		repos.Reminder,
+		repos.Lending,
+		repos.Template,
+		repos.Notification,
+		repos.Tag,
+		repos.User,
+		repos.FamilyMember,
+		repos.AIReport,
+		32,
+	)
+	backupHandler := NewBackupHandler(backupSvc, nil)
+	request := newRawRestoreRequest(t, bytes.Repeat([]byte("x"), (2<<20)))
+	response := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(response)
+	context.Request = request
+
+	backupHandler.Restore(context)
+
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("restore status = %d, want 413; body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestRestoreMapsRecordLimitToRequestEntityTooLarge(t *testing.T) {
+	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))
+	if err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	repos := repository.NewRepositories(db)
+	backupSvc := service.NewBackupService(
+		db,
+		repos.Account,
+		repos.Category,
+		repos.Transaction,
+		repos.Budget,
+		repos.Reminder,
+		repos.Lending,
+		repos.Template,
+		repos.Notification,
+		repos.Tag,
+		repos.User,
+		repos.FamilyMember,
+		repos.AIReport,
+	)
+	backupHandler := NewBackupHandler(backupSvc, nil)
+	payload := []byte(`{"version":"2.1","accounts":[` + strings.Repeat(`{},`, 10_000) + `{}` + `]}`)
+	request := newRawRestoreRequest(t, payload)
+	response := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(response)
+	context.Request = request
+
+	backupHandler.Restore(context)
+
+	assertBackupCreateError(
+		t,
+		response,
+		http.StatusRequestEntityTooLarge,
+		41300,
+		backupRecordLimitExceededMessage,
+	)
+}
+
 func TestRestorePreRestoreFailureDoesNotExposeBackupPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))

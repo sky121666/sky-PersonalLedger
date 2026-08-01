@@ -1,10 +1,16 @@
 package main
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,12 +39,18 @@ func main() {
 	if err := validateProductionCORS(cfg.Server.Mode, cfg.CORS.AllowedOrigins); err != nil {
 		log.Fatal(err)
 	}
+	if err := validateSetupToken(cfg.Setup.Token); err != nil {
+		log.Fatal(err)
+	}
+	if err := validateStorageLimits(cfg.Storage); err != nil {
+		log.Fatal(err)
+	}
 
 	// Initialize logger
 	logger.Init(cfg.Log.Level, cfg.Log.Format)
 
 	// Initialize database
-	db, err := database.InitWithConfig(cfg.Database)
+	db, err := database.InitWithConfig(cfg.Database, cfg.Log)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -48,6 +60,9 @@ func main() {
 
 	// Initialize services
 	services := service.NewServices(repos, cfg)
+	if err := services.Notification.MigrateStoredSecrets(); err != nil {
+		log.Fatalf("Failed to migrate notification credentials: %v", err)
+	}
 
 	// Sync security settings from config to database (config takes priority)
 	if cfg.Security.BasePath != "" {
@@ -62,6 +77,8 @@ func main() {
 	backupScheduler := service.NewBackupScheduler(services.Backup, repos.System, repos.User, cfg.Storage.BackupPath)
 	backupScheduler.Start()
 	services.AIReportSchedule.Start()
+	services.NotificationSchedule.Start()
+	services.UploadGC.Start()
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter()
@@ -86,6 +103,9 @@ func main() {
 	}
 
 	r := gin.Default()
+	if err := configureTrustedProxies(r, cfg.Server.TrustedProxies); err != nil {
+		log.Fatalf("FATAL: invalid LEDGER_SERVER_TRUSTED_PROXIES: %v", err)
+	}
 
 	// Apply middlewares
 	r.Use(middleware.CORS(cfg.CORS.AllowedOrigins))
@@ -107,16 +127,52 @@ func main() {
 
 	// Serve frontend static files with security entry path protection
 	if cfg.Server.WebPath != "" {
-		setupStaticFiles(r, cfg.Server.WebPath, services.System)
+		setupStaticFiles(r, cfg.Server.WebPath, services.System, cfg.JWT.Secret)
 		log.Printf("Serving frontend from %s", cfg.Server.WebPath)
 	}
 
 	// Start server
 	addr := ":" + cfg.Server.Port
 	log.Printf("Server starting on %s", addr)
-	if err := r.Run(addr); err != nil {
+	server := newHTTPServer(addr, r)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+const (
+	serverReadHeaderTimeout = 5 * time.Second
+	serverReadTimeout       = 60 * time.Second
+	serverWriteTimeout      = 60 * time.Second
+	serverIdleTimeout       = 120 * time.Second
+	serverMaxHeaderBytes    = 1 << 20
+)
+
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		ReadTimeout:       serverReadTimeout,
+		WriteTimeout:      serverWriteTimeout,
+		IdleTimeout:       serverIdleTimeout,
+		MaxHeaderBytes:    serverMaxHeaderBytes,
+	}
+}
+
+func configureTrustedProxies(router *gin.Engine, configured string) error {
+	var trusted []string
+	for _, value := range strings.Split(configured, ",") {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			trusted = append(trusted, value)
+		}
+	}
+	// nil explicitly disables Gin's legacy trust-all proxy default.
+	if len(trusted) == 0 {
+		return router.SetTrustedProxies(nil)
+	}
+	return router.SetTrustedProxies(trusted)
 }
 
 func validateJWTSecret(secret string) error {
@@ -147,9 +203,27 @@ func validateProductionCORS(serverMode string, allowedOrigins string) error {
 	return nil
 }
 
+func validateSetupToken(token string) error {
+	value := strings.TrimSpace(token)
+	if value != "" && len(value) < 32 {
+		return fmt.Errorf("FATAL: LEDGER_SETUP_TOKEN must be at least 32 characters long when configured")
+	}
+	return nil
+}
+
+func validateStorageLimits(storage config.StorageConfig) error {
+	if storage.MaxFileSize < 1 || storage.MaxFileSize > 1024 {
+		return fmt.Errorf("FATAL: LEDGER_STORAGE_MAX_FILE_SIZE must be between 1 and 1024 MB")
+	}
+	if storage.RestoreMaxFileSize < 1 || storage.RestoreMaxFileSize > 4096 {
+		return fmt.Errorf("FATAL: LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE must be between 1 and 4096 MB")
+	}
+	return nil
+}
+
 func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.AuthService, systemService *service.SystemService) {
 	// Create upload directory if not exists
-	if err := os.MkdirAll(uploadPath, 0755); err != nil {
+	if err := os.MkdirAll(uploadPath, 0700); err != nil {
 		log.Printf("Warning: Failed to create upload directory: %v", err)
 		return
 	}
@@ -166,14 +240,20 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 		}
 		pathParts := strings.Split(filepath.ToSlash(cleanPath), "/")
 
-		// 头像文件公开访问，无需认证 (路径格式: /1/avatars/profile/xxx.gif)
-		if len(pathParts) >= 3 && pathParts[1] == "avatars" {
-			// 直接允许访问头像
+		// 头像文件公开访问，无需认证（严格限制为用户头像目录）。
+		publicAvatar := len(pathParts) == 4 && pathParts[1] == "avatars" && pathParts[2] == "profile"
+		if publicAvatar {
+			if userID, err := strconv.ParseUint(pathParts[0], 10, 64); err != nil || userID == 0 {
+				c.JSON(404, gin.H{"error": "not found"})
+				return
+			}
 		} else {
 			// 其他文件需要认证
-			token := c.Query("token")
-			if token == "" {
-				token = strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+			authHeader := c.GetHeader("Authorization")
+			parts := strings.SplitN(authHeader, " ", 2)
+			token := ""
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
 			}
 
 			authenticated := false
@@ -198,21 +278,13 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 			}
 		}
 
-		fullPath := filepath.Join(uploadPath, cleanPath)
-
-		// Security check: ensure path is within upload directory
-		absUploadPath, err := filepath.Abs(uploadPath)
-		if err != nil {
+		fullPath, err := resolveExistingFileWithinRoot(uploadPath, cleanPath)
+		if errors.Is(err, errUnsafeStaticPath) {
 			c.JSON(403, gin.H{"error": "forbidden"})
 			return
 		}
-		absFullPath, err := filepath.Abs(fullPath)
 		if err != nil {
-			c.JSON(403, gin.H{"error": "forbidden"})
-			return
-		}
-		if absFullPath != absUploadPath && !strings.HasPrefix(absFullPath, absUploadPath+string(os.PathSeparator)) {
-			c.JSON(403, gin.H{"error": "forbidden"})
+			c.JSON(404, gin.H{"error": "not found"})
 			return
 		}
 		info, err := os.Stat(fullPath)
@@ -224,12 +296,49 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 			c.JSON(403, gin.H{"error": "forbidden"})
 			return
 		}
+		if publicAvatar {
+			if !service.IsSafeStoredAvatar(fullPath) {
+				c.JSON(http.StatusUnsupportedMediaType, gin.H{"error": "invalid avatar content"})
+				return
+			}
+			c.Header("Cache-Control", "public, max-age=86400")
+		}
+		c.Header("X-Content-Type-Options", "nosniff")
 
 		c.File(fullPath)
 	})
 }
 
-func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.SystemService) {
+var errUnsafeStaticPath = errors.New("unsafe static path")
+
+func resolveExistingFileWithinRoot(rootPath string, relativePath string) (string, error) {
+	fullPath := filepath.Join(rootPath, relativePath)
+	absRootPath, err := filepath.Abs(rootPath)
+	if err != nil {
+		return "", err
+	}
+	absFullPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		return "", err
+	}
+	if absFullPath != absRootPath && !strings.HasPrefix(absFullPath, absRootPath+string(os.PathSeparator)) {
+		return "", errUnsafeStaticPath
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(absRootPath)
+	if err != nil {
+		return "", err
+	}
+	resolvedFile, err := filepath.EvalSymlinks(absFullPath)
+	if err != nil {
+		return "", err
+	}
+	if resolvedFile != resolvedRoot && !strings.HasPrefix(resolvedFile, resolvedRoot+string(os.PathSeparator)) {
+		return "", errUnsafeStaticPath
+	}
+	return resolvedFile, nil
+}
+
+func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.SystemService, cookieSecret string) {
 	// Check if dist folder exists
 	if _, err := os.Stat(webPath); os.IsNotExist(err) {
 		log.Printf("Warning: Frontend dist folder not found at %s", webPath)
@@ -247,29 +356,25 @@ func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.Syst
 			return true // No entry path configured, allow access
 		}
 
-		// Cookie value should match the entry path (simple hash)
-		expectedCookieValue := fmt.Sprintf("%x", len(entryPath)*31+int(entryPath[1]))
+		expectedCookieValue := entryAccessCookieValue(cookieSecret, entryPath)
 		requestPath := c.Request.URL.Path
 
 		// Check if already verified via cookie with matching entry path
 		if cookie, err := c.Cookie(cookieName); err == nil {
-			if cookie == expectedCookieValue {
-				log.Printf("[EntryPath] Valid cookie found, allowing access to: %s", requestPath)
+			if hmac.Equal([]byte(cookie), []byte(expectedCookieValue)) {
 				return true
 			}
-			log.Printf("[EntryPath] Invalid cookie: got '%s', expected '%s'", cookie, expectedCookieValue)
 		}
 
 		// Check if accessing the entry path
-		if strings.HasPrefix(requestPath, entryPath) {
-			log.Printf("[EntryPath] Entry path accessed: %s, setting cookie and allowing access", requestPath)
-			// Set verification cookie with entry path hash and allow access
-			c.SetCookie(cookieName, expectedCookieValue, cookieMaxAge, "/", "", false, true)
+		if service.MatchesEntryPath(requestPath, entryPath) {
+			secureCookie := c.Request.TLS != nil || strings.EqualFold(strings.TrimSpace(c.GetHeader("X-Forwarded-Proto")), "https")
+			c.SetSameSite(http.SameSiteStrictMode)
+			c.SetCookie(cookieName, expectedCookieValue, cookieMaxAge, "/", "", secureCookie, true)
 			return true // 允许访问，不重定向
 		}
 
 		// Not verified, return 404
-		log.Printf("[EntryPath] Access denied to: %s (no valid cookie, entry path is: %s)", requestPath, entryPath)
 		c.String(404, "404 page not found")
 		c.Abort()
 		return false
@@ -315,6 +420,12 @@ func setupStaticFiles(r *gin.Engine, webPath string, systemService *service.Syst
 	})
 }
 
+func entryAccessCookieValue(secret string, entryPath string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte("entry-access\x00" + entryPath))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
 func serveStaticFile(c *gin.Context, rootPath string, requestPath string) {
 	cleanPath := filepath.Clean(strings.TrimPrefix(requestPath, "/"))
 	if cleanPath == "." ||
@@ -325,22 +436,15 @@ func serveStaticFile(c *gin.Context, rootPath string, requestPath string) {
 		return
 	}
 
-	fullPath := filepath.Join(rootPath, cleanPath)
-	absRootPath, err := filepath.Abs(rootPath)
+	fullPath, err := resolveExistingFileWithinRoot(rootPath, cleanPath)
+	if errors.Is(err, errUnsafeStaticPath) {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
 	if err != nil {
-		c.JSON(403, gin.H{"error": "forbidden"})
+		c.JSON(404, gin.H{"error": "not found"})
 		return
 	}
-	absFullPath, err := filepath.Abs(fullPath)
-	if err != nil {
-		c.JSON(403, gin.H{"error": "forbidden"})
-		return
-	}
-	if absFullPath != absRootPath && !strings.HasPrefix(absFullPath, absRootPath+string(os.PathSeparator)) {
-		c.JSON(403, gin.H{"error": "forbidden"})
-		return
-	}
-
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		c.JSON(404, gin.H{"error": "not found"})

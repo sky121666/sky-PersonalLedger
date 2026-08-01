@@ -53,7 +53,7 @@ func NewAuthService(
 
 type AuthResponse struct {
 	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 	ExpiresIn    int    `json:"expires_in"`
 }
 
@@ -152,26 +152,41 @@ func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
 	if normalizedToken == "" {
 		return nil, ErrInvalidToken
 	}
-
-	tokenHash := hashRefreshToken(normalizedToken)
-	rt, err := s.refreshTokenRepo.GetByToken(tokenHash)
+	claims, err := s.jwtManager.ValidateRefreshToken(normalizedToken)
 	if err != nil {
-		rt, err = s.refreshTokenRepo.GetByToken(normalizedToken)
-		if err != nil {
-			return nil, ErrInvalidToken
-		}
-		_ = s.refreshTokenRepo.UpdateToken(rt.ID, tokenHash)
-	}
-
-	if rt.ExpiresAt.Before(time.Now()) {
-		s.refreshTokenRepo.Delete(rt.ID)
 		return nil, ErrInvalidToken
 	}
 
-	// Delete old token
-	s.refreshTokenRepo.Delete(rt.ID)
+	if claims.UserID == 0 {
+		return nil, ErrInvalidToken
+	}
 
-	return s.generateTokens(rt.UserID)
+	var response *AuthResponse
+	err = s.userRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		repo := repository.NewRefreshTokenRepository(txdb)
+		now := time.Now()
+		consumed, err := repo.Consume(hashRefreshToken(normalizedToken), claims.UserID, now)
+		if err != nil {
+			return err
+		}
+		if !consumed {
+			// One-time migration path for refresh tokens stored in plaintext by
+			// releases before token hashing was introduced.
+			consumed, err = repo.Consume(normalizedToken, claims.UserID, now)
+			if err != nil {
+				return err
+			}
+		}
+		if !consumed {
+			return ErrInvalidToken
+		}
+		response, err = s.generateTokensWithRepository(claims.UserID, repo)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 func (s *AuthService) Logout(userID uint) error {
@@ -219,6 +234,10 @@ func (s *AuthService) GetJWTManager() *jwt.Manager {
 }
 
 func (s *AuthService) generateTokens(userID uint) (*AuthResponse, error) {
+	return s.generateTokensWithRepository(userID, s.refreshTokenRepo)
+}
+
+func (s *AuthService) generateTokensWithRepository(userID uint, refreshTokens *repository.RefreshTokenRepository) (*AuthResponse, error) {
 	accessToken, err := s.jwtManager.GenerateAccessToken(userID)
 	if err != nil {
 		return nil, err
@@ -235,7 +254,7 @@ func (s *AuthService) generateTokens(userID uint) (*AuthResponse, error) {
 		Token:     hashRefreshToken(refreshToken),
 		ExpiresAt: expiresAt,
 	}
-	if err := s.refreshTokenRepo.Create(rt); err != nil {
+	if err := refreshTokens.Create(rt); err != nil {
 		return nil, err
 	}
 

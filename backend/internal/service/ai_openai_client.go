@@ -6,21 +6,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
 
 type OpenAICompatibleClient struct {
-	httpClient *http.Client
+	httpClient           *http.Client
+	allowPrivateNetworks bool
 }
 
-func NewOpenAICompatibleClient(httpClient *http.Client) *OpenAICompatibleClient {
+func NewOpenAICompatibleClient(httpClient *http.Client, allowPrivateNetworks ...bool) *OpenAICompatibleClient {
+	allowPrivate := len(allowPrivateNetworks) > 0 && allowPrivateNetworks[0]
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 10 * time.Second}
+		httpClient = newSafeOutboundHTTPClient(allowPrivate)
 	}
-	return &OpenAICompatibleClient{httpClient: httpClient}
+	return &OpenAICompatibleClient{httpClient: httpClient, allowPrivateNetworks: allowPrivate}
 }
 
 func NormalizeOpenAIChatCompletionsURL(baseURL string) string {
@@ -52,7 +54,11 @@ func (c *OpenAICompatibleClient) TestConnection(ctx context.Context, baseURL str
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, NormalizeOpenAIChatCompletionsURL(baseURL), bytes.NewReader(body))
+	endpoint := NormalizeOpenAIChatCompletionsURL(baseURL)
+	if err := validateOutboundURL(endpoint, c.allowPrivateNetworks); err != nil {
+		return ErrAIProviderBaseURLInvalid
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -78,7 +84,7 @@ func (c *OpenAICompatibleClient) TestConnection(ctx context.Context, baseURL str
 			} `json:"message"`
 		} `json:"choices"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&result); err != nil {
 		return err
 	}
 	if len(result.Choices) == 0 {
@@ -107,7 +113,11 @@ func (c *OpenAICompatibleClient) GenerateReport(ctx context.Context, baseURL str
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, NormalizeOpenAIChatCompletionsURL(baseURL), bytes.NewReader(body))
+	endpoint := NormalizeOpenAIChatCompletionsURL(baseURL)
+	if err := validateOutboundURL(endpoint, c.allowPrivateNetworks); err != nil {
+		return "", ErrAIProviderBaseURLInvalid
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -133,7 +143,7 @@ func (c *OpenAICompatibleClient) GenerateReport(ctx context.Context, baseURL str
 			} `json:"message"`
 		} `json:"choices"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&result); err != nil {
 		return "", err
 	}
 	if len(result.Choices) == 0 {

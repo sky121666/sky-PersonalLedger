@@ -3,6 +3,8 @@ package database
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -49,6 +51,54 @@ var schemaMigrations = []versionedMigration{
 			)
 		},
 	},
+	{
+		Version: 2,
+		Name:    "expand_notification_secret_columns",
+		Apply: func(tx *gorm.DB) error {
+			// AES-GCM adds a nonce and authentication tag before base64 encoding,
+			// so the legacy varchar limits are not large enough for every valid
+			// SMTP password or webhook secret.
+			return tx.AutoMigrate(&model.NotificationSetting{})
+		},
+	},
+	{
+		Version: 3,
+		Name:    "api_token_scopes_and_revocation",
+		Apply: func(tx *gorm.DB) error {
+			return tx.AutoMigrate(&model.APIToken{})
+		},
+	},
+	{
+		Version: 4,
+		Name:    "transaction_import_fingerprint",
+		Apply: func(tx *gorm.DB) error {
+			return tx.AutoMigrate(&model.Transaction{})
+		},
+	},
+	{
+		Version: 5,
+		Name:    "persistent_transaction_import_batches",
+		Apply: func(tx *gorm.DB) error {
+			return tx.AutoMigrate(&model.TransactionImportBatch{})
+		},
+	},
+	{
+		Version: 6,
+		Name:    "transaction_import_batch_summaries",
+		Apply: func(tx *gorm.DB) error {
+			return tx.AutoMigrate(&model.TransactionImportBatch{})
+		},
+	},
+	{
+		Version: 7,
+		Name:    "portable_api_token_scopes",
+		Apply: func(tx *gorm.DB) error {
+			// MySQL does not allow a default value on TEXT columns. API token
+			// scopes have a small bounded vocabulary, so varchar(512) keeps the
+			// legacy empty-string default while remaining portable.
+			return tx.AutoMigrate(&model.APIToken{})
+		},
+	},
 }
 
 var currentSchemaVersion = latestKnownSchemaVersion()
@@ -72,7 +122,7 @@ func Init(dbPath string) (*gorm.DB, error) {
 	})
 }
 
-func InitWithConfig(cfg config.DatabaseConfig) (*gorm.DB, error) {
+func InitWithConfig(cfg config.DatabaseConfig, logConfigs ...config.LogConfig) (*gorm.DB, error) {
 	driver := normalizeDriver(cfg.Driver)
 
 	dialector, isSQLite, err := openDialector(driver, cfg)
@@ -80,9 +130,11 @@ func InitWithConfig(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	db, err := gorm.Open(dialector, &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	})
+	logConfig := config.LogConfig{Level: "warn"}
+	if len(logConfigs) > 0 {
+		logConfig = logConfigs[0]
+	}
+	db, err := gorm.Open(dialector, &gorm.Config{Logger: newGORMLogger(os.Stdout, logConfig)})
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +144,13 @@ func InitWithConfig(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	}
 
 	if isSQLite {
+		var foreignKeys int
+		if err := db.Raw("PRAGMA foreign_keys;").Scan(&foreignKeys).Error; err != nil {
+			return nil, fmt.Errorf("read sqlite foreign key mode: %w", err)
+		}
+		if foreignKeys != 1 {
+			return nil, errors.New("sqlite foreign key enforcement is disabled")
+		}
 		if err := db.Exec("PRAGMA journal_mode=WAL;").Error; err != nil {
 			return nil, fmt.Errorf("enable sqlite wal mode: %w", err)
 		}
@@ -106,6 +165,28 @@ func InitWithConfig(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	}
 
 	return db, nil
+}
+
+func newGORMLogger(writer io.Writer, cfg config.LogConfig) logger.Interface {
+	level := logger.Warn
+	switch strings.ToLower(strings.TrimSpace(cfg.Level)) {
+	case "debug", "trace":
+		level = logger.Info
+	case "error":
+		level = logger.Error
+	case "silent", "off", "none":
+		level = logger.Silent
+	case "info", "warn", "warning", "":
+		level = logger.Warn
+	}
+
+	return logger.New(log.New(writer, "", log.LstdFlags), logger.Config{
+		SlowThreshold:             time.Second,
+		LogLevel:                  level,
+		IgnoreRecordNotFoundError: true,
+		ParameterizedQueries:      true,
+		Colorful:                  false,
+	})
 }
 
 func TestConnection(cfg config.DatabaseConfig) error {
@@ -162,7 +243,11 @@ func openDialector(driver string, cfg config.DatabaseConfig) (gorm.Dialector, bo
 		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 			return nil, false, err
 		}
-		return sqlite.Open(dbPath), true, nil
+		separator := "?"
+		if strings.Contains(dbPath, "?") {
+			separator = "&"
+		}
+		return sqlite.Open(dbPath + separator + "_foreign_keys=on&_busy_timeout=5000"), true, nil
 	case "postgres":
 		dsn := strings.TrimSpace(cfg.DSN)
 		if dsn == "" {

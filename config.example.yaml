@@ -45,12 +45,6 @@ security:
   # 设置后只能通过 http://host:port/your-secret-path 访问
   base_path: ""
   # 环境变量: LEDGER_SECURITY_BASE_PATH
-  
-  # API Token (移动端访问需要)
-  # 设置后，所有 API 请求必须携带 X-API-Token 头
-  # 留空则不验证 (仅 Web 端访问时可留空)
-  api_token: ""
-  # 环境变量: LEDGER_SECURITY_API_TOKEN
 
 cors:
   # 留空仅允许同站 Host/无 Origin 请求；开发前端可设为 http://localhost:5173

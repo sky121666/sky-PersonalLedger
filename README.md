@@ -50,8 +50,9 @@
 # 1. 下载配置文件
 curl -fsSLO https://raw.githubusercontent.com/sky121666/sky-PersonalLedger/main/docker-compose.yml
 
-# 2. 生成 JWT 密钥 (必须)
-printf 'LEDGER_JWT_SECRET=%s\n' "$(openssl rand -base64 32)" > .env
+# 2. 生成 JWT 密钥和一次性安装令牌 (必须)
+printf 'LEDGER_JWT_SECRET=%s\nLEDGER_SETUP_TOKEN=%s\n' \
+  "$(openssl rand -base64 32)" "$(openssl rand -hex 32)" > .env
 
 # 3. 启动服务
 docker compose up -d
@@ -61,7 +62,9 @@ docker compose ps
 docker compose logs -f
 ```
 
-✅ **访问地址**: `http://localhost:8080`
+✅ **访问地址**: `http://localhost:8080/#/setup?setup_token=<.env 中的 LEDGER_SETUP_TOKEN>`
+
+初始化页会把安装令牌仅保存在当前浏览器会话中，并立即从地址栏移除。初始化完成后，服务端会拒绝再次执行安装接口。
 
 ### 方式二：1Panel 面板部署
 
@@ -82,6 +85,7 @@ docker run -d \
   -p 8080:8080 \
   -v ./data:/data \
   -e LEDGER_JWT_SECRET=$(openssl rand -base64 32) \
+  -e LEDGER_SETUP_TOKEN=$(openssl rand -hex 32) \
   -e LEDGER_JWT_ACCESS_EXPIRE=15 \
   -e LEDGER_JWT_REFRESH_EXPIRE=43200 \
   -e LEDGER_STORAGE_MAX_FILE_SIZE=10 \
@@ -92,7 +96,6 @@ docker run -d \
 
 # 可选的安全配置
 # -e LEDGER_SECURITY_BASE_PATH=/my-secret-path \
-# -e LEDGER_SECURITY_API_TOKEN=<api-token> \
 ```
 
 ## 📱 客户端下载
@@ -134,8 +137,12 @@ GitHub Actions 需要配置：
 | 变量 | 说明 | 默认值 | 重要性 |
 |------|------|--------|--------|
 | **LEDGER_JWT_SECRET** | JWT 密钥 (至少32位随机字符串) | - | ⚠️ 必须修改 |
+| **LEDGER_SETUP_TOKEN** | 首次远程安装令牌（至少32位） | 空，仅允许 loopback 初始化 | ⚠️ Docker 必须设置 |
 | LEDGER_SECURITY_BASE_PATH | 自定义入口路径 (如 `/my-ledger`) | 空 | 🔒 安全推荐 |
-| LEDGER_SECURITY_API_TOKEN | API Token (移动端验证) | 空 | 📱 移动端必需 |
+| LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND | 允许 AI、Webhook、SMTP 访问回环/私网；仅本地网关场景由部署者显式开启 | false | 🔒 默认保持关闭 |
+| LEDGER_SERVER_TRUSTED_PROXIES | 可信反向代理 IP/CIDR，多个值用逗号分隔；留空忽略转发来源头 | 空 | 🔒 仅代理部署填写 |
+
+移动端和自动化客户端使用登录后的“设备授权”页面生成访问令牌。令牌通过 `Authorization: Bearer` 发送，并由服务端按最小权限 scope 校验；不存在全局环境变量形式的万能移动端令牌。
 
 ### 数据库配置
 
@@ -173,6 +180,7 @@ LEDGER_DATABASE_DSN='ledger:password@tcp(db:3306)/ledger?charset=utf8mb4&parseTi
 | LEDGER_JWT_ACCESS_EXPIRE | 登录状态刷新间隔 (分钟) | 15 |
 | LEDGER_JWT_REFRESH_EXPIRE | 重新登录间隔 (分钟) | 43200 (30天) |
 | LEDGER_STORAGE_MAX_FILE_SIZE | 最大上传文件 (MB) | 10 |
+| LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE | 最大 JSON 备份恢复文件 (MB) | 64 |
 | LEDGER_SERVER_MODE | 服务器模式 (debug=禁用限流, release=启用限流) | release |
 | LEDGER_CORS_ALLOWED_ORIGINS | 跨域白名单，留空仅允许同站 Host/无 Origin；前后端分离时填具体域名；release 禁止 `*` | 空 |
 | LEDGER_RATE_LIMIT_MAX_REQUESTS | 每分钟最大请求数 (仅 release 模式) | 1000 |
@@ -196,12 +204,15 @@ services:
       # ========== 必须修改 ==========
       # 在 .env 中设置: LEDGER_JWT_SECRET=$(openssl rand -base64 32)
       - LEDGER_JWT_SECRET=${LEDGER_JWT_SECRET:?Set LEDGER_JWT_SECRET in .env before starting}
+      - LEDGER_SETUP_TOKEN=${LEDGER_SETUP_TOKEN:?Set LEDGER_SETUP_TOKEN in .env before starting}
       
       # ========== 安全配置 (可选) ==========
       # 自定义入口路径，隐藏真实访问地址
       # - LEDGER_SECURITY_BASE_PATH=/my-secret-path
-      # 移动端 API 验证 Token
-      # - LEDGER_SECURITY_API_TOKEN=<api-token>
+      # 默认禁止用户配置的出站地址访问容器回环/私网；连接本地 AI/SMTP 时由部署者审慎开启
+      - LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND=false
+      # 反向代理部署时填写代理 IP/CIDR；不使用代理则保持为空
+      - LEDGER_SERVER_TRUSTED_PROXIES=
       # 跨域白名单；同域部署保持为空，前后端分离时设置具体域名
       # - LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.com
       
@@ -211,6 +222,7 @@ services:
       
       # ========== 存储配置 ==========
       - LEDGER_STORAGE_MAX_FILE_SIZE=10  # 最大上传文件 10MB
+      - LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE=64 # 最大备份恢复文件 64MB
 
       # ========== 数据库配置 ==========
       - LEDGER_DATABASE_DRIVER=sqlite
@@ -275,6 +287,20 @@ cp -r ./data ./data-backup-$(date +%Y%m%d)
 - **部署**: Docker + GitHub Actions
 
 ## 🔧 本地开发
+
+基础 `docker-compose.yml` 始终使用生产安全的 `release` 模式。仅本地联调需要关闭全局限流时，显式叠加 debug override：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.debug.yml up -d
+```
+
+停止该本地调试环境时使用相同的文件组合：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.debug.yml down
+```
+
+不要将 `docker-compose.debug.yml` 用于生产部署。
 
 ```bash
 # 后端开发

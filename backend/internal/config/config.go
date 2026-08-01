@@ -30,8 +30,8 @@ type RateLimitConfig struct {
 
 // SecurityConfig 安全配置
 type SecurityConfig struct {
-	BasePath string `mapstructure:"base_path"`
-	APIToken string `mapstructure:"api_token"`
+	BasePath             string `mapstructure:"base_path"`
+	AllowPrivateOutbound bool   `mapstructure:"allow_private_outbound"`
 }
 
 // CORSConfig 跨域配置
@@ -41,17 +41,19 @@ type CORSConfig struct {
 
 // StorageConfig 存储配置
 type StorageConfig struct {
-	UploadPath   string `mapstructure:"upload_path"`
-	BackupPath   string `mapstructure:"backup_path"`
-	MaxFileSize  int64  `mapstructure:"max_file_size"` // 最大文件大小(MB)
-	AllowedTypes string `mapstructure:"allowed_types"`
+	UploadPath         string `mapstructure:"upload_path"`
+	BackupPath         string `mapstructure:"backup_path"`
+	MaxFileSize        int64  `mapstructure:"max_file_size"`         // 最大上传文件大小(MB)
+	RestoreMaxFileSize int64  `mapstructure:"restore_max_file_size"` // 最大恢复备份大小(MB)
+	AllowedTypes       string `mapstructure:"allowed_types"`
 }
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port    string
-	Mode    string
-	WebPath string `mapstructure:"web_path"` // 前端文件路径
+	Port           string
+	Mode           string
+	WebPath        string `mapstructure:"web_path"` // 前端文件路径
+	TrustedProxies string `mapstructure:"trusted_proxies"`
 }
 
 // DatabaseConfig 数据库配置
@@ -66,6 +68,7 @@ type DatabaseConfig struct {
 // SetupConfig 首次安装配置
 type SetupConfig struct {
 	ConfigPath string `mapstructure:"config_path" yaml:"config_path"`
+	Token      string `mapstructure:"token" yaml:"-"`
 }
 
 // JWTConfig JWT配置
@@ -98,6 +101,7 @@ func Load() (*Config, error) {
 	viper.BindEnv("server.port", "LEDGER_SERVER_PORT")
 	viper.BindEnv("server.mode", "LEDGER_SERVER_MODE")
 	viper.BindEnv("server.web_path", "LEDGER_SERVER_WEB_PATH")
+	viper.BindEnv("server.trusted_proxies", "LEDGER_SERVER_TRUSTED_PROXIES")
 	viper.BindEnv("database.driver", "LEDGER_DATABASE_DRIVER")
 	viper.BindEnv("database.path", "LEDGER_DATABASE_PATH")
 	viper.BindEnv("database.dsn", "LEDGER_DATABASE_DSN")
@@ -111,18 +115,21 @@ func Load() (*Config, error) {
 	viper.BindEnv("storage.upload_path", "LEDGER_STORAGE_UPLOAD_PATH")
 	viper.BindEnv("storage.backup_path", "LEDGER_STORAGE_BACKUP_PATH")
 	viper.BindEnv("storage.max_file_size", "LEDGER_STORAGE_MAX_FILE_SIZE")
+	viper.BindEnv("storage.restore_max_file_size", "LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE")
 	viper.BindEnv("storage.allowed_types", "LEDGER_STORAGE_ALLOWED_TYPES")
 	viper.BindEnv("security.base_path", "LEDGER_SECURITY_BASE_PATH")
-	viper.BindEnv("security.api_token", "LEDGER_SECURITY_API_TOKEN")
+	viper.BindEnv("security.allow_private_outbound", "LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND")
 	viper.BindEnv("cors.allowed_origins", "LEDGER_CORS_ALLOWED_ORIGINS")
 	viper.BindEnv("rate_limit.max_requests", "LEDGER_RATE_LIMIT_MAX_REQUESTS")
 	viper.BindEnv("rate_limit.window_secs", "LEDGER_RATE_LIMIT_WINDOW_SECS")
 	viper.BindEnv("setup.config_path", "LEDGER_SETUP_CONFIG_PATH")
+	viper.BindEnv("setup.token", "LEDGER_SETUP_TOKEN")
 
 	// 设置默认值
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.mode", "debug")
 	viper.SetDefault("server.web_path", "./web/dist")
+	viper.SetDefault("server.trusted_proxies", "")
 	viper.SetDefault("database.driver", "sqlite")
 	viper.SetDefault("database.path", "./data/ledger.db")
 	viper.SetDefault("database.dsn", "")
@@ -135,11 +142,14 @@ func Load() (*Config, error) {
 	viper.SetDefault("storage.upload_path", "./data/uploads")
 	viper.SetDefault("storage.backup_path", "./data/backups")
 	viper.SetDefault("storage.max_file_size", 10) // 10MB
+	viper.SetDefault("storage.restore_max_file_size", 64)
 	viper.SetDefault("storage.allowed_types", "jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt")
+	viper.SetDefault("security.allow_private_outbound", false)
 	viper.SetDefault("cors.allowed_origins", "")      // 默认仅允许同站/无 Origin 请求
 	viper.SetDefault("rate_limit.max_requests", 1000) // 每窗口1000次请求
 	viper.SetDefault("rate_limit.window_secs", 60)    // 60秒窗口
 	viper.SetDefault("setup.config_path", "./data/config.yaml")
+	viper.SetDefault("setup.token", "")
 
 	// 尝试读取配置文件(可选)
 	if err := viper.ReadInConfig(); err != nil {

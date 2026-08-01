@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,10 +29,11 @@ func AuditLog() gin.HandlerFunc {
 
 		// Log security-sensitive operations
 		if shouldAudit(path, method, status) {
-			userID, exists := c.Get("userID")
 			userIDStr := "anonymous"
-			if exists {
-				userIDStr = string(rune(userID.(uint)))
+			if value, exists := c.Get("userID"); exists {
+				if userID, ok := value.(uint); ok {
+					userIDStr = strconv.FormatUint(uint64(userID), 10)
+				}
 			}
 
 			logger.Warnf("[AUDIT] User:%s IP:%s %s %s - Status:%d",

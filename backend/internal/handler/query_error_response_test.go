@@ -32,7 +32,7 @@ func TestAccountLogsDoNotExposeDatabaseError(t *testing.T) {
 
 	router := gin.New()
 	router.GET("/account-logs", func(c *gin.Context) {
-		c.Set("user_id", uint(1))
+		c.Set("userID", uint(1))
 		handler.GetAll(c)
 	})
 
@@ -73,7 +73,9 @@ func TestCategoryListDoesNotExposeDatabaseError(t *testing.T) {
 
 func TestTemplateListDoesNotExposeDatabaseError(t *testing.T) {
 	repos := newClosedRepositoriesForHandlerTest(t)
-	handler := NewTemplateHandler(service.NewTemplateService(repos.Template, repos.Transaction, repos.Account))
+	accountLogService := service.NewAccountLogService(repos.AccountLog, repos.Account)
+	transactionService := service.NewTransactionService(repos.Transaction, repos.Account, repos.Reminder, repos.Lending, repos.FamilyMember, accountLogService)
+	handler := NewTemplateHandler(service.NewTemplateService(repos.Template, transactionService))
 
 	router := gin.New()
 	router.GET("/templates", func(c *gin.Context) {
@@ -88,7 +90,7 @@ func TestTemplateListDoesNotExposeDatabaseError(t *testing.T) {
 
 func TestBudgetListDoesNotExposeDatabaseError(t *testing.T) {
 	repos := newClosedRepositoriesForHandlerTest(t)
-	handler := NewBudgetHandler(service.NewBudgetService(repos.Budget, repos.Transaction, repos.FamilyMember))
+	handler := NewBudgetHandler(service.NewBudgetService(repos.Budget, repos.Transaction, repos.FamilyMember, repos.Category))
 
 	router := gin.New()
 	router.GET("/budgets", func(c *gin.Context) {

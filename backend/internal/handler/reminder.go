@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/middleware"
 	"github.com/sky/personal-ledger/internal/model"
@@ -49,6 +51,18 @@ func (h *ReminderHandler) Create(c *gin.Context) {
 
 	reminder, err := h.service.Create(userID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrAccountNotFound) {
+			response.NotFound(c, "account not found")
+			return
+		}
+		if errors.Is(err, service.ErrLinkedDebtBalanceImmutable) {
+			response.Error(c, 409, 40902, "linked reminder balance is managed by its debt account")
+			return
+		}
+		if errors.Is(err, service.ErrInvalidLocalDate) {
+			response.Error(c, 422, 42203, "invalid reminder date")
+			return
+		}
 		internalServerError(c, err, "failed to create reminder")
 		return
 	}
@@ -73,14 +87,26 @@ func (h *ReminderHandler) Update(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	id := c.Param("id")
 
-	var req service.CreateReminderRequest
+	var req service.PatchReminderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "invalid request")
 		return
 	}
 
-	reminder, err := h.service.Update(id, userID, req)
+	reminder, err := h.service.Patch(id, userID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrAccountNotFound) {
+			response.NotFound(c, "account not found")
+			return
+		}
+		if errors.Is(err, service.ErrLinkedDebtBalanceImmutable) {
+			response.Error(c, 409, 40902, "linked reminder balance is managed by its debt account")
+			return
+		}
+		if errors.Is(err, service.ErrInvalidReminderPatch) || errors.Is(err, service.ErrInvalidLocalDate) {
+			response.Error(c, 422, 42203, "invalid reminder update")
+			return
+		}
 		response.NotFound(c, "reminder not found")
 		return
 	}

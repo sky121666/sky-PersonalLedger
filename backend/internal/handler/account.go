@@ -53,6 +53,10 @@ func (h *AccountHandler) Create(c *gin.Context) {
 
 	account, err := h.service.Create(userID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidLocalDate) {
+			response.Error(c, 422, 42202, "invalid account date")
+			return
+		}
 		internalServerError(c, err, "failed to create account")
 		return
 	}
@@ -77,16 +81,20 @@ func (h *AccountHandler) Update(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	id := c.Param("id")
 
-	var req service.UpdateAccountRequest
+	var req service.PatchAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "invalid request")
 		return
 	}
 
-	account, err := h.service.Update(id, userID, req)
+	account, err := h.service.Patch(id, userID, req)
 	if err != nil {
 		if errors.Is(err, service.ErrAccountNotFound) {
 			response.NotFound(c, "account not found")
+			return
+		}
+		if errors.Is(err, service.ErrInvalidAccountPatch) || errors.Is(err, service.ErrInvalidLocalDate) {
+			response.Error(c, 422, 42202, "invalid account update")
 			return
 		}
 		internalServerError(c, err, "failed to update account")

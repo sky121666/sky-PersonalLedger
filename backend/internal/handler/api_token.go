@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -19,8 +20,9 @@ func NewAPITokenHandler(service *service.APITokenService) *APITokenHandler {
 
 // CreateTokenRequest 创建令牌请求
 type CreateTokenRequest struct {
-	Name          string `json:"name" binding:"required,max=100"`
-	ExpiresInDays int    `json:"expires_in_days"` // 0 = 永不过期
+	Name          string   `json:"name" binding:"required,max=100"`
+	ExpiresInDays int      `json:"expires_in_days"` // 0 = 永不过期
+	Scopes        []string `json:"scopes"`
 }
 
 // Create 生成新的API令牌
@@ -37,9 +39,18 @@ func (h *APITokenHandler) Create(c *gin.Context) {
 		return
 	}
 
-	token, err := h.service.GenerateToken(userID, req.Name, req.ExpiresInDays)
+	token, err := h.service.GenerateToken(userID, req.Name, req.ExpiresInDays, req.Scopes)
 	if err != nil {
-		internalServerError(c, err, "failed to generate token")
+		switch {
+		case errors.Is(err, service.ErrInvalidAPITokenScopes):
+			response.Error(c, 422, 42205, "invalid api token scopes")
+		case errors.Is(err, service.ErrInvalidAPITokenName):
+			response.Error(c, 422, 42206, "invalid api token name")
+		case errors.Is(err, service.ErrInvalidAPITokenExpiry):
+			response.Error(c, 422, 42207, "invalid api token expiry")
+		default:
+			internalServerError(c, err, "failed to generate token")
+		}
 		return
 	}
 
@@ -79,6 +90,10 @@ func (h *APITokenHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteToken(uint(id), userID); err != nil {
+		if errors.Is(err, service.ErrAPITokenNotFound) {
+			response.NotFound(c, "api token not found")
+			return
+		}
 		internalServerError(c, err, "failed to delete token")
 		return
 	}

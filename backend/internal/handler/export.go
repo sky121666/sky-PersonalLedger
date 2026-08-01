@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -32,6 +33,11 @@ func (h *ExportHandler) ExportCSV(c *gin.Context) {
 
 	data, err := h.service.ExportTransactionsCSV(userID, filter)
 	if err != nil {
+		var parseErr *time.ParseError
+		if errors.As(err, &parseErr) {
+			response.BadRequest(c, "invalid export date")
+			return
+		}
 		internalServerError(c, err, "failed to export transactions")
 		return
 	}

@@ -26,15 +26,33 @@ func (r *ReminderRepository) GetByID(id string) (*model.Reminder, error) {
 	return &reminder, nil
 }
 
+func (r *ReminderRepository) GetByIDForUser(id string, userID uint) (*model.Reminder, error) {
+	var reminder model.Reminder
+	err := r.db.
+		Preload("Account", "user_id = ?", userID).
+		Where("id = ? AND user_id = ?", id, userID).
+		First(&reminder).Error
+	if err != nil {
+		return nil, err
+	}
+	return &reminder, nil
+}
+
 func (r *ReminderRepository) GetByUserID(userID uint) ([]model.Reminder, error) {
 	var reminders []model.Reminder
-	err := r.db.Preload("Account").Where("user_id = ?", userID).Find(&reminders).Error
+	err := r.db.
+		Preload("Account", "user_id = ?", userID).
+		Where("user_id = ?", userID).
+		Find(&reminders).Error
 	return reminders, err
 }
 
 func (r *ReminderRepository) ListByAccountID(userID uint, accountID string) ([]model.Reminder, error) {
 	var reminders []model.Reminder
-	err := r.db.Preload("Account").Where("user_id = ? AND account_id = ?", userID, accountID).Find(&reminders).Error
+	err := r.db.
+		Preload("Account", "user_id = ?", userID).
+		Where("user_id = ? AND account_id = ?", userID, accountID).
+		Find(&reminders).Error
 	return reminders, err
 }
 

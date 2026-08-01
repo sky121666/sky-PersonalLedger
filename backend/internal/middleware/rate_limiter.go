@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -11,6 +13,7 @@ import (
 type LoginAttempt struct {
 	attempts    []time.Time
 	lockedUntil time.Time
+	lastSeen    time.Time
 	mu          sync.Mutex
 }
 
@@ -23,7 +26,10 @@ type RateLimiter struct {
 	maxAttempts  int
 	timeWindow   time.Duration
 	lockDuration time.Duration
+	maxEntries   int
 }
+
+const defaultRateLimitMaxEntries = 10000
 
 func NewRateLimiter() *RateLimiter {
 	rl := &RateLimiter{
@@ -32,6 +38,7 @@ func NewRateLimiter() *RateLimiter {
 		maxAttempts:     5,
 		timeWindow:      5 * time.Minute,
 		lockDuration:    30 * time.Minute,
+		maxEntries:      defaultRateLimitMaxEntries,
 	}
 
 	// Start cleanup goroutine
@@ -47,16 +54,14 @@ func (rl *RateLimiter) CheckIP(ip string) (bool, time.Time) {
 
 	attempt, exists := rl.ipAttempts[ip]
 	if !exists {
-		attempt = &LoginAttempt{
-			attempts: make([]time.Time, 0),
-		}
-		rl.ipAttempts[ip] = attempt
+		return true, time.Time{}
 	}
 
 	attempt.mu.Lock()
 	defer attempt.mu.Unlock()
 
 	now := time.Now()
+	attempt.lastSeen = now
 
 	// Check if locked
 	if now.Before(attempt.lockedUntil) {
@@ -71,6 +76,10 @@ func (rl *RateLimiter) CheckIP(ip string) (bool, time.Time) {
 		}
 	}
 	attempt.attempts = recentAttempts
+	if len(recentAttempts) == 0 && !now.Before(attempt.lockedUntil) {
+		delete(rl.ipAttempts, ip)
+		return true, time.Time{}
+	}
 
 	// Check if exceeded
 	if len(attempt.attempts) >= rl.maxAttempts {
@@ -88,16 +97,14 @@ func (rl *RateLimiter) CheckAccount(username string) (bool, time.Time) {
 
 	attempt, exists := rl.accountAttempts[username]
 	if !exists {
-		attempt = &LoginAttempt{
-			attempts: make([]time.Time, 0),
-		}
-		rl.accountAttempts[username] = attempt
+		return true, time.Time{}
 	}
 
 	attempt.mu.Lock()
 	defer attempt.mu.Unlock()
 
 	now := time.Now()
+	attempt.lastSeen = now
 
 	// Check if locked
 	if now.Before(attempt.lockedUntil) {
@@ -112,6 +119,10 @@ func (rl *RateLimiter) CheckAccount(username string) (bool, time.Time) {
 		}
 	}
 	attempt.attempts = recentAttempts
+	if len(recentAttempts) == 0 && !now.Before(attempt.lockedUntil) {
+		delete(rl.accountAttempts, username)
+		return true, time.Time{}
+	}
 
 	// Check if exceeded
 	if len(attempt.attempts) >= rl.maxAttempts {
@@ -133,10 +144,13 @@ func (rl *RateLimiter) RecordAttempt(ip, username string) {
 	if attempt, exists := rl.ipAttempts[ip]; exists {
 		attempt.mu.Lock()
 		attempt.attempts = append(attempt.attempts, now)
+		attempt.lastSeen = now
 		attempt.mu.Unlock()
 	} else {
+		rl.ensureLoginMapCapacity(rl.ipAttempts)
 		rl.ipAttempts[ip] = &LoginAttempt{
 			attempts: []time.Time{now},
+			lastSeen: now,
 		}
 	}
 
@@ -144,10 +158,13 @@ func (rl *RateLimiter) RecordAttempt(ip, username string) {
 	if attempt, exists := rl.accountAttempts[username]; exists {
 		attempt.mu.Lock()
 		attempt.attempts = append(attempt.attempts, now)
+		attempt.lastSeen = now
 		attempt.mu.Unlock()
 	} else {
+		rl.ensureLoginMapCapacity(rl.accountAttempts)
 		rl.accountAttempts[username] = &LoginAttempt{
 			attempts: []time.Time{now},
+			lastSeen: now,
 		}
 	}
 }
@@ -157,12 +174,7 @@ func (rl *RateLimiter) ResetAccount(username string) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	if attempt, exists := rl.accountAttempts[username]; exists {
-		attempt.mu.Lock()
-		attempt.attempts = make([]time.Time, 0)
-		attempt.lockedUntil = time.Time{}
-		attempt.mu.Unlock()
-	}
+	delete(rl.accountAttempts, username)
 }
 
 // cleanup periodically removes old entries
@@ -172,27 +184,47 @@ func (rl *RateLimiter) cleanup() {
 
 	for range ticker.C {
 		rl.mu.Lock()
-		now := time.Now()
-
-		// Clean IP attempts
-		for ip, attempt := range rl.ipAttempts {
-			attempt.mu.Lock()
-			if len(attempt.attempts) == 0 && now.After(attempt.lockedUntil) {
-				delete(rl.ipAttempts, ip)
-			}
-			attempt.mu.Unlock()
-		}
-
-		// Clean account attempts
-		for username, attempt := range rl.accountAttempts {
-			attempt.mu.Lock()
-			if len(attempt.attempts) == 0 && now.After(attempt.lockedUntil) {
-				delete(rl.accountAttempts, username)
-			}
-			attempt.mu.Unlock()
-		}
-
+		rl.cleanupMapAt(rl.ipAttempts, time.Now())
+		rl.cleanupMapAt(rl.accountAttempts, time.Now())
 		rl.mu.Unlock()
+	}
+}
+
+func (rl *RateLimiter) cleanupMapAt(entries map[string]*LoginAttempt, now time.Time) {
+	for key, attempt := range entries {
+		attempt.mu.Lock()
+		recent := attempt.attempts[:0]
+		for _, recordedAt := range attempt.attempts {
+			if now.Sub(recordedAt) < rl.timeWindow {
+				recent = append(recent, recordedAt)
+			}
+		}
+		attempt.attempts = recent
+		expired := len(recent) == 0 && !now.Before(attempt.lockedUntil)
+		attempt.mu.Unlock()
+		if expired {
+			delete(entries, key)
+		}
+	}
+}
+
+func (rl *RateLimiter) ensureLoginMapCapacity(entries map[string]*LoginAttempt) {
+	if rl.maxEntries <= 0 || len(entries) < rl.maxEntries {
+		return
+	}
+	oldestKey := ""
+	var oldest time.Time
+	for key, attempt := range entries {
+		attempt.mu.Lock()
+		lastSeen := attempt.lastSeen
+		attempt.mu.Unlock()
+		if oldestKey == "" || lastSeen.Before(oldest) {
+			oldestKey = key
+			oldest = lastSeen
+		}
+	}
+	if oldestKey != "" {
+		delete(entries, oldestKey)
 	}
 }
 
@@ -231,6 +263,7 @@ type GlobalRateLimiter struct {
 	mu          sync.RWMutex
 	maxRequests int
 	window      time.Duration
+	maxEntries  int
 }
 
 func NewGlobalRateLimiter(maxRequests int, window time.Duration) *GlobalRateLimiter {
@@ -238,6 +271,13 @@ func NewGlobalRateLimiter(maxRequests int, window time.Duration) *GlobalRateLimi
 		requests:    make(map[string][]time.Time),
 		maxRequests: maxRequests,
 		window:      window,
+		maxEntries:  defaultRateLimitMaxEntries,
+	}
+	if grl.maxRequests < 1 {
+		grl.maxRequests = 1
+	}
+	if grl.window <= 0 {
+		grl.window = time.Minute
 	}
 	go grl.cleanup()
 	return grl
@@ -251,6 +291,10 @@ func (grl *GlobalRateLimiter) Allow(ip string) bool {
 	requests, exists := grl.requests[ip]
 
 	if !exists {
+		if grl.maxEntries > 0 && len(grl.requests) >= grl.maxEntries {
+			grl.cleanupAt(now)
+		}
+		grl.ensureCapacity()
 		grl.requests[ip] = []time.Time{now}
 		return true
 	}
@@ -281,21 +325,42 @@ func (grl *GlobalRateLimiter) cleanup() {
 
 	for range ticker.C {
 		grl.mu.Lock()
-		now := time.Now()
-		for ip, requests := range grl.requests {
-			var validRequests []time.Time
-			for _, t := range requests {
-				if now.Sub(t) < grl.window {
-					validRequests = append(validRequests, t)
-				}
-			}
-			if len(validRequests) == 0 {
-				delete(grl.requests, ip)
-			} else {
-				grl.requests[ip] = validRequests
+		grl.cleanupAt(time.Now())
+		grl.mu.Unlock()
+	}
+}
+
+func (grl *GlobalRateLimiter) cleanupAt(now time.Time) {
+	for ip, requests := range grl.requests {
+		validRequests := requests[:0]
+		for _, recordedAt := range requests {
+			if now.Sub(recordedAt) < grl.window {
+				validRequests = append(validRequests, recordedAt)
 			}
 		}
-		grl.mu.Unlock()
+		if len(validRequests) == 0 {
+			delete(grl.requests, ip)
+		} else {
+			grl.requests[ip] = validRequests
+		}
+	}
+}
+
+func (grl *GlobalRateLimiter) ensureCapacity() {
+	if grl.maxEntries <= 0 || len(grl.requests) < grl.maxEntries {
+		return
+	}
+	oldestIP := ""
+	var oldest time.Time
+	for ip, requests := range grl.requests {
+		lastSeen := requests[len(requests)-1]
+		if oldestIP == "" || lastSeen.Before(oldest) {
+			oldestIP = ip
+			oldest = lastSeen
+		}
+	}
+	if oldestIP != "" {
+		delete(grl.requests, oldestIP)
 	}
 }
 
@@ -310,8 +375,7 @@ func (grl *GlobalRateLimiter) Middleware() gin.HandlerFunc {
 			path == "/favicon.svg" ||
 			path == "/favicon.ico" ||
 			path == "/manifest.json" ||
-			path == "/api/v1/auth/status" ||
-			path == "/api/v1/auth/init" {
+			path == "/api/v1/auth/status" {
 			c.Next()
 			return
 		}
@@ -332,5 +396,17 @@ func (grl *GlobalRateLimiter) Middleware() gin.HandlerFunc {
 
 func isPublicUploadPath(path string) bool {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	return len(parts) >= 4 && parts[0] == "uploads" && parts[2] == "avatars"
+	if len(parts) != 5 || parts[0] != "uploads" || parts[2] != "avatars" || parts[3] != "profile" {
+		return false
+	}
+	userID, err := strconv.ParseUint(parts[1], 10, 64)
+	if err != nil || userID == 0 {
+		return false
+	}
+	switch strings.ToLower(filepath.Ext(parts[4])) {
+	case ".jpg", ".jpeg", ".png", ".webp":
+		return true
+	default:
+		return false
+	}
 }

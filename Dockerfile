@@ -1,7 +1,7 @@
 # ============================================
 # Stage 1: 构建前端
 # ============================================
-FROM node:20-alpine AS frontend-builder
+FROM node:24.18.1-alpine3.24@sha256:f70403e87646dc51b45295f4b8b70cdad0b63d2297c4c9899119b03f7af7a6b3 AS frontend-builder
 
 WORKDIR /app/web
 
@@ -14,7 +14,7 @@ RUN pnpm run build
 # ============================================
 # Stage 2: 构建后端
 # ============================================
-FROM golang:1.24-alpine AS backend-builder
+FROM golang:1.26.5-alpine3.24@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS backend-builder
 
 WORKDIR /app/backend
 
@@ -26,12 +26,12 @@ RUN go mod download
 COPY backend/ ./
 
 ARG VERSION=dev
-RUN go mod tidy && CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}" -o /app/server ./cmd/server
+RUN CGO_ENABLED=1 GOOS=linux go build -mod=readonly -ldflags="-s -w -X main.Version=${VERSION}" -o /app/server ./cmd/server
 
 # ============================================
 # Stage 3: 最终镜像
 # ============================================
-FROM alpine:3.19
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
 WORKDIR /app
 
@@ -47,6 +47,7 @@ RUN mkdir -p /data/uploads /data/backups
 ENV LEDGER_SERVER_PORT=8080 \
     LEDGER_SERVER_MODE=release \
     LEDGER_SERVER_WEB_PATH=/app/web/dist \
+    LEDGER_SERVER_TRUSTED_PROXIES="" \
     # 数据库配置
     LEDGER_DATABASE_DRIVER=sqlite \
     LEDGER_DATABASE_PATH=/data/ledger.db \
@@ -62,10 +63,12 @@ ENV LEDGER_SERVER_PORT=8080 \
     LEDGER_LOG_FORMAT=json \
     # 安全配置
     LEDGER_SECURITY_BASE_PATH="" \
+    LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND=false \
     # 存储配置
     LEDGER_STORAGE_UPLOAD_PATH=/data/uploads \
     LEDGER_STORAGE_BACKUP_PATH=/data/backups \
     LEDGER_STORAGE_MAX_FILE_SIZE=10 \
+    LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE=64 \
     LEDGER_STORAGE_ALLOWED_TYPES="jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt" \
     # 时区
     TZ=Asia/Shanghai

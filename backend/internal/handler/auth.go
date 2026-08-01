@@ -1,7 +1,12 @@
 package handler
 
 import (
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
 	"errors"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -14,14 +19,34 @@ import (
 )
 
 type AuthHandler struct {
-	service      *service.AuthService
-	apiToken     *service.APITokenService
-	notification *service.NotificationService
-	rateLimiter  *middleware.RateLimiter
+	service             *service.AuthService
+	apiToken            *service.APITokenService
+	notification        *service.NotificationService
+	rateLimiter         *middleware.RateLimiter
+	browserCookieSecure bool
 }
 
-func NewAuthHandler(s *service.AuthService, apiToken *service.APITokenService, n *service.NotificationService, rl *middleware.RateLimiter) *AuthHandler {
-	return &AuthHandler{service: s, apiToken: apiToken, notification: n, rateLimiter: rl}
+const (
+	browserTokenModeHeader = "X-Refresh-Token-Mode"
+	browserTokenModeCookie = "cookie"
+	refreshTokenCookieName = "ledger_refresh_token"
+	csrfTokenCookieName    = "ledger_csrf_token"
+	csrfTokenHeader        = "X-CSRF-Token"
+	refreshCookiePath      = "/api/v1/auth"
+)
+
+func NewAuthHandler(s *service.AuthService, apiToken *service.APITokenService, n *service.NotificationService, rl *middleware.RateLimiter, browserCookieSecure ...bool) *AuthHandler {
+	secure := false
+	if len(browserCookieSecure) > 0 {
+		secure = browserCookieSecure[0]
+	}
+	return &AuthHandler{
+		service:             s,
+		apiToken:            apiToken,
+		notification:        n,
+		rateLimiter:         rl,
+		browserCookieSecure: secure,
+	}
 }
 
 func (h *AuthHandler) Status(c *gin.Context) {
@@ -58,6 +83,9 @@ func (h *AuthHandler) Init(c *gin.Context) {
 		return
 	}
 
+	if !h.prepareAuthResponse(c, result) {
+		return
+	}
 	response.Created(c, result)
 }
 
@@ -99,31 +127,57 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	// Reset account attempts on successful login
 	h.rateLimiter.ResetAccount("admin")
+	if !h.prepareAuthResponse(c, result) {
+		return
+	}
 	response.Success(c, result)
 }
 
 type RefreshRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (h *AuthHandler) Refresh(c *gin.Context) {
-	var req RefreshRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request")
-		return
+	refreshToken := ""
+	if h.usesBrowserCookie(c) {
+		if !sameOriginBrowserRequest(c.Request) || !validCSRFToken(c) {
+			response.Forbidden(c, "invalid csrf token")
+			return
+		}
+		var err error
+		refreshToken, err = c.Cookie(refreshTokenCookieName)
+		if err != nil || strings.TrimSpace(refreshToken) == "" {
+			h.clearBrowserSessionCookies(c)
+			response.Unauthorized(c, "invalid refresh token")
+			return
+		}
+	} else {
+		var req RefreshRequest
+		if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.RefreshToken) == "" {
+			response.BadRequest(c, "invalid request")
+			return
+		}
+		refreshToken = req.RefreshToken
 	}
 
-	result, err := h.service.RefreshToken(req.RefreshToken)
+	result, err := h.service.RefreshToken(refreshToken)
 	if err != nil {
+		if h.usesBrowserCookie(c) {
+			h.clearBrowserSessionCookies(c)
+		}
 		response.Unauthorized(c, "invalid refresh token")
 		return
 	}
 
+	if !h.prepareAuthResponse(c, result) {
+		return
+	}
 	response.Success(c, result)
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
 	userID := middleware.GetUserID(c)
+	h.clearBrowserSessionCookies(c)
 	if err := h.service.Logout(userID); err != nil {
 		internalServerError(c, err, "failed to logout")
 		return
@@ -158,7 +212,101 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	h.clearBrowserSessionCookies(c)
 	response.Success(c, gin.H{"message": "password changed, please login again"})
+}
+
+func (h *AuthHandler) usesBrowserCookie(c *gin.Context) bool {
+	return strings.EqualFold(strings.TrimSpace(c.GetHeader(browserTokenModeHeader)), browserTokenModeCookie)
+}
+
+func (h *AuthHandler) prepareAuthResponse(c *gin.Context, result *service.AuthResponse) bool {
+	c.Header("Cache-Control", "no-store")
+	c.Header("Pragma", "no-cache")
+	if !h.usesBrowserCookie(c) {
+		return true
+	}
+
+	csrfBytes := make([]byte, 32)
+	if _, err := rand.Read(csrfBytes); err != nil {
+		internalServerError(c, err, "failed to establish browser session")
+		return false
+	}
+	csrfToken := base64.RawURLEncoding.EncodeToString(csrfBytes)
+	maxAge := h.service.GetJWTManager().GetRefreshExpireSeconds()
+	expires := time.Now().Add(time.Duration(maxAge) * time.Second)
+	h.setSessionCookie(c, &http.Cookie{
+		Name:     refreshTokenCookieName,
+		Value:    result.RefreshToken,
+		Path:     refreshCookiePath,
+		MaxAge:   maxAge,
+		Expires:  expires,
+		HttpOnly: true,
+		Secure:   h.browserCookieSecure,
+		SameSite: http.SameSiteStrictMode,
+	})
+	h.setSessionCookie(c, &http.Cookie{
+		Name:     csrfTokenCookieName,
+		Value:    csrfToken,
+		Path:     "/",
+		MaxAge:   maxAge,
+		Expires:  expires,
+		HttpOnly: false,
+		Secure:   h.browserCookieSecure,
+		SameSite: http.SameSiteStrictMode,
+	})
+	result.RefreshToken = ""
+	return true
+}
+
+func (h *AuthHandler) clearBrowserSessionCookies(c *gin.Context) {
+	expires := time.Unix(1, 0).UTC()
+	for _, cookie := range []*http.Cookie{
+		{
+			Name:     refreshTokenCookieName,
+			Path:     refreshCookiePath,
+			HttpOnly: true,
+		},
+		{
+			Name: csrfTokenCookieName,
+			Path: "/",
+		},
+	} {
+		cookie.Value = ""
+		cookie.MaxAge = -1
+		cookie.Expires = expires
+		cookie.Secure = h.browserCookieSecure
+		cookie.SameSite = http.SameSiteStrictMode
+		h.setSessionCookie(c, cookie)
+	}
+}
+
+func (h *AuthHandler) setSessionCookie(c *gin.Context, cookie *http.Cookie) {
+	http.SetCookie(c.Writer, cookie)
+}
+
+func validCSRFToken(c *gin.Context) bool {
+	cookieToken, err := c.Cookie(csrfTokenCookieName)
+	if err != nil {
+		return false
+	}
+	headerToken := strings.TrimSpace(c.GetHeader(csrfTokenHeader))
+	if headerToken == "" || len(headerToken) != len(cookieToken) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(headerToken), []byte(cookieToken)) == 1
+}
+
+func sameOriginBrowserRequest(request *http.Request) bool {
+	origin := strings.TrimSpace(request.Header.Get("Origin"))
+	if origin == "" {
+		return false
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return false
+	}
+	return strings.EqualFold(parsed.Host, request.Host)
 }
 
 func (h *AuthHandler) GetProfile(c *gin.Context) {

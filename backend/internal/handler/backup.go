@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,10 @@ func (h *BackupHandler) Create(c *gin.Context) {
 
 	backup, err := h.backupService.CreateBackup(userID)
 	if err != nil {
+		if message, limited := backupLimitMessage(err); limited {
+			response.Error(c, http.StatusRequestEntityTooLarge, 41300, message)
+			return
+		}
 		internalServerError(c, err, "failed to create backup")
 		return
 	}
@@ -37,9 +42,18 @@ func (h *BackupHandler) Create(c *gin.Context) {
 
 func (h *BackupHandler) Restore(c *gin.Context) {
 	userID := middleware.GetUserID(c)
+	maxFileSize := h.backupService.MaxRestoreBytes()
+	// Include bounded multipart overhead while keeping the actual file limit in
+	// the service as a second, format-independent line of defense.
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxFileSize+(1<<20))
 
 	file, err := c.FormFile("file")
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			response.Error(c, http.StatusRequestEntityTooLarge, 41300, backupUploadTooLargeMessage)
+			return
+		}
 		response.BadRequest(c, "file is required")
 		return
 	}
@@ -55,6 +69,10 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 
 	err = h.backupService.RestoreBackup(userID, file)
 	if err != nil {
+		if message, limited := backupLimitMessage(err); limited {
+			response.Error(c, http.StatusRequestEntityTooLarge, 41300, message)
+			return
+		}
 		if errors.Is(err, service.ErrInvalidBackupFormat) {
 			response.BadRequest(c, service.ErrInvalidBackupFormat.Error())
 			return
@@ -72,6 +90,19 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 		payload["pre_restore_backup"] = preRestoreBackup
 	}
 	response.Success(c, payload)
+}
+
+const backupUploadTooLargeMessage = "backup file exceeds restore size limit"
+const backupRecordLimitExceededMessage = "backup record limit exceeded"
+
+func backupLimitMessage(err error) (string, bool) {
+	if errors.Is(err, service.ErrBackupFileTooLarge) {
+		return backupUploadTooLargeMessage, true
+	}
+	if errors.Is(err, service.ErrBackupRecordLimitExceeded) {
+		return backupRecordLimitExceededMessage, true
+	}
+	return "", false
 }
 
 func (h *BackupHandler) GetAutoBackupSettings(c *gin.Context) {

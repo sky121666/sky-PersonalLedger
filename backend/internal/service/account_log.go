@@ -1,8 +1,11 @@
 package service
 
 import (
+	"errors"
+
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
+	"gorm.io/gorm"
 )
 
 type AccountLogService struct {
@@ -29,22 +32,27 @@ type LogBalanceChangeRequest struct {
 }
 
 func (s *AccountLogService) LogBalanceChange(req *LogBalanceChangeRequest) error {
-	account, err := s.accountRepo.GetByID(req.AccountID)
+	account, err := s.getAccountForUser(req.UserID, req.AccountID)
 	if err != nil {
 		return err
 	}
 
 	balanceBefore := account.CurrentBalance
 
-	var balanceAfter float64
+	var cashFlowDelta float64
 	switch req.Type {
 	case "income", "transfer_in", "rollback_expense":
-		balanceAfter = balanceBefore + req.Amount
+		cashFlowDelta = req.Amount
 	case "expense", "transfer_out", "rollback_income":
-		balanceAfter = balanceBefore - req.Amount
+		cashFlowDelta = -req.Amount
 	default:
-		balanceAfter = balanceBefore + req.Amount
+		cashFlowDelta = req.Amount
 	}
+	balanceDelta := cashFlowDelta
+	if IsDebtAccount(account.Type) {
+		balanceDelta = -cashFlowDelta
+	}
+	balanceAfter := roundMoney(balanceBefore + balanceDelta)
 
 	return s.logRepo.Create(&repository.CreateAccountLogRequest{
 		UserID:        req.UserID,
@@ -60,10 +68,31 @@ func (s *AccountLogService) LogBalanceChange(req *LogBalanceChangeRequest) error
 	})
 }
 
-func (s *AccountLogService) GetByAccountID(accountID string, page, pageSize int) ([]model.AccountLog, int64, error) {
-	return s.logRepo.GetByAccountID(accountID, page, pageSize)
+func (s *AccountLogService) GetByAccountID(userID uint, accountID string, page, pageSize int) ([]model.AccountLog, int64, error) {
+	if _, err := s.getAccountForUser(userID, accountID); err != nil {
+		return nil, 0, err
+	}
+	return s.logRepo.GetByAccountID(userID, accountID, page, pageSize)
 }
 
 func (s *AccountLogService) GetByUserID(userID uint, page, pageSize int) ([]model.AccountLog, int64, error) {
 	return s.logRepo.GetByUserID(userID, page, pageSize)
+}
+
+func (s *AccountLogService) getAccountForUser(userID uint, accountID string) (*model.Account, error) {
+	if userID == 0 {
+		return nil, ErrAccountNotFound
+	}
+
+	account, err := s.accountRepo.GetByID(accountID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAccountNotFound
+		}
+		return nil, err
+	}
+	if account.UserID != userID {
+		return nil, ErrAccountNotFound
+	}
+	return account, nil
 }

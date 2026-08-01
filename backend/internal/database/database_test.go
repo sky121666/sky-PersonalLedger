@@ -14,6 +14,51 @@ import (
 	"gorm.io/gorm"
 )
 
+// These fixtures intentionally model the unversioned schema that existed
+// before schema_migrations was introduced. Keep them narrower than the current
+// models so this test proves that v1 upgrades old data instead of only creating
+// a fresh database.
+type legacyUserV0 struct {
+	ID           uint   `gorm:"primaryKey"`
+	Username     string `gorm:"size:50;uniqueIndex;not null"`
+	PasswordHash string `gorm:"size:255;not null"`
+}
+
+func (legacyUserV0) TableName() string { return "users" }
+
+type legacyAccountV0 struct {
+	ID             string  `gorm:"primaryKey;size:36"`
+	UserID         uint    `gorm:"not null;index"`
+	Name           string  `gorm:"size:100;not null"`
+	Type           string  `gorm:"size:20;not null"`
+	InitialBalance float64 `gorm:"type:decimal(15,2);default:0"`
+	CurrentBalance float64 `gorm:"type:decimal(15,2);default:0"`
+}
+
+func (legacyAccountV0) TableName() string { return "accounts" }
+
+type legacyNotificationSettingV1 struct {
+	ID             uint   `gorm:"primaryKey"`
+	UserID         uint   `gorm:"uniqueIndex;not null"`
+	DingtalkSecret string `gorm:"size:100"`
+	SmtpPassword   string `gorm:"size:200"`
+	WebhookSecret  string `gorm:"size:100"`
+}
+
+func (legacyNotificationSettingV1) TableName() string { return "notification_settings" }
+
+type legacyAPITokenV6 struct {
+	ID          uint   `gorm:"primaryKey"`
+	UserID      uint   `gorm:"index"`
+	Name        string `gorm:"size:100"`
+	Token       string `gorm:"size:64;uniqueIndex"`
+	TokenPrefix string `gorm:"size:16"`
+	Scopes      string `gorm:"type:text;not null;default:''"`
+	CreatedAt   time.Time
+}
+
+func (legacyAPITokenV6) TableName() string { return "api_tokens" }
+
 func TestInitKeepsSQLitePathCompatibility(t *testing.T) {
 	db, err := Init(filepath.Join(t.TempDir(), "ledger.db"))
 	if err != nil {
@@ -36,6 +81,23 @@ func TestInitWithConfigSupportsSQLiteAlias(t *testing.T) {
 
 	if !db.Migrator().HasTable(&model.Account{}) {
 		t.Fatal("accounts table was not migrated")
+	}
+}
+
+func TestInitWithConfigEnablesSQLiteForeignKeys(t *testing.T) {
+	db, err := InitWithConfig(config.DatabaseConfig{
+		Driver: "sqlite",
+		Path:   filepath.Join(t.TempDir(), "foreign-keys.db"),
+	})
+	if err != nil {
+		t.Fatalf("init sqlite: %v", err)
+	}
+	var enabled int
+	if err := db.Raw("PRAGMA foreign_keys;").Scan(&enabled).Error; err != nil {
+		t.Fatalf("read foreign key pragma: %v", err)
+	}
+	if enabled != 1 {
+		t.Fatalf("foreign_keys = %d, want 1", enabled)
 	}
 }
 
@@ -62,6 +124,194 @@ func TestInitWithConfigRecordsSchemaVersion(t *testing.T) {
 	}
 	if migration.Name == "" {
 		t.Fatal("schema migration name should be recorded")
+	}
+}
+
+func TestInitWithConfigUpgradesUnversionedV0WithoutLosingData(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "legacy-ledger.db")
+	legacyDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open legacy sqlite: %v", err)
+	}
+	if err := legacyDB.AutoMigrate(&legacyUserV0{}, &legacyAccountV0{}); err != nil {
+		t.Fatalf("create legacy schema: %v", err)
+	}
+	if err := legacyDB.Create(&legacyUserV0{
+		ID:           7,
+		Username:     "legacy-user",
+		PasswordHash: "legacy-password-hash",
+	}).Error; err != nil {
+		t.Fatalf("seed legacy user: %v", err)
+	}
+	if err := legacyDB.Create(&legacyAccountV0{
+		ID:             "legacy-account",
+		UserID:         7,
+		Name:           "旧版现金账户",
+		Type:           "cash",
+		InitialBalance: 123.45,
+		CurrentBalance: 120.34,
+	}).Error; err != nil {
+		t.Fatalf("seed legacy account: %v", err)
+	}
+	legacySQLDB, err := legacyDB.DB()
+	if err != nil {
+		t.Fatalf("get legacy sql db: %v", err)
+	}
+	if err := legacySQLDB.Close(); err != nil {
+		t.Fatalf("close legacy sqlite: %v", err)
+	}
+
+	db, err := InitWithConfig(config.DatabaseConfig{
+		Driver: "sqlite",
+		Path:   dbPath,
+	})
+	if err != nil {
+		t.Fatalf("upgrade legacy sqlite: %v", err)
+	}
+
+	var account model.Account
+	if err := db.First(&account, "id = ? AND user_id = ?", "legacy-account", 7).Error; err != nil {
+		t.Fatalf("read upgraded legacy account: %v", err)
+	}
+	if account.Name != "旧版现金账户" || account.CurrentBalance != 120.34 {
+		t.Fatalf("legacy account changed during migration: %+v", account)
+	}
+	if !db.Migrator().HasColumn(&model.Account{}, "is_archived") {
+		t.Fatal("v1 migration did not add current account columns")
+	}
+	version, err := latestSchemaVersion(db)
+	if err != nil {
+		t.Fatalf("read upgraded schema version: %v", err)
+	}
+	if version != currentSchemaVersion {
+		t.Fatalf("upgraded schema version = %d, want %d", version, currentSchemaVersion)
+	}
+}
+
+func TestInitWithConfigExpandsNotificationCredentialColumns(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "notification-v1.db")
+	legacyDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open v1 sqlite: %v", err)
+	}
+	if err := legacyDB.AutoMigrate(&schemaMigration{}, &legacyNotificationSettingV1{}); err != nil {
+		t.Fatalf("create v1 notification schema: %v", err)
+	}
+	if err := legacyDB.Create(&schemaMigration{
+		Version:   1,
+		Name:      "initial_ledger_schema",
+		AppliedAt: time.Now().UTC(),
+	}).Error; err != nil {
+		t.Fatalf("record v1 schema: %v", err)
+	}
+	legacySetting := legacyNotificationSettingV1{
+		UserID:         7,
+		DingtalkSecret: "legacy-dingtalk-secret",
+		SmtpPassword:   "legacy-smtp-password",
+		WebhookSecret:  "legacy-webhook-secret",
+	}
+	if err := legacyDB.Create(&legacySetting).Error; err != nil {
+		t.Fatalf("seed v1 notification setting: %v", err)
+	}
+	legacySQLDB, err := legacyDB.DB()
+	if err != nil {
+		t.Fatalf("get v1 sqlite handle: %v", err)
+	}
+	if err := legacySQLDB.Close(); err != nil {
+		t.Fatalf("close v1 sqlite: %v", err)
+	}
+
+	db, err := InitWithConfig(config.DatabaseConfig{Driver: "sqlite", Path: dbPath})
+	if err != nil {
+		t.Fatalf("upgrade notification schema: %v", err)
+	}
+	var upgraded model.NotificationSetting
+	if err := db.First(&upgraded, "user_id = ?", 7).Error; err != nil {
+		t.Fatalf("load upgraded notification setting: %v", err)
+	}
+	if upgraded.DingtalkSecret != legacySetting.DingtalkSecret ||
+		upgraded.SmtpPassword != legacySetting.SmtpPassword ||
+		upgraded.WebhookSecret != legacySetting.WebhookSecret {
+		t.Fatal("notification credentials changed during schema expansion")
+	}
+
+	columnTypes, err := db.Migrator().ColumnTypes(&model.NotificationSetting{})
+	if err != nil {
+		t.Fatalf("inspect notification credential columns: %v", err)
+	}
+	credentialColumns := map[string]bool{
+		"dingtalk_secret": false,
+		"smtp_password":   false,
+		"webhook_secret":  false,
+	}
+	for _, columnType := range columnTypes {
+		if _, ok := credentialColumns[columnType.Name()]; !ok {
+			continue
+		}
+		if !strings.EqualFold(columnType.DatabaseTypeName(), "text") {
+			t.Fatalf("column %s type = %s, want text", columnType.Name(), columnType.DatabaseTypeName())
+		}
+		credentialColumns[columnType.Name()] = true
+	}
+	for column, found := range credentialColumns {
+		if !found {
+			t.Fatalf("notification credential column %s was not found", column)
+		}
+	}
+}
+
+func TestInitWithConfigMigratesLegacyAPITokenScopesWithoutLosingData(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "api-token-v6.db")
+	legacyDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open v6 sqlite: %v", err)
+	}
+	if err := legacyDB.AutoMigrate(&schemaMigration{}, &legacyAPITokenV6{}); err != nil {
+		t.Fatalf("create v6 api token schema: %v", err)
+	}
+	if err := legacyDB.Create(&schemaMigration{
+		Version:   6,
+		Name:      "transaction_import_batch_summaries",
+		AppliedAt: time.Now().UTC(),
+	}).Error; err != nil {
+		t.Fatalf("record v6 schema: %v", err)
+	}
+	legacyToken := legacyAPITokenV6{
+		UserID:      7,
+		Name:        "legacy-scoped-token",
+		Token:       strings.Repeat("a", 64),
+		TokenPrefix: "sky_ledger_a",
+		Scopes:      `["ledger:read","report:read"]`,
+		CreatedAt:   time.Now().UTC(),
+	}
+	if err := legacyDB.Create(&legacyToken).Error; err != nil {
+		t.Fatalf("seed v6 api token: %v", err)
+	}
+	legacySQLDB, err := legacyDB.DB()
+	if err != nil {
+		t.Fatalf("get v6 sqlite handle: %v", err)
+	}
+	if err := legacySQLDB.Close(); err != nil {
+		t.Fatalf("close v6 sqlite: %v", err)
+	}
+
+	db, err := InitWithConfig(config.DatabaseConfig{Driver: "sqlite", Path: dbPath})
+	if err != nil {
+		t.Fatalf("upgrade api token schema: %v", err)
+	}
+	var upgraded model.APIToken
+	if err := db.First(&upgraded, "id = ?", legacyToken.ID).Error; err != nil {
+		t.Fatalf("load upgraded api token: %v", err)
+	}
+	if upgraded.Scopes != legacyToken.Scopes || upgraded.Token != legacyToken.Token {
+		t.Fatal("api token security data changed during portable scope migration")
+	}
+	version, err := latestSchemaVersion(db)
+	if err != nil {
+		t.Fatalf("read upgraded schema version: %v", err)
+	}
+	if version != currentSchemaVersion {
+		t.Fatalf("upgraded schema version = %d, want %d", version, currentSchemaVersion)
 	}
 }
 
