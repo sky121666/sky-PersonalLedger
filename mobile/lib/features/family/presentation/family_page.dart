@@ -445,51 +445,42 @@ class _FamilyInsightsSurface extends StatelessWidget {
         false;
     return Material(
       key: const ValueKey('family-insights-surface'),
-      color: Colors.transparent,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            financeColors.asset.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.13
-                  : 0.07,
-            ),
-            Theme.of(context).colorScheme.surface,
-          ),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: financeColors.asset.withValues(alpha: 0.1)),
+      color: Color.alphaBlend(
+        financeColors.asset.withValues(
+          alpha: Theme.of(context).brightness == Brightness.dark ? 0.13 : 0.07,
         ),
-        child: ExpansionTile(
-          key: const ValueKey('family-insights-toggle'),
-          initiallyExpanded: true,
-          tilePadding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          title: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '统计',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.insights_outlined,
-                size: 18,
-                color: financeColors.asset,
-              ),
-            ],
-          ),
+        Theme.of(context).colorScheme.surface,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: financeColors.asset.withValues(alpha: 0.1)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        key: const ValueKey('family-insights-toggle'),
+        initiallyExpanded: true,
+        tilePadding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        title: Row(
           children: [
-            if (budgets.isNotEmpty) _FamilyBudgetSurface(budgets: budgets),
-            if (summaryHasError) const _FamilyInlineMessage(text: '家庭汇总加载失败'),
-            if (hasSummary) _FamilyRankingSurface(summary: summary!),
-            if (hasCategory) _FamilyCategorySurface(statistics: statistics!),
-            if (statisticsHasError)
-              const _FamilyInlineMessage(text: '分类统计加载失败'),
+            Expanded(
+              child: Text(
+                '统计',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            Icon(Icons.insights_outlined, size: 18, color: financeColors.asset),
           ],
         ),
+        children: [
+          if (budgets.isNotEmpty) _FamilyBudgetSurface(budgets: budgets),
+          if (summaryHasError) const _FamilyInlineMessage(text: '家庭汇总加载失败'),
+          if (hasSummary) _FamilyRankingSurface(summary: summary!),
+          if (hasCategory) _FamilyCategorySurface(statistics: statistics!),
+          if (statisticsHasError) const _FamilyInlineMessage(text: '分类统计加载失败'),
+        ],
       ),
     );
   }

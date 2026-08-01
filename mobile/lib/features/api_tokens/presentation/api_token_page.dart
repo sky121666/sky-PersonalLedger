@@ -518,13 +518,11 @@ class _CreateTokenCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.34,
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
+          Material(
+            key: const ValueKey('api-token-scope-surface'),
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 for (var index = 0; index < _scopeOptions.length; index++) ...[

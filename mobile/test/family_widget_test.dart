@@ -156,6 +156,11 @@ void main() {
       find.byKey(const ValueKey('family-insights-surface')),
       findsOneWidget,
     );
+    final insightsSurface = tester.widget<Material>(
+      find.byKey(const ValueKey('family-insights-surface')),
+    );
+    expect(insightsSurface.clipBehavior, Clip.antiAlias);
+    expect(insightsSurface.shape, isA<RoundedRectangleBorder>());
     await tester.scrollUntilVisible(find.text('家庭预算'), 260);
     await tester.pumpAndSettle();
     expect(find.text('家庭预算'), findsAtLeastNWidgets(1));

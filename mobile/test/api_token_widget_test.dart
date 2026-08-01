@@ -113,6 +113,10 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('api-token-add')));
       await tester.pumpAndSettle();
+      final scopeSurface = tester.widget<Material>(
+        find.byKey(const ValueKey('api-token-scope-surface')),
+      );
+      expect(scopeSurface.clipBehavior, Clip.antiAlias);
       await tester.enterText(
         find.byKey(const ValueKey('api-token-name')),
         '自动化脚本',
