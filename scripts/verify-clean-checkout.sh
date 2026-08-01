@@ -18,9 +18,15 @@ if [[ "$verify_worktree" == "1" ]]; then
   fi
   worktree_index="$tmp_dir/worktree.index"
   GIT_INDEX_FILE="$worktree_index" git -C "$repo_root" read-tree HEAD
-  GIT_INDEX_FILE="$worktree_index" git -C "$repo_root" add -A -- . \
-    ':(exclude)output/**' \
+  GIT_INDEX_FILE="$worktree_index" git -C "$repo_root" add -u -- . \
+    ':(exclude)mobile/QA' \
     ':(exclude)mobile/QA/**'
+  while IFS= read -r -d '' path; do
+    case "$path" in
+      mobile/QA/*) continue ;;
+    esac
+    GIT_INDEX_FILE="$worktree_index" git -C "$repo_root" add -- "$path"
+  done < <(git -C "$repo_root" ls-files --others --exclude-standard -z)
   archive_revision="$(GIT_INDEX_FILE="$worktree_index" git -C "$repo_root" write-tree)"
 fi
 
@@ -63,7 +69,10 @@ fi
 
 (
   cd "$worktree/web"
-  pnpm install --frozen-lockfile
+  # A clean-checkout verification must not inherit a partially-pruned shared
+  # pnpm store. Keep the dependency content-addressable store inside this
+  # disposable run so a corrupt developer cache cannot create false failures.
+  pnpm install --frozen-lockfile --store-dir "$tmp_dir/pnpm-store"
   pnpm test
   pnpm verify:attachments
   pnpm run build
