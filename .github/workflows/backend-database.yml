@@ -7,11 +7,13 @@ on:
     paths:
       - 'backend/**'
       - 'scripts/verify-database-matrix.sh'
+      - 'scripts/check-backend-coverage.sh'
       - '.github/workflows/backend-database.yml'
   pull_request:
     paths:
       - 'backend/**'
       - 'scripts/verify-database-matrix.sh'
+      - 'scripts/check-backend-coverage.sh'
       - '.github/workflows/backend-database.yml'
 
 jobs:
@@ -74,3 +76,6 @@ jobs:
           LEDGER_TEST_POSTGRES_DSN: "postgres://ledger:ledger@127.0.0.1:5432/ledger_test?sslmode=disable&TimeZone=UTC"
           LEDGER_TEST_MYSQL_DSN: "ledger:ledger@tcp(127.0.0.1:3306)/ledger_test?charset=utf8mb4&parseTime=True&loc=UTC"
         run: ./scripts/verify-database-matrix.sh
+
+      - name: Enforce backend coverage floors
+        run: ./scripts/check-backend-coverage.sh

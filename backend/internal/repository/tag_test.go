@@ -8,6 +8,58 @@ import (
 	"github.com/sky/personal-ledger/internal/model"
 )
 
+func TestTagRepositoryCRUDAndSystemTagIdempotency(t *testing.T) {
+	repos, owner, other := newRepositoryTestFixture(t)
+	tag := &model.Tag{UserID: owner.ID, Name: "custom", UsedCount: 1}
+	otherTag := &model.Tag{UserID: other.ID, Name: "other"}
+	for _, item := range []*model.Tag{tag, otherTag} {
+		if err := repos.Tag.Create(item); err != nil {
+			t.Fatalf("create tag: %v", err)
+		}
+		if item.ID == "" {
+			t.Fatal("tag id was not generated")
+		}
+	}
+	loaded, err := repos.Tag.GetByID(tag.ID)
+	if err != nil || loaded.Name != "custom" {
+		t.Fatalf("loaded tag = %#v, err=%v", loaded, err)
+	}
+	loaded.Color = "#123456"
+	if err := repos.Tag.Update(loaded); err != nil {
+		t.Fatalf("update tag: %v", err)
+	}
+	if err := repos.Tag.IncrementUsedCount(tag.ID); err != nil {
+		t.Fatalf("increment tag: %v", err)
+	}
+	if err := repos.Tag.DecrementUsedCount(tag.ID); err != nil {
+		t.Fatalf("decrement tag: %v", err)
+	}
+	ownerTags, err := repos.Tag.GetByUserID(owner.ID)
+	if err != nil || len(ownerTags) != 1 || ownerTags[0].UsedCount != 1 || repos.Tag.DB() == nil {
+		t.Fatalf("owner tags = %#v, err=%v", ownerTags, err)
+	}
+	if err := repos.Tag.CreateSystemTags(owner.ID); err != nil {
+		t.Fatalf("create system tags: %v", err)
+	}
+	if err := repos.Tag.CreateSystemTags(owner.ID); err != nil {
+		t.Fatalf("repeat system tags: %v", err)
+	}
+	ownerTags, err = repos.Tag.GetByUserID(owner.ID)
+	if err != nil || len(ownerTags) != 5 {
+		t.Fatalf("system tags = %#v, err=%v", ownerTags, err)
+	}
+	if err := repos.Tag.Delete(tag.ID); err != nil {
+		t.Fatalf("delete tag: %v", err)
+	}
+	if err := repos.Tag.DeleteAllByUserID(owner.ID); err != nil {
+		t.Fatalf("delete owner tags: %v", err)
+	}
+	otherTags, err := repos.Tag.GetByUserID(other.ID)
+	if err != nil || len(otherTags) != 1 {
+		t.Fatalf("other tags = %#v, err=%v", otherTags, err)
+	}
+}
+
 func TestTagRepositoryUsageCountAdjustmentsAreScopedDeduplicatedAndClamped(t *testing.T) {
 	db, err := database.Init(filepath.Join(t.TempDir(), "ledger.db"))
 	if err != nil {
