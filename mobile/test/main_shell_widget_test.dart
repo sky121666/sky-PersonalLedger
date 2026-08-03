@@ -293,6 +293,57 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('MainShellPage 支持 200% 动态字体且保持导航可达', (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = GoRouter(
+      initialLocation: AppRoutePaths.home,
+      routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) =>
+              MainShellPage(navigationShell: navigationShell),
+          branches: [
+            _branch(AppRoutePaths.home, 'home-content'),
+            _branch(AppRoutePaths.transactions, 'transactions-content'),
+            _branch(AppRoutePaths.statistics, 'statistics-content'),
+            _branch(AppRoutePaths.profile, 'profile-content'),
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        theme: AppTheme.lightTheme(AppThemePalette.teal),
+        routerConfig: router,
+        builder: (context, child) {
+          final mediaQuery = MediaQuery.of(context);
+          return MediaQuery(
+            data: mediaQuery.copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    for (final key in const ['home', 'transactions', 'statistics', 'profile']) {
+      final finder = find.byKey(ValueKey('main-shell-tab-$key'));
+      expect(finder, findsOneWidget);
+      expect(tester.getSize(finder).height, greaterThanOrEqualTo(44));
+    }
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('main-shell-quick-transaction')))
+          .height,
+      greaterThanOrEqualTo(44),
+    );
+  });
 }
 
 StatefulShellBranch _branch(String path, String label) {

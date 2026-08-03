@@ -87,6 +87,10 @@ class _PremiumBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final scaledLabelHeight = MediaQuery.textScalerOf(context).scale(12);
+    final dynamicTypeExtra = scaledLabelHeight > 12
+        ? (scaledLabelHeight - 12) * 1.25
+        : 0.0;
     final destinations = [
       _ShellDestination(
         icon: Icons.home_outlined,
@@ -114,7 +118,7 @@ class _PremiumBottomNavigation extends StatelessWidget {
       ),
     ];
     return SizedBox(
-      height: 72 + bottomInset,
+      height: 72 + dynamicTypeExtra + bottomInset,
       child: SafeArea(
         top: false,
         child: DecoratedBox(

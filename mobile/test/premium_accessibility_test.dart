@@ -15,6 +15,46 @@ import 'package:personal_ledger/features/transactions/presentation/quick_transac
 
 void main() {
   group('Premium mobile accessibility', () {
+    testWidgets('Home supports 200% Dynamic Type without layout errors', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            homeRepositoryProvider.overrideWithValue(_FakeHomeRepository()),
+          ],
+          child: _premiumApp(const HomePage(), textScale: 2),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('首页'), findsOneWidget);
+      expect(find.text('当月结余'), findsOneWidget);
+    });
+
+    testWidgets('Quick Transaction supports 200% Dynamic Type', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transactionRepositoryProvider.overrideWithValue(
+              _FakeTransactionRepository(),
+            ),
+            familyMembersProvider.overrideWith((ref) async => _familyMembers),
+          ],
+          child: _premiumApp(
+            const QuickTransactionPage(embedded: true),
+            textScale: 2,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('金额'), findsAtLeastNWidgets(1));
+      expect(find.text('账户'), findsAtLeastNWidgets(1));
+    });
+
     testWidgets('Home premium actions expose semantic labels and tap targets', (
       tester,
     ) async {
@@ -186,11 +226,18 @@ Future<void> _withSemantics(
   }
 }
 
-Widget _premiumApp(Widget home) {
+Widget _premiumApp(Widget home, {double textScale = 1}) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: AppTheme.lightTheme(),
     darkTheme: AppTheme.darkTheme(),
+    builder: (context, child) {
+      final mediaQuery = MediaQuery.of(context);
+      return MediaQuery(
+        data: mediaQuery.copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      );
+    },
     home: home,
   );
 }
