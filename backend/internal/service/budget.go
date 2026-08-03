@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	ErrBudgetNotFound = errors.New("budget not found")
+	ErrBudgetNotFound     = errors.New("budget not found")
+	ErrInvalidBudgetMonth = errors.New("invalid budget month")
 )
 
 type BudgetService struct {
@@ -150,7 +151,7 @@ func budgetMonthRange(month string) (time.Time, time.Time, error) {
 	if month != "" {
 		parsed, err := time.ParseInLocation("2006-01", month, time.Local)
 		if err != nil {
-			return time.Time{}, time.Time{}, err
+			return time.Time{}, time.Time{}, ErrInvalidBudgetMonth
 		}
 		startDate = parsed
 	} else {

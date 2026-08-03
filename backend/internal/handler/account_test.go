@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -14,6 +15,91 @@ import (
 	"github.com/sky/personal-ledger/internal/repository"
 	"github.com/sky/personal-ledger/internal/service"
 )
+
+func TestAccountHandlerCRUDArchiveAndOwnership(t *testing.T) {
+	handler, repos, userID := newAccountHandlerForTest(t)
+	other := &model.User{Username: "account-handler-other", PasswordHash: "hash"}
+	if err := repos.User.Create(other); err != nil {
+		t.Fatalf("create other user: %v", err)
+	}
+
+	invalid := performAccountCRUDRequest(handler, userID, http.MethodPost, "/accounts", `{}`)
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("invalid create status = %d, body=%s", invalid.Code, invalid.Body.String())
+	}
+	invalidDate := performAccountCRUDRequest(handler, userID, http.MethodPost, "/accounts", `{"name":"Bad","type":"cash","start_date":"not-a-date"}`)
+	if invalidDate.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid date status = %d, body=%s", invalidDate.Code, invalidDate.Body.String())
+	}
+
+	created := performAccountCRUDRequest(handler, userID, http.MethodPost, "/accounts", `{"name":"Wallet","type":"cash"}`)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, body=%s", created.Code, created.Body.String())
+	}
+	var envelope struct {
+		Data model.Account `json:"data"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &envelope); err != nil || envelope.Data.ID == "" {
+		t.Fatalf("decode created account: data=%#v err=%v", envelope.Data, err)
+	}
+	accountID := envelope.Data.ID
+
+	got := performAccountCRUDRequest(handler, userID, http.MethodGet, "/accounts/"+accountID, "")
+	if got.Code != http.StatusOK {
+		t.Fatalf("get status = %d, body=%s", got.Code, got.Body.String())
+	}
+	foreign := performAccountCRUDRequest(handler, other.ID, http.MethodGet, "/accounts/"+accountID, "")
+	if foreign.Code != http.StatusNotFound {
+		t.Fatalf("cross-user get status = %d, body=%s", foreign.Code, foreign.Body.String())
+	}
+
+	invalidPatch := performAccountCRUDRequest(handler, userID, http.MethodPut, "/accounts/"+accountID, `{"payment_day":32}`)
+	if invalidPatch.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid patch status = %d, body=%s", invalidPatch.Code, invalidPatch.Body.String())
+	}
+	updated := performAccountCRUDRequest(handler, userID, http.MethodPut, "/accounts/"+accountID, `{"name":"Renamed","remark":"note"}`)
+	if updated.Code != http.StatusOK || !strings.Contains(updated.Body.String(), "Renamed") {
+		t.Fatalf("update status = %d, body=%s", updated.Code, updated.Body.String())
+	}
+	missingUpdate := performAccountCRUDRequest(handler, userID, http.MethodPut, "/accounts/missing", `{"name":"Missing"}`)
+	if missingUpdate.Code != http.StatusNotFound {
+		t.Fatalf("missing update status = %d, body=%s", missingUpdate.Code, missingUpdate.Body.String())
+	}
+
+	archived := performAccountCRUDRequest(handler, userID, http.MethodPatch, "/accounts/"+accountID+"/archive", `{"is_archived":true}`)
+	if archived.Code != http.StatusOK {
+		t.Fatalf("archive status = %d, body=%s", archived.Code, archived.Body.String())
+	}
+	badArchive := performAccountCRUDRequest(handler, userID, http.MethodPatch, "/accounts/"+accountID+"/archive", `{`)
+	if badArchive.Code != http.StatusBadRequest {
+		t.Fatalf("bad archive status = %d, body=%s", badArchive.Code, badArchive.Body.String())
+	}
+	missingArchive := performAccountCRUDRequest(handler, userID, http.MethodPatch, "/accounts/missing/archive", `{"is_archived":true}`)
+	if missingArchive.Code != http.StatusNotFound {
+		t.Fatalf("missing archive status = %d, body=%s", missingArchive.Code, missingArchive.Body.String())
+	}
+
+	deleted := performAccountCRUDRequest(handler, userID, http.MethodDelete, "/accounts/"+accountID, "")
+	if deleted.Code != http.StatusOK {
+		t.Fatalf("delete status = %d, body=%s", deleted.Code, deleted.Body.String())
+	}
+	missingDelete := performAccountCRUDRequest(handler, userID, http.MethodDelete, "/accounts/"+accountID, "")
+	if missingDelete.Code != http.StatusNotFound {
+		t.Fatalf("missing delete status = %d, body=%s", missingDelete.Code, missingDelete.Body.String())
+	}
+}
+
+func TestAccountHandlerRejectsDeletingActiveNonZeroBalance(t *testing.T) {
+	handler, repos, userID := newAccountHandlerForTest(t)
+	account := &model.Account{ID: "non-zero", UserID: userID, Name: "Cash", Type: "cash", CurrentBalance: 100}
+	if err := repos.Account.Create(account); err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+	response := performAccountCRUDRequest(handler, userID, http.MethodDelete, "/accounts/"+account.ID, "")
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "non-zero balance") {
+		t.Fatalf("delete non-zero status = %d, body=%s", response.Code, response.Body.String())
+	}
+}
 
 func TestAccountListDoesNotExposeDatabaseError(t *testing.T) {
 	handler, repos, userID := newAccountHandlerForTest(t)
@@ -90,6 +176,28 @@ func performAccountSortRequest(handler *AccountHandler, userID uint, body string
 	})
 	request := httptest.NewRequest(http.MethodPut, "/accounts/sort", bytes.NewBufferString(body))
 	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	return response
+}
+
+func performAccountCRUDRequest(handler *AccountHandler, userID uint, method, target, body string) *httptest.ResponseRecorder {
+	router := gin.New()
+	withUser := func(action gin.HandlerFunc) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			c.Set("userID", userID)
+			action(c)
+		}
+	}
+	router.POST("/accounts", withUser(handler.Create))
+	router.GET("/accounts/:id", withUser(handler.GetByID))
+	router.PUT("/accounts/:id", withUser(handler.Update))
+	router.DELETE("/accounts/:id", withUser(handler.Delete))
+	router.PATCH("/accounts/:id/archive", withUser(handler.Archive))
+	request := httptest.NewRequest(method, target, bytes.NewBufferString(body))
+	if body != "" {
+		request.Header.Set("Content-Type", "application/json")
+	}
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	return response

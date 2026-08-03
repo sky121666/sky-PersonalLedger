@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -11,6 +12,13 @@ import (
 	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
+
+func TestBudgetMonthRangeRejectsInvalidClientInput(t *testing.T) {
+	_, _, err := budgetMonthRange("2026-13")
+	if !errors.Is(err, ErrInvalidBudgetMonth) {
+		t.Fatalf("invalid month error = %v, want ErrInvalidBudgetMonth", err)
+	}
+}
 
 func newBudgetTestService(t *testing.T) (*BudgetService, *FamilyMemberService, *TransactionService, *repository.Repositories, uint) {
 	t.Helper()

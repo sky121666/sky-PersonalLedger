@@ -24,6 +24,10 @@ func (h *BudgetHandler) List(c *gin.Context) {
 
 	result, err := h.service.List(userID, month)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidBudgetMonth) {
+			response.BadRequest(c, "invalid budget month")
+			return
+		}
 		internalServerError(c, err, "failed to list budgets")
 		return
 	}
