@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/formatters/money_formatter.dart';
+
 class AnimatedMoneyText extends StatelessWidget {
   const AnimatedMoneyText({
     super.key,
@@ -27,7 +29,6 @@ class AnimatedMoneyText extends StatelessWidget {
   }
 
   String _formatMoney(double value) {
-    final sign = value < 0 ? '-' : '';
-    return '$sign$currencySymbol${value.abs().toStringAsFixed(2)}';
+    return formatMoney(value, currencySymbol: currencySymbol);
   }
 }

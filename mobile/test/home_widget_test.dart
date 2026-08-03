@@ -76,7 +76,7 @@ void main() {
       await _pumpPage(tester, repository);
 
       expect(find.text('现金'), findsOneWidget);
-      expect(find.text('¥1280.00'), findsWidgets);
+      expect(find.text('¥1,280.00'), findsWidgets);
 
       final container = ProviderScope.containerOf(
         tester.element(find.byType(HomePage)),
@@ -99,7 +99,7 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('储蓄卡'), findsOneWidget);
-      expect(find.text('¥2600.00'), findsWidgets);
+      expect(find.text('¥2,600.00'), findsWidgets);
     });
 
     testWidgets('家庭摘要失败时保留首页并展示可重试提示', (tester) async {

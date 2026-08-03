@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/formatters/money_formatter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_route_paths.dart';
@@ -68,5 +70,5 @@ class FamilyHomeSummaryCard extends StatelessWidget {
 }
 
 String _formatCurrency(double value) {
-  return '¥${value.toStringAsFixed(2)}';
+  return formatMoney(value);
 }

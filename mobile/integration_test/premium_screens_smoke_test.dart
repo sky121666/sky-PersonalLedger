@@ -564,7 +564,7 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('招商银行流水', findsOneWidget);
-        _expectTextOrScaffold('当前余额 ¥1280.00', findsOneWidget);
+        _expectTextOrScaffold('当前余额 ¥1,280.00', findsOneWidget);
         _expectByKey(const ValueKey('account-log-audit-center'));
         _expectTextOrScaffold('流水审计中枢', findsOneWidget);
         _expectTextOrScaffoldContaining('静谧墨绿', findsOneWidget);
@@ -1098,7 +1098,7 @@ void main() {
           scrollable: find.byType(Scrollable).first,
         );
         _expectTextOrScaffold('房贷', findsOneWidget);
-        _expectTextOrScaffold('待还 ¥80000.00', findsOneWidget);
+        _expectTextOrScaffold('待还 ¥80,000.00', findsOneWidget);
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(

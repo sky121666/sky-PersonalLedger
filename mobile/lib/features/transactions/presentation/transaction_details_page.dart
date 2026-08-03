@@ -8,6 +8,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../application/ledger_refresh.dart';
 import '../application/transaction_list_controller.dart';
 import '../data/transaction_models.dart';
@@ -901,7 +902,7 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
 
     return Semantics(
       label:
-          '${isLending ? '借贷往来' : item.typeLabel}，$semanticTitle，金额$prefix¥${item.amount.toStringAsFixed(2)}，$subtitle',
+          '${isLending ? '借贷往来' : item.typeLabel}，$semanticTitle，金额$prefix${formatMoney(item.amount)}，$subtitle',
       selected: selected,
       child: Padding(
         key: ValueKey('transaction-item-${item.id}'),
@@ -979,7 +980,7 @@ class _TransactionListTileState extends ConsumerState<_TransactionListTile> {
                                       ),
                                       const SizedBox(width: 10),
                                       Text(
-                                        '$prefix¥${item.amount.toStringAsFixed(2)}',
+                                        '$prefix${formatMoney(item.amount)}',
                                         key: ValueKey(
                                           'transaction-amount-${item.id}',
                                         ),

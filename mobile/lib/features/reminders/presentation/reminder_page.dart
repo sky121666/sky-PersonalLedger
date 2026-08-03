@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/formatters/money_formatter.dart';
+
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
@@ -1713,6 +1715,5 @@ Color _parseReminderColor(String value, Color fallback) {
 }
 
 String _formatMoney(double value) {
-  final sign = value < 0 ? '-' : '';
-  return '$sign¥${value.abs().toStringAsFixed(2)}';
+  return formatMoney(value);
 }

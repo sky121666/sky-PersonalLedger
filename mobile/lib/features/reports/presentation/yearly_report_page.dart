@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/formatters/money_formatter.dart';
+
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
@@ -967,5 +969,5 @@ class _EmptyLine extends StatelessWidget {
 }
 
 String _formatCurrency(double value) {
-  return '¥${value.toStringAsFixed(2)}';
+  return formatMoney(value);
 }

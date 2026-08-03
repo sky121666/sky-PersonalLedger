@@ -8,6 +8,7 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../../transactions/application/ledger_refresh.dart';
 import '../../transactions/data/transaction_models.dart';
 import '../data/template_repository.dart';
@@ -505,7 +506,7 @@ class _TemplateCardState extends State<_TemplateCard> {
                 ),
               ),
               Text(
-                '${isIncome ? '+' : '-'}¥${template.amount.toStringAsFixed(2)}',
+                '${isIncome ? '+' : '-'}${formatMoney(template.amount)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(

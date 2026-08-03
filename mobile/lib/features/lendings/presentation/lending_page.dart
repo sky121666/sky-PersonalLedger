@@ -6,6 +6,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
@@ -1828,16 +1829,7 @@ class _ErrorBanner extends StatelessWidget {
 }
 
 String _formatMoney(double value) {
-  final fixed = value.toStringAsFixed(2);
-  final parts = fixed.split('.');
-  final buffer = StringBuffer();
-  for (var index = 0; index < parts.first.length; index++) {
-    if (index > 0 && (parts.first.length - index) % 3 == 0) {
-      buffer.write(',');
-    }
-    buffer.write(parts.first[index]);
-  }
-  return '¥${buffer.toString()}.${parts.last}';
+  return formatMoney(value);
 }
 
 String _formatDate(DateTime value) {

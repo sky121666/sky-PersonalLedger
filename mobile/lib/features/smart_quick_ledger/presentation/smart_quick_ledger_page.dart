@@ -9,6 +9,7 @@ import '../../../app/theme/app_theme.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../../transactions/data/transaction_models.dart';
 import '../../transactions/presentation/widgets/quick_transaction_pickers.dart';
 import '../data/quick_ledger_draft.dart';
@@ -1155,8 +1156,8 @@ class _ManualImportCard extends StatelessWidget {
 }
 
 String _formatSignedMoney(double amount, TransactionType type) {
-  final sign = type == TransactionType.income ? '+' : '-';
-  return '$sign¥${amount.toStringAsFixed(2)}';
+  final signedAmount = type == TransactionType.income ? amount : -amount;
+  return formatMoney(signedAmount, showPositiveSign: true);
 }
 
 String _formatDateTime(DateTime dateTime) {

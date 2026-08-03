@@ -8,6 +8,7 @@ import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/finance_dashboard_widgets.dart';
 import '../../../app/widgets/premium_surface.dart';
+import '../../../core/formatters/money_formatter.dart';
 import '../data/ai_report_repository.dart';
 
 part 'ai_report_content_part.dart';

@@ -72,11 +72,11 @@ void main() {
     await _createAccount(tester);
     await _createExpenseTransaction(tester);
     await _verifyTransactionList(tester);
-    await _verifyAccountBalance(tester, '¥1188.89');
+    await _verifyAccountBalance(tester, '¥1,188.89');
     await _editExpenseTransaction(tester);
-    await _verifyAccountBalance(tester, '¥1184.56');
+    await _verifyAccountBalance(tester, '¥1,184.56');
     await _deleteExpenseTransaction(tester);
-    await _verifyAccountBalance(tester, '¥1234.56');
+    await _verifyAccountBalance(tester, '¥1,234.56');
   });
 }
 

@@ -24,7 +24,7 @@ void main() {
       expect(find.text('稳步推进'), findsNothing);
       expect(find.text('房贷'), findsAtLeastNWidgets(1));
       expect(find.text('待还'), findsAtLeastNWidgets(1));
-      expect(find.text('¥80000.00'), findsAtLeastNWidgets(1));
+      expect(find.text('¥80,000.00'), findsAtLeastNWidgets(1));
       expect(
         find.byKey(const ValueKey('reminder-card-reminder-1')),
         findsOneWidget,
@@ -355,7 +355,7 @@ void main() {
       await _pumpPage(tester, repository, palette: AppThemePalette.graphite);
 
       final balanceText = tester.widget<Text>(
-        find.textContaining('待还 ¥80000.00').first,
+        find.textContaining('待还 ¥80,000.00').first,
       );
       expect(balanceText.style?.color, AppThemePalette.graphite.warningColor);
     });
@@ -388,7 +388,7 @@ void main() {
       expect(find.text('负债提醒保存失败'), findsOneWidget);
       expect(find.text('还款已记录'), findsNothing);
       expect(find.text('待还'), findsAtLeastNWidgets(1));
-      expect(find.text('¥80000.00'), findsAtLeastNWidgets(1));
+      expect(find.text('¥80,000.00'), findsAtLeastNWidgets(1));
     });
   });
 }

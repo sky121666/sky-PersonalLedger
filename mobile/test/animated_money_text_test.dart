@@ -13,8 +13,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('¥1280.50'), findsOneWidget);
-    expect(find.bySemanticsLabel('¥1280.50'), findsOneWidget);
+    expect(find.text('¥1,280.50'), findsOneWidget);
+    expect(find.bySemanticsLabel('¥1,280.50'), findsOneWidget);
     semantics.dispose();
   });
 

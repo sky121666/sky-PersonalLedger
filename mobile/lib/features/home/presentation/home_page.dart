@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/formatters/money_formatter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_route_paths.dart';
@@ -1257,7 +1259,7 @@ class _EmptyCardLine extends StatelessWidget {
 
 /// 格式化人民币金额。
 String _formatCurrency(double value) {
-  return '¥${value.toStringAsFixed(2)}';
+  return formatMoney(value);
 }
 
 IconData _transactionIcon(TransactionType type) {

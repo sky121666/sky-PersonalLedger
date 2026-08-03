@@ -537,12 +537,7 @@ double _toDouble(Object? value) {
 }
 
 String _formatSignedMoney(double value) {
-  final prefix = value > 0
-      ? '+'
-      : value < 0
-      ? '-'
-      : '';
-  return '$prefix¥${value.abs().toStringAsFixed(2)}';
+  return formatMoney(value, showPositiveSign: true);
 }
 
 Color _moneyToneColor(BuildContext context, double value) {

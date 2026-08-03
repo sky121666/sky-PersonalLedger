@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/formatters/money_formatter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_route_paths.dart';
@@ -1685,7 +1687,7 @@ class _AccountIconOption {
 
 /// 格式化金额展示。
 String _formatMoney(double value) {
-  return '¥${value.toStringAsFixed(2)}';
+  return formatMoney(value);
 }
 
 /// 获取账户类型中文名称。

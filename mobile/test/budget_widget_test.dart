@@ -18,8 +18,8 @@ void main() {
 
       expect(find.text('预算'), findsOneWidget);
       expect(find.text('本月预算'), findsOneWidget);
-      expect(find.textContaining('¥1200.00'), findsAtLeastNWidgets(1));
-      expect(find.textContaining('¥1800.00'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('¥1,200.00'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('¥1,800.00'), findsAtLeastNWidgets(1));
       expect(find.text('餐饮'), findsOneWidget);
       expect(find.text('87%'), findsAtLeastNWidgets(1));
 
@@ -261,7 +261,7 @@ void main() {
       expect(budgetRepository.setTotalCalls.single.amount, 3500);
       expect(find.text('预算保存失败'), findsOneWidget);
       expect(find.text('总预算已保存'), findsNothing);
-      expect(find.text('¥1800.00'), findsAtLeastNWidgets(1));
+      expect(find.text('¥1,800.00'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('预算页资产面板跟随主题色模板', (tester) async {

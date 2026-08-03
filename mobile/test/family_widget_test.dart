@@ -164,7 +164,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('家庭预算'), 260);
     await tester.pumpAndSettle();
     expect(find.text('家庭预算'), findsAtLeastNWidgets(1));
-    expect(find.text('¥1000.00'), findsOneWidget);
+    expect(find.text('¥1,000.00'), findsOneWidget);
     expect(find.text('45%'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('成员支出排行'), 300);
     await tester.pumpAndSettle();

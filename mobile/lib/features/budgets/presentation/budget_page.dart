@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/formatters/money_formatter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_route_paths.dart';
@@ -1557,8 +1559,7 @@ class _BudgetFormResult {
 }
 
 String _formatMoney(double value) {
-  final sign = value < 0 ? '-' : '';
-  return '$sign¥${value.abs().toStringAsFixed(2)}';
+  return formatMoney(value);
 }
 
 Color _budgetStatusColor(BuildContext context, double percentage) {
