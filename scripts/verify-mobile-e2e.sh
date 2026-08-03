@@ -166,6 +166,7 @@ run_flutter_e2e() {
       -d "$device_id" \
       --dart-define="LEDGER_E2E_SERVER_URL=$server_url" \
       --dart-define="LEDGER_E2E_PASSWORD=$LEDGER_E2E_PASSWORD" \
+      --dart-define="LEDGER_E2E_AUTO_AUTH=true" \
       --dart-define="LEDGER_E2E_USE_IN_MEMORY_STORAGE=$storage_mode" \
       "$test_file"
   )
@@ -286,6 +287,8 @@ resolve_android_device() {
   "$emulator_bin" -avd "$android_avd_name" \
     -no-snapshot \
     -no-audio \
+    -no-metrics \
+    -no-window \
     -no-boot-anim \
     -gpu swiftshader_indirect \
     >"$tmp_dir/android-emulator.log" 2>&1 &
