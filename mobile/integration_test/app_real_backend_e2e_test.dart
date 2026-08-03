@@ -181,8 +181,7 @@ Future<void> _createAccount(WidgetTester tester) async {
 
   await _pumpUntilFound(tester, find.text('保存成功'));
   await _scrollUntilFound(tester, find.text('E2E现金钱包'));
-  await _goBack(tester, untilText: '功能');
-  await _pumpUntilAnyFound(tester, [find.text('功能'), find.text('我的')]);
+  await _returnToProfileShell(tester);
 }
 
 Future<void> _waitForAuthForm(WidgetTester tester) async {
@@ -549,8 +548,16 @@ Future<void> _verifyAccountBalance(
   await _scrollUntilFound(tester, find.text('E2E现金钱包'));
   await _scrollUntilFound(tester, find.text(expectedBalance));
 
-  await _goBack(tester, untilText: '功能');
-  await _pumpUntilAnyFound(tester, [find.text('功能'), find.text('我的')]);
+  await _returnToProfileShell(tester);
+}
+
+Future<void> _returnToProfileShell(WidgetTester tester) async {
+  await _openRoute(tester, AppRoutePaths.profile);
+  await _pumpUntilAnyFound(tester, [
+    find.text('功能'),
+    find.text('我的'),
+    find.byKey(const ValueKey('profile-entry-账户')),
+  ]);
 }
 
 Future<void> _openProfileAccounts(WidgetTester tester) async {
