@@ -288,6 +288,7 @@ resolve_android_device() {
     -no-snapshot \
     -no-audio \
     -no-metrics \
+    -no-window \
     -no-boot-anim \
     -gpu swiftshader_indirect \
     >"$tmp_dir/android-emulator.log" 2>&1 &
