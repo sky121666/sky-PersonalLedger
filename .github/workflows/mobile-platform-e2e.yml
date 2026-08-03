@@ -56,6 +56,11 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Install Android emulator runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libpulse0
+
       - name: Install Android emulator image
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
