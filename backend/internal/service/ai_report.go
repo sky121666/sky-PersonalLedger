@@ -31,7 +31,15 @@ var aiErrorSecretPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`sk-[A-Za-z0-9][A-Za-z0-9_-]{8,}`),
 }
 
-var aiReportGenerationLocks sync.Map
+type aiReportGenerationLockEntry struct {
+	mu   sync.Mutex
+	refs int
+}
+
+var aiReportGenerationLocks = struct {
+	sync.Mutex
+	entries map[string]*aiReportGenerationLockEntry
+}{entries: make(map[string]*aiReportGenerationLockEntry)}
 
 type AIReportService struct {
 	repo       *repository.AIReportRepository
@@ -218,17 +226,11 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 	defer cancel()
 	apiKey, err := revealAISecret(provider.APIKeyCiphertext, s.secret)
 	if err != nil {
-		report.Status = "failed"
-		report.ErrorMessage = sanitizeAIError(err)
-		_ = s.repo.Update(report)
-		return aiReportResponse(report), err
+		return s.markReportFailed(report, err)
 	}
 	content, err := s.client.GenerateReport(ctx, provider.BaseURL, apiKey, provider.Model, snapshotJSON)
 	if err != nil {
-		report.Status = "failed"
-		report.ErrorMessage = sanitizeAIError(err)
-		_ = s.repo.Update(report)
-		return aiReportResponse(report), err
+		return s.markReportFailed(report, err)
 	}
 
 	report.Status = "completed"
@@ -237,6 +239,16 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 		return nil, err
 	}
 	return aiReportResponse(report), nil
+}
+
+func (s *AIReportService) markReportFailed(report *model.AIReport, cause error) (*AIReportResponse, error) {
+	report.Status = "failed"
+	report.ErrorMessage = sanitizeAIError(cause)
+	response := aiReportResponse(report)
+	if err := s.repo.Update(report); err != nil {
+		return response, fmt.Errorf("%w; persist failed AI report state: %v", cause, err)
+	}
+	return response, cause
 }
 
 func aiReportPromptVersionForRequest(req GenerateAIReportRequest) string {
@@ -257,11 +269,24 @@ func lockAIReportGeneration(userID uint, reportType string, start time.Time, end
 		modelName,
 		promptVersion,
 	)
-	value, _ := aiReportGenerationLocks.LoadOrStore(key, &sync.Mutex{})
-	mu := value.(*sync.Mutex)
-	mu.Lock()
+	aiReportGenerationLocks.Lock()
+	entry := aiReportGenerationLocks.entries[key]
+	if entry == nil {
+		entry = &aiReportGenerationLockEntry{}
+		aiReportGenerationLocks.entries[key] = entry
+	}
+	entry.refs++
+	aiReportGenerationLocks.Unlock()
+
+	entry.mu.Lock()
 	return func() {
-		mu.Unlock()
+		entry.mu.Unlock()
+		aiReportGenerationLocks.Lock()
+		entry.refs--
+		if entry.refs == 0 && aiReportGenerationLocks.entries[key] == entry {
+			delete(aiReportGenerationLocks.entries, key)
+		}
+		aiReportGenerationLocks.Unlock()
 	}
 }
 

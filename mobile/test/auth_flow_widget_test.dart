@@ -12,7 +12,7 @@ import 'package:personal_ledger/features/profile/presentation/profile_page.dart'
 
 void main() {
   group('LoginPage', () {
-    testWidgets('密码少于 6 位时显示本地校验错误且不发起登录', (tester) async {
+    testWidgets('密码为空时显示本地校验错误且不发起登录', (tester) async {
       final repository = _FakeAuthRepository();
       await _pumpAuthPage(
         tester,
@@ -25,11 +25,10 @@ void main() {
         ),
       );
 
-      await tester.enterText(find.byType(TextField), '123');
       await tester.tap(find.text('登录').last);
       await tester.pump();
 
-      expect(find.text('密码至少需要 6 位'), findsOneWidget);
+      expect(find.text('请输入密码'), findsOneWidget);
       expect(repository.loginCalls, isEmpty);
       expect(find.byType(AuthFlowShell), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));

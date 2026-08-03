@@ -116,6 +116,8 @@ class _HomeContent extends StatelessWidget {
         ),
       if (summary.budgetSummary.totalAmount > 0)
         _HomeRow(_BudgetSummaryCard(summary: summary.budgetSummary)),
+      if (summary.familySummaryUnavailable)
+        _HomeRow(_FamilySummaryUnavailableNotice(onRetry: onRefresh)),
       if (summary.familySummary.totalExpense > 0 ||
           summary.familySummary.members.isNotEmpty)
         _HomeRow(FamilyHomeSummaryCard(summary: summary.familySummary)),
@@ -132,6 +134,63 @@ class _HomeContent extends StatelessWidget {
             padding: EdgeInsets.only(bottom: index == rows.length - 1 ? 0 : 10),
             child: rows[index].child,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FamilySummaryUnavailableNotice extends StatelessWidget {
+  const _FamilySummaryUnavailableNotice({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      container: true,
+      label: '家庭数据暂未加载',
+      child: PremiumSurface(
+        key: const ValueKey('home-family-summary-unavailable'),
+        accentColor: AppTheme.financeColors(context).warning,
+        child: Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              color: colorScheme.onSurfaceVariant,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '家庭数据暂未加载',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '其他账本数据仍可正常使用',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(56, 44),
+                tapTargetSize: MaterialTapTargetSize.padded,
+              ),
+              child: const Text('重试'),
+            ),
+          ],
         ),
       ),
     );

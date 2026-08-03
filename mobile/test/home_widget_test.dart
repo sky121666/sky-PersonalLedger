@@ -102,6 +102,23 @@ void main() {
       expect(find.text('¥2600.00'), findsWidgets);
     });
 
+    testWidgets('家庭摘要失败时保留首页并展示可重试提示', (tester) async {
+      final repository = _FakeHomeRepository(
+        summaries: [_summary(familySummaryUnavailable: true)],
+      );
+      await _pumpPage(tester, repository);
+
+      expect(find.text('资产概览'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('home-family-summary-unavailable')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('家庭数据暂未加载'), findsOneWidget);
+      expect(find.text('其他账本数据仍可正常使用'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, '重试'), findsOneWidget);
+    });
+
     testWidgets('首页交易项默认展示备注，备注不再折叠', (tester) async {
       final repository = _FakeHomeRepository(summaries: [_summary()]);
       await _pumpPage(tester, repository);
@@ -479,6 +496,7 @@ HomeSummary _summary({
   List<Account>? accounts,
   bool emptyBudget = false,
   double familyExpense = 0,
+  bool familySummaryUnavailable = false,
   List<TransactionItem>? recentTransactions,
 }) {
   final accountList =
@@ -555,6 +573,7 @@ HomeSummary _summary({
             ]
           : const [],
     ),
+    familySummaryUnavailable: familySummaryUnavailable,
     recentTransactions:
         recentTransactions ??
         [

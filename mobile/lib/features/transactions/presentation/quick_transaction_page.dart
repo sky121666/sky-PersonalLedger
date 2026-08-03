@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_theme.dart';
 import '../../../app/theme/motion_tokens.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
 import '../../../app/widgets/premium_surface.dart';
@@ -60,13 +61,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   bool _secondaryDataLoaded = false;
   bool _loadingSecondaryData = false;
   String? _errorMessage;
-
-  static List<LedgerAccount> _accountCache = const [];
-  static List<LedgerCategory> _categoryCache = const [];
-  static List<LedgerTag> _tagCache = const [];
-  static List<FamilyMember> _familyMemberCache = const [];
-  static bool _primaryDataLoaded = false;
-  static bool _secondaryDataLoadedCache = false;
+  String? _secondaryDataWarning;
 
   bool get _isEditing => widget.editingTransaction != null;
   bool get _isEmbedded => widget.embedded;
@@ -352,6 +347,10 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (_secondaryDataWarning != null) ...[
+                      _buildSecondaryDataWarning(),
                       const SizedBox(height: 8),
                     ],
                     if (_familyMembers.isNotEmpty) ...[
@@ -700,6 +699,46 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     );
   }
 
+  Widget _buildSecondaryDataWarning() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final warningColor = AppTheme.financeColors(context).warning;
+    return Container(
+      key: const ValueKey('transaction-secondary-data-warning'),
+      padding: const EdgeInsets.only(left: 12, right: 4, top: 4, bottom: 4),
+      decoration: BoxDecoration(
+        color: warningColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: warningColor.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _secondaryDataWarning!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadingSecondaryData ? null : _retrySecondaryData,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(56, 44),
+              tapTargetSize: MaterialTapTargetSize.padded,
+            ),
+            child: const Text('重试'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _toggleMoreOptions() {
     final targetShowMoreOptions = !_showMoreOptions;
 
@@ -739,17 +778,6 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       _showMoreOptions = false;
     }
 
-    if (_primaryDataLoaded) {
-      setState(() {
-        _accounts = _accountCache;
-        _categories = _categoryCache;
-        _loading = false;
-        _accountId ??= _accounts.isNotEmpty ? _accounts.first.id : null;
-      });
-      unawaited(_ensureSecondaryDataLoaded());
-      return;
-    }
-
     try {
       final repository = ref.read(transactionRepositoryProvider);
       final results = await Future.wait([
@@ -768,10 +796,6 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
         _accountId ??= _accounts.isNotEmpty ? _accounts.first.id : null;
         _loading = false;
       });
-
-      _accountCache = accounts;
-      _categoryCache = categories;
-      _primaryDataLoaded = true;
       unawaited(_ensureSecondaryDataLoaded());
     } catch (error) {
       if (!mounted) {
@@ -908,11 +932,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   }
 
   Future<List<FamilyMember>> _loadFamilyMembers() async {
-    try {
-      return await ref.read(familyMembersProvider.future);
-    } catch (_) {
-      return const [];
-    }
+    return ref.read(familyMembersProvider.future);
   }
 
   Future<void> _loadSecondaryFormData() async {
@@ -920,19 +940,9 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       return;
     }
 
-    if (_secondaryDataLoadedCache) {
-      setState(() {
-        _tags = _tagCache;
-        _familyMembers = _familyMemberCache;
-        _secondaryDataLoaded = true;
-      });
-      if (_familyMemberCache.isNotEmpty) {
-        return;
-      }
-    }
-
     setState(() {
       _loadingSecondaryData = true;
+      _secondaryDataWarning = null;
     });
     try {
       final repository = ref.read(transactionRepositoryProvider);
@@ -948,13 +958,15 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       setState(() {
         _tags = tags;
         _familyMembers = familyMembers;
+        _secondaryDataWarning = null;
       });
-      _tagCache = tags;
-      _familyMemberCache = familyMembers;
-      _secondaryDataLoadedCache = true;
     } catch (_) {
       // Optional fields should not block the primary transaction form.
-      _secondaryDataLoadedCache = true;
+      if (mounted) {
+        setState(() {
+          _secondaryDataWarning = '标签或家庭成员暂未加载';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -963,6 +975,15 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
         });
       }
     }
+  }
+
+  Future<void> _retrySecondaryData() async {
+    ref.invalidate(familyMembersProvider);
+    setState(() {
+      _secondaryDataLoaded = false;
+      _secondaryDataWarning = null;
+    });
+    await _ensureSecondaryDataLoaded();
   }
 
   Future<List<LedgerAttachment>> _uploadPendingAttachments(

@@ -15,6 +15,7 @@ import (
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
+	"gorm.io/gorm"
 )
 
 func TestAIReportGenerateStoresAggregatedSnapshotAndContent(t *testing.T) {
@@ -193,6 +194,56 @@ func TestAIReportGenerateSerializesConcurrentSameScopeRequests(t *testing.T) {
 	requestMu.Unlock()
 	if gotRequests != 1 {
 		t.Fatalf("ai request count = %d, want 1", gotRequests)
+	}
+	aiReportGenerationLocks.Lock()
+	remainingLocks := len(aiReportGenerationLocks.entries)
+	aiReportGenerationLocks.Unlock()
+	if remainingLocks != 0 {
+		t.Fatalf("generation lock entries = %d, want 0 after all callers completed", remainingLocks)
+	}
+}
+
+func TestAIReportFailedStatePersistenceErrorIsReturned(t *testing.T) {
+	svc, providerSvc, _ := newAIReportTestServices(t)
+	report := &model.AIReport{
+		ID:            uuid.NewString(),
+		UserID:        1,
+		ReportType:    "weekly",
+		PeriodStart:   time.Now().AddDate(0, 0, -7),
+		PeriodEnd:     time.Now(),
+		Status:        "running",
+		SnapshotJSON:  `{}`,
+		ProviderID:    uuid.NewString(),
+		ProviderName:  "test",
+		Model:         "test-model",
+		PromptVersion: aiReportPromptVersion,
+	}
+	if err := svc.repo.Create(report); err != nil {
+		t.Fatalf("create report: %v", err)
+	}
+	db := providerSvc.repo.DB()
+	if err := db.Callback().Update().Before("gorm:update").Register(
+		"test:fail-ai-report-update",
+		func(tx *gorm.DB) {
+			if tx.Statement.Table == "ai_reports" {
+				tx.AddError(errors.New("forced persistence failure"))
+			}
+		},
+	); err != nil {
+		t.Fatalf("register update callback: %v", err)
+	}
+
+	cause := errors.New("provider failed")
+	response, err := svc.markReportFailed(report, cause)
+
+	if response == nil || response.Status != "failed" {
+		t.Fatalf("response = %#v, want failed report response", response)
+	}
+	if !errors.Is(err, cause) {
+		t.Fatalf("error = %v, want original provider failure", err)
+	}
+	if !strings.Contains(err.Error(), "persist failed AI report state") {
+		t.Fatalf("error = %v, want persistence failure context", err)
 	}
 }
 

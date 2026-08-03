@@ -332,6 +332,25 @@ void main() {
       expect(repository.createCalls.single.paidByMemberId, 'member-1');
     });
 
+    testWidgets('可选数据失败时提示且可以重试', (tester) async {
+      final repository = _FakeTransactionRepository()..tagErrors = 1;
+      await _pumpTransactionPage(tester, repository: repository);
+
+      await _expandMoreOptions(tester);
+
+      expect(find.text('标签或家庭成员暂未加载'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('transaction-secondary-data-warning')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.widgetWithText(TextButton, '重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('标签或家庭成员暂未加载'), findsNothing);
+      expect(repository.listTagCalls, 2);
+    });
+
     testWidgets('嵌入式快速记账使用金额优先的原生感 sheet', (tester) async {
       final semantics = tester.ensureSemantics();
       final repository = _FakeTransactionRepository();
@@ -568,6 +587,8 @@ class _FixedThemeController extends ThemeController {
 class _FakeTransactionRepository implements TransactionRepository {
   final List<TransactionFormData> createCalls = [];
   final List<(String, TransactionFormData)> updateCalls = [];
+  var tagErrors = 0;
+  var listTagCalls = 0;
 
   @override
   Future<void> batchDelete(List<String> ids) async {}
@@ -590,6 +611,11 @@ class _FakeTransactionRepository implements TransactionRepository {
 
   @override
   Future<List<LedgerTag>> listTags() async {
+    listTagCalls += 1;
+    if (tagErrors > 0) {
+      tagErrors -= 1;
+      throw StateError('tag load failed');
+    }
     return const [LedgerTag(id: 'tag-1', name: '日常')];
   }
 

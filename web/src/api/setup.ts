@@ -11,7 +11,7 @@ export interface SetupDatabaseStatus {
 
 export interface SetupStatus {
   initialized: boolean
-  database: SetupDatabaseStatus
+  database?: SetupDatabaseStatus
 }
 
 export interface TestDatabaseRequest {

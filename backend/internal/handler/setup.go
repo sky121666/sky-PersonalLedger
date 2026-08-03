@@ -41,10 +41,11 @@ func (h *SetupHandler) Status(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{
-		"initialized": initialized,
-		"database":    setupDatabaseSummary(h.database),
-	})
+	data := gin.H{"initialized": initialized}
+	if !initialized {
+		data["database"] = setupDatabaseSummary(h.database)
+	}
+	response.Success(c, data)
 }
 
 type TestDatabaseRequest struct {

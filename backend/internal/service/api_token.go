@@ -115,7 +115,11 @@ func (s *APITokenService) ValidatePrincipal(token string) (authz.Principal, erro
 		if err != nil {
 			return authz.Principal{}, errors.New("invalid token")
 		}
-		_ = s.repo.UpdateToken(apiToken.ID, tokenHash)
+		if err := s.repo.UpdateToken(apiToken.ID, tokenHash); err != nil {
+			// Fail closed: a legacy plaintext token must not remain usable when
+			// its one-way migration cannot be persisted.
+			return authz.Principal{}, errors.New("invalid token")
+		}
 	}
 
 	// 检查过期

@@ -8,6 +8,7 @@ import { authApi } from '@/api/auth'
 import { statisticsApi } from '@/api/statistics'
 import { accountApi } from '@/api/account'
 import { toast } from '@/composables/useToast'
+import packageMetadata from '../../package.json'
 import {
   Lock, Upload, Download, Info, ChevronRight,
   User, Shield, Database, X, Check, LogOut, Wallet, Moon, HardDrive, Bell,
@@ -28,6 +29,7 @@ import { get, post, put } from '@/utils/request'
 import dayjs from 'dayjs'
 
 const router = useRouter()
+const appVersion = packageMetadata.version
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 
@@ -237,7 +239,7 @@ const menuGroups = [
   {
     title: '关于',
     items: [
-      { icon: Info, label: '关于应用', desc: '版本 v1.0.0', action: () => { showAboutModal.value = true }, color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800' }
+      { icon: Info, label: '关于应用', desc: `版本 v${appVersion}`, action: () => { showAboutModal.value = true }, color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800' }
     ]
   }
 ]
@@ -958,7 +960,7 @@ function formatFileSize(bytes: number) {
 
       <!-- Version -->
       <div class="text-center py-4">
-        <p class="text-xs text-gray-400">Personal Ledger v1.0.0</p>
+        <p class="text-xs text-gray-400">Personal Ledger v{{ appVersion }}</p>
       </div>
     </div>
 
@@ -1007,7 +1009,7 @@ function formatFileSize(bytes: number) {
           <div class="bg-gray-50/50 dark:bg-white/5 rounded-2xl p-4 mb-8 text-xs text-gray-500 dark:text-gray-400 space-y-2 border border-gray-100/50 dark:border-white/5">
             <div class="flex justify-between">
               <span>当前版本</span>
-              <span class="font-medium text-gray-900 dark:text-white">v1.0.0</span>
+              <span class="font-medium text-gray-900 dark:text-white">v{{ appVersion }}</span>
             </div>
             <div class="flex justify-between">
               <span>开源协议</span>

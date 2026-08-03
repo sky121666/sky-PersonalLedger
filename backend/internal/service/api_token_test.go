@@ -241,6 +241,34 @@ func TestAPITokenValidateMigratesLegacyPlaintextToken(t *testing.T) {
 	}
 }
 
+func TestAPITokenValidateRejectsLegacyTokenWhenHashMigrationFails(t *testing.T) {
+	svc, repos, userID := newAPITokenTestService(t)
+	legacyToken := "legacy-api-token-migration-must-succeed"
+	apiToken := &model.APIToken{
+		UserID:      userID,
+		Name:        "legacy",
+		Token:       legacyToken,
+		TokenPrefix: legacyToken[:8],
+	}
+	if err := repos.APIToken.Create(apiToken); err != nil {
+		t.Fatalf("create legacy token: %v", err)
+	}
+	if err := repos.APIToken.DB().Callback().Update().Before("gorm:update").Register(
+		"test:fail-api-token-migration",
+		func(tx *gorm.DB) {
+			if tx.Statement.Table == "api_tokens" {
+				tx.AddError(errors.New("forced migration failure"))
+			}
+		},
+	); err != nil {
+		t.Fatalf("register update callback: %v", err)
+	}
+
+	if _, err := svc.ValidatePrincipal(legacyToken); err == nil || err.Error() != "invalid token" {
+		t.Fatalf("validate legacy token err = %v, want fail-closed invalid token", err)
+	}
+}
+
 func TestAPITokenValidateRejectsExpiredToken(t *testing.T) {
 	svc, repos, userID := newAPITokenTestService(t)
 	rawToken := "expired-api-token-32-characters-minimum"

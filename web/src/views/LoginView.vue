@@ -26,8 +26,8 @@ onMounted(async () => {
 })
 
 async function handleSubmit() {
-  if (password.value.length < 6) {
-    toast.warning('密码至少需要6位')
+  if (!password.value) {
+    toast.warning('请输入密码')
     return
   }
 

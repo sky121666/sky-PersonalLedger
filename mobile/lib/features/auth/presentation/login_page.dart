@@ -27,8 +27,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _submit() async {
     final password = _passwordController.text;
-    if (password.length < 6) {
-      setState(() => _localError = '密码至少需要 6 位');
+    if (password.isEmpty) {
+      setState(() => _localError = '请输入密码');
       return;
     }
 

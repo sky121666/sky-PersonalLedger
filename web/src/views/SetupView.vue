@@ -270,7 +270,7 @@ function defaultDatabasePort(driver: string) {
 }
 
 function databaseLabel() {
-  const driver = databaseForm.driver || setupStatus.value?.database.driver || 'sqlite'
+  const driver = databaseForm.driver || setupStatus.value?.database?.driver || 'sqlite'
   const names: Record<string, string> = {
     sqlite: 'SQLite',
     sqlite3: 'SQLite',
@@ -290,9 +290,9 @@ function databaseSummary() {
     return 'DSN 已填写'
   }
   if (useAdvancedDsn.value) {
-    return setupStatus.value?.database.dsn_configured ? 'DSN 已配置' : 'DSN 未填写'
+    return setupStatus.value?.database?.dsn_configured ? 'DSN 已配置' : 'DSN 未填写'
   }
-  if (setupStatus.value?.database.dsn_configured) {
+  if (setupStatus.value?.database?.dsn_configured) {
     return 'DSN 已配置'
   }
   const host = databaseForm.host || '127.0.0.1'

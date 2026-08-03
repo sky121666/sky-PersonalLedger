@@ -49,6 +49,31 @@ func TestSetupStatusReportsDatabaseMode(t *testing.T) {
 	}
 }
 
+func TestSetupStatusRedactsDatabaseModeAfterInitialization(t *testing.T) {
+	handler, repos := newSetupTestHandler(t, config.DatabaseConfig{
+		Driver:       "sqlite",
+		Path:         filepath.Join(t.TempDir(), "private", "ledger.db"),
+		MaxOpenConns: 10,
+		MaxIdleConns: 5,
+	})
+	if err := repos.User.Create(&model.User{Username: "admin", PasswordHash: "hash"}); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	response := performSetupRequest(handler, http.MethodGet, "/setup/status", nil)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	data := decodeSetupResponse(t, response.Body.Bytes())
+	if data["initialized"] != true {
+		t.Fatalf("initialized = %#v, want true", data["initialized"])
+	}
+	if _, ok := data["database"]; ok {
+		t.Fatalf("initialized setup status exposed database metadata: %s", response.Body.String())
+	}
+}
+
 func TestSetupTestDatabaseAcceptsSQLiteBeforeInitialization(t *testing.T) {
 	handler, _ := newSetupTestHandler(t, config.DatabaseConfig{Driver: "sqlite", Path: filepath.Join(t.TempDir(), "current.db")})
 	payload := map[string]any{

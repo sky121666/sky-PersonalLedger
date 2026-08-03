@@ -176,6 +176,7 @@ class HomeSummary {
     ),
     this.recentTransactions = const [],
     this.familySummary = const FamilyHomeSummary.empty(),
+    this.familySummaryUnavailable = false,
   });
 
   final AccountListResponse accounts;
@@ -184,6 +185,7 @@ class HomeSummary {
   final TrendResponse trend;
   final List<TransactionItem> recentTransactions;
   final FamilyHomeSummary familySummary;
+  final bool familySummaryUnavailable;
 }
 
 class HomeSummaryQuery {
@@ -323,12 +325,14 @@ class HomeRepository {
       ),
     ]);
 
+    final familyResult =
+        results[3] as ({FamilyHomeSummary summary, bool unavailable});
     return HomeSummary(
       accounts: results[0] as AccountListResponse? ?? _emptyAccounts,
       overview: results[1] as StatisticsOverview? ?? _emptyOverview,
       budgetSummary: results[2] as BudgetSummary? ?? _emptyBudgetSummary,
-      familySummary:
-          results[3] as FamilyHomeSummary? ?? const FamilyHomeSummary.empty(),
+      familySummary: familyResult.summary,
+      familySummaryUnavailable: familyResult.unavailable,
       recentTransactions:
           results[4] as List<TransactionItem>? ?? const <TransactionItem>[],
       trend:
@@ -337,18 +341,19 @@ class HomeRepository {
     );
   }
 
-  Future<FamilyHomeSummary> _getFamilySummaryOrEmpty(
-    HomeSummaryQuery? query,
-  ) async {
+  Future<({FamilyHomeSummary summary, bool unavailable})>
+  _getFamilySummaryOrEmpty(HomeSummaryQuery? query) async {
     try {
-      return await _apiClient.get<FamilyHomeSummary>(
+      final summary =
+          await _apiClient.get<FamilyHomeSummary>(
             '/family/summary',
             queryParameters: queryParametersForPeriod(query),
             fromJsonT: FamilyHomeSummary.fromJson,
           ) ??
           const FamilyHomeSummary.empty();
+      return (summary: summary, unavailable: false);
     } catch (_) {
-      return const FamilyHomeSummary.empty();
+      return (summary: const FamilyHomeSummary.empty(), unavailable: true);
     }
   }
 

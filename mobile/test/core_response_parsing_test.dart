@@ -102,7 +102,7 @@ void main() {
       );
     });
 
-    test('首页摘要在家庭摘要接口失败时降级为空家庭数据', () async {
+    test('首页摘要在家庭接口失败时保留其他数据并标记部分失败', () async {
       final dio = Dio(BaseOptions(baseUrl: 'https://ledger.example.com/api/v1'))
         ..httpClientAdapter = _HomeSummaryAdapter();
       final client = ApiClient(
@@ -121,6 +121,7 @@ void main() {
       expect(summary.familySummary.month, isEmpty);
       expect(summary.familySummary.members, isEmpty);
       expect(summary.familySummary.totalExpense, 0);
+      expect(summary.familySummaryUnavailable, isTrue);
     });
   });
 
