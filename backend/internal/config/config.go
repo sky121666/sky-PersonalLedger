@@ -11,15 +11,21 @@ import (
 
 // Config 应用配置
 type Config struct {
-	Server    ServerConfig
-	Database  DatabaseConfig
-	JWT       JWTConfig
-	Log       LogConfig
-	Storage   StorageConfig
-	Security  SecurityConfig
-	CORS      CORSConfig
-	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
-	Setup     SetupConfig
+	Server        ServerConfig
+	Database      DatabaseConfig
+	JWT           JWTConfig
+	Log           LogConfig
+	Storage       StorageConfig
+	Security      SecurityConfig
+	CORS          CORSConfig
+	RateLimit     RateLimitConfig `mapstructure:"rate_limit"`
+	Setup         SetupConfig
+	Observability ObservabilityConfig
+}
+
+type ObservabilityConfig struct {
+	MetricsEnabled bool   `mapstructure:"metrics_enabled"`
+	MetricsToken   string `mapstructure:"metrics_token"`
 }
 
 // RateLimitConfig 限速配置
@@ -124,6 +130,8 @@ func Load() (*Config, error) {
 	viper.BindEnv("rate_limit.window_secs", "LEDGER_RATE_LIMIT_WINDOW_SECS")
 	viper.BindEnv("setup.config_path", "LEDGER_SETUP_CONFIG_PATH")
 	viper.BindEnv("setup.token", "LEDGER_SETUP_TOKEN")
+	viper.BindEnv("observability.metrics_enabled", "LEDGER_OBSERVABILITY_METRICS_ENABLED")
+	viper.BindEnv("observability.metrics_token", "LEDGER_OBSERVABILITY_METRICS_TOKEN")
 
 	// 设置默认值
 	viper.SetDefault("server.port", "8080")
@@ -150,6 +158,8 @@ func Load() (*Config, error) {
 	viper.SetDefault("rate_limit.window_secs", 60)    // 60秒窗口
 	viper.SetDefault("setup.config_path", "./data/config.yaml")
 	viper.SetDefault("setup.token", "")
+	viper.SetDefault("observability.metrics_enabled", false)
+	viper.SetDefault("observability.metrics_token", "")
 
 	// 尝试读取配置文件(可选)
 	if err := viper.ReadInConfig(); err != nil {

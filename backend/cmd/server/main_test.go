@@ -71,6 +71,21 @@ func TestValidateStorageLimits(t *testing.T) {
 	}
 }
 
+func TestValidateObservabilityRequiresStrongTokenWhenEnabled(t *testing.T) {
+	if err := validateObservability(config.ObservabilityConfig{}); err != nil {
+		t.Fatalf("disabled metrics should not require credentials: %v", err)
+	}
+	if err := validateObservability(config.ObservabilityConfig{MetricsEnabled: true, MetricsToken: "short"}); err == nil {
+		t.Fatal("enabled metrics accepted a short token")
+	}
+	if err := validateObservability(config.ObservabilityConfig{
+		MetricsEnabled: true,
+		MetricsToken:   "metrics-token-with-at-least-32-characters",
+	}); err != nil {
+		t.Fatalf("enabled metrics rejected a strong token: %v", err)
+	}
+}
+
 func TestValidateProductionCORSRejectsWildcardInRelease(t *testing.T) {
 	err := validateProductionCORS("release", " * ")
 	if err == nil {

@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EVIDENCE_FILE="${DOCKER_RELEASE_EVIDENCE_FILE:-docs/quality/docker-release-evidence-2026-05-27.md}"
 IMAGE="${DOCKER_RELEASE_IMAGE:-}"
 RUN_SMOKE="${RUN_DOCKER_RELEASE_SMOKE:-0}"
+METRICS_TOKEN="release-evidence-metrics-token-32-characters"
 
 fail() {
   echo "$1" >&2
@@ -123,6 +124,8 @@ services:
       - LEDGER_DATABASE_DRIVER=sqlite
       - LEDGER_DATABASE_PATH=/data/ledger.db
       - LEDGER_SETUP_CONFIG_PATH=/data/config.yaml
+      - LEDGER_OBSERVABILITY_METRICS_ENABLED=true
+      - LEDGER_OBSERVABILITY_METRICS_TOKEN=$METRICS_TOKEN
       - LEDGER_STORAGE_UPLOAD_PATH=/data/uploads
       - LEDGER_STORAGE_BACKUP_PATH=/data/backups
       - TZ=Asia/Shanghai
@@ -145,6 +148,15 @@ EOF
   if ! curl -fsS "$health_url" >/dev/null 2>&1; then
     docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
     fail "Docker release smoke did not become healthy: $IMAGE"
+  fi
+
+  metrics_url="http://127.0.0.1:$smoke_port/metrics"
+  if [[ "$(curl -sS -o /dev/null -w '%{http_code}' "$metrics_url")" != "401" ]]; then
+    fail "Docker release metrics endpoint did not reject an unauthenticated scrape: $IMAGE"
+  fi
+  metrics_body="$(curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" "$metrics_url")"
+  if [[ "$metrics_body" != *"ledger_http_requests_total"* || "$metrics_body" != *"ledger_db_open_connections"* ]]; then
+    fail "Docker release metrics endpoint omitted required operational metrics: $IMAGE"
   fi
 
   container_id="$(cd "$smoke_dir" && docker compose ps -q personal-ledger)"
@@ -178,6 +190,7 @@ EOF
   echo "Docker release smoke checks passed for $IMAGE on 127.0.0.1:$smoke_port."
   echo "Image healthcheck: healthy"
   echo "Runtime UID: 10001"
+  echo "Metrics auth: PASS"
   echo "Persistent paths: ledger.db, uploads, backups"
 fi
 

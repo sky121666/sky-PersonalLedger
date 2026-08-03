@@ -8,12 +8,14 @@ on:
       - 'backend/**'
       - 'scripts/verify-database-matrix.sh'
       - 'scripts/check-backend-coverage.sh'
+      - 'scripts/check-backend-performance.sh'
       - '.github/workflows/backend-database.yml'
   pull_request:
     paths:
       - 'backend/**'
       - 'scripts/verify-database-matrix.sh'
       - 'scripts/check-backend-coverage.sh'
+      - 'scripts/check-backend-performance.sh'
       - '.github/workflows/backend-database.yml'
 
 jobs:
@@ -79,3 +81,6 @@ jobs:
 
       - name: Enforce backend coverage floors
         run: ./scripts/check-backend-coverage.sh
+
+      - name: Verify query plans and performance benchmarks
+        run: ./scripts/check-backend-performance.sh

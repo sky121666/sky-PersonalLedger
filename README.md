@@ -141,8 +141,21 @@ GitHub Actions 需要配置：
 | LEDGER_SECURITY_BASE_PATH | 自定义入口路径 (如 `/my-ledger`) | 空 | 🔒 安全推荐 |
 | LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND | 允许 AI、Webhook、SMTP 访问回环/私网；仅本地网关场景由部署者显式开启 | false | 🔒 默认保持关闭 |
 | LEDGER_SERVER_TRUSTED_PROXIES | 可信反向代理 IP/CIDR，多个值用逗号分隔；留空忽略转发来源头 | 空 | 🔒 仅代理部署填写 |
+| LEDGER_OBSERVABILITY_METRICS_ENABLED | 启用受保护的 Prometheus `/metrics` 指标 | false | 可选 |
+| LEDGER_OBSERVABILITY_METRICS_TOKEN | 指标抓取 Bearer Token，启用指标时至少 32 位 | 空 | 🔒 启用时必填 |
 
 移动端和自动化客户端使用登录后的“设备授权”页面生成访问令牌。令牌通过 `Authorization: Bearer` 发送，并由服务端按最小权限 scope 校验；不存在全局环境变量形式的万能移动端令牌。
+
+### 运行指标
+
+指标默认关闭。需要接入 Prometheus 时，在 `.env` 中生成独立令牌并启用：
+
+```bash
+LEDGER_OBSERVABILITY_METRICS_ENABLED=true
+LEDGER_OBSERVABILITY_METRICS_TOKEN=$(openssl rand -hex 32)
+```
+
+抓取请求必须携带 `Authorization: Bearer <token>`。指标只包含路由模板、HTTP 方法、状态码、耗时、Go 运行时和数据库连接池状态，不记录 URL 参数、用户标识、令牌或账务内容。
 
 ### 数据库配置
 
@@ -213,6 +226,9 @@ services:
       - LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND=false
       # 反向代理部署时填写代理 IP/CIDR；不使用代理则保持为空
       - LEDGER_SERVER_TRUSTED_PROXIES=
+      # 默认关闭；启用后必须同时配置至少 32 位随机抓取令牌
+      - LEDGER_OBSERVABILITY_METRICS_ENABLED=false
+      - LEDGER_OBSERVABILITY_METRICS_TOKEN=
       # 跨域白名单；同域部署保持为空，前后端分离时设置具体域名
       # - LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.com
       

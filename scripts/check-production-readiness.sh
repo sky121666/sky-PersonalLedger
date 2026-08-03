@@ -55,6 +55,7 @@ require_file ".github/workflows/web.yml"
 require_file "scripts/check-public-git-safety.sh"
 require_file "scripts/check-github-actions-pinning.sh"
 require_file "scripts/check-backend-coverage.sh"
+require_file "scripts/check-backend-performance.sh"
 require_file "scripts/check-backup-restore-rehearsal.sh"
 require_file "scripts/check-backup-operator-drill.sh"
 require_file "scripts/check-docker-local-smoke.sh"
@@ -207,6 +208,7 @@ require_text ".github/workflows/release.yml" "REQUIRE_ANDROID_ARTIFACTS: '0'"
 require_text ".github/workflows/release.yml" "REQUIRE_IOS_ARTIFACT: '0'"
 require_text ".github/workflows/release.yml" "VERIFY_ARTIFACT_SIGNATURES: '1'"
 require_text ".github/workflows/backend-database.yml" "check-backend-coverage\\.sh"
+require_text ".github/workflows/backend-database.yml" "check-backend-performance\\.sh"
 require_text "scripts/check-docker-release-evidence.sh" 'pick_port'
 require_text "scripts/check-docker-release-evidence.sh" 'Image healthcheck: healthy'
 require_text "scripts/check-docker-release-evidence.sh" 'Persistent paths: ledger\.db, uploads, backups'

@@ -40,6 +40,12 @@ log:
   format: "json"            # json / text
   # 环境变量: LEDGER_LOG_LEVEL, LEDGER_LOG_FORMAT
 
+observability:
+  # Prometheus 指标默认关闭；启用时 metrics_token 必须是至少 32 位的独立随机值。
+  metrics_enabled: false
+  metrics_token: ""
+  # 环境变量: LEDGER_OBSERVABILITY_METRICS_ENABLED, LEDGER_OBSERVABILITY_METRICS_TOKEN
+
 security:
   # 自定义入口路径 (留空则使用根路径 /)
   # 设置后只能通过 http://host:port/your-secret-path 访问

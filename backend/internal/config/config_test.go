@@ -65,6 +65,9 @@ func TestLoadDatabaseCompatibilityDefaults(t *testing.T) {
 	if cfg.Storage.RestoreMaxFileSize != 64 {
 		t.Fatalf("restore max file size = %d, want 64MB", cfg.Storage.RestoreMaxFileSize)
 	}
+	if cfg.Observability.MetricsEnabled || cfg.Observability.MetricsToken != "" {
+		t.Fatalf("metrics must be disabled without a token by default: %#v", cfg.Observability)
+	}
 }
 
 func TestLoadDatabaseCompatibilityConfigFromEnv(t *testing.T) {
@@ -81,6 +84,8 @@ func TestLoadDatabaseCompatibilityConfigFromEnv(t *testing.T) {
 	t.Setenv("LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND", "true")
 	t.Setenv("LEDGER_SERVER_TRUSTED_PROXIES", "10.0.0.10,10.0.0.0/24")
 	t.Setenv("LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE", "96")
+	t.Setenv("LEDGER_OBSERVABILITY_METRICS_ENABLED", "true")
+	t.Setenv("LEDGER_OBSERVABILITY_METRICS_TOKEN", "metrics-token-with-at-least-32-characters")
 
 	cfg, err := Load()
 	if err != nil {
@@ -116,6 +121,9 @@ func TestLoadDatabaseCompatibilityConfigFromEnv(t *testing.T) {
 	}
 	if cfg.Storage.RestoreMaxFileSize != 96 {
 		t.Fatalf("restore max file size = %d, want 96MB", cfg.Storage.RestoreMaxFileSize)
+	}
+	if !cfg.Observability.MetricsEnabled || cfg.Observability.MetricsToken != "metrics-token-with-at-least-32-characters" {
+		t.Fatalf("metrics env config = %#v", cfg.Observability)
 	}
 }
 

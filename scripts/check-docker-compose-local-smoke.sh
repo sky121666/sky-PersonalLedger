@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE="${DOCKER_LOCAL_SMOKE_IMAGE:-personal-ledger:local-smoke}"
 SMOKE_DIR="$(mktemp -d /tmp/personal-ledger-compose-smoke.XXXXXX)"
 PORT=""
+METRICS_TOKEN="local-compose-metrics-token-32-characters"
 
 cleanup() {
   (
@@ -74,6 +75,8 @@ services:
       - LEDGER_DATABASE_DRIVER=sqlite
       - LEDGER_DATABASE_PATH=/data/ledger.db
       - LEDGER_SETUP_CONFIG_PATH=/data/config.yaml
+      - LEDGER_OBSERVABILITY_METRICS_ENABLED=true
+      - LEDGER_OBSERVABILITY_METRICS_TOKEN=$METRICS_TOKEN
       - LEDGER_STORAGE_UPLOAD_PATH=/data/uploads
       - LEDGER_STORAGE_BACKUP_PATH=/data/backups
       - TZ=Asia/Shanghai
@@ -95,6 +98,17 @@ done
 if ! curl -fsS "$health_url" >/dev/null 2>&1; then
   docker compose -f "$SMOKE_DIR/docker-compose.yml" logs >&2 || true
   echo "Docker compose local smoke did not become healthy." >&2
+  exit 1
+fi
+
+metrics_url="http://127.0.0.1:$PORT/metrics"
+if [[ "$(curl -sS -o /dev/null -w '%{http_code}' "$metrics_url")" != "401" ]]; then
+  echo "Docker compose metrics endpoint did not reject an unauthenticated scrape." >&2
+  exit 1
+fi
+metrics_body="$(curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" "$metrics_url")"
+if [[ "$metrics_body" != *"ledger_http_requests_total"* || "$metrics_body" != *"ledger_db_open_connections"* ]]; then
+  echo "Docker compose metrics endpoint omitted required operational metrics." >&2
   exit 1
 fi
 
@@ -134,4 +148,5 @@ echo "JWT guard: PASS"
 echo "Setup token guard: PASS"
 echo "Image healthcheck: healthy"
 echo "Runtime UID: 10001"
+echo "Metrics auth: PASS"
 echo "Persistent paths: ledger.db, uploads, backups"

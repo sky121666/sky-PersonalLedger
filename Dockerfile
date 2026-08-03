@@ -74,6 +74,7 @@ ENV LEDGER_SERVER_PORT=8080 \
     LEDGER_STORAGE_MAX_FILE_SIZE=10 \
     LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE=64 \
     LEDGER_STORAGE_ALLOWED_TYPES="jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt" \
+    LEDGER_OBSERVABILITY_METRICS_ENABLED=false \
     # 时区
     TZ=Asia/Shanghai
 

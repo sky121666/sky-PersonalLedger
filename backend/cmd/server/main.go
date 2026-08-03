@@ -18,6 +18,7 @@ import (
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/handler"
 	"github.com/sky/personal-ledger/internal/middleware"
+	"github.com/sky/personal-ledger/internal/observability"
 	"github.com/sky/personal-ledger/internal/repository"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/logger"
@@ -43,6 +44,9 @@ func main() {
 		log.Fatal(err)
 	}
 	if err := validateStorageLimits(cfg.Storage); err != nil {
+		log.Fatal(err)
+	}
+	if err := validateObservability(cfg.Observability); err != nil {
 		log.Fatal(err)
 	}
 
@@ -110,10 +114,20 @@ func main() {
 	// Apply middlewares
 	r.Use(middleware.CORS(cfg.CORS.AllowedOrigins))
 	r.Use(middleware.SecurityHeaders())
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Failed to access database metrics: %v", err)
+	}
+	metricsRegistry := observability.NewRegistry(sqlDB)
+	r.Use(metricsRegistry.Middleware())
 	r.Use(middleware.AuditLog())    // Security audit logging
 	r.Use(rateLimiter.Middleware()) // Rate limiting for login attempts
 	if globalRateLimiter != nil {
 		r.Use(globalRateLimiter.Middleware()) // Global API rate limiting (仅生产环境)
+	}
+	if cfg.Observability.MetricsEnabled {
+		r.GET("/metrics", metricsRegistry.Handler(cfg.Observability.MetricsToken))
+		log.Printf("Operational metrics enabled at /metrics")
 	}
 
 	// Setup API routes
@@ -217,6 +231,16 @@ func validateStorageLimits(storage config.StorageConfig) error {
 	}
 	if storage.RestoreMaxFileSize < 1 || storage.RestoreMaxFileSize > 4096 {
 		return fmt.Errorf("FATAL: LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE must be between 1 and 4096 MB")
+	}
+	return nil
+}
+
+func validateObservability(observability config.ObservabilityConfig) error {
+	if !observability.MetricsEnabled {
+		return nil
+	}
+	if len(strings.TrimSpace(observability.MetricsToken)) < 32 {
+		return fmt.Errorf("FATAL: LEDGER_OBSERVABILITY_METRICS_TOKEN must be at least 32 characters when metrics are enabled")
 	}
 	return nil
 }

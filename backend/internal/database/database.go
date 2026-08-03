@@ -104,6 +104,20 @@ var schemaMigrations = []versionedMigration{
 		Name:    "integer_minor_units",
 		Apply:   migrateMoneyColumnsToMinorUnits,
 	},
+	{
+		Version: 9,
+		Name:    "operational_query_indexes",
+		Apply: func(tx *gorm.DB) error {
+			return tx.AutoMigrate(
+				&model.Account{},
+				&model.Category{},
+				&model.Transaction{},
+				&model.Budget{},
+				&model.Reminder{},
+				&model.AccountLog{},
+			)
+		},
+	},
 }
 
 type moneyColumnMigration struct {

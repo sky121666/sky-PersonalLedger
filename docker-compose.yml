@@ -21,6 +21,8 @@ services:
       - LEDGER_JWT_SECRET=${LEDGER_JWT_SECRET:?Set LEDGER_JWT_SECRET in .env before starting}
       # 首次远程安装令牌；初始化完成后接口会自动禁用。
       - LEDGER_SETUP_TOKEN=${LEDGER_SETUP_TOKEN:?Set LEDGER_SETUP_TOKEN in .env before starting}
+      - LEDGER_OBSERVABILITY_METRICS_ENABLED=${LEDGER_OBSERVABILITY_METRICS_ENABLED:-false}
+      - LEDGER_OBSERVABILITY_METRICS_TOKEN=${LEDGER_OBSERVABILITY_METRICS_TOKEN:-}
       
       # ========== 安全配置 (可选) ==========
       # 自定义入口路径 (设置后只能通过 /your-path 访问)
