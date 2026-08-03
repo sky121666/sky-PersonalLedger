@@ -618,7 +618,7 @@ async function handleBackup() {
     const blob = response.data
     const filename = `backup_${dayjs().format('YYYYMMDD_HHmmss')}.json`
     downloadBlob(blob, filename)
-    toast.success('备份成功')
+    toast.success('备份成功；文件未加密，请妥善保管')
   } catch (e: any) {
     toast.error(e.message || '备份失败')
   } finally {

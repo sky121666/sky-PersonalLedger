@@ -49,9 +49,9 @@ ANDROID_PREFER_EMULATOR=1 RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-pre
 | Device identity | Physical device model, OS version, device ID, and connection type | PENDING |  |
 | Build identity | App version, build number, and artifact/source used for install | PENDING |  |
 | USB iPhone preflight | `REQUIRE_PHYSICAL_IOS=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PENDING |  |
-| Android emulator preflight | `REQUIRE_ANDROID_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PENDING |  |
+| Android emulator preflight | `REQUIRE_ANDROID_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PASS | GitHub Actions native run `30776159138`, 2026-08-03 |
 | Physical iPhone E2E | USB-connected iPhone E2E or signed-install manual result is recorded | PENDING |  |
-| Android E2E | Android emulator E2E or signed-install manual result is recorded | PENDING |  |
+| Android E2E | Android emulator E2E or signed-install manual result is recorded | PASS | Real-backend create/edit/delete/balance flow, run `30776159138` |
 
 ## Manual Physical Device Checklist
 

@@ -197,7 +197,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     await _runFileAction(
       action: 'backup',
       request: ref.read(dataManagementRepositoryProvider).downloadBackup,
-      successMessage: (result) => '副本已保存：${result.filename}',
+      successMessage: (result) => '副本已保存：${result.filename}。文件未加密，请妥善保管。',
     );
   }
 

@@ -52,6 +52,7 @@ void main() {
       expect(repository.downloadBackupCalls, 1);
       expect(find.textContaining('/tmp/backup.json'), findsNothing);
       expect(find.textContaining('backup.json'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('文件未加密，请妥善保管'), findsOneWidget);
     });
 
     testWidgets('点击保存明细时调用交易导出接口', (tester) async {

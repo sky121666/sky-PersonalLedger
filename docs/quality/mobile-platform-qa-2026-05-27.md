@@ -4,7 +4,7 @@
 
 The mobile premium modernization is now build-verified at the Flutter, iOS simulator artifact, Android debug APK, macOS smoke integration-test, iOS Simulator smoke integration-test, and Android Emulator smoke integration-test levels. The premium target screens are also covered by a mocked-data integration smoke test on macOS, iPhone 17 Simulator, and Android API 35 Emulator, with local PNG screenshot export available for visual review.
 
-The real-backend E2E path now passes on Flutter tester, iOS Simulator, and Android Emulator. The premium visual smoke path now covers light and dark themes with exported screenshot evidence, the exported screenshots have been manually reviewed, and the premium screens now have a focused semantics/tap-target test pass. The remaining release-quality gap is iOS/Android release-device QA plus real VoiceOver/TalkBack review. The detected iPhone 12 is wireless-only for this session, which blocks direct `flutter test` integration execution on that physical device; Android release-device evidence must also be recorded before public distribution.
+The real-backend E2E path now passes on Flutter tester, iOS Simulator, and Android Emulator. The premium visual smoke path now covers light and dark themes with exported screenshot evidence, the exported screenshots have been manually reviewed, and the premium screens now have a focused semantics/tap-target test pass. Android native real-backend E2E was reconfirmed by GitHub Actions run `30776159138` on 2026-08-03, and iOS Simulator native real-backend E2E was reconfirmed by run `30775889356`. The remaining release-quality gap is physical iPhone QA, the full manual device checklist, and real VoiceOver/TalkBack review.
 
 ## Environment
 
@@ -49,7 +49,7 @@ The real-backend E2E path now passes on Flutter tester, iOS Simulator, and Andro
 | --- | --- | --- | --- |
 | iPhone 12 integration test | BLOCKED | `flutter test -d 00008101-000549C936C0001E integration_test/app_smoke_test.dart` fails: wireless iOS device cannot start app for integration test | Connect by cable or run with a supported published-port workflow |
 | Android cold Gradle cache behavior | PARTIAL | A per-run temporary `GRADLE_USER_HOME` timed out after 420s at `Running Gradle task 'assembleDebug'`; using project-local ignored `mobile/.gradle` completed Android real-backend E2E successfully | Keep `mobile/.gradle` as the default isolated local cache and preserve the timeout diagnostics for future cold-cache failures |
-| Device-native premium-screen captures | PARTIAL | `integration_test/premium_screens_smoke_test.dart` renders Home, Quick Transaction, AI Reports, and Family Hub in light and dark themes; macOS run exports 10 PNG screenshots under `/tmp/personal-ledger-premium-screenshots`; human screenshot review and semantics pass are documented in `docs/quality/mobile-premium-visual-review-2026-05-27.md` | Repeat screenshot capture directly on iOS Simulator/Android Emulator or physical iPhone if release materials require device-native frames |
+| Device-native premium-screen captures | PARTIAL | Current iPhone 17 Pro Simulator evidence covers Home, Transactions, Statistics, Features, and Quick Entry under `mobile/QA/design/final-audit-20260803/`; data-management and API-token surfaces retain 800×600 component evidence | Capture the remaining deep settings surfaces on an iPhone-sized target and repeat on a physical iPhone if release materials require device-native frames |
 
 ## Manual Visual QA Checklist
 
@@ -82,7 +82,7 @@ Overall current mobile release-readiness: **98/100**.
 ## Next Required Evidence For 99+
 
 1. Connect iPhone by cable or use a supported published-port workflow, then run `integration_test/app_smoke_test.dart` on the physical device.
-2. Capture the same premium screens directly from iOS Simulator and Android Emulator if release notes require device-native artifacts.
+2. Capture Data Management and API Token directly on an iPhone-sized target; add Android device-native frames if release notes require them.
 3. Run a real VoiceOver/TalkBack pass if public accessibility quality is a release criterion.
 4. For CI or brand-new machines, run Android E2E once with the project-local Gradle cache warmed, or keep the timeout diagnostics enabled to surface cold-cache stalls cleanly.
 

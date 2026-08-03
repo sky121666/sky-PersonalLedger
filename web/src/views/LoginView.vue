@@ -138,7 +138,7 @@ const features = [
 
         <p class="mt-8 text-center text-xs text-gray-400">
           <Shield :size="12" class="inline-block mr-1 align-text-bottom" />
-          数据本地加密存储，安全无忧
+          数据由你自行托管，敏感凭据加密保存
         </p>
       </div>
     </div>
