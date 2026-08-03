@@ -35,12 +35,16 @@ FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6ee
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates tzdata wget
+RUN apk add --no-cache ca-certificates su-exec tzdata wget \
+    && addgroup -S -g 10001 ledger \
+    && adduser -S -D -H -u 10001 -G ledger ledger
 
 COPY --from=backend-builder /app/server /app/server
 COPY --from=frontend-builder /app/web/dist /app/web/dist
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-RUN mkdir -p /data/uploads /data/backups
+RUN mkdir -p /data/uploads /data/backups \
+    && chown -R ledger:ledger /app /data
 
 # ========== 环境变量配置 ==========
 # 服务器配置
@@ -81,4 +85,5 @@ VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --quiet --tries=1 --output-document=/dev/null http://localhost:8080/api/v1/health || exit 1
 
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["/app/server"]

@@ -115,6 +115,13 @@ if [[ "$health_status" != "healthy" ]]; then
   exit 1
 fi
 
+runtime_uid="$(docker exec "$container_id" awk '/^Uid:/{print $2}' /proc/1/status)"
+if [[ "$runtime_uid" != "10001" ]]; then
+  docker compose -f "$SMOKE_DIR/docker-compose.yml" logs >&2 || true
+  echo "Docker compose server process must run as UID 10001; actual UID=${runtime_uid:-unknown}." >&2
+  exit 1
+fi
+
 for required_path in "$SMOKE_DIR/data/ledger.db" "$SMOKE_DIR/data/uploads" "$SMOKE_DIR/data/backups"; do
   if [[ ! -e "$required_path" ]]; then
     echo "Expected persistent path missing: $required_path" >&2
@@ -126,4 +133,5 @@ echo "Docker compose local smoke checks passed for $IMAGE on 127.0.0.1:$PORT."
 echo "JWT guard: PASS"
 echo "Setup token guard: PASS"
 echo "Image healthcheck: healthy"
+echo "Runtime UID: 10001"
 echo "Persistent paths: ledger.db, uploads, backups"

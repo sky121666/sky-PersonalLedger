@@ -86,6 +86,13 @@ if [[ "$health_status" != "healthy" ]]; then
   exit 1
 fi
 
+runtime_uid="$(docker exec "$CONTAINER" awk '/^Uid:/{print $2}' /proc/1/status)"
+if [[ "$runtime_uid" != "10001" ]]; then
+  docker logs "$CONTAINER" >&2 || true
+  echo "Docker server process must run as UID 10001; actual UID=${runtime_uid:-unknown}." >&2
+  exit 1
+fi
+
 for required_path in "$DATA_DIR/ledger.db" "$DATA_DIR/uploads" "$DATA_DIR/backups"; do
   if [[ ! -e "$required_path" ]]; then
     echo "Expected persistent path missing: $required_path" >&2
@@ -95,4 +102,5 @@ done
 
 echo "Docker local smoke checks passed for $IMAGE on 127.0.0.1:$host_port."
 echo "Image healthcheck: healthy"
+echo "Runtime UID: 10001"
 echo "Persistent paths: ledger.db, uploads, backups"

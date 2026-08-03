@@ -163,6 +163,12 @@ EOF
     fail "Docker release image HEALTHCHECK did not become healthy; status=${health_status:-unknown}: $IMAGE"
   fi
 
+  runtime_uid="$(docker exec "$container_id" awk '/^Uid:/{print $2}' /proc/1/status)"
+  if [[ "$runtime_uid" != "10001" ]]; then
+    docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
+    fail "Docker release server process must run as UID 10001; actual UID=${runtime_uid:-unknown}: $IMAGE"
+  fi
+
   for required_path in "$smoke_dir/data/ledger.db" "$smoke_dir/data/uploads" "$smoke_dir/data/backups"; do
     if [[ ! -e "$required_path" ]]; then
       fail "Expected persistent path missing: $required_path"
@@ -171,6 +177,7 @@ EOF
 
   echo "Docker release smoke checks passed for $IMAGE on 127.0.0.1:$smoke_port."
   echo "Image healthcheck: healthy"
+  echo "Runtime UID: 10001"
   echo "Persistent paths: ledger.db, uploads, backups"
 fi
 
