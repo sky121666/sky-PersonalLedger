@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -21,7 +22,7 @@ func TestReminderPatchPreservesOmittedFieldsAndClearsExplicitNull(t *testing.T) 
 		NewAccountLogService(repos.AccountLog, repos.Account),
 	)
 	accountID := createTypedAccountForTest(t, repos, userID, "loan", 500)
-	principal, balance := 500.0, 500.0
+	principal, balance := money.Amount(500), money.Amount(500)
 	billingDay := 5
 	reminder, err := svc.Create(userID, CreateReminderRequest{
 		Name: "Loan", AccountID: &accountID, LoanType: "loan", PaymentDay: 20,
@@ -58,8 +59,8 @@ func TestReminderPaymentUsesPrincipalForDebtBalanceAndRollback(t *testing.T) {
 	)
 	debtAccountID := createAccountForTest(t, repos, userID, 500)
 	paymentAccountID := createAccountForTest(t, repos, userID, 1000)
-	principal := 500.0
-	currentBalance := 500.0
+	principal := money.Amount(500)
+	currentBalance := money.Amount(500)
 
 	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
 		Name:           "车贷",
@@ -142,7 +143,7 @@ func TestReminderPaymentFromDebtAccountUsesDebtDirectionAndLogsBothAccounts(t *t
 	)
 	targetDebtID := createTypedAccountForTest(t, repos, userID, "loan", 500)
 	sourceDebtID := createTypedAccountForTest(t, repos, userID, "credit", 100)
-	currentBalance := 500.0
+	currentBalance := money.Amount(500)
 	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
 		Name:           "Debt transfer",
 		AccountID:      &targetDebtID,
@@ -245,8 +246,8 @@ func TestDeleteReminderPreservesPaymentTransactionLink(t *testing.T) {
 	)
 	debtAccountID := createAccountForTest(t, repos, userID, 500)
 	paymentAccountID := createAccountForTest(t, repos, userID, 1000)
-	principal := 500.0
-	currentBalance := 500.0
+	principal := money.Amount(500)
+	currentBalance := money.Amount(500)
 
 	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
 		Name:           "房贷",
@@ -306,8 +307,8 @@ func TestReminderPaymentRejectsMissingPaymentAccountWithoutMutatingDebt(t *testi
 	)
 	debtAccountID := createAccountForTest(t, repos, userID, 500)
 	missingPaymentAccountID := "missing-payment-account"
-	principal := 500.0
-	currentBalance := 500.0
+	principal := money.Amount(500)
+	currentBalance := money.Amount(500)
 
 	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
 		Name:           "车贷",
@@ -375,8 +376,8 @@ func TestReminderPaymentRejectsOtherUserPaymentAccountWithoutMutatingDebt(t *tes
 	)
 	debtAccountID := createAccountForTest(t, repos, userID, 500)
 	otherPaymentAccountID := createAccountForTest(t, repos, otherUser.ID, 1000)
-	principal := 500.0
-	currentBalance := 500.0
+	principal := money.Amount(500)
+	currentBalance := money.Amount(500)
 
 	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
 		Name:           "车贷",
@@ -446,8 +447,8 @@ func TestReminderPaymentConcurrentRequestsRejectOverpaymentWithoutNegativeBalanc
 	)
 	debtAccountID := createAccountForTest(t, repos, userID, 100)
 	paymentAccountID := createAccountForTest(t, repos, userID, 100)
-	principal := 100.0
-	currentBalance := 100.0
+	principal := money.Amount(100)
+	currentBalance := money.Amount(100)
 
 	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
 		Name:           "并发提醒还款",
@@ -542,8 +543,8 @@ func TestReminderPaymentRejectsUsingDebtAccountAsPaymentSource(t *testing.T) {
 		NewAccountLogService(repos.AccountLog, repos.Account),
 	)
 	debtAccountID := createAccountForTest(t, repos, userID, 100)
-	principal := 100.0
-	currentBalance := 100.0
+	principal := money.Amount(100)
+	currentBalance := money.Amount(100)
 	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
 		Name:           "同账户还款",
 		AccountID:      &debtAccountID,
@@ -593,9 +594,9 @@ func findReminderTransactionID(t *testing.T, repos *repository.Repositories, use
 	return ""
 }
 
-func assertFloatEqual(t *testing.T, label string, got float64, want float64) {
+func assertFloatEqual[G ~float64, W ~float64 | ~int | ~int64](t *testing.T, label string, got G, want W) {
 	t.Helper()
-	if math.Abs(got-want) > 0.001 {
-		t.Fatalf("%s = %.2f, want %.2f", label, got, want)
+	if math.Abs(float64(got)-float64(want)) > 0.001 {
+		t.Fatalf("%s = %.2f, want %.2f", label, float64(got), float64(want))
 	}
 }

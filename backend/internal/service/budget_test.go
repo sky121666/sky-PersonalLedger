@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -258,7 +259,7 @@ func createBudgetTransaction(t *testing.T, svc *TransactionService, userID uint,
 	t.Helper()
 	if _, err := svc.Create(userID, CreateTransactionRequest{
 		Type:            "expense",
-		Amount:          amount,
+		Amount:          money.Amount(amount),
 		AccountID:       accountID,
 		CategoryID:      &categoryID,
 		MemberID:        &memberID,

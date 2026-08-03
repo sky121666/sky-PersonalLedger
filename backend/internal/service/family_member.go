@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -141,24 +142,24 @@ type FamilySummaryResponse struct {
 	Month        string                `json:"month"`
 	Period       string                `json:"period"`
 	Label        string                `json:"label"`
-	TotalExpense float64               `json:"total_expense"`
+	TotalExpense money.Amount          `json:"total_expense"`
 	Members      []FamilyMemberSummary `json:"members"`
 }
 
 type FamilyMemberSummary struct {
-	MemberID     string  `json:"member_id"`
-	Name         string  `json:"name"`
-	Relationship string  `json:"relationship"`
-	Color        string  `json:"color"`
-	ExpenseTotal float64 `json:"expense_total"`
-	Count        int     `json:"count"`
+	MemberID     string       `json:"member_id"`
+	Name         string       `json:"name"`
+	Relationship string       `json:"relationship"`
+	Color        string       `json:"color"`
+	ExpenseTotal money.Amount `json:"expense_total"`
+	Count        int          `json:"count"`
 }
 
 type FamilyStatisticsResponse struct {
 	Month        string                   `json:"month"`
 	Period       string                   `json:"period"`
 	Label        string                   `json:"label"`
-	TotalExpense float64                  `json:"total_expense"`
+	TotalExpense money.Amount             `json:"total_expense"`
 	Members      []FamilyStatisticsMember `json:"members"`
 }
 
@@ -167,17 +168,17 @@ type FamilyStatisticsMember struct {
 	Name         string                     `json:"name"`
 	Relationship string                     `json:"relationship"`
 	Color        string                     `json:"color"`
-	ExpenseTotal float64                    `json:"expense_total"`
+	ExpenseTotal money.Amount               `json:"expense_total"`
 	Count        int                        `json:"count"`
 	Categories   []FamilyStatisticsCategory `json:"categories"`
 }
 
 type FamilyStatisticsCategory struct {
-	CategoryID string  `json:"category_id"`
-	Name       string  `json:"name"`
-	Color      string  `json:"color"`
-	Amount     float64 `json:"amount"`
-	Count      int     `json:"count"`
+	CategoryID string       `json:"category_id"`
+	Name       string       `json:"name"`
+	Color      string       `json:"color"`
+	Amount     money.Amount `json:"amount"`
+	Count      int          `json:"count"`
 }
 
 func (s *FamilyMemberService) Summary(userID uint, month string) (*FamilySummaryResponse, error) {
@@ -214,7 +215,7 @@ func (s *FamilyMemberService) SummaryByPeriod(userID uint, month, period string)
 		return nil, err
 	}
 	for _, sum := range sums {
-		response.TotalExpense += sum.Total
+		response.TotalExpense = response.TotalExpense.Add(sum.Total)
 		if sum.MemberID == "" {
 			continue
 		}
@@ -277,7 +278,7 @@ func (s *FamilyMemberService) StatisticsByPeriod(userID uint, month, period stri
 	}
 	memberIndex := make(map[string]int, len(sums))
 	for _, sum := range sums {
-		response.TotalExpense += sum.Total
+		response.TotalExpense = response.TotalExpense.Add(sum.Total)
 		if sum.MemberID == "" {
 			continue
 		}

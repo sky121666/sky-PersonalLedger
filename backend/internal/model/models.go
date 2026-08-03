@@ -3,6 +3,7 @@ package model
 import (
 	"time"
 
+	"github.com/sky/personal-ledger/internal/money"
 	"gorm.io/gorm"
 )
 
@@ -29,13 +30,13 @@ type Account struct {
 	Type           string         `gorm:"size:20;not null" json:"type"`
 	Icon           string         `gorm:"size:100" json:"icon"`
 	Color          string         `gorm:"size:20" json:"color"`
-	InitialBalance float64        `gorm:"type:decimal(15,2);default:0" json:"initial_balance"`
-	CurrentBalance float64        `gorm:"type:decimal(15,2);default:0" json:"current_balance"`
+	InitialBalance money.Amount   `gorm:"column:initial_balance_cents;not null;default:0" json:"initial_balance"`
+	CurrentBalance money.Amount   `gorm:"column:current_balance_cents;not null;default:0" json:"current_balance"`
 	PaymentDay     *int           `json:"payment_day"`
 	BillingDay     *int           `json:"billing_day"`
-	CreditLimit    *float64       `gorm:"type:decimal(15,2)" json:"credit_limit"`
+	CreditLimit    *money.Amount  `gorm:"column:credit_limit_cents" json:"credit_limit"`
 	InterestRate   *float64       `gorm:"type:decimal(5,2)" json:"interest_rate"`
-	TotalPaid      float64        `gorm:"type:decimal(15,2);default:0" json:"total_paid"`
+	TotalPaid      money.Amount   `gorm:"column:total_paid_cents;not null;default:0" json:"total_paid"`
 	StartDate      *time.Time     `json:"start_date"`
 	TargetDate     *time.Time     `json:"target_date"`
 	PaidOffAt      *time.Time     `json:"paid_off_at"`
@@ -62,25 +63,25 @@ type Category struct {
 }
 
 type Transaction struct {
-	ID                string    `gorm:"primaryKey;size:36" json:"id"`
-	UserID            uint      `gorm:"not null;index;uniqueIndex:idx_transactions_user_import_fingerprint,priority:1" json:"user_id"`
-	AccountID         string    `gorm:"size:36;not null;index" json:"account_id"`
-	CategoryID        *string   `gorm:"size:36;index" json:"category_id"`
-	Type              string    `gorm:"size:20;not null" json:"type"` // income / expense / transfer
-	Amount            float64   `gorm:"type:decimal(15,2);not null" json:"amount"`
-	PrincipalAmount   float64   `gorm:"type:decimal(15,2);default:0" json:"principal_amount,omitempty"`
-	InterestAmount    float64   `gorm:"type:decimal(15,2);default:0" json:"interest_amount,omitempty"`
-	TransactionDate   time.Time `gorm:"not null;index" json:"transaction_date"`
-	Remark            string    `gorm:"type:text" json:"remark"`
-	Images            string    `gorm:"type:text" json:"images"` // JSON array
-	Tags              string    `gorm:"type:text" json:"tags"`   // JSON array of tag names
-	ToAccountID       *string   `gorm:"size:36" json:"to_account_id"`
-	MemberID          *string   `gorm:"size:36;index" json:"member_id,omitempty"`
-	PaidByMemberID    *string   `gorm:"size:36;index" json:"paid_by_member_id,omitempty"`
-	Source            string    `gorm:"size:50;default:manual" json:"source"`
-	ImportFingerprint *string   `gorm:"size:64;uniqueIndex:idx_transactions_user_import_fingerprint,priority:2" json:"-"`
-	ReminderID        *string   `gorm:"size:36;index" json:"reminder_id,omitempty"`
-	LendingID         *string   `gorm:"size:36;index" json:"lending_id,omitempty"`
+	ID                string       `gorm:"primaryKey;size:36" json:"id"`
+	UserID            uint         `gorm:"not null;index;uniqueIndex:idx_transactions_user_import_fingerprint,priority:1" json:"user_id"`
+	AccountID         string       `gorm:"size:36;not null;index" json:"account_id"`
+	CategoryID        *string      `gorm:"size:36;index" json:"category_id"`
+	Type              string       `gorm:"size:20;not null" json:"type"` // income / expense / transfer
+	Amount            money.Amount `gorm:"column:amount_cents;not null" json:"amount"`
+	PrincipalAmount   money.Amount `gorm:"column:principal_amount_cents;not null;default:0" json:"principal_amount,omitempty"`
+	InterestAmount    money.Amount `gorm:"column:interest_amount_cents;not null;default:0" json:"interest_amount,omitempty"`
+	TransactionDate   time.Time    `gorm:"not null;index" json:"transaction_date"`
+	Remark            string       `gorm:"type:text" json:"remark"`
+	Images            string       `gorm:"type:text" json:"images"` // JSON array
+	Tags              string       `gorm:"type:text" json:"tags"`   // JSON array of tag names
+	ToAccountID       *string      `gorm:"size:36" json:"to_account_id"`
+	MemberID          *string      `gorm:"size:36;index" json:"member_id,omitempty"`
+	PaidByMemberID    *string      `gorm:"size:36;index" json:"paid_by_member_id,omitempty"`
+	Source            string       `gorm:"size:50;default:manual" json:"source"`
+	ImportFingerprint *string      `gorm:"size:64;uniqueIndex:idx_transactions_user_import_fingerprint,priority:2" json:"-"`
+	ReminderID        *string      `gorm:"size:36;index" json:"reminder_id,omitempty"`
+	LendingID         *string      `gorm:"size:36;index" json:"lending_id,omitempty"`
 	// RecurringID is reserved for a future full recurring transaction workflow.
 	RecurringID *string        `gorm:"size:36;index" json:"recurring_id,omitempty"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -97,7 +98,7 @@ type Budget struct {
 	UserID         uint           `gorm:"not null;index" json:"user_id"`
 	CategoryID     *string        `gorm:"size:36;index" json:"category_id"` // nil = total budget
 	MemberID       *string        `gorm:"size:36;index" json:"member_id,omitempty"`
-	Amount         float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
+	Amount         money.Amount   `gorm:"column:amount_cents;not null" json:"amount"`
 	Period         string         `gorm:"size:20;default:monthly" json:"period"`
 	AlertThreshold int            `gorm:"default:80" json:"alert_threshold"`
 	IsActive       bool           `gorm:"default:true" json:"is_active"`
@@ -118,13 +119,13 @@ type Reminder struct {
 	PaymentDay     int            `gorm:"not null" json:"payment_day"`
 	BillingDay     *int           `json:"billing_day"`
 	AdvanceDays    int            `gorm:"default:3" json:"advance_days"`
-	Amount         *float64       `gorm:"type:decimal(15,2)" json:"amount"`
-	Principal      *float64       `gorm:"type:decimal(15,2)" json:"principal"`
-	CurrentBalance *float64       `gorm:"type:decimal(15,2)" json:"current_balance"`
+	Amount         *money.Amount  `gorm:"column:amount_cents" json:"amount"`
+	Principal      *money.Amount  `gorm:"column:principal_cents" json:"principal"`
+	CurrentBalance *money.Amount  `gorm:"column:current_balance_cents" json:"current_balance"`
 	InterestRate   *float64       `gorm:"type:decimal(5,2)" json:"interest_rate"`
-	TotalInterest  *float64       `gorm:"type:decimal(15,2)" json:"total_interest"`
-	TotalPaid      float64        `gorm:"type:decimal(15,2);default:0" json:"total_paid"`
-	InterestPaid   float64        `gorm:"type:decimal(15,2);default:0" json:"interest_paid"`
+	TotalInterest  *money.Amount  `gorm:"column:total_interest_cents" json:"total_interest"`
+	TotalPaid      money.Amount   `gorm:"column:total_paid_cents;not null;default:0" json:"total_paid"`
+	InterestPaid   money.Amount   `gorm:"column:interest_paid_cents;not null;default:0" json:"interest_paid"`
 	StartDate      *time.Time     `json:"start_date"`
 	TargetDate     *time.Time     `json:"target_date"`
 	PaidOffAt      *time.Time     `json:"paid_off_at"`
@@ -153,7 +154,7 @@ type QuickTemplate struct {
 	UserID     uint           `gorm:"not null;index" json:"user_id"`
 	Name       string         `gorm:"size:100;not null" json:"name"`
 	Type       string         `gorm:"size:20;not null" json:"type"`
-	Amount     float64        `gorm:"type:decimal(15,2)" json:"amount"`
+	Amount     money.Amount   `gorm:"column:amount_cents;not null;default:0" json:"amount"`
 	AccountID  string         `gorm:"size:36" json:"account_id"`
 	CategoryID *string        `gorm:"size:36" json:"category_id"`
 	Remark     string         `gorm:"type:text" json:"remark"`
@@ -220,10 +221,10 @@ type Lending struct {
 	ContactName    string         `gorm:"size:100;not null" json:"contact_name"`
 	ContactPhone   string         `gorm:"size:50" json:"contact_phone"`
 	ContactRemark  string         `gorm:"type:text" json:"contact_remark"`
-	Principal      float64        `gorm:"type:decimal(15,2);not null" json:"principal"`
+	Principal      money.Amount   `gorm:"column:principal_cents;not null" json:"principal"`
 	InterestRate   *float64       `gorm:"type:decimal(5,2)" json:"interest_rate"`
-	CurrentBalance float64        `gorm:"type:decimal(15,2);not null" json:"current_balance"`
-	TotalRepaid    float64        `gorm:"type:decimal(15,2);default:0" json:"total_repaid"`
+	CurrentBalance money.Amount   `gorm:"column:current_balance_cents;not null" json:"current_balance"`
+	TotalRepaid    money.Amount   `gorm:"column:total_repaid_cents;not null;default:0" json:"total_repaid"`
 	LendDate       time.Time      `gorm:"not null;index" json:"lend_date"`
 	DueDate        *time.Time     `json:"due_date"`
 	SettledAt      *time.Time     `json:"settled_at"`
@@ -243,7 +244,7 @@ type LendingRecord struct {
 	LendingID     string         `gorm:"size:36;not null;index" json:"lending_id"`
 	UserID        uint           `gorm:"not null;index" json:"user_id"`
 	Type          string         `gorm:"size:20;not null" json:"type"`
-	Amount        float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
+	Amount        money.Amount   `gorm:"column:amount_cents;not null" json:"amount"`
 	RecordDate    time.Time      `gorm:"not null;index" json:"record_date"`
 	AccountID     *string        `gorm:"size:36" json:"account_id"`
 	TransactionID *string        `gorm:"size:36" json:"transaction_id"`
@@ -273,18 +274,18 @@ type NotificationLog struct {
 
 // AccountLog stores account balance change history
 type AccountLog struct {
-	ID            string    `gorm:"primaryKey;size:36" json:"id"`
-	UserID        uint      `gorm:"not null;index" json:"user_id"`
-	AccountID     string    `gorm:"size:36;not null;index" json:"account_id"`
-	Type          string    `gorm:"size:30;not null;index" json:"type"` // income, expense, transfer_in, transfer_out, rollback, adjustment
-	Amount        float64   `gorm:"type:decimal(15,2);not null" json:"amount"`
-	BalanceBefore float64   `gorm:"type:decimal(15,2);not null" json:"balance_before"`
-	BalanceAfter  float64   `gorm:"type:decimal(15,2);not null" json:"balance_after"`
-	TransactionID *string   `gorm:"size:36;index" json:"transaction_id,omitempty"`
-	ReminderID    *string   `gorm:"size:36;index" json:"reminder_id,omitempty"`
-	LendingID     *string   `gorm:"size:36;index" json:"lending_id,omitempty"`
-	Remark        string    `gorm:"size:500" json:"remark"`
-	CreatedAt     time.Time `gorm:"index" json:"created_at"`
+	ID            string       `gorm:"primaryKey;size:36" json:"id"`
+	UserID        uint         `gorm:"not null;index" json:"user_id"`
+	AccountID     string       `gorm:"size:36;not null;index" json:"account_id"`
+	Type          string       `gorm:"size:30;not null;index" json:"type"` // income, expense, transfer_in, transfer_out, rollback, adjustment
+	Amount        money.Amount `gorm:"column:amount_cents;not null" json:"amount"`
+	BalanceBefore money.Amount `gorm:"column:balance_before_cents;not null" json:"balance_before"`
+	BalanceAfter  money.Amount `gorm:"column:balance_after_cents;not null" json:"balance_after"`
+	TransactionID *string      `gorm:"size:36;index" json:"transaction_id,omitempty"`
+	ReminderID    *string      `gorm:"size:36;index" json:"reminder_id,omitempty"`
+	LendingID     *string      `gorm:"size:36;index" json:"lending_id,omitempty"`
+	Remark        string       `gorm:"size:500" json:"remark"`
+	CreatedAt     time.Time    `gorm:"index" json:"created_at"`
 
 	Account *Account `gorm:"foreignKey:AccountID" json:"account,omitempty"`
 }
@@ -309,7 +310,7 @@ type RecurringTransaction struct {
 	UserID         uint           `gorm:"not null;index" json:"user_id"`
 	Name           string         `gorm:"size:100;not null" json:"name"`
 	Type           string         `gorm:"size:20;not null" json:"type"` // income / expense
-	Amount         float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
+	Amount         money.Amount   `gorm:"column:amount_cents;not null" json:"amount"`
 	AccountID      string         `gorm:"size:36;not null" json:"account_id"`
 	CategoryID     *string        `gorm:"size:36" json:"category_id"`
 	Tags           string         `gorm:"type:text" json:"tags"` // JSON array

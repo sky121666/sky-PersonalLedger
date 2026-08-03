@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -16,7 +17,7 @@ func TestNotificationSchedulerSendsDueItemsOnceAndRetriesFailures(t *testing.T) 
 	scheduler, repos, userID := newNotificationSchedulerTestSubject(t)
 	now := time.Date(2026, time.July, 10, 9, 0, 0, 0, time.Local)
 	scheduler.now = func() time.Time { return now }
-	amount := 300.0
+	amount := money.Amount(300)
 	if err := repos.Reminder.Create(&model.Reminder{
 		ID:          uuid.NewString(),
 		UserID:      userID,
@@ -132,7 +133,7 @@ func TestNotificationSchedulerRetriesOnlyFailedChannel(t *testing.T) {
 	if err := repos.Notification.Update(setting); err != nil {
 		t.Fatalf("enable second channel: %v", err)
 	}
-	amount := 100.0
+	amount := money.Amount(100)
 	if err := repos.Reminder.Create(&model.Reminder{
 		ID:          uuid.NewString(),
 		UserID:      userID,

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
@@ -40,7 +41,7 @@ func createTypedAccountForTest(t *testing.T, repos *repository.Repositories, use
 		UserID:         userID,
 		Name:           "Wallet " + accountType,
 		Type:           accountType,
-		CurrentBalance: balance,
+		CurrentBalance: money.Amount(balance),
 	}); err != nil {
 		t.Fatalf("create account: %v", err)
 	}
@@ -189,7 +190,7 @@ func TestAccountChangeAggregationUsesStoredDebtBalanceDirection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sum account balance changes: %v", err)
 	}
-	byAccount := make(map[string]float64, len(changes))
+	byAccount := make(map[string]money.Amount, len(changes))
 	for _, change := range changes {
 		byAccount[change.AccountID] = change.BalanceDelta
 	}
@@ -939,13 +940,13 @@ func TestUpdateRecordsRollbackAndReplacementAccountLogs(t *testing.T) {
 	if len(logs) != 3 {
 		t.Fatalf("update account logs = %d, want original, rollback and replacement: %#v", len(logs), logs)
 	}
-	wantFlows := map[[2]float64]bool{
+	wantFlows := map[[2]money.Amount]bool{
 		{100, 90}: false,
 		{90, 100}: false,
 		{100, 80}: false,
 	}
 	for _, log := range logs {
-		key := [2]float64{log.BalanceBefore, log.BalanceAfter}
+		key := [2]money.Amount{log.BalanceBefore, log.BalanceAfter}
 		if _, expected := wantFlows[key]; expected {
 			wantFlows[key] = true
 		}

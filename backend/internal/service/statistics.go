@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -30,13 +31,13 @@ func NewStatisticsService(
 }
 
 type OverviewResponse struct {
-	Income           float64 `json:"income"`
-	Expense          float64 `json:"expense"`
-	Balance          float64 `json:"balance"`
-	IncomeChange     float64 `json:"income_change"`
-	ExpenseChange    float64 `json:"expense_change"`
-	DailyAverage     float64 `json:"daily_average"`
-	TransactionCount int     `json:"transaction_count"`
+	Income           money.Amount `json:"income"`
+	Expense          money.Amount `json:"expense"`
+	Balance          money.Amount `json:"balance"`
+	IncomeChange     float64      `json:"income_change"`
+	ExpenseChange    float64      `json:"expense_change"`
+	DailyAverage     money.Amount `json:"daily_average"`
+	TransactionCount int          `json:"transaction_count"`
 }
 
 func (s *StatisticsService) GetOverview(userID uint, month string) (*OverviewResponse, error) {
@@ -65,50 +66,50 @@ func (s *StatisticsService) GetOverviewByPeriod(userID uint, month, period strin
 	response := &OverviewResponse{
 		Income:           currentSum.Income,
 		Expense:          currentSum.Expense,
-		Balance:          currentSum.Income - currentSum.Expense,
+		Balance:          currentSum.Income.Sub(currentSum.Expense),
 		TransactionCount: currentSum.Count,
 	}
 
 	daysInPeriod := statRange.ElapsedDays()
 	if daysInPeriod > 0 {
-		response.DailyAverage = currentSum.Expense / float64(daysInPeriod)
+		response.DailyAverage = currentSum.Expense.Divide(int64(daysInPeriod))
 	}
 	if prevSum != nil && prevSum.Income > 0 {
-		response.IncomeChange = (currentSum.Income - prevSum.Income) / prevSum.Income * 100
+		response.IncomeChange = moneyChangePercentage(currentSum.Income, prevSum.Income)
 	}
 	if prevSum != nil && prevSum.Expense > 0 {
-		response.ExpenseChange = (currentSum.Expense - prevSum.Expense) / prevSum.Expense * 100
+		response.ExpenseChange = moneyChangePercentage(currentSum.Expense, prevSum.Expense)
 	}
 
 	return response, nil
 }
 
 type CategoryStatItem struct {
-	CategoryID   string  `json:"category_id"`
-	CategoryName string  `json:"category_name"`
-	Icon         string  `json:"icon"`
-	Color        string  `json:"color"`
-	Amount       float64 `json:"amount"`
-	Percentage   float64 `json:"percentage"`
-	Count        int     `json:"count"`
+	CategoryID   string       `json:"category_id"`
+	CategoryName string       `json:"category_name"`
+	Icon         string       `json:"icon"`
+	Color        string       `json:"color"`
+	Amount       money.Amount `json:"amount"`
+	Percentage   float64      `json:"percentage"`
+	Count        int          `json:"count"`
 }
 
 type CategoryStatResponse struct {
-	Total float64            `json:"total"`
+	Total money.Amount       `json:"total"`
 	Items []CategoryStatItem `json:"items"`
 }
 
 type TrendItem struct {
-	Date    string  `json:"date"`
-	Income  float64 `json:"income"`
-	Expense float64 `json:"expense"`
-	Balance float64 `json:"balance"`
+	Date    string       `json:"date"`
+	Income  money.Amount `json:"income"`
+	Expense money.Amount `json:"expense"`
+	Balance money.Amount `json:"balance"`
 }
 
 type TrendResponse struct {
-	Items        []TrendItem `json:"items"`
-	TotalIncome  float64     `json:"total_income"`
-	TotalExpense float64     `json:"total_expense"`
+	Items        []TrendItem  `json:"items"`
+	TotalIncome  money.Amount `json:"total_income"`
+	TotalExpense money.Amount `json:"total_expense"`
 }
 
 func (s *StatisticsService) GetTrend(userID uint, month string) (*TrendResponse, error) {
@@ -142,10 +143,10 @@ func (s *StatisticsService) GetTrendByPeriod(userID uint, month, period string) 
 			Date:    ds.Date,
 			Income:  ds.Income,
 			Expense: ds.Expense,
-			Balance: ds.Income - ds.Expense,
+			Balance: ds.Income.Sub(ds.Expense),
 		})
-		response.TotalIncome += ds.Income
-		response.TotalExpense += ds.Expense
+		response.TotalIncome = response.TotalIncome.Add(ds.Income)
+		response.TotalExpense = response.TotalExpense.Add(ds.Expense)
 	}
 
 	return response, nil
@@ -187,9 +188,9 @@ func (s *StatisticsService) GetCategoryStatsByPeriod(userID uint, month, period,
 		}{c.Name, c.Icon, c.Color}
 	}
 
-	var total float64
+	var total money.Amount
 	for _, cs := range sums {
-		total += cs.Total
+		total = total.Add(cs.Total)
 	}
 
 	response := &CategoryStatResponse{
@@ -204,7 +205,7 @@ func (s *StatisticsService) GetCategoryStatsByPeriod(userID uint, month, period,
 			Count:      cs.Count,
 		}
 		if total > 0 {
-			item.Percentage = cs.Total / total * 100
+			item.Percentage = moneyRatioPercentage(cs.Total, total)
 		}
 		if cat, ok := categoryMap[cs.CategoryID]; ok {
 			item.CategoryName = cat.Name
@@ -218,19 +219,19 @@ func (s *StatisticsService) GetCategoryStatsByPeriod(userID uint, month, period,
 }
 
 type AssetTrendItem struct {
-	Month        string  `json:"month"`
-	TotalAssets  float64 `json:"total_assets"`
-	TotalDebts   float64 `json:"total_debts"`
-	NetWorth     float64 `json:"net_worth"`
-	MonthIncome  float64 `json:"month_income"`
-	MonthExpense float64 `json:"month_expense"`
+	Month        string       `json:"month"`
+	TotalAssets  money.Amount `json:"total_assets"`
+	TotalDebts   money.Amount `json:"total_debts"`
+	NetWorth     money.Amount `json:"net_worth"`
+	MonthIncome  money.Amount `json:"month_income"`
+	MonthExpense money.Amount `json:"month_expense"`
 }
 
 type AssetTrendResponse struct {
 	Items           []AssetTrendItem `json:"items"`
-	CurrentAssets   float64          `json:"current_assets"`
-	CurrentDebts    float64          `json:"current_debts"`
-	CurrentNetWorth float64          `json:"current_net_worth"`
+	CurrentAssets   money.Amount     `json:"current_assets"`
+	CurrentDebts    money.Amount     `json:"current_debts"`
+	CurrentNetWorth money.Amount     `json:"current_net_worth"`
 }
 
 func (s *StatisticsService) GetAssetTrend(userID uint, months int) (*AssetTrendResponse, error) {
@@ -246,21 +247,21 @@ func (s *StatisticsService) GetAssetTrend(userID uint, months int) (*AssetTrendR
 		return nil, err
 	}
 
-	var currentAssets, currentDebts float64
+	var currentAssets, currentDebts money.Amount
 	for _, acc := range accounts {
 		if acc.DeletedAt.Valid {
 			continue
 		}
 		accountAssets, accountDebts := classifyAccountBalance(acc.Type, acc.CurrentBalance)
-		currentAssets += accountAssets
-		currentDebts += accountDebts
+		currentAssets = currentAssets.Add(accountAssets)
+		currentDebts = currentDebts.Add(accountDebts)
 	}
 
 	response := &AssetTrendResponse{
 		Items:           make([]AssetTrendItem, 0),
 		CurrentAssets:   currentAssets,
 		CurrentDebts:    currentDebts,
-		CurrentNetWorth: currentAssets - currentDebts,
+		CurrentNetWorth: currentAssets.Sub(currentDebts),
 	}
 
 	now := time.Now()
@@ -294,7 +295,7 @@ func (s *StatisticsService) GetAssetTrend(userID uint, months int) (*AssetTrendR
 			Month:        monthKey,
 			TotalAssets:  assets,
 			TotalDebts:   debts,
-			NetWorth:     assets - debts,
+			NetWorth:     assets.Sub(debts),
 			MonthIncome:  monthSum.Income,
 			MonthExpense: monthSum.Expense,
 		}
@@ -308,12 +309,12 @@ func balancesFromAccountSnapshots(
 	accounts []model.Account,
 	snapshots []repository.AccountBalanceSnapshot,
 	at time.Time,
-) (float64, float64) {
-	balances := make(map[string]float64, len(snapshots))
+) (money.Amount, money.Amount) {
+	balances := make(map[string]money.Amount, len(snapshots))
 	for _, snapshot := range snapshots {
 		balances[snapshot.AccountID] = snapshot.Balance
 	}
-	var assets, debts float64
+	var assets, debts money.Amount
 	for _, account := range accounts {
 		if !account.CreatedAt.IsZero() && account.CreatedAt.After(at) {
 			continue
@@ -326,10 +327,21 @@ func balancesFromAccountSnapshots(
 			balance = account.InitialBalance
 		}
 		accountAssets, accountDebts := classifyAccountBalance(account.Type, balance)
-		assets += accountAssets
-		debts += accountDebts
+		assets = assets.Add(accountAssets)
+		debts = debts.Add(accountDebts)
 	}
 	return assets, debts
+}
+
+func moneyRatioPercentage(value, total money.Amount) float64 {
+	if total.Cents() == 0 {
+		return 0
+	}
+	return float64(value.Cents()) / float64(total.Cents()) * 100
+}
+
+func moneyChangePercentage(current, previous money.Amount) float64 {
+	return moneyRatioPercentage(current.Sub(previous), previous)
 }
 
 type statisticsRange struct {

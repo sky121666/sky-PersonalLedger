@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -91,7 +92,7 @@ func (s *ExportService) ExportTransactionsCSV(userID uint, filter ExportFilter) 
 			tx.TransactionDate.Format("2006-01-02 15:04"),
 			typeStr,
 			categoryName,
-			fmt.Sprintf("%.2f", tx.Amount),
+			fmt.Sprintf("%.2f", tx.Amount.Float64()),
 			accountName,
 			tx.Remark,
 		}
@@ -158,39 +159,39 @@ func exportDateRange(startValue, endValue string) (*time.Time, *time.Time, error
 // YearlyReport represents annual statistics
 type YearlyReport struct {
 	Year             int            `json:"year"`
-	TotalIncome      float64        `json:"total_income"`
-	TotalExpense     float64        `json:"total_expense"`
-	NetSavings       float64        `json:"net_savings"`
+	TotalIncome      money.Amount   `json:"total_income"`
+	TotalExpense     money.Amount   `json:"total_expense"`
+	NetSavings       money.Amount   `json:"net_savings"`
 	SavingsRate      float64        `json:"savings_rate"`
 	MonthlyData      []MonthlyData  `json:"monthly_data"`
 	TopExpenses      []CategoryStat `json:"top_expenses"`
 	TopIncomes       []CategoryStat `json:"top_incomes"`
 	TransactionCount int            `json:"transaction_count"`
-	AverageExpense   float64        `json:"average_expense"`
-	AverageIncome    float64        `json:"average_income"`
+	AverageExpense   money.Amount   `json:"average_expense"`
+	AverageIncome    money.Amount   `json:"average_income"`
 	MaxExpenseMonth  string         `json:"max_expense_month"`
 	MinExpenseMonth  string         `json:"min_expense_month"`
 	BestSavingsMonth string         `json:"best_savings_month"`
-	MaxSingleExpense float64        `json:"max_single_expense"`
+	MaxSingleExpense money.Amount   `json:"max_single_expense"`
 	MaxExpenseRemark string         `json:"max_expense_remark"`
 	ActiveDays       int            `json:"active_days"`
-	DailyAvgExpense  float64        `json:"daily_avg_expense"`
+	DailyAvgExpense  money.Amount   `json:"daily_avg_expense"`
 }
 
 type MonthlyData struct {
-	Month   string  `json:"month"`
-	Income  float64 `json:"income"`
-	Expense float64 `json:"expense"`
-	Balance float64 `json:"balance"`
+	Month   string       `json:"month"`
+	Income  money.Amount `json:"income"`
+	Expense money.Amount `json:"expense"`
+	Balance money.Amount `json:"balance"`
 }
 
 type CategoryStat struct {
-	CategoryID   string  `json:"category_id"`
-	CategoryName string  `json:"category_name"`
-	CategoryIcon string  `json:"category_icon"`
-	Amount       float64 `json:"amount"`
-	Percentage   float64 `json:"percentage"`
-	Count        int     `json:"count"`
+	CategoryID   string       `json:"category_id"`
+	CategoryName string       `json:"category_name"`
+	CategoryIcon string       `json:"category_icon"`
+	Amount       money.Amount `json:"amount"`
+	Percentage   float64      `json:"percentage"`
+	Count        int          `json:"count"`
 }
 
 // GetYearlyReport generates an annual report from bounded SQL aggregates.
@@ -246,15 +247,16 @@ func (s *ExportService) GetYearlyReport(userID uint, year int) (*YearlyReport, e
 		report.MonthlyData[index].Expense = monthly.Expense
 	}
 
-	maxExpense := float64(0)
-	minExpense := float64(0)
+	var maxExpense money.Amount
+	var minExpense money.Amount
 	maxMonth := 0
 	minMonth := 0
-	bestSavings := -999999999.0
+	var bestSavings money.Amount
+	bestSavingsSet := false
 	bestSavingsMonth := 0
 	for index := range report.MonthlyData {
 		monthly := &report.MonthlyData[index]
-		monthly.Balance = monthly.Income - monthly.Expense
+		monthly.Balance = monthly.Income.Sub(monthly.Expense)
 		if monthly.Expense > maxExpense {
 			maxExpense = monthly.Expense
 			maxMonth = index
@@ -263,18 +265,19 @@ func (s *ExportService) GetYearlyReport(userID uint, year int) (*YearlyReport, e
 			minExpense = monthly.Expense
 			minMonth = index
 		}
-		if monthly.Balance > bestSavings {
+		if !bestSavingsSet || monthly.Balance > bestSavings {
 			bestSavings = monthly.Balance
 			bestSavingsMonth = index
+			bestSavingsSet = true
 		}
 	}
 
-	report.NetSavings = report.TotalIncome - report.TotalExpense
+	report.NetSavings = report.TotalIncome.Sub(report.TotalExpense)
 	if report.TotalIncome > 0 {
-		report.SavingsRate = report.NetSavings / report.TotalIncome * 100
+		report.SavingsRate = float64(report.NetSavings.Cents()) / float64(report.TotalIncome.Cents()) * 100
 	}
-	report.AverageExpense = report.TotalExpense / 12
-	report.AverageIncome = report.TotalIncome / 12
+	report.AverageExpense = report.TotalExpense.Divide(12)
+	report.AverageIncome = report.TotalIncome.Divide(12)
 	report.MaxExpenseMonth = monthNames[maxMonth]
 	report.MinExpenseMonth = monthNames[minMonth]
 	report.BestSavingsMonth = monthNames[bestSavingsMonth]
@@ -286,14 +289,14 @@ func (s *ExportService) GetYearlyReport(userID uint, year int) (*YearlyReport, e
 		}
 	}
 	if report.ActiveDays > 0 {
-		report.DailyAvgExpense = report.TotalExpense / float64(report.ActiveDays)
+		report.DailyAvgExpense = report.TotalExpense.Divide(int64(report.ActiveDays))
 	}
 	report.TopExpenses = reportCategorySumsToStats(expenseCategories, report.TotalExpense, 10)
 	report.TopIncomes = reportCategorySumsToStats(incomeCategories, report.TotalIncome, 10)
 	return report, nil
 }
 
-func reportCategorySumsToStats(sums []repository.ReportCategorySum, total float64, limit int) []CategoryStat {
+func reportCategorySumsToStats(sums []repository.ReportCategorySum, total money.Amount, limit int) []CategoryStat {
 	if limit > 0 && len(sums) > limit {
 		sums = sums[:limit]
 	}
@@ -304,7 +307,7 @@ func reportCategorySumsToStats(sums []repository.ReportCategorySum, total float6
 			Amount: sum.Total, Count: sum.Count,
 		}
 		if total > 0 {
-			item.Percentage = sum.Total / total * 100
+			item.Percentage = float64(sum.Total.Cents()) / float64(total.Cents()) * 100
 		}
 		result = append(result, item)
 	}

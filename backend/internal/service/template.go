@@ -2,11 +2,11 @@ package service
 
 import (
 	"errors"
-	"math"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
@@ -33,19 +33,19 @@ func NewTemplateService(
 }
 
 type CreateTemplateRequest struct {
-	Name       string  `json:"name" binding:"required"`
-	Type       string  `json:"type" binding:"required,oneof=income expense"`
-	Amount     float64 `json:"amount"`
-	AccountID  string  `json:"account_id" binding:"required"`
-	CategoryID *string `json:"category_id"`
-	Remark     string  `json:"remark"`
+	Name       string       `json:"name" binding:"required"`
+	Type       string       `json:"type" binding:"required,oneof=income expense"`
+	Amount     money.Amount `json:"amount"`
+	AccountID  string       `json:"account_id" binding:"required"`
+	CategoryID *string      `json:"category_id"`
+	Remark     string       `json:"remark"`
 }
 
 func (s *TemplateService) Create(userID uint, req CreateTemplateRequest) (*model.QuickTemplate, error) {
 	if req.Type != "income" && req.Type != "expense" {
 		return nil, ErrInvalidTemplateType
 	}
-	if req.Amount < 0 || math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) {
+	if req.Amount < 0 || !req.Amount.IsValid() {
 		return nil, ErrInvalidTemplateAmount
 	}
 
@@ -103,8 +103,8 @@ func (s *TemplateService) Delete(id string, userID uint) error {
 }
 
 type ApplyTemplateRequest struct {
-	TransactionDate string   `json:"transaction_date"`
-	Amount          *float64 `json:"amount"`
+	TransactionDate string        `json:"transaction_date"`
+	Amount          *money.Amount `json:"amount"`
 }
 
 func (s *TemplateService) Apply(id string, userID uint, req ApplyTemplateRequest) (*model.Transaction, error) {

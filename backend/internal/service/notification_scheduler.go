@@ -185,7 +185,7 @@ func (s *NotificationScheduler) checkLendings(
 		title, content := lendingDueNotificationMessage(
 			lending.ContactName,
 			lending.Type,
-			lending.CurrentBalance,
+			lending.CurrentBalance.Float64(),
 			*lending.DueDate,
 			daysUntilDue,
 		)
@@ -219,7 +219,7 @@ func (s *NotificationScheduler) checkBudgets(
 		}
 		name := budgetNotificationName(item)
 		dedupeKey := fmt.Sprintf("budget:%s:%s", item.ID, now.Format("2006-01"))
-		title, content := budgetAlertNotificationMessage(name, item.Amount, item.Spent, item.Percentage)
+		title, content := budgetAlertNotificationMessage(name, item.Amount.Float64(), item.Spent.Float64(), item.Percentage)
 		s.deliver(result, userID, setting, "budget_alert", dedupeKey, title, content)
 	}
 }
@@ -279,10 +279,10 @@ func notificationSettingHasChannel(setting *model.NotificationSetting) bool {
 
 func reminderNotificationAmount(reminder *model.Reminder) float64 {
 	if reminder.CurrentBalance != nil && *reminder.CurrentBalance > 0 {
-		return *reminder.CurrentBalance
+		return reminder.CurrentBalance.Float64()
 	}
 	if reminder.Amount != nil && *reminder.Amount > 0 {
-		return *reminder.Amount
+		return reminder.Amount.Float64()
 	}
 	return 0
 }

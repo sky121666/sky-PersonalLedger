@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"gorm.io/gorm"
 )
 
@@ -20,9 +21,9 @@ type CreateAccountLogRequest struct {
 	UserID        uint
 	AccountID     string
 	Type          string // income, expense, transfer_in, transfer_out, rollback, adjustment
-	Amount        float64
-	BalanceBefore float64
-	BalanceAfter  float64
+	Amount        money.Amount
+	BalanceBefore money.Amount
+	BalanceAfter  money.Amount
 	TransactionID *string
 	ReminderID    *string
 	LendingID     *string
@@ -30,14 +31,14 @@ type CreateAccountLogRequest struct {
 }
 
 type AccountBalanceSnapshot struct {
-	AccountID string  `gorm:"column:account_id"`
-	Balance   float64 `gorm:"column:balance"`
+	AccountID string       `gorm:"column:account_id"`
+	Balance   money.Amount `gorm:"column:balance"`
 }
 
 func (r *AccountLogRepository) LatestBalancesAt(userID uint, at time.Time) ([]AccountBalanceSnapshot, error) {
 	var snapshots []AccountBalanceSnapshot
 	err := r.db.Raw(`
-		SELECT current_log.account_id, current_log.balance_after AS balance
+		SELECT current_log.account_id, current_log.balance_after_cents AS balance
 		FROM account_logs AS current_log
 		WHERE current_log.user_id = ?
 		  AND current_log.created_at <= ?

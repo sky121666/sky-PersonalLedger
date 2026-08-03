@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -45,8 +46,8 @@ func TestAssetTrendUsesHistoricalAccountLogSnapshotsAndCarriesEmptyMonths(t *tes
 	oldestMonthStart := currentMonthStart.AddDate(0, -2, 0)
 	currentMonthEnd := currentMonthStart.AddDate(0, 1, 0).Add(-500 * time.Millisecond)
 	if err := repos.Account.DB().Model(&model.Account{}).Where("id = ?", accountID).Updates(map[string]any{
-		"initial_balance": 1000,
-		"created_at":      oldestMonthStart.AddDate(0, -1, 0),
+		"initial_balance_cents": 100000,
+		"created_at":            oldestMonthStart.AddDate(0, -1, 0),
 	}).Error; err != nil {
 		t.Fatalf("set account history baseline: %v", err)
 	}
@@ -154,7 +155,7 @@ func createStatisticsTransaction(t *testing.T, svc *TransactionService, userID u
 	t.Helper()
 	if _, err := svc.Create(userID, CreateTransactionRequest{
 		Type:            txType,
-		Amount:          amount,
+		Amount:          money.Amount(amount),
 		AccountID:       accountID,
 		TransactionDate: date,
 	}); err != nil {

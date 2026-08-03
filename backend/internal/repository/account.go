@@ -11,17 +11,17 @@ var ErrAccountBalancePreventsDeletion = errors.New("account balance prevents del
 var ErrUnsafeAccountFieldUpdate = errors.New("unsafe account field update")
 
 var accountMetadataFields = map[string]struct{}{
-	"name":          {},
-	"icon":          {},
-	"color":         {},
-	"payment_day":   {},
-	"billing_day":   {},
-	"credit_limit":  {},
-	"interest_rate": {},
-	"start_date":    {},
-	"target_date":   {},
-	"remark":        {},
-	"is_archived":   {},
+	"name":               {},
+	"icon":               {},
+	"color":              {},
+	"payment_day":        {},
+	"billing_day":        {},
+	"credit_limit_cents": {},
+	"interest_rate":      {},
+	"start_date":         {},
+	"target_date":        {},
+	"remark":             {},
+	"is_archived":        {},
 }
 
 type AccountRepository struct {
@@ -89,7 +89,7 @@ func (r *AccountRepository) UpdateMetadataForUser(id string, userID uint, update
 
 func (r *AccountRepository) DeleteForUserIfBalanceAllows(id string, userID uint) error {
 	result := r.db.
-		Where("id = ? AND user_id = ? AND (is_archived = ? OR current_balance = ?)", id, userID, true, 0).
+		Where("id = ? AND user_id = ? AND (is_archived = ? OR current_balance_cents = ?)", id, userID, true, 0).
 		Delete(&model.Account{})
 	if result.Error != nil {
 		return result.Error
@@ -99,7 +99,7 @@ func (r *AccountRepository) DeleteForUserIfBalanceAllows(id string, userID uint)
 	}
 
 	var account model.Account
-	if err := r.db.Select("id", "current_balance", "is_archived").
+	if err := r.db.Select("id", "current_balance_cents", "is_archived").
 		First(&account, "id = ? AND user_id = ?", id, userID).Error; err != nil {
 		return err
 	}

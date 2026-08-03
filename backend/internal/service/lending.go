@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -58,18 +59,18 @@ func NewLendingService(
 }
 
 type CreateLendingRequest struct {
-	Type              string   `json:"type" binding:"required,oneof=lend_out borrow_in"`
-	ContactName       string   `json:"contact_name" binding:"required"`
-	ContactPhone      string   `json:"contact_phone"`
-	ContactRemark     string   `json:"contact_remark"`
-	Principal         float64  `json:"principal" binding:"required,gt=0"`
-	InterestRate      *float64 `json:"interest_rate"`
-	LendDate          string   `json:"lend_date" binding:"required"`
-	DueDate           *string  `json:"due_date"`
-	AccountID         *string  `json:"account_id"`
-	Remark            string   `json:"remark"`
-	Evidence          string   `json:"evidence"`
-	CreateTransaction bool     `json:"create_transaction"`
+	Type              string       `json:"type" binding:"required,oneof=lend_out borrow_in"`
+	ContactName       string       `json:"contact_name" binding:"required"`
+	ContactPhone      string       `json:"contact_phone"`
+	ContactRemark     string       `json:"contact_remark"`
+	Principal         money.Amount `json:"principal" binding:"required,gt=0"`
+	InterestRate      *float64     `json:"interest_rate"`
+	LendDate          string       `json:"lend_date" binding:"required"`
+	DueDate           *string      `json:"due_date"`
+	AccountID         *string      `json:"account_id"`
+	Remark            string       `json:"remark"`
+	Evidence          string       `json:"evidence"`
+	CreateTransaction bool         `json:"create_transaction"`
 }
 
 func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.Lending, error) {
@@ -121,10 +122,10 @@ func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.L
 
 		if req.CreateTransaction && account != nil {
 			var txType string
-			var cashFlowDelta float64
+			var cashFlowDelta money.Amount
 			if req.Type == "lend_out" {
 				txType = "expense"
-				cashFlowDelta = -req.Principal
+				cashFlowDelta = req.Principal.Negate()
 			} else {
 				txType = "income"
 				cashFlowDelta = req.Principal
@@ -317,12 +318,12 @@ func (s *LendingService) Delete(id string, userID uint) error {
 }
 
 type RecordRepaymentRequest struct {
-	Amount            float64 `json:"amount" binding:"required,gt=0"`
-	RecordDate        string  `json:"record_date" binding:"required"`
-	AccountID         *string `json:"account_id"`
-	Remark            string  `json:"remark"`
-	Evidence          string  `json:"evidence"`
-	CreateTransaction bool    `json:"create_transaction"`
+	Amount            money.Amount `json:"amount" binding:"required,gt=0"`
+	RecordDate        string       `json:"record_date" binding:"required"`
+	AccountID         *string      `json:"account_id"`
+	Remark            string       `json:"remark"`
+	Evidence          string       `json:"evidence"`
+	CreateTransaction bool         `json:"create_transaction"`
 }
 
 func (s *LendingService) RecordRepayment(lendingID string, userID uint, req RecordRepaymentRequest) (*model.Lending, error) {
@@ -354,8 +355,8 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 			return ErrLendingOverpayment
 		}
 
-		nextBalance := roundMoney(lending.CurrentBalance - repaymentAmount)
-		nextTotalRepaid := roundMoney(lending.TotalRepaid + repaymentAmount)
+		nextBalance := lending.CurrentBalance.Sub(repaymentAmount)
+		nextTotalRepaid := lending.TotalRepaid.Add(repaymentAmount)
 		isSettled := lending.IsSettled
 		settledAt := lending.SettledAt
 		if nextBalance <= 0.01 {
@@ -367,18 +368,18 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 
 		result := txdb.Model(&model.Lending{}).
 			Where(
-				"id = ? AND user_id = ? AND current_balance = ? AND total_repaid = ? AND is_settled = ?",
+				"id = ? AND user_id = ? AND current_balance_cents = ? AND total_repaid_cents = ? AND is_settled = ?",
 				lending.ID,
 				userID,
-				lending.CurrentBalance,
-				lending.TotalRepaid,
+				lending.CurrentBalance.Cents(),
+				lending.TotalRepaid.Cents(),
 				lending.IsSettled,
 			).
 			Updates(map[string]any{
-				"current_balance": nextBalance,
-				"total_repaid":    nextTotalRepaid,
-				"is_settled":      isSettled,
-				"settled_at":      settledAt,
+				"current_balance_cents": nextBalance,
+				"total_repaid_cents":    nextTotalRepaid,
+				"is_settled":            isSettled,
+				"settled_at":            settledAt,
 			})
 		if result.Error != nil {
 			return result.Error
@@ -399,13 +400,13 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 		var transactionID *string
 		if req.CreateTransaction && account != nil {
 			var txType string
-			var cashFlowDelta float64
+			var cashFlowDelta money.Amount
 			if lending.Type == "lend_out" {
 				txType = "income"
 				cashFlowDelta = repaymentAmount
 			} else {
 				txType = "expense"
-				cashFlowDelta = -repaymentAmount
+				cashFlowDelta = repaymentAmount.Negate()
 			}
 			transaction, err := s.createLendingTransactionTx(txdb, userID, lendingID, account.ID, txType, repaymentAmount, recordDate, "还款: "+lending.ContactName)
 			if err != nil {
@@ -483,7 +484,7 @@ func normalizeOptionalString(value *string) *string {
 	return value
 }
 
-func (s *LendingService) createLendingTransactionTx(txdb *gorm.DB, userID uint, lendingID string, accountID string, txType string, amount float64, txDate time.Time, remark string) (*model.Transaction, error) {
+func (s *LendingService) createLendingTransactionTx(txdb *gorm.DB, userID uint, lendingID string, accountID string, txType string, amount money.Amount, txDate time.Time, remark string) (*model.Transaction, error) {
 	categoryID, err := s.findOrCreateLendingCategoryTx(txdb, userID, txType)
 	if err != nil {
 		return nil, err
@@ -541,10 +542,10 @@ func (s *LendingService) findOrCreateLendingCategoryTx(txdb *gorm.DB, userID uin
 	return &category.ID, nil
 }
 
-func updateAccountBalanceForUserTx(txdb *gorm.DB, accountID string, userID uint, delta float64) error {
+func updateAccountBalanceForUserTx(txdb *gorm.DB, accountID string, userID uint, delta money.Amount) error {
 	result := txdb.Model(&model.Account{}).
 		Where("id = ? AND user_id = ?", accountID, userID).
-		Update("current_balance", roundedCurrentBalanceDelta(txdb, delta))
+		Update("current_balance_cents", roundedCurrentBalanceDelta(txdb, delta))
 	if result.Error != nil {
 		return result.Error
 	}
@@ -563,15 +564,15 @@ func (s *LendingService) GetRecords(lendingID string, userID uint) ([]*model.Len
 }
 
 type LendingSummary struct {
-	TotalLendOut    float64 `json:"total_lend_out"`
-	TotalBorrowIn   float64 `json:"total_borrow_in"`
-	ActiveLendOut   int     `json:"active_lend_out"`
-	ActiveBorrowIn  int     `json:"active_borrow_in"`
-	SettledLendOut  int     `json:"settled_lend_out"`
-	SettledBorrowIn int     `json:"settled_borrow_in"`
-	TotalReceivable float64 `json:"total_receivable"`
-	TotalPayable    float64 `json:"total_payable"`
-	NetLending      float64 `json:"net_lending"`
+	TotalLendOut    money.Amount `json:"total_lend_out"`
+	TotalBorrowIn   money.Amount `json:"total_borrow_in"`
+	ActiveLendOut   int          `json:"active_lend_out"`
+	ActiveBorrowIn  int          `json:"active_borrow_in"`
+	SettledLendOut  int          `json:"settled_lend_out"`
+	SettledBorrowIn int          `json:"settled_borrow_in"`
+	TotalReceivable money.Amount `json:"total_receivable"`
+	TotalPayable    money.Amount `json:"total_payable"`
+	NetLending      money.Amount `json:"net_lending"`
 }
 
 func (s *LendingService) GetSummary(userID uint) (*LendingSummary, error) {
@@ -584,25 +585,25 @@ func (s *LendingService) GetSummary(userID uint) (*LendingSummary, error) {
 
 	for _, lending := range lendings {
 		if lending.Type == "lend_out" {
-			summary.TotalLendOut += lending.Principal
+			summary.TotalLendOut = summary.TotalLendOut.Add(lending.Principal)
 			if lending.IsSettled {
 				summary.SettledLendOut++
 			} else {
 				summary.ActiveLendOut++
-				summary.TotalReceivable += lending.CurrentBalance
+				summary.TotalReceivable = summary.TotalReceivable.Add(lending.CurrentBalance)
 			}
 		} else {
-			summary.TotalBorrowIn += lending.Principal
+			summary.TotalBorrowIn = summary.TotalBorrowIn.Add(lending.Principal)
 			if lending.IsSettled {
 				summary.SettledBorrowIn++
 			} else {
 				summary.ActiveBorrowIn++
-				summary.TotalPayable += lending.CurrentBalance
+				summary.TotalPayable = summary.TotalPayable.Add(lending.CurrentBalance)
 			}
 		}
 	}
 
-	summary.NetLending = summary.TotalReceivable - summary.TotalPayable
+	summary.NetLending = summary.TotalReceivable.Sub(summary.TotalPayable)
 
 	return summary, nil
 }

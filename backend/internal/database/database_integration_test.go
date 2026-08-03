@@ -162,6 +162,21 @@ func assertMigratedLedgerSchema(t *testing.T, db *gorm.DB) {
 			t.Fatalf("expected migrated table for %T", table)
 		}
 	}
+	for _, column := range []struct {
+		model any
+		name  string
+	}{
+		{model: &model.Account{}, name: "current_balance_cents"},
+		{model: &model.Transaction{}, name: "amount_cents"},
+		{model: &model.Budget{}, name: "amount_cents"},
+		{model: &model.Reminder{}, name: "current_balance_cents"},
+		{model: &model.Lending{}, name: "principal_cents"},
+		{model: &model.AccountLog{}, name: "balance_after_cents"},
+	} {
+		if !migrator.HasColumn(column.model, column.name) {
+			t.Fatalf("expected integer money column %s for %T", column.name, column.model)
+		}
+	}
 }
 
 func assertCurrentSchemaVersion(t *testing.T, db *gorm.DB) {

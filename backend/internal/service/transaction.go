@@ -3,13 +3,13 @@ package service
 import (
 	"encoding/json"
 	"errors"
-	"math"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -53,17 +53,17 @@ func NewTransactionService(
 }
 
 type CreateTransactionRequest struct {
-	Type              string  `json:"type" binding:"required,oneof=income expense transfer"`
-	Amount            float64 `json:"amount" binding:"required,gt=0"`
-	AccountID         string  `json:"account_id" binding:"required"`
-	ToAccountID       *string `json:"to_account_id"`
-	CategoryID        *string `json:"category_id"`
-	TransactionDate   string  `json:"transaction_date" binding:"required"`
-	Remark            string  `json:"remark"`
-	Images            string  `json:"images"`
-	Tags              string  `json:"tags"`
-	MemberID          *string `json:"member_id"`
-	PaidByMemberID    *string `json:"paid_by_member_id"`
+	Type              string       `json:"type" binding:"required,oneof=income expense transfer"`
+	Amount            money.Amount `json:"amount" binding:"required,gt=0"`
+	AccountID         string       `json:"account_id" binding:"required"`
+	ToAccountID       *string      `json:"to_account_id"`
+	CategoryID        *string      `json:"category_id"`
+	TransactionDate   string       `json:"transaction_date" binding:"required"`
+	Remark            string       `json:"remark"`
+	Images            string       `json:"images"`
+	Tags              string       `json:"tags"`
+	MemberID          *string      `json:"member_id"`
+	PaidByMemberID    *string      `json:"paid_by_member_id"`
 	importFingerprint *string
 }
 
@@ -134,7 +134,7 @@ func validateTransactionRequest(req CreateTransactionRequest) error {
 	if req.Type != "income" && req.Type != "expense" && req.Type != "transfer" {
 		return ErrInvalidTransactionType
 	}
-	if req.Amount <= 0 || math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) {
+	if req.Amount <= 0 || !req.Amount.IsValid() {
 		return ErrInvalidTransactionAmount
 	}
 	if req.AccountID == "" {
@@ -308,17 +308,17 @@ func (s *TransactionService) GetByID(id string, userID uint) (*model.Transaction
 }
 
 type ListTransactionRequest struct {
-	Page          int     `form:"page"`
-	PageSize      int     `form:"page_size"`
-	StartDate     string  `form:"start_date"`
-	EndDate       string  `form:"end_date"`
-	Type          string  `form:"type"`
-	AccountID     string  `form:"account_id"`
-	CategoryID    string  `form:"category_id"`
-	MinAmount     float64 `form:"min_amount"`
-	MaxAmount     float64 `form:"max_amount"`
-	Keyword       string  `form:"keyword"`
-	IncludeSystem bool    `form:"include_system"`
+	Page          int          `form:"page"`
+	PageSize      int          `form:"page_size"`
+	StartDate     string       `form:"start_date"`
+	EndDate       string       `form:"end_date"`
+	Type          string       `form:"type"`
+	AccountID     string       `form:"account_id"`
+	CategoryID    string       `form:"category_id"`
+	MinAmount     money.Amount `form:"min_amount"`
+	MaxAmount     money.Amount `form:"max_amount"`
+	Keyword       string       `form:"keyword"`
+	IncludeSystem bool         `form:"include_system"`
 }
 
 type ListTransactionResponse struct {
@@ -443,7 +443,7 @@ func (s *TransactionService) Update(id string, userID uint, req CreateTransactio
 				"account_id":        req.AccountID,
 				"category_id":       req.CategoryID,
 				"type":              req.Type,
-				"amount":            req.Amount,
+				"amount_cents":      req.Amount,
 				"transaction_date":  txDate,
 				"remark":            req.Remark,
 				"images":            req.Images,
@@ -587,20 +587,20 @@ func (s *TransactionService) revertReminderPaymentTx(txdb *gorm.DB, tx *model.Tr
 	}
 	interestAmount := tx.InterestAmount
 	if interestAmount == 0 && amount > principalAmount {
-		interestAmount = amount - principalAmount
+		interestAmount = amount.Sub(principalAmount)
 	}
 
-	reminder.TotalPaid -= amount
+	reminder.TotalPaid = reminder.TotalPaid.Sub(amount)
 	if reminder.TotalPaid < 0 {
 		reminder.TotalPaid = 0
 	}
-	reminder.InterestPaid -= interestAmount
+	reminder.InterestPaid = reminder.InterestPaid.Sub(interestAmount)
 	if reminder.InterestPaid < 0 {
 		reminder.InterestPaid = 0
 	}
 
 	if reminder.CurrentBalance != nil {
-		newBalance := *reminder.CurrentBalance + principalAmount
+		newBalance := reminder.CurrentBalance.Add(principalAmount)
 		reminder.CurrentBalance = &newBalance
 	}
 
@@ -611,10 +611,10 @@ func (s *TransactionService) revertReminderPaymentTx(txdb *gorm.DB, tx *model.Tr
 	result := txdb.Unscoped().Model(&model.Reminder{}).
 		Where("id = ? AND user_id = ?", reminder.ID, tx.UserID).
 		Updates(map[string]any{
-			"total_paid":      reminder.TotalPaid,
-			"interest_paid":   reminder.InterestPaid,
-			"current_balance": reminder.CurrentBalance,
-			"paid_off_at":     reminder.PaidOffAt,
+			"total_paid_cents":      reminder.TotalPaid,
+			"interest_paid_cents":   reminder.InterestPaid,
+			"current_balance_cents": reminder.CurrentBalance,
+			"paid_off_at":           reminder.PaidOffAt,
 		})
 	if result.Error != nil {
 		return result.Error
@@ -632,8 +632,8 @@ func (s *TransactionService) revertReminderPaymentTx(txdb *gorm.DB, tx *model.Tr
 			}
 			return err
 		}
-		account.CurrentBalance += principalAmount
-		account.TotalPaid -= principalAmount
+		account.CurrentBalance = account.CurrentBalance.Add(principalAmount)
+		account.TotalPaid = account.TotalPaid.Sub(principalAmount)
 		if account.TotalPaid < 0 {
 			account.TotalPaid = 0
 		}
@@ -659,9 +659,9 @@ func (s *TransactionService) revertReminderPaymentTx(txdb *gorm.DB, tx *model.Tr
 		result := txdb.Model(&model.Account{}).
 			Where("id = ? AND user_id = ?", account.ID, tx.UserID).
 			Updates(map[string]any{
-				"current_balance": account.CurrentBalance,
-				"total_paid":      account.TotalPaid,
-				"paid_off_at":     account.PaidOffAt,
+				"current_balance_cents": account.CurrentBalance,
+				"total_paid_cents":      account.TotalPaid,
+				"paid_off_at":           account.PaidOffAt,
 			})
 		if result.Error != nil {
 			return result.Error
@@ -695,11 +695,11 @@ func (s *TransactionService) revertLendingTransactionTx(txdb *gorm.DB, tx *model
 		(lending.Type == "borrow_in" && tx.Type == "expense")
 
 	if isRepayment {
-		lending.TotalRepaid -= tx.Amount
+		lending.TotalRepaid = lending.TotalRepaid.Sub(tx.Amount)
 		if lending.TotalRepaid < 0 {
 			lending.TotalRepaid = 0
 		}
-		lending.CurrentBalance += tx.Amount
+		lending.CurrentBalance = lending.CurrentBalance.Add(tx.Amount)
 
 		if lending.IsSettled && lending.CurrentBalance > 0 {
 			lending.IsSettled = false
@@ -711,7 +711,7 @@ func (s *TransactionService) revertLendingTransactionTx(txdb *gorm.DB, tx *model
 			return err
 		}
 	} else {
-		lending.CurrentBalance -= tx.Amount
+		lending.CurrentBalance = lending.CurrentBalance.Sub(tx.Amount)
 		if lending.CurrentBalance < 0 {
 			lending.CurrentBalance = 0
 		}
@@ -719,18 +719,18 @@ func (s *TransactionService) revertLendingTransactionTx(txdb *gorm.DB, tx *model
 
 	result := txdb.Unscoped().Model(&model.Lending{}).
 		Where(
-			"id = ? AND user_id = ? AND current_balance = ? AND total_repaid = ? AND is_settled = ?",
+			"id = ? AND user_id = ? AND current_balance_cents = ? AND total_repaid_cents = ? AND is_settled = ?",
 			lending.ID,
 			tx.UserID,
-			originalBalance,
-			originalTotalRepaid,
+			originalBalance.Cents(),
+			originalTotalRepaid.Cents(),
 			originalIsSettled,
 		).
 		Updates(map[string]any{
-			"current_balance": lending.CurrentBalance,
-			"total_repaid":    lending.TotalRepaid,
-			"is_settled":      lending.IsSettled,
-			"settled_at":      lending.SettledAt,
+			"current_balance_cents": lending.CurrentBalance,
+			"total_repaid_cents":    lending.TotalRepaid,
+			"is_settled":            lending.IsSettled,
+			"settled_at":            lending.SettledAt,
 		})
 	if result.Error != nil {
 		return result.Error
@@ -748,14 +748,14 @@ func (s *TransactionService) applyBalanceChangesTx(txdb *gorm.DB, tx *model.Tran
 
 	switch tx.Type {
 	case "expense":
-		return s.applyTransactionAccountDeltaTx(txdb, tx, tx.AccountID, "expense", -tx.Amount, nil, nil, "支出", logChange)
+		return s.applyTransactionAccountDeltaTx(txdb, tx, tx.AccountID, "expense", tx.Amount.Negate(), nil, nil, "支出", logChange)
 	case "income":
 		return s.applyTransactionAccountDeltaTx(txdb, tx, tx.AccountID, "income", tx.Amount, nil, nil, "收入", logChange)
 	case "transfer":
 		if tx.ToAccountID == nil || *tx.ToAccountID == "" {
 			return ErrSameAccount
 		}
-		if err := s.applyTransactionAccountDeltaTx(txdb, tx, tx.AccountID, "transfer_out", -tx.Amount, nil, nil, "转出", logChange); err != nil {
+		if err := s.applyTransactionAccountDeltaTx(txdb, tx, tx.AccountID, "transfer_out", tx.Amount.Negate(), nil, nil, "转出", logChange); err != nil {
 			return err
 		}
 		return s.applyTransactionAccountDeltaTx(txdb, tx, *tx.ToAccountID, "transfer_in", tx.Amount, nil, nil, "转入", logChange)
@@ -808,7 +808,7 @@ func balanceAccountIDs(tx *model.Transaction) []string {
 // into the stored balance convention. Asset balances represent money held;
 // debt balances represent money owed, so the same cash flow has the opposite
 // effect for debt accounts.
-func accountBalanceDeltaTx(txdb *gorm.DB, userID uint, accountID string, cashFlowDelta float64) (float64, error) {
+func accountBalanceDeltaTx(txdb *gorm.DB, userID uint, accountID string, cashFlowDelta money.Amount) (money.Amount, error) {
 	var account model.Account
 	if err := txdb.Select("type").First(&account, "id = ? AND user_id = ?", accountID, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -817,7 +817,7 @@ func accountBalanceDeltaTx(txdb *gorm.DB, userID uint, accountID string, cashFlo
 		return 0, err
 	}
 	if IsDebtAccount(account.Type) {
-		return -cashFlowDelta, nil
+		return cashFlowDelta.Negate(), nil
 	}
 	return cashFlowDelta, nil
 }
@@ -827,7 +827,7 @@ func (s *TransactionService) applyTransactionAccountDeltaTx(
 	tx *model.Transaction,
 	accountID string,
 	logType string,
-	cashFlowDelta float64,
+	cashFlowDelta money.Amount,
 	reminderID *string,
 	lendingID *string,
 	remark string,
@@ -862,13 +862,13 @@ func (s *TransactionService) revertBalanceChangesTx(txdb *gorm.DB, tx *model.Tra
 	case "expense":
 		return s.applyTransactionAccountDeltaTx(txdb, tx, tx.AccountID, "rollback", tx.Amount, tx.ReminderID, tx.LendingID, "撤回支出", logChange)
 	case "income":
-		return s.applyTransactionAccountDeltaTx(txdb, tx, tx.AccountID, "rollback", -tx.Amount, tx.ReminderID, tx.LendingID, "撤回收入", logChange)
+		return s.applyTransactionAccountDeltaTx(txdb, tx, tx.AccountID, "rollback", tx.Amount.Negate(), tx.ReminderID, tx.LendingID, "撤回收入", logChange)
 	case "transfer":
 		if err := s.applyTransactionAccountDeltaTx(txdb, tx, tx.AccountID, "rollback", tx.Amount, nil, nil, "撤回转出", logChange); err != nil {
 			return err
 		}
 		if tx.ToAccountID != nil && *tx.ToAccountID != "" {
-			return s.applyTransactionAccountDeltaTx(txdb, tx, *tx.ToAccountID, "rollback", -tx.Amount, nil, nil, "撤回转入", logChange)
+			return s.applyTransactionAccountDeltaTx(txdb, tx, *tx.ToAccountID, "rollback", tx.Amount.Negate(), nil, nil, "撤回转入", logChange)
 		}
 		return nil
 	default:
@@ -876,7 +876,7 @@ func (s *TransactionService) revertBalanceChangesTx(txdb *gorm.DB, tx *model.Tra
 	}
 }
 
-func (s *TransactionService) updateAccountBalanceTx(txdb *gorm.DB, userID uint, accountID string, delta float64) error {
+func (s *TransactionService) updateAccountBalanceTx(txdb *gorm.DB, userID uint, accountID string, delta money.Amount) error {
 	return updateAccountBalanceForUserTx(txdb, accountID, userID, delta)
 }
 
@@ -886,8 +886,8 @@ func applyAccountBalanceMutationTx(
 	userID uint,
 	accountID string,
 	logType string,
-	amount float64,
-	balanceDelta float64,
+	amount money.Amount,
+	balanceDelta money.Amount,
 	transactionID *string,
 	reminderID *string,
 	lendingID *string,
@@ -919,8 +919,8 @@ func logAccountBalanceChangeTx(
 	userID uint,
 	accountID string,
 	logType string,
-	amount float64,
-	balanceDelta float64,
+	amount money.Amount,
+	balanceDelta money.Amount,
 	transactionID *string,
 	reminderID *string,
 	lendingID *string,
@@ -946,7 +946,7 @@ func logAccountBalanceChangeTx(
 		Type:          logType,
 		Amount:        amount,
 		BalanceBefore: balanceBefore,
-		BalanceAfter:  roundMoney(balanceBefore + balanceDelta),
+		BalanceAfter:  balanceBefore.Add(balanceDelta),
 		TransactionID: transactionID,
 		ReminderID:    reminderID,
 		LendingID:     lendingID,

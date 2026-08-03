@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
@@ -520,12 +521,12 @@ func TestRecordRepaymentConcurrentRequestsRejectOverpaymentAgainstLatestBalance(
 	if len(records) != 1 {
 		t.Fatalf("repayment records = %d, want 1", len(records))
 	}
-	var recordedTotal float64
+	var recordedTotal money.Amount
 	for _, record := range records {
 		if record.Amount <= 0 {
 			t.Fatalf("repayment record amount = %.2f, want positive", record.Amount)
 		}
-		recordedTotal += record.Amount
+		recordedTotal = recordedTotal.Add(record.Amount)
 	}
 	assertFloatEqual(t, "recorded repayment total", recordedTotal, 80)
 
@@ -539,13 +540,13 @@ func TestRecordRepaymentConcurrentRequestsRejectOverpaymentAgainstLatestBalance(
 	if len(txIDs) != 1 {
 		t.Fatalf("repayment transactions = %d, want 1", len(txIDs))
 	}
-	var transactionTotal float64
+	var transactionTotal money.Amount
 	for _, txID := range txIDs {
 		tx, err := repos.Transaction.GetByID(txID)
 		if err != nil {
 			t.Fatalf("get repayment transaction: %v", err)
 		}
-		transactionTotal += tx.Amount
+		transactionTotal = transactionTotal.Add(tx.Amount)
 	}
 	assertFloatEqual(t, "transaction repayment total", transactionTotal, 80)
 }

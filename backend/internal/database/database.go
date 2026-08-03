@@ -99,6 +99,91 @@ var schemaMigrations = []versionedMigration{
 			return tx.AutoMigrate(&model.APIToken{})
 		},
 	},
+	{
+		Version: 8,
+		Name:    "integer_minor_units",
+		Apply:   migrateMoneyColumnsToMinorUnits,
+	},
+}
+
+type moneyColumnMigration struct {
+	Table  string
+	Legacy string
+	Cents  string
+}
+
+var moneyColumnMigrations = []moneyColumnMigration{
+	{Table: "accounts", Legacy: "initial_balance", Cents: "initial_balance_cents"},
+	{Table: "accounts", Legacy: "current_balance", Cents: "current_balance_cents"},
+	{Table: "accounts", Legacy: "credit_limit", Cents: "credit_limit_cents"},
+	{Table: "accounts", Legacy: "total_paid", Cents: "total_paid_cents"},
+	{Table: "transactions", Legacy: "amount", Cents: "amount_cents"},
+	{Table: "transactions", Legacy: "principal_amount", Cents: "principal_amount_cents"},
+	{Table: "transactions", Legacy: "interest_amount", Cents: "interest_amount_cents"},
+	{Table: "budgets", Legacy: "amount", Cents: "amount_cents"},
+	{Table: "reminders", Legacy: "amount", Cents: "amount_cents"},
+	{Table: "reminders", Legacy: "principal", Cents: "principal_cents"},
+	{Table: "reminders", Legacy: "current_balance", Cents: "current_balance_cents"},
+	{Table: "reminders", Legacy: "total_interest", Cents: "total_interest_cents"},
+	{Table: "reminders", Legacy: "total_paid", Cents: "total_paid_cents"},
+	{Table: "reminders", Legacy: "interest_paid", Cents: "interest_paid_cents"},
+	{Table: "quick_templates", Legacy: "amount", Cents: "amount_cents"},
+	{Table: "lendings", Legacy: "principal", Cents: "principal_cents"},
+	{Table: "lendings", Legacy: "current_balance", Cents: "current_balance_cents"},
+	{Table: "lendings", Legacy: "total_repaid", Cents: "total_repaid_cents"},
+	{Table: "lending_records", Legacy: "amount", Cents: "amount_cents"},
+	{Table: "account_logs", Legacy: "amount", Cents: "amount_cents"},
+	{Table: "account_logs", Legacy: "balance_before", Cents: "balance_before_cents"},
+	{Table: "account_logs", Legacy: "balance_after", Cents: "balance_after_cents"},
+	{Table: "recurring_transactions", Legacy: "amount", Cents: "amount_cents"},
+}
+
+func migrateMoneyColumnsToMinorUnits(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(
+		&model.Account{},
+		&model.Transaction{},
+		&model.Budget{},
+		&model.Reminder{},
+		&model.QuickTemplate{},
+		&model.Lending{},
+		&model.LendingRecord{},
+		&model.AccountLog{},
+		&model.RecurringTransaction{},
+	); err != nil {
+		return err
+	}
+
+	for _, column := range moneyColumnMigrations {
+		if !tx.Migrator().HasColumn(column.Table, column.Legacy) ||
+			!tx.Migrator().HasColumn(column.Table, column.Cents) {
+			continue
+		}
+		expression, err := roundedMinorUnitExpression(tx.Dialector.Name(), column.Legacy)
+		if err != nil {
+			return err
+		}
+		query := fmt.Sprintf(
+			"UPDATE %s SET %s = %s WHERE %s IS NOT NULL",
+			column.Table, column.Cents, expression, column.Legacy,
+		)
+		if err := tx.Exec(query).Error; err != nil {
+			return fmt.Errorf("backfill %s.%s: %w", column.Table, column.Cents, err)
+		}
+	}
+	return nil
+}
+
+func roundedMinorUnitExpression(driver, legacyColumn string) (string, error) {
+	switch normalizeDriver(driver) {
+	case "sqlite":
+		return fmt.Sprintf("CAST(ROUND(%s * 100) AS INTEGER)", legacyColumn), nil
+	case "postgres":
+		return fmt.Sprintf("CAST(ROUND(%s * 100) AS BIGINT)", legacyColumn), nil
+	case "mysql":
+		return fmt.Sprintf("CAST(ROUND(%s * 100) AS SIGNED)", legacyColumn), nil
+	default:
+		return "", fmt.Errorf("unsupported database driver %q for money migration", driver)
+	}
 }
 
 var currentSchemaVersion = latestKnownSchemaVersion()

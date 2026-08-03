@@ -59,6 +59,19 @@ type legacyAPITokenV6 struct {
 
 func (legacyAPITokenV6) TableName() string { return "api_tokens" }
 
+type legacyMoneyAccountV7 struct {
+	ID             string   `gorm:"primaryKey;size:36"`
+	UserID         uint     `gorm:"not null;index"`
+	Name           string   `gorm:"size:100;not null"`
+	Type           string   `gorm:"size:20;not null"`
+	InitialBalance float64  `gorm:"type:decimal(15,3);default:0"`
+	CurrentBalance float64  `gorm:"type:decimal(15,3);default:0"`
+	CreditLimit    *float64 `gorm:"type:decimal(15,3)"`
+	TotalPaid      float64  `gorm:"type:decimal(15,3);default:0"`
+}
+
+func (legacyMoneyAccountV7) TableName() string { return "accounts" }
+
 func TestInitKeepsSQLitePathCompatibility(t *testing.T) {
 	db, err := Init(filepath.Join(t.TempDir(), "ledger.db"))
 	if err != nil {
@@ -124,6 +137,55 @@ func TestInitWithConfigRecordsSchemaVersion(t *testing.T) {
 	}
 	if migration.Name == "" {
 		t.Fatal("schema migration name should be recorded")
+	}
+}
+
+func TestMoneyMigrationBackfillsRoundedCentsAndKeepsLegacyColumns(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "money-v7.db")
+	legacyDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open v7 sqlite: %v", err)
+	}
+	if err := legacyDB.AutoMigrate(&schemaMigration{}, &legacyMoneyAccountV7{}); err != nil {
+		t.Fatalf("create v7 money schema: %v", err)
+	}
+	if err := legacyDB.Create(&schemaMigration{
+		Version: 7, Name: "portable_api_token_scopes", AppliedAt: time.Now().UTC(),
+	}).Error; err != nil {
+		t.Fatalf("record v7 schema: %v", err)
+	}
+	legacy := legacyMoneyAccountV7{
+		ID: "money-account", UserID: 7, Name: "rounding", Type: "cash",
+		InitialBalance: 12.345, CurrentBalance: -0.005, CreditLimit: nil, TotalPaid: 0.005,
+	}
+	if err := legacyDB.Create(&legacy).Error; err != nil {
+		t.Fatalf("seed v7 money data: %v", err)
+	}
+	legacySQLDB, err := legacyDB.DB()
+	if err != nil {
+		t.Fatalf("get v7 sqlite handle: %v", err)
+	}
+	if err := legacySQLDB.Close(); err != nil {
+		t.Fatalf("close v7 sqlite: %v", err)
+	}
+
+	db, err := InitWithConfig(config.DatabaseConfig{Driver: "sqlite", Path: dbPath})
+	if err != nil {
+		t.Fatalf("upgrade v7 money schema: %v", err)
+	}
+	var account model.Account
+	if err := db.First(&account, "id = ?", legacy.ID).Error; err != nil {
+		t.Fatalf("load migrated account: %v", err)
+	}
+	if account.InitialBalance.Cents() != 1235 || account.CurrentBalance.Cents() != -1 ||
+		account.CreditLimit != nil || account.TotalPaid.Cents() != 1 {
+		t.Fatalf("migrated cents = initial %d current %d credit %#v paid %d",
+			account.InitialBalance.Cents(), account.CurrentBalance.Cents(), account.CreditLimit, account.TotalPaid.Cents())
+	}
+	for _, column := range []string{"initial_balance", "current_balance", "credit_limit", "total_paid"} {
+		if !db.Migrator().HasColumn("accounts", column) {
+			t.Fatalf("rollback snapshot column %s was removed", column)
+		}
 	}
 }
 

@@ -1,13 +1,23 @@
 # Money Precision
 
-Current state: API and database models expose money as `float64`, while GORM tags use decimal-like column declarations. SQLite does not guarantee fixed decimal arithmetic for these fields.
+Current state: public API fields remain decimal JSON numbers, while persisted monetary values use signed `BIGINT` minor units (cents). Core additions, subtractions, comparisons, aggregates, budgets, reports, imports, reminders, lending, and account logs operate through `money.Amount` cent helpers.
 
-Decision: migrate persisted monetary values to integer cents in a later schema migration. Public JSON fields can remain decimal numbers during the transition, but service code must convert at boundaries and run arithmetic on cents.
+Schema migration v8 adds parallel `*_cents` columns and backfills them with half-away-from-zero rounding. It supports SQLite, PostgreSQL, and MySQL without changing the public JSON field names or numeric representation.
 
-First slice: add tested conversion helpers and use them in new code only. Do not rewrite every model in the same patch.
+The legacy decimal columns are intentionally retained as a rollback snapshot. New application writes target only the cent columns.
 
 Migration guardrails:
 
-- New balance arithmetic should avoid adding or subtracting `float64` values.
-- Import/export should preserve the public decimal representation until clients are migrated.
-- The schema migration must include a rollback plan and fixture data with fractional cents.
+- Monetary model fields must use `money.Amount`; rates and percentages may remain `float64`.
+- Raw SQL must reference the `*_cents` physical columns and pass integer cent parameters.
+- Import/export and API responses preserve decimal numbers at the boundary.
+- Migration fixtures cover positive and negative fractional-cent rounding and nullable values.
+
+Rollback procedure:
+
+1. Stop writes and take a database backup.
+2. Copy each cent column back into its retained legacy column using `legacy = cents / 100.0` with the database's decimal cast.
+3. Run the previous application version.
+4. Keep the cent columns until the rollback has been verified; dropping them is a separate destructive migration.
+
+Because the previous application cannot see writes made only to cent columns, rolling back without step 2 would lose post-migration monetary updates.

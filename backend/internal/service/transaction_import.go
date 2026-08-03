@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"gorm.io/gorm"
 )
 
@@ -46,32 +46,32 @@ func MaxTransactionImportFileBytes() int64 {
 }
 
 type TransactionImportInput struct {
-	Type            string  `json:"type"`
-	Amount          float64 `json:"amount"`
-	AccountID       string  `json:"account_id"`
-	AccountName     string  `json:"account_name"`
-	ToAccountID     string  `json:"to_account_id"`
-	ToAccountName   string  `json:"to_account_name"`
-	CategoryID      string  `json:"category_id"`
-	CategoryName    string  `json:"category_name"`
-	TransactionDate string  `json:"transaction_date"`
-	Remark          string  `json:"remark"`
-	Tags            string  `json:"tags"`
-	MemberID        string  `json:"member_id"`
-	PaidByMemberID  string  `json:"paid_by_member_id"`
+	Type            string       `json:"type"`
+	Amount          money.Amount `json:"amount"`
+	AccountID       string       `json:"account_id"`
+	AccountName     string       `json:"account_name"`
+	ToAccountID     string       `json:"to_account_id"`
+	ToAccountName   string       `json:"to_account_name"`
+	CategoryID      string       `json:"category_id"`
+	CategoryName    string       `json:"category_name"`
+	TransactionDate string       `json:"transaction_date"`
+	Remark          string       `json:"remark"`
+	Tags            string       `json:"tags"`
+	MemberID        string       `json:"member_id"`
+	PaidByMemberID  string       `json:"paid_by_member_id"`
 }
 
 type TransactionImportRow struct {
-	Row             int      `json:"row"`
-	Type            string   `json:"type"`
-	Amount          float64  `json:"amount"`
-	TransactionDate string   `json:"transaction_date"`
-	Account         string   `json:"account"`
-	Category        string   `json:"category,omitempty"`
-	Valid           bool     `json:"valid"`
-	Duplicate       bool     `json:"duplicate"`
-	Errors          []string `json:"errors,omitempty"`
-	Warnings        []string `json:"warnings,omitempty"`
+	Row             int          `json:"row"`
+	Type            string       `json:"type"`
+	Amount          money.Amount `json:"amount"`
+	TransactionDate string       `json:"transaction_date"`
+	Account         string       `json:"account"`
+	Category        string       `json:"category,omitempty"`
+	Valid           bool         `json:"valid"`
+	Duplicate       bool         `json:"duplicate"`
+	Errors          []string     `json:"errors,omitempty"`
+	Warnings        []string     `json:"warnings,omitempty"`
 }
 
 type TransactionImportPreview struct {
@@ -455,7 +455,7 @@ func validateTransactionImportCandidate(
 	}
 
 	request := CreateTransactionRequest{
-		Type: input.Type, Amount: roundMoney(input.Amount), AccountID: input.AccountID,
+		Type: input.Type, Amount: input.Amount, AccountID: input.AccountID,
 		TransactionDate: strings.TrimSpace(input.TransactionDate), Remark: input.Remark, Tags: input.Tags,
 	}
 	if input.ToAccountID != "" {
@@ -474,7 +474,7 @@ func validateTransactionImportCandidate(
 	if request.Type != "income" && request.Type != "expense" && request.Type != "transfer" {
 		errorsList = append(errorsList, "类型必须是收入、支出或转账")
 	}
-	if request.Amount <= 0 || math.IsNaN(request.Amount) || math.IsInf(request.Amount, 0) {
+	if request.Amount <= 0 || !request.Amount.IsValid() {
 		errorsList = append(errorsList, "金额必须大于 0")
 	}
 	account, accountExists := accounts[request.AccountID]
@@ -721,11 +721,12 @@ func parseTransactionImportCSV(data []byte) ([]transactionImportCandidate, error
 		if len(candidates) >= transactionImportMaxRows {
 			return nil, ErrTransactionImportRowsLimit
 		}
-		amount, amountErr := strconv.ParseFloat(strings.TrimSpace(importCSVValue(record, columns, "amount")), 64)
+		amountCents, amountErr := money.CentsFromDecimalString(strings.TrimSpace(importCSVValue(record, columns, "amount")))
 		parseErrors := []string(nil)
 		if amountErr != nil {
 			parseErrors = append(parseErrors, "金额格式无效")
 		}
+		amount := money.FromCents(amountCents)
 		candidates = append(candidates, transactionImportCandidate{
 			Row: rowNumber,
 			Input: TransactionImportInput{

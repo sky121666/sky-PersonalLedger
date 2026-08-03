@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
@@ -35,7 +36,7 @@ func createTemplateAccount(t *testing.T, repos *repository.Repositories, userID 
 		UserID:         userID,
 		Name:           "Wallet",
 		Type:           "cash",
-		CurrentBalance: balance,
+		CurrentBalance: money.Amount(balance),
 	}
 	if err := repos.Account.Create(account); err != nil {
 		t.Fatalf("create account: %v", err)
@@ -258,7 +259,7 @@ func assertTemplateApplyState(t *testing.T, repos *repository.Repositories, user
 	if err != nil {
 		t.Fatalf("get account: %v", err)
 	}
-	if account.CurrentBalance != balance {
+	if account.CurrentBalance != money.Amount(balance) {
 		t.Fatalf("balance = %.2f, want %.2f", account.CurrentBalance, balance)
 	}
 	var transactionCount int64
@@ -284,6 +285,7 @@ func assertTemplateApplyState(t *testing.T, repos *repository.Repositories, user
 	}
 }
 
-func float64Pointer(value float64) *float64 {
-	return &value
+func float64Pointer(value float64) *money.Amount {
+	amount := money.Amount(value)
+	return &amount
 }

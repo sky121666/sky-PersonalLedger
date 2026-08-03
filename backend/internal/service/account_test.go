@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
@@ -20,7 +21,7 @@ func TestAccountPatchDistinguishesOmittedNullAndEmptyValues(t *testing.T) {
 	}
 	repos := repository.NewRepositories(db)
 	billingDay := 8
-	creditLimit := 12_000.0
+	creditLimit := money.Amount(12_000)
 	account := &model.Account{
 		ID: uuid.NewString(), UserID: 7, Name: "Card", Type: "credit",
 		BillingDay: &billingDay, CreditLimit: &creditLimit, Remark: "clear me",
@@ -176,7 +177,7 @@ func TestAccountDeleteUsesAtomicOwnershipAndBalanceGuard(t *testing.T) {
 	if err := svc.Delete(account.ID, 7); !errors.Is(err, ErrAccountHasBalance) {
 		t.Fatalf("non-zero delete error = %v, want ErrAccountHasBalance", err)
 	}
-	if err := db.Model(&model.Account{}).Where("id = ? AND user_id = ?", account.ID, 7).Update("current_balance", 0).Error; err != nil {
+	if err := db.Model(&model.Account{}).Where("id = ? AND user_id = ?", account.ID, 7).Update("current_balance_cents", 0).Error; err != nil {
 		t.Fatalf("zero account balance: %v", err)
 	}
 	if err := svc.Delete(account.ID, 7); err != nil {
@@ -193,7 +194,7 @@ func TestAccountSummaryClassifiesDebtCreditsAndNegativeAssets(t *testing.T) {
 
 	accounts := []struct {
 		accountType string
-		balance     float64
+		balance     money.Amount
 	}{
 		{accountType: "cash", balance: 100},
 		{accountType: "bank_card", balance: -25},

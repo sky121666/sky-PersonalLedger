@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -125,9 +126,9 @@ type aiReportSnapshot struct {
 		Timezone string `json:"timezone"`
 	} `json:"period"`
 	Currency             string                     `json:"currency"`
-	IncomeTotal          float64                    `json:"income_total"`
-	ExpenseTotal         float64                    `json:"expense_total"`
-	NetCashflow          float64                    `json:"net_cashflow"`
+	IncomeTotal          money.Amount               `json:"income_total"`
+	ExpenseTotal         money.Amount               `json:"expense_total"`
+	NetCashflow          money.Amount               `json:"net_cashflow"`
 	Budget               aiReportBudgetSnapshot     `json:"budget"`
 	TopExpenseCategories []aiReportCategorySnapshot `json:"top_expense_categories"`
 	FamilyMembers        []aiReportMemberSnapshot   `json:"family_members"`
@@ -135,45 +136,45 @@ type aiReportSnapshot struct {
 }
 
 type aiReportBudgetSnapshot struct {
-	MonthlyBudget        *float64                       `json:"monthly_budget"`
-	Spent                float64                        `json:"spent"`
-	Remaining            *float64                       `json:"remaining"`
+	MonthlyBudget        *money.Amount                  `json:"monthly_budget"`
+	Spent                money.Amount                   `json:"spent"`
+	Remaining            *money.Amount                  `json:"remaining"`
 	UsedPercent          *int                           `json:"used_percent"`
 	OverBudgetCategories []aiReportBudgetLimitSnapshot  `json:"over_budget_categories"`
 	MemberBudgets        []aiReportMemberBudgetSnapshot `json:"member_budgets"`
 }
 
 type aiReportBudgetLimitSnapshot struct {
-	Name       string  `json:"name"`
-	Amount     float64 `json:"amount"`
-	Spent      float64 `json:"spent"`
-	Percentage int     `json:"percentage"`
+	Name       string       `json:"name"`
+	Amount     money.Amount `json:"amount"`
+	Spent      money.Amount `json:"spent"`
+	Percentage int          `json:"percentage"`
 }
 
 type aiReportMemberBudgetSnapshot struct {
-	MemberName   string  `json:"member_name"`
-	CategoryName string  `json:"category_name,omitempty"`
-	Amount       float64 `json:"amount"`
-	Spent        float64 `json:"spent"`
-	Remaining    float64 `json:"remaining"`
-	Percentage   int     `json:"percentage"`
+	MemberName   string       `json:"member_name"`
+	CategoryName string       `json:"category_name,omitempty"`
+	Amount       money.Amount `json:"amount"`
+	Spent        money.Amount `json:"spent"`
+	Remaining    money.Amount `json:"remaining"`
+	Percentage   int          `json:"percentage"`
 }
 
 type aiReportCategorySnapshot struct {
-	Name   string  `json:"name"`
-	Amount float64 `json:"amount"`
-	Count  int     `json:"count"`
+	Name   string       `json:"name"`
+	Amount money.Amount `json:"amount"`
+	Count  int          `json:"count"`
 }
 
 type aiReportMemberSnapshot struct {
-	DisplayName  string  `json:"display_name"`
-	ExpenseTotal float64 `json:"expense_total"`
-	Count        int     `json:"count"`
+	DisplayName  string       `json:"display_name"`
+	ExpenseTotal money.Amount `json:"expense_total"`
+	Count        int          `json:"count"`
 }
 
 type aiReportAccountSnapshot struct {
-	AccountName  string  `json:"account_name"`
-	BalanceDelta float64 `json:"balance_delta"`
+	AccountName  string       `json:"account_name"`
+	BalanceDelta money.Amount `json:"balance_delta"`
 }
 
 func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*AIReportResponse, error) {
@@ -360,7 +361,7 @@ func (s *AIReportService) buildSnapshotJSON(userID uint, start time.Time, end ti
 		Currency:       "CNY",
 		IncomeTotal:    sum.Income,
 		ExpenseTotal:   sum.Expense,
-		NetCashflow:    sum.Income - sum.Expense,
+		NetCashflow:    sum.Income.Sub(sum.Expense),
 		Budget:         aiReportBudgetSnapshot{OverBudgetCategories: []aiReportBudgetLimitSnapshot{}, MemberBudgets: []aiReportMemberBudgetSnapshot{}},
 		AccountChanges: []aiReportAccountSnapshot{},
 	}
@@ -407,22 +408,22 @@ func (s *AIReportService) appendBudgetSnapshot(userID uint, start time.Time, end
 	if err != nil {
 		return err
 	}
-	categorySpent := make(map[string]float64, len(categorySums))
+	categorySpent := make(map[string]money.Amount, len(categorySums))
 	for _, sum := range categorySums {
 		categorySpent[sum.CategoryID] = sum.Total
 	}
-	memberSpent := make(map[string]float64)
-	memberCategorySpent := make(map[string]float64)
+	memberSpent := make(map[string]money.Amount)
+	memberCategorySpent := make(map[string]money.Amount)
 	for _, sum := range memberCategorySums {
-		memberSpent[sum.MemberID] += sum.Total
+		memberSpent[sum.MemberID] = memberSpent[sum.MemberID].Add(sum.Total)
 		memberCategorySpent[budgetScopeKey(sum.MemberID, sum.CategoryID)] = sum.Total
 	}
 
 	for _, budget := range budgets {
 		if budget.MemberID == nil && budget.CategoryID == nil {
-			snapshot.Budget.MonthlyBudget = float64Ptr(budget.Amount)
+			snapshot.Budget.MonthlyBudget = moneyAmountPtr(budget.Amount)
 			snapshot.Budget.Spent = snapshot.ExpenseTotal
-			snapshot.Budget.Remaining = float64Ptr(budget.Amount - snapshot.ExpenseTotal)
+			snapshot.Budget.Remaining = moneyAmountPtr(budget.Amount.Sub(snapshot.ExpenseTotal))
 			snapshot.Budget.UsedPercent = percentPtr(snapshot.ExpenseTotal, budget.Amount)
 			continue
 		}
@@ -464,7 +465,7 @@ func (s *AIReportService) appendBudgetSnapshot(userID uint, start time.Time, end
 				CategoryName: categoryName,
 				Amount:       budget.Amount,
 				Spent:        spent,
-				Remaining:    budget.Amount - spent,
+				Remaining:    budget.Amount.Sub(spent),
 				Percentage:   percentValue(spent, budget.Amount),
 			})
 		}
@@ -625,20 +626,20 @@ func sanitizeAIError(err error) string {
 	return message
 }
 
-func float64Ptr(value float64) *float64 {
+func moneyAmountPtr(value money.Amount) *money.Amount {
 	return &value
 }
 
-func percentPtr(spent float64, amount float64) *int {
+func percentPtr(spent, amount money.Amount) *int {
 	value := percentValue(spent, amount)
 	return &value
 }
 
-func percentValue(spent float64, amount float64) int {
-	if amount <= 0 {
+func percentValue(spent, amount money.Amount) int {
+	if amount.Cents() <= 0 {
 		return 0
 	}
-	return int(spent / amount * 100)
+	return int(spent.Cents() * 100 / amount.Cents())
 }
 
 func aiReportResponse(report *model.AIReport) *AIReportResponse {

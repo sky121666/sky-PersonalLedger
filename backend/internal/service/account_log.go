@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
@@ -24,7 +25,7 @@ type LogBalanceChangeRequest struct {
 	UserID        uint
 	AccountID     string
 	Type          string // income, expense, transfer_in, transfer_out, rollback, adjustment
-	Amount        float64
+	Amount        money.Amount
 	TransactionID *string
 	ReminderID    *string
 	LendingID     *string
@@ -39,20 +40,20 @@ func (s *AccountLogService) LogBalanceChange(req *LogBalanceChangeRequest) error
 
 	balanceBefore := account.CurrentBalance
 
-	var cashFlowDelta float64
+	var cashFlowDelta money.Amount
 	switch req.Type {
 	case "income", "transfer_in", "rollback_expense":
 		cashFlowDelta = req.Amount
 	case "expense", "transfer_out", "rollback_income":
-		cashFlowDelta = -req.Amount
+		cashFlowDelta = req.Amount.Negate()
 	default:
 		cashFlowDelta = req.Amount
 	}
 	balanceDelta := cashFlowDelta
 	if IsDebtAccount(account.Type) {
-		balanceDelta = -cashFlowDelta
+		balanceDelta = cashFlowDelta.Negate()
 	}
-	balanceAfter := roundMoney(balanceBefore + balanceDelta)
+	balanceAfter := balanceBefore.Add(balanceDelta)
 
 	return s.logRepo.Create(&repository.CreateAccountLogRequest{
 		UserID:        req.UserID,

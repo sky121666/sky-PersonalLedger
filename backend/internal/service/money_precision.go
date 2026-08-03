@@ -1,49 +1,32 @@
 package service
 
 import (
-	"math"
-
+	"github.com/sky/personal-ledger/internal/money"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-// roundMoney keeps the existing JSON number contract while enforcing the
-// database's decimal(15,2) minor-unit precision in Go calculations.
-func roundMoney(value float64) float64 {
-	return math.Round(value*100) / 100
+// roundMoney normalizes an API amount to the integer minor-unit boundary.
+func roundMoney(value money.Amount) money.Amount {
+	return money.FromCents(value.Cents())
 }
 
-func roundedCurrentBalanceDelta(db *gorm.DB, delta float64) clause.Expr {
-	if db.Dialector.Name() == "postgres" {
-		return gorm.Expr(
-			"ROUND(current_balance + CAST(? AS numeric), 2)",
-			delta,
-		)
-	}
-	return gorm.Expr("ROUND(current_balance + ?, 2)", delta)
+func roundedCurrentBalanceDelta(_ *gorm.DB, delta money.Amount) clause.Expr {
+	return gorm.Expr("current_balance_cents + ?", delta.Cents())
 }
 
 func roundedDebtBalanceAfterPayment(
-	db *gorm.DB,
-	principalPaid float64,
+	_ *gorm.DB,
+	principalPaid money.Amount,
 ) clause.Expr {
-	if db.Dialector.Name() == "postgres" {
-		return gorm.Expr(
-			"CASE WHEN current_balance > CAST(? AS numeric) THEN ROUND(current_balance - CAST(? AS numeric), 2) ELSE 0 END",
-			principalPaid,
-			principalPaid,
-		)
-	}
+	cents := principalPaid.Cents()
 	return gorm.Expr(
-		"CASE WHEN current_balance > ? THEN ROUND(current_balance - ?, 2) ELSE 0 END",
-		principalPaid,
-		principalPaid,
+		"CASE WHEN current_balance_cents > ? THEN current_balance_cents - ? ELSE 0 END",
+		cents,
+		cents,
 	)
 }
 
-func roundedTotalPaidDelta(db *gorm.DB, delta float64) clause.Expr {
-	if db.Dialector.Name() == "postgres" {
-		return gorm.Expr("ROUND(total_paid + CAST(? AS numeric), 2)", delta)
-	}
-	return gorm.Expr("ROUND(total_paid + ?, 2)", delta)
+func roundedTotalPaidDelta(_ *gorm.DB, delta money.Amount) clause.Expr {
+	return gorm.Expr("total_paid_cents + ?", delta.Cents())
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -236,7 +237,7 @@ func createSummaryTransaction(t *testing.T, svc *TransactionService, userID uint
 	t.Helper()
 	if _, err := svc.Create(userID, CreateTransactionRequest{
 		Type:            txType,
-		Amount:          amount,
+		Amount:          money.Amount(amount),
 		AccountID:       accountID,
 		MemberID:        memberID,
 		TransactionDate: date,

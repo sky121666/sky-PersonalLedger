@@ -8,6 +8,7 @@ import (
 
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -50,7 +51,7 @@ func TestListTransactionsForExportLoadsEveryPage(t *testing.T) {
 			UserID:          userID,
 			AccountID:       accountID,
 			Type:            "expense",
-			Amount:          float64(index + 1),
+			Amount:          money.Amount(index + 1),
 			TransactionDate: time.Date(2026, time.May, index+1, 12, 0, 0, 0, time.Local),
 			Source:          "manual",
 		}
@@ -129,7 +130,7 @@ func TestYearlyReportKeepsSoftDeletedCategoryMetadataInAggregates(t *testing.T) 
 		categoryID := category.ID
 		if err := repos.Transaction.Create(&model.Transaction{
 			ID: fmt.Sprintf("yearly-category-%d", index), UserID: userID, AccountID: accountID,
-			CategoryID: &categoryID, Type: "expense", Amount: amount,
+			CategoryID: &categoryID, Type: "expense", Amount: money.Amount(amount),
 			TransactionDate: time.Date(2026, time.March, 12, 12+index, 0, 0, 0, time.Local),
 			Source:          "manual", Remark: "午餐",
 		}); err != nil {
@@ -192,9 +193,9 @@ func TestYearlyReportAggregatesMoreThanLegacyHundredThousandLimit(t *testing.T) 
 			CROSS JOIN digits d CROSS JOIN digits e CROSS JOIN digits f
 		)
 		INSERT INTO transactions (
-			id, user_id, account_id, type, amount, transaction_date, source, created_at, updated_at
+			id, user_id, account_id, type, amount_cents, transaction_date, source, created_at, updated_at
 		)
-		SELECT printf('bulk-%06d', n), ?, ?, 'expense', 1, '2026-06-15 12:00:00', 'manual', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+		SELECT printf('bulk-%06d', n), ?, ?, 'expense', 100, '2026-06-15 12:00:00', 'manual', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 		FROM numbers
 		WHERE n BETWEEN 1 AND 100001
 	`, userID, accountID).Error; err != nil {

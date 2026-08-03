@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
@@ -25,18 +26,18 @@ func NewAccountService(repo *repository.AccountRepository) *AccountService {
 }
 
 type CreateAccountRequest struct {
-	Name           string   `json:"name" binding:"required"`
-	Type           string   `json:"type" binding:"required,oneof=cash bank_card alipay wechat credit loan mortgage car_loan consumer_loan receivable payable savings investment fund stock crypto prepaid qq_pay jd_pay apple_pay huabei baitiao other"`
-	Icon           string   `json:"icon"`
-	Color          string   `json:"color"`
-	InitialBalance float64  `json:"initial_balance"`
-	PaymentDay     *int     `json:"payment_day"`
-	BillingDay     *int     `json:"billing_day"`
-	CreditLimit    *float64 `json:"credit_limit"`
-	InterestRate   *float64 `json:"interest_rate"`
-	StartDate      *string  `json:"start_date"`
-	TargetDate     *string  `json:"target_date"`
-	Remark         string   `json:"remark"`
+	Name           string        `json:"name" binding:"required"`
+	Type           string        `json:"type" binding:"required,oneof=cash bank_card alipay wechat credit loan mortgage car_loan consumer_loan receivable payable savings investment fund stock crypto prepaid qq_pay jd_pay apple_pay huabei baitiao other"`
+	Icon           string        `json:"icon"`
+	Color          string        `json:"color"`
+	InitialBalance money.Amount  `json:"initial_balance"`
+	PaymentDay     *int          `json:"payment_day"`
+	BillingDay     *int          `json:"billing_day"`
+	CreditLimit    *money.Amount `json:"credit_limit"`
+	InterestRate   *float64      `json:"interest_rate"`
+	StartDate      *string       `json:"start_date"`
+	TargetDate     *string       `json:"target_date"`
+	Remark         string        `json:"remark"`
 }
 
 func (s *AccountService) Create(userID uint, req CreateAccountRequest) (*model.Account, error) {
@@ -88,7 +89,7 @@ func (s *AccountService) Create(userID uint, req CreateAccountRequest) (*model.A
 
 func (s *AccountService) createInitialBalanceTransactionTx(txdb *gorm.DB, userID uint, account *model.Account) error {
 	var txType string
-	var amount float64
+	var amount money.Amount
 
 	if IsDebtAccount(account.Type) {
 		// For debt accounts, positive balance means owing money (expense-like)
@@ -97,7 +98,7 @@ func (s *AccountService) createInitialBalanceTransactionTx(txdb *gorm.DB, userID
 			amount = account.InitialBalance
 		} else {
 			txType = "income"
-			amount = -account.InitialBalance
+			amount = account.InitialBalance.Negate()
 		}
 	} else {
 		// For asset accounts, positive balance is income-like
@@ -106,7 +107,7 @@ func (s *AccountService) createInitialBalanceTransactionTx(txdb *gorm.DB, userID
 			amount = account.InitialBalance
 		} else {
 			txType = "expense"
-			amount = -account.InitialBalance
+			amount = account.InitialBalance.Negate()
 		}
 	}
 
@@ -175,29 +176,29 @@ func (s *AccountService) List(userID uint, includeArchived bool) ([]model.Accoun
 }
 
 type UpdateAccountRequest struct {
-	Name         string   `json:"name"`
-	Icon         string   `json:"icon"`
-	Color        string   `json:"color"`
-	PaymentDay   *int     `json:"payment_day"`
-	BillingDay   *int     `json:"billing_day"`
-	CreditLimit  *float64 `json:"credit_limit"`
-	InterestRate *float64 `json:"interest_rate"`
-	StartDate    *string  `json:"start_date"`
-	TargetDate   *string  `json:"target_date"`
-	Remark       string   `json:"remark"`
+	Name         string        `json:"name"`
+	Icon         string        `json:"icon"`
+	Color        string        `json:"color"`
+	PaymentDay   *int          `json:"payment_day"`
+	BillingDay   *int          `json:"billing_day"`
+	CreditLimit  *money.Amount `json:"credit_limit"`
+	InterestRate *float64      `json:"interest_rate"`
+	StartDate    *string       `json:"start_date"`
+	TargetDate   *string       `json:"target_date"`
+	Remark       string        `json:"remark"`
 }
 
 type PatchAccountRequest struct {
-	Name         Optional[string]  `json:"name"`
-	Icon         Optional[string]  `json:"icon"`
-	Color        Optional[string]  `json:"color"`
-	PaymentDay   Optional[int]     `json:"payment_day"`
-	BillingDay   Optional[int]     `json:"billing_day"`
-	CreditLimit  Optional[float64] `json:"credit_limit"`
-	InterestRate Optional[float64] `json:"interest_rate"`
-	StartDate    Optional[string]  `json:"start_date"`
-	TargetDate   Optional[string]  `json:"target_date"`
-	Remark       Optional[string]  `json:"remark"`
+	Name         Optional[string]       `json:"name"`
+	Icon         Optional[string]       `json:"icon"`
+	Color        Optional[string]       `json:"color"`
+	PaymentDay   Optional[int]          `json:"payment_day"`
+	BillingDay   Optional[int]          `json:"billing_day"`
+	CreditLimit  Optional[money.Amount] `json:"credit_limit"`
+	InterestRate Optional[float64]      `json:"interest_rate"`
+	StartDate    Optional[string]       `json:"start_date"`
+	TargetDate   Optional[string]       `json:"target_date"`
+	Remark       Optional[string]       `json:"remark"`
 }
 
 func (s *AccountService) Patch(id string, userID uint, req PatchAccountRequest) (*model.Account, error) {
@@ -228,7 +229,7 @@ func (s *AccountService) Patch(id string, userID uint, req PatchAccountRequest) 
 	if err := addOptionalDayPatch(updates, "billing_day", req.BillingDay); err != nil {
 		return nil, err
 	}
-	if err := addOptionalNonNegativePatch(updates, "credit_limit", req.CreditLimit); err != nil {
+	if err := addOptionalNonNegativePatch(updates, "credit_limit_cents", req.CreditLimit); err != nil {
 		return nil, err
 	}
 	if req.InterestRate.Set {
@@ -273,7 +274,7 @@ func addOptionalDayPatch(updates map[string]any, column string, field Optional[i
 	return nil
 }
 
-func addOptionalNonNegativePatch(updates map[string]any, column string, field Optional[float64]) error {
+func addOptionalNonNegativePatch(updates map[string]any, column string, field Optional[money.Amount]) error {
 	if !field.Set {
 		return nil
 	}
@@ -326,7 +327,7 @@ func (s *AccountService) Update(id string, userID uint, req UpdateAccountRequest
 		updates["billing_day"] = req.BillingDay
 	}
 	if req.CreditLimit != nil {
-		updates["credit_limit"] = req.CreditLimit
+		updates["credit_limit_cents"] = req.CreditLimit
 	}
 	if req.InterestRate != nil {
 		updates["interest_rate"] = req.InterestRate
@@ -393,28 +394,28 @@ func (s *AccountService) UpdateSortOrder(userID uint, ids []string) error {
 }
 
 type AccountSummary struct {
-	TotalAssets      float64 `json:"total_assets"`
-	TotalLiabilities float64 `json:"total_liabilities"`
-	NetAssets        float64 `json:"net_assets"`
+	TotalAssets      money.Amount `json:"total_assets"`
+	TotalLiabilities money.Amount `json:"total_liabilities"`
+	NetAssets        money.Amount `json:"net_assets"`
 }
 
 func IsDebtAccount(accountType string) bool {
 	return model.IsDebtAccountType(accountType)
 }
 
-func classifyAccountBalance(accountType string, balance float64) (assets float64, liabilities float64) {
+func classifyAccountBalance(accountType string, balance money.Amount) (assets money.Amount, liabilities money.Amount) {
 	if IsDebtAccount(accountType) {
 		if balance >= 0 {
 			return 0, balance
 		}
 		// A negative debt balance is an overpayment or account credit and is
 		// therefore an asset rather than a negative liability.
-		return -balance, 0
+		return balance.Negate(), 0
 	}
 	if balance >= 0 {
 		return balance, 0
 	}
-	return 0, -balance
+	return 0, balance.Negate()
 }
 
 func (s *AccountService) GetSummary(userID uint) (*AccountSummary, error) {
@@ -423,16 +424,16 @@ func (s *AccountService) GetSummary(userID uint) (*AccountSummary, error) {
 		return nil, err
 	}
 
-	var assets, liabilities float64
+	var assets, liabilities money.Amount
 	for _, acc := range accounts {
 		accountAssets, accountLiabilities := classifyAccountBalance(acc.Type, acc.CurrentBalance)
-		assets += accountAssets
-		liabilities += accountLiabilities
+		assets = assets.Add(accountAssets)
+		liabilities = liabilities.Add(accountLiabilities)
 	}
 
 	return &AccountSummary{
 		TotalAssets:      assets,
 		TotalLiabilities: liabilities,
-		NetAssets:        assets - liabilities,
+		NetAssets:        assets.Sub(liabilities),
 	}, nil
 }

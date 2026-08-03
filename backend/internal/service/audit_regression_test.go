@@ -14,6 +14,7 @@ import (
 	"github.com/sky/personal-ledger/internal/config"
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
@@ -25,7 +26,7 @@ func TestRegressionPartialAccountUpdatePreservesUnsubmittedFields(t *testing.T) 
 	}
 	repos := repository.NewRepositories(db)
 	paymentDay, billingDay := 10, 3
-	creditLimit, interestRate := 20_000.0, 18.5
+	creditLimit, interestRate := money.Amount(20_000), 18.5
 	startDate := time.Date(2025, 1, 2, 0, 0, 0, 0, time.Local)
 	targetDate := time.Date(2028, 1, 2, 0, 0, 0, 0, time.Local)
 	account := &model.Account{
@@ -64,7 +65,7 @@ func TestRegressionDeleteReminderThenPaymentTransactionRestoresBothAccounts(t *t
 	)
 	debtAccountID := createTypedAccountForTest(t, repos, userID, "loan", 500)
 	paymentAccountID := createTypedAccountForTest(t, repos, userID, "cash", 1000)
-	principal, currentBalance := 500.0, 500.0
+	principal, currentBalance := money.Amount(500), money.Amount(500)
 	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
 		Name: "房贷", AccountID: &debtAccountID, PaymentDay: 20,
 		Principal: &principal, CurrentBalance: &currentBalance,
@@ -383,7 +384,7 @@ func TestRegressionLinkedReminderBalanceCannotDivergeFromDebtAccount(t *testing.
 	)
 	debtAccountID := createTypedAccountForTest(t, repos, userID, "loan", 500)
 	paymentAccountID := createTypedAccountForTest(t, repos, userID, "cash", 1000)
-	principal, currentBalance := 500.0, 500.0
+	principal, currentBalance := money.Amount(500), money.Amount(500)
 	reminder, err := reminderSvc.Create(userID, CreateReminderRequest{
 		Name: "贷款", AccountID: &debtAccountID, LoanType: "loan", PaymentDay: 20,
 		Principal: &principal, CurrentBalance: &currentBalance,
@@ -396,7 +397,7 @@ func TestRegressionLinkedReminderBalanceCannotDivergeFromDebtAccount(t *testing.
 	}); err != nil {
 		t.Fatalf("record payment: %v", err)
 	}
-	manualBalance := 475.0
+	manualBalance := money.Amount(475)
 	_, err = reminderSvc.Update(reminder.ID, userID, CreateReminderRequest{
 		Name: "贷款", AccountID: &debtAccountID, LoanType: "loan", PaymentDay: 20,
 		Principal: &principal, CurrentBalance: &manualBalance,

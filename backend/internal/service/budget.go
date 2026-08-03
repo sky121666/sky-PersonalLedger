@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -35,16 +36,16 @@ func NewBudgetService(
 }
 
 type BudgetItem struct {
-	ID             string  `json:"id"`
-	CategoryID     *string `json:"category_id"`
-	CategoryName   string  `json:"category_name,omitempty"`
-	MemberID       *string `json:"member_id,omitempty"`
-	MemberName     string  `json:"member_name,omitempty"`
-	Amount         float64 `json:"amount"`
-	Spent          float64 `json:"spent"`
-	Remaining      float64 `json:"remaining"`
-	Percentage     int     `json:"percentage"`
-	AlertThreshold int     `json:"alert_threshold"`
+	ID             string       `json:"id"`
+	CategoryID     *string      `json:"category_id"`
+	CategoryName   string       `json:"category_name,omitempty"`
+	MemberID       *string      `json:"member_id,omitempty"`
+	MemberName     string       `json:"member_name,omitempty"`
+	Amount         money.Amount `json:"amount"`
+	Spent          money.Amount `json:"spent"`
+	Remaining      money.Amount `json:"remaining"`
+	Percentage     int          `json:"percentage"`
+	AlertThreshold int          `json:"alert_threshold"`
 }
 
 type BudgetListResponse struct {
@@ -70,20 +71,20 @@ func (s *BudgetService) List(userID uint, month string) (*BudgetListResponse, er
 		return nil, err
 	}
 
-	spentMap := make(map[string]float64)
-	var totalSpent float64
+	spentMap := make(map[string]money.Amount)
+	var totalSpent money.Amount
 	for _, cs := range categorySums {
 		spentMap[cs.CategoryID] = cs.Total
-		totalSpent += cs.Total
+		totalSpent = totalSpent.Add(cs.Total)
 	}
 	memberCategorySums, err := s.txRepo.SumExpenseByMemberAndCategory(userID, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
-	memberSpentMap := make(map[string]float64)
-	memberCategorySpentMap := make(map[string]float64)
+	memberSpentMap := make(map[string]money.Amount)
+	memberCategorySpentMap := make(map[string]money.Amount)
 	for _, ms := range memberCategorySums {
-		memberSpentMap[ms.MemberID] += ms.Total
+		memberSpentMap[ms.MemberID] = memberSpentMap[ms.MemberID].Add(ms.Total)
 		memberCategorySpentMap[budgetScopeKey(ms.MemberID, ms.CategoryID)] = ms.Total
 	}
 
@@ -113,26 +114,26 @@ func (s *BudgetService) List(userID uint, month string) (*BudgetListResponse, er
 					item.CategoryName = b.Category.Name
 				}
 			}
-			item.Remaining = b.Amount - item.Spent
+			item.Remaining = b.Amount.Sub(item.Spent)
 			if b.Amount > 0 {
-				item.Percentage = int(item.Spent / b.Amount * 100)
+				item.Percentage = moneyPercentage(item.Spent, b.Amount)
 			}
 			response.MemberBudgets = append(response.MemberBudgets, item)
 		} else if b.CategoryID == nil {
 			// Total budget
 			item.Spent = totalSpent
-			item.Remaining = b.Amount - totalSpent
+			item.Remaining = b.Amount.Sub(totalSpent)
 			if b.Amount > 0 {
-				item.Percentage = int(totalSpent / b.Amount * 100)
+				item.Percentage = moneyPercentage(totalSpent, b.Amount)
 			}
 			response.TotalBudget = &item
 		} else {
 			// Category budget
 			spent := spentMap[*b.CategoryID]
 			item.Spent = spent
-			item.Remaining = b.Amount - spent
+			item.Remaining = b.Amount.Sub(spent)
 			if b.Amount > 0 {
-				item.Percentage = int(spent / b.Amount * 100)
+				item.Percentage = moneyPercentage(spent, b.Amount)
 			}
 			if b.Category != nil {
 				item.CategoryName = b.Category.Name
@@ -162,12 +163,12 @@ func budgetMonthRange(month string) (time.Time, time.Time, error) {
 }
 
 type BudgetSummary struct {
-	TotalAmount          float64     `json:"total_amount"`
-	TotalSpent           float64     `json:"total_spent"`
-	Percentage           int         `json:"percentage"`
-	DailyAvailable       float64     `json:"daily_available"`
-	DaysRemaining        int         `json:"days_remaining"`
-	OverBudgetCategories []OverLimit `json:"over_budget_categories"`
+	TotalAmount          money.Amount `json:"total_amount"`
+	TotalSpent           money.Amount `json:"total_spent"`
+	Percentage           int          `json:"percentage"`
+	DailyAvailable       money.Amount `json:"daily_available"`
+	DaysRemaining        int          `json:"days_remaining"`
+	OverBudgetCategories []OverLimit  `json:"over_budget_categories"`
 }
 
 type OverLimit struct {
@@ -200,9 +201,9 @@ func (s *BudgetService) GetSummary(userID uint) (*BudgetSummary, error) {
 		summary.TotalSpent = list.TotalBudget.Spent
 		summary.Percentage = list.TotalBudget.Percentage
 		// Calculate daily available budget
-		remaining := list.TotalBudget.Amount - list.TotalBudget.Spent
+		remaining := list.TotalBudget.Amount.Sub(list.TotalBudget.Spent)
 		if remaining > 0 {
-			summary.DailyAvailable = remaining / float64(daysRemaining)
+			summary.DailyAvailable = remaining.Divide(int64(daysRemaining))
 		}
 	}
 
@@ -211,7 +212,7 @@ func (s *BudgetService) GetSummary(userID uint) (*BudgetSummary, error) {
 		if cat.Spent > cat.Amount {
 			overPercent := 0
 			if cat.Amount > 0 {
-				overPercent = int((cat.Spent - cat.Amount) / cat.Amount * 100)
+				overPercent = moneyPercentage(cat.Spent.Sub(cat.Amount), cat.Amount)
 			}
 			summary.OverBudgetCategories = append(summary.OverBudgetCategories, OverLimit{
 				Name:       cat.CategoryName,
@@ -234,10 +235,17 @@ func (s *BudgetService) GetSummary(userID uint) (*BudgetSummary, error) {
 }
 
 type SetBudgetRequest struct {
-	CategoryID     *string `json:"category_id"`
-	MemberID       *string `json:"member_id"`
-	Amount         float64 `json:"amount" binding:"required,gt=0"`
-	AlertThreshold int     `json:"alert_threshold"`
+	CategoryID     *string      `json:"category_id"`
+	MemberID       *string      `json:"member_id"`
+	Amount         money.Amount `json:"amount" binding:"required,gt=0"`
+	AlertThreshold int          `json:"alert_threshold"`
+}
+
+func moneyPercentage(value, total money.Amount) int {
+	if total.Cents() <= 0 {
+		return 0
+	}
+	return int(value.Cents() * 100 / total.Cents())
 }
 
 func (s *BudgetService) SetTotalBudget(userID uint, req SetBudgetRequest) (*model.Budget, error) {
