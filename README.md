@@ -1,377 +1,248 @@
 # Personal Ledger
 
-🏠 简洁、安全的个人记账系统，支持私有部署
-
-## 📸 应用截图
-
-> 💡 **多端适配** - Web 响应式界面 + 原生 Flutter 客户端，移动端主流程不再依赖 WebView
-
-<details>
-<summary><b>🖥️ 桌面端界面</b> (点击展开)</summary>
-<br/>
-<img width="100%" alt="Personal Ledger 桌面端界面" src="https://github.com/user-attachments/assets/1ddb77fa-e564-494b-9cb0-bfaf8a0bfdc3" />
-</details>
-
-<details open>
-<summary><b>📱 手机端界面</b> (响应式布局)</summary>
-<br/>
-<p align="center">
-  <img width="24%" alt="登录" src="https://github.com/user-attachments/assets/52ea4a37-a2a0-4e7c-96b5-8f5b0598eeb9" />
-  <img width="24%" alt="首页" src="https://github.com/user-attachments/assets/2f5377a6-89ff-4c05-a48a-c52d0ed327e9" />
-  <img width="24%" alt="记账" src="https://github.com/user-attachments/assets/51b57139-f909-4efe-8ff5-5575ad7a5102" />
-  <img width="24%" alt="账户" src="https://github.com/user-attachments/assets/36709b85-711c-4dc3-a8fa-5f0cd3ac565e" />
-</p>
-<p align="center">
-  <img width="24%" alt="统计" src="https://github.com/user-attachments/assets/b042d21c-5fbd-4997-897b-33290287b869" />
-  <img width="24%" alt="设置" src="https://github.com/user-attachments/assets/df338827-6c6f-49b4-ab0c-893d23a7376a" />
-  <img width="24%" alt="借贷" src="https://github.com/user-attachments/assets/3a839b8e-47bc-4b33-9928-c7e354dfeb1e" />
-  <img width="24%" alt="导出" src="https://github.com/user-attachments/assets/5a9ed06c-9b73-48c7-b175-3c961d6805f3" />
-</p>
-<p align="center">
-  <img width="24%" alt="标签" src="https://github.com/user-attachments/assets/1a2004b2-1b30-4c08-99cb-32ef58fb26eb" />
-  <img width="24%" alt="更多" src="https://github.com/user-attachments/assets/717a0a03-77c5-414a-b39d-47883612c196" />
-</p>
-</details>
+Personal Ledger 是一个面向个人和家庭的私有部署记账系统。数据保存在你自己的服务器上，提供 Web 界面和原生 Flutter 客户端；后端 API 同时支持浏览器、移动端和受限的设备授权令牌。
 
-## ✨ 特性
+## 当前边界
 
-- 🔐 **安全私密** - 数据存储在你自己的服务器，完全掌控
-- 📱 **多端支持** - Web 网页版 + Android/macOS/Windows 客户端
-- 🐳 **一键部署** - Docker/1Panel 快速部署，开箱即用
-- 💾 **灵活存储** - 默认 SQLite 单文件，也可配置 PostgreSQL/MySQL/MariaDB
-- 🚀 **高性能** - Go 后端 + Vue3 前端，响应迅速
-- 🛡️ **安全防护** - JWT 认证 + 限流保护 + 自定义入口
-
-## 🚀 快速开始
-
-### 方式一：Docker Compose (推荐)
-
-```bash
-# 1. 下载配置文件
-curl -fsSLO https://raw.githubusercontent.com/sky121666/sky-PersonalLedger/main/docker-compose.yml
-
-# 2. 生成 JWT 密钥和一次性安装令牌 (必须)
-printf 'LEDGER_JWT_SECRET=%s\nLEDGER_SETUP_TOKEN=%s\n' \
-  "$(openssl rand -base64 32)" "$(openssl rand -hex 32)" > .env
-
-# 3. 启动服务
-docker compose up -d
+- Docker + Web 是当前最直接的自托管路径。
+- Flutter 客户端源码覆盖 Android、iOS、macOS 和 Windows；对应构建工作流已经存在，但正式分发仍取决于签名材料、目标平台回归和设备证据。
+- 本项目是单个拥有者范围内的个人/家庭账本，不是 SaaS 多租户系统。
+- 默认数据库是 SQLite，也可以配置 PostgreSQL、MySQL 或 MariaDB。
+- 仓库当前未包含 LICENSE 文件；如果要公开发行，请先补充明确的许可证声明。
 
-# 4. 查看状态
-docker compose ps
-docker compose logs -f
-```
+## 功能
 
-✅ **访问地址**: `http://localhost:8080/#/setup?setup_token=<.env 中的 LEDGER_SETUP_TOKEN>`
+### 记账与数据管理
 
-初始化页会把安装令牌仅保存在当前浏览器会话中，并立即从地址栏移除。初始化完成后，服务端会拒绝再次执行安装接口。
+- 收入、支出、转账，以及账户余额和账户变更日志。
+- 账户、分类、标签、模板、预算、提醒和借贷记录。
+- 交易搜索、筛选、批量删除、附件上传、CSV 导出和年度报表。
+- 交易导入预览、校验、提交和回滚。
+- 自动备份、备份列表、JSON 备份恢复和恢复前后完整性校验。
 
-### 方式二：1Panel 面板部署
+### 家庭和分析
 
-使用 1Panel 面板的用户，可以通过可视化界面轻松部署：
+- 家庭成员管理、成员归属交易、家庭汇总和成员统计。
+- 总预算、分类预算和成员预算相关界面。
+- 统计总览、分类统计、趋势和资产趋势。
+- 可选的 OpenAI-compatible AI Provider、AI 报告、报告计划任务和敏感信息保护。
+- Webhook、SMTP、企业微信和钉钉等通知配置与测试入口。
 
-📖 **[1Panel 详细安装教程](https://5ee.net/docs/sky-PersonalLedger/1panel_install)**
+### 安全与运维
 
-### 方式三：Docker 命令部署
+- 首次初始化、JWT 会话、刷新令牌和带 scope 的设备授权 API Token。
+- 生产模式全局限流、登录限流、CORS 白名单、安全响应头和审计日志。
+- 可选的受保护 Prometheus /metrics，默认关闭。
+- 上传文件类型/大小限制，备份恢复大小限制，以及 SSRF/私网出站防护。
+- 健康检查：GET /api/v1/health。
 
-```bash
-# 拉取镜像
-docker pull ghcr.io/sky121666/sky-personalledger:latest
+## 架构
 
-# 启动服务 (完整配置)
-docker run -d \
-  --name personal-ledger \
-  --restart unless-stopped \
-  -p 8080:8080 \
-  -v ./data:/data \
-  -e LEDGER_JWT_SECRET=$(openssl rand -base64 32) \
-  -e LEDGER_SETUP_TOKEN=$(openssl rand -hex 32) \
-  -e LEDGER_JWT_ACCESS_EXPIRE=15 \
-  -e LEDGER_JWT_REFRESH_EXPIRE=43200 \
-  -e LEDGER_STORAGE_MAX_FILE_SIZE=10 \
-  -e LEDGER_SERVER_MODE=release \
-  -e LEDGER_LOG_LEVEL=info \
-  -e TZ=Asia/Shanghai \
-  ghcr.io/sky121666/sky-personalledger:latest
+    Web 浏览器 ─┐
+    Flutter 客户端 ─┼─> Go/Gin API (/api/v1) ─> GORM ─> SQLite/PostgreSQL/MySQL/MariaDB
+    设备授权客户端 ─┘                 │
+                                      ├─ /data/ledger.db
+                                      ├─ /data/uploads/
+                                      └─ /data/backups/
 
-# 可选的安全配置
-# -e LEDGER_SECURITY_BASE_PATH=/my-secret-path \
-```
-
-## 📱 客户端下载
-
-> 📦 **客户端说明**: 当前客户端已切换为原生 Flutter 应用，通过 API Client 直连服务端；旧 WebView 兜底入口已移除。Android 已完成当前原生范围验证，macOS/Windows 需要按目标平台单独回归。
+| 目录 | 内容 |
+| --- | --- |
+| backend/ | Go 后端、Gin 路由、GORM 数据访问、服务和测试 |
+| web/ | Vue 3 + TypeScript + Vite Web 客户端 |
+| mobile/ | Flutter 原生客户端、平台工程和移动端测试 |
+| scripts/ | 本地质量门禁、备份演练、E2E 和发布前检查 |
+| docs/ | 架构、移动端 QA、备份和发布运行手册 |
+| .github/workflows/ | Web、后端数据库矩阵、Flutter、移动端 E2E、安全和发布工作流 |
 
-从 [Releases](https://github.com/sky121666/sky-PersonalLedger/releases) 下载对应平台的客户端：
+## Docker 快速开始
 
-| 平台 | 文件名 | 说明 | 测试状态 |
-|------|--------|------|----------|
-| 🤖 Android | `personal-ledger-xxx-android.apk` | 原生 Flutter 客户端，正式包必须使用 release keystore 签名 | ✅ Android 模拟器 smoke 通过 |
-| 🍎 macOS | 暂不随当前 Release 发布 | 原生 Flutter 客户端，首次需在安全设置中允许 | ⏳ 待平台回归 |
-| 🪟 Windows | 暂不随当前 Release 发布 | 原生 Flutter 客户端 | ⏳ 待平台回归 |
+### 使用已有镜像
 
-### Android 正式签名
+需要 Docker Engine 和 Docker Compose v2。
 
-正式 Android APK 不允许使用 debug key 签名。发布前需要在 `mobile/android/key.properties` 配置 release keystore，或在 GitHub Actions 中配置同名 secrets：
-
-```properties
-storeFile=app/upload-keystore.jks
-storePassword=<keystore-password>
-keyAlias=upload
-keyPassword=<key-password>
-```
-
-GitHub Actions 需要配置：
-
-- `ANDROID_KEYSTORE_BASE64`: release keystore 文件的 base64 内容
-- `ANDROID_KEYSTORE_PASSWORD`: keystore 密码
-- `ANDROID_KEY_ALIAS`: key alias
-- `ANDROID_KEY_PASSWORD`: key 密码
-
-未配置这些签名信息时，`flutter build apk --release` 会直接失败，避免生成 debug-signed release APK。
-
-## ⚙️ 配置说明
-
-### 核心环境变量
-
-| 变量 | 说明 | 默认值 | 重要性 |
-|------|------|--------|--------|
-| **LEDGER_JWT_SECRET** | JWT 密钥 (至少32位随机字符串) | - | ⚠️ 必须修改 |
-| **LEDGER_SETUP_TOKEN** | 首次远程安装令牌（至少32位） | 空，仅允许 loopback 初始化 | ⚠️ Docker 必须设置 |
-| LEDGER_SECURITY_BASE_PATH | 自定义入口路径 (如 `/my-ledger`) | 空 | 🔒 安全推荐 |
-| LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND | 允许 AI、Webhook、SMTP 访问回环/私网；仅本地网关场景由部署者显式开启 | false | 🔒 默认保持关闭 |
-| LEDGER_SERVER_TRUSTED_PROXIES | 可信反向代理 IP/CIDR，多个值用逗号分隔；留空忽略转发来源头 | 空 | 🔒 仅代理部署填写 |
-| LEDGER_OBSERVABILITY_METRICS_ENABLED | 启用受保护的 Prometheus `/metrics` 指标 | false | 可选 |
-| LEDGER_OBSERVABILITY_METRICS_TOKEN | 指标抓取 Bearer Token，启用指标时至少 32 位 | 空 | 🔒 启用时必填 |
-
-移动端和自动化客户端使用登录后的“设备授权”页面生成访问令牌。令牌通过 `Authorization: Bearer` 发送，并由服务端按最小权限 scope 校验；不存在全局环境变量形式的万能移动端令牌。
-
-### 运行指标
-
-指标默认关闭。需要接入 Prometheus 时，在 `.env` 中生成独立令牌并启用：
-
-```bash
-LEDGER_OBSERVABILITY_METRICS_ENABLED=true
-LEDGER_OBSERVABILITY_METRICS_TOKEN=$(openssl rand -hex 32)
-```
-
-抓取请求必须携带 `Authorization: Bearer <token>`。指标只包含路由模板、HTTP 方法、状态码、耗时、Go 运行时和数据库连接池状态，不记录 URL 参数、用户标识、令牌或账务内容。
-
-### 数据库配置
-
-默认使用 SQLite，适合单人私有部署和低维护场景。长期服务器部署或多设备高频访问时，可以改用 PostgreSQL；MySQL/MariaDB 也可通过 GORM driver 连接。
-
-未初始化时 Web 会先进入 `/setup`，不会直接显示登录页。初始化页会显示当前数据库类型并支持连接测试；SQLite 可直接使用默认路径，PostgreSQL/MySQL 可填写主机、端口、库名、用户名和密码，系统会生成连接串并保存到本地配置。数据库切换应在设置访问密码前完成，保存新配置后重启服务，再回到 `/setup` 继续设置访问密码。高级用户仍可使用 DSN 模式。
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| LEDGER_DATABASE_DRIVER | 数据库类型：`sqlite` / `postgres` / `postgresql` / `mysql` / `mariadb` | sqlite |
-| LEDGER_DATABASE_PATH | SQLite 数据库文件路径 | ./data/ledger.db |
-| LEDGER_DATABASE_DSN | PostgreSQL/MySQL/MariaDB 连接串 | 空 |
-| LEDGER_DATABASE_MAX_OPEN_CONNS | 最大打开连接数，0 表示驱动默认 | 0 |
-| LEDGER_DATABASE_MAX_IDLE_CONNS | 最大空闲连接数，0 表示驱动默认 | 0 |
-| LEDGER_SETUP_CONFIG_PATH | 初始化向导保存数据库配置的 YAML 路径，Docker 建议 `/data/config.yaml` | ./data/config.yaml |
-
-PostgreSQL 示例：
-
-```bash
-LEDGER_DATABASE_DRIVER=postgres
-LEDGER_DATABASE_DSN='postgres://ledger:password@db:5432/ledger?sslmode=disable&TimeZone=Asia/Shanghai'
-```
-
-MySQL/MariaDB 示例：
-
-```bash
-LEDGER_DATABASE_DRIVER=mysql
-LEDGER_DATABASE_DSN='ledger:password@tcp(db:3306)/ledger?charset=utf8mb4&parseTime=True&loc=Local'
-```
-
-### 功能配置
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| LEDGER_JWT_ACCESS_EXPIRE | 登录状态刷新间隔 (分钟) | 15 |
-| LEDGER_JWT_REFRESH_EXPIRE | 重新登录间隔 (分钟) | 43200 (30天) |
-| LEDGER_STORAGE_MAX_FILE_SIZE | 最大上传文件 (MB) | 10 |
-| LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE | 最大 JSON 备份恢复文件 (MB) | 64 |
-| LEDGER_SERVER_MODE | 服务器模式 (debug=禁用限流, release=启用限流) | release |
-| LEDGER_CORS_ALLOWED_ORIGINS | 跨域白名单，留空仅允许同站 Host/无 Origin；前后端分离时填具体域名；release 禁止 `*` | 空 |
-| LEDGER_RATE_LIMIT_MAX_REQUESTS | 每分钟最大请求数 (仅 release 模式) | 1000 |
-| LEDGER_RATE_LIMIT_WINDOW_SECS | 限流时间窗口 (秒，仅 release 模式) | 60 |
-| LEDGER_LOG_LEVEL | 日志级别 (debug/info/warn/error) | info |
-| TZ | 时区 | Asia/Shanghai |
-
-### docker-compose.yml 完整配置
-
-```yaml
-services:
-  personal-ledger:
-    image: ${LEDGER_IMAGE:-ghcr.io/sky121666/sky-personalledger:latest}
-    container_name: personal-ledger
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./data:/data
-    environment:
-      # ========== 必须修改 ==========
-      # 在 .env 中设置: LEDGER_JWT_SECRET=$(openssl rand -base64 32)
-      - LEDGER_JWT_SECRET=${LEDGER_JWT_SECRET:?Set LEDGER_JWT_SECRET in .env before starting}
-      - LEDGER_SETUP_TOKEN=${LEDGER_SETUP_TOKEN:?Set LEDGER_SETUP_TOKEN in .env before starting}
-      
-      # ========== 安全配置 (可选) ==========
-      # 自定义入口路径，隐藏真实访问地址
-      # - LEDGER_SECURITY_BASE_PATH=/my-secret-path
-      # 默认禁止用户配置的出站地址访问容器回环/私网；连接本地 AI/SMTP 时由部署者审慎开启
-      - LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND=false
-      # 反向代理部署时填写代理 IP/CIDR；不使用代理则保持为空
-      - LEDGER_SERVER_TRUSTED_PROXIES=
-      # 默认关闭；启用后必须同时配置至少 32 位随机抓取令牌
-      - LEDGER_OBSERVABILITY_METRICS_ENABLED=false
-      - LEDGER_OBSERVABILITY_METRICS_TOKEN=
-      # 跨域白名单；同域部署保持为空，前后端分离时设置具体域名
-      # - LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.com
-      
-      # ========== 登录配置 ==========
-      - LEDGER_JWT_ACCESS_EXPIRE=15      # 15分钟后自动刷新登录状态
-      - LEDGER_JWT_REFRESH_EXPIRE=43200  # 30天后需要重新登录
-      
-      # ========== 存储配置 ==========
-      - LEDGER_STORAGE_MAX_FILE_SIZE=10  # 最大上传文件 10MB
-      - LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE=64 # 最大备份恢复文件 64MB
-
-      # ========== 数据库配置 ==========
-      - LEDGER_DATABASE_DRIVER=sqlite
-      - LEDGER_DATABASE_PATH=/data/ledger.db
-      - LEDGER_SETUP_CONFIG_PATH=/data/config.yaml
-      # PostgreSQL 示例:
-      # - LEDGER_DATABASE_DRIVER=postgres
-      # - LEDGER_DATABASE_DSN=postgres://ledger:password@db:5432/ledger?sslmode=disable&TimeZone=Asia/Shanghai
-      
-      # ========== 限流配置 ==========
-      # 正式部署默认启用限流；仅本地开发时改为 debug
-      - LEDGER_SERVER_MODE=release      # debug=禁用限流, release=启用限流
-      # - LEDGER_RATE_LIMIT_MAX_REQUESTS=2000  # 每分钟最多请求数 (仅 release 模式)
-      # - LEDGER_RATE_LIMIT_WINDOW_SECS=60     # 限流时间窗口 (仅 release 模式)
-      
-      # ========== 其他配置 ==========
-      - LEDGER_LOG_LEVEL=info           # 日志级别
-      - TZ=Asia/Shanghai                # 时区设置
-
-# 数据持久化目录说明:
-# ./data/ledger.db    - SQLite 数据库文件（默认）
-# ./data/uploads/     - 用户上传的文件
-# ./data/backups/     - 自动备份文件
-```
-
-### 常用管理命令
-
-```bash
-# 启动服务
-docker compose up -d
-
-# 停止服务
-docker compose down
-
-# 查看日志
-docker compose logs -f
-
-# 重启服务
-docker compose restart
-
-# 更新到最新版本
-docker compose pull && docker compose up -d
-
-# 备份数据
-cp -r ./data ./data-backup-$(date +%Y%m%d)
-```
-
-## 📂 数据目录结构
-
-```
-./data/
-├── ledger.db      # SQLite 数据库文件（默认）
-├── uploads/       # 用户上传的文件
-└── backups/       # 系统自动备份
-```
-
-## 🛠️ 技术栈
-
-- **后端**: Go + Gin + GORM + SQLite/PostgreSQL/MySQL
-- **前端**: Vue 3 + TypeScript + Tailwind CSS  
-- **客户端**: Flutter 原生客户端
-- **部署**: Docker + GitHub Actions
-
-## 🔧 本地开发
-
-基础 `docker-compose.yml` 始终使用生产安全的 `release` 模式。仅本地联调需要关闭全局限流时，显式叠加 debug override：
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.debug.yml up -d
-```
-
-停止该本地调试环境时使用相同的文件组合：
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.debug.yml down
-```
-
-不要将 `docker-compose.debug.yml` 用于生产部署。
-
-```bash
-# 后端开发
-cd backend
-go mod tidy          # 首次运行需要整理依赖
-go run ./cmd/server  # 启动后端服务
-
-# 前端开发
-cd web
-pnpm install
-pnpm run dev
-
-# 移动端开发
-cd mobile
-flutter pub get      # 获取依赖
-flutter run
-```
-
-### Public repository safety
-
-Before committing to the public repository, run:
-
-```bash
-./scripts/check-public-git-safety.sh
-git diff --check
-```
-
-The safety check rejects tracked local config, databases, signing keys, build caches, app packages, and high-confidence secret patterns.
-
-### Mobile runtime smoke
-
-For the real backend E2E path, run from the repository root:
-
-```bash
-./scripts/verify-mobile-e2e.sh
-```
-
-Android and iOS simulator variants are documented in [docs/mobile-real-backend-e2e.md](docs/mobile-real-backend-e2e.md).
-
-For a quick mocked UI smoke, run:
-
-```bash
-cd mobile
-flutter test -d flutter-tester integration_test/app_smoke_test.dart
-flutter run
-```
-
-Manual smoke checklist:
-
-- save server URL
-- log in
-- open home
-- open accounts
-- create a quick expense transaction
-
-## 📄 License
-
-MIT License
+    git clone https://github.com/sky121666/sky-PersonalLedger.git
+    cd sky-PersonalLedger
+    cp .env.example .env
+
+编辑 .env，至少设置两个随机值：
+
+    LEDGER_JWT_SECRET=<至少 32 个字符的随机值>
+    LEDGER_SETUP_TOKEN=<至少 32 个字符的随机值>
+
+可以用下面的命令生成值，再复制到 .env，不要把真实值提交到 Git：
+
+    openssl rand -base64 32
+    openssl rand -hex 32
+
+启动并查看健康状态：
+
+    docker compose up -d
+    docker compose ps
+    curl -fsS http://127.0.0.1:8080/api/v1/health
+
+首次访问：
+
+    http://localhost:8080/#/setup?setup_token=<LEDGER_SETUP_TOKEN 的值>
+
+初始化向导会检查数据库并写入配置。若你在向导中切换了数据库连接配置，请按页面提示重启服务，再回到初始化页设置访问密码。初始化完成后，远程初始化接口会被禁用。
+
+### 从当前源码构建镜像
+
+如果没有可用的 GHCR 镜像，先在仓库根目录构建本地镜像：
+
+    docker build -t personal-ledger:local .
+    LEDGER_IMAGE=personal-ledger:local docker compose up -d
+
+docker-compose.yml 默认把 ./data 挂载到容器 /data，包括数据库、上传文件和自动备份。更新镜像后，先备份 ./data，再执行：
+
+    docker compose pull
+    docker compose up -d
+
+本地调试时可以显式叠加 docker-compose.debug.yml；它只把服务切换为 debug 模式，不应作为生产配置：
+
+    docker compose -f docker-compose.yml -f docker-compose.debug.yml up -d
+
+## 配置
+
+完整示例见 .env.example、config.example.yaml 和 docker-compose.yml。常用配置如下：
+
+| 变量 | 作用 | 默认值/要求 |
+| --- | --- | --- |
+| LEDGER_SERVER_PORT | HTTP 监听端口 | 8080 |
+| LEDGER_SERVER_MODE | debug 或 release；生产模式启用全局限流 | debug（容器覆盖为 release） |
+| LEDGER_SERVER_WEB_PATH | Web 构建产物目录 | ./web/dist |
+| LEDGER_JWT_SECRET | JWT 签名密钥 | 必填，至少 32 字符 |
+| LEDGER_SETUP_TOKEN | 首次远程初始化令牌 | 配置远程初始化时至少 32 字符 |
+| LEDGER_DATABASE_DRIVER | sqlite、postgres、postgresql、mysql 或 mariadb | sqlite |
+| LEDGER_DATABASE_PATH | SQLite 文件路径 | ./data/ledger.db |
+| LEDGER_DATABASE_DSN | 外部数据库 DSN | 空 |
+| LEDGER_SETUP_CONFIG_PATH | 初始化向导写入的 YAML 配置路径 | ./data/config.yaml |
+| LEDGER_STORAGE_UPLOAD_PATH | 上传文件目录 | ./data/uploads |
+| LEDGER_STORAGE_BACKUP_PATH | 自动备份目录 | ./data/backups |
+| LEDGER_STORAGE_MAX_FILE_SIZE | 单个上传文件大小上限（MB） | 10 |
+| LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE | 备份恢复文件大小上限（MB） | 64 |
+| LEDGER_SECURITY_BASE_PATH | 自定义访问入口路径 | 空 |
+| LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND | 是否允许用户配置的 AI/Webhook/SMTP 访问私网 | false |
+| LEDGER_CORS_ALLOWED_ORIGINS | 跨域来源白名单 | 空；release 禁止 * |
+| LEDGER_OBSERVABILITY_METRICS_ENABLED | 是否开放 Prometheus 指标 | false |
+| LEDGER_OBSERVABILITY_METRICS_TOKEN | 指标 Bearer Token | 启用指标时至少 32 字符 |
+| TZ | 应用时区 | Asia/Shanghai |
+
+外部数据库示例：
+
+    LEDGER_DATABASE_DRIVER=postgres
+    LEDGER_DATABASE_DSN=postgres://ledger:password@db:5432/ledger?sslmode=disable&TimeZone=Asia/Shanghai
+
+    LEDGER_DATABASE_DRIVER=mysql
+    LEDGER_DATABASE_DSN=ledger:password@tcp(db:3306)/ledger?charset=utf8mb4&parseTime=True&loc=Local
+
+## Web 开发
+
+Web 使用 Node.js 20、pnpm 10.32.1 和 Vite。开发服务器默认监听 5173，/api 请求代理到 http://localhost:8080。
+
+    cd web
+    pnpm install --frozen-lockfile
+    pnpm dev
+
+常用检查：
+
+    pnpm test
+    pnpm verify:attachments
+    pnpm build
+    pnpm verify:bundle
+
+真实后端浏览器 E2E 会启动隔离的 Go 后端和临时 SQLite 数据库；先构建 Web，再从仓库根目录执行：
+
+    cd web && pnpm build
+    cd ..
+    ./scripts/verify-web-e2e.sh
+
+该检查覆盖登录、错误密码、桌面端交易新增/编辑/删除，以及移动视口下的主导航和快速记账入口。
+
+## 后端开发
+
+后端要求 Go 1.25.12 或兼容版本；本地直接运行时需要准备 LEDGER_JWT_SECRET。默认 Web 静态目录为 ./web/dist。
+
+    cd backend
+    go mod download
+    LEDGER_JWT_SECRET="$(openssl rand -base64 32)" go run ./cmd/server
+
+回归测试：
+
+    go test ./...
+    go vet ./...
+
+仓库根目录还提供数据库矩阵、备份、隐私、运行健康、外部集成和性能检查脚本。它们会使用临时目录或测试数据库，不要把生产数据路径传给测试脚本。
+
+## Flutter 客户端
+
+移动端首次启动时填写账本服务器根地址，例如 https://ledger.example.com 或本机/局域网地址。客户端会自动追加 /api/v1；不要在输入框里重复填写 /api/v1。
+
+    cd mobile
+    flutter pub get
+    flutter analyze
+    flutter test
+    flutter run
+
+真实后端移动端 E2E 默认使用 flutter-tester 和隔离 SQLite 后端：
+
+    cd ..
+    ./scripts/verify-mobile-e2e.sh
+
+平台变体：
+
+    RUN_FLUTTER_TESTER_E2E=0 RUN_ANDROID_E2E=1 ./scripts/verify-mobile-e2e.sh
+    RUN_FLUTTER_TESTER_E2E=0 RUN_IOS_E2E=1 ./scripts/verify-mobile-e2e.sh
+
+Android 默认只接受 emulator-* 设备；完整说明见 docs/mobile-real-backend-e2e.md。
+
+### 平台产物与发布边界
+
+GitHub Actions 提供 Android APK/AAB、iOS IPA、macOS ZIP 和 Windows ZIP 的构建工作流。Android/iOS 正式产物必须配置签名材料；仓库不包含任何 keystore、证书或 provisioning profile。正式发布前还需要目标平台回归、物理设备 QA 和必要的 VoiceOver/TalkBack 验收。
+
+## 自动化门禁
+
+提交前建议至少执行：
+
+    ./scripts/check-public-git-safety.sh
+    git diff --check
+
+    cd backend && go test ./...
+    cd ../web && pnpm install --frozen-lockfile && pnpm test && pnpm verify:attachments && pnpm build && pnpm verify:bundle
+    cd ..
+    ./scripts/verify-web-e2e.sh
+    cd mobile && flutter analyze && flutter test
+    cd ..
+    ./scripts/verify-mobile-e2e.sh
+
+更完整但更慢的本地发布演练：
+
+    RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh
+
+只验证本地源代码、备份、Docker 和结构门禁，并跳过真实签名产物、GHCR 线上镜像、物理 iPhone 和人工辅助功能证据：
+
+    LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
+
+STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh 只应在签名产物、设备和发布证据全部准备完成后执行。
+
+## 发布工作流
+
+.github/workflows/ 中的主要工作流包括：
+
+- web.yml：pnpm 安装、单测、依赖审计、附件清理契约、生产构建、体积预算和浏览器 E2E。
+- backend-database.yml：Go 测试、SQLite/PostgreSQL/MySQL 矩阵、覆盖率和性能预算。
+- mobile-quality.yml：Dart 格式、Flutter 分析、Flutter 测试和 premium screen smoke。
+- mobile-e2e.yml：真实后端 flutter-tester E2E。
+- security-contracts.yml：健康检查、AI 隐私、备份 API 和外部集成契约。
+- public-git-safety.yml：工作流固定引用和公开仓库敏感文件检查。
+- release.yml：推送 v* 标签后串联 Web、后端、移动端、Docker、签名产物和 Release 校验。
+
+发布前请先阅读 docs/quality/production-readiness-2026-05-27.md 和 docs/quality/final-release-runbook-2026-05-27.md。文档中的 PENDING、PREPARED 或历史 PASS 记录不等于当前已经有签名产物或物理设备证据。
+
+## 数据安全注意事项
+
+- .env、数据库、上传目录、备份目录、签名文件和本地构建产物不应提交到 Git。
+- LEDGER_JWT_SECRET、LEDGER_SETUP_TOKEN、指标 Token、AI Provider Key 和通知凭据不要写入 README、Issue 或测试产物。
+- AI Provider 是可选功能；新保存的凭据会按当前安全路径保护，正常备份不会导出 Provider 密钥。升级后应重新保存历史 Provider。
+- 生产模式不要使用 LEDGER_CORS_ALLOWED_ORIGINS=*，也不要在未审查的情况下打开私网出站访问。
+- 升级前先备份 ./data，保留旧镜像标签和备份，确认恢复演练通过后再清理旧版本。

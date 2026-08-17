@@ -5,32 +5,33 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    # 每个生态只保留一个候选，避免自动更新淹没主干。
+    open-pull-requests-limit: 1
 
   - package-ecosystem: npm
     directory: /web
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
 
   - package-ecosystem: pub
     directory: /mobile
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
