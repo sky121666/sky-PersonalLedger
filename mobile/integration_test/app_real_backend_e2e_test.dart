@@ -77,6 +77,7 @@ void main() {
     await _verifyAccountBalance(tester, '¥1,184.56');
     await _deleteExpenseTransaction(tester);
     await _verifyAccountBalance(tester, '¥1,234.56');
+    await _verifyApiTokenLifecycle(tester);
   });
 }
 
@@ -115,6 +116,22 @@ Future<void> _pumpUntilAtLeastFound(
     isTrue,
     reason: '未找到足够的匹配项（最低 ${minMatches.toString()} 个）',
   );
+}
+
+Future<void> _pumpUntilAbsent(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 10),
+}) async {
+  final end = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(end)) {
+    await tester.pump(const Duration(milliseconds: 200));
+    if (finder.evaluate().isEmpty) {
+      return;
+    }
+  }
+
+  expect(finder, findsNothing, reason: '等待控件消失超时');
 }
 
 Future<void> _pumpUntilAnyFound(
@@ -319,13 +336,8 @@ Future<void> _tapTextOrKey(
   for (final key in keys) {
     final finder = find.byKey(key);
     if (finder.evaluate().isNotEmpty) {
-      try {
-        await _tapKey(tester, key);
-        return;
-      } catch (_) {
-        // Android emulator layout can move bottom actions after keyboard/scroll
-        // changes. Fall through to text/button based candidates.
-      }
+      await _tapKey(tester, key);
+      return;
     }
   }
   for (final text in fallbackTexts) {
@@ -365,31 +377,7 @@ Future<void> _tapTextOrKey(
     return;
   }
 
-  await tester.testTextInput.receiveAction(TextInputAction.done);
-  await tester.pump(const Duration(milliseconds: 400));
-
-  if (_isAuthFormVisible() || _isHomeShellVisible()) {
-    return;
-  }
-
   fail('未找到可点击按钮（候选 key: $keys，文本: $fallbackTexts）');
-}
-
-bool _isAuthFormVisible() {
-  return find
-          .byKey(const Key('auth-setup-password-field'))
-          .evaluate()
-          .isNotEmpty ||
-      find
-          .byKey(const Key('auth-setup-password-confirm-field'))
-          .evaluate()
-          .isNotEmpty ||
-      find.text('设置密码').evaluate().isNotEmpty ||
-      find
-          .byKey(const Key('auth-login-password-field'))
-          .evaluate()
-          .isNotEmpty ||
-      find.text('账本解锁').evaluate().isNotEmpty;
 }
 
 bool _isServerConfigVisible() {
@@ -520,23 +508,19 @@ Future<void> _deleteExpenseTransaction(WidgetTester tester) async {
   await tester.tap(find.widgetWithText(FilledButton, '删除'));
   await tester.pumpAndSettle();
 
-  try {
-    await _pumpUntilAtLeastFound(
-      tester,
-      find.text('交易已删除'),
-      minMatches: 1,
-      timeout: const Duration(seconds: 8),
-    );
-  } catch (_) {
-    await _pumpUntilFound(tester, find.text('删除'));
-  }
-
-  try {
-    await _findTransaction(tester, 'E2E午餐验证-更新', amountText: '-¥50.00');
-    fail('删除后仍能找到交易');
-  } catch (_) {
-    // 预期：交易已被移除，列表中无法继续定位到该条目
-  }
+  await _pumpUntilAtLeastFound(
+    tester,
+    find.text('交易已删除'),
+    minMatches: 1,
+    timeout: const Duration(seconds: 8),
+  );
+  await _pumpUntilAbsent(tester, find.text('-¥50.00'));
+  final transactionItems = find.byWidgetPredicate(
+    (widget) =>
+        widget.key is ValueKey<String> &&
+        (widget.key as ValueKey<String>).value.startsWith('transaction-item-'),
+  );
+  await _pumpUntilAbsent(tester, transactionItems);
 }
 
 Future<void> _verifyAccountBalance(
@@ -549,6 +533,62 @@ Future<void> _verifyAccountBalance(
   await _scrollUntilFound(tester, find.text(expectedBalance));
 
   await _returnToProfileShell(tester);
+}
+
+Future<void> _verifyApiTokenLifecycle(WidgetTester tester) async {
+  const tokenName = 'E2E设备授权';
+
+  await _openShellTab(tester, keyValue: 'profile', label: '功能');
+  final profileEntry = find.byKey(const ValueKey('profile-entry-设备授权'));
+  if (profileEntry.evaluate().isNotEmpty) {
+    await _tapKey(tester, const ValueKey('profile-entry-设备授权'));
+  } else {
+    await _openRoute(tester, AppRoutePaths.apiTokens);
+  }
+
+  await _pumpUntilFound(tester, find.text('设备授权'));
+  await _tapKey(tester, const ValueKey('api-token-add'));
+  await _pumpUntilFound(tester, find.byKey(const ValueKey('api-token-name')));
+  await _enterTextByKey(tester, const ValueKey('api-token-name'), tokenName);
+  expect(
+    find.byKey(const ValueKey('api-token-scope-ledger:read')),
+    findsOneWidget,
+  );
+  expect(
+    find.byKey(const ValueKey('api-token-scope-ledger:write')),
+    findsOneWidget,
+  );
+  expect(
+    find.byKey(const ValueKey('api-token-scope-report:read')),
+    findsOneWidget,
+  );
+  await _tapText(tester, '生成授权');
+
+  await _pumpUntilFound(tester, find.text('加入码已生成'));
+  await _pumpUntilFound(
+    tester,
+    find.byKey(const ValueKey('api-token-created-value')),
+  );
+  await _scrollUntilFound(tester, find.text(tokenName));
+  expect(find.text('读取账本'), findsAtLeastNWidgets(1));
+  expect(find.text('修改账本'), findsAtLeastNWidgets(1));
+  expect(find.text('查看报表'), findsAtLeastNWidgets(1));
+
+  final deleteButton = find.byWidgetPredicate(
+    (widget) =>
+        widget is TextButton &&
+        widget.key is ValueKey<String> &&
+        (widget.key as ValueKey<String>).value.startsWith('api-token-delete-'),
+  );
+  await _pumpUntilFound(tester, deleteButton);
+  await _bringIntoTapArea(tester, deleteButton);
+  await tester.tap(deleteButton);
+  await tester.pumpAndSettle();
+  await _pumpUntilFound(tester, find.text('删除授权'));
+  await tester.tap(find.widgetWithText(FilledButton, '删除'));
+  await tester.pumpAndSettle();
+  await _pumpUntilFound(tester, find.text('授权已删除'));
+  expect(find.text(tokenName), findsNothing);
 }
 
 Future<void> _returnToProfileShell(WidgetTester tester) async {
@@ -672,9 +712,7 @@ Future<void> _openShellTab(
 
 Future<void> _openRoute(WidgetTester tester, String location) async {
   final appFinder = find.byType(PersonalLedgerApp);
-  if (appFinder.evaluate().isEmpty) {
-    return;
-  }
+  expect(appFinder, findsOneWidget, reason: 'PersonalLedgerApp 未挂载');
 
   final context = tester.element(appFinder);
   final router = ProviderScope.containerOf(
@@ -687,9 +725,7 @@ Future<void> _openRoute(WidgetTester tester, String location) async {
 
 Future<void> _openTransactionListByRoute(WidgetTester tester) async {
   final appFinder = find.byType(PersonalLedgerApp);
-  if (appFinder.evaluate().isEmpty) {
-    return;
-  }
+  expect(appFinder, findsOneWidget, reason: 'PersonalLedgerApp 未挂载');
 
   final context = tester.element(appFinder);
   final router = ProviderScope.containerOf(
@@ -789,6 +825,14 @@ Future<void> _goBack(WidgetTester tester, {String? untilText}) async {
     } on TestFailure {
       continue;
     }
+  }
+
+  if (untilText != null) {
+    expect(
+      find.text(untilText),
+      findsAtLeastNWidgets(1),
+      reason: '返回后未到达目标页面：$untilText',
+    );
   }
 }
 

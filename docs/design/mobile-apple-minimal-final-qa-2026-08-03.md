@@ -22,10 +22,12 @@
 
 数据管理和设备授权通过本轮 Flutter 专项渲染测试，并分别覆盖浅色、深色状态：
 
-- 数据管理：`data-management-surface-*.png`、`data-management-vault-*.png`。
+- 数据管理整体表面：`data-management-surface-*.png`。
 - 设备授权：`api-token-control-*.png`。
 
-这些截图来自 `flutter-tester` 的 800×600 测试画布，用于组件完整性和回归判断，不等同于 iPhone 实机排版证据。
+这些截图来自 `flutter-tester` 的 800×600 测试画布，用于组件完整性和回归判断，不等同于 iPhone 实机排版证据。`data-management-vault-*.png` 的历史捕获停留在记录展开前，因此仅保留为调试材料，不作为已展开记录的视觉验收证据。
+
+自动保存记录的展开状态由同一组 48 屏交互测试直接验证：测试必须点击“展开”，确认压缩文件名可见、完整文件名存在于无障碍语义中，并确认记录位于截图安全区域；任一条件不满足都会失败。
 
 ## 逐步审查
 

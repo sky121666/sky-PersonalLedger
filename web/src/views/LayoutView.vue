@@ -105,6 +105,8 @@ function switchTab(path: string) {
         <!-- Center Add Button (Floating Dock Style) -->
         <div class="relative -top-5">
           <button
+            type="button"
+            aria-label="记一笔"
             class="w-14 h-14 bg-gradient-to-b from-primary to-blue-600 rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-white active:scale-90 transition-transform"
             @click="showQuickAdd = true"
           >

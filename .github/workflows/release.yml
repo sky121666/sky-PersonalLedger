@@ -53,32 +53,7 @@ jobs:
   backup-security:
     name: Backup and security contracts
     if: ${{ github.server_url == 'https://github.com' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
-      - name: Setup Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
-        with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
-
-      - name: Vet backend
-        working-directory: backend
-        run: go vet ./...
-
-      - name: Verify runtime health contract
-        run: ./scripts/check-runtime-health-contract.sh
-
-      - name: Verify AI privacy contract
-        run: ./scripts/check-ai-privacy-contract.sh
-
-      - name: Rehearse backup and restore
-        run: ./scripts/check-backup-restore-rehearsal.sh
+    uses: ./.github/workflows/security-contracts.yml
 
   # 调用 Docker 构建
   docker:

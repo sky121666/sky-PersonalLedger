@@ -5,11 +5,17 @@ on:
   push:
     branches: [main]
     paths:
+      - 'backend/**'
       - 'web/**'
+      - 'scripts/check-web-performance-budget.sh'
+      - 'scripts/verify-web-e2e.sh'
       - '.github/workflows/web.yml'
   pull_request:
     paths:
+      - 'backend/**'
       - 'web/**'
+      - 'scripts/check-web-performance-budget.sh'
+      - 'scripts/verify-web-e2e.sh'
       - '.github/workflows/web.yml'
 
 permissions:
@@ -20,7 +26,7 @@ jobs:
     name: Test and build
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     defaults:
       run:
@@ -42,6 +48,12 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
+      - name: Setup Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -56,3 +68,13 @@ jobs:
 
       - name: Build web
         run: pnpm build
+
+      - name: Enforce production bundle budgets
+        run: pnpm verify:bundle
+
+      - name: Install Chromium for E2E
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run real-backend browser E2E
+        working-directory: ${{ github.workspace }}
+        run: ./scripts/verify-web-e2e.sh

@@ -73,6 +73,8 @@ temp/
 
 # ===== 测试 =====
 coverage/
+web/test-results/
+web/playwright-report/
 mobile/QA/design/
 # QA 截图可能含有账户、交易和服务器地址。默认忽略本地捕获，只放行已脱敏审查的基线。
 # 新增公开截图时必须同时更新本白名单，使变更进入代码审查。

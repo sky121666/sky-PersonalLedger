@@ -70,12 +70,24 @@ require_file "scripts/check-docker-local-smoke.sh"
 require_file "scripts/check-docker-compose-local-smoke.sh"
 require_file "scripts/check-runtime-health-contract.sh"
 require_file "scripts/check-ai-privacy-contract.sh"
+require_file "scripts/check-backend-performance.sh"
+require_file "scripts/check-web-performance-budget.sh"
+require_file "scripts/check-backup-api-rehearsal.sh"
+require_file "scripts/check-external-integration-contracts.sh"
+require_file ".github/dependabot.yml"
+require_file ".github/workflows/dependency-review.yml"
 
 run_strict_check "runtime health contract" \
   "$ROOT_DIR/scripts/check-runtime-health-contract.sh"
 
 run_strict_check "AI privacy contract" \
   "$ROOT_DIR/scripts/check-ai-privacy-contract.sh"
+
+run_strict_check "backup HTTP API rehearsal" \
+  "$ROOT_DIR/scripts/check-backup-api-rehearsal.sh"
+
+run_strict_check "external integration contracts" \
+  "$ROOT_DIR/scripts/check-external-integration-contracts.sh"
 
 "$ROOT_DIR/scripts/check-production-readiness.sh"
 

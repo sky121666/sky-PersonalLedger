@@ -100,12 +100,13 @@ const features = [
 
         <div class="space-y-5">
           <div class="space-y-1.5">
-            <label class="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">密码</label>
+            <label for="login-password" class="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">密码</label>
             <div class="relative">
               <div class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                 <Lock :size="20" />
               </div>
               <input
+                id="login-password"
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 placeholder="请输入密码"
@@ -116,6 +117,8 @@ const features = [
               />
               <button
                 type="button"
+                :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                :aria-pressed="showPassword"
                 class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 @click="showPassword = !showPassword"
               >

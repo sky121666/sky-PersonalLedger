@@ -9,6 +9,8 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "verify:bundle": "../scripts/check-web-performance-budget.sh",
     "verify:attachments": "node scripts/verify-deferred-attachment-delete.mjs"
   },
   "dependencies": {
@@ -20,6 +22,7 @@
     "vue-router": "^4.3.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.61.1",
     "@types/node": "^22.19.19",
     "@vitejs/plugin-vue": "^6.0.7",
     "autoprefixer": "^10.4.19",

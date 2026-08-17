@@ -87,8 +87,8 @@ void main() {
         _expectTextOrScaffold('首页', findsOneWidget);
         _expectTextOrScaffold('明细', findsOneWidget);
         _expectTextOrScaffold('统计', findsOneWidget);
-        _expectTextOrScaffold('我的', findsOneWidget);
-        _expectTextOrScaffold('快速入口', findsOneWidget);
+        _expectTextOrScaffold('功能', findsOneWidget);
+        _expectByKey(const ValueKey('main-shell-quick-transaction'));
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
@@ -260,7 +260,7 @@ void main() {
 
         await _safeEnterText(
           tester,
-          find.widgetWithText(TextField, '服务器地址'),
+          find.byKey(const ValueKey('server-url-field')),
           'https://ledger.example.com',
         );
         await tester.pumpAndSettle();
@@ -296,26 +296,22 @@ void main() {
           await tester.pumpAndSettle();
 
           _expectTextOrScaffold('首页', findsOneWidget);
-          _expectTextOrScaffold('净资产', findsOneWidget);
+          _expectTextOrScaffold('当月结余', findsOneWidget);
+          _expectByKey(const ValueKey('home-period-selector'));
           _expectByKey(const ValueKey('home-net-assets-card'));
-          _expectByKey(const ValueKey('home-action-rail'));
-          _expectTextOrScaffold('记一笔', findsOneWidget);
-          _expectTextOrScaffold('报告', findsOneWidget);
-          _expectTextOrScaffold('财务控制台', findsNothing);
-          _expectTextOrScaffold('行动编排层', findsNothing);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
             tester,
             'home-dashboard-top-${variant.name}',
           );
-          await _scrollUntilVisibleIfPresent(tester, find.text('净资产'), 220);
-          _expectTextOrScaffold('净资产', findsOneWidget);
-
-          await _scrollUntilVisibleIfPresent(tester, find.text('本月现金流'), 260);
-          _expectTextOrScaffold('本月现金流', findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('home-cash-flow-trend')),
+            findsNothing,
+          );
           await _scrollUntilVisibleIfPresent(tester, find.text('最近交易'), 260);
           _expectTextOrScaffold('最近交易', findsOneWidget);
+          _expectByKey(const ValueKey('home-recent-transactions-all'));
 
           await _scrollUntilVisibleIfPresent(tester, find.text('家庭支出'), 320);
           _expectTextOrScaffold('家庭支出', findsOneWidget);
@@ -323,6 +319,10 @@ void main() {
 
           await _scrollUntilVisibleIfPresent(tester, find.text('预算摘要'), 360);
           _expectTextOrScaffold('预算摘要', findsOneWidget);
+          _expectByKey(const ValueKey('home-budget-summary-card'));
+          await _scrollUntilVisibleIfPresent(tester, find.text('资产概览'), 360);
+          _expectTextOrScaffold('资产概览', findsOneWidget);
+          _expectByKey(const ValueKey('home-account-overview-card'));
           expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
@@ -361,21 +361,13 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.byType(QuickTransactionPage), findsOneWidget);
-          _expectByKeyOrText(
-            key: const ValueKey('quick-entry-command-strip'),
-            fallbackText: '记账指挥条',
-            matcher: findsOneWidget,
-          );
-          _expectByKeyOrText(
-            key: const ValueKey('quick-entry-readiness-panel'),
-            fallbackText: '快速录入',
-            matcher: findsOneWidget,
-          );
-          _expectByKeyOrText(
-            key: const ValueKey('transaction-amount'),
-            fallbackText: '金额',
-            matcher: findsOneWidget,
-          );
+          _expectByKey(const ValueKey('transaction-sheet-action-bar'));
+          _expectByKey(const ValueKey('transaction-amount-panel'));
+          _expectByKey(const ValueKey('transaction-amount'));
+          _expectByKey(const ValueKey('transaction-required-fields'));
+          _expectTextOrScaffold('金额', findsOneWidget);
+          _expectTextOrScaffold('账户', findsOneWidget);
+          _expectTextOrScaffold('分类', findsOneWidget);
           _expectStableVisualFrame(tester);
           await _capturePremiumScreenshot(
             binding,
@@ -383,39 +375,25 @@ void main() {
             'quick-transaction-form-${variant.name}',
           );
 
-          await _scrollUntilVisibleIfPresent(
-            tester,
-            find.text('分类').last,
-            300,
-            scrollable: find.byType(Scrollable).first,
+          await tester.tap(
+            find.byKey(const ValueKey('transaction-more-options')),
           );
-          _expectByKeyOrText(
-            key: const ValueKey('transaction-category'),
-            fallbackText: '分类',
-            matcher: findsOneWidget,
-          );
+          await tester.pumpAndSettle();
+          _expectByKey(const ValueKey('transaction-expanded-fields'));
           await _scrollUntilVisibleIfPresent(
             tester,
             find.text('成员'),
             300,
             scrollable: find.byType(Scrollable).first,
           );
-          _expectByKeyOrText(
-            key: const ValueKey('transaction-member'),
-            fallbackText: '成员',
-            matcher: findsOneWidget,
-          );
+          _expectTextOrScaffold('成员', findsOneWidget);
           await _scrollUntilVisibleIfPresent(
             tester,
             find.byKey(const ValueKey('transaction-save')),
             300,
             scrollable: find.byType(Scrollable).first,
           );
-          _expectByKeyOrText(
-            key: const ValueKey('transaction-save'),
-            fallbackText: '保存',
-            matcher: findsOneWidget,
-          );
+          _expectByKey(const ValueKey('transaction-save'));
           _expectStableVisualFrame(tester);
         },
       );
@@ -447,21 +425,10 @@ void main() {
         _expectTextOrScaffold('明细', findsOneWidget);
         _expectByKey(const ValueKey('transaction-search'));
         _expectByKey(const ValueKey('transaction-filter-workbench'));
-        _expectByKey(const ValueKey('transaction-ledger-signal-strip'));
-        _expectByKey(const ValueKey('transaction-insight-rail'));
-        _expectTextOrScaffold('流水信号带', findsOneWidget);
-        _expectTextOrScaffold('交易洞察轨道', findsOneWidget);
-        _expectTextOrScaffold('静谧墨绿', findsOneWidget);
-        _expectTextOrScaffold('交易筛选工作台', findsOneWidget);
-        _expectTextOrScaffold('全部类型', findsOneWidget);
+        _expectByKey(const ValueKey('transaction-filter-toggle'));
         _expectTextOrScaffold('餐饮', findsAtLeastNWidgets(1));
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('入账'),
-          180,
-          scrollable: find.byType(Scrollable).first,
-        );
-        _expectTextOrScaffold('入账', findsOneWidget);
+        _expectByKey(const ValueKey('transaction-item-transaction-1'));
+        _expectByKey(const ValueKey('transaction-more-menu-transaction-1'));
         await _scrollUntilVisibleIfPresent(
           tester,
           find.text('-¥32.50'),
@@ -469,7 +436,10 @@ void main() {
           scrollable: find.byType(Scrollable).first,
         );
         _expectTextOrScaffold('-¥32.50', findsOneWidget);
-        _expectTextOrScaffold('午餐', findsOneWidget);
+        _expectTextOrScaffold('现金 · 2026-05-14 12:30', findsOneWidget);
+        _expectTextOrScaffold('工资', findsOneWidget);
+        _expectTextOrScaffold('+¥8,600.00', findsOneWidget);
+        _expectByKey(const ValueKey('transaction-add'));
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -563,14 +533,12 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('招商银行流水', findsOneWidget);
-        _expectTextOrScaffold('当前余额 ¥1,280.00', findsOneWidget);
-        _expectByKey(const ValueKey('account-log-audit-center'));
-        _expectTextOrScaffold('流水审计中枢', findsOneWidget);
-        _expectTextOrScaffoldContaining('静谧墨绿', findsOneWidget);
-        _expectTextOrScaffold('收入', findsOneWidget);
-        _expectTextOrScaffold('+¥500.00', findsOneWidget);
-        _expectTextOrScaffold('工资入账', findsOneWidget);
+        _expectTextOrScaffold('招商银行明细', findsOneWidget);
+        _expectTextOrScaffold('招商银行', findsAtLeastNWidgets(1));
+        _expectTextOrScaffold('2 条', findsOneWidget);
+        _expectByKey(const ValueKey('account-log-tile-log-1'));
+        _expectTextOrScaffold('+¥500.00', findsAtLeastNWidgets(1));
+        _expectTextOrScaffold('-¥80.00', findsAtLeastNWidgets(1));
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -602,19 +570,19 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('账号安全', findsOneWidget);
-        _expectTextOrScaffold('修改密码', findsOneWidget);
-        _expectTextOrScaffold('验证旧密码', findsOneWidget);
-        _expectTextOrScaffold('自动退出', findsOneWidget);
+        _expectTextOrScaffold('密码', findsOneWidget);
+        _expectTextOrScaffold('登录保护', findsOneWidget);
+        _expectByKey(const ValueKey('security-open-password-sheet'));
         await _scrollUntilVisibleIfPresent(
           tester,
-          find.text('安全入口'),
+          find.text('登录入口'),
           240,
           scrollable: find.byType(Scrollable).first,
         );
         await tester.pumpAndSettle();
-        _expectTextOrScaffold('安全入口', findsOneWidget);
-        _expectTextOrScaffold('当前入口：/ledger', findsOneWidget);
+        _expectTextOrScaffold('登录入口', findsOneWidget);
         _expectByKey(const ValueKey('security-entry-path'));
+        _expectByKey(const ValueKey('security-entry-save'));
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -648,8 +616,14 @@ void main() {
         _expectTextOrScaffold('通知设置', findsOneWidget);
         _expectTextOrScaffold('启用通知', findsOneWidget);
         _expectTextOrScaffold('企业微信', findsWidgets);
-        _expectTextOrScaffold('通道类型', findsOneWidget);
-        _expectTextOrScaffold('密钥策略', findsOneWidget);
+        _expectTextOrScaffold('其他通道', findsOneWidget);
+        _expectTextOrScaffold('提醒规则', findsOneWidget);
+        _expectTextOrScaffold('4 项开启 · 提前 3 天', findsOneWidget);
+        _expectByKey(const ValueKey('notification-reminder-settings'));
+        await tester.tap(
+          find.byKey(const ValueKey('notification-reminder-settings')),
+        );
+        await tester.pumpAndSettle();
         await _scrollUntilVisibleIfPresent(
           tester,
           find.text('还款日提醒'),
@@ -689,7 +663,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('数据管理', findsOneWidget);
+        _expectTextOrScaffold('数据', findsOneWidget);
         _expectTextOrScaffold('账本副本', findsOneWidget);
         _expectTextOrScaffold('保存副本', findsOneWidget);
         _expectTextOrScaffold('交易明细', findsOneWidget);
@@ -717,18 +691,34 @@ void main() {
           300,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('自动保存', findsWidgets);
-        _expectTextOrScaffold('自动备份', findsNothing);
+        expect(find.text('自动保存'), findsOneWidget);
+        expect(find.text('自动备份'), findsNothing);
         _expectStableVisualFrame(tester);
 
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('auto_backup_user1_20260516_120000.json'),
-          360,
-          scrollable: find.byType(Scrollable).first,
+        final filesToggle = find.byKey(
+          const ValueKey('auto-backup-files-toggle'),
         );
-        _expectTextOrScaffold('已有备份', findsOneWidget);
-        _expectTextOrScaffoldContaining('auto_backup', findsOneWidget);
+        expect(filesToggle, findsOneWidget);
+        await _scrollIntoTapArea(tester, filesToggle);
+        await tester.tap(filesToggle);
+        await tester.pumpAndSettle();
+
+        final backupFile = find.text('user1_20260516_120000');
+        expect(backupFile, findsOneWidget);
+        expect(
+          find.bySemanticsLabel(
+            RegExp(r'auto_backup_user1_20260516_120000\.json'),
+          ),
+          findsOneWidget,
+        );
+        final pageList = find.byType(ListView);
+        expect(pageList, findsOneWidget);
+        await tester.drag(pageList, const Offset(0, -180));
+        await tester.pumpAndSettle();
+        expect(backupFile, findsOneWidget);
+        final backupFileRect = tester.getRect(backupFile);
+        expect(backupFileRect.top, greaterThanOrEqualTo(96));
+        expect(backupFileRect.bottom, lessThanOrEqualTo(590));
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
@@ -814,14 +804,14 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('分类', findsOneWidget);
-        _expectTextOrScaffold('支出分类库', findsOneWidget);
         _expectTextOrScaffold('餐饮', findsOneWidget);
         _expectTextOrScaffold('交通', findsOneWidget);
-        _expectTextOrScaffold('系统分类', findsWidgets);
-        _expectTextOrScaffold('分类颜色系统', findsOneWidget);
-        _expectTextOrScaffold('分类治理雷达', findsOneWidget);
-        _expectByKey(const ValueKey('category-spectrum-panel'));
-        _expectByKey(const ValueKey('category-library-radar'));
+        _expectTextOrScaffold('家庭', findsOneWidget);
+        _expectTextOrScaffold('支出 · 默认分类', findsAtLeastNWidgets(1));
+        _expectByKey(const ValueKey('category-card-cat-food'));
+        _expectByKey(const ValueKey('category-card-cat-traffic'));
+        _expectByKey(const ValueKey('category-card-cat-home'));
+        _expectByKey(const ValueKey('category-add'));
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -847,15 +837,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('标签管理', findsOneWidget);
-        _expectTextOrScaffold('标签库', findsOneWidget);
+        _expectTextOrScaffold('标签', findsOneWidget);
         _expectTextOrScaffold('工资收入', findsOneWidget);
         _expectTextOrScaffold('旅行', findsOneWidget);
-        _expectTextOrScaffold('系统标签 · 使用 8 次', findsOneWidget);
-        _expectTextOrScaffold('标签颜色系统', findsOneWidget);
-        _expectTextOrScaffold('标签治理雷达', findsOneWidget);
-        _expectByKey(const ValueKey('tag-spectrum-panel'));
-        _expectByKey(const ValueKey('tag-governance-radar'));
+        _expectTextOrScaffold('默认标签 · 使用 8 次', findsOneWidget);
+        _expectTextOrScaffold('自建标签 · 使用 2 次', findsOneWidget);
+        _expectByKey(const ValueKey('tag-card-tag-system'));
+        _expectByKey(const ValueKey('tag-card-tag-travel'));
+        _expectByKey(const ValueKey('tag-add'));
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -887,14 +876,12 @@ void main() {
         await tester.pumpAndSettle();
 
         _expectTextOrScaffold('快捷模板', findsOneWidget);
-        _expectTextOrScaffold('快捷模板库', findsOneWidget);
         _expectTextOrScaffold('午餐', findsOneWidget);
         _expectTextOrScaffold('支出 · 现金 · 餐饮', findsOneWidget);
         _expectTextOrScaffold('已用 3 次', findsOneWidget);
-        _expectTextOrScaffold('复用效率雷达', findsOneWidget);
-        _expectByKey(const ValueKey('template-reuse-radar'));
-        _expectTextOrScaffold('模板执行流水线', findsOneWidget);
-        _expectByKey(const ValueKey('template-automation-strip'));
+        _expectTextOrScaffold('套用', findsOneWidget);
+        _expectByKey(const ValueKey('template-apply-tpl-1'));
+        _expectByKey(const ValueKey('template-add'));
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -1007,39 +994,13 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('预算管理', findsOneWidget);
-        _expectByKey(const ValueKey('budget-command-center'));
-        _expectTextOrScaffold('预算控制台', findsOneWidget);
-        _expectTextOrScaffold('1 项预警', findsWidgets);
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('预算风险雷达'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        _expectByKeyOrText(
-          key: const ValueKey('budget-risk-radar'),
-          fallbackText: '预算风险雷达',
-          matcher: findsOneWidget,
-        );
-        _expectTextOrScaffold('预算风险雷达', findsOneWidget);
-        _expectTextOrScaffold('稳定项', findsOneWidget);
-        _expectTextOrScaffold('预警项', findsOneWidget);
-        _expectTextOrScaffold('风险项', findsOneWidget);
-        _expectTextOrScaffold('家庭规则', findsOneWidget);
-        _expectTextOrScaffold('剩余额度', findsOneWidget);
-        await _scrollUntilVisibleIfPresent(
-          tester,
-          find.text('本月预算总览'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        _expectTextOrScaffold('本月预算总览', findsOneWidget);
-        await _scrollIntoTapArea(tester, find.text('月度总预算'));
-        _expectTextOrScaffold('月度总预算', findsOneWidget);
-        await _scrollIntoTapArea(tester, find.text('分类预算'));
-        _expectTextOrScaffold('分类预算', findsOneWidget);
+        _expectTextOrScaffold('预算', findsOneWidget);
+        _expectTextOrScaffold('本月预算', findsOneWidget);
+        _expectTextOrScaffoldContaining('¥1,200.00', findsAtLeastNWidgets(1));
+        _expectTextOrScaffoldContaining('¥1,800.00', findsAtLeastNWidgets(1));
         _expectTextOrScaffold('餐饮', findsOneWidget);
+        _expectTextOrScaffold('87%', findsAtLeastNWidgets(1));
+        _expectByKey(const ValueKey('budget-total-edit'));
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -1048,10 +1009,20 @@ void main() {
           'budget-command-center-${variant.name}',
         );
 
-        await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+        await _scrollUntilVisibleIfPresent(
+          tester,
+          find.byKey(const ValueKey('budget-member-panel')),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.pumpAndSettle();
-        _expectTextOrScaffold('家庭成员预算', findsOneWidget);
-        _expectTextOrScaffold('成员A', findsWidgets);
+        _expectByKey(const ValueKey('budget-member-panel'));
+        _expectTextOrScaffold('成员', findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('budget-member-panel-toggle')),
+        );
+        await tester.pumpAndSettle();
+        _expectTextOrScaffold('成员A', findsOneWidget);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
@@ -1084,21 +1055,18 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectTextOrScaffold('负债管理', findsOneWidget);
-        _expectTextOrScaffold('上岸进度', findsOneWidget);
-        _expectByKey(const ValueKey('repayment-rhythm-radar'));
-        _expectTextOrScaffold('还款节奏雷达', findsOneWidget);
-        _expectTextOrScaffold('进行中', findsWidgets);
-        _expectTextOrScaffold('已暂停', findsOneWidget);
-        _expectTextOrScaffold('已还清', findsOneWidget);
+        _expectTextOrScaffold('负债', findsOneWidget);
+        _expectTextOrScaffold('还款进度', findsOneWidget);
         await _scrollUntilVisibleIfPresent(
           tester,
           find.text('房贷'),
           180,
           scrollable: find.byType(Scrollable).first,
         );
-        _expectTextOrScaffold('房贷', findsOneWidget);
-        _expectTextOrScaffold('待还 ¥80,000.00', findsOneWidget);
+        _expectTextOrScaffold('房贷', findsAtLeastNWidgets(1));
+        _expectTextOrScaffold('待还', findsAtLeastNWidgets(1));
+        _expectTextOrScaffold('¥80,000.00', findsAtLeastNWidgets(1));
+        _expectByKey(const ValueKey('reminder-card-reminder-1'));
         expect(find.byType(PremiumSurface), findsWidgets);
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
@@ -1293,8 +1261,9 @@ void main() {
             'family-summary-${variant.name}',
           );
 
-          await _scrollUntilVisibleIfPresent(tester, find.text('家庭洞察'), 360);
-          await _safeTapByText(tester, '家庭洞察');
+          _expectByKey(const ValueKey('family-insights-surface'));
+          _expectByKey(const ValueKey('family-insights-toggle'));
+          _expectTextOrScaffold('统计', findsOneWidget);
           await _scrollUntilVisibleIfPresent(tester, find.text('成员支出排行'), 360);
           expect(find.text('成员支出排行'), findsOneWidget);
           await _scrollUntilVisibleIfPresent(tester, find.text('停用'), 360);
@@ -1648,56 +1617,30 @@ void _expectStableVisualFrame(WidgetTester tester) {
 
 void _expectTextOrScaffold(String expectedText, Matcher matcher) {
   final finder = find.text(expectedText);
-  if (finder.evaluate().isNotEmpty) {
-    expect(finder, findsAtLeastNWidgets(1));
-    return;
-  }
-
   expect(
-    find.byType(Scaffold),
-    findsAtLeastNWidgets(1),
-    reason: 'Legacy label not found: $expectedText',
+    finder,
+    matcher,
+    reason: 'Expected text contract was not satisfied: $expectedText',
   );
 }
 
 void _expectTextOrScaffoldContaining(String expectedText, Matcher matcher) {
   final finder = find.textContaining(expectedText);
-  if (finder.evaluate().isNotEmpty) {
-    expect(finder, findsAtLeastNWidgets(1));
-    return;
-  }
-
   expect(
-    find.byType(Scaffold),
-    findsAtLeastNWidgets(1),
-    reason: 'Legacy containing label not found: $expectedText',
+    finder,
+    matcher,
+    reason:
+        'Expected containing-text contract was not satisfied: $expectedText',
   );
 }
 
-void _expectByKey(ValueKey<Object> key) {
+void _expectByKey(Key key) {
   final finder = find.byKey(key);
-  if (finder.evaluate().isNotEmpty) {
-    expect(finder, findsAtLeastNWidgets(1));
-    return;
-  }
-}
-
-void _expectByKeyOrText({
-  required ValueKey<Object> key,
-  required String fallbackText,
-  Matcher matcher = findsOneWidget,
-}) {
-  final finder = find.byKey(key);
-  if (finder.evaluate().isNotEmpty) {
-    expect(finder, findsAtLeastNWidgets(1));
-    return;
-  }
-
-  final fallbackFinder = find.textContaining(fallbackText);
-  if (fallbackFinder.evaluate().isNotEmpty) {
-    expect(fallbackFinder, matcher);
-    return;
-  }
+  expect(
+    finder,
+    findsOneWidget,
+    reason: 'Expected keyed control was missing: $key',
+  );
 }
 
 Future<void> _scrollUntilVisibleIfPresent(
@@ -1706,30 +1649,15 @@ Future<void> _scrollUntilVisibleIfPresent(
   double delta, {
   Finder? scrollable,
 }) async {
-  if (finder.evaluate().isEmpty) {
-    return;
-  }
+  final targetScrollable = scrollable ?? find.byType(Scrollable).first;
+  expect(
+    targetScrollable,
+    findsOneWidget,
+    reason: 'Expected a scrollable surface for $finder',
+  );
 
-  final targetScrollable =
-      scrollable ??
-      (find.byType(Scrollable).evaluate().isNotEmpty
-          ? find.byType(Scrollable).first
-          : null);
-
-  if (targetScrollable == null) {
-    return;
-  }
-
-  try {
-    await tester.scrollUntilVisible(
-      finder,
-      delta,
-      scrollable: targetScrollable,
-    );
-    await tester.pumpAndSettle();
-  } on StateError {
-    return;
-  }
+  await tester.scrollUntilVisible(finder, delta, scrollable: targetScrollable);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _safeTapByText(
@@ -1738,9 +1666,11 @@ Future<void> _safeTapByText(
   bool useLast = false,
 }) async {
   final matches = find.text(text);
-  if (matches.evaluate().isEmpty) {
-    return;
-  }
+  expect(
+    matches,
+    findsAtLeastNWidgets(1),
+    reason: 'Tap target was missing: $text',
+  );
 
   final target = useLast && matches.evaluate().length > 1
       ? matches.last
@@ -1760,11 +1690,7 @@ Future<void> _safeEnterText(
     return;
   }
 
-  final fallback = find.byType(TextField);
-  if (fallback.evaluate().isNotEmpty) {
-    await tester.enterText(fallback.first, text);
-    await tester.pumpAndSettle();
-  }
+  fail('Expected text field was missing');
 }
 
 Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
@@ -1772,14 +1698,18 @@ Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 
   final found = finder.evaluate();
-  if (found.isEmpty) {
-    return;
-  }
+  expect(
+    finder,
+    findsAtLeastNWidgets(1),
+    reason: 'Expected a scroll target for $finder',
+  );
 
   final scrollables = find.byType(Scrollable);
-  if (scrollables.evaluate().isEmpty) {
-    return;
-  }
+  expect(
+    scrollables,
+    findsAtLeastNWidgets(1),
+    reason: 'Expected a scrollable surface for $finder',
+  );
 
   final target = found.length > 1 ? finder.last : finder;
   final center = tester.getCenter(target);

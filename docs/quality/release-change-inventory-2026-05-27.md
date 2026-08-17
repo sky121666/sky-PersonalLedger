@@ -464,6 +464,7 @@ docs/design/corgi-ledger-friendly-premium-v3-target-2026-06-17.md
 docs/design/corgi-ledger-interactive-v4-motion-plan-2026-06-17.md
 docs/design/corgi-ledger-premium-v2-target-2026-06-17.md
 docs/design/corgi-ledger-ui-target-2026-06-17.md
+docs/design/mobile-apple-minimal-final-qa-2026-08-03.md
 docs/quality/production-readiness-2026-05-27.md
 mobile/QA/design/
 mobile/QA/reports/quality_audit_20260608_020014.json
