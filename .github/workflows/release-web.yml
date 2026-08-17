@@ -18,7 +18,7 @@ jobs:
       build_number: ${{ steps.version.outputs.BUILD_NUMBER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30af803 # v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Resolve tag version
         id: version
@@ -68,7 +68,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30af803 # v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
@@ -95,4 +95,3 @@ jobs:
             - README：${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/README.md
             - 功能文档：${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}/docs/features
             - 开发截图：${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}/docs/screenshots/v1.0.8
-
