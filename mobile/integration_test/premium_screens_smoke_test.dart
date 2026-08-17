@@ -100,7 +100,10 @@ void main() {
         await tester.pumpAndSettle();
         _expectTextOrScaffold('shell-transactions', findsOneWidget);
 
-        await _safeTapByText(tester, '记一笔');
+        await tester.tap(
+          find.byKey(const ValueKey('main-shell-quick-transaction')),
+        );
+        await tester.pumpAndSettle();
         await tester.pumpAndSettle();
         _expectTextOrScaffold('shell-quick-entry', findsOneWidget);
         _expectStableVisualFrame(tester);
@@ -320,8 +323,12 @@ void main() {
           await _scrollUntilVisibleIfPresent(tester, find.text('预算摘要'), 360);
           _expectTextOrScaffold('预算摘要', findsOneWidget);
           _expectByKey(const ValueKey('home-budget-summary-card'));
-          await _scrollUntilVisibleIfPresent(tester, find.text('资产概览'), 360);
-          _expectTextOrScaffold('资产概览', findsOneWidget);
+          await _scrollUntilVisibleIfPresent(
+            tester,
+            find.byKey(const ValueKey('home-account-overview-card')),
+            360,
+          );
+          _expectTextOrScaffold('账户概览', findsOneWidget);
           _expectByKey(const ValueKey('home-account-overview-card'));
           expect(find.byType(PremiumSurface), findsWidgets);
           _expectStableVisualFrame(tester);
