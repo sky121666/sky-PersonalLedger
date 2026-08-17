@@ -15,8 +15,8 @@ importers:
         specifier: ^1.11.11
         version: 1.11.19
       lucide-vue-next:
-        specifier: ^0.378.0
-        version: 0.378.0(vue@3.5.25(typescript@5.9.3))
+        specifier: ^1.0.0
+        version: 1.0.0(vue@3.5.25(typescript@5.9.3))
       pinia:
         specifier: ^2.1.7
         version: 2.3.1(typescript@5.9.3)(vue@3.5.25(typescript@5.9.3))
@@ -703,8 +703,8 @@ packages:
     resolution: {integrity: sha512-++gUqRDEvcnN6Zhqrr+y/CkVEHhlrR96vZn3nZZPYzMcBUyBtTKzB9NadClFIsIVSsu+3i9tfk/erqy9kAmt7Q==}
     engines: {node: '>=14'}
 
-  lucide-vue-next@0.378.0:
-    resolution: {integrity: sha512-tz2IUhdOf1q0x1mPOTZEJZYfXVLreQorO2ax4M+CxGOTgCNgXH3cljIWWfJ4jUvxn5rbkFlGPbl9EIfIelZBRA==}
+  lucide-vue-next@1.0.0:
+    resolution: {integrity: sha512-V6SPvx1IHTj/UY+FrIYWV5faISsPSb8BnWSFDxAtezWKvWc9ZZ40PDrdu1/Qb5vg4lHWr1hs1BAMGVGm6V1Xdg==}
     deprecated: Package deprecated. Please use @lucide/vue instead.
     peerDependencies:
       vue: '>=3.0.1'
@@ -1733,7 +1733,7 @@ snapshots:
       pkg-types: 2.3.1
       quansync: 0.2.11
 
-  lucide-vue-next@0.378.0(vue@3.5.25(typescript@5.9.3)):
+  lucide-vue-next@1.0.0(vue@3.5.25(typescript@5.9.3)):
     dependencies:
       vue: 3.5.25(typescript@5.9.3)
 
