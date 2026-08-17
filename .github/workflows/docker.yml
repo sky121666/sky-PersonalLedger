@@ -89,10 +89,16 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      - name: Normalize image reference for scanner
+        id: scan-ref
+        env:
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+        run: echo "image_ref=${IMAGE_REF,,}" >> "$GITHUB_OUTPUT"
+
       - name: Scan pushed image for known vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          image-ref: ${{ steps.scan-ref.outputs.image_ref }}
           format: table
           exit-code: '1'
           ignore-unfixed: true

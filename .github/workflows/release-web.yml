@@ -84,11 +84,11 @@ jobs:
 
             ### Docker
 
-                docker pull ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
+                docker pull ghcr.io/sky121666/sky-personalledger:${{ needs.prepare.outputs.version }}
 
             不可变镜像 digest：
 
-                ghcr.io/${{ github.repository }}@${{ needs.docker.outputs.image_digest }}
+                ghcr.io/sky121666/sky-personalledger@${{ needs.docker.outputs.image_digest }}
 
             ### 文档与截图
 
