@@ -1,9 +1,16 @@
-name: Release
+name: Signed Mobile Release (manual)
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Signed mobile release version, for example 1.0.8
+        required: true
+        type: string
+      build_number:
+        description: Mobile build number; leave empty to use the workflow run number
+        required: false
+        type: string
 
 jobs:
   # 提取版本号
@@ -21,8 +28,8 @@ jobs:
       - name: Get version from tag
         id: version
         env:
-          INPUT_VERSION: ${{ github.ref_name }}
-          INPUT_BUILD_NUMBER: ${{ github.run_number }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
         run: ./scripts/resolve-release-version.sh --require-build-number
 
   web:

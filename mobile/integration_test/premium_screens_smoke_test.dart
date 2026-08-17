@@ -725,7 +725,9 @@ void main() {
         expect(backupFile, findsOneWidget);
         final backupFileRect = tester.getRect(backupFile);
         expect(backupFileRect.top, greaterThanOrEqualTo(96));
-        expect(backupFileRect.bottom, lessThanOrEqualTo(590));
+        final viewportHeight =
+            tester.view.physicalSize.height / tester.view.devicePixelRatio;
+        expect(backupFileRect.bottom, lessThanOrEqualTo(viewportHeight - 10));
         _expectStableVisualFrame(tester);
         await _capturePremiumScreenshot(
           binding,
