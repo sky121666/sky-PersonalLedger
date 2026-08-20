@@ -37,7 +37,7 @@ dependencies:
   flutter_riverpod: ^2.6.1
   freezed_annotation: ^2.4.4
   go_router: ^14.6.2
-  image_picker: ^1.1.2
+  image_picker: ^1.2.3
   json_annotation: ^4.9.0
   path_provider: ^2.1.5
   shared_preferences: ^2.3.3
