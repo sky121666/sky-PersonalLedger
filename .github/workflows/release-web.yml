@@ -94,4 +94,4 @@ jobs:
 
             - README：${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/README.md
             - 功能文档：${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}/docs/features
-            - 开发截图：${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}/docs/screenshots/v1.0.8
+            - 运行截图索引：${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}/docs/screenshots

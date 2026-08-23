@@ -10,6 +10,8 @@ Web API 使用同源 /api/v1；Vite 开发服务器把 /api 代理到 http://loc
 
 ## Flutter
 
+CI 与本项目当前验证基线使用 Flutter 3.35.7（Dart 3.9.2）。使用其他 SDK 前，先确认 `pubspec.yaml` 的 SDK 约束和锁定依赖仍可解析。
+
     cd mobile
     flutter pub get
     flutter analyze
@@ -34,4 +36,3 @@ Web API 使用同源 /api/v1；Vite 开发服务器把 /api 代理到 http://loc
     flutter test -d flutter-tester integration_test/premium_screens_smoke_test.dart
 
 截图测试覆盖浅色/深色主题、首页、交易、账户、报表、家庭、AI、数据管理、设备授权和设置页。
-
