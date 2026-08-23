@@ -81,7 +81,7 @@ rate_limit:
 #   -v ./data:/data \
 #   -e LEDGER_JWT_SECRET="$(openssl rand -base64 32)" \
 #   -e LEDGER_SECURITY_BASE_PATH=/my-ledger \
-#   ghcr.io/sky121666/sky-personalledger:latest
+#   ghcr.io/sky121666/sky-personalledger@sha256:13e7d11085f58b4d7b73ebce604f92b705130a1fba4fae1b3cb2570c63d1a2a8
 #
 # 或使用 docker-compose:
 # docker-compose up -d

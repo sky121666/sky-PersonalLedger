@@ -49,6 +49,8 @@ Personal Ledger 是一个面向个人和家庭的私有部署记账系统。数�
     LEDGER_JWT_SECRET=<随机值>
     LEDGER_SETUP_TOKEN=<随机值>
 
+`.env.example` 默认固定到 v1.0.8 的不可变镜像 digest；升级时请显式修改 `LEDGER_IMAGE`，不要依赖 `latest`。
+
 生成随机值：
 
     openssl rand -base64 32

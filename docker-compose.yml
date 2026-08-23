@@ -1,7 +1,8 @@
 services:
   personal-ledger:
     # GitHub Container Registry 镜像
-    image: ${LEDGER_IMAGE:-ghcr.io/sky121666/sky-personalledger:latest}
+    # 默认固定到已发布版本；升级时显式设置 LEDGER_IMAGE，避免 latest 漂移。
+    image: ${LEDGER_IMAGE:-ghcr.io/sky121666/sky-personalledger@sha256:13e7d11085f58b4d7b73ebce604f92b705130a1fba4fae1b3cb2570c63d1a2a8}
     # 或本地构建: build: .
     
     container_name: personal-ledger
