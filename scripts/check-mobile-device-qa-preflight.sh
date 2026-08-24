@@ -7,7 +7,7 @@ ADB_BIN="${ADB_BIN:-adb}"
 ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-1}"
 REQUIRE_ANDROID_EMULATOR="${REQUIRE_ANDROID_EMULATOR:-1}"
 ANDROID_EMULATOR_NAME="${ANDROID_EMULATOR_NAME:-}"
-ANDROID_EMULATOR_BOOT_TIMEOUT="${ANDROID_EMULATOR_BOOT_TIMEOUT:-120}"
+ANDROID_EMULATOR_BOOT_TIMEOUT="${ANDROID_EMULATOR_BOOT_TIMEOUT:-300}"
 HOST_HOME="${HOME:-/tmp}"
 
 if [[ "$ANDROID_PREFER_EMULATOR" != "1" ]]; then
@@ -92,11 +92,14 @@ start_android_emulator() {
   fi
 
   echo "[信息] 未检测到在线 emulator，尝试自动启动: $avd_name"
-  "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect >/tmp/ledger_qa_emulator.log 2>&1 &
+  nohup "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect \
+    >/tmp/ledger_qa_emulator.log 2>&1 </dev/null &
   local emulator_pid=$!
 
   if ! wait_emulator_boot "$ANDROID_EMULATOR_BOOT_TIMEOUT" >/tmp/ledger_qa_emulator_boot.txt; then
     echo "[错误] 模拟器未在 ${ANDROID_EMULATOR_BOOT_TIMEOUT}s 内启动完成。" >&2
+    echo "[提示] 当前 ADB 设备：" >&2
+    "$ADB_BIN" devices -l >&2 || true
     echo "[提示] 最近日志："
     tail -n 30 /tmp/ledger_qa_emulator.log | sed 's/^/[emulator] /' || true
     kill "$emulator_pid" 2>/dev/null || true

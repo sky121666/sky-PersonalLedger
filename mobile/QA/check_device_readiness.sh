@@ -13,7 +13,7 @@ if [[ "$ANDROID_PREFER_EMULATOR" != "1" ]]; then
   ANDROID_PREFER_EMULATOR="1"
 fi
 ANDROID_EMULATOR_NAME="${ANDROID_EMULATOR_NAME:-}"
-ANDROID_EMULATOR_BOOT_TIMEOUT="${ANDROID_EMULATOR_BOOT_TIMEOUT:-120}"
+ANDROID_EMULATOR_BOOT_TIMEOUT="${ANDROID_EMULATOR_BOOT_TIMEOUT:-300}"
 HOST_HOME="${HOME:-/tmp}"
 mkdir -p "$LOG_DIR"
 
@@ -86,7 +86,8 @@ start_android_emulator() {
   fi
 
   log "未检测到在线模拟器，尝试自动启动: $avd_name"
-  "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect >>"$LOG_DIR/emulator_boot.log" 2>&1 &
+  nohup "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect \
+    >>"$LOG_DIR/emulator_boot.log" 2>&1 </dev/null &
   local emulator_pid=$!
 
   if ! wait_emulator_boot "$ANDROID_EMULATOR_BOOT_TIMEOUT"; then

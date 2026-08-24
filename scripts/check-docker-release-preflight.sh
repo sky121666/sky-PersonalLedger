@@ -31,7 +31,7 @@ require_absent_text() {
   fi
 }
 
-required_files=(.github/workflows/docker.yml .github/workflows/release-web.yml .github/workflows/release-web-recovery.yml .github/workflows/release.yml Dockerfile .dockerignore docker-entrypoint.sh docker-compose.yml docker-compose.debug.yml .env.example web/pnpm-workspace.yaml scripts/generate-release-compose.sh scripts/check-toolchain-consistency.sh)
+required_files=(.github/workflows/docker.yml .github/workflows/release-web.yml .github/workflows/release-web-recovery.yml .github/workflows/release-v1.0.9-finalize.yml .github/workflows/release.yml Dockerfile .dockerignore docker-entrypoint.sh docker-compose.yml docker-compose.debug.yml .env.example web/pnpm-workspace.yaml scripts/generate-release-compose.sh scripts/check-toolchain-consistency.sh)
 for path in "${required_files[@]}"; do
   require_file "$path"
 done
@@ -43,7 +43,7 @@ for tool in docker python3; do
   }
 done
 
-python3 - "$ROOT_DIR/.github/workflows/docker.yml" "$ROOT_DIR/.github/workflows/release-web.yml" "$ROOT_DIR/.github/workflows/release-web-recovery.yml" "$ROOT_DIR/.github/workflows/release.yml" <<'PY'
+python3 - "$ROOT_DIR/.github/workflows/docker.yml" "$ROOT_DIR/.github/workflows/release-web.yml" "$ROOT_DIR/.github/workflows/release-web-recovery.yml" "$ROOT_DIR/.github/workflows/release-v1.0.9-finalize.yml" "$ROOT_DIR/.github/workflows/release.yml" <<'PY'
 import re
 import sys
 
@@ -51,7 +51,8 @@ import sys
 docker = open(sys.argv[1], encoding="utf-8").read()
 release = open(sys.argv[2], encoding="utf-8").read()
 recovery = open(sys.argv[3], encoding="utf-8").read()
-signed_release = open(sys.argv[4], encoding="utf-8").read()
+finalize = open(sys.argv[4], encoding="utf-8").read()
+signed_release = open(sys.argv[5], encoding="utf-8").read()
 
 
 def job_block(workflow, name):
@@ -64,14 +65,16 @@ def job_block(workflow, name):
     return match.group(0)
 
 expected_concurrency = "group: personal-ledger-release-publish"
-if any(workflow.count(expected_concurrency) != 1 for workflow in (release, recovery, signed_release)):
-    raise SystemExit("Docker/Web, recovery, and signed mobile workflows must share one global concurrency group")
-if any("cancel-in-progress: false" not in workflow for workflow in (release, recovery, signed_release)):
+if any(workflow.count(expected_concurrency) != 1 for workflow in (release, recovery, finalize, signed_release)):
+    raise SystemExit("Docker/Web, recovery, finalize, and signed mobile workflows must share one global concurrency group")
+if any("cancel-in-progress: false" not in workflow for workflow in (release, recovery, finalize, signed_release)):
     raise SystemExit("Release workflows must queue rather than cancel an in-progress publisher")
 if release.count("uses: actions/checkout@") != release.count("persist-credentials: false"):
     raise SystemExit("Every Docker/Web release checkout must disable persisted credentials")
 if recovery.count("uses: actions/checkout@") != recovery.count("persist-credentials: false"):
     raise SystemExit("Every recovery checkout must disable persisted credentials")
+if finalize.count("uses: actions/checkout@") != finalize.count("persist-credentials: false"):
+    raise SystemExit("Every one-shot finalize checkout must disable persisted credentials")
 
 if "workflow_dispatch:" in docker:
     raise SystemExit("Docker publishing must only be callable by the gated tag workflow")
@@ -276,6 +279,75 @@ if "environment: release-recovery" not in recovery_release or "contents: write" 
     raise SystemExit("Recovered GitHub Release writer must use the protected recovery environment")
 if "softprops/action-gh-release@" in recovery:
     raise SystemExit("Recovery must use create-only gh release create instead of an action that can update a Release")
+
+finalize_validate = job_block(finalize, "validate")
+finalize_release = job_block(finalize, "release")
+required_finalize_contracts = [
+    "workflow_dispatch:",
+    "EXPECTED_DIGEST: sha256:db2e60c66f72338357a3541845e6f52fae40f1c701d2b4124536f4663c43c457",
+    "EXPECTED_RECOVERY_HEAD: f2e179cc563de232af9317a468f8b3e2448bf3f7",
+    "EXPECTED_RECOVERY_RUN_ID: '32710642183'",
+    "EXPECTED_TAG: v1.0.9",
+    "EXPECTED_TAG_COMMIT: 134c4fdbcfb6860672af9c044fcad96aa606b8cc",
+    "EXPECTED_TAG_OBJECT: f85188e8ca65579283df40692b5889202fc23842",
+    'GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}"',
+    "release-v1.0.9-finalize.yml@refs/heads/${DEFAULT_BRANCH}",
+    '"run_attempt": 1',
+    '"Recovered Docker image runtime gate": "failure"',
+    '"Create recovered Docker/Web Release": "skipped"',
+    "gh run view",
+    "Docker release evidence checks passed.",
+    "Permission denied",
+    "Recovery failed for more than the authorized cleanup-only condition",
+    "git merge-base --is-ancestor",
+    "Project Quality Gate",
+    "Public Git Safety",
+    "Could not prove GitHub Release",
+    "STRICT_DOCKER_RELEASE_EVIDENCE: '1'",
+    "./scripts/check-docker-release-evidence.sh",
+    "org.opencontainers.image.revision",
+    "org.opencontainers.image.source",
+    "org.opencontainers.image.version",
+    "ref: 134c4fdbcfb6860672af9c044fcad96aa606b8cc",
+    "scripts/generate-release-compose.sh",
+    "docker-compose-v${RELEASE_VERSION}.yml.sha256",
+    "gh release create",
+    "--verify-tag",
+    '--target "$EXPECTED_TAG_COMMIT"',
+    "gh release download",
+    "sha256sum -c",
+]
+for contract in required_finalize_contracts:
+    if contract not in finalize:
+        raise SystemExit(f"Missing one-shot finalize contract: {contract}")
+if "environment:" in finalize_validate or "contents: write" in finalize_validate:
+    raise SystemExit("One-shot finalize validation must remain read-only and outside a deployment environment")
+for contract in ("actions: read", "contents: read"):
+    if contract not in finalize_validate:
+        raise SystemExit(f"One-shot finalize validation is missing read-only permission: {contract}")
+for contract in ("needs: validate", "environment: release-recovery", "contents: write"):
+    if contract not in finalize_release:
+        raise SystemExit(f"One-shot finalize Release writer is missing protected handoff contract: {contract}")
+if finalize.count("contents: write") != 1:
+    raise SystemExit("Only the protected one-shot finalize Release job may have content write access")
+for forbidden in (
+    "packages: write",
+    "docker/login-action@",
+    "docker/build-push-action@",
+    "uses: ./.github/workflows/docker.yml",
+    "skopeo copy",
+    "docker login",
+    "docker push",
+    "gh release edit",
+    "gh release upload",
+    "softprops/action-gh-release@",
+):
+    if forbidden in finalize:
+        raise SystemExit(f"One-shot finalize must not rebuild, republish, or overwrite artifacts: {forbidden}")
+if re.search(r"(?m)^[ ]+docker build(?:[ ]|$)", finalize):
+    raise SystemExit("One-shot finalize must not build a replacement image")
+if finalize.count("gh release create") != 1:
+    raise SystemExit("One-shot finalize must contain exactly one create-only Release operation")
 PY
 
 require_text "Dockerfile" 'FROM node:[0-9]+[.][0-9]+[.][0-9]+-alpine[0-9.]+@sha256:[0-9a-f]{64} AS frontend-builder'

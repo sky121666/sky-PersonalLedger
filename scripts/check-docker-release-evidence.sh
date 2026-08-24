@@ -107,10 +107,35 @@ if [[ "$RUN_SMOKE" == "1" ]]; then
   smoke_dir="$(mktemp -d /tmp/personal-ledger-docker-smoke.XXXXXX)"
   smoke_port="$(pick_port)"
   cleanup() {
-    (
+    local smoke_status="$?"
+    local cleanup_status=0
+    trap - EXIT
+    set +e
+    if ! (
       cd "$smoke_dir" 2>/dev/null && docker compose down -v >/dev/null 2>&1
-    ) || true
-    rm -rf "$smoke_dir"
+    ); then
+      echo "Docker release smoke Compose cleanup failed." >&2
+      cleanup_status=1
+    fi
+    if [[ -d "$smoke_dir/data" ]]; then
+      if ! docker run --rm --pull=never --network none --read-only \
+        --user 0:0 --entrypoint /bin/sh \
+        -v "$smoke_dir/data:/cleanup" \
+        "$IMAGE" \
+        -c 'rm -rf /cleanup/* /cleanup/.[!.]* /cleanup/..?*' >/dev/null 2>&1; then
+        echo "Docker release smoke data cleanup failed." >&2
+        cleanup_status=1
+      fi
+    fi
+    rm -rf "$smoke_dir" >/dev/null 2>&1 || true
+    if [[ -e "$smoke_dir" ]]; then
+      echo "Docker release smoke cleanup left temporary data: $smoke_dir" >&2
+      cleanup_status=1
+    fi
+    if (( smoke_status != 0 )); then
+      exit "$smoke_status"
+    fi
+    exit "$cleanup_status"
   }
   trap cleanup EXIT
 
