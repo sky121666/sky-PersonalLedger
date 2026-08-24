@@ -116,6 +116,8 @@ required_docker_contracts = [
     "moby/buildkit:v0.32.2@sha256:",
     "docker.io/docker/buildkit-syft-scanner@sha256:",
     "copy --all --preserve-digests",
+    "-e REGISTRY_AUTH_FILE=/tmp/auth.json",
+    '-v "${HOME}/.docker/config.json:/tmp/auth.json:ro"',
     'if [ "$remote_digest" != "$local_digest" ]',
     'echo "image_digest=$local_digest" >> "$GITHUB_OUTPUT"',
     "personal-ledger-release.oci.tar.sha256",
@@ -131,6 +133,8 @@ required_docker_contracts = [
 for contract in required_docker_contracts:
     if contract not in docker:
         raise SystemExit(f"Missing Docker artifact identity contract: {contract}")
+if '-v "${HOME}/.docker:/root/.docker:ro"' in docker:
+    raise SystemExit("Skopeo must mount the Docker login file at its configured REGISTRY_AUTH_FILE")
 if docker.count("uses: aquasecurity/trivy-action@") != 2:
     raise SystemExit("Docker release must run exactly two architecture-specific Trivy scans")
 if docker.count("uses: docker/login-action@") != 1:
