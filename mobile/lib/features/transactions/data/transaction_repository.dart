@@ -79,6 +79,20 @@ class TransactionRepository {
     return data;
   }
 
+  /// 仅更新交易附件元数据，不触发余额重算或账户流水。
+  Future<TransactionItem> updateAttachments(String id, String images) async {
+    final data = await _apiClient.patch<TransactionItem>(
+      '/transactions/$id/attachments',
+      data: {'images': images},
+      fromJsonT: (json) =>
+          TransactionItem.fromJson(json as Map<String, dynamic>? ?? const {}),
+    );
+    if (data == null) {
+      throw const FormatException('更新交易附件响应为空');
+    }
+    return data;
+  }
+
   /// 删除交易。
   Future<void> delete(String id) async {
     await _apiClient.delete<void>('/transactions/$id');

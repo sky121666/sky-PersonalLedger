@@ -84,6 +84,7 @@ class AuthController extends StateNotifier<AuthState> {
     _emitState(state.copyWith(stage: AuthStage.checking, clearError: true));
     final serverConfigService = _ref.read(serverConfigServiceProvider);
     final secureStorage = _ref.read(secureStorageServiceProvider);
+    final storedConfig = await serverConfigService.readStoredConfig();
     final config = await serverConfigService.readConfig();
 
     if (config == null) {
@@ -95,7 +96,20 @@ class AuthController extends StateNotifier<AuthState> {
       }
 
       await secureStorage.clearTokens();
-      _emitState(const AuthState(stage: AuthStage.serverRequired));
+      if (storedConfig != null &&
+          ServerConfigService.requiresInsecureLocalHttpConfirmation(
+            storedConfig.baseUrl,
+          )) {
+        _emitState(
+          AuthState(
+            stage: AuthStage.serverRequired,
+            serverUrl: storedConfig.baseUrl,
+            errorMessage: '局域网 HTTP 需要确认风险后才能连接',
+          ),
+        );
+      } else {
+        _emitState(const AuthState(stage: AuthStage.serverRequired));
+      }
       return;
     }
 
@@ -128,7 +142,7 @@ class AuthController extends StateNotifier<AuthState> {
       return false;
     }
 
-    await connectServer(_e2eServerUrl);
+    await connectServer(_e2eServerUrl, acknowledgeInsecureLocalHttp: true);
 
     if (_shouldAutoBootstrapE2E) {
       if (state.stage == AuthStage.setupRequired) {
@@ -152,7 +166,7 @@ class AuthController extends StateNotifier<AuthState> {
       return false;
     }
 
-    await connectServer(_e2eServerUrl);
+    await connectServer(_e2eServerUrl, acknowledgeInsecureLocalHttp: true);
 
     if (state.stage == AuthStage.authenticated) {
       return true;
@@ -179,23 +193,33 @@ class AuthController extends StateNotifier<AuthState> {
     return true;
   }
 
-  Future<void> connectServer(String input) async {
+  Future<void> connectServer(
+    String input, {
+    bool acknowledgeInsecureLocalHttp = false,
+  }) async {
     _emitState(state.copyWith(stage: AuthStage.checking, clearError: true));
     final serverConfigService = _ref.read(serverConfigServiceProvider);
     final secureStorage = _ref.read(secureStorageServiceProvider);
+    var configSaved = false;
 
     try {
-      final normalizedUrl = serverConfigService.normalizeServerUrl(input);
       await secureStorage.clearTokens();
-      await secureStorage.saveServerUrl(normalizedUrl);
+      final config = await serverConfigService.saveServerUrl(
+        input,
+        acknowledgeInsecureLocalHttp: acknowledgeInsecureLocalHttp,
+      );
+      configSaved = true;
       await _ref.read(apiClientProvider).reloadBaseUrl();
       await _initializeApiClient();
-      await _detectInitialRoute(normalizedUrl);
+      await _detectInitialRoute(config.baseUrl);
     } catch (error) {
-      await serverConfigService.clearConfig();
+      if (configSaved) {
+        await serverConfigService.clearConfig();
+      }
       _emitState(
         AuthState(
           stage: AuthStage.serverRequired,
+          serverUrl: state.serverUrl,
           errorMessage: _formatError(error),
         ),
       );
@@ -373,6 +397,7 @@ class AuthController extends StateNotifier<AuthState> {
     final trimmed = message.trim();
     if (trimmed.startsWith('账本地址') ||
         trimmed.startsWith('远程账本') ||
+        trimmed.startsWith('局域网 HTTP') ||
         trimmed == '认证响应无效') {
       return trimmed;
     }

@@ -1,49 +1,38 @@
 name: Build Docker
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Docker image version tag to publish.
-        required: true
-        type: string
-      publish_latest:
-        description: Also publish the latest tag for a stable version. Prereleases never update latest.
-        required: false
-        type: boolean
-        default: false
   workflow_call:
     inputs:
       version:
         required: true
         type: string
-      publish_latest:
-        required: false
-        type: boolean
-        default: true
     outputs:
       image_digest:
         description: Pushed Docker image immutable digest.
-        value: ${{ jobs.docker.outputs.image_digest }}
+        value: ${{ jobs.publish.outputs.image_digest }}
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  SKOPEO_IMAGE: quay.io/skopeo/stable@sha256:77e6c8901f6976bdfa87b8b14c40b96de754794c492d8ed295f77fba1454a4ab
 
 jobs:
-  docker:
-    name: Build Docker Image
+  build_scan:
+    name: Build and scan one OCI layout without registry write access
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     outputs:
-      image_digest: ${{ steps.build.outputs.digest }}
+      version: ${{ steps.version.outputs.VERSION }}
+      repository: ${{ steps.repository.outputs.value }}
+      image_digest: ${{ steps.identity.outputs.image_digest }}
     permissions:
       contents: read
-      packages: write
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Set version
         id: version
@@ -56,56 +45,215 @@ jobs:
           RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
         run: ./scripts/check-version-consistency.sh
 
+      - name: Normalize repository for GHCR
+        id: repository
+        run: echo "value=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+        with:
+          image: docker.io/tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
 
-      - name: Login to GitHub Container Registry
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.repository.outputs.value }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.VERSION }}
+
+      - name: Build one multi-arch OCI layout
+        id: build
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.VERSION }}
+          outputs: type=oci,dest=${{ runner.temp }}/personal-ledger-release.oci,tar=false
+          cache-from: type=gha,scope=docker-release
+          cache-to: type=gha,scope=docker-release,mode=max
+          provenance: mode=max
+          sbom: generator=docker.io/docker/buildkit-syft-scanner@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9
+
+      - name: Export and verify architecture-specific scan archives
+        run: |
+          layout="oci:/work/personal-ledger-release.oci"
+          skopeo=(docker run --rm
+            -v "${RUNNER_TEMP}:/work:rw"
+            "${SKOPEO_IMAGE}")
+
+          for arch in amd64 arm64; do
+            archive="/work/personal-ledger-${arch}.tar"
+            "${skopeo[@]}" copy \
+              --override-os linux \
+              --override-arch "$arch" \
+              "$layout" \
+              "docker-archive:${archive}:personal-ledger:scan-${arch}"
+
+            actual_platform="$("${skopeo[@]}" inspect \
+              --format '{{.Os}}/{{.Architecture}}' \
+              "docker-archive:${archive}")"
+            expected_platform="linux/${arch}"
+            if [ "$actual_platform" != "$expected_platform" ]; then
+              echo "::error title=Scan archive architecture mismatch::Expected $expected_platform, got $actual_platform"
+              exit 1
+            fi
+          done
+
+      - name: Scan the verified amd64 docker archive
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          input: ${{ runner.temp }}/personal-ledger-amd64.tar
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Scan the verified arm64 docker archive
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          input: ${{ runner.temp }}/personal-ledger-arm64.tar
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Seal the scanned OCI layout for the publisher
+        id: identity
+        run: |
+          layout="oci:/work/personal-ledger-release.oci"
+          skopeo=(docker run --rm
+            -v "${RUNNER_TEMP}:/work:rw"
+            "${SKOPEO_IMAGE}")
+
+          image_digest="$("${skopeo[@]}" inspect --format '{{.Digest}}' "$layout")"
+          if [[ ! "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error title=Invalid OCI digest::Unexpected digest: ${image_digest}"
+            exit 1
+          fi
+
+          tar -C "${RUNNER_TEMP}/personal-ledger-release.oci" \
+            -cf "${RUNNER_TEMP}/personal-ledger-release.oci.tar" .
+          (
+            cd "${RUNNER_TEMP}"
+            sha256sum personal-ledger-release.oci.tar > personal-ledger-release.oci.tar.sha256
+          )
+          echo "image_digest=$image_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the scanned OCI handoff
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docker-release-oci
+          path: |
+            ${{ runner.temp }}/personal-ledger-release.oci.tar
+            ${{ runner.temp }}/personal-ledger-release.oci.tar.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  publish:
+    name: Publish only the scanned OCI handoff
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: build_scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: release
+    outputs:
+      image_digest: ${{ steps.publish.outputs.image_digest }}
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+
+    steps:
+      - name: Download the scanned OCI handoff
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: docker-release-oci
+          path: ${{ runner.temp }}/docker-release-oci
+
+      - name: Verify and restore the scanned OCI layout
+        env:
+          EXPECTED_IMAGE_DIGEST: ${{ needs.build_scan.outputs.image_digest }}
+        run: |
+          handoff="${RUNNER_TEMP}/docker-release-oci"
+          (
+            cd "$handoff"
+            sha256sum -c personal-ledger-release.oci.tar.sha256
+          )
+          mkdir -p "${RUNNER_TEMP}/personal-ledger-release.oci"
+          tar -C "${RUNNER_TEMP}/personal-ledger-release.oci" \
+            -xf "$handoff/personal-ledger-release.oci.tar"
+
+          layout="oci:/work/personal-ledger-release.oci"
+          skopeo=(docker run --rm
+            -v "${RUNNER_TEMP}:/work:ro"
+            "${SKOPEO_IMAGE}")
+          actual_digest="$("${skopeo[@]}" inspect --format '{{.Digest}}' "$layout")"
+          if [ "$actual_digest" != "$EXPECTED_IMAGE_DIGEST" ]; then
+            echo "::error title=OCI handoff digest mismatch::Expected $EXPECTED_IMAGE_DIGEST, got $actual_digest"
+            exit 1
+          fi
+
+      - name: Login to GitHub Container Registry after both scans pass
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=${{ steps.version.outputs.VERSION }}
-            type=raw,value=latest,enable=${{ inputs.publish_latest && !contains(steps.version.outputs.VERSION, '-') }}
-
-      - name: Build and push
-        id: build
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ steps.version.outputs.VERSION }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: mode=max
-          sbom: true
-
-      - name: Normalize image reference for scanner
-        id: scan-ref
+      - name: Reject an existing immutable image tag after both scans pass
         env:
-          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
-        run: echo "image_ref=${IMAGE_REF,,}" >> "$GITHUB_OUTPUT"
+          REPOSITORY: ${{ needs.build_scan.outputs.repository }}
+          VERSION: ${{ needs.build_scan.outputs.version }}
+        run: |
+          image="${REGISTRY}/${REPOSITORY}:${VERSION}"
+          inspect_log="$(mktemp)"
+          if docker buildx imagetools inspect "$image" >"$inspect_log" 2>&1; then
+            echo "::error title=Image tag already exists::Refusing to overwrite ${image}"
+            exit 1
+          fi
+          if ! grep -Eqi 'manifest unknown|name unknown|not found' "$inspect_log"; then
+            sed -n '1,20p' "$inspect_log" >&2
+            echo "::error title=Image tag check failed::Could not prove ${image} is unused"
+            exit 1
+          fi
 
-      - name: Scan pushed image for known vulnerabilities
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ${{ steps.scan-ref.outputs.image_ref }}
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
+      - name: Push the scanned OCI layout without rebuilding
+        id: publish
+        env:
+          EXPECTED_IMAGE_DIGEST: ${{ needs.build_scan.outputs.image_digest }}
+          REPOSITORY: ${{ needs.build_scan.outputs.repository }}
+          VERSION: ${{ needs.build_scan.outputs.version }}
+        run: |
+          layout="oci:/work/personal-ledger-release.oci"
+          image="${REGISTRY}/${REPOSITORY}"
+          skopeo=(docker run --rm
+            -v "${RUNNER_TEMP}:/work:ro"
+            -v "${HOME}/.docker:/root/.docker:ro"
+            "${SKOPEO_IMAGE}")
+
+          local_digest="$("${skopeo[@]}" inspect --format '{{.Digest}}' "$layout")"
+          if [ "$local_digest" != "$EXPECTED_IMAGE_DIGEST" ]; then
+            echo "::error title=Publisher OCI digest mismatch::Expected $EXPECTED_IMAGE_DIGEST, got $local_digest"
+            exit 1
+          fi
+          "${skopeo[@]}" copy --all --preserve-digests "$layout" "docker://${image}:${VERSION}"
+          remote_digest="$("${skopeo[@]}" inspect --format '{{.Digest}}' "docker://${image}:${VERSION}")"
+          if [ "$remote_digest" != "$local_digest" ]; then
+            echo "::error title=Published digest mismatch::Expected $local_digest, got $remote_digest"
+            exit 1
+          fi
+
+          echo "image_digest=$local_digest" >> "$GITHUB_OUTPUT"

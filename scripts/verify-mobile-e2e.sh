@@ -164,10 +164,12 @@ run_flutter_e2e() {
     run_with_timeout "$LEDGER_MOBILE_E2E_TIMEOUT_SECONDS" \
       flutter test \
       -d "$device_id" \
+      --timeout="${LEDGER_MOBILE_E2E_TEST_TIMEOUT:-${LEDGER_MOBILE_E2E_TIMEOUT_SECONDS}s}" \
       --dart-define="LEDGER_E2E_SERVER_URL=$server_url" \
       --dart-define="LEDGER_E2E_PASSWORD=$LEDGER_E2E_PASSWORD" \
       --dart-define="LEDGER_E2E_AUTO_AUTH=true" \
       --dart-define="LEDGER_E2E_USE_IN_MEMORY_STORAGE=$storage_mode" \
+      --dart-define="LEDGER_E2E_TEST_TIMEOUT_SECONDS=$LEDGER_MOBILE_E2E_TIMEOUT_SECONDS" \
       "$test_file"
   )
 }

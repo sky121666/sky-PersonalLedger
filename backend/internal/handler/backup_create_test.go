@@ -38,6 +38,22 @@ func TestCreateBackupKeepsUnexpectedErrorsAsInternalServerError(t *testing.T) {
 	assertBackupCreateError(t, response, http.StatusInternalServerError, 50001, "failed to create backup")
 }
 
+func TestCreateBackupResponsePreventsCaching(t *testing.T) {
+	handler, _, userID := newCreateBackupHandlerForTest(t, "", 0)
+
+	response := performCreateBackupRequest(handler, userID)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Cache-Control"); got != "private, no-store" {
+		t.Fatalf("Cache-Control = %q, want private, no-store", got)
+	}
+	if got := response.Header().Get("Pragma"); got != "no-cache" {
+		t.Fatalf("Pragma = %q, want no-cache", got)
+	}
+}
+
 func newCreateBackupHandlerForTest(t *testing.T, bio string, maxRestoreBytes int64) (*BackupHandler, *repository.Repositories, uint) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)

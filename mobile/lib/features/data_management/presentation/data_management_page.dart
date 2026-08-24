@@ -9,6 +9,21 @@ import '../../../app/widgets/premium_surface.dart';
 import '../../transactions/application/ledger_refresh.dart';
 import '../data/data_management_repository.dart';
 
+typedef BackupFilePicker = Future<PlatformFile?> Function();
+
+final backupFilePickerProvider = Provider<BackupFilePicker>((ref) {
+  return () async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+      allowMultiple: false,
+      withData: false,
+    );
+    final files = result?.files ?? const <PlatformFile>[];
+    return files.isEmpty ? null : files.single;
+  };
+});
+
 class DataManagementPage extends ConsumerStatefulWidget {
   const DataManagementPage({super.key});
 
@@ -229,26 +244,23 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   }
 
   Future<void> _pickAndRestoreBackup() async {
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '恢复账本',
-      message: '恢复所选副本？',
-      confirmText: '恢复',
-      isDanger: true,
-    );
-    if (!confirmed || !mounted) {
+    final file = await ref.read(backupFilePickerProvider)();
+    if (file == null) {
       return;
     }
 
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['json'],
-      allowMultiple: false,
-      withData: false,
+    if (!mounted) {
+      return;
+    }
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '确认恢复账本',
+      message:
+          '已选择：${file.name}\n文件大小：${_formatFileSize(file.size)}\n\n恢复将覆盖当前账本；服务端会先创建恢复前副本。',
+      confirmText: '确认恢复',
+      isDanger: true,
     );
-    final files = result?.files ?? const <PlatformFile>[];
-    final file = files.isEmpty ? null : files.single;
-    if (file == null) {
+    if (!confirmed || !mounted) {
       return;
     }
 

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +22,7 @@ var ErrUploadFileTooLarge = errors.New("file size exceeds configured limit")
 var ErrUploadTypeNotAllowed = errors.New("file type is not allowed")
 var ErrUploadContentMismatch = errors.New("file content does not match its extension or declared type")
 var ErrUploadReferenced = errors.New("file is still referenced")
+var ErrAttachmentFileUnavailable = errors.New("attachment file is unavailable")
 
 const defaultMaxUploadBytes int64 = 10 << 20
 
@@ -59,6 +61,11 @@ type UploadResult struct {
 func (s *UploadService) Upload(userID uint, category string, refID string, file *multipart.FileHeader) (*UploadResult, error) {
 	if file == nil || s == nil || s.cfg == nil {
 		return nil, errors.New("file is required")
+	}
+	releaseStorage := acquireAttachmentStorageRead()
+	defer releaseStorage()
+	if !AttachmentStorageAvailable(userID) {
+		return nil, ErrAttachmentRecoveryPending
 	}
 	category, refID, err := normalizeUploadScope(category, refID)
 	if err != nil {
@@ -152,6 +159,11 @@ func (s *UploadService) Upload(userID uint, category string, refID string, file 
 
 // Delete removes a file owned by the current user.
 func (s *UploadService) Delete(userID uint, relativePath string) error {
+	releaseStorage := acquireAttachmentStorageWrite()
+	defer releaseStorage()
+	if !AttachmentStorageAvailable(userID) {
+		return ErrAttachmentRecoveryPending
+	}
 	fullPath, err := s.GetUserFilePath(userID, relativePath)
 	if err != nil {
 		return err
@@ -174,7 +186,8 @@ func (s *UploadService) GetUserFilePath(userID uint, relativePath string) (strin
 	if cleanPath == "." ||
 		filepath.IsAbs(cleanPath) ||
 		strings.HasPrefix(cleanPath, ".."+string(os.PathSeparator)) ||
-		cleanPath == ".." {
+		cleanPath == ".." ||
+		IsInternalUploadPath(cleanPath) {
 		return "", ErrUploadPathInvalid
 	}
 
@@ -245,6 +258,11 @@ func (s *UploadService) GetFilePath(relativePath string) string {
 
 // ListFiles returns all files for a specific entity
 func (s *UploadService) ListFiles(userID uint, category string, refID string) ([]string, error) {
+	releaseStorage := acquireAttachmentStorageRead()
+	defer releaseStorage()
+	if !AttachmentStorageAvailable(userID) {
+		return nil, ErrAttachmentRecoveryPending
+	}
 	category, refID, err := normalizeUploadScope(category, refID)
 	if err != nil {
 		return nil, err
@@ -262,13 +280,68 @@ func (s *UploadService) ListFiles(userID uint, category string, refID string) ([
 
 	var files []string
 	for _, entry := range entries {
-		if !entry.IsDir() && !strings.HasPrefix(entry.Name(), ".upload-") {
+		if !entry.IsDir() && !strings.HasPrefix(entry.Name(), ".upload-") && !IsInternalUploadPath(entry.Name()) {
 			relativePath := filepath.Join(fmt.Sprintf("%d", userID), category, refID, entry.Name())
 			files = append(files, filepath.ToSlash(relativePath))
 		}
 	}
 
 	return files, nil
+}
+
+// IsInternalUploadPath identifies files used to coordinate crash-safe storage
+// recovery. These files are never part of the user attachment API surface.
+func IsInternalUploadPath(value string) bool {
+	for _, segment := range strings.Split(filepath.ToSlash(value), "/") {
+		if segment == attachmentRestoreGenerationFile {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateStoredAttachmentPaths verifies that normalized metadata points to
+// existing regular files below the authenticated user's upload boundary.
+// Callers still validate category/ref ownership before invoking this method.
+func (s *UploadService) ValidateStoredAttachmentPaths(userID uint, value string) error {
+	releaseStorage := acquireAttachmentStorageRead()
+	defer releaseStorage()
+	return s.validateStoredAttachmentPaths(userID, value)
+}
+
+func (s *UploadService) validateStoredAttachmentPaths(userID uint, value string) error {
+	if !AttachmentStorageAvailable(userID) {
+		return ErrAttachmentRecoveryPending
+	}
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	if s == nil || s.cfg == nil || strings.TrimSpace(s.cfg.UploadPath) == "" {
+		return ErrAttachmentFileUnavailable
+	}
+	var paths []string
+	if err := json.Unmarshal([]byte(value), &paths); err != nil {
+		return ErrAttachmentFileUnavailable
+	}
+	for _, storedPath := range paths {
+		cleanPath := filepath.Clean(filepath.FromSlash(storedPath))
+		if IsInternalUploadPath(cleanPath) {
+			return ErrAttachmentFileUnavailable
+		}
+		fullPath, err := s.GetUserFilePath(userID, cleanPath)
+		if err != nil {
+			return ErrAttachmentFileUnavailable
+		}
+		rawInfo, err := os.Lstat(filepath.Join(s.cfg.UploadPath, cleanPath))
+		if err != nil || rawInfo.Mode()&os.ModeSymlink != 0 || !rawInfo.Mode().IsRegular() {
+			return ErrAttachmentFileUnavailable
+		}
+		info, err := os.Lstat(fullPath)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return ErrAttachmentFileUnavailable
+		}
+	}
+	return nil
 }
 
 func normalizeUploadScope(category string, refID string) (string, string, error) {

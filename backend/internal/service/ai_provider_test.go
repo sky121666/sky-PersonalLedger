@@ -244,6 +244,88 @@ func TestAIProviderProtectsStoredAPIKeyWhenEncryptionSecretConfigured(t *testing
 	}
 }
 
+func TestAIProviderStartupMigrationReencryptsFallbackKey(t *testing.T) {
+	_, repos, userID := newAIProviderTestService(t)
+	oldKey := "old-ai-credential-key-with-at-least-32-characters"
+	newKey := "new-ai-credential-key-with-at-least-32-characters"
+	oldCiphertext, err := protectAISecret("sk-rotated", oldKey)
+	if err != nil {
+		t.Fatalf("protect old AI credential: %v", err)
+	}
+	provider := &model.AIProvider{
+		UserID:           userID,
+		Name:             "Migrating provider",
+		ProviderType:     aiProviderTypeOpenAICompatible,
+		BaseURL:          "https://api.example.com",
+		APIKeyCiphertext: oldCiphertext,
+		Model:            "example-model",
+	}
+	if err := repos.AIProvider.Create(provider); err != nil {
+		t.Fatalf("seed old AI credential: %v", err)
+	}
+
+	svc := NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil), newKey, oldKey)
+	if err := svc.MigrateStoredSecrets(); err != nil {
+		t.Fatalf("migrate fallback-key AI credential: %v", err)
+	}
+	first, err := repos.AIProvider.GetByID(provider.ID)
+	if err != nil {
+		t.Fatalf("load migrated AI credential: %v", err)
+	}
+	if first.APIKeyCiphertext == oldCiphertext {
+		t.Fatal("fallback-key AI ciphertext was not rotated")
+	}
+	plainText, err := revealAISecret(first.APIKeyCiphertext, newKey)
+	if err != nil || plainText != "sk-rotated" {
+		t.Fatalf("reveal migrated AI credential: plaintext=%q err=%v", plainText, err)
+	}
+	if _, err := revealAISecret(first.APIKeyCiphertext, oldKey); err == nil {
+		t.Fatal("migrated AI credential still decrypts with fallback key")
+	}
+
+	if err := svc.MigrateStoredSecrets(); err != nil {
+		t.Fatalf("repeat AI credential migration: %v", err)
+	}
+	second, err := repos.AIProvider.GetByID(provider.ID)
+	if err != nil {
+		t.Fatalf("reload AI credential: %v", err)
+	}
+	if second.APIKeyCiphertext != first.APIKeyCiphertext {
+		t.Fatal("idempotent AI migration rewrote active-key ciphertext")
+	}
+}
+
+func TestAIProviderStartupMigrationDoesNotPartiallyWriteOnKeyMismatch(t *testing.T) {
+	_, repos, userID := newAIProviderTestService(t)
+	activeKey := "active-ai-credential-key-with-at-least-32-characters"
+	unknownKey := "unknown-ai-credential-key-with-at-least-32-characters"
+	unknownCiphertext, err := protectAISecret("sk-unknown", unknownKey)
+	if err != nil {
+		t.Fatalf("protect incompatible AI credential: %v", err)
+	}
+	providers := []*model.AIProvider{
+		{UserID: userID, Name: "Plaintext", ProviderType: aiProviderTypeOpenAICompatible, BaseURL: "https://one.example.com", APIKeyCiphertext: "sk-plaintext", Model: "one"},
+		{UserID: userID, Name: "Unknown", ProviderType: aiProviderTypeOpenAICompatible, BaseURL: "https://two.example.com", APIKeyCiphertext: unknownCiphertext, Model: "two"},
+	}
+	for _, provider := range providers {
+		if err := repos.AIProvider.Create(provider); err != nil {
+			t.Fatalf("seed AI provider: %v", err)
+		}
+	}
+
+	svc := NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil), activeKey)
+	if err := svc.MigrateStoredSecrets(); err == nil {
+		t.Fatal("migration with an incompatible AI credential unexpectedly succeeded")
+	}
+	first, err := repos.AIProvider.GetByID(providers[0].ID)
+	if err != nil {
+		t.Fatalf("reload plaintext AI credential: %v", err)
+	}
+	if first.APIKeyCiphertext != "sk-plaintext" {
+		t.Fatalf("failed AI migration partially rewrote earlier credential: %q", first.APIKeyCiphertext)
+	}
+}
+
 func TestOpenAICompatibleChatCompletionsURL(t *testing.T) {
 	cases := map[string]string{
 		"https://api.deepseek.com":     "https://api.deepseek.com/chat/completions",

@@ -40,6 +40,12 @@ type LendingService struct {
 	txRepo        *repository.TransactionRepository
 	categoryRepo  *repository.CategoryRepository
 	accountLogSvc *AccountLogService
+	uploadService *UploadService
+}
+
+func (s *LendingService) WithUploadService(uploadService *UploadService) *LendingService {
+	s.uploadService = uploadService
+	return s
 }
 
 func NewLendingService(
@@ -78,6 +84,10 @@ func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.L
 	if err != nil {
 		return nil, err
 	}
+	evidence, err := normalizeCreateAttachmentEvidence(req.Evidence)
+	if err != nil {
+		return nil, err
+	}
 	accountID := normalizeOptionalString(req.AccountID)
 
 	lending := &model.Lending{
@@ -94,7 +104,7 @@ func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.L
 		LendDate:       lendDate,
 		AccountID:      accountID,
 		Remark:         req.Remark,
-		Evidence:       req.Evidence,
+		Evidence:       evidence,
 		IsSettled:      false,
 	}
 
@@ -199,6 +209,13 @@ type PatchLendingRequest struct {
 }
 
 func (s *LendingService) Patch(id string, userID uint, req PatchLendingRequest) (*model.Lending, error) {
+	if s.uploadService != nil {
+		releaseStorage := acquireAttachmentStorageRead()
+		defer releaseStorage()
+		if !AttachmentStorageAvailable(userID) {
+			return nil, ErrAttachmentRecoveryPending
+		}
+	}
 	lending, err := s.GetByID(id, userID)
 	if err != nil {
 		return nil, err
@@ -214,7 +231,6 @@ func (s *LendingService) Patch(id string, userID uint, req PatchLendingRequest) 
 		"contact_phone":  req.ContactPhone,
 		"contact_remark": req.ContactRemark,
 		"remark":         req.Remark,
-		"evidence":       req.Evidence,
 	} {
 		if field.Set {
 			if field.Null {
@@ -222,6 +238,22 @@ func (s *LendingService) Patch(id string, userID uint, req PatchLendingRequest) 
 			} else {
 				updates[column] = field.Value
 			}
+		}
+	}
+	if req.Evidence.Set {
+		if req.Evidence.Null {
+			updates["evidence"] = ""
+		} else {
+			evidence, err := normalizeAttachmentEvidence(req.Evidence.Value, userID, "lendings", exactAttachmentRef(id))
+			if err != nil {
+				return nil, err
+			}
+			if s.uploadService != nil {
+				if err := s.uploadService.validateStoredAttachmentPaths(userID, evidence); err != nil {
+					return nil, err
+				}
+			}
+			updates["evidence"] = evidence
 		}
 	}
 	if req.InterestRate.Set {
@@ -260,6 +292,13 @@ func (s *LendingService) Patch(id string, userID uint, req PatchLendingRequest) 
 }
 
 func (s *LendingService) Update(id string, userID uint, req UpdateLendingRequest) (*model.Lending, error) {
+	if s.uploadService != nil {
+		releaseStorage := acquireAttachmentStorageRead()
+		defer releaseStorage()
+		if !AttachmentStorageAvailable(userID) {
+			return nil, ErrAttachmentRecoveryPending
+		}
+	}
 	lending, err := s.GetByID(id, userID)
 	if err != nil {
 		return nil, err
@@ -270,7 +309,15 @@ func (s *LendingService) Update(id string, userID uint, req UpdateLendingRequest
 	lending.ContactRemark = req.ContactRemark
 	lending.InterestRate = req.InterestRate
 	lending.Remark = req.Remark
-	lending.Evidence = req.Evidence
+	lending.Evidence, err = normalizeAttachmentEvidence(req.Evidence, userID, "lendings", exactAttachmentRef(id))
+	if err != nil {
+		return nil, err
+	}
+	if s.uploadService != nil {
+		if err := s.uploadService.validateStoredAttachmentPaths(userID, lending.Evidence); err != nil {
+			return nil, err
+		}
+	}
 
 	if req.DueDate != nil {
 		dueDate, err := parseDateTime(*req.DueDate)
@@ -327,6 +374,13 @@ type RecordRepaymentRequest struct {
 }
 
 func (s *LendingService) RecordRepayment(lendingID string, userID uint, req RecordRepaymentRequest) (*model.Lending, error) {
+	if s.uploadService != nil {
+		releaseStorage := acquireAttachmentStorageRead()
+		defer releaseStorage()
+		if !AttachmentStorageAvailable(userID) {
+			return nil, ErrAttachmentRecoveryPending
+		}
+	}
 	if req.Amount <= 0 {
 		return nil, ErrInvalidAmount
 	}
@@ -336,6 +390,15 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 		return nil, err
 	}
 	accountID := normalizeOptionalString(req.AccountID)
+	evidence, err := normalizeAttachmentEvidence(req.Evidence, userID, "lendings", lendingRepaymentAttachmentRef(lendingID))
+	if err != nil {
+		return nil, err
+	}
+	if s.uploadService != nil {
+		if err := s.uploadService.validateStoredAttachmentPaths(userID, evidence); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := financeWriteTransaction(s.txRepo.DB(), func(txdb *gorm.DB) error {
 		var lending model.Lending
@@ -445,7 +508,7 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 			AccountID:     accountID,
 			TransactionID: transactionID,
 			Remark:        req.Remark,
-			Evidence:      req.Evidence,
+			Evidence:      evidence,
 		}
 
 		if err := txdb.Create(record).Error; err != nil {

@@ -115,6 +115,15 @@ func (r *TransactionRepository) Update(tx *model.Transaction) error {
 	return r.db.Save(tx).Error
 }
 
+// UpdateImagesForUserWithDB updates only attachment metadata. It intentionally
+// bypasses Save and model hooks so balance-bearing transaction fields and
+// ledger audit rows cannot be changed by an attachment reconciliation request.
+func (r *TransactionRepository) UpdateImagesForUserWithDB(db *gorm.DB, id string, userID uint, images string) error {
+	return db.Model(&model.Transaction{}).
+		Where("id = ? AND user_id = ?", id, userID).
+		UpdateColumn("images", images).Error
+}
+
 func (r *TransactionRepository) Delete(id string) error {
 	return r.db.Delete(&model.Transaction{}, "id = ?", id).Error
 }

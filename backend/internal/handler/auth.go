@@ -115,13 +115,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	result, err := h.service.Login(req.Password)
 	if err != nil {
-		if err == service.ErrUserLocked {
+		if errors.Is(err, service.ErrUserLocked) {
 			response.Error(c, 403, 40301, "account locked, try again later")
 			return
 		}
-		// Record failed attempt
-		h.rateLimiter.RecordAttempt(c.ClientIP(), "admin")
-		response.Unauthorized(c, "invalid password")
+		if errors.Is(err, service.ErrInvalidPassword) {
+			// Record only verified credential failures. Persistence failures must
+			// not be hidden as ordinary password attempts.
+			h.rateLimiter.RecordAttempt(c.ClientIP(), "admin")
+			response.Unauthorized(c, "invalid password")
+			return
+		}
+		internalServerError(c, err, "failed to authenticate")
 		return
 	}
 

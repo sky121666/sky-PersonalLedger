@@ -9,6 +9,10 @@ REQUIRE_IOS="${REQUIRE_IOS_ARTIFACT:-0}"
 REQUIRE_CHECKSUMS="${REQUIRE_CHECKSUM_SIDECARS:-1}"
 VERIFY_SIGNATURES="${VERIFY_ARTIFACT_SIGNATURES:-0}"
 IOS_BUNDLE_IDENTIFIER="${IOS_BUNDLE_IDENTIFIER:-com.skyapp.personalLedger}"
+ANDROID_EXPECTED_SIGNER_SHA256="${ANDROID_EXPECTED_SIGNER_SHA256:-}"
+IOS_EXPECTED_TEAM_IDENTIFIER="${IOS_EXPECTED_TEAM_IDENTIFIER:-}"
+ANDROID_APK_SIGNER_SHA256=""
+ANDROID_AAB_SIGNER_SHA256=""
 
 fail() {
   echo "$1" >&2
@@ -190,6 +194,9 @@ verify_ios_ipa_signature() {
   local work_dir
   local app_path
   local bundle_id
+  local entitlements_path
+  local team_identifier
+  local application_identifier
 
   require_tool codesign
   work_dir="$(mktemp -d)"
@@ -209,6 +216,20 @@ verify_ios_ipa_signature() {
   fi
 
   codesign --verify --deep --strict --verbose=2 "$app_path" >/dev/null
+
+  if [[ ! "$IOS_EXPECTED_TEAM_IDENTIFIER" =~ ^[A-Z0-9]{10}$ ]]; then
+    fail "IOS_EXPECTED_TEAM_IDENTIFIER must be set to the protected 10-character Team ID when verifying an IPA"
+  fi
+  entitlements_path="$work_dir/signing-entitlements.plist"
+  codesign -d --entitlements :- "$app_path" >"$entitlements_path" 2>/dev/null
+  team_identifier="$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.team-identifier' "$entitlements_path")"
+  application_identifier="$(/usr/libexec/PlistBuddy -c 'Print :application-identifier' "$entitlements_path")"
+  if [[ "$team_identifier" != "$IOS_EXPECTED_TEAM_IDENTIFIER" ]]; then
+    fail "$label artifact TeamIdentifier does not match the protected release identity"
+  fi
+  if [[ "$application_identifier" != "${IOS_EXPECTED_TEAM_IDENTIFIER}.${bundle_id}" ]]; then
+    fail "$label artifact application-identifier does not match the expected team and bundle id"
+  fi
 }
 
 verify_artifact_signature() {
@@ -216,16 +237,34 @@ verify_artifact_signature() {
   local path="$2"
   local structure="$3"
   local apksigner
+  local signer_output
+  local expected_signer
+
+  expected_signer="$(printf '%s' "$ANDROID_EXPECTED_SIGNER_SHA256" | tr '[:upper:]' '[:lower:]')"
 
   case "$structure" in
     apk)
+      [[ "$expected_signer" =~ ^[0-9a-f]{64}$ ]] ||
+        fail "ANDROID_EXPECTED_SIGNER_SHA256 must be set to the protected 64-hex fingerprint when verifying Android artifacts"
       apksigner="$(find_apksigner)"
       [[ -n "$apksigner" ]] || fail "Missing required tool: apksigner"
-      "$apksigner" verify --verbose --print-certs "$path" >/dev/null
+      signer_output="$("$apksigner" verify --verbose --print-certs "$path")"
+      ANDROID_APK_SIGNER_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {print $2; exit}' <<<"$signer_output" |
+        tr -d ':' | tr '[:upper:]' '[:lower:]')"
+      [[ "$ANDROID_APK_SIGNER_SHA256" == "$expected_signer" ]] ||
+        fail "$label signer fingerprint does not match the protected release identity"
       ;;
     aab)
+      [[ "$expected_signer" =~ ^[0-9a-f]{64}$ ]] ||
+        fail "ANDROID_EXPECTED_SIGNER_SHA256 must be set to the protected 64-hex fingerprint when verifying Android artifacts"
       require_tool jarsigner
+      require_tool keytool
       jarsigner -verify -strict -certs "$path" >/dev/null
+      ANDROID_AAB_SIGNER_SHA256="$(LC_ALL=C keytool -printcert -jarfile "$path" |
+        awk -F': ' '/SHA256:/{print $2; exit}' |
+        tr -d ':' | tr '[:upper:]' '[:lower:]')"
+      [[ "$ANDROID_AAB_SIGNER_SHA256" == "$expected_signer" ]] ||
+        fail "$label signer fingerprint does not match the protected release identity"
       ;;
     ipa)
       verify_ios_ipa_signature "$label" "$path"
@@ -259,6 +298,9 @@ if [[ "$REQUIRE_ANDROID" == "1" ]]; then
   aab_path="$(find_one "$aab_pattern")" || fail "Missing Android AAB artifact matching $aab_pattern under $ARTIFACT_DIR"
   check_zip_artifact "Android APK" "$apk_path" 1024000 apk
   check_zip_artifact "Android AAB" "$aab_path" 1024000 aab
+  if [[ "$VERIFY_SIGNATURES" == "1" && "$ANDROID_APK_SIGNER_SHA256" != "$ANDROID_AAB_SIGNER_SHA256" ]]; then
+    fail "Android APK and AAB signer fingerprints do not match"
+  fi
 fi
 
 if [[ "$REQUIRE_IOS" == "1" ]]; then

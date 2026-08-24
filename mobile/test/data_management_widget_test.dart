@@ -108,6 +108,37 @@ void main() {
       expect(find.textContaining('网络失败'), findsAtLeastNWidgets(1));
     });
 
+    testWidgets('先选择并展示备份文件信息，最终确认后才恢复', (tester) async {
+      final repository = _FakeDataManagementRepository();
+      final selectedFile = PlatformFile(
+        name: 'ledger-2026-08-24.json',
+        size: 2048,
+        path: '/tmp/ledger-2026-08-24.json',
+      );
+      await _pumpPage(
+        tester,
+        repository,
+        backupFilePicker: () async => selectedFile,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('restore-panel-toggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择副本'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('确认恢复账本'), findsOneWidget);
+      expect(find.textContaining('ledger-2026-08-24.json'), findsOneWidget);
+      expect(find.textContaining('2.0 KB'), findsOneWidget);
+      expect(find.textContaining('服务端会先创建恢复前副本'), findsOneWidget);
+      expect(repository.restoreBackupCalls, 0);
+
+      await tester.tap(find.widgetWithText(FilledButton, '确认恢复'));
+      await tester.pumpAndSettle();
+
+      expect(repository.restoreBackupCalls, 1);
+      expect(find.text('数据已恢复'), findsOneWidget);
+    });
+
     testWidgets('保存自动保存设置时提交当前设置', (tester) async {
       final repository = _FakeDataManagementRepository();
       await _pumpPage(tester, repository);
@@ -424,6 +455,7 @@ Future<void> _pumpPage(
   WidgetTester tester,
   _FakeDataManagementRepository repository, {
   Size physicalSize = const Size(1200, 2200),
+  BackupFilePicker? backupFilePicker,
 }) async {
   tester.view.physicalSize = physicalSize;
   tester.view.devicePixelRatio = 1;
@@ -434,6 +466,8 @@ Future<void> _pumpPage(
     ProviderScope(
       overrides: [
         dataManagementRepositoryProvider.overrideWithValue(repository),
+        if (backupFilePicker != null)
+          backupFilePickerProvider.overrideWithValue(backupFilePicker),
       ],
       child: const MaterialApp(home: DataManagementPage()),
     ),

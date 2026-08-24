@@ -13,72 +13,78 @@ const _password = String.fromEnvironment('LEDGER_E2E_PASSWORD');
 const _useInMemoryStorage = bool.fromEnvironment(
   'LEDGER_E2E_USE_IN_MEMORY_STORAGE',
 );
+const _testTimeoutSeconds = int.fromEnvironment(
+  'LEDGER_E2E_TEST_TIMEOUT_SECONDS',
+  defaultValue: 1800,
+);
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('connects to a real backend and completes a ledger entry flow', (
-    tester,
-  ) async {
-    if (_serverUrl.isEmpty) {
-      fail('LEDGER_E2E_SERVER_URL is required for real backend E2E');
-    }
-    if (_password.length < 8) {
-      fail('LEDGER_E2E_PASSWORD must be at least 8 characters');
-    }
+  testWidgets(
+    'connects to a real backend and completes a ledger entry flow',
+    (tester) async {
+      if (_serverUrl.isEmpty) {
+        fail('LEDGER_E2E_SERVER_URL is required for real backend E2E');
+      }
+      if (_password.length < 8) {
+        fail('LEDGER_E2E_PASSWORD must be at least 8 characters');
+      }
 
-    final storage = _useInMemoryStorage
-        ? _MemorySecureStorageService()
-        : SecureStorageService();
-    await storage.clearAll();
+      final storage = _useInMemoryStorage
+          ? _MemorySecureStorageService()
+          : SecureStorageService();
+      await storage.clearAll();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: _useInMemoryStorage
-            ? [secureStorageServiceProvider.overrideWithValue(storage)]
-            : const [],
-        child: const PersonalLedgerApp(),
-      ),
-    );
-
-    await _pumpUntilAnyFound(tester, [
-      find.byKey(const ValueKey('server-url-field')),
-      find.text('连接服务器'),
-      find.text('连接账本'),
-      find.byKey(const Key('auth-setup-password-field')),
-      find.byKey(const Key('auth-login-password-field')),
-      find.text('首页'),
-    ]);
-
-    if (_isServerConfigVisible()) {
-      await _enterAuthTextField(tester, ['服务器地址', '账本地址'], _serverUrl);
-      await _tapTextOrKey(
-        tester,
-        keys: const [Key('server-connect-button')],
-        fallbackTexts: const ['进入账本', '连接'],
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: _useInMemoryStorage
+              ? [secureStorageServiceProvider.overrideWithValue(storage)]
+              : const [],
+          child: const PersonalLedgerApp(),
+        ),
       );
-    }
 
-    if (!_isHomeShellVisible()) {
-      await _waitForAuthForm(tester);
-    }
+      await _pumpUntilAnyFound(tester, [
+        find.byKey(const ValueKey('server-url-field')),
+        find.text('连接服务器'),
+        find.text('连接账本'),
+        find.byKey(const Key('auth-setup-password-field')),
+        find.byKey(const Key('auth-login-password-field')),
+        find.text('首页'),
+      ]);
 
-    await _pumpUntilFound(tester, find.text('首页'));
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const ValueKey('home-net-assets-card')),
-    );
+      if (_isServerConfigVisible()) {
+        await _enterAuthTextField(tester, ['服务器地址', '账本地址'], _serverUrl);
+        await _tapTextOrKey(
+          tester,
+          keys: const [Key('server-connect-button')],
+          fallbackTexts: const ['进入账本', '连接'],
+        );
+      }
 
-    await _createAccount(tester);
-    await _createExpenseTransaction(tester);
-    await _verifyTransactionList(tester);
-    await _verifyAccountBalance(tester, '¥1,188.89');
-    await _editExpenseTransaction(tester);
-    await _verifyAccountBalance(tester, '¥1,184.56');
-    await _deleteExpenseTransaction(tester);
-    await _verifyAccountBalance(tester, '¥1,234.56');
-    await _verifyApiTokenLifecycle(tester);
-  });
+      if (!_isHomeShellVisible()) {
+        await _waitForAuthForm(tester);
+      }
+
+      await _pumpUntilFound(tester, find.text('首页'));
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const ValueKey('home-net-assets-card')),
+      );
+
+      await _createAccount(tester);
+      await _createExpenseTransaction(tester);
+      await _verifyTransactionList(tester);
+      await _verifyAccountBalance(tester, '¥1,188.89');
+      await _editExpenseTransaction(tester);
+      await _verifyAccountBalance(tester, '¥1,184.56');
+      await _deleteExpenseTransaction(tester);
+      await _verifyAccountBalance(tester, '¥1,234.56');
+      await _verifyApiTokenLifecycle(tester);
+    },
+    timeout: Timeout(Duration(seconds: _testTimeoutSeconds)),
+  );
 }
 
 Future<void> _pumpUntilFound(
@@ -95,27 +101,6 @@ Future<void> _pumpUntilFound(
   }
 
   expect(finder, findsOneWidget);
-}
-
-Future<void> _pumpUntilAtLeastFound(
-  WidgetTester tester,
-  Finder finder, {
-  int minMatches = 1,
-  Duration timeout = const Duration(seconds: 30),
-}) async {
-  final end = DateTime.now().add(timeout);
-  while (DateTime.now().isBefore(end)) {
-    await tester.pump(const Duration(milliseconds: 200));
-    if (finder.evaluate().length >= minMatches) {
-      return;
-    }
-  }
-
-  expect(
-    finder.evaluate().length >= minMatches,
-    isTrue,
-    reason: '未找到足够的匹配项（最低 ${minMatches.toString()} 个）',
-  );
 }
 
 Future<void> _pumpUntilAbsent(
@@ -503,17 +488,23 @@ Future<void> _deleteExpenseTransaction(WidgetTester tester) async {
   await tester.tap(menuButton, warnIfMissed: false);
   await tester.pumpAndSettle();
 
-  await tester.tap(find.text('删除').last);
+  final deleteAction = find.byWidgetPredicate(
+    (widget) =>
+        widget.key is ValueKey<String> &&
+        (widget.key as ValueKey<String>).value.startsWith(
+          'transaction-action-delete-',
+        ),
+    skipOffstage: false,
+  );
+  await _pumpUntilFound(tester, deleteAction);
+  await tester.tap(deleteAction.last);
   await tester.pumpAndSettle();
+  await _pumpUntilFound(tester, find.widgetWithText(FilledButton, '删除'));
   await tester.tap(find.widgetWithText(FilledButton, '删除'));
   await tester.pumpAndSettle();
 
-  await _pumpUntilAtLeastFound(
-    tester,
-    find.text('交易已删除'),
-    minMatches: 1,
-    timeout: const Duration(seconds: 8),
-  );
+  // Snackbar 是短暂反馈，在低性能真机/模拟器上可能在下一次 pump 前已消失。
+  // 以列表实体消失和随后的账户余额回滚作为持久化成功证据。
   await _pumpUntilAbsent(tester, find.text('-¥50.00'));
   final transactionItems = find.byWidgetPredicate(
     (widget) =>
@@ -900,6 +891,21 @@ class _MemorySecureStorageService extends SecureStorageService {
   @override
   Future<void> deleteServerUrl() async {
     _values.remove('server_url');
+  }
+
+  @override
+  Future<String?> readInsecureLocalHttpAcknowledgedUrl() async {
+    return _values['insecure_local_http_acknowledged_url'];
+  }
+
+  @override
+  Future<void> saveInsecureLocalHttpAcknowledgedUrl(String serverUrl) async {
+    _values['insecure_local_http_acknowledged_url'] = serverUrl;
+  }
+
+  @override
+  Future<void> deleteInsecureLocalHttpAcknowledgedUrl() async {
+    _values.remove('insecure_local_http_acknowledged_url');
   }
 
   @override

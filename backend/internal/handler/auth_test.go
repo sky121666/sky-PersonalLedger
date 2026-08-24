@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/sky/personal-ledger/internal/repository"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/jwt"
+	"gorm.io/gorm"
 )
 
 func TestAuthInitMalformedJSONDoesNotExposeParserDetails(t *testing.T) {
@@ -38,6 +40,69 @@ func TestAuthInitMalformedJSONDoesNotExposeParserDetails(t *testing.T) {
 		if strings.Contains(body, forbidden) {
 			t.Fatalf("response exposed parser detail %q: %s", forbidden, response.Body.String())
 		}
+	}
+}
+
+func TestAuthLoginReturnsInternalErrorWhenLoginStateCannotPersist(t *testing.T) {
+	handler, repos := newAuthHandlerAndReposForTest(t)
+	if _, err := handler.service.Init("strong-password"); err != nil {
+		t.Fatalf("init auth: %v", err)
+	}
+	forcedErr := errors.New("forced login state update failure")
+	callbackName := "test:fail-handler-login-user-update"
+	db := repos.User.DB()
+	if err := db.Callback().Update().Before("gorm:update").Register(callbackName, func(tx *gorm.DB) {
+		if tx.Statement.Table == "users" {
+			tx.AddError(forcedErr)
+		}
+	}); err != nil {
+		t.Fatalf("register update callback: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Callback().Update().Remove(callbackName) })
+
+	response := httptest.NewRecorder()
+	router := gin.New()
+	router.POST("/login", handler.Login)
+	request := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{"password":"strong-password"}`))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500; body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "failed to authenticate") {
+		t.Fatalf("body = %s, want generic authentication failure", response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), forcedErr.Error()) {
+		t.Fatalf("response exposed persistence error: %s", response.Body.String())
+	}
+}
+
+func TestAuthLoginReturnsInternalErrorWhenUserQueryFails(t *testing.T) {
+	handler, repos := newAuthHandlerAndReposForTest(t)
+	if _, err := handler.service.Init("strong-password"); err != nil {
+		t.Fatalf("init auth: %v", err)
+	}
+	sqlDB, err := repos.User.DB().DB()
+	if err != nil {
+		t.Fatalf("get database handle: %v", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		t.Fatalf("close database: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	router := gin.New()
+	router.POST("/login", handler.Login)
+	request := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{"password":"wrong-password"}`))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500; body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "failed to authenticate") {
+		t.Fatalf("body = %s, want generic authentication failure", response.Body.String())
 	}
 }
 

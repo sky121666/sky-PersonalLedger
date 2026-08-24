@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronLeft, Download } from 'lucide-vue-next'
 import { exportApi, type YearlyReport } from '@/api/export'
 import { statisticsApi, type AssetTrendItem } from '@/api/statistics'
 import { toast } from '@/composables/useToast'
 import DynamicIcon from '@/components/DynamicIcon.vue'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 
 const router = useRouter()
 
@@ -16,11 +18,15 @@ const availableYears = ref<number[]>([])
 const report = ref<YearlyReport | null>(null)
 const assetTrendData = ref<AssetTrendItem[]>([])
 const currentNetWorth = ref(0)
+const ledgerMutationRevision = useLedgerMutationRevision()
+const reportRequests = createRequestGeneration()
 
 onMounted(async () => {
   await loadYears()
   await loadReport()
 })
+
+watch(ledgerMutationRevision, () => void loadReport())
 
 async function loadYears() {
   try {
@@ -32,19 +38,29 @@ async function loadYears() {
 }
 
 async function loadReport() {
+  const requestGeneration = reportRequests.begin()
+  const requestedYear = selectedYear.value
   loading.value = true
   try {
     const [reportData, assetTrend] = await Promise.all([
-      exportApi.getYearlyReport(selectedYear.value),
+      exportApi.getYearlyReport(requestedYear),
       statisticsApi.getAssetTrend(12)
     ])
+    if (
+      !reportRequests.isLatest(requestGeneration)
+      || selectedYear.value !== requestedYear
+    ) return
     report.value = reportData
     assetTrendData.value = assetTrend.items
     currentNetWorth.value = assetTrend.current_net_worth
   } catch (e: any) {
-    toast.error('加载报告失败')
+    if (reportRequests.isLatest(requestGeneration)) {
+      toast.error('加载报告失败')
+    }
   } finally {
-    loading.value = false
+    if (reportRequests.isLatest(requestGeneration)) {
+      loading.value = false
+    }
   }
 }
 

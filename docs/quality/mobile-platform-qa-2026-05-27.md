@@ -2,11 +2,19 @@
 
 ## Conclusion
 
-The mobile premium modernization is now build-verified at the Flutter, iOS simulator artifact, Android debug APK, macOS smoke integration-test, iOS Simulator smoke integration-test, and Android Emulator smoke integration-test levels. The premium target screens are also covered by a mocked-data integration smoke test on macOS, iPhone 17 Simulator, and Android API 35 Emulator, with local PNG screenshot export available for visual review.
+This file is the detailed 2026-05 platform snapshot. Its device identifiers, tool versions, CI run
+links, `/tmp` artifacts, scores, and historical test counts are not current-candidate evidence.
 
-The real-backend E2E path now passes on Flutter tester, iOS Simulator, and Android Emulator. The premium visual smoke path now covers light and dark themes with exported screenshot evidence, the exported screenshots have been manually reviewed, and the premium screens now have a focused semantics/tap-target test pass. Android native real-backend E2E was reconfirmed by GitHub Actions run `30776159138` on 2026-08-03, and iOS Simulator native real-backend E2E was reconfirmed by run `30775889356`. The remaining release-quality gap is physical iPhone QA, the full manual device checklist, and real VoiceOver/TalkBack review.
+Current refresh on 2026-08-24: `flutter analyze` passes; `flutter test` records 404 passes and one
+designed skip; the premium light/dark smoke records 48 passes; and the same isolated real-backend E2E
+passes on flutter-tester, Android emulator `emulator-5554`, and an iOS simulator. Physical iPhone,
+signed artifact, and real VoiceOver/TalkBack evidence remain unproven. See the current matrix in
+`production-readiness-2026-05-27.md`.
 
-## Environment
+The remaining release-quality gap is physical iPhone QA plus the manual assistive-technology and
+signed-distribution evidence; this does not block the approved local unsigned validation scope.
+
+## Environment (historical snapshot)
 
 | Item | Result |
 | --- | --- |
@@ -20,7 +28,7 @@ The real-backend E2E path now passes on Flutter tester, iOS Simulator, and Andro
 | Global Android env | FIXED in `~/.zprofile` and `~/.zshrc`; new shells resolve SDK tools under `/opt/homebrew/share/android-commandlinetools` |
 | Temporary Android AVD | `personal_ledger_api35`, API 35 Google APIs ARM64, created under `/tmp` |
 
-## Passed Gates
+## Passed Gates (historical snapshot)
 
 | Gate | Command | Result |
 | --- | --- | --- |
@@ -77,7 +85,7 @@ Run this on both iOS and Android before a release candidate.
 | Android readiness | 97/100 | APK build, boot smoke, premium target screen smoke, real-backend E2E, and `flutter doctor` pass with corrected global SDK env |
 | Release confidence | 98/100 | Strong automated, simulator/emulator, Android real-backend, fixed Android environment, light/dark screenshot-export, visual-review, and semantics evidence; still short of physical iPhone and optional real screen-reader review |
 
-Overall current mobile release-readiness: **98/100**.
+Historical snapshot score: **98/100**. It is not a current release decision.
 
 ## Next Required Evidence For 99+
 

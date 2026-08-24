@@ -13,7 +13,7 @@ import (
 
 // Notification credentials have their own envelope and derived key domain, so
 // ciphertext cannot be swapped with AI provider credentials even though both
-// ultimately derive from the operator-managed JWT secret.
+// use the operator-managed credential encryption keyring.
 const notificationSecretPrefix = "enc:notification:v1:"
 
 func protectNotificationSecret(plainText string, secret string) (string, error) {
@@ -62,6 +62,44 @@ func revealNotificationSecret(protectedValue string, secret string) (string, err
 		return "", errors.New("invalid encrypted notification credential")
 	}
 	return string(plainText), nil
+}
+
+func revealNotificationSecretWithKeyring(protectedValue string, keyring credentialKeyring) (string, error) {
+	if protectedValue == "" || !isProtectedNotificationSecret(protectedValue) {
+		return protectedValue, nil
+	}
+	for _, secret := range keyring.keys {
+		plainText, err := revealNotificationSecret(protectedValue, secret)
+		if err == nil {
+			return plainText, nil
+		}
+	}
+	return "", errors.New("notification credential cannot be decrypted with the configured keys")
+}
+
+func migrateNotificationSecret(protectedValue string, keyring credentialKeyring) (string, bool, error) {
+	if protectedValue == "" {
+		return protectedValue, false, nil
+	}
+	if !isProtectedNotificationSecret(protectedValue) {
+		migrated, err := protectNotificationSecret(protectedValue, keyring.primary())
+		return migrated, migrated != protectedValue, err
+	}
+	for index, secret := range keyring.keys {
+		plainText, err := revealNotificationSecret(protectedValue, secret)
+		if err != nil {
+			continue
+		}
+		if index == 0 {
+			return protectedValue, false, nil
+		}
+		migrated, err := protectNotificationSecret(plainText, keyring.primary())
+		if err != nil {
+			return "", false, err
+		}
+		return migrated, true, nil
+	}
+	return "", false, errors.New("notification credential cannot be decrypted with the configured keys")
 }
 
 func isProtectedNotificationSecret(value string) bool {

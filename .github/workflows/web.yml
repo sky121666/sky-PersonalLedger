@@ -31,7 +31,9 @@ jobs:
         with:
           node-version-file: '.node-version'
           cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          cache-dependency-path: |
+            web/pnpm-lock.yaml
+            web/pnpm-workspace.yaml
 
       - name: Setup Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6

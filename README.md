@@ -2,7 +2,7 @@
 
 Personal Ledger 是一个面向个人和家庭的私有部署记账系统。数据放在自己的服务器上，Web 和 Flutter 客户端通过同一套 Go API 访问。
 
-当前源码版本为 1.0.9，最新正式发布版本为 v1.0.8。v1.0.8 以 Docker/Web 为正式发布主路径；Android 和 iOS 保留开发构建、模拟器/真机验证与运行截图，不要求本次发布配置商店签名。
+当前源码版本为 1.0.9，最新正式发布版本为 v1.0.8。v1.0.8 以 Docker/Web 为正式发布主路径；当前源码已完成 Android 模拟器和 iOS 模拟器的真实后端 E2E，但未生成正式签名安装包，也未把实体 iPhone 验收描述为已完成。
 
 ## 运行截图
 
@@ -44,14 +44,18 @@ Personal Ledger 是一个面向个人和家庭的私有部署记账系统。数�
     cd sky-PersonalLedger
     cp .env.example .env
 
-编辑 .env，设置至少 32 字符的随机 JWT 密钥和首次初始化令牌：
+编辑 `.env`，设置至少 32 字符的随机 JWT 密钥、首次初始化令牌，并建议从首次启动就配置独立凭据加密主密钥：
 
     LEDGER_JWT_SECRET=<随机值>
     LEDGER_SETUP_TOKEN=<随机值>
+    LEDGER_CREDENTIAL_ENCRYPTION_KEY=<独立随机值>
 
-`.env.example` 默认固定到 v1.0.8 的不可变镜像 digest；升级时请显式修改 `LEDGER_IMAGE`，不要依赖 `latest`。
+`.env.example` 默认固定到 v1.0.8 的不可变镜像 digest。v1.0.8 的 GitHub Release
+没有附件，应使用仓库根 Compose 中记录的该 digest；采用新版发布工作流创建的后续
+Release 才会附带版本专属 Compose 与 checksum。保存配置后执行 `chmod 600 .env`。
 
-生成随机值：
+在本机生成随机值；`base64` 命令分别执行一次用于 JWT 与凭据主密钥，`hex`
+命令用于初始化令牌，输出只写入本机 `.env`：
 
     openssl rand -base64 32
     openssl rand -hex 32
@@ -73,6 +77,7 @@ Personal Ledger 是一个面向个人和家庭的私有部署记账系统。数�
     ./data/backups/
 
 完整部署说明见 [部署与配置](docs/development/deployment.md)。
+默认仅绑定 `127.0.0.1`；对外服务应通过 HTTPS 反向代理暴露。
 
 ## 客户端
 
@@ -125,19 +130,24 @@ Android、iOS、macOS 和 Windows 的平台构建与验证说明见 [客户端�
 
 ## 发布边界
 
-v1.0.8 正式 Release 只包含 Docker/Web 产物：
+v1.0.8 已验证的公开部署边界是：
 
 - GHCR 多架构镜像：linux/amd64、linux/arm64。
-- Docker Compose 部署文件。
+- 仓库根目录的 Docker Compose 部署配置；v1.0.8 GitHub Release 的 assets 为空。
 - Web 生产构建、浏览器 E2E、后端和安全契约证据。
 - Android/iOS 运行截图和开发构建证据，不承诺商店分发。
 
-发布工作流见 [v1.0.8 发布说明](docs/release/v1.0.8.md)。如果以后需要正式分发移动端，再阅读 [开发签名教程](docs/development/signing.md)。
+版本专属、digest 固定的 Compose 与 `.sha256` 附件是后续新标签工作流的合同，不应
+追溯描述为 v1.0.8 已有资产。
+
+发布工作流见 [v1.0.8 发布说明](docs/release/v1.0.8.md) 和
+[发布治理合同](docs/development/release-governance.md)。如果以后需要正式分发移动端，
+再阅读 [开发签名教程](docs/development/signing.md)。
 
 ## 数据安全
 
 - 不要提交 .env、数据库、上传目录、备份、keystore、证书或 API Key。
-- AI Provider 是可选功能；正常备份不会导出 Provider 密钥。
+- AI Provider 是可选功能；备份 2.3 不导出 Provider 或通知凭据，但附件内容仍是敏感明文数据的 Base64 表示。
 - 生产环境不要使用 CORS 星号，也不要未经审查地打开私网出站。
 - 升级前备份 ./data，并保留旧镜像标签。
 

@@ -79,6 +79,138 @@ void main() {
     },
   );
 
+  test(
+    'bootstrap blocks a stored local HTTP URL until that exact URL is acknowledged',
+    () async {
+      final storage = _FakeSecureStorage()
+        ..serverUrl = 'http://192.168.1.20:8080'
+        ..insecureLocalHttpAcknowledgedUrl = 'http://192.168.1.21:8080'
+        ..accessToken = 'stored-access'
+        ..refreshToken = 'stored-refresh';
+      final repository = _FakeAuthRepository();
+      final container = ProviderContainer(
+        overrides: [
+          secureStorageServiceProvider.overrideWithValue(storage),
+          authRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await _waitForAuthStage(
+        container,
+        predicate: (stage) => stage != AuthStage.checking,
+      );
+
+      final state = container.read(authControllerProvider);
+      expect(state.stage, AuthStage.serverRequired);
+      expect(state.serverUrl, 'http://192.168.1.20:8080');
+      expect(state.errorMessage, contains('需要确认风险'));
+      expect(await storage.readAccessToken(), isNull);
+      expect(await storage.readRefreshToken(), isNull);
+      expect(repository.getStatusCalls, 0);
+    },
+  );
+
+  for (final storedUrl in <String>[
+    'http://ledger.example.com',
+    'ftp://ledger.example.com',
+  ]) {
+    test(
+      'bootstrap rejects unsafe stored server URL without initializing the API: $storedUrl',
+      () async {
+        final storage = _FakeSecureStorage()
+          ..serverUrl = storedUrl
+          ..accessToken = 'stored-access'
+          ..refreshToken = 'stored-refresh';
+        final repository = _FakeAuthRepository();
+        final container = ProviderContainer(
+          overrides: [
+            secureStorageServiceProvider.overrideWithValue(storage),
+            authRepositoryProvider.overrideWithValue(repository),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await _waitForAuthStage(
+          container,
+          predicate: (stage) => stage != AuthStage.checking,
+        );
+
+        final state = container.read(authControllerProvider);
+        expect(state.stage, AuthStage.serverRequired);
+        expect(state.serverUrl, isNull);
+        expect(await storage.readAccessToken(), isNull);
+        expect(await storage.readRefreshToken(), isNull);
+        expect(repository.getStatusCalls, 0);
+      },
+    );
+  }
+
+  test(
+    'connectServer rejects local HTTP without controller-level acknowledgement',
+    () async {
+      final storage = _FakeSecureStorage();
+      final repository = _FakeAuthRepository();
+      final container = ProviderContainer(
+        overrides: [
+          secureStorageServiceProvider.overrideWithValue(storage),
+          authRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      await _waitForAuthStage(
+        container,
+        predicate: (stage) => stage == AuthStage.serverRequired,
+      );
+
+      await container
+          .read(authControllerProvider.notifier)
+          .connectServer('http://192.168.1.20:8080');
+
+      final state = container.read(authControllerProvider);
+      expect(state.stage, AuthStage.serverRequired);
+      expect(state.errorMessage, contains('需要确认风险'));
+      expect(storage.serverUrl, isNull);
+      expect(storage.insecureLocalHttpAcknowledgedUrl, isNull);
+      expect(repository.getStatusCalls, 0);
+    },
+  );
+
+  test(
+    'connectServer binds local HTTP acknowledgement to normalized URL',
+    () async {
+      final storage = _FakeSecureStorage();
+      final repository = _FakeAuthRepository();
+      final container = ProviderContainer(
+        overrides: [
+          secureStorageServiceProvider.overrideWithValue(storage),
+          authRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      await _waitForAuthStage(
+        container,
+        predicate: (stage) => stage == AuthStage.serverRequired,
+      );
+
+      await container
+          .read(authControllerProvider.notifier)
+          .connectServer(
+            ' http://192.168.1.20:8080/ ',
+            acknowledgeInsecureLocalHttp: true,
+          );
+
+      final state = container.read(authControllerProvider);
+      expect(state.stage, AuthStage.loginRequired);
+      expect(storage.serverUrl, 'http://192.168.1.20:8080');
+      expect(
+        storage.insecureLocalHttpAcknowledgedUrl,
+        'http://192.168.1.20:8080',
+      );
+      expect(repository.getStatusCalls, 1);
+    },
+  );
+
   test('login distinguishes invalid password from a network failure', () async {
     final container = ProviderContainer(
       overrides: [
@@ -150,6 +282,7 @@ Future<void> _waitForAuthStage(
 
 class _FakeSecureStorage extends SecureStorageService {
   String? serverUrl;
+  String? insecureLocalHttpAcknowledgedUrl;
   String? accessToken;
   String? refreshToken;
 
@@ -164,6 +297,21 @@ class _FakeSecureStorage extends SecureStorageService {
   @override
   Future<void> deleteServerUrl() async {
     serverUrl = null;
+  }
+
+  @override
+  Future<String?> readInsecureLocalHttpAcknowledgedUrl() async {
+    return insecureLocalHttpAcknowledgedUrl;
+  }
+
+  @override
+  Future<void> saveInsecureLocalHttpAcknowledgedUrl(String serverUrl) async {
+    insecureLocalHttpAcknowledgedUrl = serverUrl;
+  }
+
+  @override
+  Future<void> deleteInsecureLocalHttpAcknowledgedUrl() async {
+    insecureLocalHttpAcknowledgedUrl = null;
   }
 
   @override
@@ -200,11 +348,12 @@ class _FakeSecureStorage extends SecureStorageService {
   @override
   Future<void> clearAll() async {
     serverUrl = null;
+    insecureLocalHttpAcknowledgedUrl = null;
   }
 }
 
 class _FakeAuthRepository implements AuthRepository {
-  const _FakeAuthRepository({
+  _FakeAuthRepository({
     this.statusError,
     this.loginError,
     this.logoutError,
@@ -215,9 +364,11 @@ class _FakeAuthRepository implements AuthRepository {
   final Object? loginError;
   final Object? logoutError;
   final bool sessionValid;
+  var getStatusCalls = 0;
 
   @override
   Future<AuthStatus> getStatus() async {
+    getStatusCalls += 1;
     final error = statusError;
     if (error != null) {
       throw error;

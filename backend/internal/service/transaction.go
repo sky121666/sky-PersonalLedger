@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,9 @@ var (
 	ErrCategoryTypeMismatch        = errors.New("category type does not match transaction type")
 	ErrManagedTransactionImmutable = errors.New("managed transaction cannot be updated directly")
 	ErrSystemTransactionImmutable  = errors.New("system transaction cannot be changed directly")
+	ErrInvalidTransactionImages    = errors.New("invalid transaction images")
+	ErrTransactionAttachmentScope  = errors.New("transaction attachment does not belong to target transaction")
+	ErrCreateTransactionImages     = errors.New("transaction attachments must be added after creation")
 )
 
 type TransactionService struct {
@@ -32,6 +36,12 @@ type TransactionService struct {
 	lendingRepo      *repository.LendingRepository
 	familyMemberRepo *repository.FamilyMemberRepository
 	accountLogSvc    *AccountLogService
+	uploadService    *UploadService
+}
+
+func (s *TransactionService) WithUploadService(uploadService *UploadService) *TransactionService {
+	s.uploadService = uploadService
+	return s
 }
 
 func NewTransactionService(
@@ -67,7 +77,21 @@ type CreateTransactionRequest struct {
 	importFingerprint *string
 }
 
+type UpdateTransactionAttachmentsRequest struct {
+	Images *string `json:"images"`
+}
+
 func (s *TransactionService) Create(userID uint, req CreateTransactionRequest) (*model.Transaction, error) {
+	if strings.TrimSpace(req.Images) != "" {
+		paths, _, err := parseStoredUploadReferenceList(req.Images)
+		if err != nil {
+			return nil, ErrInvalidTransactionImages
+		}
+		if len(paths) != 0 {
+			return nil, ErrCreateTransactionImages
+		}
+		req.Images = ""
+	}
 	var transaction *model.Transaction
 	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
 		var err error
@@ -102,7 +126,6 @@ func (s *TransactionService) createWithTx(txdb *gorm.DB, userID uint, req Create
 		Amount:            req.Amount,
 		TransactionDate:   txDate,
 		Remark:            req.Remark,
-		Images:            req.Images,
 		Tags:              req.Tags,
 		ToAccountID:       req.ToAccountID,
 		MemberID:          req.MemberID,
@@ -110,6 +133,16 @@ func (s *TransactionService) createWithTx(txdb *gorm.DB, userID uint, req Create
 		Source:            source,
 		ImportFingerprint: req.importFingerprint,
 	}
+	normalizedImages, err := normalizeTransactionAttachmentImages(transaction.ID, userID, req.Images)
+	if err != nil {
+		return nil, err
+	}
+	if s.uploadService != nil {
+		if err := s.uploadService.validateStoredAttachmentPaths(userID, normalizedImages); err != nil {
+			return nil, err
+		}
+	}
+	transaction.Images = normalizedImages
 
 	// Lock every balance-bearing account in stable ID order before inserting
 	// the transaction row. On databases with foreign keys, inserting first can
@@ -386,6 +419,13 @@ func (s *TransactionService) Update(id string, userID uint, req CreateTransactio
 	if err := validateTransactionRequest(req); err != nil {
 		return nil, err
 	}
+	if s.uploadService != nil {
+		releaseStorage := acquireAttachmentStorageRead()
+		defer releaseStorage()
+		if !AttachmentStorageAvailable(userID) {
+			return nil, ErrAttachmentRecoveryPending
+		}
+	}
 
 	txDate, err := parseTransactionDate(req.TransactionDate)
 	if err != nil {
@@ -414,6 +454,15 @@ func (s *TransactionService) Update(id string, userID uint, req CreateTransactio
 		if err := s.validateTransactionReferencesTx(txdb, userID, req); err != nil {
 			return err
 		}
+		normalizedImages, err := normalizeTransactionAttachmentImages(id, userID, req.Images)
+		if err != nil {
+			return err
+		}
+		if s.uploadService != nil {
+			if err := s.uploadService.validateStoredAttachmentPaths(userID, normalizedImages); err != nil {
+				return err
+			}
+		}
 
 		next := &model.Transaction{
 			ID:              current.ID,
@@ -424,7 +473,7 @@ func (s *TransactionService) Update(id string, userID uint, req CreateTransactio
 			Amount:          req.Amount,
 			TransactionDate: txDate,
 			Remark:          req.Remark,
-			Images:          req.Images,
+			Images:          normalizedImages,
 			Tags:            req.Tags,
 			ToAccountID:     req.ToAccountID,
 			MemberID:        req.MemberID,
@@ -446,7 +495,7 @@ func (s *TransactionService) Update(id string, userID uint, req CreateTransactio
 				"amount_cents":      req.Amount,
 				"transaction_date":  txDate,
 				"remark":            req.Remark,
-				"images":            req.Images,
+				"images":            normalizedImages,
 				"tags":              req.Tags,
 				"to_account_id":     req.ToAccountID,
 				"member_id":         req.MemberID,
@@ -476,6 +525,100 @@ func (s *TransactionService) Update(id string, userID uint, req CreateTransactio
 	}
 
 	return updated, nil
+}
+
+func (s *TransactionService) UpdateAttachments(id string, userID uint, req UpdateTransactionAttachmentsRequest) (*model.Transaction, error) {
+	if req.Images == nil {
+		return nil, ErrInvalidTransactionImages
+	}
+	if s.uploadService != nil {
+		releaseStorage := acquireAttachmentStorageRead()
+		defer releaseStorage()
+		if !AttachmentStorageAvailable(userID) {
+			return nil, ErrAttachmentRecoveryPending
+		}
+	}
+
+	var updated *model.Transaction
+	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+		current, err := s.txRepo.GetByIDForUserWithDB(
+			txdb.Clauses(clause.Locking{Strength: "UPDATE"}),
+			id,
+			userID,
+		)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrTransactionNotFound
+			}
+			return err
+		}
+		if isSystemTransaction(current) {
+			return ErrSystemTransactionImmutable
+		}
+		if isBusinessManagedTransaction(current) {
+			return ErrManagedTransactionImmutable
+		}
+
+		images, err := normalizeTransactionAttachmentImages(id, userID, *req.Images)
+		if err != nil {
+			return err
+		}
+		if s.uploadService != nil {
+			if err := s.uploadService.validateStoredAttachmentPaths(userID, images); err != nil {
+				return err
+			}
+		}
+		if err := s.txRepo.UpdateImagesForUserWithDB(txdb, id, userID, images); err != nil {
+			return err
+		}
+		updated, err = s.txRepo.GetByIDForUserWithDB(txdb, id, userID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	return updated, nil
+}
+
+func normalizeTransactionAttachmentImages(transactionID string, userID uint, value string) (string, error) {
+	if strings.TrimSpace(value) == "" {
+		return "", nil
+	}
+	paths, jsonArray, err := parseStoredUploadReferenceList(value)
+	if err != nil {
+		return "", ErrInvalidTransactionImages
+	}
+
+	owner := strconv.FormatUint(uint64(userID), 10)
+	normalizedPaths := make([]string, 0, len(paths))
+	for _, storedPath := range paths {
+		candidate := storedPath
+		if !jsonArray {
+			candidate = strings.TrimSpace(candidate)
+		}
+		normalized := normalizeStoredUploadReference(candidate)
+		if normalized == "" || strings.Contains(normalized, `\`) {
+			return "", ErrInvalidTransactionImages
+		}
+
+		parts := strings.Split(normalized, "/")
+		if len(parts) == 0 || parts[0] != owner {
+			return "", ErrTransactionAttachmentScope
+		}
+		if len(parts) != 4 || parts[1] != "transactions" || parts[2] != transactionID {
+			return "", ErrTransactionAttachmentScope
+		}
+		if sanitizeUploadFilename(parts[3]) != parts[3] {
+			return "", ErrInvalidTransactionImages
+		}
+		normalizedPaths = append(normalizedPaths, normalized)
+	}
+
+	encoded, err := json.Marshal(normalizedPaths)
+	if err != nil {
+		return "", ErrInvalidTransactionImages
+	}
+	return string(encoded), nil
 }
 
 func (s *TransactionService) Delete(id string, userID uint) error {

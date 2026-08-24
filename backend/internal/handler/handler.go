@@ -133,6 +133,7 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 			transactions.POST("", h.Transaction.Create)
 			transactions.GET("/:id", h.Transaction.GetByID)
 			transactions.PUT("/:id", h.Transaction.Update)
+			transactions.PATCH("/:id/attachments", h.Transaction.UpdateAttachments)
 			transactions.DELETE("/:id", h.Transaction.Delete)
 			transactions.POST("/batch-delete", h.Transaction.BatchDelete)
 		}

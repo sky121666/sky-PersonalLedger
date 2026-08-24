@@ -43,15 +43,15 @@ var aiReportGenerationLocks = struct {
 }{entries: make(map[string]*aiReportGenerationLockEntry)}
 
 type AIReportService struct {
-	repo       *repository.AIReportRepository
-	providers  *repository.AIProviderRepository
-	txs        *repository.TransactionRepository
-	budgets    *repository.BudgetRepository
-	accounts   *repository.AccountRepository
-	categories *repository.CategoryRepository
-	members    *repository.FamilyMemberRepository
-	client     *OpenAICompatibleClient
-	secret     string
+	repo           *repository.AIReportRepository
+	providers      *repository.AIProviderRepository
+	txs            *repository.TransactionRepository
+	budgets        *repository.BudgetRepository
+	accounts       *repository.AccountRepository
+	categories     *repository.CategoryRepository
+	members        *repository.FamilyMemberRepository
+	client         *OpenAICompatibleClient
+	credentialKeys credentialKeyring
 }
 
 func NewAIReportService(
@@ -66,20 +66,16 @@ func NewAIReportService(
 	if client == nil {
 		client = NewOpenAICompatibleClient(nil)
 	}
-	secret := ""
-	if len(encryptionSecrets) > 0 {
-		secret = encryptionSecrets[0]
-	}
 	return &AIReportService{
-		repo:       repo,
-		providers:  providers,
-		txs:        txs,
-		budgets:    nil,
-		accounts:   nil,
-		categories: categories,
-		members:    members,
-		client:     client,
-		secret:     secret,
+		repo:           repo,
+		providers:      providers,
+		txs:            txs,
+		budgets:        nil,
+		accounts:       nil,
+		categories:     categories,
+		members:        members,
+		client:         client,
+		credentialKeys: newCredentialKeyring(encryptionSecrets...),
 	}
 }
 
@@ -225,7 +221,7 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	apiKey, err := revealAISecret(provider.APIKeyCiphertext, s.secret)
+	apiKey, err := revealAISecretWithKeyring(provider.APIKeyCiphertext, s.credentialKeys)
 	if err != nil {
 		return s.markReportFailed(report, err)
 	}

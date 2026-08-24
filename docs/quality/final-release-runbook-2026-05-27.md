@@ -28,7 +28,10 @@ This verifies source readiness, strict change inventory, backup operator drill e
 
 ## 1. Configure Signing
 
-Configure these GitHub repository secrets before pushing a release tag:
+Mobile signing is an optional tutorial path and this repository currently has no real signing
+material configured. The Docker/Web tag release does not require it. If the formal signed mobile
+workflow will be used, first create a protected `mobile-signing` environment and configure these
+environment secrets:
 
 ```text
 ANDROID_KEYSTORE_BASE64
@@ -42,31 +45,62 @@ IOS_EXPORT_OPTIONS_PLIST_BASE64
 IOS_KEYCHAIN_PASSWORD
 ```
 
+Configure the protected repository variables `ANDROID_EXPECTED_SIGNER_SHA256` (64 hexadecimal
+characters) and `IOS_EXPECTED_TEAM_IDENTIFIER` (10-character Apple TeamIdentifier). The signed
+workflow deliberately fails closed if either expected identity is missing; it compares APK/AAB to
+the same expected signer and verifies the iOS TeamIdentifier plus signed application identifier.
+
 Validate the exported variables in a local shell or equivalent CI context without printing their values:
 
 ```bash
+ANDROID_EXPECTED_SIGNER_SHA256=<64-hex-fingerprint> \
+IOS_EXPECTED_TEAM_IDENTIFIER=<10-character-team-id> \
 CHECK_SIGNING_SECRETS=1 ./scripts/check-release-artifacts-preflight.sh
 ```
 
 ## 2. Run Release Workflow
 
-Create and push a version tag only after source-level rehearsal passes:
+Before creating a tag, confirm the GitHub main ruleset, immutable v* tag ruleset, and protected
+`release` environment described in
+[发布治理合同](../development/release-governance.md). These are remote settings and are not proven
+by a local preflight.
+
+Create and push a one-time annotated version tag only after source-level rehearsal passes:
 
 ```bash
-git tag vX.Y.Z
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push origin vX.Y.Z
 ```
 
-The tag release workflow should build:
+The tag-triggered `Release Docker/Web` workflow should:
 
-- Docker image `ghcr.io/<owner>/<repo>:X.Y.Z`;
-- Android APK and AAB;
-- Android `.sha256` files;
-- iOS IPA;
-- iOS `.sha256` file;
-- GitHub Release attachments.
+- verify that the tag commit is contained in origin/main and that neither the Release nor GHCR
+  version tag already exists;
+- build one OCI layout, export and verify separate amd64/arm64 scan archives, scan both archives, then
+  hand off the scanned OCI archive with SHA-256 to a separate protected publisher, which rechecks
+  both the archive checksum and OCI digest before pushing the unchanged original layout;
+- publish only the immutable `ghcr.io/<owner>/<repo>:X.Y.Z` tag; the workflow does not create or
+  update `latest`;
+- create the Docker/Web GitHub Release with an immutable digest-specific Compose attachment and
+  checksum.
+
+Do not move or recreate a failed/released tag. Diagnose the run and choose a new version when the
+historical version has already been published.
+
+If formal mobile assets are required, wait for Docker/Web success, open Actions, select
+`Signed Mobile Release (manual)`, choose the exact `vX.Y.Z` tag as the run ref, and enter the same
+version. The manual workflow rechecks tag/main ancestry and the existing non-draft Release before it
+downloads and checks the exact version Compose/checksum, confirms its digest matches the GHCR
+version tag, then builds, verifies, and appends Android/iOS assets. It does not rebuild Docker.
 
 ## 3. Download And Verify Artifacts
+
+Download and verify the release-specific Docker Compose pair before deployment:
+
+```bash
+gh release download vX.Y.Z --pattern 'docker-compose-vX.Y.Z.yml*'
+sha256sum -c docker-compose-vX.Y.Z.yml.sha256
+```
 
 Download the GitHub Actions artifacts or release attachments into `artifacts/`, preserving the artifact directory names:
 
@@ -168,7 +202,8 @@ STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 ```
 
 This strict gate also requires a clean `git status --short` so final release evidence is tied to committed source.
-Set `DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z` when running the strict gate so the published image manifest and release-image compose smoke are verified live.
+Set `DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z` (and record its resolved digest) when running
+the strict gate so the published image manifest and release-image compose smoke are verified live.
 
 The release can be called fully complete only when the strict final gate passes.
 
@@ -176,7 +211,9 @@ The release can be called fully complete only when the strict final gate passes.
 
 | Failure | Response |
 | --- | --- |
-| Missing signing secret | Do not retry blindly; identify the missing secret name and update repository secrets |
+| Missing signing secret or expected identity | Do not retry blindly; configure the protected `mobile-signing` environment secret or administrator-controlled repository variable |
+| Tag or Release already exists | Do not move/overwrite it; stop and choose a new version after review |
+| Docker architecture scan fails | The Git tag remains as immutable failure evidence, but no GHCR version image tag is published; remediate and release under a new reviewed version/tag |
 | Android artifact missing | Check Android workflow logs and release attachment paths |
 | iOS IPA missing | Check certificate import, provisioning profile, export options, and bundle ID |
 | Artifact checksum mismatch | Discard downloaded artifacts and re-download from the trusted CI/release source |

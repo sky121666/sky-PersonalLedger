@@ -12,6 +12,7 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"testing"
 	"time"
@@ -192,6 +193,10 @@ func TestUploadGarbageCollectionKeepsReferencesAndRemovesOldOrphans(t *testing.T
 	if err != nil {
 		t.Fatalf("upload orphaned file: %v", err)
 	}
+	internalToken := filepath.Join(svc.cfg.UploadPath, strconv.FormatUint(uint64(user.ID), 10), attachmentRestoreGenerationFile)
+	if err := os.WriteFile(internalToken, []byte(uuid.NewString()), 0600); err != nil {
+		t.Fatalf("write internal restore token: %v", err)
+	}
 	evidence, _ := json.Marshal([]string{referenced.Path})
 	if err := db.Create(&model.Reminder{
 		ID: uuid.NewString(), UserID: user.ID, Name: "Bill", PaymentDay: 1, Evidence: string(evidence),
@@ -203,6 +208,9 @@ func TestUploadGarbageCollectionKeepsReferencesAndRemovesOldOrphans(t *testing.T
 		if err := os.Chtimes(svc.GetFilePath(path), old, old); err != nil {
 			t.Fatalf("age upload %q: %v", path, err)
 		}
+	}
+	if err := os.Chtimes(internalToken, old, old); err != nil {
+		t.Fatalf("age internal restore token: %v", err)
 	}
 
 	removed, err := svc.CollectOrphanedFiles(user.ID, time.Now().Add(-24*time.Hour))
@@ -217,6 +225,9 @@ func TestUploadGarbageCollectionKeepsReferencesAndRemovesOldOrphans(t *testing.T
 	}
 	if _, err := os.Stat(svc.GetFilePath(orphaned.Path)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("orphaned file still exists: %v", err)
+	}
+	if _, err := os.Stat(internalToken); err != nil {
+		t.Fatalf("internal restore token was removed by garbage collection: %v", err)
 	}
 }
 

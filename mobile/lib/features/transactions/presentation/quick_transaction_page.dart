@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../app/theme/motion_tokens.dart';
 import '../../../app/widgets/adaptive_page_container.dart';
+import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../attachments/data/attachment_cleanup.dart';
 import '../../attachments/data/attachment_models.dart';
@@ -52,6 +53,12 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   List<PendingAttachmentFile> _pendingAttachmentFiles = const [];
   List<AttachmentUploadProgress> _uploadProgress = const [];
   Set<String> _originalAttachmentPaths = const <String>{};
+  String? _persistedTransactionId;
+  TransactionFormData? _persistedCoreFormData;
+  String _persistedAttachmentImages = '[]';
+  bool _attachmentRetryPending = false;
+  bool _allowAttachmentRetryDismissal = false;
+  bool _dismissalPromptOpen = false;
   final Set<String> _selectedTags = {};
   bool _loading = true;
   bool _submitting = false;
@@ -106,8 +113,9 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
             ),
           );
 
+    late final Widget page;
     if (widget.embedded) {
-      return Material(
+      page = Material(
         color: Theme.of(context).colorScheme.surface,
         child: Padding(
           padding: EdgeInsets.only(
@@ -144,15 +152,66 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           ),
         ),
       );
+    } else {
+      page = Scaffold(
+        appBar: AppBar(
+          title: Text(_isEditing ? '编辑交易' : '记一笔'),
+          actions: [_buildMoreOptionsAction()],
+        ),
+        body: AdaptivePageContainer(child: content),
+      );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEditing ? '编辑交易' : '记一笔'),
-        actions: [_buildMoreOptionsAction()],
-      ),
-      body: AdaptivePageContainer(child: content),
+    return PopScope(
+      canPop:
+          !_submitting &&
+          (!_attachmentRetryPending || _allowAttachmentRetryDismissal),
+      onPopInvokedWithResult: _handlePopInvoked,
+      child: page,
     );
+  }
+
+  void _handlePopInvoked(bool didPop, Object? result) {
+    if (didPop) {
+      return;
+    }
+    if (_submitting) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('交易正在保存，请稍候')));
+      return;
+    }
+    if (_attachmentRetryPending) {
+      unawaited(_confirmDiscardAttachmentRetry());
+    }
+  }
+
+  Future<void> _confirmDiscardAttachmentRetry() async {
+    if (_dismissalPromptOpen) {
+      return;
+    }
+    _dismissalPromptOpen = true;
+    try {
+      final confirmed = await showAppConfirmDialog(
+        context: context,
+        title: '放弃附件重试？',
+        message: '交易已保存，但附件尚未处理完成。关闭后将无法从此页面继续重试附件。',
+        cancelText: '继续重试',
+        confirmText: '仍然关闭',
+        isDanger: true,
+      );
+      if (!confirmed || !mounted) {
+        return;
+      }
+      setState(() => _allowAttachmentRetryDismissal = true);
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop();
+    } finally {
+      _dismissalPromptOpen = false;
+    }
   }
 
   Widget _buildSheetHandle(BuildContext context) {
@@ -409,9 +468,21 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            Icon(_isEditing ? Icons.save_outlined : Icons.check),
+            Icon(
+              _attachmentRetryPending
+                  ? Icons.refresh_outlined
+                  : _isEditing
+                  ? Icons.save_outlined
+                  : Icons.check,
+            ),
           const SizedBox(width: 8),
-          Text(_isEditing ? '保存修改' : '记一笔'),
+          Text(
+            _attachmentRetryPending
+                ? '重试附件'
+                : _isEditing
+                ? '保存修改'
+                : '记一笔',
+          ),
         ],
       ),
     );
@@ -763,6 +834,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   Future<void> _initializeForm() async {
     final transaction = widget.editingTransaction;
     if (transaction != null) {
+      _persistedTransactionId = transaction.id;
       _type = transaction.type;
       _amountController.text = transaction.amount.toStringAsFixed(2);
       _remarkController.text = transaction.remark;
@@ -775,6 +847,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       final attachmentPaths = decodeAttachmentPaths(transaction.images);
       _originalAttachmentPaths = attachmentPaths.toSet();
       _attachments = attachmentPaths.map(LedgerAttachment.fromPath).toList();
+      _persistedAttachmentImages = encodeAttachmentPaths(attachmentPaths);
       _showMoreOptions = false;
     }
 
@@ -852,56 +925,70 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       _errorMessage = null;
     });
 
-    final formData = TransactionFormData(
-      type: _type,
-      amount: double.parse(_amountController.text),
-      accountId: _accountId!,
-      toAccountId: _type == TransactionType.transfer ? _toAccountId : null,
-      categoryId: _type == TransactionType.transfer ? null : _categoryId,
-      transactionDate: _transactionDate,
-      remark: _remarkController.text,
+    final formData = _currentFormData(
       images: encodeAttachmentPaths(
         _attachments.map((item) => item.path).toList(),
       ),
-      tags: _selectedTags.toList(),
-      memberId: _memberId,
-      paidByMemberId: _memberId,
     );
 
+    final isAttachmentRetry =
+        _attachmentRetryPending && _persistedTransactionId != null;
+    var coreSaveSucceeded = isAttachmentRetry;
+    var retryCoreSaveAttempted = false;
+    var retryCoreSaveSucceeded = false;
     try {
       final repository = ref.read(transactionRepositoryProvider);
-      final savedTransaction = _isEditing
-          ? await repository.update(widget.editingTransaction!.id, formData)
-          : await repository.create(formData);
-      final uploadedAttachments = await _uploadPendingAttachments(
-        savedTransaction.id,
+      late final String transactionId;
+      if (isAttachmentRetry) {
+        transactionId = _persistedTransactionId!;
+        if (!_matchesPersistedCoreForm(formData)) {
+          retryCoreSaveAttempted = true;
+          await repository.update(transactionId, formData);
+          retryCoreSaveSucceeded = true;
+          _persistedCoreFormData = formData;
+          _persistedAttachmentImages = formData.images;
+          ref.invalidateLedgerMutationViews();
+        }
+      } else {
+        final savedTransaction = _persistedTransactionId == null
+            ? await repository.create(formData)
+            : await repository.update(_persistedTransactionId!, formData);
+        transactionId = savedTransaction.id;
+        _persistedTransactionId = transactionId;
+        _persistedCoreFormData = formData;
+        _persistedAttachmentImages = formData.images;
+        coreSaveSucceeded = true;
+        ref.invalidateLedgerMutationViews();
+      }
+
+      final uploadResult = await _uploadPendingAttachments(transactionId);
+      final allAttachments = [
+        ..._attachments,
+        ...uploadResult.uploadedAttachments,
+      ];
+      if (mounted) {
+        setState(() {
+          _attachments = allAttachments;
+          _pendingAttachmentFiles = uploadResult.failedFiles;
+        });
+      }
+      final attachmentImages = encodeAttachmentPaths(
+        allAttachments.map((item) => item.path).toList(),
       );
-      final allAttachments = [..._attachments, ...uploadedAttachments];
-      if (_pendingAttachmentFiles.isNotEmpty ||
-          encodeAttachmentPaths(
-                allAttachments.map((item) => item.path).toList(),
-              ) !=
-              formData.images) {
-        await repository.update(
-          savedTransaction.id,
-          TransactionFormData(
-            type: _type,
-            amount: double.parse(_amountController.text),
-            accountId: _accountId!,
-            toAccountId: _type == TransactionType.transfer
-                ? _toAccountId
-                : null,
-            categoryId: _type == TransactionType.transfer ? null : _categoryId,
-            transactionDate: _transactionDate,
-            remark: _remarkController.text,
-            images: encodeAttachmentPaths(
-              allAttachments.map((item) => item.path).toList(),
-            ),
-            tags: _selectedTags.toList(),
-            memberId: _memberId,
-            paidByMemberId: _memberId,
-          ),
+      // A previous metadata request may have committed even if its response
+      // was lost. Every attachment retry must therefore write the current
+      // target state, including when the user removed an uncertain upload and
+      // the local value happens to match the last confirmed baseline.
+      if (isAttachmentRetry || attachmentImages != _persistedAttachmentImages) {
+        await repository.updateAttachments(transactionId, attachmentImages);
+        _persistedAttachmentImages = attachmentImages;
+        ref.invalidateLedgerMutationViews();
+      }
+      if (uploadResult.failedFiles.isNotEmpty) {
+        _showAttachmentRetryMessage(
+          '交易已保存，${uploadResult.failedFiles.length} 个附件上传失败。请点击“重试附件”，不会重复创建交易。',
         );
+        return;
       }
       final failedCleanupPaths = await deleteRemovedAttachments(
         repository: ref.read(attachmentRepositoryProvider),
@@ -910,6 +997,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       );
       ref.invalidateLedgerMutationViews();
       if (mounted) {
+        setState(() => _attachmentRetryPending = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -923,12 +1011,70 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() {
-          _errorMessage = _isEditing ? '交易保存失败' : '记账失败';
-          _submitting = false;
-        });
+        if (retryCoreSaveAttempted && !retryCoreSaveSucceeded) {
+          _showAttachmentRetryMessage('原交易已保存，但本次表单修改未保存。请再次重试附件。');
+        } else if (coreSaveSucceeded && _persistedTransactionId != null) {
+          _showAttachmentRetryMessage('交易已保存，但附件信息同步失败。请点击“重试附件”，不会重复创建交易。');
+        } else {
+          setState(() {
+            _errorMessage = _isEditing ? '交易保存失败' : '记账失败';
+          });
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
       }
     }
+  }
+
+  TransactionFormData _currentFormData({required String images}) {
+    return TransactionFormData(
+      type: _type,
+      amount: double.parse(_amountController.text),
+      accountId: _accountId!,
+      toAccountId: _type == TransactionType.transfer ? _toAccountId : null,
+      categoryId: _type == TransactionType.transfer ? null : _categoryId,
+      transactionDate: _transactionDate,
+      remark: _remarkController.text,
+      images: images,
+      tags: _selectedTags.toList(),
+      memberId: _memberId,
+      paidByMemberId: _memberId,
+    );
+  }
+
+  bool _matchesPersistedCoreForm(TransactionFormData current) {
+    final persisted = _persistedCoreFormData;
+    if (persisted == null) {
+      return false;
+    }
+    final currentTags = current.tags.toSet();
+    final persistedTags = persisted.tags.toSet();
+    return current.type == persisted.type &&
+        current.amount == persisted.amount &&
+        current.accountId == persisted.accountId &&
+        current.toAccountId == persisted.toAccountId &&
+        current.categoryId == persisted.categoryId &&
+        current.transactionDate.toUtc() == persisted.transactionDate.toUtc() &&
+        current.remark.trim() == persisted.remark.trim() &&
+        current.memberId == persisted.memberId &&
+        current.paidByMemberId == persisted.paidByMemberId &&
+        currentTags.length == persistedTags.length &&
+        currentTags.containsAll(persistedTags);
+  }
+
+  void _showAttachmentRetryMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _attachmentRetryPending = true;
+      _errorMessage = message;
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<List<FamilyMember>> _loadFamilyMembers() async {
@@ -986,15 +1132,16 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     await _ensureSecondaryDataLoaded();
   }
 
-  Future<List<LedgerAttachment>> _uploadPendingAttachments(
+  Future<_AttachmentUploadResult> _uploadPendingAttachments(
     String transactionId,
   ) async {
     if (_pendingAttachmentFiles.isEmpty) {
-      return const [];
+      return const _AttachmentUploadResult();
     }
 
     final repository = ref.read(attachmentRepositoryProvider);
     final uploadedAttachments = <LedgerAttachment>[];
+    final failedFiles = <PendingAttachmentFile>[];
     for (final file in _pendingAttachmentFiles) {
       if (mounted) {
         setState(() {
@@ -1004,40 +1151,54 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
           ];
         });
       }
-      final attachment = await repository.upload(
-        file: file,
-        category: 'transactions',
-        refId: transactionId,
-        onSendProgress: (sent, total) {
-          if (!mounted || total <= 0) {
-            return;
-          }
+      try {
+        final attachment = await repository.upload(
+          file: file,
+          category: 'transactions',
+          refId: transactionId,
+          onSendProgress: (sent, total) {
+            if (!mounted || total <= 0) {
+              return;
+            }
+            setState(() {
+              _uploadProgress = [
+                ..._uploadProgress.where((item) => item.fileName != file.name),
+                AttachmentUploadProgress(
+                  fileName: file.name,
+                  progress: sent / total,
+                ),
+              ];
+            });
+          },
+        );
+        uploadedAttachments.add(attachment);
+        if (mounted) {
           setState(() {
             _uploadProgress = [
               ..._uploadProgress.where((item) => item.fileName != file.name),
               AttachmentUploadProgress(
                 fileName: file.name,
-                progress: sent / total,
+                progress: 1,
+                completed: true,
               ),
             ];
           });
-        },
-      );
-      uploadedAttachments.add(attachment);
-      if (mounted) {
-        setState(() {
-          _uploadProgress = [
-            ..._uploadProgress.where((item) => item.fileName != file.name),
-            AttachmentUploadProgress(
-              fileName: file.name,
-              progress: 1,
-              completed: true,
-            ),
-          ];
-        });
+        }
+      } catch (_) {
+        failedFiles.add(file);
+        if (mounted) {
+          setState(() {
+            _uploadProgress = _uploadProgress
+                .where((item) => item.fileName != file.name)
+                .toList();
+          });
+        }
       }
     }
-    return uploadedAttachments;
+    return _AttachmentUploadResult(
+      uploadedAttachments: uploadedAttachments,
+      failedFiles: failedFiles,
+    );
   }
 
   String? _validateAmount(String? value) {
@@ -1060,6 +1221,16 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       _showCustomTagInput = false;
     });
   }
+}
+
+class _AttachmentUploadResult {
+  const _AttachmentUploadResult({
+    this.uploadedAttachments = const [],
+    this.failedFiles = const [],
+  });
+
+  final List<LedgerAttachment> uploadedAttachments;
+  final List<PendingAttachmentFile> failedFiles;
 }
 
 class _TransactionTypeSelector extends StatelessWidget {

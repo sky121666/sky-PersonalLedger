@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, BarChart3, CheckCircle2, Plus, RefreshCw, ShieldCheck, Trash2, TrendingUp, Users } from 'lucide-vue-next'
 import { budgetApi, type Budget } from '@/api/budget'
 import { familyApi, type FamilyMember, type FamilyStatistics, type FamilyStatisticsCategory, type FamilyStatisticsMember, type FamilySummary } from '@/api/family'
 import { toast } from '@/composables/useToast'
 import { formatLocalMonth } from '@/utils/localDate'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 
 const router = useRouter()
 const loading = ref(false)
@@ -16,6 +18,8 @@ const statistics = ref<FamilyStatistics | null>(null)
 const memberBudgets = ref<Budget[]>([])
 const editingId = ref<string | null>(null)
 const month = ref(formatLocalMonth())
+const ledgerMutationRevision = useLedgerMutationRevision()
+const dataRequests = createRequestGeneration()
 
 const form = reactive({
   name: '',
@@ -41,24 +45,35 @@ const memberBudgetStats = computed(() => {
 const topMemberBudgets = computed(() => [...memberBudgets.value].sort((a, b) => Number(b.percentage || 0) - Number(a.percentage || 0)).slice(0, 4))
 
 onMounted(loadData)
+watch(ledgerMutationRevision, () => void loadData())
 
 async function loadData() {
+  const requestGeneration = dataRequests.begin()
+  const requestedMonth = month.value
   loading.value = true
   try {
     const [memberList, familySummary, familyStatistics, budgetList] = await Promise.all([
       familyApi.listMembers(),
-      familyApi.getSummary(month.value),
-      familyApi.getStatistics(month.value),
+      familyApi.getSummary(requestedMonth),
+      familyApi.getStatistics(requestedMonth),
       budgetApi.getList()
     ])
+    if (
+      !dataRequests.isLatest(requestGeneration)
+      || month.value !== requestedMonth
+    ) return
     members.value = memberList
     summary.value = familySummary
     statistics.value = familyStatistics
     memberBudgets.value = budgetList.member_budgets || []
   } catch (error: any) {
-    toast.error(error.message || '家庭数据加载失败')
+    if (dataRequests.isLatest(requestGeneration)) {
+      toast.error(error.message || '家庭数据加载失败')
+    }
   } finally {
-    loading.value = false
+    if (dataRequests.isLatest(requestGeneration)) {
+      loading.value = false
+    }
   }
 }
 

@@ -71,13 +71,20 @@ func (r *NotificationRepository) UpdateSecretsBatch(settings []model.Notificatio
 	})
 }
 
+func (r *NotificationRepository) DB() *gorm.DB {
+	return r.db
+}
+
 func updateNotificationSecrets(db *gorm.DB, setting *model.NotificationSetting) error {
 	return db.Model(&model.NotificationSetting{}).
 		Where("id = ?", setting.ID).
-		Select("dingtalk_secret", "smtp_password", "webhook_secret").
+		Select("wecom_webhook", "dingtalk_webhook", "dingtalk_secret", "smtp_password", "webhook_url", "webhook_secret").
 		Updates(map[string]interface{}{
-			"dingtalk_secret": setting.DingtalkSecret,
-			"smtp_password":   setting.SmtpPassword,
-			"webhook_secret":  setting.WebhookSecret,
+			"wecom_webhook":    setting.WecomWebhook,
+			"dingtalk_webhook": setting.DingtalkWebhook,
+			"dingtalk_secret":  setting.DingtalkSecret,
+			"smtp_password":    setting.SmtpPassword,
+			"webhook_url":      setting.WebhookURL,
+			"webhook_secret":   setting.WebhookSecret,
 		}).Error
 }

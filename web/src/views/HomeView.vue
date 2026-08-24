@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
   Eye, EyeOff, ChevronRight, RefreshCw, 
@@ -20,9 +20,14 @@ import TransactionDialog from '@/components/TransactionDialog.vue'
 import CalendarView from '@/components/CalendarView.vue'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 import { toast } from '@/composables/useToast'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 import dayjs from 'dayjs'
 
 const router = useRouter()
+const ledgerMutationRevision = useLedgerMutationRevision()
+const dataRequestGeneration = createRequestGeneration()
+const dateTransactionsRequestGeneration = createRequestGeneration()
 
 const loading = ref(false)
 const showAmount = ref(true)
@@ -53,7 +58,12 @@ onMounted(() => {
   loadDateTransactions(selectedDate.value)
 })
 
+watch(ledgerMutationRevision, () => {
+  void refreshLedgerData()
+})
+
 async function loadData() {
+  const requestGeneration = dataRequestGeneration.begin()
   loading.value = true
   try {
     const [acc, ov, tx, debt, bud, lending, family, aiReports] = await Promise.all([
@@ -66,6 +76,7 @@ async function loadData() {
       familyApi.getSummary(dayjs().format('YYYY-MM')),
       aiApi.listReports()
     ])
+    if (!dataRequestGeneration.isLatest(requestGeneration)) return
     accountData.value = acc
     overview.value = ov
     recentTransactions.value = tx.list.sort((a, b) => 
@@ -77,24 +88,36 @@ async function loadData() {
     familySummary.value = family
     latestAIReport.value = aiReports[0] || null
   } catch (e: any) {
+    if (!dataRequestGeneration.isLatest(requestGeneration)) return
     toast.error('加载失败，请重试')
   } finally {
-    loading.value = false
+    if (dataRequestGeneration.isLatest(requestGeneration)) {
+      loading.value = false
+    }
   }
 }
 
 async function loadDateTransactions(date: string) {
+  const requestGeneration = dateTransactionsRequestGeneration.begin()
   try {
     const res = await transactionApi.getList({
       start_date: date,
       end_date: date,
       page_size: 100
     })
+    if (
+      !dateTransactionsRequestGeneration.isLatest(requestGeneration) ||
+      selectedDate.value !== date
+    ) return
     // Sort by transaction_date DESC
     dateTransactions.value = res.list.sort((a, b) => 
       new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
     )
   } catch (e) {
+    if (
+      !dateTransactionsRequestGeneration.isLatest(requestGeneration) ||
+      selectedDate.value !== date
+    ) return
     console.error(e)
   }
 }
@@ -156,9 +179,11 @@ function editTransaction(transaction: Transaction) {
   showDialog.value = true
 }
 
-function onTransactionSuccess() {
-  loadData()
-  loadDateTransactions(selectedDate.value)
+async function refreshLedgerData() {
+  await Promise.all([
+    loadData(),
+    loadDateTransactions(selectedDate.value),
+  ])
 }
 </script>
 
@@ -178,6 +203,8 @@ function onTransactionSuccess() {
         </div>
         
         <button
+          type="button"
+          aria-label="刷新首页数据"
           class="p-2.5 bg-gray-100/50 dark:bg-white/5 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 rounded-full transition"
           :class="{ 'animate-spin': loading }"
           @click="refresh"
@@ -199,7 +226,12 @@ function onTransactionSuccess() {
             <div>
               <div class="flex items-center gap-2 text-white/60 text-sm mb-1">
                 <span>净资产</span>
-                <button @click="showAmount = !showAmount" class="hover:text-white transition">
+                <button
+                  type="button"
+                  :aria-label="showAmount ? '隐藏金额' : '显示金额'"
+                  @click="showAmount = !showAmount"
+                  class="hover:text-white transition"
+                >
                   <Eye v-if="showAmount" :size="16" />
                   <EyeOff v-else :size="16" />
                 </button>
@@ -642,7 +674,6 @@ function onTransactionSuccess() {
     <TransactionDialog
       v-model:visible="showDialog"
       :edit-id="editingId"
-      @success="onTransactionSuccess"
     />
   </div>
 </template>

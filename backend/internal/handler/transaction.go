@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/sky/personal-ledger/internal/middleware"
@@ -100,6 +101,32 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 			return
 		}
 		internalServerError(c, err, "failed to update transaction")
+		return
+	}
+
+	response.Success(c, tx)
+}
+
+func (h *TransactionHandler) UpdateAttachments(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	id := c.Param("id")
+
+	var req service.UpdateTransactionAttachmentsRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.Images == nil {
+		response.BadRequest(c, "invalid request")
+		return
+	}
+
+	tx, err := h.service.UpdateAttachments(id, userID, req)
+	if err != nil {
+		if handleTransactionRequestError(c, err) {
+			return
+		}
+		if errors.Is(err, service.ErrTransactionNotFound) {
+			response.NotFound(c, "transaction not found")
+			return
+		}
+		internalServerError(c, err, "failed to update transaction attachments")
 		return
 	}
 
@@ -249,6 +276,16 @@ func handleTransactionRequestError(c *gin.Context, err error) bool {
 		response.BadRequest(c, "managed transaction cannot be updated directly")
 	case errors.Is(err, service.ErrSystemTransactionImmutable):
 		response.BadRequest(c, "system transaction cannot be changed directly")
+	case errors.Is(err, service.ErrInvalidTransactionImages):
+		response.BadRequest(c, "invalid transaction images")
+	case errors.Is(err, service.ErrCreateTransactionImages):
+		response.BadRequest(c, "create the transaction before adding attachments")
+	case errors.Is(err, service.ErrTransactionAttachmentScope):
+		response.Forbidden(c, "attachment path does not belong to transaction")
+	case errors.Is(err, service.ErrAttachmentFileUnavailable):
+		response.Error(c, http.StatusUnprocessableEntity, 42205, "attachment file is unavailable")
+	case errors.Is(err, service.ErrAttachmentRecoveryPending):
+		response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
 	case isTransactionDateParseError(err):
 		response.BadRequest(c, "invalid transaction date")
 	default:

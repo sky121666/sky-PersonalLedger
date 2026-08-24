@@ -2465,6 +2465,11 @@ class _FakeTransactionRepository implements TransactionRepository {
     return _transactionFromForm(id, formData);
   }
 
+  @override
+  Future<TransactionItem> updateAttachments(String id, String images) async {
+    throw UnimplementedError();
+  }
+
   TransactionItem _transactionFromForm(
     String id,
     TransactionFormData formData,
@@ -2653,6 +2658,11 @@ class _FakeReminderRepository implements ReminderRepository {
   ) async {
     return _reminders.first;
   }
+
+  @override
+  Future<ReminderItem?> updateAttachments(String id, String evidence) async {
+    return _reminders.first;
+  }
 }
 
 const _reminders = [
@@ -2736,6 +2746,11 @@ class _FakeLendingRepository implements LendingRepository {
 
   @override
   Future<LendingItem?> update(String id, UpdateLendingRequest request) async {
+    return _lendings.first;
+  }
+
+  @override
+  Future<LendingItem?> updateAttachments(String id, String evidence) async {
     return _lendings.first;
   }
 }

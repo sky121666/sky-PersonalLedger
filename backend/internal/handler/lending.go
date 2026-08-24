@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/middleware"
@@ -167,6 +168,8 @@ func (h *LendingHandler) GetSummary(c *gin.Context) {
 
 func handleLendingRequestError(c *gin.Context, err error) bool {
 	switch {
+	case errors.Is(err, service.ErrAttachmentRecoveryPending):
+		response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
 	case errors.Is(err, service.ErrAccountNotFound):
 		response.BadRequest(c, "account not found")
 	case errors.Is(err, service.ErrInvalidDateTime):
@@ -179,6 +182,10 @@ func handleLendingRequestError(c *gin.Context, err error) bool {
 		response.Error(c, 422, 42201, "repayment exceeds remaining balance")
 	case errors.Is(err, service.ErrInvalidLendingPatch):
 		response.Error(c, 422, 42204, "invalid lending update")
+	case errors.Is(err, service.ErrCreateAttachmentEvidence):
+		response.BadRequest(c, "create the lending before adding attachments")
+	case errors.Is(err, service.ErrInvalidAttachmentEvidence), errors.Is(err, service.ErrAttachmentFileUnavailable):
+		response.Error(c, 422, 42204, "invalid attachment evidence")
 	default:
 		return false
 	}

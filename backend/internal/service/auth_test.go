@@ -13,6 +13,7 @@ import (
 	"github.com/sky/personal-ledger/internal/repository"
 	"github.com/sky/personal-ledger/pkg/jwt"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 func newAuthServiceForTest(t *testing.T) (*AuthService, *repository.Repositories) {
@@ -24,6 +25,87 @@ func newAuthServiceForTest(t *testing.T) (*AuthService, *repository.Repositories
 	repos := repository.NewRepositories(db)
 	jwtManager := jwt.NewManager("test-auth-secret-with-at-least-32-chars", 15, 60)
 	return NewAuthService(repos.User, repos.RefreshToken, repos.Category, repos.Account, jwtManager), repos
+}
+
+func TestAuthLoginFailsClosedWhenUserStateUpdateFails(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		password string
+	}{
+		{name: "failed password update", password: "wrong-password"},
+		{name: "successful password update", password: "LedgerInitPass123!"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			svc, repos := newAuthServiceForTest(t)
+			if _, err := svc.Init("LedgerInitPass123!"); err != nil {
+				t.Fatalf("init: %v", err)
+			}
+			var tokenCountBefore int64
+			if err := repos.User.DB().Model(&model.RefreshToken{}).Count(&tokenCountBefore).Error; err != nil {
+				t.Fatalf("count refresh tokens before login: %v", err)
+			}
+
+			forcedErr := errors.New("forced user state update failure")
+			callbackName := "test:fail-auth-user-update"
+			db := repos.User.DB()
+			if err := db.Callback().Update().Before("gorm:update").Register(callbackName, func(tx *gorm.DB) {
+				if tx.Statement.Table == "users" {
+					tx.AddError(forcedErr)
+				}
+			}); err != nil {
+				t.Fatalf("register update callback: %v", err)
+			}
+			t.Cleanup(func() { _ = db.Callback().Update().Remove(callbackName) })
+
+			result, err := svc.Login(test.password)
+			if !errors.Is(err, forcedErr) {
+				t.Fatalf("login error = %v, want forced persistence error", err)
+			}
+			if result != nil {
+				t.Fatalf("login returned tokens after persistence failure: %#v", result)
+			}
+			var tokenCountAfter int64
+			if err := db.Model(&model.RefreshToken{}).Count(&tokenCountAfter).Error; err != nil {
+				t.Fatalf("count refresh tokens after login: %v", err)
+			}
+			if tokenCountAfter != tokenCountBefore {
+				t.Fatalf("refresh token count = %d, want unchanged %d", tokenCountAfter, tokenCountBefore)
+			}
+		})
+	}
+}
+
+func TestAuthLoginReturnsStorageFailureWhenUserQueryFails(t *testing.T) {
+	svc, repos := newAuthServiceForTest(t)
+	if _, err := svc.Init("LedgerInitPass123!"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	sqlDB, err := repos.User.DB().DB()
+	if err != nil {
+		t.Fatalf("get database handle: %v", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		t.Fatalf("close database: %v", err)
+	}
+
+	result, err := svc.Login("wrong-password")
+	if err == nil || errors.Is(err, ErrInvalidPassword) {
+		t.Fatalf("login error = %v, want storage failure distinct from invalid password", err)
+	}
+	if result != nil {
+		t.Fatalf("login returned tokens after query failure: %#v", result)
+	}
+}
+
+func TestAuthLoginKeepsMissingUserAsInvalidPassword(t *testing.T) {
+	svc, _ := newAuthServiceForTest(t)
+	result, err := svc.Login("any-password")
+	if !errors.Is(err, ErrInvalidPassword) {
+		t.Fatalf("login error = %v, want invalid password for missing user", err)
+	}
+	if result != nil {
+		t.Fatalf("login returned tokens for missing user: %#v", result)
+	}
 }
 
 func TestAuthStoresOnlyRefreshTokenHashAndRefreshesRawToken(t *testing.T) {

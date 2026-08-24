@@ -3,16 +3,24 @@ package service
 import (
 	"fmt"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/sky/personal-ledger/internal/database"
 	"gorm.io/gorm"
 )
 
 type HealthService struct {
-	db         *gorm.DB
-	uploadPath string
-	backupPath string
+	db                *gorm.DB
+	uploadPath        string
+	backupPath        string
+	storageMu         sync.Mutex
+	lastStorageCheck  time.Time
+	cachedUploadCheck HealthCheck
+	cachedBackupCheck HealthCheck
 }
+
+const storageReadinessCacheTTL = 5 * time.Second
 
 type HealthStatus struct {
 	Status                string                 `json:"status"`
@@ -48,8 +56,7 @@ func (s *HealthService) Check() HealthStatus {
 		status.Checks["database"] = HealthCheck{Status: "ok"}
 	}
 
-	status.Checks["uploads"] = checkDirectory(s.uploadPath)
-	status.Checks["backups"] = checkDirectory(s.backupPath)
+	status.Checks["uploads"], status.Checks["backups"] = s.checkStorageDirectories()
 	for _, check := range status.Checks {
 		if check.Status == "fail" {
 			status.Status = "unhealthy"
@@ -57,6 +64,21 @@ func (s *HealthService) Check() HealthStatus {
 		}
 	}
 	return status
+}
+
+func (s *HealthService) checkStorageDirectories() (HealthCheck, HealthCheck) {
+	s.storageMu.Lock()
+	defer s.storageMu.Unlock()
+
+	now := time.Now()
+	cacheAge := now.Sub(s.lastStorageCheck)
+	if !s.lastStorageCheck.IsZero() && cacheAge >= 0 && cacheAge < storageReadinessCacheTTL {
+		return s.cachedUploadCheck, s.cachedBackupCheck
+	}
+	s.cachedUploadCheck = checkDirectory(s.uploadPath)
+	s.cachedBackupCheck = checkDirectory(s.backupPath)
+	s.lastStorageCheck = now
+	return s.cachedUploadCheck, s.cachedBackupCheck
 }
 
 func (s *HealthService) checkDatabase(status *HealthStatus) error {
@@ -90,5 +112,34 @@ func checkDirectory(path string) HealthCheck {
 	if !info.IsDir() {
 		return HealthCheck{Status: "fail", Message: "not a directory"}
 	}
+	if err := probeDirectoryWrite(path); err != nil {
+		return HealthCheck{Status: "fail", Message: "directory is not writable"}
+	}
 	return HealthCheck{Status: "ok"}
+}
+
+func probeDirectoryWrite(path string) error {
+	file, err := os.CreateTemp(path, ".ledger-readiness-*")
+	if err != nil {
+		return err
+	}
+	probePath := file.Name()
+	defer func() {
+		_ = file.Close()
+		_ = os.Remove(probePath)
+	}()
+
+	if err := file.Chmod(0600); err != nil {
+		return err
+	}
+	if _, err := file.Write([]byte{0}); err != nil {
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Remove(probePath)
 }

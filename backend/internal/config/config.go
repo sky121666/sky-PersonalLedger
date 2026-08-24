@@ -14,6 +14,7 @@ type Config struct {
 	Server        ServerConfig
 	Database      DatabaseConfig
 	JWT           JWTConfig
+	Credentials   CredentialConfig
 	Log           LogConfig
 	Storage       StorageConfig
 	Security      SecurityConfig
@@ -56,10 +57,11 @@ type StorageConfig struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port           string
-	Mode           string
-	WebPath        string `mapstructure:"web_path"` // 前端文件路径
-	TrustedProxies string `mapstructure:"trusted_proxies"`
+	Port             string
+	Mode             string
+	WebPath          string `mapstructure:"web_path"` // 前端文件路径
+	TrustedProxies   string `mapstructure:"trusted_proxies"`
+	MaxJSONBodyBytes int64  `mapstructure:"max_json_body_bytes"`
 }
 
 // DatabaseConfig 数据库配置
@@ -82,6 +84,14 @@ type JWTConfig struct {
 	Secret        string
 	AccessExpire  int `mapstructure:"access_expire"`
 	RefreshExpire int `mapstructure:"refresh_expire"`
+}
+
+// CredentialConfig configures encryption at rest independently from JWT
+// session signing. EncryptionPreviousKey is a temporary read-only fallback
+// used while rotating the credential encryption key.
+type CredentialConfig struct {
+	EncryptionKey         string `mapstructure:"encryption_key"`
+	EncryptionPreviousKey string `mapstructure:"encryption_previous_key"`
 }
 
 // LogConfig 日志配置
@@ -108,6 +118,7 @@ func Load() (*Config, error) {
 	viper.BindEnv("server.mode", "LEDGER_SERVER_MODE")
 	viper.BindEnv("server.web_path", "LEDGER_SERVER_WEB_PATH")
 	viper.BindEnv("server.trusted_proxies", "LEDGER_SERVER_TRUSTED_PROXIES")
+	viper.BindEnv("server.max_json_body_bytes", "LEDGER_SERVER_MAX_JSON_BODY_BYTES")
 	viper.BindEnv("database.driver", "LEDGER_DATABASE_DRIVER")
 	viper.BindEnv("database.path", "LEDGER_DATABASE_PATH")
 	viper.BindEnv("database.dsn", "LEDGER_DATABASE_DSN")
@@ -116,6 +127,8 @@ func Load() (*Config, error) {
 	viper.BindEnv("jwt.secret", "LEDGER_JWT_SECRET")
 	viper.BindEnv("jwt.access_expire", "LEDGER_JWT_ACCESS_EXPIRE")
 	viper.BindEnv("jwt.refresh_expire", "LEDGER_JWT_REFRESH_EXPIRE")
+	viper.BindEnv("credentials.encryption_key", "LEDGER_CREDENTIAL_ENCRYPTION_KEY")
+	viper.BindEnv("credentials.encryption_previous_key", "LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY")
 	viper.BindEnv("log.level", "LEDGER_LOG_LEVEL")
 	viper.BindEnv("log.format", "LEDGER_LOG_FORMAT")
 	viper.BindEnv("storage.upload_path", "LEDGER_STORAGE_UPLOAD_PATH")
@@ -138,6 +151,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("server.mode", "debug")
 	viper.SetDefault("server.web_path", "./web/dist")
 	viper.SetDefault("server.trusted_proxies", "")
+	viper.SetDefault("server.max_json_body_bytes", int64(1<<20))
 	viper.SetDefault("database.driver", "sqlite")
 	viper.SetDefault("database.path", "./data/ledger.db")
 	viper.SetDefault("database.dsn", "")
@@ -145,6 +159,8 @@ func Load() (*Config, error) {
 	viper.SetDefault("database.max_idle_conns", 0)
 	viper.SetDefault("jwt.access_expire", 15)
 	viper.SetDefault("jwt.refresh_expire", 43200)
+	viper.SetDefault("credentials.encryption_key", "")
+	viper.SetDefault("credentials.encryption_previous_key", "")
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "json")
 	viper.SetDefault("storage.upload_path", "./data/uploads")

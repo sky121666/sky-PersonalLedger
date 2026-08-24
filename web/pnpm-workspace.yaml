@@ -1,0 +1,8 @@
+packages:
+  - '.'
+
+onlyBuiltDependencies:
+  - vue-demi
+
+overrides:
+  nanoid: 3.3.18

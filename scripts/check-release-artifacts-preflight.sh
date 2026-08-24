@@ -78,6 +78,8 @@ for index in range(release_start + 1, len(lines)):
         release_end = index
         break
 release_lines = lines[release_start + 1 : release_end]
+if not any(re.fullmatch(r"    environment:\s*release", line) for line in release_lines):
+    raise SystemExit("release attachment job must use the protected release environment")
 
 needs_index = next(
     (index for index, line in enumerate(release_lines) if re.match(r"^    needs:\s*", line)),
@@ -107,7 +109,6 @@ expected_needs = {
     "mobile-e2e",
     "public-git-safety",
     "backup-security",
-    "docker",
     "android",
     "verify-android-artifact",
     "ios",
@@ -224,9 +225,19 @@ require_file "scripts/check-toolchain-consistency.sh"
 require_file "docs/android-release-signing.md"
 require_file "docs/ios-release-signing.md"
 require_file "mobile/android/app/build.gradle.kts"
+require_file "mobile/android/gradle/wrapper/gradle-wrapper.properties"
 require_file "mobile/ios/Runner/Info.plist"
 require_file "mobile/ios/Runner.xcodeproj/project.pbxproj"
 require_tool python3
+
+for workflow in .github/workflows/android.yml .github/workflows/ios.yml .github/workflows/release.yml; do
+  checkout_count="$(grep -c 'uses: actions/checkout@' "$ROOT_DIR/$workflow")"
+  non_persisting_count="$(grep -c 'persist-credentials: false' "$ROOT_DIR/$workflow")"
+  if [[ "$checkout_count" != "$non_persisting_count" ]]; then
+    echo "Every checkout in $workflow must set persist-credentials: false" >&2
+    exit 1
+  fi
+done
 
 require_text ".github/workflows/android.yml" "ANDROID_KEYSTORE_BASE64"
 require_text ".github/workflows/android.yml" "personal-ledger-.*-android\\.apk"
@@ -237,6 +248,9 @@ require_text ".github/workflows/android.yml" "Verify Android release signatures"
 require_text ".github/workflows/android.yml" ":app:testDebugUnitTest"
 require_text ".github/workflows/android.yml" "APKSIGNER.*verify --verbose --print-certs"
 require_text ".github/workflows/android.yml" "jarsigner -verify -strict -certs"
+require_text ".github/workflows/android.yml" "environment: mobile-signing"
+require_text ".github/workflows/android.yml" "ANDROID_EXPECTED_SIGNER_SHA256"
+require_text ".github/workflows/android.yml" "APK and AAB were not signed by the same identity"
 require_text ".github/workflows/android.yml" "/usr/local/lib/android/sdk"
 require_absent_text ".github/workflows/android.yml" 'sort -V'
 require_text ".github/workflows/ios.yml" "IOS_CERTIFICATE_BASE64"
@@ -246,9 +260,30 @@ require_text ".github/workflows/ios.yml" "personal-ledger-.*-ios\\.ipa\\.sha256"
 require_text ".github/workflows/ios.yml" "Verify iOS IPA signature"
 require_text ".github/workflows/ios.yml" "CFBundleIdentifier"
 require_text ".github/workflows/ios.yml" "codesign --verify --deep --strict"
+require_text ".github/workflows/ios.yml" "environment: mobile-signing"
+require_text ".github/workflows/ios.yml" "IOS_EXPECTED_TEAM_IDENTIFIER"
+require_text ".github/workflows/ios.yml" "com.apple.developer.team-identifier"
 require_text ".github/workflows/release.yml" "uses: \\.\\/\\.github\\/workflows\\/ios\\.yml"
 require_text ".github/workflows/release.yml" "verify-android-artifact"
 require_text ".github/workflows/release.yml" "verify-ios-artifact"
+require_absent_text ".github/workflows/release.yml" "workflows/docker"
+require_absent_text ".github/workflows/release.yml" "secrets: inherit"
+require_absent_text ".github/workflows/release.yml" "ANDROID_KEYSTORE_BASE64"
+require_absent_text ".github/workflows/release.yml" "IOS_CERTIFICATE_BASE64"
+require_text ".github/workflows/release.yml" "refs/tags/"
+require_text ".github/workflows/release.yml" "git merge-base --is-ancestor"
+require_text ".github/workflows/release.yml" "releases/tags/"
+require_text ".github/workflows/release.yml" "tag_name: v"
+require_text ".github/workflows/release.yml" "target_commitish:"
+require_text ".github/workflows/release.yml" "append_body: true"
+require_text ".github/workflows/release.yml" "overwrite_files: false"
+require_text ".github/workflows/release.yml" "fail_on_unmatched_files: true"
+require_text ".github/workflows/release.yml" "environment: release"
+require_text ".github/workflows/release.yml" "compose_checksum_asset=.*sha256"
+require_text ".github/workflows/release.yml" "gh release download"
+require_text ".github/workflows/release.yml" "docker buildx imagetools inspect"
+require_text ".github/workflows/release.yml" "ANDROID_EXPECTED_SIGNER_SHA256"
+require_text ".github/workflows/release.yml" "IOS_EXPECTED_TEAM_IDENTIFIER"
 require_text ".github/workflows/release.yml" "runs-on: macos-latest"
 require_text ".github/workflows/release.yml" "actions/setup-java@[0-9a-f]{40}"
 require_text ".github/workflows/release.yml" "subosito/flutter-action@[0-9a-f]{40}"
@@ -282,9 +317,12 @@ require_text ".github/workflows/quality-gate.yml" "uses: \.\/\.github\/workflows
 require_text ".github/dependabot.yml" "package-ecosystem: gomod"
 require_text ".github/dependabot.yml" "package-ecosystem: npm"
 require_text ".github/dependabot.yml" "package-ecosystem: pub"
+require_text ".github/dependabot.yml" "package-ecosystem: gradle"
 require_text ".github/dependabot.yml" "package-ecosystem: github-actions"
 require_text ".github/dependabot.yml" "package-ecosystem: docker"
 require_text ".github/workflows/backend-database.yml" "workflow_call"
+require_text ".github/workflows/backend-database.yml" "postgres:16-alpine@sha256:[0-9a-f]{64}"
+require_text ".github/workflows/backend-database.yml" "mysql:8[.]4@sha256:[0-9a-f]{64}"
 require_text ".github/workflows/backend-database.yml" "verify-database-matrix\\.sh"
 require_text ".github/workflows/backend-database.yml" "govulncheck@v1\\.6\\.0"
 require_text ".github/workflows/backend-database.yml" "govulncheck \\.\\/\\.\\.\\."
@@ -308,7 +346,12 @@ require_text ".github/workflows/web.yml" "playwright install --with-deps chromiu
 require_text ".github/workflows/web.yml" "verify-web-e2e\\.sh"
 require_text "scripts/check-release-artifact-files.sh" "checksum sidecar must contain exactly one checksum line"
 require_text "scripts/check-release-artifact-files.sh" "checksum sidecar filename mismatch"
+require_text "scripts/check-release-artifact-files.sh" "ANDROID_EXPECTED_SIGNER_SHA256"
+require_text "scripts/check-release-artifact-files.sh" "IOS_EXPECTED_TEAM_IDENTIFIER"
+require_text "scripts/check-release-artifact-files.sh" "Android APK and AAB signer fingerprints do not match"
+require_text "scripts/check-release-artifact-files.sh" "application-identifier"
 require_text "mobile/android/app/build.gradle.kts" "ledgerAllowReleaseCleartext"
+require_text "mobile/android/gradle/wrapper/gradle-wrapper.properties" "^distributionSha256Sum=[0-9a-f]{64}$"
 require_text "mobile/android/app/src/main/AndroidManifest.xml" 'android:usesCleartextTraffic="\$\{usesCleartextTraffic\}"'
 require_text "mobile/ios/Runner.xcodeproj/project.pbxproj" "PRODUCT_BUNDLE_IDENTIFIER = com\\.skyapp\\.personalLedger"
 require_text "mobile/ios/Runner.xcodeproj/project.pbxproj" "DEVELOPMENT_TEAM = WV9H55K7S3"
@@ -328,6 +371,16 @@ if [[ "${CHECK_SIGNING_SECRETS:-0}" == "1" ]]; then
   base64_decode_check "IOS_CERTIFICATE_BASE64"
   base64_decode_check "IOS_PROVISIONING_PROFILE_BASE64"
   base64_decode_check "IOS_EXPORT_OPTIONS_PLIST_BASE64"
+  require_env "ANDROID_EXPECTED_SIGNER_SHA256"
+  require_env "IOS_EXPECTED_TEAM_IDENTIFIER"
+  [[ "$ANDROID_EXPECTED_SIGNER_SHA256" =~ ^[0-9A-Fa-f]{64}$ ]] || {
+    echo "ANDROID_EXPECTED_SIGNER_SHA256 must be exactly 64 hexadecimal characters" >&2
+    exit 1
+  }
+  [[ "$IOS_EXPECTED_TEAM_IDENTIFIER" =~ ^[A-Z0-9]{10}$ ]] || {
+    echo "IOS_EXPECTED_TEAM_IDENTIFIER must be a 10-character Apple TeamIdentifier" >&2
+    exit 1
+  }
 fi
 
 if [[ "${CHECK_LOCAL_ANDROID_SIGNING:-0}" == "1" ]]; then

@@ -3,7 +3,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { ChevronLeft, ChevronRight, PieChart } from 'lucide-vue-next'
 import { statisticsApi, type OverviewResponse, type CategoryStatItem, type TrendItem } from '@/api/statistics'
 import { toast } from '@/composables/useToast'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
 import { getCategoryEmoji } from '@/utils/constants'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 import dayjs from 'dayjs'
 
@@ -13,6 +15,8 @@ const trendData = ref<TrendItem[]>([])
 const selectedMonth = ref(dayjs().format('YYYY-MM'))
 const statsType = ref<'expense' | 'income'>('expense')
 const loading = ref(false)
+const ledgerMutationRevision = useLedgerMutationRevision()
+const dataRequests = createRequestGeneration()
 
 const currentMonthDisplay = computed(() => {
   return dayjs(selectedMonth.value).format('YYYY年M月')
@@ -51,21 +55,37 @@ watch([selectedMonth, statsType], () => {
   loadData()
 })
 
+watch(ledgerMutationRevision, () => {
+  void loadData()
+})
+
 async function loadData() {
+  const requestGeneration = dataRequests.begin()
+  const requestedMonth = selectedMonth.value
+  const requestedType = statsType.value
   loading.value = true
   try {
     const [ov, stats, trend] = await Promise.all([
-      statisticsApi.getOverview(selectedMonth.value),
-      statisticsApi.getCategoryStats(selectedMonth.value, statsType.value),
-      statisticsApi.getTrend(selectedMonth.value)
+      statisticsApi.getOverview(requestedMonth),
+      statisticsApi.getCategoryStats(requestedMonth, requestedType),
+      statisticsApi.getTrend(requestedMonth)
     ])
+    if (
+      !dataRequests.isLatest(requestGeneration)
+      || selectedMonth.value !== requestedMonth
+      || statsType.value !== requestedType
+    ) return
     overview.value = ov
     categoryStats.value = stats.items
     trendData.value = trend.items
   } catch (e: any) {
-    toast.error('加载统计数据失败')
+    if (dataRequests.isLatest(requestGeneration)) {
+      toast.error('加载统计数据失败')
+    }
   } finally {
-    loading.value = false
+    if (dataRequests.isLatest(requestGeneration)) {
+      loading.value = false
+    }
   }
 }
 

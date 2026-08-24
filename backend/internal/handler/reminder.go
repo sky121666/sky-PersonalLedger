@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/middleware"
@@ -63,6 +64,10 @@ func (h *ReminderHandler) Create(c *gin.Context) {
 			response.Error(c, 422, 42203, "invalid reminder date")
 			return
 		}
+		if errors.Is(err, service.ErrCreateAttachmentEvidence) || errors.Is(err, service.ErrInvalidAttachmentEvidence) {
+			response.BadRequest(c, "create the reminder before adding attachments")
+			return
+		}
 		internalServerError(c, err, "failed to create reminder")
 		return
 	}
@@ -95,6 +100,10 @@ func (h *ReminderHandler) Update(c *gin.Context) {
 
 	reminder, err := h.service.Patch(id, userID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrAttachmentRecoveryPending) {
+			response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
+			return
+		}
 		if errors.Is(err, service.ErrAccountNotFound) {
 			response.NotFound(c, "account not found")
 			return
@@ -103,7 +112,7 @@ func (h *ReminderHandler) Update(c *gin.Context) {
 			response.Error(c, 409, 40902, "linked reminder balance is managed by its debt account")
 			return
 		}
-		if errors.Is(err, service.ErrInvalidReminderPatch) || errors.Is(err, service.ErrInvalidLocalDate) {
+		if errors.Is(err, service.ErrInvalidReminderPatch) || errors.Is(err, service.ErrInvalidLocalDate) || errors.Is(err, service.ErrInvalidAttachmentEvidence) || errors.Is(err, service.ErrAttachmentFileUnavailable) {
 			response.Error(c, 422, 42203, "invalid reminder update")
 			return
 		}

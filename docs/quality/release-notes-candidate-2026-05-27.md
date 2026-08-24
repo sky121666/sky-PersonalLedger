@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | Backend + Web | READY AFTER RELEASE WORKFLOW | Docker image `ghcr.io/<owner>/<repo>:X.Y.Z` |
 | Android | READY AFTER SIGNED ARTIFACT | `personal-ledger-X.Y.Z-android.apk`, `personal-ledger-X.Y.Z-android.aab`, and `.sha256` files |
-| iOS | PENDING SIGNED ARTIFACT | `personal-ledger-X.Y.Z-ios.ipa` from tag release or manual workflow, TestFlight build, or Xcode archive evidence |
+| iOS | PENDING SIGNED ARTIFACT | `personal-ledger-X.Y.Z-ios.ipa` from the manual signed mobile workflow, TestFlight build, or Xcode archive evidence |
 | macOS | NOT INCLUDED | Platform regression is not part of this release candidate |
 | Windows | NOT INCLUDED | Platform regression is not part of this release candidate |
 
@@ -32,7 +32,7 @@
 - New AI provider API keys are protected at rest and are not returned by list/detail APIs.
 - AI provider secrets are excluded from normal backup export.
 - Backup/restore rehearsal covers family members, member-linked transactions, and AI report history.
-- Before upgrading, existing AI providers should be re-saved to protect any legacy plaintext key values.
+- Startup validates and migrates supported legacy AI and notification credentials before serving traffic.
 
 ## Known Limitations
 
@@ -48,8 +48,8 @@
 
 1. Take a backup before upgrading.
 2. Keep the previous Docker image tag available until the new version is verified.
-3. Re-save existing AI providers after upgrade so legacy stored keys are protected by the new secret protection path.
-4. Verify family members, member-linked transactions, member-level budgets, and AI report history after restore or upgrade.
+3. Configure and retain a stable `LEDGER_CREDENTIAL_ENCRYPTION_KEY`; startup performs the supported legacy credential migration automatically.
+4. Verify startup, health, notification delivery, AI Provider access, family members, member-linked transactions, member-level budgets, and AI report history after restore or upgrade.
 5. Run `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` before tagging a release candidate.
 
 ## Rollback

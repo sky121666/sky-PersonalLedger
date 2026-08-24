@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,8 +11,10 @@ import '../../../app/widgets/premium_surface.dart';
 import '../../../core/formatters/money_formatter.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
+import '../../attachments/data/attachment_after_save_exception.dart';
 import '../../attachments/data/attachment_models.dart';
 import '../../attachments/data/attachment_repository.dart';
+import '../../attachments/data/attachment_staged_sync.dart';
 import '../../attachments/presentation/attachment_picker_field.dart';
 import '../../transactions/application/ledger_refresh.dart';
 import '../data/lending_repository.dart';
@@ -26,6 +30,10 @@ class _LendingPageState extends ConsumerState<LendingPage> {
   _LendingTab _tab = _LendingTab.lendOut;
   String? _busyAction;
   String? _errorMessage;
+  Future<void> Function()? _attachmentRetry;
+  String? _attachmentRetryRecordId;
+  bool _allowAttachmentRetryDismissal = false;
+  bool _dismissalPromptOpen = false;
 
   bool get _isBusy => _busyAction != null;
 
@@ -33,7 +41,7 @@ class _LendingPageState extends ConsumerState<LendingPage> {
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(lendingDashboardProvider);
     final dashboard = dashboardState.asData?.value;
-    return Scaffold(
+    final page = Scaffold(
       appBar: AppBar(
         title: const Text('借贷往来'),
         actions: dashboard == null
@@ -61,6 +69,9 @@ class _LendingPageState extends ConsumerState<LendingPage> {
               tab: _tab,
               busyAction: _busyAction,
               errorMessage: _errorMessage,
+              onRetryAttachments: _attachmentRetry == null || _isBusy
+                  ? null
+                  : _retryAttachments,
               onTabChanged: _isBusy
                   ? null
                   : (tab) => setState(() => _tab = tab),
@@ -74,6 +85,56 @@ class _LendingPageState extends ConsumerState<LendingPage> {
         ),
       ),
     );
+    return PopScope(
+      canPop:
+          !_isBusy &&
+          (_attachmentRetry == null || _allowAttachmentRetryDismissal),
+      onPopInvokedWithResult: _handlePopInvoked,
+      child: page,
+    );
+  }
+
+  void _handlePopInvoked(bool didPop, Object? result) {
+    if (didPop) {
+      return;
+    }
+    if (_isBusy) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('借贷操作正在处理中，请稍候')));
+      return;
+    }
+    if (_attachmentRetry != null) {
+      unawaited(_confirmDiscardAttachmentRetry());
+    }
+  }
+
+  Future<void> _confirmDiscardAttachmentRetry() async {
+    if (_dismissalPromptOpen) {
+      return;
+    }
+    _dismissalPromptOpen = true;
+    try {
+      final confirmed = await showAppConfirmDialog(
+        context: context,
+        title: '放弃附件重试？',
+        message: '借贷记录已保存，但附件尚未处理完成。关闭后将无法从此页面继续重试附件。',
+        cancelText: '继续重试',
+        confirmText: '仍然关闭',
+        isDanger: true,
+      );
+      if (!confirmed || !mounted) {
+        return;
+      }
+      setState(() => _allowAttachmentRetryDismissal = true);
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop();
+    } finally {
+      _dismissalPromptOpen = false;
+    }
   }
 
   Future<void> _openCreateChoice(List<Account> accounts) async {
@@ -113,7 +174,9 @@ class _LendingPageState extends ConsumerState<LendingPage> {
   }
 
   void _refresh() {
-    setState(() => _errorMessage = null);
+    if (_attachmentRetry == null) {
+      setState(() => _errorMessage = null);
+    }
     ref.invalidate(lendingDashboardProvider);
   }
 
@@ -139,33 +202,42 @@ class _LendingPageState extends ConsumerState<LendingPage> {
           return;
         }
         if (saved == null || saved.id.isEmpty) {
-          throw const FormatException('借贷记录已创建，但附件暂时无法添加');
+          throw const AttachmentAfterSaveException('借贷记录已创建，但缺少记录编号，无法继续处理附件。');
         }
-        final uploadedAttachments = await _uploadPendingAttachments(
-          result.pendingFiles,
-          saved.id,
-        );
-        await repository.update(
-          saved.id,
-          _updateRequestFromCreate(
-            request,
-            evidence: _encodeAttachmentEvidence([
-              ...result.attachments,
-              ...uploadedAttachments,
-            ]),
+        await syncPendingAttachments(
+          repository: ref.read(attachmentRepositoryProvider),
+          category: 'lendings',
+          refId: saved.id,
+          retainedAttachments: result.attachments,
+          pendingFiles: result.pendingFiles,
+          persistAttachments: (attachments) => repository.updateAttachments(
+            saved.id,
+            _encodeAttachmentEvidence(attachments),
           ),
+          failureMessage: '借贷记录已创建，但部分附件尚未保存。请点击“重试附件”，无需重复创建。',
         );
       },
     );
   }
 
   Future<void> _openEditForm(LendingItem item, List<Account> accounts) async {
+    var editingItem = item;
+    var editingAccounts = accounts;
+    if (_hasAttachmentRetryFor(item.id)) {
+      final refreshed = await _prepareRetryRecordForEdit(item.id);
+      if (refreshed == null || !mounted) {
+        return;
+      }
+      editingItem = refreshed.item;
+      editingAccounts = refreshed.accounts;
+    }
+
     final result = await showDialog<_LendingFormResult<UpdateLendingRequest>>(
       context: context,
       builder: (context) => _LendingFormDialog(
-        type: item.type,
-        accounts: accounts,
-        editingItem: item,
+        type: editingItem.type,
+        accounts: editingAccounts,
+        editingItem: editingItem,
       ),
     );
     if (result == null || !mounted) {
@@ -174,35 +246,20 @@ class _LendingPageState extends ConsumerState<LendingPage> {
     final request = result.request;
 
     await _runAction(
-      action: 'edit-${item.id}',
+      action: 'edit-${editingItem.id}',
       successMessage: '借贷记录已更新',
+      supersededAttachmentRetryRecordId: editingItem.id,
       request: () async {
         final repository = ref.read(lendingRepositoryProvider);
-        final saved = await repository.update(item.id, request);
-        var retainedAttachments = result.attachments;
-        if (result.pendingFiles.isEmpty) {
-          await _deleteRemovedAttachments(
-            originalPaths: decodeAttachmentPaths(item.evidence),
-            retainedAttachments: retainedAttachments,
-          );
-          return;
-        }
-        final refId = saved?.id.isNotEmpty == true ? saved!.id : item.id;
-        final uploadedAttachments = await _uploadPendingAttachments(
-          result.pendingFiles,
-          refId,
-        );
-        retainedAttachments = [...result.attachments, ...uploadedAttachments];
-        await repository.update(
-          refId,
-          _copyUpdateRequest(
-            request,
-            evidence: _encodeAttachmentEvidence(retainedAttachments),
-          ),
-        );
-        await _deleteRemovedAttachments(
-          originalPaths: decodeAttachmentPaths(item.evidence),
-          retainedAttachments: retainedAttachments,
+        final saved = await repository.update(editingItem.id, request);
+        final refId = saved?.id.isNotEmpty == true ? saved!.id : editingItem.id;
+        await _completeLendingAttachmentEdit(
+          repository: repository,
+          refId: refId,
+          originalPaths: decodeAttachmentPaths(editingItem.evidence),
+          retainedAttachments: result.attachments,
+          pendingFiles: result.pendingFiles,
+          attachmentsSynced: result.pendingFiles.isEmpty,
         );
       },
     );
@@ -219,10 +276,14 @@ class _LendingPageState extends ConsumerState<LendingPage> {
     if (request == null || !mounted) {
       return;
     }
+    if (!await _confirmDiscardRetryForMutation(item.id) || !mounted) {
+      return;
+    }
 
     await _runAction(
       action: 'repay-${item.id}',
       successMessage: '还款已记录',
+      supersededAttachmentRetryRecordId: item.id,
       request: () => ref
           .read(lendingRepositoryProvider)
           .recordRepayment(item.id, request)
@@ -237,32 +298,86 @@ class _LendingPageState extends ConsumerState<LendingPage> {
     );
   }
 
-  Future<List<LedgerAttachment>> _uploadPendingAttachments(
-    List<PendingAttachmentFile> files,
-    String refId,
-  ) async {
-    if (files.isEmpty) {
-      return const [];
+  Future<void> _completeLendingAttachmentEdit({
+    required LendingRepository repository,
+    required String refId,
+    required List<String> originalPaths,
+    required List<LedgerAttachment> retainedAttachments,
+    required List<PendingAttachmentFile> pendingFiles,
+    required bool attachmentsSynced,
+    Future<void> Function()? retrySync,
+  }) async {
+    const failureMessage = '借贷记录已更新，但部分附件尚未处理。请点击“重试附件”，无需重复保存记录。';
+    if (!attachmentsSynced) {
+      try {
+        if (retrySync != null) {
+          await retrySync();
+        } else {
+          await syncPendingAttachments(
+            repository: ref.read(attachmentRepositoryProvider),
+            category: 'lendings',
+            refId: refId,
+            retainedAttachments: retainedAttachments,
+            pendingFiles: pendingFiles,
+            persistAttachments: (attachments) => repository.updateAttachments(
+              refId,
+              _encodeAttachmentEvidence(attachments),
+            ),
+            failureMessage: failureMessage,
+          );
+        }
+      } on AttachmentAfterSaveException catch (error) {
+        throw AttachmentAfterSaveException(
+          failureMessage,
+          recordId: refId,
+          retry: error.retry == null
+              ? null
+              : () => _completeLendingAttachmentEdit(
+                  repository: repository,
+                  refId: refId,
+                  originalPaths: originalPaths,
+                  retainedAttachments: retainedAttachments,
+                  pendingFiles: pendingFiles,
+                  attachmentsSynced: false,
+                  retrySync: error.retry,
+                ),
+        );
+      }
     }
-    final repository = ref.read(attachmentRepositoryProvider);
-    final uploadedAttachments = <LedgerAttachment>[];
-    for (final file in files) {
-      uploadedAttachments.add(
-        await repository.upload(file: file, category: 'lendings', refId: refId),
+
+    try {
+      await _deleteRemovedAttachments(
+        originalPaths: originalPaths,
+        retainedAttachments: retainedAttachments,
+      );
+    } catch (_) {
+      throw AttachmentAfterSaveException(
+        failureMessage,
+        recordId: refId,
+        retry: () => _completeLendingAttachmentEdit(
+          repository: repository,
+          refId: refId,
+          originalPaths: originalPaths,
+          retainedAttachments: retainedAttachments,
+          pendingFiles: const [],
+          attachmentsSynced: true,
+        ),
       );
     }
-    return uploadedAttachments;
   }
 
   Future<void> _deleteRemovedAttachments({
     required Iterable<String> originalPaths,
     required Iterable<LedgerAttachment> retainedAttachments,
   }) async {
-    await deleteRemovedAttachments(
+    final failedPaths = await deleteRemovedAttachments(
       repository: ref.read(attachmentRepositoryProvider),
       originalPaths: originalPaths,
       retainedPaths: retainedAttachments.map((item) => item.path),
     );
+    if (failedPaths.isNotEmpty) {
+      throw StateError('failed to delete ${failedPaths.length} attachments');
+    }
   }
 
   Future<void> _deleteLending(LendingItem item) async {
@@ -276,10 +391,14 @@ class _LendingPageState extends ConsumerState<LendingPage> {
     if (!confirmed || !mounted) {
       return;
     }
+    if (!await _confirmDiscardRetryForMutation(item.id) || !mounted) {
+      return;
+    }
 
     await _runAction(
       action: 'delete-${item.id}',
       successMessage: '借贷记录已删除',
+      supersededAttachmentRetryRecordId: item.id,
       request: () => ref.read(lendingRepositoryProvider).delete(item.id),
     );
   }
@@ -288,10 +407,18 @@ class _LendingPageState extends ConsumerState<LendingPage> {
     required String action,
     required String successMessage,
     required Future<void> Function() request,
+    bool isAttachmentRetry = false,
+    String? supersededAttachmentRetryRecordId,
   }) async {
     setState(() {
+      if (_attachmentRetryRecordId != null &&
+          _attachmentRetryRecordId == supersededAttachmentRetryRecordId) {
+        _clearAttachmentRetryState();
+      }
       _busyAction = action;
-      _errorMessage = null;
+      if (_attachmentRetry == null || isAttachmentRetry) {
+        _errorMessage = null;
+      }
     });
 
     try {
@@ -301,6 +428,16 @@ class _LendingPageState extends ConsumerState<LendingPage> {
       }
       ref.invalidate(lendingDashboardProvider);
       ref.invalidateLedgerMutationViews();
+      if (isAttachmentRetry ||
+          (_attachmentRetryRecordId != null &&
+              _attachmentRetryRecordId == supersededAttachmentRetryRecordId)) {
+        setState(() {
+          _errorMessage = null;
+          _attachmentRetry = null;
+          _attachmentRetryRecordId = null;
+          _allowAttachmentRetryDismissal = false;
+        });
+      }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(successMessage)));
@@ -308,7 +445,114 @@ class _LendingPageState extends ConsumerState<LendingPage> {
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = '借贷记录保存失败');
+      if (error is AttachmentAfterSaveException) {
+        ref.invalidate(lendingDashboardProvider);
+        ref.invalidateLedgerMutationViews();
+        setState(() {
+          _errorMessage = error.message;
+          _attachmentRetry = error.retry;
+          _attachmentRetryRecordId = error.recordId;
+          _allowAttachmentRetryDismissal = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      } else {
+        setState(() => _errorMessage = '借贷记录保存失败');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busyAction = null);
+      }
+    }
+  }
+
+  Future<void> _retryAttachments() async {
+    final retry = _attachmentRetry;
+    if (retry == null) {
+      return;
+    }
+    await _runAction(
+      action: 'attachment-retry',
+      successMessage: '借贷附件已处理完成',
+      request: retry,
+      isAttachmentRetry: true,
+    );
+  }
+
+  bool _hasAttachmentRetryFor(String recordId) {
+    return _attachmentRetry != null && _attachmentRetryRecordId == recordId;
+  }
+
+  void _clearAttachmentRetryState() {
+    _attachmentRetry = null;
+    _attachmentRetryRecordId = null;
+    _allowAttachmentRetryDismissal = false;
+    _errorMessage = null;
+  }
+
+  Future<bool> _confirmDiscardRetryForMutation(String recordId) async {
+    if (!_hasAttachmentRetryFor(recordId)) {
+      return true;
+    }
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '先处理附件重试',
+      message: '这条借贷记录还有未完成的附件重试。返回可先完成重试；继续将明确放弃旧重试，再执行当前操作。',
+      cancelText: '返回重试',
+      confirmText: '放弃并继续',
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) {
+      return false;
+    }
+    setState(_clearAttachmentRetryState);
+    return true;
+  }
+
+  Future<({LendingItem item, List<Account> accounts})?>
+  _prepareRetryRecordForEdit(String recordId) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '先处理附件重试',
+      message: '这条借贷记录还有未完成的附件重试。返回可先完成重试；继续将明确放弃旧重试，并在刷新后编辑服务端最新记录。',
+      cancelText: '返回重试',
+      confirmText: '放弃并编辑',
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) {
+      return null;
+    }
+
+    setState(() => _busyAction = 'refresh-edit-$recordId');
+    try {
+      final dashboard = await ref.refresh(lendingDashboardProvider.future);
+      if (!mounted) {
+        return null;
+      }
+      LendingItem? latestItem;
+      for (final candidate in dashboard.lendings) {
+        if (candidate.id == recordId) {
+          latestItem = candidate;
+          break;
+        }
+      }
+      if (latestItem == null) {
+        setState(_clearAttachmentRetryState);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('借贷记录已不存在，旧附件重试已取消')));
+        return null;
+      }
+      setState(_clearAttachmentRetryState);
+      return (item: latestItem, accounts: dashboard.accounts);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('刷新最新借贷记录失败，已保留附件重试')));
+      }
+      return null;
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -527,6 +771,7 @@ class _LendingBody extends StatelessWidget {
     required this.tab,
     required this.busyAction,
     required this.errorMessage,
+    required this.onRetryAttachments,
     required this.onTabChanged,
     required this.onEdit,
     required this.onDelete,
@@ -538,6 +783,7 @@ class _LendingBody extends StatelessWidget {
   final _LendingTab tab;
   final String? busyAction;
   final String? errorMessage;
+  final VoidCallback? onRetryAttachments;
   final ValueChanged<_LendingTab>? onTabChanged;
   final ValueChanged<LendingItem> onEdit;
   final ValueChanged<LendingItem> onDelete;
@@ -564,7 +810,10 @@ class _LendingBody extends StatelessWidget {
         return switch (row.kind) {
           _LendingRowKind.error => Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _ErrorBanner(message: errorMessage!),
+            child: _ErrorBanner(
+              message: errorMessage!,
+              onRetry: onRetryAttachments,
+            ),
           ),
           _LendingRowKind.summary => _SummarySection(
             summary: dashboard.summary,
@@ -1606,36 +1855,6 @@ String _encodeAttachmentEvidence(List<LedgerAttachment> attachments) {
   return encodeAttachmentPaths(attachments.map((item) => item.path).toList());
 }
 
-UpdateLendingRequest _copyUpdateRequest(
-  UpdateLendingRequest request, {
-  required String evidence,
-}) {
-  return UpdateLendingRequest(
-    contactName: request.contactName,
-    contactPhone: request.contactPhone,
-    contactRemark: request.contactRemark,
-    interestRate: request.interestRate,
-    dueDate: request.dueDate,
-    remark: request.remark,
-    evidence: evidence,
-  );
-}
-
-UpdateLendingRequest _updateRequestFromCreate(
-  CreateLendingRequest request, {
-  required String evidence,
-}) {
-  return UpdateLendingRequest(
-    contactName: request.contactName,
-    contactPhone: request.contactPhone,
-    contactRemark: request.contactRemark,
-    interestRate: request.interestRate,
-    dueDate: request.dueDate,
-    remark: request.remark,
-    evidence: evidence,
-  );
-}
-
 class _RepaymentDialog extends StatefulWidget {
   const _RepaymentDialog({required this.item, required this.accounts});
 
@@ -1797,9 +2016,10 @@ class _RepaymentDialogState extends State<_RepaymentDialog> {
 }
 
 class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
+  const _ErrorBanner({required this.message, this.onRetry});
 
   final String message;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -1821,6 +2041,14 @@ class _ErrorBanner extends StatelessWidget {
                 style: TextStyle(color: colorScheme.onErrorContainer),
               ),
             ),
+            if (onRetry != null) ...[
+              const SizedBox(width: 8),
+              TextButton(
+                key: const ValueKey('lending-attachment-retry'),
+                onPressed: onRetry,
+                child: const Text('重试附件'),
+              ),
+            ],
           ],
         ),
       ),

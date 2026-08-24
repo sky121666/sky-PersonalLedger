@@ -75,6 +75,14 @@ class ReminderRepository {
     );
   }
 
+  Future<ReminderItem?> updateAttachments(String id, String evidence) {
+    return _apiClient.patch<ReminderItem>(
+      '/reminders/$id',
+      data: {'evidence': evidence},
+      fromJsonT: ReminderItem.fromJson,
+    );
+  }
+
   Future<void> deleteReminder(String id) async {
     await _apiClient.delete<void>('/reminders/$id');
   }

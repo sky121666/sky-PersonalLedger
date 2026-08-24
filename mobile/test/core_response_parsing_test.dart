@@ -179,6 +179,24 @@ void main() {
         service.normalizeServerUrl('http://192.168.1.10:8080'),
         'http://192.168.1.10:8080',
       );
+      expect(
+        ServerConfigService.requiresInsecureLocalHttpConfirmation(
+          'http://192.168.1.10:8080',
+        ),
+        isTrue,
+      );
+      expect(
+        ServerConfigService.requiresInsecureLocalHttpConfirmation(
+          'https://192.168.1.10:8443',
+        ),
+        isFalse,
+      );
+      expect(
+        ServerConfigService.requiresInsecureLocalHttpConfirmation(
+          'http://ledger.example.com',
+        ),
+        isFalse,
+      );
     });
 
     test('AuthTokenPair 解析 token 并校验完整性', () {

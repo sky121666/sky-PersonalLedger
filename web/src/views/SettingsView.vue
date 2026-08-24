@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { AxiosResponse } from 'axios'
 import { useAuthStore } from '@/stores/auth'
@@ -27,11 +27,15 @@ import {
 } from '@/api/import'
 import { get, post, put } from '@/utils/request'
 import dayjs from 'dayjs'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 
 const router = useRouter()
 const appVersion = packageMetadata.version
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+const ledgerMutationRevision = useLedgerMutationRevision()
+const userStatsRequests = createRequestGeneration()
 
 // User stats
 const userStats = ref({
@@ -54,15 +58,27 @@ const services = [
   { icon: FileText, label: '年度报告', route: 'report', color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' }
 ]
 
-onMounted(async () => {
+async function loadUserStats() {
+  const requestGeneration = userStatsRequests.begin()
   try {
-    const [overview, accounts, profile] = await Promise.all([
+    const [overview, accounts] = await Promise.all([
       statisticsApi.getOverview(),
-      accountApi.getList(),
-      authApi.getProfile()
+      accountApi.getList()
     ])
+    if (!userStatsRequests.isLatest(requestGeneration)) return
     userStats.value.totalTransactions = overview.transaction_count || 0
     userStats.value.accountCount = accounts.list?.length || 0
+  } catch (e) {
+    if (userStatsRequests.isLatest(requestGeneration)) {
+      console.error('Load user stats failed:', e)
+    }
+  }
+}
+
+onMounted(async () => {
+  void loadUserStats()
+  try {
+    const profile = await authApi.getProfile()
     profileForm.value = {
       nickname: profile.nickname || '',
       email: profile.email || '',
@@ -70,9 +86,11 @@ onMounted(async () => {
       bio: profile.bio || ''
     }
   } catch (e) {
-    console.error('Load user stats failed:', e)
+    console.error('Load user profile failed:', e)
   }
 })
+
+watch(ledgerMutationRevision, () => void loadUserStats())
 
 function navigateTo(name: string) {
   router.push({ name })
@@ -87,6 +105,57 @@ const showTransactionImportModal = ref(false)
 const showSecurityModal = ref(false)
 const showProfileModal = ref(false)
 const showAutoBackupModal = ref(false)
+const logoutDialog = ref<HTMLElement | null>(null)
+let logoutReturnFocus: HTMLElement | null = null
+
+async function openLogoutModal() {
+  logoutReturnFocus = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null
+  showLogoutModal.value = true
+  await nextTick()
+  logoutDialog.value
+    ?.querySelector<HTMLElement>('[data-logout-cancel]')
+    ?.focus()
+}
+
+async function closeLogoutModal() {
+  const returnFocus = logoutReturnFocus
+  logoutReturnFocus = null
+  showLogoutModal.value = false
+  await nextTick()
+  returnFocus?.focus()
+}
+
+function handleLogoutDialogKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    void closeLogoutModal()
+    return
+  }
+  if (event.key !== 'Tab' || !logoutDialog.value) return
+
+  const focusable = Array.from(
+    logoutDialog.value.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  )
+  if (focusable.length === 0) {
+    event.preventDefault()
+    logoutDialog.value.focus()
+    return
+  }
+
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
 
 // Auto backup form
 const autoBackupForm = ref({
@@ -245,6 +314,7 @@ const menuGroups = [
 ]
 
 async function handleLogout() {
+  logoutReturnFocus = null
   showLogoutModal.value = false
   try {
     await authStore.logout()
@@ -466,9 +536,7 @@ async function openNotificationModal() {
   try {
     const settings = await notificationApi.getSettings()
     Object.assign(notificationForm.value, settings)
-    notificationForm.value.dingtalk_secret = ''
-    notificationForm.value.smtp_password = ''
-    notificationForm.value.webhook_secret = ''
+    clearNotificationCredentialInputs()
   } catch (e) {
     console.error('Load notification settings failed:', e)
   } finally {
@@ -476,9 +544,12 @@ async function openNotificationModal() {
   }
 }
 
-function clearNotificationSecrets() {
+function clearNotificationCredentialInputs() {
+  notificationForm.value.wecom_webhook = ''
+  notificationForm.value.dingtalk_webhook = ''
   notificationForm.value.dingtalk_secret = ''
   notificationForm.value.smtp_password = ''
+  notificationForm.value.webhook_url = ''
   notificationForm.value.webhook_secret = ''
 }
 
@@ -502,7 +573,7 @@ async function saveNotificationSettings() {
   notificationLoading.value = true
   try {
     await notificationApi.updateSettings(buildNotificationUpdateParams())
-    clearNotificationSecrets()
+    clearNotificationCredentialInputs()
     toast.success('保存成功')
     showNotificationModal.value = false
   } catch (e: any) {
@@ -518,17 +589,9 @@ async function testNotification(channel: string) {
     let result
     switch (channel) {
       case 'wecom':
-        if (!notificationForm.value.wecom_webhook) {
-          toast.warning('请填写企业微信Webhook地址')
-          return
-        }
         result = await notificationApi.testWecom(notificationForm.value.wecom_webhook)
         break
       case 'dingtalk':
-        if (!notificationForm.value.dingtalk_webhook) {
-          toast.warning('请填写钉钉Webhook地址')
-          return
-        }
         result = await notificationApi.testDingtalk(notificationForm.value.dingtalk_webhook, notificationForm.value.dingtalk_secret)
         break
       case 'email':
@@ -545,10 +608,6 @@ async function testNotification(channel: string) {
         })
         break
       case 'webhook':
-        if (!notificationForm.value.webhook_url) {
-          toast.warning('请填写Webhook地址')
-          return
-        }
         result = await notificationApi.testWebhook(notificationForm.value.webhook_url, notificationForm.value.webhook_secret)
         break
     }
@@ -877,8 +936,10 @@ function formatFileSize(bytes: number) {
             </div>
           </button>
           <button 
+            type="button"
+            aria-label="退出登录"
             class="p-2.5 bg-gray-100/50 dark:bg-white/5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded-full transition-all"
-            @click="showLogoutModal = true"
+            @click="openLogoutModal"
           >
              <LogOut :size="20" />
           </button>
@@ -967,17 +1028,26 @@ function formatFileSize(bytes: number) {
     <!-- Logout Confirm Modal -->
     <Teleport to="body">
       <div v-if="showLogoutModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showLogoutModal = false"></div>
-        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[20px] p-6 w-[280px] shadow-2xl animate-in zoom-in-95 duration-200 text-center">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" @click="closeLogoutModal"></div>
+        <div
+          ref="logoutDialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-dialog-title"
+          tabindex="-1"
+          class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[20px] p-6 w-[280px] shadow-2xl animate-in zoom-in-95 duration-200 text-center"
+          @keydown="handleLogoutDialogKeydown"
+        >
           <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 mx-auto text-red-500">
             <LogOut :size="24" />
           </div>
-          <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">确认退出</h3>
+          <h3 id="logout-dialog-title" class="text-lg font-bold text-gray-900 dark:text-white mb-2">确认退出</h3>
           <p class="text-[13px] text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">确定要退出登录吗？下次登录需要重新输入密码。</p>
           <div class="flex gap-3 justify-center border-t border-gray-200/50 dark:border-white/10 pt-4 -mx-6 -mb-2">
             <button
+              data-logout-cancel
               class="flex-1 py-2 text-[17px] text-blue-500 font-medium active:opacity-70 transition"
-              @click="showLogoutModal = false"
+              @click="closeLogoutModal"
             >
               取消
             </button>
@@ -1366,6 +1436,10 @@ function formatFileSize(bytes: number) {
               </button>
             </div>
 
+            <p v-if="activeNotifyTab !== 'email'" class="text-xs leading-5 text-gray-500 dark:text-gray-400">
+              已保存的地址不会回显；留空保存会保留原配置，留空试发会安全复用已保存地址。
+            </p>
+
             <!-- WeCom Config -->
             <div v-if="activeNotifyTab === 'wecom'" class="space-y-4">
               <div class="flex items-center justify-between">
@@ -1405,7 +1479,8 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">加签密钥（可选）</label>
-                <input v-model="notificationForm.dingtalk_secret" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input v-model="notificationForm.dingtalk_secret" type="password" autocomplete="new-password" placeholder="地址留空或不变时，留空保留已存密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">更换 Webhook 地址时，密钥留空会清除旧密钥。</p>
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'dingtalk'" @click="testNotification('dingtalk')">
                 {{ testingChannel === 'dingtalk' ? '测试中...' : '发送测试消息' }}
@@ -1470,7 +1545,8 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">密钥（可选）</label>
-                <input v-model="notificationForm.webhook_secret" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input v-model="notificationForm.webhook_secret" type="password" autocomplete="new-password" placeholder="地址留空或不变时，留空保留已存密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">更换 Webhook 地址时，密钥留空会清除旧密钥。</p>
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'webhook'" @click="testNotification('webhook')">
                 {{ testingChannel === 'webhook' ? '测试中...' : '发送测试请求' }}

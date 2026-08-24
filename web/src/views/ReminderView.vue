@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronLeft, Plus, Trash2, Edit2, X, Bell, BellOff, Calendar, CreditCard, Home, Car, Wallet, Target, Banknote, Paperclip } from 'lucide-vue-next'
 import FileUpload from '@/components/FileUpload.vue'
@@ -7,6 +7,8 @@ import { reminderApi, type Reminder, type CreateReminderParams, type DebtSummary
 import { accountApi, type Account, isDebtAccount } from '@/api/account'
 import { toast } from '@/composables/useToast'
 import { deleteRemovedAttachments } from '@/utils/attachmentCleanup'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 
 const router = useRouter()
 
@@ -14,6 +16,8 @@ const reminders = ref<Reminder[]>([])
 const accounts = ref<Account[]>([])
 const debtSummary = ref<DebtSummary | null>(null)
 const loading = ref(false)
+const ledgerMutationRevision = useLedgerMutationRevision()
+const dataRequests = createRequestGeneration()
 
 const loanTypes: { value: LoanType; label: string; icon: any; color: string }[] = [
   { value: 'credit_card', label: '信用卡', icon: CreditCard, color: '#3B82F6' },
@@ -67,7 +71,10 @@ onMounted(() => {
   loadData()
 })
 
+watch(ledgerMutationRevision, () => void loadData())
+
 async function loadData() {
+  const requestGeneration = dataRequests.begin()
   loading.value = true
   try {
     const [reminderList, accountData, summary] = await Promise.all([
@@ -75,13 +82,18 @@ async function loadData() {
       accountApi.getList(),
       reminderApi.getDebtSummary()
     ])
+    if (!dataRequests.isLatest(requestGeneration)) return
     reminders.value = reminderList
     accounts.value = accountData.list
     debtSummary.value = summary
   } catch (e: any) {
-    toast.error('加载数据失败')
+    if (dataRequests.isLatest(requestGeneration)) {
+      toast.error('加载数据失败')
+    }
   } finally {
-    loading.value = false
+    if (dataRequests.isLatest(requestGeneration)) {
+      loading.value = false
+    }
   }
 }
 

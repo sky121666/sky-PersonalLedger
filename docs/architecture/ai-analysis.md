@@ -19,13 +19,19 @@ AI analysis must be disabled by default. Financial data is sensitive, so the bac
 | `name` | string | Display name, e.g. DeepSeek |
 | `provider_type` | string | First value: `openai_compatible` |
 | `base_url` | string | Base URL, e.g. `https://api.deepseek.com` |
-| `api_key_ciphertext` | string | AES-GCM protected value when `LEDGER_JWT_SECRET` is configured; never return raw key |
+| `api_key_ciphertext` | string | AES-GCM protected value using the credential encryption key; never return raw key |
 | `model` | string | e.g. `deepseek-v4-flash` |
 | `enabled` | bool | Main switch |
 | `created_at` | time | GORM timestamp |
 | `updated_at` | time | GORM timestamp |
 
-The API key must not be logged, exported in diagnostics, returned in API responses, or included in backup files unless an explicit encrypted backup strategy is added later. Runtime storage protects new keys with AES-GCM using a key derived from `LEDGER_JWT_SECRET`; legacy plain values remain readable for backward compatibility and should be rotated by saving the provider again after upgrading.
+The API key must not be logged, exported in diagnostics, returned in API responses, or included in
+backup files. Runtime storage uses `LEDGER_CREDENTIAL_ENCRYPTION_KEY` when configured, so credential
+encryption can rotate independently from JWT signing. Existing deployments may temporarily read
+legacy ciphertext with the current JWT key and
+`LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY`; startup transactionally re-encrypts notification and
+AI credentials with the primary key. Configure the primary key first, verify migration, then rotate
+JWT. The previous key is a temporary migration fallback and must be removed after success.
 
 Provider setup exposes non-secret OpenAI-compatible presets for DeepSeek, OpenAI, SiliconFlow, and custom gateways. Presets only fill display name, base URL, provider type, and model choices. Users must still provide their own API key, and no preset performs an external request until the user saves and tests a provider.
 

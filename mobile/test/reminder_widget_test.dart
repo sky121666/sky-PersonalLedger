@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -260,6 +262,205 @@ void main() {
       ]);
     });
 
+    testWidgets('编辑提醒无待上传文件且旧凭证清理失败时保留已保存状态', (tester) async {
+      final repository = _FakeReminderRepository();
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..failDeletes = true;
+      await _pumpPage(
+        tester,
+        repository,
+        attachmentRepository: attachmentRepository,
+      );
+      final initialListCalls = repository.listCalls;
+
+      await _openReminderAction(tester, 'edit');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('reminder-more-details')));
+      await tester.pumpAndSettle();
+      final removeButton = find.byKey(
+        const ValueKey('attachment-remove-contract.pdf'),
+      );
+      await tester.ensureVisible(removeButton);
+      await tester.tap(removeButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(attachmentRepository.uploadCalls, isEmpty);
+      expect(attachmentRepository.deleteCalls, [
+        '1/reminders/reminder-1/contract.pdf',
+      ]);
+      expect(find.textContaining('负债提醒已更新，但部分附件尚未处理'), findsWidgets);
+      expect(find.text('负债提醒保存失败'), findsNothing);
+      expect(repository.listCalls, greaterThan(initialListCalls));
+      expect(
+        find.byKey(const ValueKey('reminder-attachment-retry')),
+        findsOneWidget,
+      );
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('放弃附件重试？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, '继续重试'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('reminder-attachment-retry')),
+        findsOneWidget,
+      );
+
+      attachmentRepository.failDeletes = false;
+      await tester.tap(find.byKey(const ValueKey('reminder-attachment-retry')));
+      await tester.pumpAndSettle();
+
+      expect(attachmentRepository.deleteCalls, [
+        '1/reminders/reminder-1/contract.pdf',
+        '1/reminders/reminder-1/contract.pdf',
+      ]);
+      expect(
+        find.byKey(const ValueKey('reminder-attachment-retry')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('附件失败后再次编辑成功会清理旧重试且不覆盖新字段', (tester) async {
+      final repository = _FakeReminderRepository();
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..uploadFailuresRemaining = 1;
+      await _pumpPage(
+        tester,
+        repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: const _FakeAttachmentPickerService(
+          files: [
+            PendingAttachmentFile(path: '/tmp/retry.pdf', name: 'retry.pdf'),
+          ],
+        ),
+      );
+
+      await _openReminderAction(tester, 'edit');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('reminder-more-details')));
+      await tester.pumpAndSettle();
+      final addAttachmentButton = find.byKey(
+        const ValueKey('attachment-add-button'),
+        skipOffstage: false,
+      );
+      await tester.ensureVisible(addAttachmentButton);
+      await tester.tap(addAttachmentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('reminder-attachment-retry')),
+        findsOneWidget,
+      );
+      expect(repository.updateCalls, hasLength(1));
+      expect(repository.attachmentUpdateCalls, hasLength(1));
+
+      await _openReminderAction(tester, 'edit');
+      await tester.pumpAndSettle();
+      expect(find.text('先处理附件重试'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '放弃并编辑'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, '房贷最新');
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(2));
+      expect(repository.updateCalls.last.request.name, '房贷最新');
+      expect(repository.attachmentUpdateCalls, hasLength(1));
+      expect(
+        find.byKey(const ValueKey('reminder-attachment-retry')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('附件元数据已提交但响应丢失后编辑使用最新凭证', (tester) async {
+      final repository = _FakeReminderRepository()
+        ..attachmentUpdateErrorsAfterCommit = 1;
+      final attachmentRepository = _FakeAttachmentRepository();
+      await _pumpPage(
+        tester,
+        repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: const _FakeAttachmentPickerService(
+          files: [PendingAttachmentFile(path: '/tmp/new.pdf', name: 'new.pdf')],
+        ),
+      );
+
+      await _openReminderAction(tester, 'edit');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('reminder-more-details')));
+      await tester.pumpAndSettle();
+      final addAttachmentButton = find.byKey(
+        const ValueKey('attachment-add-button'),
+        skipOffstage: false,
+      );
+      await tester.ensureVisible(addAttachmentButton);
+      await tester.tap(addAttachmentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('reminder-attachment-retry')),
+        findsOneWidget,
+      );
+      expect(
+        repository.reminders.single.evidence,
+        contains('reminders/reminder-1/new.pdf'),
+      );
+
+      await _openReminderAction(tester, 'edit');
+      await tester.pumpAndSettle();
+      expect(find.text('先处理附件重试'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '放弃并编辑'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('reminder-more-details')));
+      await tester.pumpAndSettle();
+      expect(find.text('new.pdf'), findsOneWidget);
+      await tester.enterText(find.byType(TextFormField).first, '房贷核心字段最新');
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(2));
+      expect(
+        repository.updateCalls.last.request.evidence,
+        contains('reminders/reminder-1/new.pdf'),
+      );
+      expect(repository.reminders.single.evidence, contains('new.pdf'));
+      expect(
+        find.byKey(const ValueKey('reminder-attachment-retry')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('保存进行中拦截返回操作', (tester) async {
+      final repository = _FakeReminderRepository()
+        ..updateGate = Completer<void>();
+      await _pumpPage(tester, repository);
+
+      await _openReminderAction(tester, 'edit');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存提醒'));
+      await tester.pump();
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(find.text('提醒操作正在处理中，请稍候'), findsOneWidget);
+
+      repository.updateGate!.complete();
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('编辑提醒时上传新凭证并回写路径', (tester) async {
       final repository = _FakeReminderRepository();
       final attachmentRepository = _FakeAttachmentRepository();
@@ -297,9 +498,10 @@ void main() {
       expect(attachmentRepository.uploadCalls, hasLength(1));
       expect(attachmentRepository.uploadCalls.single.category, 'reminders');
       expect(attachmentRepository.uploadCalls.single.refId, 'reminder-1');
-      expect(repository.updateCalls, hasLength(2));
+      expect(repository.updateCalls, hasLength(1));
+      expect(repository.attachmentUpdateCalls, hasLength(1));
       expect(
-        repository.updateCalls.last.request.evidence,
+        repository.attachmentUpdateCalls.last.$2,
         '["1/reminders/reminder-1/contract.pdf","reminders/reminder-1/new.pdf"]',
       );
     });
@@ -455,10 +657,13 @@ class _FakeReminderRepository implements ReminderRepository {
   final List<_PaymentCall> paymentCalls = [];
   final List<ReminderFormRequest> createCalls = [];
   final List<_UpdateCall> updateCalls = [];
+  final List<(String, String)> attachmentUpdateCalls = [];
   var listCalls = 0;
   var listErrors = 0;
   String? toggleError;
   String? paymentError;
+  Completer<void>? updateGate;
+  var attachmentUpdateErrorsAfterCommit = 0;
 
   @override
   Future<ReminderItem?> createReminder(ReminderFormRequest request) async {
@@ -538,8 +743,40 @@ class _FakeReminderRepository implements ReminderRepository {
     ReminderFormRequest request,
   ) async {
     updateCalls.add(_UpdateCall(id: id, request: request));
-    final updated = _activeReminder(id: id, name: request.name);
+    final gate = updateGate;
+    if (gate != null) {
+      await gate.future;
+    }
+    final updated = _activeReminder(
+      id: id,
+      name: request.name,
+      paymentDay: request.paymentDay,
+      principal: request.principal,
+      currentBalance: request.currentBalance,
+      evidence: request.evidence,
+    );
     reminders = [updated];
+    return updated;
+  }
+
+  @override
+  Future<ReminderItem?> updateAttachments(String id, String evidence) async {
+    attachmentUpdateCalls.add((id, evidence));
+    final old = reminders.firstWhere((item) => item.id == id);
+    final updated = _activeReminder(
+      id: old.id,
+      name: old.name,
+      paymentDay: old.paymentDay,
+      principal: old.principal,
+      currentBalance: old.currentBalance,
+      isEnabled: old.isEnabled,
+      evidence: evidence,
+    );
+    reminders = [updated];
+    if (attachmentUpdateErrorsAfterCommit > 0) {
+      attachmentUpdateErrorsAfterCommit -= 1;
+      throw StateError('attachment metadata response lost after commit');
+    }
     return updated;
   }
 }
@@ -605,6 +842,7 @@ ReminderItem _activeReminder({
   double? principal = 120000,
   double? currentBalance = 80000,
   bool isEnabled = true,
+  String evidence = '["1/reminders/reminder-1/contract.pdf"]',
 }) {
   return ReminderItem(
     id: id,
@@ -627,7 +865,7 @@ ReminderItem _activeReminder({
     paidOffAt: null,
     color: '#3B82F6',
     remark: '',
-    evidence: '["1/reminders/reminder-1/contract.pdf"]',
+    evidence: evidence,
     isEnabled: isEnabled,
   );
 }
@@ -661,6 +899,9 @@ class _FakeAttachmentPickerService implements AttachmentPickerService {
   final List<PendingAttachmentFile> files;
 
   @override
+  bool supportsCamera() => true;
+
+  @override
   Future<PendingAttachmentFile?> pickImageFromCamera() async {
     return files.isEmpty ? null : files.first;
   }
@@ -679,10 +920,15 @@ class _FakeAttachmentPickerService implements AttachmentPickerService {
 class _FakeAttachmentRepository implements AttachmentRepository {
   final List<_UploadCall> uploadCalls = [];
   final List<String> deleteCalls = [];
+  var failDeletes = false;
+  var uploadFailuresRemaining = 0;
 
   @override
   Future<void> delete(String path) async {
     deleteCalls.add(path);
+    if (failDeletes) {
+      throw StateError('delete failed');
+    }
   }
 
   @override
@@ -706,6 +952,10 @@ class _FakeAttachmentRepository implements AttachmentRepository {
     void Function(int sent, int total)? onSendProgress,
   }) async {
     uploadCalls.add(_UploadCall(file: file, category: category, refId: refId));
+    if (uploadFailuresRemaining > 0) {
+      uploadFailuresRemaining -= 1;
+      throw StateError('upload failed');
+    }
     onSendProgress?.call(1, 1);
     return LedgerAttachment(
       path: '$category/$refId/${file.name}',

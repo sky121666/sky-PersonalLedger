@@ -123,6 +123,7 @@ class AttachmentPickerField extends ConsumerWidget {
     if (remainingSlots <= 0) {
       return;
     }
+    final cameraSupported = picker.supportsCamera();
 
     final selectedFiles =
         await showModalBottomSheet<List<PendingAttachmentFile>>(
@@ -154,18 +155,19 @@ class AttachmentPickerField extends ConsumerWidget {
                       }
                     },
                   ),
-                  _AttachmentPickOption(
-                    icon: Icons.photo_camera_outlined,
-                    title: '拍照',
-                    onTap: () async {
-                      final file = await picker.pickImageFromCamera();
-                      if (context.mounted) {
-                        Navigator.of(
-                          context,
-                        ).pop(file == null ? const [] : [file]);
-                      }
-                    },
-                  ),
+                  if (cameraSupported)
+                    _AttachmentPickOption(
+                      icon: Icons.photo_camera_outlined,
+                      title: '拍照',
+                      onTap: () async {
+                        final file = await picker.pickImageFromCamera();
+                        if (context.mounted) {
+                          Navigator.of(
+                            context,
+                          ).pop(file == null ? const [] : [file]);
+                        }
+                      },
+                    ),
                   _AttachmentPickOption(
                     icon: Icons.folder_outlined,
                     title: '选择文件',

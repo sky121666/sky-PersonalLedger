@@ -24,18 +24,26 @@ const notificationTestEncryptionSecret = "notification-test-jwt-secret-with-at-l
 
 func TestNotificationSettingJSONDoesNotExposeSecrets(t *testing.T) {
 	payload, err := json.Marshal(model.NotificationSetting{
-		DingtalkSecret: "dingtalk-secret",
-		WebhookSecret:  "webhook-secret",
-		SmtpPassword:   "smtp-secret",
+		WecomWebhook:    "https://example.com/wecom?key=wecom-token",
+		DingtalkWebhook: "https://example.com/dingtalk?access_token=dingtalk-token",
+		DingtalkSecret:  "dingtalk-secret",
+		WebhookURL:      "https://example.com/custom?token=webhook-token",
+		WebhookSecret:   "webhook-secret",
+		SmtpPassword:    "smtp-secret",
 	})
 	if err != nil {
 		t.Fatalf("marshal notification setting: %v", err)
 	}
 
 	body := string(payload)
-	for _, secret := range []string{"dingtalk-secret", "webhook-secret", "smtp-secret"} {
+	for _, secret := range []string{"wecom-token", "dingtalk-token", "dingtalk-secret", "webhook-token", "webhook-secret", "smtp-secret"} {
 		if strings.Contains(body, secret) {
 			t.Fatalf("notification JSON leaked %q: %s", secret, body)
+		}
+	}
+	for _, field := range []string{"wecom_webhook", "dingtalk_webhook", "webhook_url"} {
+		if strings.Contains(body, field) {
+			t.Fatalf("notification JSON exposed credential field %q: %s", field, body)
 		}
 	}
 }
@@ -52,11 +60,21 @@ func TestNotificationUpdateDoesNotWritePlaintextCredentialsToSQLLogs(t *testing.
 	)})
 	repos := repository.NewRepositories(loggedDB)
 	svc := NewNotificationService(repos.Notification, repos.User, notificationTestEncryptionSecret)
-	plainTexts := []string{"log-dingtalk-secret", "log-smtp-password", "log-webhook-secret"}
+	plainTexts := []string{
+		"log-wecom-token",
+		"log-dingtalk-token",
+		"log-custom-webhook-token",
+		"log-dingtalk-secret",
+		"log-smtp-password",
+		"log-webhook-secret",
+	}
 	if _, err := svc.Update(1, NotificationSettingRequest{
-		DingtalkSecret: plainTexts[0],
-		SmtpPassword:   plainTexts[1],
-		WebhookSecret:  plainTexts[2],
+		WecomWebhook:    "https://example.com/wecom?key=" + plainTexts[0],
+		DingtalkWebhook: "https://example.com/dingtalk?access_token=" + plainTexts[1],
+		WebhookURL:      "https://example.com/custom?token=" + plainTexts[2],
+		DingtalkSecret:  plainTexts[3],
+		SmtpPassword:    plainTexts[4],
+		WebhookSecret:   plainTexts[5],
 	}); err != nil {
 		t.Fatalf("update notification credentials: %v", err)
 	}
@@ -72,10 +90,13 @@ func TestNotificationUpdatePreservesStoredSecretsWhenRequestOmitsThem(t *testing
 	const userID uint = 1
 
 	if _, err := svc.Update(userID, NotificationSettingRequest{
-		Enabled:        true,
-		DingtalkSecret: "dingtalk-secret",
-		SmtpPassword:   "smtp-secret",
-		WebhookSecret:  "webhook-secret",
+		Enabled:         true,
+		WecomWebhook:    "https://example.com/wecom?key=wecom-token",
+		DingtalkWebhook: "https://example.com/dingtalk?access_token=dingtalk-token",
+		DingtalkSecret:  "dingtalk-secret",
+		SmtpPassword:    "smtp-secret",
+		WebhookURL:      "https://example.com/custom?token=webhook-token",
+		WebhookSecret:   "webhook-secret",
 	}); err != nil {
 		t.Fatalf("seed notification settings: %v", err)
 	}
@@ -83,8 +104,11 @@ func TestNotificationUpdatePreservesStoredSecretsWhenRequestOmitsThem(t *testing
 	if err != nil {
 		t.Fatalf("get initially stored notification settings: %v", err)
 	}
+	assertProtectedNotificationCredential(t, initial.WecomWebhook, "https://example.com/wecom?key=wecom-token")
+	assertProtectedNotificationCredential(t, initial.DingtalkWebhook, "https://example.com/dingtalk?access_token=dingtalk-token")
 	assertProtectedNotificationCredential(t, initial.DingtalkSecret, "dingtalk-secret")
 	assertProtectedNotificationCredential(t, initial.SmtpPassword, "smtp-secret")
+	assertProtectedNotificationCredential(t, initial.WebhookURL, "https://example.com/custom?token=webhook-token")
 	assertProtectedNotificationCredential(t, initial.WebhookSecret, "webhook-secret")
 
 	if _, err := svc.Update(userID, NotificationSettingRequest{
@@ -97,14 +121,67 @@ func TestNotificationUpdatePreservesStoredSecretsWhenRequestOmitsThem(t *testing
 	if err != nil {
 		t.Fatalf("get stored notification settings: %v", err)
 	}
+	if stored.WecomWebhook != initial.WecomWebhook {
+		t.Fatal("wecom endpoint ciphertext changed when request omitted the endpoint")
+	}
+	if stored.DingtalkWebhook != initial.DingtalkWebhook {
+		t.Fatal("dingtalk endpoint ciphertext changed when request omitted the endpoint")
+	}
 	if stored.DingtalkSecret != initial.DingtalkSecret {
 		t.Fatal("dingtalk ciphertext changed when request omitted the secret")
 	}
 	if stored.SmtpPassword != initial.SmtpPassword {
 		t.Fatal("smtp ciphertext changed when request omitted the password")
 	}
+	if stored.WebhookURL != initial.WebhookURL {
+		t.Fatal("webhook endpoint ciphertext changed when request omitted the endpoint")
+	}
 	if stored.WebhookSecret != initial.WebhookSecret {
 		t.Fatal("webhook ciphertext changed when request omitted the secret")
+	}
+}
+
+func TestNotificationUpdateBindsSecretsOnlyToUnchangedEndpoints(t *testing.T) {
+	svc, repos := newNotificationTestService(t)
+	const userID uint = 42
+	const dingtalkEndpoint = "https://oapi.dingtalk.com/robot/send?access_token=old"
+	const webhookEndpoint = "https://hooks.example.test/old"
+	initial, err := svc.Update(userID, NotificationSettingRequest{
+		DingtalkWebhook: dingtalkEndpoint,
+		DingtalkSecret:  "stored-dingtalk-secret",
+		WebhookURL:      webhookEndpoint,
+		WebhookSecret:   "stored-webhook-secret",
+	})
+	if err != nil {
+		t.Fatalf("seed notification credentials: %v", err)
+	}
+
+	if _, err := svc.Update(userID, NotificationSettingRequest{
+		DingtalkWebhook: dingtalkEndpoint,
+		WebhookURL:      webhookEndpoint,
+	}); err != nil {
+		t.Fatalf("save explicit unchanged endpoints: %v", err)
+	}
+	unchanged, err := repos.Notification.GetByUserID(userID)
+	if err != nil {
+		t.Fatalf("load unchanged endpoints: %v", err)
+	}
+	if unchanged.DingtalkSecret != initial.DingtalkSecret || unchanged.WebhookSecret != initial.WebhookSecret {
+		t.Fatal("explicit unchanged endpoints did not preserve their stored secrets")
+	}
+
+	if _, err := svc.Update(userID, NotificationSettingRequest{
+		DingtalkWebhook: "https://oapi.dingtalk.com/robot/send?access_token=new",
+		WebhookURL:      "https://hooks.example.test/new",
+	}); err != nil {
+		t.Fatalf("save changed endpoints without secrets: %v", err)
+	}
+	changed, err := repos.Notification.GetByUserID(userID)
+	if err != nil {
+		t.Fatalf("load changed endpoints: %v", err)
+	}
+	if changed.DingtalkSecret != "" || changed.WebhookSecret != "" {
+		t.Fatal("changed endpoints silently inherited secrets bound to the old endpoints")
 	}
 }
 
@@ -112,12 +189,15 @@ func TestNotificationGetMigratesLegacyPlaintextSecrets(t *testing.T) {
 	svc, repos := newNotificationTestService(t)
 	const userID uint = 42
 	if err := repos.Notification.Upsert(&model.NotificationSetting{
-		UserID:         userID,
-		DingtalkSecret: "legacy-dingtalk",
-		SmtpPassword:   " legacy-smtp-password ",
-		WebhookSecret:  "legacy-webhook",
-		NotifyLogin:    true,
-		AdvanceDays:    3,
+		UserID:          userID,
+		WecomWebhook:    "https://example.com/wecom?key=legacy-wecom",
+		DingtalkWebhook: "https://example.com/dingtalk?access_token=legacy-dingtalk-token",
+		DingtalkSecret:  "legacy-dingtalk",
+		SmtpPassword:    " legacy-smtp-password ",
+		WebhookURL:      "https://example.com/custom?token=legacy-webhook-token",
+		WebhookSecret:   "legacy-webhook",
+		NotifyLogin:     true,
+		AdvanceDays:     3,
 	}); err != nil {
 		t.Fatalf("seed legacy notification settings: %v", err)
 	}
@@ -126,16 +206,22 @@ func TestNotificationGetMigratesLegacyPlaintextSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get and migrate legacy notification settings: %v", err)
 	}
+	assertProtectedNotificationCredential(t, setting.WecomWebhook, "https://example.com/wecom?key=legacy-wecom")
+	assertProtectedNotificationCredential(t, setting.DingtalkWebhook, "https://example.com/dingtalk?access_token=legacy-dingtalk-token")
 	assertProtectedNotificationCredential(t, setting.DingtalkSecret, "legacy-dingtalk")
 	assertProtectedNotificationCredential(t, setting.SmtpPassword, " legacy-smtp-password ")
+	assertProtectedNotificationCredential(t, setting.WebhookURL, "https://example.com/custom?token=legacy-webhook-token")
 	assertProtectedNotificationCredential(t, setting.WebhookSecret, "legacy-webhook")
 
 	stored, err := repos.Notification.GetByUserID(userID)
 	if err != nil {
 		t.Fatalf("reload migrated notification settings: %v", err)
 	}
-	if stored.DingtalkSecret != setting.DingtalkSecret ||
+	if stored.WecomWebhook != setting.WecomWebhook ||
+		stored.DingtalkWebhook != setting.DingtalkWebhook ||
+		stored.DingtalkSecret != setting.DingtalkSecret ||
 		stored.SmtpPassword != setting.SmtpPassword ||
+		stored.WebhookURL != setting.WebhookURL ||
 		stored.WebhookSecret != setting.WebhookSecret {
 		t.Fatal("read migration was not persisted")
 	}
@@ -185,6 +271,52 @@ func TestNotificationStartupMigrationIsIdempotentAndValidatesCiphertext(t *testi
 		first.SmtpPassword,
 		first.WebhookSecret,
 	})
+}
+
+func TestNotificationStartupMigrationReencryptsFallbackKey(t *testing.T) {
+	_, repos := newNotificationTestService(t)
+	oldKey := "old-notification-key-with-at-least-32-characters"
+	newKey := "new-notification-key-with-at-least-32-characters"
+	oldCiphertext, err := protectNotificationSecret("rotated-notification-secret", oldKey)
+	if err != nil {
+		t.Fatalf("protect old notification credential: %v", err)
+	}
+	if err := repos.Notification.Upsert(&model.NotificationSetting{
+		UserID:        1,
+		WebhookSecret: oldCiphertext,
+	}); err != nil {
+		t.Fatalf("seed old notification credential: %v", err)
+	}
+
+	svc := NewNotificationService(repos.Notification, repos.User, newKey, oldKey)
+	if err := svc.MigrateStoredSecrets(); err != nil {
+		t.Fatalf("migrate fallback-key notification credential: %v", err)
+	}
+	first, err := repos.Notification.GetByUserID(1)
+	if err != nil {
+		t.Fatalf("load migrated notification credential: %v", err)
+	}
+	if first.WebhookSecret == oldCiphertext {
+		t.Fatal("fallback-key notification ciphertext was not rotated")
+	}
+	plainText, err := revealNotificationSecret(first.WebhookSecret, newKey)
+	if err != nil || plainText != "rotated-notification-secret" {
+		t.Fatalf("reveal migrated notification credential: plaintext=%q err=%v", plainText, err)
+	}
+	if _, err := revealNotificationSecret(first.WebhookSecret, oldKey); err == nil {
+		t.Fatal("migrated notification credential still decrypts with fallback key")
+	}
+
+	if err := svc.MigrateStoredSecrets(); err != nil {
+		t.Fatalf("repeat notification credential migration: %v", err)
+	}
+	second, err := repos.Notification.GetByUserID(1)
+	if err != nil {
+		t.Fatalf("reload notification credential: %v", err)
+	}
+	if second.WebhookSecret != first.WebhookSecret {
+		t.Fatal("idempotent notification migration rewrote active-key ciphertext")
+	}
 }
 
 func TestNotificationStartupMigrationDoesNotPartiallyWriteOnKeyMismatch(t *testing.T) {
@@ -244,7 +376,11 @@ func TestNotificationDeliveryRevealsProtectedCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("protect dingtalk secret: %v", err)
 	}
-	endpoint, err := svc.dingtalkWebhookURL("https://oapi.dingtalk.com/robot/send?access_token=test", dingtalkCiphertext, 123456789)
+	dingtalkEndpoint, err := protectNotificationSecret("https://oapi.dingtalk.com/robot/send?access_token=test", notificationTestEncryptionSecret)
+	if err != nil {
+		t.Fatalf("protect dingtalk endpoint: %v", err)
+	}
+	endpoint, err := svc.dingtalkWebhookURL(dingtalkEndpoint, dingtalkCiphertext, 123456789)
 	if err != nil {
 		t.Fatalf("build signed dingtalk endpoint: %v", err)
 	}
@@ -290,8 +426,15 @@ func TestNotificationWebhookSignsWithRevealedProtectedSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("protect webhook secret: %v", err)
 	}
+	protectedEndpoint, err := protectNotificationSecret("https://hooks.example.com/ledger?token=stored-token", notificationTestEncryptionSecret)
+	if err != nil {
+		t.Fatalf("protect webhook endpoint: %v", err)
+	}
 
 	svc.httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if got := req.URL.Query().Get("token"); got != "stored-token" {
+			t.Fatalf("webhook endpoint was not revealed before delivery: token=%q", got)
+		}
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			t.Fatalf("read webhook request: %v", err)
@@ -309,7 +452,7 @@ func TestNotificationWebhookSignsWithRevealedProtectedSecret(t *testing.T) {
 		}, nil
 	})}
 
-	result := svc.TestWebhook("https://hooks.example.com/ledger", protectedSecret)
+	result := svc.TestWebhook(protectedEndpoint, protectedSecret)
 	if !result.Success {
 		t.Fatalf("signed webhook test failed: %s", result.Message)
 	}
@@ -352,7 +495,8 @@ func TestNotificationDingtalkTestReusesStoredSecretWhenRequestOmitsIt(t *testing
 	svc, _ := newNotificationTestService(t)
 	const userID uint = 9
 	if _, err := svc.Update(userID, NotificationSettingRequest{
-		DingtalkSecret: "stored-dingtalk-secret",
+		DingtalkWebhook: "https://oapi.dingtalk.com/robot/send?access_token=test",
+		DingtalkSecret:  "stored-dingtalk-secret",
 	}); err != nil {
 		t.Fatalf("store dingtalk credential: %v", err)
 	}
@@ -372,9 +516,111 @@ func TestNotificationDingtalkTestReusesStoredSecretWhenRequestOmitsIt(t *testing
 		}, nil
 	})}
 
-	result := svc.TestDingtalkForUser(userID, "https://oapi.dingtalk.com/robot/send?access_token=test", "")
+	result := svc.TestDingtalkForUser(userID, "", "")
 	if !result.Success {
 		t.Fatalf("dingtalk test with stored credential failed: %s", result.Message)
+	}
+}
+
+func TestNotificationWebhookTestCredentialMatrixDoesNotPersist(t *testing.T) {
+	svc, repos := newNotificationTestService(t)
+	const userID uint = 19
+	const oldEndpoint = "https://hooks.example.test/stored"
+	const newEndpoint = "https://hooks.example.test/one-time"
+	const oldSecret = "stored-webhook-secret"
+	const newSecret = "one-time-webhook-secret"
+	if _, err := svc.Update(userID, NotificationSettingRequest{
+		WebhookURL:    oldEndpoint,
+		WebhookSecret: oldSecret,
+	}); err != nil {
+		t.Fatalf("store webhook credentials: %v", err)
+	}
+	storedBefore, err := repos.Notification.GetByUserID(userID)
+	if err != nil {
+		t.Fatalf("load stored credentials: %v", err)
+	}
+
+	tests := []struct {
+		name             string
+		suppliedEndpoint string
+		suppliedSecret   string
+		wantEndpoint     string
+		wantSecret       string
+	}{
+		{name: "stored endpoint and stored secret", wantEndpoint: oldEndpoint, wantSecret: oldSecret},
+		{name: "stored endpoint and one-time secret", suppliedSecret: newSecret, wantEndpoint: oldEndpoint, wantSecret: newSecret},
+		{name: "one-time endpoint and one-time secret", suppliedEndpoint: newEndpoint, suppliedSecret: newSecret, wantEndpoint: newEndpoint, wantSecret: newSecret},
+		{name: "one-time endpoint and blank secret", suppliedEndpoint: newEndpoint, wantEndpoint: newEndpoint},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			called := false
+			svc.httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				called = true
+				if req.URL.String() != tt.wantEndpoint {
+					t.Fatalf("test request endpoint = %q, want %q", req.URL.String(), tt.wantEndpoint)
+				}
+				body, err := io.ReadAll(req.Body)
+				if err != nil {
+					t.Fatalf("read webhook body: %v", err)
+				}
+				wantSignature := ""
+				if tt.wantSecret != "" {
+					wantSignature = signWebhookPayload(body, tt.wantSecret)
+				}
+				if req.Header.Get(webhookSignatureHeader) != wantSignature {
+					t.Fatal("test request used the wrong one-time/stored secret boundary")
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("ok")),
+					Header:     make(http.Header),
+				}, nil
+			})}
+
+			result := svc.TestWebhookForUser(userID, tt.suppliedEndpoint, tt.suppliedSecret)
+			if !result.Success || !called {
+				t.Fatalf("webhook test failed: %s", result.Message)
+			}
+			storedAfter, err := repos.Notification.GetByUserID(userID)
+			if err != nil {
+				t.Fatalf("reload stored credentials: %v", err)
+			}
+			if storedAfter.WebhookURL != storedBefore.WebhookURL || storedAfter.WebhookSecret != storedBefore.WebhookSecret {
+				t.Fatal("one-time webhook test persisted endpoint or secret")
+			}
+		})
+	}
+}
+
+func TestNotificationWecomTestReusesStoredEndpoint(t *testing.T) {
+	svc, _ := newNotificationTestService(t)
+	const userID uint = 29
+	const endpoint = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test"
+	if _, err := svc.Update(userID, NotificationSettingRequest{WecomWebhook: endpoint}); err != nil {
+		t.Fatalf("store wecom endpoint: %v", err)
+	}
+	svc.httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.String() != endpoint {
+			t.Fatalf("wecom endpoint = %q, want stored endpoint", req.URL.String())
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"errcode":0}`)), Header: make(http.Header)}, nil
+	})}
+	if result := svc.TestWecomForUser(userID, ""); !result.Success {
+		t.Fatalf("wecom test with stored endpoint failed: %s", result.Message)
+	}
+}
+
+func TestNotificationTestsFailSafelyWithoutStoredEndpoint(t *testing.T) {
+	svc, _ := newNotificationTestService(t)
+	if result := svc.TestWecomForUser(999, ""); result.Success {
+		t.Fatal("wecom test unexpectedly succeeded without configuration")
+	}
+	if result := svc.TestDingtalkForUser(999, "", ""); result.Success {
+		t.Fatal("dingtalk test unexpectedly succeeded without configuration")
+	}
+	if result := svc.TestWebhookForUser(999, "", ""); result.Success {
+		t.Fatal("webhook test unexpectedly succeeded without configuration")
 	}
 }
 

@@ -7,155 +7,304 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 require_file() {
   local path="$1"
-  if [[ ! -f "$ROOT_DIR/$path" ]]; then
+  [[ -f "$ROOT_DIR/$path" ]] || {
     echo "Missing required file: $path" >&2
     exit 1
-  fi
+  }
 }
 
 require_text() {
   local path="$1"
   local pattern="$2"
-  if ! grep -qE "$pattern" "$ROOT_DIR/$path"; then
+  grep -qE "$pattern" "$ROOT_DIR/$path" || {
     echo "Missing required pattern in $path: $pattern" >&2
     exit 1
-  fi
+  }
 }
 
-require_tool() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "$1 is required" >&2
+require_absent_text() {
+  local path="$1"
+  local pattern="$2"
+  if grep -qE "$pattern" "$ROOT_DIR/$path"; then
+    echo "Forbidden pattern in $path: $pattern" >&2
     exit 1
   fi
 }
 
-check_compose_modes() {
-  local base_config="$TMP_DIR/base-compose.json"
-  local debug_config="$TMP_DIR/debug-compose.json"
-  local jwt_secret="docker-release-preflight-only-32-characters"
-  local setup_token="docker-release-setup-token-only-32-characters"
+required_files=(.github/workflows/docker.yml .github/workflows/release-web.yml .github/workflows/release.yml Dockerfile .dockerignore docker-entrypoint.sh docker-compose.yml docker-compose.debug.yml .env.example web/pnpm-workspace.yaml scripts/generate-release-compose.sh scripts/check-toolchain-consistency.sh)
+for path in "${required_files[@]}"; do
+  require_file "$path"
+done
 
-  LEDGER_JWT_SECRET="$jwt_secret" LEDGER_SETUP_TOKEN="$setup_token" docker compose --env-file /dev/null \
-    -f "$ROOT_DIR/docker-compose.yml" \
-    config --format json >"$base_config"
-  LEDGER_JWT_SECRET="$jwt_secret" LEDGER_SETUP_TOKEN="$setup_token" docker compose --env-file /dev/null \
-    -f "$ROOT_DIR/docker-compose.yml" \
-    -f "$ROOT_DIR/docker-compose.debug.yml" \
-    config --format json >"$debug_config"
+for tool in docker python3; do
+  command -v "$tool" >/dev/null 2>&1 || {
+    echo "$tool is required" >&2
+    exit 1
+  }
+done
 
-  python3 - "$base_config" "$debug_config" <<'PY'
+python3 - "$ROOT_DIR/.github/workflows/docker.yml" "$ROOT_DIR/.github/workflows/release-web.yml" "$ROOT_DIR/.github/workflows/release.yml" <<'PY'
+import re
+import sys
+
+
+docker = open(sys.argv[1], encoding="utf-8").read()
+release = open(sys.argv[2], encoding="utf-8").read()
+signed_release = open(sys.argv[3], encoding="utf-8").read()
+
+
+def job_block(workflow, name):
+    match = re.search(
+        rf"(?ms)^  {re.escape(name)}:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+        workflow,
+    )
+    if not match:
+        raise SystemExit(f"Missing workflow job: {name}")
+    return match.group(0)
+
+expected_concurrency = "group: personal-ledger-release-publish"
+if release.count(expected_concurrency) != 1 or signed_release.count(expected_concurrency) != 1:
+    raise SystemExit("Docker/Web and signed mobile release workflows must share one global concurrency group")
+if "cancel-in-progress: false" not in release or "cancel-in-progress: false" not in signed_release:
+    raise SystemExit("Release workflows must queue rather than cancel an in-progress publisher")
+if release.count("uses: actions/checkout@") != release.count("persist-credentials: false"):
+    raise SystemExit("Every Docker/Web release checkout must disable persisted credentials")
+
+if "workflow_dispatch:" in docker:
+    raise SystemExit("Docker publishing must only be callable by the gated tag workflow")
+if docker.count("uses: docker/build-push-action@") != 1:
+    raise SystemExit("Docker release must build exactly one OCI layout")
+if re.search(r"^[ ]+push:[ ]+true[ ]*$", docker, re.MULTILINE):
+    raise SystemExit("build-push-action must not publish before archive scans")
+
+ordered_markers = [
+    "Build one multi-arch OCI layout",
+    "Export and verify architecture-specific scan archives",
+    "Scan the verified amd64 docker archive",
+    "Scan the verified arm64 docker archive",
+    "Seal the scanned OCI layout for the publisher",
+    "Upload the scanned OCI handoff",
+    "Download the scanned OCI handoff",
+    "Verify and restore the scanned OCI layout",
+    "Login to GitHub Container Registry after both scans pass",
+    "Reject an existing immutable image tag after both scans pass",
+    "Push the scanned OCI layout without rebuilding",
+]
+positions = []
+for marker in ordered_markers:
+    if docker.count(marker) != 1:
+        raise SystemExit(f"Expected exactly one Docker workflow marker: {marker}")
+    positions.append(docker.index(marker))
+if positions != sorted(positions):
+    raise SystemExit("Docker build/scan/login/publish steps are out of order")
+
+required_docker_contracts = [
+    "platforms: linux/amd64,linux/arm64",
+    "outputs: type=oci,dest=${{ runner.temp }}/personal-ledger-release.oci,tar=false",
+    '--override-os linux',
+    '--override-arch "$arch"',
+    'docker-archive:${archive}:personal-ledger:scan-${arch}',
+    'expected_platform="linux/${arch}"',
+    'if [ "$actual_platform" != "$expected_platform" ]',
+    "input: ${{ runner.temp }}/personal-ledger-amd64.tar",
+    "input: ${{ runner.temp }}/personal-ledger-arm64.tar",
+    "quay.io/skopeo/stable@sha256:",
+    "docker.io/tonistiigi/binfmt@sha256:",
+    "moby/buildkit:v0.32.2@sha256:",
+    "docker.io/docker/buildkit-syft-scanner@sha256:",
+    "copy --all --preserve-digests",
+    'if [ "$remote_digest" != "$local_digest" ]',
+    'echo "image_digest=$local_digest" >> "$GITHUB_OUTPUT"',
+    "personal-ledger-release.oci.tar.sha256",
+    "sha256sum -c personal-ledger-release.oci.tar.sha256",
+    "compression-level: 0",
+    "needs: build_scan",
+]
+for contract in required_docker_contracts:
+    if contract not in docker:
+        raise SystemExit(f"Missing Docker artifact identity contract: {contract}")
+if docker.count("uses: aquasecurity/trivy-action@") != 2:
+    raise SystemExit("Docker release must run exactly two architecture-specific Trivy scans")
+if docker.count("uses: docker/login-action@") != 1:
+    raise SystemExit("Docker release must authenticate exactly once, after both Trivy scans")
+if "TRIVY_PLATFORM" in docker or "input: ${{ runner.temp }}/personal-ledger-release.oci" in docker:
+    raise SystemExit("Trivy must scan verified single-platform archives, not select from the OCI index")
+if not re.search(r"SKOPEO_IMAGE:[ ]+quay[.]io/[^@]+@sha256:[0-9a-f]{64}", docker):
+    raise SystemExit("Skopeo publisher image must be pinned by digest")
+for moving_tag_contract in ("publish_latest", "value=latest", 'docker://${image}:latest'):
+    if moving_tag_contract in docker:
+        raise SystemExit("Docker tag workflow must publish only the immutable version tag, not latest")
+build_scan = job_block(docker, "build_scan")
+publish = job_block(docker, "publish")
+if "environment:" in build_scan or "packages: write" in build_scan:
+    raise SystemExit("Docker build/scan job must not have a release environment or package write access")
+if "persist-credentials: false" not in build_scan:
+    raise SystemExit("Docker build/scan checkout must not persist GitHub credentials")
+if docker.count("uses: actions/checkout@") != docker.count("persist-credentials: false"):
+    raise SystemExit("Every Docker workflow checkout must disable persisted credentials")
+for contract in ("needs: build_scan", "environment: release", "actions: read", "packages: write"):
+    if contract not in publish:
+        raise SystemExit(f"Docker publisher is missing protected handoff contract: {contract}")
+if "actions/checkout@" in publish:
+    raise SystemExit("Docker publisher must use the immutable artifact handoff, not a fresh checkout")
+if docker.count("uses: actions/upload-artifact@") != 1 or docker.count("uses: actions/download-artifact@") != 1:
+    raise SystemExit("Docker release must upload and download exactly one immutable OCI handoff")
+if docker.count("packages: write") != 1:
+    raise SystemExit("Only the protected Docker publisher may have package write access")
+for forbidden_prepare_auth in ("packages: read", "docker login ghcr.io", "uses: docker/login-action@", "docker buildx imagetools inspect"):
+    if forbidden_prepare_auth in release:
+        raise SystemExit(
+            "Docker/Web prepare must not authenticate to or inspect GHCR before both Trivy scans: "
+            + forbidden_prepare_auth
+        )
+
+required_release_contracts = [
+    "fetch-depth: 0",
+    "git merge-base --is-ancestor",
+    "releases/tags/",
+    "Could not prove GitHub Release",
+    "Refusing to overwrite",
+    "tag_name: v${{ needs.prepare.outputs.version }}",
+    "target_commitish: ${{ github.sha }}",
+    "overwrite_files: false",
+    "fail_on_unmatched_files: true",
+    "scripts/generate-release-compose.sh",
+    "docker-compose-v${{ needs.prepare.outputs.version }}.yml.sha256",
+    "environment: release",
+]
+for contract in required_release_contracts:
+    if contract not in release:
+        raise SystemExit(f"Missing tag release contract: {contract}")
+required_post_scan_publish_contracts = [
+    "docker buildx imagetools inspect",
+    "Image tag already exists",
+    "Could not prove ${image} is unused",
+]
+for contract in required_post_scan_publish_contracts:
+    if contract not in docker:
+        raise SystemExit(f"Missing post-scan immutable image tag contract: {contract}")
+if not re.search(r"(?ms)^  release:\n(?:(?!^  [^ ]).)*^    environment: release$", release):
+    raise SystemExit("GitHub Release writer must use the protected release environment")
+PY
+
+require_text "Dockerfile" 'FROM node:[0-9]+[.][0-9]+[.][0-9]+-alpine[0-9.]+@sha256:[0-9a-f]{64} AS frontend-builder'
+require_text "Dockerfile" 'COPY web/package[.]json web/pnpm-lock[.]yaml web/pnpm-workspace[.]yaml [.]/'
+require_text "Dockerfile" 'FROM golang:[0-9]+[.][0-9]+[.][0-9]+-alpine[0-9.]+@sha256:[0-9a-f]{64} AS backend-builder'
+require_text "Dockerfile" 'FROM alpine:[0-9]+[.][0-9]+[.][0-9]+@sha256:[0-9a-f]{64}'
+require_text "Dockerfile" 'go build -mod=readonly'
+require_text "Dockerfile" 'HEALTHCHECK'
+require_text "Dockerfile" 'adduser -S -D -H -u 10001 -G ledger ledger'
+require_text "Dockerfile" 'ENTRYPOINT \["/usr/local/bin/docker-entrypoint[.]sh"\]'
+require_text "docker-entrypoint.sh" 'exec su-exec ledger:ledger'
+require_text ".dockerignore" '^backend/[.]codex-go-cache$'
+require_text ".dockerignore" '^output$'
+
+require_text "docker-compose.yml" '127[.]0[.]0[.]1'
+require_text "docker-compose.yml" 'LEDGER_CREDENTIAL_ENCRYPTION_KEY'
+require_text "docker-compose.yml" 'LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY'
+require_text ".env.example" '^LEDGER_BIND_ADDRESS=127[.]0[.]0[.]1$'
+require_text ".env.example" '^LEDGER_CREDENTIAL_ENCRYPTION_KEY=$'
+require_text ".env.example" '^LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY=$'
+require_absent_text ".env.example" '^LEDGER_(DATABASE_PATH|STORAGE_UPLOAD_PATH|STORAGE_BACKUP_PATH|SETUP_CONFIG_PATH)=[.]/data'
+require_absent_text ".env.example" '^[[:space:]]*LEDGER_CORS_ALLOWED_ORIGINS=[*][[:space:]]*$'
+
+jwt_secret="docker-release-preflight-jwt-only"
+setup_token="docker-release-preflight-setup-only"
+
+env LEDGER_JWT_SECRET="$jwt_secret" LEDGER_SETUP_TOKEN="$setup_token" docker compose --env-file /dev/null -f "$ROOT_DIR/docker-compose.yml" config --format json >"$TMP_DIR/base.json"
+
+env LEDGER_JWT_SECRET="$jwt_secret" LEDGER_SETUP_TOKEN="$setup_token" docker compose --env-file /dev/null -f "$ROOT_DIR/docker-compose.yml" -f "$ROOT_DIR/docker-compose.debug.yml" config --format json >"$TMP_DIR/debug.json"
+
+env LEDGER_BIND_ADDRESS=0.0.0.0 LEDGER_SERVER_PORT=18080 LEDGER_SERVER_MODE=release LEDGER_SERVER_TRUSTED_PROXIES=10.0.0.0/8 LEDGER_SERVER_MAX_JSON_BODY_BYTES=2097152 LEDGER_DATABASE_DRIVER=postgres LEDGER_DATABASE_DSN='postgres://ledger@db:5432/ledger?sslmode=require' LEDGER_DATABASE_MAX_OPEN_CONNS=12 LEDGER_DATABASE_MAX_IDLE_CONNS=6 LEDGER_JWT_SECRET="$jwt_secret" LEDGER_JWT_ACCESS_EXPIRE=20 LEDGER_JWT_REFRESH_EXPIRE=50000 LEDGER_CREDENTIAL_ENCRYPTION_KEY=credential-primary-validation-only LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY=credential-previous-validation-only LEDGER_SETUP_TOKEN="$setup_token" LEDGER_SECURITY_BASE_PATH=/private LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND=true LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.test LEDGER_LOG_LEVEL=warn LEDGER_LOG_FORMAT=text LEDGER_STORAGE_MAX_FILE_SIZE=20 LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE=96 LEDGER_STORAGE_ALLOWED_TYPES=png,pdf LEDGER_OBSERVABILITY_METRICS_ENABLED=true LEDGER_OBSERVABILITY_METRICS_TOKEN=metrics-validation-only LEDGER_RATE_LIMIT_MAX_REQUESTS=321 LEDGER_RATE_LIMIT_WINDOW_SECS=45 TZ=UTC docker compose --env-file /dev/null -f "$ROOT_DIR/docker-compose.yml" config --format json >"$TMP_DIR/override.json"
+
+release_image='ghcr.io/example/personal-ledger@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+RELEASE_IMAGE="$release_image" bash "$ROOT_DIR/scripts/generate-release-compose.sh" "$TMP_DIR/docker-compose-v1.2.3.yml"
+env LEDGER_JWT_SECRET="$jwt_secret" LEDGER_SETUP_TOKEN="$setup_token" docker compose --env-file /dev/null -f "$TMP_DIR/docker-compose-v1.2.3.yml" config --format json >"$TMP_DIR/release.json"
+
+python3 - "$TMP_DIR/base.json" "$TMP_DIR/debug.json" "$TMP_DIR/override.json" "$TMP_DIR/release.json" "$release_image" <<'PY'
 import json
 import sys
 
 
-def service_environment(path):
+def service(path):
     with open(path, encoding="utf-8") as handle:
         config = json.load(handle)
     try:
-        environment = config["services"]["personal-ledger"]["environment"]
+        return config["services"]["personal-ledger"]
     except (KeyError, TypeError) as error:
         raise SystemExit(f"Invalid personal-ledger Compose service in {path}: {error}")
-    if not isinstance(environment, dict):
-        raise SystemExit(f"Compose environment must resolve to a mapping in {path}")
-    return environment
 
 
-base = service_environment(sys.argv[1])
-debug = service_environment(sys.argv[2])
-if base.get("LEDGER_SERVER_MODE") != "release":
-    raise SystemExit("Base docker-compose.yml must resolve LEDGER_SERVER_MODE=release")
-if debug.get("LEDGER_SERVER_MODE") != "debug":
+base, debug, override, release = (service(path) for path in sys.argv[1:5])
+release_image = sys.argv[5]
+
+base_port = base["ports"][0]
+if (base_port.get("host_ip"), base_port.get("published"), base_port.get("target")) != (
+    "127.0.0.1",
+    "8080",
+    8080,
+):
+    raise SystemExit(f"Unexpected safe default port mapping: {base_port!r}")
+override_port = override["ports"][0]
+if (override_port.get("host_ip"), override_port.get("published"), override_port.get("target")) != (
+    "0.0.0.0",
+    "18080",
+    8080,
+):
+    raise SystemExit(f"Compose host port override is not semantic: {override_port!r}")
+
+if base["environment"].get("LEDGER_SERVER_MODE") != "release":
+    raise SystemExit("Base Compose must resolve LEDGER_SERVER_MODE=release")
+if debug["environment"].get("LEDGER_SERVER_MODE") != "debug":
     raise SystemExit("Debug override must resolve LEDGER_SERVER_MODE=debug")
-for label, environment in (("base", base), ("debug", debug)):
-    if environment.get("LEDGER_CORS_ALLOWED_ORIGINS", "").strip() == "*":
-        raise SystemExit(f"{label} Compose configuration must not allow wildcard CORS")
-    if str(environment.get("LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND", "")).lower() != "false":
-        raise SystemExit(f"{label} Compose configuration must block private outbound networks by default")
-    if str(environment.get("LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE", "")) != "64":
-        raise SystemExit(f"{label} Compose configuration must cap restore uploads")
-PY
+
+expected_paths = {
+    "LEDGER_SERVER_PORT": "8080",
+    "LEDGER_SERVER_WEB_PATH": "/app/web/dist",
+    "LEDGER_DATABASE_PATH": "/data/ledger.db",
+    "LEDGER_SETUP_CONFIG_PATH": "/data/config.yaml",
+    "LEDGER_STORAGE_UPLOAD_PATH": "/data/uploads",
+    "LEDGER_STORAGE_BACKUP_PATH": "/data/backups",
 }
+for label, current in (("base", base), ("override", override), ("release", release)):
+    environment = current["environment"]
+    for name, expected in expected_paths.items():
+        if environment.get(name) != expected:
+            raise SystemExit(f"{label} Compose {name} must be {expected!r}")
 
-require_file ".github/workflows/docker.yml"
-require_file ".github/workflows/release.yml"
-require_file "Dockerfile"
-require_file "docker-entrypoint.sh"
-require_file "docker-compose.yml"
-require_file "docker-compose.debug.yml"
-require_file "README.md"
-require_file ".env.example"
-require_file ".node-version"
-require_file "backend/go.mod"
-require_file "scripts/check-toolchain-consistency.sh"
-require_tool docker
-require_tool python3
+expected_overrides = {
+    "LEDGER_SERVER_TRUSTED_PROXIES": "10.0.0.0/8",
+    "LEDGER_SERVER_MAX_JSON_BODY_BYTES": "2097152",
+    "LEDGER_DATABASE_DRIVER": "postgres",
+    "LEDGER_DATABASE_DSN": "postgres://ledger@db:5432/ledger?sslmode=require",
+    "LEDGER_DATABASE_MAX_OPEN_CONNS": "12",
+    "LEDGER_DATABASE_MAX_IDLE_CONNS": "6",
+    "LEDGER_JWT_ACCESS_EXPIRE": "20",
+    "LEDGER_JWT_REFRESH_EXPIRE": "50000",
+    "LEDGER_CREDENTIAL_ENCRYPTION_KEY": "credential-primary-validation-only",
+    "LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY": "credential-previous-validation-only",
+    "LEDGER_SECURITY_BASE_PATH": "/private",
+    "LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND": "true",
+    "LEDGER_CORS_ALLOWED_ORIGINS": "https://ledger.example.test",
+    "LEDGER_LOG_LEVEL": "warn",
+    "LEDGER_LOG_FORMAT": "text",
+    "LEDGER_STORAGE_MAX_FILE_SIZE": "20",
+    "LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE": "96",
+    "LEDGER_STORAGE_ALLOWED_TYPES": "png,pdf",
+    "LEDGER_OBSERVABILITY_METRICS_ENABLED": "true",
+    "LEDGER_OBSERVABILITY_METRICS_TOKEN": "metrics-validation-only",
+    "LEDGER_RATE_LIMIT_MAX_REQUESTS": "321",
+    "LEDGER_RATE_LIMIT_WINDOW_SECS": "45",
+    "TZ": "UTC",
+}
+for name, expected in expected_overrides.items():
+    if override["environment"].get(name) != expected:
+        raise SystemExit(f"Compose override {name} did not resolve to {expected!r}")
 
-require_text ".github/workflows/docker.yml" "workflow_call"
-require_text ".github/workflows/docker.yml" "image_digest"
-require_text ".github/workflows/docker.yml" "ghcr\\.io"
-require_text ".github/workflows/docker.yml" "docker/build-push-action@[0-9a-f]{40}"
-require_text ".github/workflows/docker.yml" "steps\\.build\\.outputs\\.digest"
-require_text ".github/workflows/docker.yml" "platforms: linux/amd64,linux/arm64"
-require_text ".github/workflows/docker.yml" "push: true"
-require_text ".github/workflows/docker.yml" "provenance: mode=max"
-require_text ".github/workflows/docker.yml" "sbom: true"
-require_text ".github/workflows/docker.yml" "aquasecurity/trivy-action@[0-9a-f]{40}"
-require_text ".github/workflows/docker.yml" "IMAGE_REF:.*steps\\.build\\.outputs\\.digest"
-require_text ".github/workflows/docker.yml" "image-ref:.*steps\\.scan-ref\\.outputs\\.image_ref"
-require_text ".github/workflows/docker.yml" "severity: HIGH,CRITICAL"
-require_text ".github/workflows/docker.yml" "type=raw,value=\\$\\{\\{ steps\\.version\\.outputs\\.VERSION \\}\\}"
-require_text ".github/workflows/docker.yml" "type=raw,value=latest,enable=.*inputs\\.publish_latest.*!contains\\(steps\\.version\\.outputs\\.VERSION, '-'\\)"
-require_text ".github/workflows/release.yml" "uses: \\.\\/\\.github\\/workflows\\/docker\\.yml"
-require_text ".github/workflows/release.yml" "uses: \\.\\/\\.github\\/workflows\\/web\\.yml"
-require_text ".github/workflows/release.yml" "docker pull ghcr\\.io/\\$\\{\\{ github\\.repository \\}\\}:\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}"
-require_text ".github/workflows/release.yml" "refs/tags/v\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}/docker-compose\\.yml"
-require_text ".github/workflows/release.yml" "LEDGER_IMAGE=ghcr\\.io/\\$\\{\\{ github\\.repository \\}\\}:\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}"
-require_text ".github/workflows/release.yml" "needs\\.docker\\.outputs\\.image_digest"
-require_text ".github/workflows/release.yml" "prerelease:.*contains\\(needs\\.prepare\\.outputs\\.version, '-'\\)"
-require_text ".github/workflows/release-web.yml" "prerelease:.*contains\\(needs\\.prepare\\.outputs\\.version, '-'\\)"
-require_text ".github/workflows/release.yml" "LEDGER_SERVER_MODE=release"
-require_text ".github/workflows/release.yml" "docker compose up -d"
-
-require_text "Dockerfile" "FROM node:[0-9]+\\.[0-9]+\\.[0-9]+-alpine[0-9.]+@sha256:[0-9a-f]{64} AS frontend-builder"
-require_text "Dockerfile" "FROM golang:[0-9]+\\.[0-9]+\\.[0-9]+-alpine[0-9.]+@sha256:[0-9a-f]{64} AS backend-builder"
-require_text "Dockerfile" "FROM alpine:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[0-9a-f]{64}"
-require_text "Dockerfile" "go build -mod=readonly"
-require_text ".dockerignore" "backend/\\.codex-go-cache"
-require_text ".dockerignore" "output"
-require_text "Dockerfile" "HEALTHCHECK"
-require_text "Dockerfile" "adduser -S -D -H -u 10001 -G ledger ledger"
-require_text "Dockerfile" "ENTRYPOINT \[\"/usr/local/bin/docker-entrypoint\.sh\"\]"
-require_text "docker-entrypoint.sh" "exec su-exec ledger:ledger"
-require_text "scripts/check-docker-local-smoke.sh" "Runtime UID: 10001"
-require_text "scripts/check-docker-compose-local-smoke.sh" "Runtime UID: 10001"
-require_text "scripts/check-docker-release-evidence.sh" "Runtime UID: 10001"
-require_text "Dockerfile" "LEDGER_OBSERVABILITY_METRICS_ENABLED=false"
-require_text "docker-compose.yml" "LEDGER_OBSERVABILITY_METRICS_ENABLED"
-require_text "scripts/check-docker-local-smoke.sh" "Metrics auth: PASS"
-require_text "scripts/check-docker-compose-local-smoke.sh" "Metrics auth: PASS"
-require_text "scripts/check-docker-release-evidence.sh" "Metrics auth: PASS"
-require_text "Dockerfile" "output-document=/dev/null http://localhost:8080/api/v1/health"
-require_text "Dockerfile" "VOLUME \\[\"/data\"\\]"
-require_text "Dockerfile" "LEDGER_SERVER_MODE=release"
-require_text "Dockerfile" "LEDGER_DATABASE_PATH=/data/ledger\\.db"
-require_text "Dockerfile" "LEDGER_STORAGE_BACKUP_PATH=/data/backups"
-
-require_text "docker-compose.yml" "\\$\\{LEDGER_IMAGE:-ghcr\\.io/sky121666/sky-personalledger@sha256:[0-9a-f]{64}\\}"
-require_text "docker-compose.yml" "LEDGER_JWT_SECRET=\\$\\{LEDGER_JWT_SECRET:\\?Set LEDGER_JWT_SECRET in \\.env before starting\\}"
-require_text "docker-compose.yml" "LEDGER_SETUP_TOKEN=\\$\\{LEDGER_SETUP_TOKEN:\\?Set LEDGER_SETUP_TOKEN in \\.env before starting\\}"
-require_text "docker-compose.yml" "\\./data:/data"
-require_text ".env.example" "LEDGER_CORS_ALLOWED_ORIGINS="
-require_text ".env.example" "LEDGER_SETUP_TOKEN="
-require_text ".env.example" "LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND=false"
-require_text ".env.example" "LEDGER_SERVER_TRUSTED_PROXIES="
-require_text ".env.example" "LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE=64"
-
-if grep -qE '^[[:space:]]*LEDGER_CORS_ALLOWED_ORIGINS=[*][[:space:]]*$' "$ROOT_DIR/.env.example"; then
-  echo "Release example must not default CORS to wildcard." >&2
-  exit 1
-fi
+if release.get("image") != release_image:
+    raise SystemExit("Generated release Compose asset is not pinned to the requested digest")
+PY
 
 "$ROOT_DIR/scripts/check-toolchain-consistency.sh"
-check_compose_modes
 
 echo "Docker release preflight checks passed."

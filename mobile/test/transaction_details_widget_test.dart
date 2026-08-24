@@ -635,6 +635,11 @@ class _FakeTransactionRepository implements TransactionRepository {
   Future<TransactionItem> update(String id, TransactionFormData formData) {
     throw UnimplementedError();
   }
+
+  @override
+  Future<TransactionItem> updateAttachments(String id, String images) {
+    throw UnimplementedError();
+  }
 }
 
 TransactionItem _transaction({

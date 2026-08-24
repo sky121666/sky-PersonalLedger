@@ -2,9 +2,9 @@
 
 ## Conclusion
 
-This document records the intended release change set before staging, commit, tag, or public distribution. The current worktree is large, but the changed paths below are categorized into the release scope for the family + AI + premium mobile + release readiness objective.
+This document records the intended release change set before staging, commit, tag, or public distribution. The changed paths below are categorized into the release scope for the family, AI, client consistency, data protection, and release-readiness objective.
 
-Current status: path inventory populated from `git status --porcelain=v1` on 2026-05-27. Final staging should still be split into reviewable commit groups.
+Current status: the original 2026-05-27 inventory and the 2026-08-24 unified-hardening delta have both been reviewed. The current delta is one coherent change set; creating its local commit happens only after the listed gates pass, while tag creation and public distribution remain separate gates.
 
 ## Scope Summary
 
@@ -28,7 +28,7 @@ Current status: path inventory populated from `git status --porcelain=v1` on 202
 | Staged size ceiling | No staged file exceeds 5 MiB unless the safety rule is deliberately changed and reviewed | REVIEWED |
 | pnpm-only web | No `package-lock.json`, `yarn.lock`, or `bun.lockb` exists under `web/` | REVIEWED |
 | Intentional changed paths | Every changed path in `git status --short` is categorized in this inventory before release | REVIEWED |
-| Reviewable commit groups | Changes can be split into family, AI, mobile premium, web UI, release QA, and docs/checklist groups | REVIEWED |
+| Coherent commit scope | The unified hardening delta contains only client consistency, data protection, release governance, validation, and their documentation/tests | REVIEWED |
 
 ## Intended Change Groups
 
@@ -603,6 +603,83 @@ web/src/views/SetupView.vue
 web/src/views/TagView.vue
 web/src/views/TemplateView.vue
 web/src/views/TransactionsView.vue
+```
+
+### Unified Hardening Delta (2026-08-24)
+
+Backend request limits, credential migration, attachment metadata, and supporting contracts:
+
+```text
+backend/internal/middleware/body_limit.go
+backend/internal/middleware/body_limit_test.go
+backend/internal/handler/notification_test.go
+backend/internal/service/attachment_barrier.go
+backend/internal/service/backup_attachment_recovery.go
+backend/internal/service/credential_keyring.go
+backend/internal/service/credential_keyring_test.go
+backend/internal/service/credential_migration.go
+backend/internal/service/credential_migration_test.go
+backend/internal/service/evidence.go
+backend/internal/service/evidence_test.go
+backend/internal/service/storage_sync.go
+```
+
+Mobile transport policy, mutation refresh, attachment retry, and runtime validation:
+
+```text
+mobile/android/gradle/wrapper/gradle-wrapper.properties
+mobile/integration_test/app_real_backend_smoke_test.dart
+mobile/lib/core/config/local_http_transport_policy.dart
+mobile/lib/core/network/api_client.dart
+mobile/lib/core/storage/secure_storage_service.dart
+mobile/lib/features/attachments/data/attachment_after_save_exception.dart
+mobile/lib/features/attachments/data/attachment_picker_service.dart
+mobile/lib/features/attachments/data/attachment_staged_sync.dart
+mobile/lib/features/transactions/application/ledger_refresh.dart
+mobile/lib/features/transactions/data/transaction_repository.dart
+mobile/test/attachment_staged_sync_test.dart
+mobile/test/ledger_refresh_test.dart
+```
+
+Web mutation refresh, stale-request suppression, accessibility, and dependency settings:
+
+```text
+web/e2e/ledger-flow.e2e.ts
+web/pnpm-workspace.yaml
+web/src/components/Toast.vue
+web/src/composables/useLedgerMutation.test.ts
+web/src/composables/useLedgerMutation.ts
+web/src/utils/requestGeneration.test.ts
+web/src/utils/requestGeneration.ts
+web/src/views/AccountLogView.vue
+web/src/views/BudgetView.vue
+web/src/views/LendingView.vue
+web/src/views/ReminderView.vue
+web/src/views/ReportView.vue
+web/src/views/StatisticsView.vue
+```
+
+Release governance, deployment truth, layered feature docs, and automated gates:
+
+```text
+.forgejo/workflows/ci.yml
+.github/dependabot.yml
+.github/workflows/release-web.yml
+docs/development/deployment.md
+docs/development/release-governance.md
+docs/features/accounting.md
+docs/features/clients.md
+docs/features/data-security.md
+docs/mobile-real-backend-e2e.md
+docs/quality/accessibility-release-evidence-2026-05-27.md
+docs/quality/backup-operator-drill-2026-05-27.md
+docs/quality/mobile-device-qa-checklist-2026-05-27.md
+docs/quality/mobile-platform-qa-2026-05-27.md
+docs/quality/mobile-premium-visual-review-2026-05-27.md
+docs/quality/release-artifact-evidence-2026-05-27.md
+docs/quality/release-notes-candidate-2026-05-27.md
+scripts/check-github-actions-pinning.sh
+scripts/generate-release-compose.sh
 ```
 
 ## Excluded From Release

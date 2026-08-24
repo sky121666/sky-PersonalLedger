@@ -12,7 +12,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
         env:
           POSTGRES_USER: ledger
           POSTGRES_PASSWORD: ledger
@@ -26,7 +26,7 @@ jobs:
           --health-retries 12
 
       mysql:
-        image: mysql:8.4
+        image: mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
         env:
           MYSQL_ROOT_PASSWORD: root-ledger
           MYSQL_DATABASE: ledger_test

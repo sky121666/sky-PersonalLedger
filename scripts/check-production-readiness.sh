@@ -167,8 +167,11 @@ require_text "web/src/utils/request.ts" "error\\.response \\? '请求失败' : '
 require_absent_text "mobile/lib/core/network/api_client.dart" 'message: error\.message'
 require_text "mobile/lib/core/network/api_client.dart" "message: error\\.response == null \\? '网络连接失败' : '请求失败'"
 require_text "mobile/lib/core/config/server_config_service.dart" 'if \(!_isAllowedScheme\(uri\)\)'
-require_text "mobile/lib/core/config/server_config_service.dart" "if \\(uri\\.scheme == 'https'\\)"
-require_text "mobile/lib/core/config/server_config_service.dart" "return uri\\.scheme == 'http' && _isPrivateOrLoopbackHost\\(uri\\.host\\);"
+require_text "mobile/lib/core/config/server_config_service.dart" 'normalizedUrl = normalizeServerUrl\(storedConfig\.baseUrl\)'
+require_text "mobile/lib/core/config/server_config_service.dart" 'readInsecureLocalHttpAcknowledgedUrl\(\)'
+require_text "mobile/lib/core/config/server_config_service.dart" 'acknowledgedUrl == normalizedUrl'
+require_text "mobile/lib/core/config/server_config_service.dart" "if \\(scheme == 'https'\\)"
+require_text "mobile/lib/core/config/server_config_service.dart" "return scheme == 'http' && _isPrivateOrLoopbackHost\\(uri\\.host\\);"
 require_text "mobile/test/core_response_parsing_test.dart" "normalizeServerUrl\\('http://ledger\\.example\\.com'\\)"
 require_text "mobile/test/core_response_parsing_test.dart" "normalizeServerUrl\\('http://192\\.168\\.1\\.10:8080'\\)"
 require_absent_text "backend/internal/service/auth.go" 'password must be at least 6 characters'
@@ -253,7 +256,7 @@ require_text ".forgejo/workflows/ci.yml" './scripts/check-public-git-safety.sh'
 require_text "docs/quality/release-notes-candidate-2026-05-27.md" 'iOS and Android device validation'
 require_text "docs/quality/local-release-rehearsal-2026-05-27.md" 'iOS/Android device QA'
 require_text "docs/quality/mobile-platform-qa-2026-05-27.md" 'remaining release-quality gap is physical iPhone QA'
-require_text "docs/quality/mobile-platform-qa-2026-05-27.md" 'Android native real-backend E2E was reconfirmed'
+require_text "docs/quality/mobile-platform-qa-2026-05-27.md" 'Android emulator `emulator-5554`'
 require_text "docs/quality/mobile-premium-visual-review-2026-05-27.md" 'final physical iPhone QA'
 require_text "docs/quality/mobile-premium-visual-review-2026-05-27.md" 'USB-connected iPhone'
 require_text "docs/quality/local-release-rehearsal-2026-05-27.md" 'release-image smoke'

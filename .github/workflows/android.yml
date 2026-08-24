@@ -21,23 +21,27 @@ on:
         type: string
     secrets:
       ANDROID_KEYSTORE_BASE64:
-        required: true
+        required: false
       ANDROID_KEYSTORE_PASSWORD:
-        required: true
+        required: false
       ANDROID_KEY_ALIAS:
-        required: true
+        required: false
       ANDROID_KEY_PASSWORD:
-        required: true
+        required: false
 
 jobs:
   android:
     name: Build Android APK and AAB
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: mobile-signing
     
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Verify Android wrapper files
         run: |
@@ -45,6 +49,7 @@ jobs:
           test -f mobile/android/gradle/wrapper/gradle-wrapper.jar
           test -f mobile/android/gradlew
           test -f mobile/android/gradlew.bat
+          grep -Eq '^distributionSha256Sum=[0-9a-f]{64}$' mobile/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Set version
         id: version
@@ -101,6 +106,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_EXPECTED_SIGNER_SHA256: ${{ vars.ANDROID_EXPECTED_SIGNER_SHA256 }}
         run: |
           missing=0
           for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
@@ -110,6 +116,10 @@ jobs:
             fi
           done
           if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          if [[ ! "$ANDROID_EXPECTED_SIGNER_SHA256" =~ ^[0-9A-Fa-f]{64}$ ]]; then
+            echo "::error title=Missing Android signer identity::ANDROID_EXPECTED_SIGNER_SHA256 must be a protected 64-hex fingerprint"
             exit 1
           fi
 
@@ -157,6 +167,7 @@ jobs:
         if: inputs.version != ''
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
+          ANDROID_EXPECTED_SIGNER_SHA256: ${{ vars.ANDROID_EXPECTED_SIGNER_SHA256 }}
         run: |
           APK_PATH="mobile/build/app/outputs/flutter-apk/personal-ledger-${VERSION}-android.apk"
           AAB_PATH="mobile/build/app/outputs/bundle/release/personal-ledger-${VERSION}-android.aab"
@@ -208,8 +219,33 @@ jobs:
             echo "::error title=Missing apksigner::Android build-tools apksigner was not found"
             exit 1
           fi
-          "$APKSIGNER" verify --verbose --print-certs "$APK_PATH"
+          expected_signer="$(printf '%s' "$ANDROID_EXPECTED_SIGNER_SHA256" | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$expected_signer" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error title=Missing Android signer identity::Expected a protected 64-hex signer fingerprint"
+            exit 1
+          fi
+
+          apk_signer_output="$("$APKSIGNER" verify --verbose --print-certs "$APK_PATH")"
+          printf '%s\n' "$apk_signer_output"
+          apk_signer="$(awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {print $2; exit}' <<<"$apk_signer_output" |
+            tr -d ':' | tr '[:upper:]' '[:lower:]')"
           jarsigner -verify -strict -certs "$AAB_PATH"
+          aab_signer="$(LC_ALL=C keytool -printcert -jarfile "$AAB_PATH" |
+            awk -F': ' '/SHA256:/{print $2; exit}' |
+            tr -d ':' | tr '[:upper:]' '[:lower:]')"
+
+          if [ "$apk_signer" != "$expected_signer" ]; then
+            echo "::error title=Unexpected APK signer::APK signer fingerprint does not match the protected release identity"
+            exit 1
+          fi
+          if [ "$aab_signer" != "$expected_signer" ]; then
+            echo "::error title=Unexpected AAB signer::AAB signer fingerprint does not match the protected release identity"
+            exit 1
+          fi
+          if [ "$apk_signer" != "$aab_signer" ]; then
+            echo "::error title=Android signer mismatch::APK and AAB were not signed by the same identity"
+            exit 1
+          fi
 
       - name: Generate Android checksums
         if: inputs.version != ''

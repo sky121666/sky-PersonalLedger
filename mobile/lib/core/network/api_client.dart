@@ -33,9 +33,7 @@ class ApiClient {
   /// 重新加载服务器基础地址。
   Future<void> reloadBaseUrl() async {
     final config = await _serverConfigService.readConfig();
-    if (config != null) {
-      _dio.options.baseUrl = config.apiBaseUrl;
-    }
+    _dio.options.baseUrl = config?.apiBaseUrl ?? '';
   }
 
   /// 添加认证拦截器。

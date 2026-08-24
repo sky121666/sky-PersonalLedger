@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	maxBackupAttachmentCount     = 10_000
-	maxBackupAttachmentPathBytes = 4 << 10
+	maxBackupAttachmentCount        = 10_000
+	maxBackupAttachmentPathBytes    = 4 << 10
+	attachmentRestoreGenerationFile = ".ledger-restore-generation"
 )
 
 // BackupAttachment contains one regular file below a user's upload directory.
@@ -76,6 +77,12 @@ func (s *BackupService) createBackupAttachments(userID uint) ([]BackupAttachment
 			return walkErr
 		}
 		if relativePath == "." {
+			return nil
+		}
+		if IsInternalUploadPath(relativePath) {
+			if entry.IsDir() {
+				return fs.SkipDir
+			}
 			return nil
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
@@ -156,8 +163,8 @@ func readBackupAttachment(root *os.Root, relativePath string, maxFileSize int64)
 }
 
 func (s *BackupService) prepareAttachmentRestore(userID uint, attachments []BackupAttachment) (*attachmentRestorePlan, error) {
-	// nil distinguishes a legacy backup (preserve existing files) from a new
-	// backup containing an explicit, possibly empty, attachment manifest.
+	// nil means file data was not included (legacy backup or a 2.3 null
+	// attachment value), while a non-nil slice is an authoritative manifest.
 	if attachments == nil {
 		return nil, nil
 	}
@@ -178,18 +185,26 @@ func (s *BackupService) prepareAttachmentRestore(userID uint, attachments []Back
 		}
 	}
 
-	if err := os.MkdirAll(s.uploadService.cfg.UploadPath, 0755); err != nil {
+	if err := os.MkdirAll(s.uploadService.cfg.UploadPath, 0700); err != nil {
 		return nil, fmt.Errorf("create upload root: %w", err)
+	}
+	if err := os.Chmod(s.uploadService.cfg.UploadPath, 0700); err != nil {
+		return nil, fmt.Errorf("secure upload root: %w", err)
 	}
 	uploadRoot, err := os.OpenRoot(s.uploadService.cfg.UploadPath)
 	if err != nil {
 		return nil, err
 	}
 
+	generation := uuid.NewString()
+	userDirectory := strconv.FormatUint(uint64(userID), 10)
 	plan := &attachmentRestorePlan{
-		root:           uploadRoot,
-		userDirectory:  strconv.FormatUint(uint64(userID), 10),
-		stageDirectory: fmt.Sprintf(".restore-%d-%s", userID, uuid.NewString()),
+		root:              uploadRoot,
+		userID:            userID,
+		userDirectory:     userDirectory,
+		generation:        generation,
+		stageDirectory:    fmt.Sprintf(".restore-stage-%s-%s", userDirectory, generation),
+		previousDirectory: fmt.Sprintf(".restore-previous-%s-%s", userDirectory, generation),
 	}
 	if err := uploadRoot.Mkdir(plan.stageDirectory, 0700); err != nil {
 		uploadRoot.Close()
@@ -199,6 +214,9 @@ func (s *BackupService) prepareAttachmentRestore(userID uint, attachments []Back
 	stageRoot, err := uploadRoot.OpenRoot(plan.stageDirectory)
 	if err != nil {
 		return nil, errors.Join(err, plan.rollback())
+	}
+	if err := writeAttachmentRestoreGeneration(stageRoot, plan.generation); err != nil {
+		return nil, errors.Join(err, stageRoot.Close(), plan.rollback())
 	}
 
 	var totalSize int64
@@ -242,8 +260,11 @@ func (s *BackupService) prepareAttachmentRestore(userID uint, attachments []Back
 	if err != nil {
 		return nil, errors.Join(err, plan.rollback())
 	}
-	if err := uploadRoot.Chmod(plan.stageDirectory, 0755); err != nil {
+	if err := uploadRoot.Chmod(plan.stageDirectory, 0700); err != nil {
 		return nil, errors.Join(err, plan.rollback())
+	}
+	if err := syncRootDirectoryChain(uploadRoot, plan.stageDirectory); err != nil {
+		return nil, errors.Join(fmt.Errorf("sync attachment restore staging directory: %w", err), plan.rollback())
 	}
 	return plan, nil
 }
@@ -252,7 +273,7 @@ func writeRestoredAttachment(root *os.Root, relativePath string, attachment Back
 	if _, err := hex.DecodeString(attachment.SHA256); err != nil || len(attachment.SHA256) != sha256.Size*2 {
 		return invalidBackupAttachment(errors.New("invalid attachment sha256"))
 	}
-	if err := root.MkdirAll(path.Dir(relativePath), 0755); err != nil {
+	if err := root.MkdirAll(path.Dir(relativePath), 0700); err != nil {
 		return fmt.Errorf("create staged attachment directory: %w", err)
 	}
 
@@ -267,6 +288,10 @@ func writeRestoredAttachment(root *os.Root, relativePath string, attachment Back
 	hash := sha256.New()
 	decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(attachment.ContentBase64))
 	written, copyErr := io.Copy(io.MultiWriter(file, hash), io.LimitReader(decoder, maxFileSize+1))
+	var syncErr error
+	if copyErr == nil {
+		syncErr = file.Sync()
+	}
 	closeErr := file.Close()
 	if copyErr != nil {
 		var corruptInput base64.CorruptInputError
@@ -278,6 +303,9 @@ func writeRestoredAttachment(root *os.Root, relativePath string, attachment Back
 	if closeErr != nil {
 		return fmt.Errorf("close staged attachment: %w", closeErr)
 	}
+	if syncErr != nil {
+		return fmt.Errorf("sync staged attachment: %w", syncErr)
+	}
 	if written > maxFileSize {
 		return ErrBackupFileTooLarge
 	}
@@ -287,7 +315,7 @@ func writeRestoredAttachment(root *os.Root, relativePath string, attachment Back
 	if !strings.EqualFold(hex.EncodeToString(hash.Sum(nil)), attachment.SHA256) {
 		return invalidBackupAttachment(errors.New("attachment sha256 mismatch"))
 	}
-	return nil
+	return syncRootDirectoryChain(root, path.Dir(relativePath))
 }
 
 func validateBackupAttachmentPath(value string) (string, error) {
@@ -300,6 +328,9 @@ func validateBackupAttachmentPath(value string) (string, error) {
 	// avoid accepting an ambiguously cross-user-shaped path.
 	if isASCIIDecimal(parts[0]) {
 		return "", errors.New("attachment path includes a user prefix")
+	}
+	if IsInternalUploadPath(value) {
+		return "", errors.New("attachment path is reserved for internal restore state")
 	}
 	return value, nil
 }
@@ -425,45 +456,141 @@ func (s *BackupService) hasUploadStorage() bool {
 	return s != nil && s.uploadService != nil && s.uploadService.cfg != nil && strings.TrimSpace(s.uploadService.cfg.UploadPath) != ""
 }
 
-type attachmentRestorePlan struct {
-	root              *os.Root
-	userDirectory     string
-	stageDirectory    string
-	previousDirectory string
-	hadPrevious       bool
-	activated         bool
-	closed            bool
-}
+func (s *BackupService) validateBackupAttachmentMetadataFiles(userID uint, backup *FullBackupData) error {
+	if backup == nil {
+		return nil
+	}
+	values := make([]string, 0, len(backup.Transactions)+len(backup.Reminders)+len(backup.Lendings)+len(backup.LendingRecords))
+	for _, transaction := range backup.Transactions {
+		values = append(values, transaction.Images)
+	}
+	for _, reminder := range backup.Reminders {
+		values = append(values, reminder.Evidence)
+	}
+	for _, lending := range backup.Lendings {
+		if lending != nil {
+			values = append(values, lending.Evidence)
+		}
+	}
+	for _, record := range backup.LendingRecords {
+		if record != nil {
+			values = append(values, record.Evidence)
+		}
+	}
 
-func (p *attachmentRestorePlan) activate() error {
-	if p == nil || p.activated {
+	if backup.Attachments == nil {
+		if !s.hasUploadStorage() {
+			for _, value := range values {
+				paths, _, _ := parseStoredUploadReferenceList(value)
+				if len(paths) > 0 {
+					return invalidBackupAttachment(errors.New("attachment metadata cannot be verified without upload storage"))
+				}
+			}
+			return nil
+		}
+		for _, value := range values {
+			if err := s.uploadService.validateStoredAttachmentPaths(userID, value); err != nil {
+				return invalidBackupAttachment(err)
+			}
+		}
 		return nil
 	}
 
-	if _, err := p.root.Lstat(p.userDirectory); err == nil {
-		p.previousDirectory = fmt.Sprintf(".restore-previous-%s-%s", p.userDirectory, uuid.NewString())
+	owner := strconv.FormatUint(uint64(userID), 10)
+	manifest := make(map[string]struct{}, len(backup.Attachments))
+	for _, attachment := range backup.Attachments {
+		manifest[owner+"/"+attachment.RelativePath] = struct{}{}
+	}
+	for _, value := range values {
+		paths, _, err := parseStoredUploadReferenceList(value)
+		if err != nil {
+			return invalidBackupAttachment(err)
+		}
+		for _, storedPath := range paths {
+			normalized := normalizeStoredUploadReference(storedPath)
+			if _, exists := manifest[normalized]; !exists {
+				return invalidBackupAttachment(errors.New("attachment metadata references a file missing from the manifest"))
+			}
+		}
+	}
+	return nil
+}
+
+type attachmentRestorePlan struct {
+	root              *os.Root
+	userID            uint
+	userDirectory     string
+	generation        string
+	stageDirectory    string
+	previousDirectory string
+	closed            bool
+}
+
+// forward makes the database's desired attachment generation active. It is
+// deliberately idempotent: once the database transaction commits, recovery
+// may call this method after any individual rename without rolling active data
+// back to an older generation.
+func (p *attachmentRestorePlan) forward() error {
+	if p == nil || p.closed {
+		return nil
+	}
+	if p.root == nil {
+		return errors.New("attachment restore root is unavailable")
+	}
+	if err := p.validate(); err != nil {
+		return err
+	}
+
+	activeGeneration, activeErr := readAttachmentRestoreGeneration(p.root, p.userDirectory)
+	if activeErr == nil && activeGeneration == p.generation {
+		if err := syncRootDirectory(p.root, "."); err != nil {
+			return fmt.Errorf("sync already-active attachment generation: %w", err)
+		}
+		return nil
+	}
+	if activeErr != nil && !errors.Is(activeErr, os.ErrNotExist) {
+		return fmt.Errorf("inspect active attachment generation: %w", activeErr)
+	}
+
+	stageGeneration, err := readAttachmentRestoreGeneration(p.root, p.stageDirectory)
+	if err != nil {
+		return fmt.Errorf("read staged attachment generation: %w", err)
+	}
+	if stageGeneration != p.generation {
+		return errors.New("staged attachment generation does not match database state")
+	}
+
+	previousExists, err := rootDirectoryExists(p.root, p.previousDirectory)
+	if err != nil {
+		return fmt.Errorf("inspect previous attachment directory: %w", err)
+	}
+	activeExists, err := rootDirectoryExists(p.root, p.userDirectory)
+	if err != nil {
+		return fmt.Errorf("inspect active attachment directory: %w", err)
+	}
+
+	if previousExists && activeExists {
+		return errors.New("attachment restore state is ambiguous: active and previous directories both exist")
+	}
+	if !previousExists && activeExists {
 		if err := p.root.Rename(p.userDirectory, p.previousDirectory); err != nil {
 			return fmt.Errorf("move current attachment directory aside: %w", err)
 		}
-		p.hadPrevious = true
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("inspect current attachment directory: %w", err)
+		if err := syncRootDirectory(p.root, "."); err != nil {
+			return fmt.Errorf("sync previous attachment directory rename: %w", err)
+		}
 	}
 
 	if err := p.root.Rename(p.stageDirectory, p.userDirectory); err != nil {
-		var rollbackErr error
-		if p.hadPrevious {
-			rollbackErr = p.root.Rename(p.previousDirectory, p.userDirectory)
-			if rollbackErr == nil {
-				p.hadPrevious = false
-				p.previousDirectory = ""
-			}
-		}
-		return errors.Join(fmt.Errorf("activate restored attachment directory: %w", err), rollbackErr)
+		return fmt.Errorf("activate restored attachment directory: %w", err)
 	}
-
-	p.stageDirectory = ""
-	p.activated = true
+	if err := syncRootDirectory(p.root, "."); err != nil {
+		return fmt.Errorf("sync activated attachment directory rename: %w", err)
+	}
+	activeGeneration, err = readAttachmentRestoreGeneration(p.root, p.userDirectory)
+	if err != nil || activeGeneration != p.generation {
+		return errors.Join(errors.New("activated attachment generation could not be verified"), err)
+	}
 	return nil
 }
 
@@ -472,27 +599,15 @@ func (p *attachmentRestorePlan) rollback() error {
 		return nil
 	}
 	var rollbackErr error
-	if p.activated {
-		if err := removeRootEntry(p.root, p.userDirectory); err != nil {
-			rollbackErr = errors.Join(rollbackErr, fmt.Errorf("remove activated attachment directory: %w", err))
-		} else {
-			p.activated = false
-		}
-	}
-	if p.hadPrevious && !p.activated {
-		if err := p.root.Rename(p.previousDirectory, p.userDirectory); err != nil {
-			rollbackErr = errors.Join(rollbackErr, fmt.Errorf("restore previous attachment directory: %w", err))
-		} else {
-			p.hadPrevious = false
-			p.previousDirectory = ""
-		}
-	}
 	if p.stageDirectory != "" {
 		if err := removeRootEntry(p.root, p.stageDirectory); err != nil {
 			rollbackErr = errors.Join(rollbackErr, fmt.Errorf("remove staged attachment directory: %w", err))
 		} else {
 			p.stageDirectory = ""
 		}
+	}
+	if err := syncRootDirectory(p.root, "."); err != nil {
+		rollbackErr = errors.Join(rollbackErr, fmt.Errorf("sync attachment rollback directory: %w", err))
 	}
 	rollbackErr = errors.Join(rollbackErr, p.close())
 	return rollbackErr
@@ -503,12 +618,12 @@ func (p *attachmentRestorePlan) commit() error {
 		return nil
 	}
 	var commitErr error
-	if p.hadPrevious {
+	if err := p.forward(); err != nil {
+		return errors.Join(fmt.Errorf("%w: %v", ErrAttachmentRecoveryPending, err), p.close())
+	}
+	if p.previousDirectory != "" {
 		if err := removeRootEntry(p.root, p.previousDirectory); err != nil {
 			commitErr = errors.Join(commitErr, fmt.Errorf("remove previous attachment directory: %w", err))
-		} else {
-			p.hadPrevious = false
-			p.previousDirectory = ""
 		}
 	}
 	if p.stageDirectory != "" {
@@ -518,7 +633,26 @@ func (p *attachmentRestorePlan) commit() error {
 			p.stageDirectory = ""
 		}
 	}
+	if err := syncRootDirectory(p.root, "."); err != nil {
+		commitErr = errors.Join(commitErr, fmt.Errorf("sync committed attachment directory: %w", err))
+	}
 	return errors.Join(commitErr, p.close())
+}
+
+func (p *attachmentRestorePlan) validate() error {
+	if p == nil || p.userID == 0 || p.generation == "" {
+		return errors.New("invalid attachment restore state")
+	}
+	if _, err := uuid.Parse(p.generation); err != nil {
+		return errors.New("invalid attachment restore generation")
+	}
+	wantUserDirectory := strconv.FormatUint(uint64(p.userID), 10)
+	wantStageDirectory := fmt.Sprintf(".restore-stage-%s-%s", wantUserDirectory, p.generation)
+	wantPreviousDirectory := fmt.Sprintf(".restore-previous-%s-%s", wantUserDirectory, p.generation)
+	if p.userDirectory != wantUserDirectory || p.stageDirectory != wantStageDirectory || p.previousDirectory != wantPreviousDirectory {
+		return errors.New("invalid attachment restore directory state")
+	}
+	return nil
 }
 
 func (p *attachmentRestorePlan) close() error {
@@ -544,4 +678,76 @@ func removeRootEntry(root *os.Root, name string) error {
 		return root.RemoveAll(name)
 	}
 	return root.Remove(name)
+}
+
+func writeAttachmentRestoreGeneration(root *os.Root, generation string) error {
+	if _, err := uuid.Parse(generation); err != nil {
+		return errors.New("invalid attachment restore generation")
+	}
+	file, err := root.OpenFile(attachmentRestoreGenerationFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return fmt.Errorf("create attachment restore generation: %w", err)
+	}
+	_, writeErr := io.WriteString(file, generation+"\n")
+	var syncErr error
+	if writeErr == nil {
+		syncErr = file.Sync()
+	}
+	closeErr := file.Close()
+	if err := errors.Join(writeErr, syncErr, closeErr); err != nil {
+		return fmt.Errorf("persist attachment restore generation: %w", err)
+	}
+	return syncRootDirectory(root, ".")
+}
+
+func readAttachmentRestoreGeneration(root *os.Root, directory string) (string, error) {
+	if directory == "" {
+		return "", os.ErrNotExist
+	}
+	info, err := root.Lstat(directory)
+	if err != nil {
+		return "", err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return "", errors.New("attachment generation path is not a regular directory")
+	}
+	tokenPath := path.Join(directory, attachmentRestoreGenerationFile)
+	tokenInfo, err := root.Lstat(tokenPath)
+	if err != nil {
+		return "", err
+	}
+	if tokenInfo.Mode()&os.ModeSymlink != 0 || !tokenInfo.Mode().IsRegular() {
+		return "", errors.New("attachment restore generation token is not a regular file")
+	}
+	file, err := root.Open(tokenPath)
+	if err != nil {
+		return "", err
+	}
+	data, readErr := io.ReadAll(io.LimitReader(file, 128))
+	closeErr := file.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return "", err
+	}
+	generation := strings.TrimSpace(string(data))
+	if len(data) >= 128 || generation == "" {
+		return "", errors.New("invalid attachment restore generation file")
+	}
+	if _, err := uuid.Parse(generation); err != nil {
+		return "", errors.New("invalid attachment restore generation file")
+	}
+	return generation, nil
+}
+
+func rootDirectoryExists(root *os.Root, name string) (bool, error) {
+	info, err := root.Lstat(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return false, errors.New("attachment restore path is not a regular directory")
+	}
+	return true, nil
 }

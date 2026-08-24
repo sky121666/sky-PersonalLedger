@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
+	"sync"
 	"time"
 
 	"github.com/sky/personal-ledger/internal/model"
@@ -18,25 +20,32 @@ var ErrInvalidBackupData = errors.New("backup contains no restorable data")
 var ErrInvalidBackupFormat = errors.New("invalid backup file")
 var ErrBackupFileTooLarge = errors.New("backup file exceeds restore size limit")
 var ErrBackupRecordLimitExceeded = errors.New("backup record limit exceeded")
+var ErrAttachmentRecoveryPending = errors.New("committed attachment recovery is pending")
 
 const defaultMaxBackupRestoreBytes int64 = 64 << 20
 
 type BackupService struct {
-	db               *gorm.DB
-	accountRepo      *repository.AccountRepository
-	categoryRepo     *repository.CategoryRepository
-	transactionRepo  *repository.TransactionRepository
-	budgetRepo       *repository.BudgetRepository
-	reminderRepo     *repository.ReminderRepository
-	lendingRepo      *repository.LendingRepository
-	templateRepo     *repository.TemplateRepository
-	notificationRepo *repository.NotificationRepository
-	tagRepo          *repository.TagRepository
-	userRepo         *repository.UserRepository
-	familyMemberRepo *repository.FamilyMemberRepository
-	aiReportRepo     *repository.AIReportRepository
-	maxRestoreBytes  int64
-	uploadService    *UploadService
+	db                 *gorm.DB
+	accountRepo        *repository.AccountRepository
+	categoryRepo       *repository.CategoryRepository
+	transactionRepo    *repository.TransactionRepository
+	budgetRepo         *repository.BudgetRepository
+	reminderRepo       *repository.ReminderRepository
+	lendingRepo        *repository.LendingRepository
+	templateRepo       *repository.TemplateRepository
+	notificationRepo   *repository.NotificationRepository
+	tagRepo            *repository.TagRepository
+	userRepo           *repository.UserRepository
+	familyMemberRepo   *repository.FamilyMemberRepository
+	aiReportRepo       *repository.AIReportRepository
+	maxRestoreBytes    int64
+	uploadService      *UploadService
+	dbTransaction      func(func(*gorm.DB) error) error
+	attachmentCommit   func(*attachmentRestorePlan) error
+	attachmentRetry    func(*attachmentRestorePlan) error
+	orphanStageCleanup func(map[string]struct{}) error
+	cleanupWarning     func(error)
+	restoreMu          sync.Mutex
 }
 
 func NewBackupService(
@@ -59,7 +68,7 @@ func NewBackupService(
 	if len(maxRestoreBytes) > 0 && maxRestoreBytes[0] > 0 {
 		limit = maxRestoreBytes[0]
 	}
-	return &BackupService{
+	service := &BackupService{
 		db:               db,
 		accountRepo:      accountRepo,
 		categoryRepo:     categoryRepo,
@@ -74,7 +83,15 @@ func NewBackupService(
 		familyMemberRepo: familyMemberRepo,
 		aiReportRepo:     aiReportRepo,
 		maxRestoreBytes:  limit,
+		dbTransaction:    func(callback func(*gorm.DB) error) error { return db.Transaction(callback) },
+		attachmentCommit: func(plan *attachmentRestorePlan) error { return plan.commit() },
+		cleanupWarning: func(err error) {
+			log.Printf("Warning: attachment restore finalization: %v", err)
+		},
 	}
+	service.attachmentRetry = service.retryCommittedAttachmentRestore
+	service.orphanStageCleanup = service.cleanupOrphanAttachmentStages
+	return service
 }
 
 func (s *BackupService) MaxRestoreBytes() int64 {
@@ -93,27 +110,27 @@ func (s *BackupService) WithUploadService(uploadService *UploadService) *BackupS
 }
 
 type FullBackupData struct {
-	Version              string                     `json:"version"`
-	ExportedAt           time.Time                  `json:"exported_at"`
-	SourceUserID         uint                       `json:"source_user_id,omitempty"`
-	UserProfile          *UserProfileBackup         `json:"user_profile,omitempty"`
-	Accounts             []model.Account            `json:"accounts"`
-	Categories           []model.Category           `json:"categories"`
-	Transactions         []model.Transaction        `json:"transactions"`
-	Budgets              []model.Budget             `json:"budgets"`
-	Reminders            []model.Reminder           `json:"reminders"`
-	Lendings             []*model.Lending           `json:"lendings"`
-	LendingRecords       []*model.LendingRecord     `json:"lending_records"`
-	Templates            []model.QuickTemplate      `json:"templates"`
-	Tags                 []model.Tag                `json:"tags"`
-	FamilyMembers        []model.FamilyMember       `json:"family_members"`
-	AIReports            []model.AIReport           `json:"ai_reports"`
-	AccountLogs          []model.AccountLog         `json:"account_logs"`
-	NotificationLogs     []model.NotificationLog    `json:"notification_logs"`
-	NotificationSettings *model.NotificationSetting `json:"notification_settings,omitempty"`
-	// Attachments is nil for legacy backups that did not contain file data. A
-	// non-nil empty slice is intentional and means that the backed-up user
-	// directory was empty.
+	Version              string                      `json:"version"`
+	ExportedAt           time.Time                   `json:"exported_at"`
+	SourceUserID         uint                        `json:"source_user_id,omitempty"`
+	UserProfile          *UserProfileBackup          `json:"user_profile,omitempty"`
+	Accounts             []model.Account             `json:"accounts"`
+	Categories           []model.Category            `json:"categories"`
+	Transactions         []model.Transaction         `json:"transactions"`
+	Budgets              []model.Budget              `json:"budgets"`
+	Reminders            []model.Reminder            `json:"reminders"`
+	Lendings             []*model.Lending            `json:"lendings"`
+	LendingRecords       []*model.LendingRecord      `json:"lending_records"`
+	Templates            []model.QuickTemplate       `json:"templates"`
+	Tags                 []model.Tag                 `json:"tags"`
+	FamilyMembers        []model.FamilyMember        `json:"family_members"`
+	AIReports            []model.AIReport            `json:"ai_reports"`
+	AccountLogs          []model.AccountLog          `json:"account_logs"`
+	NotificationLogs     []model.NotificationLog     `json:"notification_logs"`
+	NotificationSettings *NotificationSettingsBackup `json:"notification_settings,omitempty"`
+	// Attachments is nil when file data was not included (legacy backup or a
+	// 2.3 null attachment value). A non-nil empty slice is authoritative and
+	// means that the backed-up user directory was empty.
 	Attachments []BackupAttachment `json:"attachments"`
 }
 
@@ -125,6 +142,12 @@ type UserProfileBackup struct {
 }
 
 func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
+	releaseStorage := acquireAttachmentStorageRead()
+	defer releaseStorage()
+	if !AttachmentStorageAvailable(userID) {
+		return nil, ErrAttachmentRecoveryPending
+	}
+
 	var accounts []model.Account
 	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&accounts).Error; err != nil {
 		return nil, err
@@ -213,13 +236,8 @@ func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("backup attachments: %w", err)
 	}
-	version := "2.1"
-	if attachments != nil {
-		version = "2.2"
-	}
-
 	backup := &FullBackupData{
-		Version:              version,
+		Version:              "2.3",
 		ExportedAt:           time.Now(),
 		SourceUserID:         userID,
 		UserProfile:          userProfile,
@@ -236,7 +254,7 @@ func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
 		AIReports:            aiReports,
 		AccountLogs:          accountLogs,
 		NotificationLogs:     notificationLogs,
-		NotificationSettings: notificationSettings,
+		NotificationSettings: newNotificationSettingsBackup(notificationSettings),
 		Attachments:          attachments,
 	}
 	serialized, err := json.Marshal(backup)
@@ -294,17 +312,35 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 		return err
 	}
 
+	s.restoreMu.Lock()
+	defer s.restoreMu.Unlock()
+	releaseStorage := acquireAttachmentStorageWrite()
+	defer releaseStorage()
+	if !AttachmentStorageAvailable(userID) {
+		return ErrAttachmentRecoveryPending
+	}
+	if err := s.validateBackupAttachmentMetadataFiles(userID, &backup); err != nil {
+		return err
+	}
+
 	attachmentPlan, err := s.prepareAttachmentRestore(userID, backup.Attachments)
 	if err != nil {
 		return err
 	}
 
-	restoreErr := s.db.Transaction(func(tx *gorm.DB) error {
+	dbTransaction := s.dbTransaction
+	if dbTransaction == nil {
+		dbTransaction = func(callback func(*gorm.DB) error) error { return s.db.Transaction(callback) }
+	}
+	restoreErr := dbTransaction(func(tx *gorm.DB) error {
 		if err := s.clearUserDataTx(tx, userID); err != nil {
 			return err
 		}
 
 		if backup.UserProfile != nil {
+			if err := pinNotificationEmailRecipientBeforeProfileRestoreTx(tx, userID); err != nil {
+				return err
+			}
 			if err := tx.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
 				"nickname": backup.UserProfile.Nickname,
 				"email":    backup.UserProfile.Email,
@@ -410,10 +446,8 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 			return err
 		}
 
-		if attachmentPlan != nil {
-			if err := attachmentPlan.activate(); err != nil {
-				return err
-			}
+		if err := persistAttachmentRestoreMarkerTx(tx, attachmentPlan); err != nil {
+			return err
 		}
 
 		return nil
@@ -422,12 +456,59 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 		if attachmentPlan == nil {
 			return restoreErr
 		}
-		return errors.Join(restoreErr, attachmentPlan.rollback())
+		committed, markerErr := s.attachmentRestoreMarkerCommitted(attachmentPlan)
+		if markerErr != nil {
+			// The commit outcome is uncertain. Preserve the staged generation so
+			// startup recovery can decide from the permanent database marker.
+			markAttachmentRecoveryPending(userID)
+			return fmt.Errorf("%w: %v", ErrAttachmentRecoveryPending, errors.Join(restoreErr, fmt.Errorf("verify attachment restore commit: %w", markerErr), attachmentPlan.close()))
+		}
+		if !committed {
+			return errors.Join(restoreErr, attachmentPlan.rollback())
+		}
+		s.cleanupWarning(fmt.Errorf("database reported an error after committing attachment restore: %w", restoreErr))
 	}
 	if attachmentPlan != nil {
-		return attachmentPlan.commit()
+		if err := s.finalizeCommittedAttachmentRestore(attachmentPlan); err != nil {
+			markAttachmentRecoveryPending(userID)
+			return err
+		}
+		clearAttachmentRecoveryPending(userID)
 	}
 	return nil
+}
+
+func (s *BackupService) finalizeCommittedAttachmentRestore(plan *attachmentRestorePlan) error {
+	commitErr := s.attachmentCommit(plan)
+	if commitErr == nil {
+		return nil
+	}
+	commitErr = errors.Join(commitErr, plan.close())
+
+	// A typed forward error (including rename/fsync/verification) is retried
+	// immediately. Unknown injected errors are retried unless the desired
+	// generation is already active, in which case they are cleanup-only.
+	active, activeErr := s.attachmentRestoreGenerationActive(plan)
+	if !errors.Is(commitErr, ErrAttachmentRecoveryPending) && active {
+		s.cleanupWarning(fmt.Errorf("finalize committed attachment restore: %w", errors.Join(commitErr, activeErr)))
+		return nil
+	}
+
+	retry := s.attachmentRetry
+	if retry == nil {
+		retry = s.retryCommittedAttachmentRestore
+	}
+	retryErr := retry(plan)
+	if retryErr == nil {
+		s.cleanupWarning(fmt.Errorf("attachment restore required an immediate forward retry: %w", commitErr))
+		return nil
+	}
+	retryActive, retryActiveErr := s.attachmentRestoreGenerationActive(plan)
+	if !errors.Is(retryErr, ErrAttachmentRecoveryPending) && retryActive {
+		s.cleanupWarning(fmt.Errorf("finalize committed attachment restore after retry: %w", errors.Join(commitErr, retryErr)))
+		return nil
+	}
+	return fmt.Errorf("%w: %v", ErrAttachmentRecoveryPending, errors.Join(commitErr, activeErr, retryErr, retryActiveErr))
 }
 
 func validateBackupForRestore(backup FullBackupData) error {

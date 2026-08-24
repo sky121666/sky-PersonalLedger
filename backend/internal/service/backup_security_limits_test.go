@@ -92,6 +92,8 @@ func TestRestoreEnforcesBackupVersionAttachmentSemanticsWithoutMutation(t *testi
 	}{
 		{name: "2.2 missing attachments", payload: `{"version":"2.2","accounts":[{}]}`},
 		{name: "2.2 null attachments", payload: `{"version":"2.2","accounts":[{}],"attachments":null}`},
+		{name: "2.3 missing attachments", payload: `{"version":"2.3","accounts":[{}]}`},
+		{name: "2.3 notification credential", payload: `{"version":"2.3","accounts":[{}],"notification_settings":{"dingtalk_webhook":"https://example.test/?access_token=secret"},"attachments":null}`},
 		{name: "2.1 attachment array", payload: `{"version":"2.1","accounts":[{}],"attachments":[]}`},
 		{name: "unknown version", payload: `{"version":"9.9","accounts":[{}],"attachments":[]}`},
 		{name: "missing version", payload: `{"accounts":[{}]}`},
@@ -111,7 +113,7 @@ func TestRestoreEnforcesBackupVersionAttachmentSemanticsWithoutMutation(t *testi
 	}
 }
 
-func TestCreateBackupWithoutUploadServiceUsesLegacyVersion(t *testing.T) {
+func TestCreateBackupWithoutUploadServiceUsesVersion23NullAttachmentSemantics(t *testing.T) {
 	fixture := newBackupIntegrityFixture(t)
 	withoutUploads := NewBackupService(
 		fixture.db,
@@ -133,28 +135,39 @@ func TestCreateBackupWithoutUploadServiceUsesLegacyVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create backup without upload service: %v", err)
 	}
-	if backup.Version != "2.1" || backup.Attachments != nil {
-		t.Fatalf("backup version/attachments = %q/%#v, want legacy 2.1 without manifest", backup.Version, backup.Attachments)
+	if backup.Version != "2.3" || backup.Attachments != nil {
+		t.Fatalf("backup version/attachments = %q/%#v, want 2.3 with null attachment semantics", backup.Version, backup.Attachments)
 	}
 	data, err := json.Marshal(backup)
 	if err != nil {
 		t.Fatalf("marshal backup: %v", err)
 	}
 	if _, err := preflightBackupJSON(data); err != nil {
-		t.Fatalf("created legacy backup does not pass restore preflight: %v", err)
+		t.Fatalf("created 2.3 backup does not pass restore preflight: %v", err)
+	}
+}
+
+func TestBackupVersion23AcceptsExplicitAttachmentSemantics(t *testing.T) {
+	for _, payload := range []string{
+		`{"version":"2.3","accounts":[{}],"attachments":null}`,
+		`{"version":"2.3","accounts":[{}],"attachments":[]}`,
+	} {
+		if _, err := preflightBackupJSON([]byte(payload)); err != nil {
+			t.Fatalf("valid 2.3 attachment semantics rejected for %s: %v", payload, err)
+		}
 	}
 }
 
 func TestNormalizeBackupInfersOwnerFromAllInternalUploadReferences(t *testing.T) {
 	backup := &FullBackupData{
 		UserProfile:  &UserProfileBackup{Avatar: "/uploads/77/avatars/profile/avatar.png"},
-		Transactions: []model.Transaction{{Images: `["77/transactions/tx/receipt.png"]`}},
-		Reminders:    []model.Reminder{{Evidence: `77/reminders/reminder/evidence.png`}},
+		Transactions: []model.Transaction{{ID: "tx", Images: `["77/transactions/tx/receipt.png"]`}},
+		Reminders:    []model.Reminder{{ID: "reminder", Evidence: `77/reminders/reminder/evidence.png`}},
 		Lendings: []*model.Lending{{
-			Evidence: `["77/lendings/lending/evidence.png"]`,
+			ID: "lending", Evidence: `["77/lendings/lending/evidence.png"]`,
 		}},
 		LendingRecords: []*model.LendingRecord{{
-			Evidence: `77/lendings/record/evidence.png`,
+			LendingID: "lending", Evidence: `77/lendings/lending_repay_record/evidence.png`,
 		}},
 		FamilyMembers: []model.FamilyMember{{Avatar: "/uploads/77/family/member/avatar.png"}},
 	}
@@ -168,9 +181,9 @@ func TestNormalizeBackupInfersOwnerFromAllInternalUploadReferences(t *testing.T)
 	wants := map[string]string{
 		"profile":        "/uploads/9/avatars/profile/avatar.png",
 		"transaction":    `["9/transactions/tx/receipt.png"]`,
-		"reminder":       `9/reminders/reminder/evidence.png`,
+		"reminder":       `["9/reminders/reminder/evidence.png"]`,
 		"lending":        `["9/lendings/lending/evidence.png"]`,
-		"lending record": `9/lendings/record/evidence.png`,
+		"lending record": `["9/lendings/lending_repay_record/evidence.png"]`,
 		"family member":  "/uploads/9/family/member/avatar.png",
 	}
 	got := map[string]string{
