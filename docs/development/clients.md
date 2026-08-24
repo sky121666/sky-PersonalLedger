@@ -2,6 +2,8 @@
 
 ## Web
 
+Node.js 版本以仓库根目录 `.node-version` 为准，当前为 24.18.1。
+
     cd web
     corepack pnpm@10.32.1 install --frozen-lockfile
     corepack pnpm@10.32.1 dev

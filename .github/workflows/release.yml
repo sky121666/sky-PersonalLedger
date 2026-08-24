@@ -32,6 +32,11 @@ jobs:
           INPUT_BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
         run: ./scripts/resolve-release-version.sh --require-build-number
 
+      - name: Verify repository version matches release input
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: ./scripts/check-version-consistency.sh
+
   web:
     name: Web quality gate
     if: ${{ github.server_url == 'https://github.com' }}
@@ -212,7 +217,7 @@ jobs:
         with:
           name: Release v${{ needs.prepare.outputs.version }}
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
           generate_release_notes: true
           files: |
             artifacts/android-release/*.apk

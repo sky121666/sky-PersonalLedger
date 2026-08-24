@@ -2,7 +2,7 @@
 
 Personal Ledger 是一个面向个人和家庭的私有部署记账系统。数据放在自己的服务器上，Web 和 Flutter 客户端通过同一套 Go API 访问。
 
-当前 v1.0.8 以 Docker/Web 为正式发布主路径；Android 和 iOS 保留开发构建、模拟器/真机验证与运行截图，不要求本次发布配置商店签名。
+当前源码版本为 1.0.9，最新正式发布版本为 v1.0.8。v1.0.8 以 Docker/Web 为正式发布主路径；Android 和 iOS 保留开发构建、模拟器/真机验证与运行截图，不要求本次发布配置商店签名。
 
 ## 运行截图
 
@@ -101,6 +101,8 @@ Android、iOS、macOS 和 Windows 的平台构建与验证说明见 [客户端�
 提交前建议执行：
 
     ./scripts/check-public-git-safety.sh
+    ./scripts/check-version-consistency.sh
+    ./scripts/check-toolchain-consistency.sh
     git diff --check
 
     cd backend && go test ./... && go vet ./...
@@ -118,6 +120,8 @@ Android、iOS、macOS 和 Windows 的平台构建与验证说明见 [客户端�
 本地最终验收（跳过正式签名和外部发布证据）：
 
     LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
+
+项目版本以根目录 `VERSION` 为准；Web 和 Flutter 的版本字段必须与其一致。Node.js 使用 `.node-version`，Go 使用 `backend/go.mod`，CI 会校验它们与 Docker 构建工具链一致。
 
 ## 发布边界
 
@@ -151,3 +155,5 @@ v1.0.8 正式 Release 只包含 Docker/Web 产物：
 | scripts/ | 自动化门禁、备份演练和 E2E |
 
 仓库当前没有 LICENSE 文件；如果公开分发，请补充明确的开源许可证。
+
+贡献规范见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题请按 [安全策略](.github/SECURITY.md) 私密报告。

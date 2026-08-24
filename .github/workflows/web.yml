@@ -2,21 +2,6 @@ name: Web CI
 
 on:
   workflow_call:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'web/**'
-      - 'scripts/check-web-performance-budget.sh'
-      - 'scripts/verify-web-e2e.sh'
-      - '.github/workflows/web.yml'
-  pull_request:
-    paths:
-      - 'backend/**'
-      - 'web/**'
-      - 'scripts/check-web-performance-budget.sh'
-      - 'scripts/verify-web-e2e.sh'
-      - '.github/workflows/web.yml'
 
 permissions:
   contents: read
@@ -44,7 +29,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '20'
+          node-version-file: '.node-version'
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 

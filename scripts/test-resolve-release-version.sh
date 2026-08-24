@@ -69,7 +69,7 @@ assert_build_number_rejected() {
 
 assert_mobile_success 1.2.3 42 1.2.3
 assert_mobile_success v1.2.3 00042 1.2.3
-assert_mobile_success 0.0.0-alpha.1+build.5 0 0.0.0-alpha.1+build.5
+assert_mobile_success 0.0.0-alpha.1 0 0.0.0-alpha.1
 assert_version_only_success v2.4.6 2.4.6
 
 invalid_versions=(
@@ -83,6 +83,7 @@ invalid_versions=(
   1.2.3-01
   1.2.3-alpha..1
   1.2.3+
+  1.2.3+build.5
   '1.2.3;id'
   '1$(id)'
   '1.2.3$(id)'
@@ -134,7 +135,15 @@ import sys
 
 
 root = pathlib.Path(sys.argv[1])
-workflow_names = ("docker", "android", "ios", "macos", "windows", "release")
+workflow_names = (
+    "docker",
+    "android",
+    "ios",
+    "macos",
+    "windows",
+    "release",
+    "release-web",
+)
 failures = []
 
 for name in workflow_names:
@@ -143,6 +152,13 @@ for name in workflow_names:
     source = "\n".join(lines)
     if "scripts/resolve-release-version.sh" not in source:
         failures.append(f"{path}: missing centralized version resolver")
+    if "scripts/check-version-consistency.sh" not in source:
+        failures.append(f"{path}: missing repository version consistency check")
+
+    if name in {"release", "release-web"} and not re.search(
+        r"prerelease:.*contains\(needs\.prepare\.outputs\.version, '-'\)", source
+    ):
+        failures.append(f"{path}: prerelease versions must be marked as prereleases")
 
     for index, line in enumerate(lines):
         match = re.match(r"^(\s*)run:\s*(.*)$", line)
@@ -164,6 +180,16 @@ for name in workflow_names:
                 failures.append(
                     f"{path}:{line_number}: GitHub expression is interpolated directly in run"
                 )
+
+docker_workflow = (root / ".github" / "workflows" / "docker.yml").read_text(
+    encoding="utf-8"
+)
+if not re.search(
+    r"type=raw,value=latest,enable=.*inputs\.publish_latest"
+    r".*!contains\(steps\.version\.outputs\.VERSION, '-'\)",
+    docker_workflow,
+):
+    failures.append("docker workflow must not update latest for prerelease versions")
 
 if failures:
     raise SystemExit("\n".join(failures))

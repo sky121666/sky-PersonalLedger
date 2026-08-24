@@ -84,6 +84,9 @@ require_file "docker-compose.yml"
 require_file "docker-compose.debug.yml"
 require_file "README.md"
 require_file ".env.example"
+require_file ".node-version"
+require_file "backend/go.mod"
+require_file "scripts/check-toolchain-consistency.sh"
 require_tool docker
 require_tool python3
 
@@ -97,22 +100,25 @@ require_text ".github/workflows/docker.yml" "push: true"
 require_text ".github/workflows/docker.yml" "provenance: mode=max"
 require_text ".github/workflows/docker.yml" "sbom: true"
 require_text ".github/workflows/docker.yml" "aquasecurity/trivy-action@[0-9a-f]{40}"
-require_text ".github/workflows/docker.yml" "image-ref:.*steps\\.build\\.outputs\\.digest"
+require_text ".github/workflows/docker.yml" "IMAGE_REF:.*steps\\.build\\.outputs\\.digest"
+require_text ".github/workflows/docker.yml" "image-ref:.*steps\\.scan-ref\\.outputs\\.image_ref"
 require_text ".github/workflows/docker.yml" "severity: HIGH,CRITICAL"
 require_text ".github/workflows/docker.yml" "type=raw,value=\\$\\{\\{ steps\\.version\\.outputs\\.VERSION \\}\\}"
-require_text ".github/workflows/docker.yml" "type=raw,value=latest,enable=\\$\\{\\{ inputs\\.publish_latest \\}\\}"
+require_text ".github/workflows/docker.yml" "type=raw,value=latest,enable=.*inputs\\.publish_latest.*!contains\\(steps\\.version\\.outputs\\.VERSION, '-'\\)"
 require_text ".github/workflows/release.yml" "uses: \\.\\/\\.github\\/workflows\\/docker\\.yml"
 require_text ".github/workflows/release.yml" "uses: \\.\\/\\.github\\/workflows\\/web\\.yml"
 require_text ".github/workflows/release.yml" "docker pull ghcr\\.io/\\$\\{\\{ github\\.repository \\}\\}:\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}"
 require_text ".github/workflows/release.yml" "refs/tags/v\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}/docker-compose\\.yml"
 require_text ".github/workflows/release.yml" "LEDGER_IMAGE=ghcr\\.io/\\$\\{\\{ github\\.repository \\}\\}:\\$\\{\\{ needs\\.prepare\\.outputs\\.version \\}\\}"
 require_text ".github/workflows/release.yml" "needs\\.docker\\.outputs\\.image_digest"
+require_text ".github/workflows/release.yml" "prerelease:.*contains\\(needs\\.prepare\\.outputs\\.version, '-'\\)"
+require_text ".github/workflows/release-web.yml" "prerelease:.*contains\\(needs\\.prepare\\.outputs\\.version, '-'\\)"
 require_text ".github/workflows/release.yml" "LEDGER_SERVER_MODE=release"
 require_text ".github/workflows/release.yml" "docker compose up -d"
 
-require_text "Dockerfile" "FROM node:24\\.18\\.1-alpine3\\.24@sha256:f70403e87646dc51b45295f4b8b70cdad0b63d2297c4c9899119b03f7af7a6b3 AS frontend-builder"
-require_text "Dockerfile" "FROM golang:1\\.26\\.5-alpine3\\.24@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS backend-builder"
-require_text "Dockerfile" "FROM alpine:3\\.24\\.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
+require_text "Dockerfile" "FROM node:[0-9]+\\.[0-9]+\\.[0-9]+-alpine[0-9.]+@sha256:[0-9a-f]{64} AS frontend-builder"
+require_text "Dockerfile" "FROM golang:[0-9]+\\.[0-9]+\\.[0-9]+-alpine[0-9.]+@sha256:[0-9a-f]{64} AS backend-builder"
+require_text "Dockerfile" "FROM alpine:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[0-9a-f]{64}"
 require_text "Dockerfile" "go build -mod=readonly"
 require_text ".dockerignore" "backend/\\.codex-go-cache"
 require_text ".dockerignore" "output"
@@ -134,7 +140,7 @@ require_text "Dockerfile" "LEDGER_SERVER_MODE=release"
 require_text "Dockerfile" "LEDGER_DATABASE_PATH=/data/ledger\\.db"
 require_text "Dockerfile" "LEDGER_STORAGE_BACKUP_PATH=/data/backups"
 
-require_text "docker-compose.yml" "\\$\\{LEDGER_IMAGE:-ghcr\\.io/sky121666/sky-personalledger:latest\\}"
+require_text "docker-compose.yml" "\\$\\{LEDGER_IMAGE:-ghcr\\.io/sky121666/sky-personalledger@sha256:[0-9a-f]{64}\\}"
 require_text "docker-compose.yml" "LEDGER_JWT_SECRET=\\$\\{LEDGER_JWT_SECRET:\\?Set LEDGER_JWT_SECRET in \\.env before starting\\}"
 require_text "docker-compose.yml" "LEDGER_SETUP_TOKEN=\\$\\{LEDGER_SETUP_TOKEN:\\?Set LEDGER_SETUP_TOKEN in \\.env before starting\\}"
 require_text "docker-compose.yml" "\\./data:/data"
@@ -149,6 +155,7 @@ if grep -qE '^[[:space:]]*LEDGER_CORS_ALLOWED_ORIGINS=[*][[:space:]]*$' "$ROOT_D
   exit 1
 fi
 
+"$ROOT_DIR/scripts/check-toolchain-consistency.sh"
 check_compose_modes
 
 echo "Docker release preflight checks passed."

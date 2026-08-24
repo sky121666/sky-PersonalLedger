@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       publish_latest:
-        description: Also publish the latest tag. Keep false for manual test builds.
+        description: Also publish the latest tag for a stable version. Prereleases never update latest.
         required: false
         type: boolean
         default: false
@@ -51,6 +51,11 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
         run: ./scripts/resolve-release-version.sh --version-only
 
+      - name: Verify repository version matches build input
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: ./scripts/check-version-consistency.sh
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
 
@@ -71,7 +76,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.version.outputs.VERSION }}
-            type=raw,value=latest,enable=${{ inputs.publish_latest }}
+            type=raw,value=latest,enable=${{ inputs.publish_latest && !contains(steps.version.outputs.VERSION, '-') }}
 
       - name: Build and push
         id: build

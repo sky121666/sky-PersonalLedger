@@ -2,15 +2,6 @@ name: Mobile Quality
 
 on:
   workflow_call:
-  push:
-    branches: [main]
-    paths:
-      - 'mobile/**'
-      - '.github/workflows/mobile-quality.yml'
-  pull_request:
-    paths:
-      - 'mobile/**'
-      - '.github/workflows/mobile-quality.yml'
 
 permissions:
   contents: read
