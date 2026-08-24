@@ -283,7 +283,8 @@ jobs:
           image="${REGISTRY}/${REPOSITORY}"
           skopeo=(docker run --rm
             -v "${RUNNER_TEMP}:/work:ro"
-            -v "${HOME}/.docker:/root/.docker:ro"
+            -e REGISTRY_AUTH_FILE=/tmp/auth.json
+            -v "${HOME}/.docker/config.json:/tmp/auth.json:ro"
             "${SKOPEO_IMAGE}")
 
           local_digest="$("${skopeo[@]}" inspect --format '{{.Digest}}' "$layout")"

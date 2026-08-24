@@ -116,6 +116,8 @@ required_docker_contracts = [
     "moby/buildkit:v0.32.2@sha256:",
     "docker.io/docker/buildkit-syft-scanner@sha256:",
     "copy --all --preserve-digests",
+    "-e REGISTRY_AUTH_FILE=/tmp/auth.json",
+    '-v "${HOME}/.docker/config.json:/tmp/auth.json:ro"',
     'if [ "$remote_digest" != "$local_digest" ]',
     'echo "image_digest=$local_digest" >> "$GITHUB_OUTPUT"',
     "personal-ledger-release.oci.tar.sha256",
@@ -131,6 +133,8 @@ required_docker_contracts = [
 for contract in required_docker_contracts:
     if contract not in docker:
         raise SystemExit(f"Missing Docker artifact identity contract: {contract}")
+if '-v "${HOME}/.docker:/root/.docker:ro"' in docker:
+    raise SystemExit("Skopeo must mount the Docker login file at its configured REGISTRY_AUTH_FILE")
 if docker.count("uses: aquasecurity/trivy-action@") != 2:
     raise SystemExit("Docker release must run exactly two architecture-specific Trivy scans")
 if docker.count("uses: docker/login-action@") != 1:
@@ -144,6 +148,22 @@ for moving_tag_contract in ("publish_latest", "value=latest", 'docker://${image}
         raise SystemExit("Docker tag workflow must publish only the immutable version tag, not latest")
 build_scan = job_block(docker, "build_scan")
 publish = job_block(docker, "publish")
+push_step_match = re.search(
+    r"(?ms)^      - name: Push the scanned OCI layout without rebuilding\n"
+    r"(?P<body>.*?)(?=^      - name: |\Z)",
+    publish,
+)
+if not push_step_match:
+    raise SystemExit("Missing Docker publisher push step")
+push_step = push_step_match.group("body")
+for pattern in (
+    r'(?m)^            -e REGISTRY_AUTH_FILE=/tmp/auth[.]json$',
+    r'(?m)^            -v "[$][{]HOME[}]/[.]docker/config[.]json:/tmp/auth[.]json:ro"$',
+):
+    if not re.search(pattern, push_step):
+        raise SystemExit("Skopeo publisher must use the Docker login file at /tmp/auth.json")
+if "/root/.docker" in push_step:
+    raise SystemExit("Skopeo publisher must not rely on its ignored /root/.docker path")
 if re.search(r"(?m)^    environment:", build_scan) or "packages: write" in build_scan:
     raise SystemExit("Docker build/scan job must not have a release environment or package write access")
 if "persist-credentials: false" not in build_scan:
