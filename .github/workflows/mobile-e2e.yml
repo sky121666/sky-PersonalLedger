@@ -2,21 +2,6 @@ name: Mobile Real Backend E2E
 
 on:
   workflow_call:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'mobile/**'
-      - 'scripts/verify-mobile-e2e.sh'
-      - '.github/workflows/mobile-e2e.yml'
-      - '.github/workflows/mobile-platform-e2e.yml'
-  pull_request:
-    paths:
-      - 'backend/**'
-      - 'mobile/**'
-      - 'scripts/verify-mobile-e2e.sh'
-      - '.github/workflows/mobile-e2e.yml'
-      - '.github/workflows/mobile-platform-e2e.yml'
 
 permissions:
   contents: read

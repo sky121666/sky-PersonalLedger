@@ -1,0 +1,62 @@
+name: Project Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web
+    uses: ./.github/workflows/web.yml
+
+  backend:
+    name: Backend and database
+    uses: ./.github/workflows/backend-database.yml
+
+  mobile-quality:
+    name: Flutter quality
+    uses: ./.github/workflows/mobile-quality.yml
+
+  mobile-e2e:
+    name: Mobile real-backend E2E
+    uses: ./.github/workflows/mobile-e2e.yml
+
+  security-contracts:
+    name: Security contracts
+    uses: ./.github/workflows/security-contracts.yml
+
+  project-quality-gate:
+    name: Project quality gate
+    if: ${{ always() && github.server_url == 'https://github.com' }}
+    needs: [web, backend, mobile-quality, mobile-e2e, security-contracts]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every project quality job
+        env:
+          WEB_RESULT: ${{ needs.web.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          MOBILE_QUALITY_RESULT: ${{ needs.mobile-quality.result }}
+          MOBILE_E2E_RESULT: ${{ needs.mobile-e2e.result }}
+          SECURITY_RESULT: ${{ needs.security-contracts.result }}
+        run: |
+          failed=0
+          for result in \
+            "$WEB_RESULT" \
+            "$BACKEND_RESULT" \
+            "$MOBILE_QUALITY_RESULT" \
+            "$MOBILE_E2E_RESULT" \
+            "$SECURITY_RESULT"; do
+            if [[ "$result" != "success" ]]; then
+              failed=1
+            fi
+          done
+          if [[ "$failed" == "1" ]]; then
+            echo "One or more project quality jobs did not succeed." >&2
+            exit 1
+          fi
+          echo "All project quality jobs succeeded."

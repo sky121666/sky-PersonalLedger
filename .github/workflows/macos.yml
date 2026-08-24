@@ -37,6 +37,11 @@ jobs:
           INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
         run: ./scripts/resolve-release-version.sh --require-build-number
 
+      - name: Verify repository version matches build input
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: ./scripts/check-version-consistency.sh
+
       - name: Setup Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:

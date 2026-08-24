@@ -47,6 +47,10 @@ require_checkout_file "docker-compose.debug.yml"
 require_checkout_file ".github/workflows/web.yml"
 require_checkout_file "scripts/resolve-release-version.sh"
 require_checkout_file "scripts/test-resolve-release-version.sh"
+require_checkout_file "scripts/check-version-consistency.sh"
+require_checkout_file "scripts/check-toolchain-consistency.sh"
+require_checkout_file "VERSION"
+require_checkout_file ".node-version"
 
 (
   cd "$worktree"

@@ -2,25 +2,6 @@ name: Security Contracts
 
 on:
   workflow_call:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'scripts/check-ai-privacy-contract.sh'
-      - 'scripts/check-backup-api-rehearsal.sh'
-      - 'scripts/check-backup-restore-rehearsal.sh'
-      - 'scripts/check-external-integration-contracts.sh'
-      - 'scripts/check-runtime-health-contract.sh'
-      - '.github/workflows/security-contracts.yml'
-  pull_request:
-    paths:
-      - 'backend/**'
-      - 'scripts/check-ai-privacy-contract.sh'
-      - 'scripts/check-backup-api-rehearsal.sh'
-      - 'scripts/check-backup-restore-rehearsal.sh'
-      - 'scripts/check-external-integration-contracts.sh'
-      - 'scripts/check-runtime-health-contract.sh'
-      - '.github/workflows/security-contracts.yml'
 
 permissions:
   contents: read

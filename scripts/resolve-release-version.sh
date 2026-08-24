@@ -42,10 +42,10 @@ output_file="${GITHUB_OUTPUT-}"
 
 core_number='(0|[1-9][0-9]*)'
 prerelease_identifier='(0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)'
-semver_regex="^v?(${core_number}\\.${core_number}\\.${core_number}(-${prerelease_identifier}(\\.${prerelease_identifier})*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?)$"
+semver_regex="^v?(${core_number}\\.${core_number}\\.${core_number}(-${prerelease_identifier}(\\.${prerelease_identifier})*)?)$"
 
 if [[ ! "$version_input" =~ $semver_regex ]]; then
-  fail "INPUT_VERSION must be a valid SemVer value with an optional v prefix"
+  fail "INPUT_VERSION must be SemVer without build metadata, with an optional v prefix"
 fi
 version="${BASH_REMATCH[1]}"
 

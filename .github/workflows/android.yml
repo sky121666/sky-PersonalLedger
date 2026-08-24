@@ -53,6 +53,11 @@ jobs:
           INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
         run: ./scripts/resolve-release-version.sh --require-build-number
 
+      - name: Verify repository version matches build input
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: ./scripts/check-version-consistency.sh
+
       - name: Setup Java
         uses: actions/setup-java@d7793b545071e98d581d3bf084a51c3213318a07 # v4
         with:

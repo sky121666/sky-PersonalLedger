@@ -70,4 +70,7 @@ if git grep -nI -E 'sk-your-[A-Za-z0-9_-]*|your-(store|key)-password|storePasswo
   fail=1
 fi
 
+"$PWD/scripts/check-version-consistency.sh"
+"$PWD/scripts/check-toolchain-consistency.sh"
+
 exit "$fail"
