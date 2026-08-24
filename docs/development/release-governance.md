@@ -4,7 +4,13 @@
 
 - 根目录 VERSION 是版本源；Web、Flutter 和发布输入必须一致。
 - vX.Y.Z tag 必须指向 origin/main 已包含的提交，且 tag 创建后不得移动或删除。
-- Release Docker/Web 只由 v* tag 触发。Docker 工作流不能单独手动发布。
+- Release Docker/Web 的正常路径只由 v* tag 触发。Docker 工作流不能单独手动发布。
+- 若不可变 tag 的自动工作流在任何 job 启动前因工作流静态校验失败，可从受保护的默认分支
+  手动运行 Recover Docker/Web Release。恢复入口只接受已存在的注释 tag，并同时校验远端 tag
+  对象、main ancestry、版本一致性、该提交已成功的 Project Quality Gate 与 Public Git Safety、
+  以及尚不存在的 Release。它还必须接收原失败 run ID，并证明该 run 是相同 tag/SHA 上的
+  Release Docker/Web `startup_failure` 且没有启动任何 job。构建、扫描、运行时验证和附件
+  生成全部锁定 peeled commit SHA，不使用调度分支作为镜像源码，也不得移动 tag。
 - Docker 只构建一次多架构 OCI layout。固定 digest 的 Skopeo 从该 layout 分别导出
   linux/amd64 和 linux/arm64 单平台 docker archive，并先断言 archive 元数据与目标架构
   一致；Trivy 分别扫描这两个已验证输入，不依赖从多架构索引中选择 manifest。
@@ -14,8 +20,9 @@
   把同一 layout 推送到不可变 version tag。checkout 不保留 GitHub 凭据。
   发布链不自动创建或更新 latest，部署使用版本标签或 digest。
 - 发布前拒绝已有的 GitHub Release 或 GHCR version tag，避免覆盖历史版本。
-- GitHub Release action 必须显式设置 tag_name、target_commitish、
-  fail_on_unmatched_files=true 和 overwrite_files=false。
+- 正常 tag 工作流的 GitHub Release action 必须显式设置 tag_name、target_commitish、
+  fail_on_unmatched_files=true 和 overwrite_files=false。恢复工作流使用 create-only 的
+  `gh release create --verify-tag`，并在创建前再次确认 Release 不存在，不复用或更新已有 Release。
 - 每个 Docker/Web Release 附带版本专属 Compose 与 SHA-256；Compose 镜像引用固定到
   本次 GHCR digest。
 - Signed Mobile Release 只能从已有 vX.Y.Z tag 手动运行。它验证 main ancestry 和已有
@@ -29,6 +36,9 @@
   TeamIdentifier、application-identifier 与 bundle id 一致。
 - Docker/Web tag 发布与手动签名移动端发布共享全局 concurrency group。
   任何公开发布写入均串行执行，避免版本输入格式差异造成同一 Release 并发修改。
+- 恢复工作流使用相同 concurrency group；它的 GHCR 与 Release 写入只进入单独受保护的
+  `release-recovery` environment。该环境只允许默认分支调度且同样需要维护者审批，避免为
+  恢复旧 tag 而放宽正常 `release` environment 的 `v*` 限制。
 - Forgejo 仅提供仓库安全与可选本地 Docker build smoke，不承担公开发布。
 
 运行本地结构门禁：
@@ -58,6 +68,9 @@
    因此误触发 signed workflow 会 fail closed，不会凭空生成可信签名资产。
 6. `GITHUB_TOKEN` 仓库默认权限为只读；仅 Docker 发布 job 授予 `packages:write`，仅 Release
    job 授予 `contents:write`。仓库中所有外部 GitHub Actions 均锁定到完整 commit SHA。
+7. `release-recovery` environment 是不可变 tag 启动失败时的独立恢复边界；它只允许 `main`
+   部署、要求 `sky121666` 审批且不保存签名 secrets。恢复工作流仍必须从 tag 读取源码并通过
+   上述远端身份与历史门禁。
 
 必需状态检查名称可能随 workflow job 重命名而变化。调整 workflow 后应再次从真实 PR/main
 run 复核，不要只凭本文抄写。任何远端规则修改都应继续通过 API/UI 回读确认。
@@ -76,11 +89,14 @@ prepare 只做只读校验，不引用 environment；只有最终追加公开资
 3. 创建一次性 vX.Y.Z tag 并推送；不得重打同名 tag。
 4. 等待 Docker/Web workflow 完成，记录 GHCR digest，下载并校验版本 Compose。
 5. 对记录的 digest 运行发布镜像 smoke；不依赖可移动标签。
-6. 如需签名移动端，在 Actions 中选择同一 tag 运行 Signed Mobile Release (manual)。
-7. 下载、校验、验签并完成真实设备验收；未完成时不要宣称正式移动分发完成。
+6. 仅当 tag 触发工作流在任何 job 启动前失败时，先经 PR 修复工作流，再从 `main` 调度
+   Recover Docker/Web Release，输入原 tag 与 startup-failed run ID；恢复路径不得用于覆盖已有
+   GHCR tag 或 Release。
+7. 如需签名移动端，在 Actions 中选择同一 tag 运行 Signed Mobile Release (manual)。
+8. 下载、校验、验签并完成真实设备验收；未完成时不要宣称正式移动分发完成。
 
 任何一步失败都保留日志与 digest，停止后续推广。不要通过移动 tag、覆盖 Release asset
-或重跑可独立发布的工作流来“修复”历史版本。
+或绕过受保护恢复入口来“修复”历史版本。
 
 ## 未解决的许可证边界
 

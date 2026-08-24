@@ -31,7 +31,7 @@ require_absent_text() {
   fi
 }
 
-required_files=(.github/workflows/docker.yml .github/workflows/release-web.yml .github/workflows/release.yml Dockerfile .dockerignore docker-entrypoint.sh docker-compose.yml docker-compose.debug.yml .env.example web/pnpm-workspace.yaml scripts/generate-release-compose.sh scripts/check-toolchain-consistency.sh)
+required_files=(.github/workflows/docker.yml .github/workflows/release-web.yml .github/workflows/release-web-recovery.yml .github/workflows/release.yml Dockerfile .dockerignore docker-entrypoint.sh docker-compose.yml docker-compose.debug.yml .env.example web/pnpm-workspace.yaml scripts/generate-release-compose.sh scripts/check-toolchain-consistency.sh)
 for path in "${required_files[@]}"; do
   require_file "$path"
 done
@@ -43,14 +43,15 @@ for tool in docker python3; do
   }
 done
 
-python3 - "$ROOT_DIR/.github/workflows/docker.yml" "$ROOT_DIR/.github/workflows/release-web.yml" "$ROOT_DIR/.github/workflows/release.yml" <<'PY'
+python3 - "$ROOT_DIR/.github/workflows/docker.yml" "$ROOT_DIR/.github/workflows/release-web.yml" "$ROOT_DIR/.github/workflows/release-web-recovery.yml" "$ROOT_DIR/.github/workflows/release.yml" <<'PY'
 import re
 import sys
 
 
 docker = open(sys.argv[1], encoding="utf-8").read()
 release = open(sys.argv[2], encoding="utf-8").read()
-signed_release = open(sys.argv[3], encoding="utf-8").read()
+recovery = open(sys.argv[3], encoding="utf-8").read()
+signed_release = open(sys.argv[4], encoding="utf-8").read()
 
 
 def job_block(workflow, name):
@@ -63,12 +64,14 @@ def job_block(workflow, name):
     return match.group(0)
 
 expected_concurrency = "group: personal-ledger-release-publish"
-if release.count(expected_concurrency) != 1 or signed_release.count(expected_concurrency) != 1:
-    raise SystemExit("Docker/Web and signed mobile release workflows must share one global concurrency group")
-if "cancel-in-progress: false" not in release or "cancel-in-progress: false" not in signed_release:
+if any(workflow.count(expected_concurrency) != 1 for workflow in (release, recovery, signed_release)):
+    raise SystemExit("Docker/Web, recovery, and signed mobile workflows must share one global concurrency group")
+if any("cancel-in-progress: false" not in workflow for workflow in (release, recovery, signed_release)):
     raise SystemExit("Release workflows must queue rather than cancel an in-progress publisher")
 if release.count("uses: actions/checkout@") != release.count("persist-credentials: false"):
     raise SystemExit("Every Docker/Web release checkout must disable persisted credentials")
+if recovery.count("uses: actions/checkout@") != recovery.count("persist-credentials: false"):
+    raise SystemExit("Every recovery checkout must disable persisted credentials")
 
 if "workflow_dispatch:" in docker:
     raise SystemExit("Docker publishing must only be callable by the gated tag workflow")
@@ -119,6 +122,11 @@ required_docker_contracts = [
     "sha256sum -c personal-ledger-release.oci.tar.sha256",
     "compression-level: 0",
     "needs: build_scan",
+    "ref: ${{ inputs.source_ref || github.ref }}",
+    "org.opencontainers.image.revision=${{ steps.source.outputs.sha }}",
+    "source_ref and source_sha must be provided together",
+    'PUBLISH_ENVIRONMENT" != "release"',
+    'PUBLISH_ENVIRONMENT" != "release-recovery"',
 ]
 for contract in required_docker_contracts:
     if contract not in docker:
@@ -136,13 +144,18 @@ for moving_tag_contract in ("publish_latest", "value=latest", 'docker://${image}
         raise SystemExit("Docker tag workflow must publish only the immutable version tag, not latest")
 build_scan = job_block(docker, "build_scan")
 publish = job_block(docker, "publish")
-if "environment:" in build_scan or "packages: write" in build_scan:
+if re.search(r"(?m)^    environment:", build_scan) or "packages: write" in build_scan:
     raise SystemExit("Docker build/scan job must not have a release environment or package write access")
 if "persist-credentials: false" not in build_scan:
     raise SystemExit("Docker build/scan checkout must not persist GitHub credentials")
 if docker.count("uses: actions/checkout@") != docker.count("persist-credentials: false"):
     raise SystemExit("Every Docker workflow checkout must disable persisted credentials")
-for contract in ("needs: build_scan", "environment: release", "actions: read", "packages: write"):
+for contract in (
+    "needs: build_scan",
+    "environment: ${{ inputs.publish_environment }}",
+    "actions: read",
+    "packages: write",
+):
     if contract not in publish:
         raise SystemExit(f"Docker publisher is missing protected handoff contract: {contract}")
 if "actions/checkout@" in publish:
@@ -185,6 +198,64 @@ for contract in required_post_scan_publish_contracts:
         raise SystemExit(f"Missing post-scan immutable image tag contract: {contract}")
 if not re.search(r"(?ms)^  release:\n(?:(?!^  [^ ]).)*^    environment: release$", release):
     raise SystemExit("GitHub Release writer must use the protected release environment")
+
+release_docker = job_block(release, "docker")
+for contract in (
+    "source_ref: ${{ github.ref_name }}",
+    "source_sha: ${{ github.sha }}",
+    "publish_environment: release",
+    "actions: read",
+    "packages: write",
+):
+    if contract not in release_docker:
+        raise SystemExit(f"Tag release Docker caller is missing nested permission or source contract: {contract}")
+
+recovery_validate = job_block(recovery, "validate")
+recovery_docker = job_block(recovery, "docker")
+recovery_release = job_block(recovery, "release")
+required_recovery_contracts = [
+    "workflow_dispatch:",
+    "failed_run_id:",
+    "ref: refs/tags/${{ inputs.tag }}",
+    'GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}"',
+    'GITHUB_WORKFLOW_REF" != "$expected_workflow_ref"',
+    'git cat-file -t "refs/tags/${TARGET_TAG}"',
+    "git merge-base --is-ancestor",
+    "Project Quality Gate",
+    "Public Git Safety",
+    '"conclusion": "startup_failure"',
+    'jobs.get("total_count") != 0',
+    ".github/workflows/quality-gate.yml",
+    ".github/workflows/public-git-safety.yml",
+    "releases/tags/${TARGET_TAG}",
+    "STRICT_FINAL_RELEASE: '1'",
+    "source_ref: ${{ needs.validate.outputs.release_sha }}",
+    "source_sha: ${{ needs.validate.outputs.release_sha }}",
+    "publish_environment: release-recovery",
+    "actions: read",
+    "packages: write",
+    "environment: release-recovery",
+    'checked_out_commit="$(git rev-parse HEAD)"',
+    "gh release create",
+    "--verify-tag",
+    "--target \"$RELEASE_SHA\"",
+    "--generate-notes",
+    "--notes-file \"$body\"",
+    'compose="dist/docker-compose-v${RELEASE_VERSION}.yml"',
+    'checksum="${compose}.sha256"',
+]
+for contract in required_recovery_contracts:
+    if contract not in recovery:
+        raise SystemExit(f"Missing immutable release recovery contract: {contract}")
+if "environment:" in recovery_validate or "packages: write" in recovery_validate:
+    raise SystemExit("Recovery validation must remain read-only and outside a deployment environment")
+for contract in ("actions: read", "packages: write", "publish_environment: release-recovery"):
+    if contract not in recovery_docker:
+        raise SystemExit(f"Recovery Docker caller is missing protected publisher contract: {contract}")
+if "environment: release-recovery" not in recovery_release or "contents: write" not in recovery_release:
+    raise SystemExit("Recovered GitHub Release writer must use the protected recovery environment")
+if "softprops/action-gh-release@" in recovery:
+    raise SystemExit("Recovery must use create-only gh release create instead of an action that can update a Release")
 PY
 
 require_text "Dockerfile" 'FROM node:[0-9]+[.][0-9]+[.][0-9]+-alpine[0-9.]+@sha256:[0-9a-f]{64} AS frontend-builder'

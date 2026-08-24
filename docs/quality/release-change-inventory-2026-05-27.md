@@ -4,7 +4,7 @@
 
 This document records the intended release change set before staging, commit, tag, or public distribution. The changed paths below are categorized into the release scope for the family, AI, client consistency, data protection, and release-readiness objective.
 
-Current status: the original 2026-05-27 inventory and the 2026-08-24 unified-hardening delta have both been reviewed. The unified-hardening implementation is committed as `2daa3a1`; the v1.0.9 publication-preparation delta below contains only release gates, truthful documentation, and isolated screenshots. It is committed only after its own listed gates pass, while tag creation remains a separate post-merge action.
+Current status: the original 2026-05-27 inventory and the 2026-08-24 unified-hardening delta have both been reviewed. The unified-hardening implementation is committed as `2daa3a1`; the v1.0.9 publication-preparation delta below contains only release gates, truthful documentation, and isolated screenshots. The immutable-tag recovery delta records the protected, exact-commit path used when a tag workflow cannot start any job; it does not change product source or version content.
 
 ## Scope Summary
 
@@ -720,6 +720,21 @@ docs/screenshots/v1.0.9/ios-home-runtime.png
 docs/screenshots/v1.0.9/web-home-runtime.jpg
 docs/screenshots/v1.0.9/web-quick-entry-runtime.jpg
 docs/screenshots/v1.0.9/web-transactions-runtime.jpg
+```
+
+### Immutable Tag Release Recovery (2026-08-24)
+
+Nested workflow permissions, exact-source Docker identity, zero-job startup recovery, and their
+enforced governance contracts:
+
+```text
+.github/workflows/docker.yml
+.github/workflows/release-web.yml
+.github/workflows/release-web-recovery.yml
+docs/development/release-governance.md
+docs/quality/final-release-runbook-2026-05-27.md
+docs/quality/release-change-inventory-2026-05-27.md
+scripts/check-docker-release-preflight.sh
 ```
 
 ## Excluded From Release
