@@ -152,6 +152,7 @@ accessibility evidence, so it is not the completion criterion for this Docker/We
 | Failure | Response |
 | --- | --- |
 | Tag or Release already exists | Stop; do not move or overwrite it, and prepare a new reviewed version if source must change |
+| Tag workflow fails before any job starts | Preserve the immutable tag; merge a reviewed workflow fix, then dispatch `Recover Docker/Web Release` from `main` with the original tag and failed run ID. The recovery must prove that run was a zero-job `startup_failure`, then verify the exact tag, successful source gates, unused GHCR/Release state, and protected `release-recovery` approval |
 | Main ancestry check fails | Merge the reviewed commit through the protected branch before tagging |
 | Docker architecture scan fails | Do not publish or retry by bypassing the scan; diagnose and prepare a new version when required |
 | GHCR tag already exists | Stop because the version is not unused; never overwrite the immutable version tag |

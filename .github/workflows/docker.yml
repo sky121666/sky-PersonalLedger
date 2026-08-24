@@ -6,6 +6,21 @@ on:
       version:
         required: true
         type: string
+      source_ref:
+        description: Optional immutable source ref to check out.
+        required: false
+        type: string
+        default: ''
+      source_sha:
+        description: Expected commit for source_ref.
+        required: false
+        type: string
+        default: ''
+      publish_environment:
+        description: Protected environment used by the registry publisher.
+        required: false
+        type: string
+        default: release
     outputs:
       image_digest:
         description: Pushed Docker image immutable digest.
@@ -32,7 +47,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: ${{ inputs.source_ref || github.ref }}
           persist-credentials: false
+
+      - name: Verify checked-out source identity
+        id: source
+        env:
+          EXPECTED_SOURCE_REF: ${{ inputs.source_ref }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
+          PUBLISH_ENVIRONMENT: ${{ inputs.publish_environment }}
+        run: |
+          if { [ -n "$EXPECTED_SOURCE_REF" ] && [ -z "$EXPECTED_SOURCE_SHA" ]; } ||
+             { [ -z "$EXPECTED_SOURCE_REF" ] && [ -n "$EXPECTED_SOURCE_SHA" ]; }; then
+            echo "::error title=Incomplete source identity::source_ref and source_sha must be provided together"
+            exit 1
+          fi
+          if [[ "$PUBLISH_ENVIRONMENT" != "release" && "$PUBLISH_ENVIRONMENT" != "release-recovery" ]]; then
+            echo "::error title=Invalid publish environment::Unexpected environment: $PUBLISH_ENVIRONMENT"
+            exit 1
+          fi
+
+          actual_source_sha="$(git rev-parse HEAD)"
+          if [ -n "$EXPECTED_SOURCE_SHA" ] && [ "$actual_source_sha" != "$EXPECTED_SOURCE_SHA" ]; then
+            echo "::error title=Source identity mismatch::Expected $EXPECTED_SOURCE_SHA, got $actual_source_sha"
+            exit 1
+          fi
+          echo "sha=$actual_source_sha" >> "$GITHUB_OUTPUT"
 
       - name: Set version
         id: version
@@ -66,6 +106,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ steps.repository.outputs.value }}
           tags: |
             type=raw,value=${{ steps.version.outputs.VERSION }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.source.outputs.sha }}
 
       - name: Build one multi-arch OCI layout
         id: build
@@ -168,7 +210,7 @@ jobs:
     needs: build_scan
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: release
+    environment: ${{ inputs.publish_environment }}
     outputs:
       image_digest: ${{ steps.publish.outputs.image_digest }}
     permissions:
