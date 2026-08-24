@@ -312,7 +312,7 @@ jobs:
         run: |
           output="dist/docker-compose-v${RELEASE_VERSION}.yml"
           bash ./scripts/generate-release-compose.sh "$output"
-          if [ "$(grep -F -c "$RELEASE_IMAGE" "$output")" -ne 1 ]; then
+          if [ "$(grep -F -c "    image: $RELEASE_IMAGE" "$output")" -ne 1 ]; then
             echo "::error title=Compose digest mismatch::Release Compose must contain the immutable digest exactly once"
             exit 1
           fi
