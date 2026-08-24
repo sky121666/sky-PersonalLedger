@@ -310,6 +310,7 @@ required_finalize_contracts = [
     "org.opencontainers.image.version",
     "ref: 134c4fdbcfb6860672af9c044fcad96aa606b8cc",
     "scripts/generate-release-compose.sh",
+    'grep -F -c "    image: $RELEASE_IMAGE"',
     "docker-compose-v${RELEASE_VERSION}.yml.sha256",
     "gh release create",
     "--verify-tag",
