@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp_dir="$(mktemp -d)"
 backend_pid=""
 ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-1}"
+ANDROID_EMULATOR_BOOT_TIMEOUT="${ANDROID_EMULATOR_BOOT_TIMEOUT:-300}"
 android_emulator_pid=""
 android_avd_name=""
 booted_ios_device=""
@@ -297,7 +298,7 @@ resolve_android_device() {
   android_emulator_pid="$!"
 
   local device
-  for _ in $(seq 1 120); do
+  for _ in $(seq 1 "$ANDROID_EMULATOR_BOOT_TIMEOUT"); do
     device="$(adb devices | awk '$2 == "device" && $1 ~ /^emulator-/ { print $1; exit }')"
     if [[ -n "$device" ]]; then
       local boot_completed

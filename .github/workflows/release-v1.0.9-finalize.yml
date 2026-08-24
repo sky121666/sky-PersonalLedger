@@ -1,0 +1,399 @@
+name: Finalize Published Docker/Web v1.0.9
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-ledger-release-publish
+  cancel-in-progress: false
+
+env:
+  EXPECTED_DIGEST: sha256:db2e60c66f72338357a3541845e6f52fae40f1c701d2b4124536f4663c43c457
+  EXPECTED_RECOVERY_HEAD: f2e179cc563de232af9317a468f8b3e2448bf3f7
+  EXPECTED_RECOVERY_RUN_ID: '32710642183'
+  EXPECTED_REPOSITORY: sky121666/sky-personalledger
+  EXPECTED_TAG: v1.0.9
+  EXPECTED_TAG_COMMIT: 134c4fdbcfb6860672af9c044fcad96aa606b8cc
+  EXPECTED_TAG_OBJECT: f85188e8ca65579283df40692b5889202fc23842
+  EXPECTED_VERSION: 1.0.9
+
+jobs:
+  validate:
+    name: Validate and smoke the published v1.0.9 digest
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Validate the cleanup-only failed recovery run
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
+            echo "::error title=Invalid finalize ref::Finalize must be dispatched from ${DEFAULT_BRANCH}"
+            exit 1
+          fi
+          expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/release-v1.0.9-finalize.yml@refs/heads/${DEFAULT_BRANCH}"
+          if [ "$GITHUB_WORKFLOW_REF" != "$expected_workflow_ref" ]; then
+            echo "::error title=Invalid finalize workflow ref::Expected $expected_workflow_ref, got $GITHUB_WORKFLOW_REF"
+            exit 1
+          fi
+
+          failed_run="$(mktemp)"
+          failed_jobs="$(mktemp)"
+          runtime_log="$(mktemp)"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${EXPECTED_RECOVERY_RUN_ID}" >"$failed_run"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${EXPECTED_RECOVERY_RUN_ID}/jobs?per_page=100" >"$failed_jobs"
+          runtime_job_id="$(python3 - "$failed_run" "$failed_jobs" "$DEFAULT_BRANCH" "$EXPECTED_RECOVERY_HEAD" <<'PY'
+          import json
+          import sys
+
+          run_path, jobs_path, default_branch, expected_head = sys.argv[1:]
+          with open(run_path, encoding="utf-8") as handle:
+              run = json.load(handle)
+          with open(jobs_path, encoding="utf-8") as handle:
+              jobs = json.load(handle).get("jobs", [])
+
+          expected_run = {
+              "name": "Recover Docker/Web Release",
+              "path": ".github/workflows/release-web-recovery.yml",
+              "event": "workflow_dispatch",
+              "status": "completed",
+              "conclusion": "failure",
+              "head_branch": default_branch,
+              "head_sha": expected_head,
+              "run_attempt": 1,
+          }
+          mismatches = [
+              f"{key}={run.get(key)!r}, expected {value!r}"
+              for key, value in expected_run.items()
+              if run.get(key) != value
+          ]
+          if mismatches:
+              raise SystemExit("Recovery run does not authorize finalize: " + "; ".join(mismatches))
+
+          expected_jobs = {
+              "Validate immutable recovery target": "success",
+              "Recover Docker multi-arch image / Build and scan one OCI layout without registry write access": "success",
+              "Recover Docker multi-arch image / Publish only the scanned OCI handoff": "success",
+              "Recovered Docker image runtime gate": "failure",
+              "Create recovered Docker/Web Release": "skipped",
+          }
+          by_name = {job.get("name"): job for job in jobs}
+          if set(by_name) != set(expected_jobs) or len(by_name) != len(jobs):
+              raise SystemExit("Recovery run job set does not match the one-shot finalize contract")
+          for name, conclusion in expected_jobs.items():
+              job = by_name[name]
+              if job.get("status") != "completed" or job.get("conclusion") != conclusion:
+                  raise SystemExit(
+                      f"Unexpected recovery job result for {name}: "
+                      f"{job.get('status')}/{job.get('conclusion')}"
+                  )
+          runtime_id = by_name["Recovered Docker image runtime gate"].get("id")
+          if not isinstance(runtime_id, int):
+              raise SystemExit("Recovery runtime job id is missing")
+          print(runtime_id)
+          PY
+          )"
+          gh run view "$EXPECTED_RECOVERY_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --job "$runtime_job_id" \
+            --log >"$runtime_log"
+          python3 - "$runtime_log" "$EXPECTED_REPOSITORY" "$EXPECTED_DIGEST" <<'PY'
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8-sig") as handle:
+              log = handle.read()
+          immutable_image = f"ghcr.io/{sys.argv[2]}@{sys.argv[3]}"
+          required = [
+              f"Docker manifest checks passed for {immutable_image}.",
+              f"Docker release smoke checks passed for {immutable_image}",
+              "Image healthcheck: healthy",
+              "Runtime UID: 10001",
+              "Metrics auth: PASS",
+              "Persistent paths: ledger.db, uploads, backups",
+              "Docker release evidence checks passed.",
+              "Permission denied",
+              "FAIL: published Docker image runtime evidence",
+          ]
+          missing = [value for value in required if value not in log]
+          if missing:
+              raise SystemExit("Failed recovery log is missing evidence: " + ", ".join(missing))
+          fail_lines = [line for line in log.splitlines() if "FAIL:" in line]
+          if len(fail_lines) != 1 or not fail_lines[0].endswith(
+              "FAIL: published Docker image runtime evidence"
+          ):
+              raise SystemExit("Recovery failed for more than the authorized cleanup-only condition")
+          forbidden = [
+              "Docker release smoke did not become healthy",
+              "Docker release image HEALTHCHECK did not become healthy",
+              "Docker release server process must run as UID",
+              "Docker release metrics endpoint",
+              "Expected persistent path missing",
+          ]
+          present = [value for value in forbidden if value in log]
+          if present:
+              raise SystemExit("Recovery log contains a real runtime failure: " + ", ".join(present))
+          PY
+
+      - name: Checkout current finalize tooling with history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify immutable source, source gates, and unused Release
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error title=Finalize tooling identity mismatch::Checkout must equal GITHUB_SHA"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$EXPECTED_RECOVERY_HEAD" HEAD; then
+            echo "::error title=Untrusted finalize history::The failed recovery workflow is not an ancestor of current main"
+            exit 1
+          fi
+
+          git fetch --force origin \
+            "refs/tags/${EXPECTED_TAG}:refs/tags/${EXPECTED_TAG}" \
+            "refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          if [ "$(git cat-file -t "refs/tags/${EXPECTED_TAG}")" != "tag" ]; then
+            echo "::error title=Unannotated release tag::${EXPECTED_TAG} must remain annotated"
+            exit 1
+          fi
+          local_tag_object="$(git rev-parse "refs/tags/${EXPECTED_TAG}")"
+          tag_commit="$(git rev-list -n 1 "refs/tags/${EXPECTED_TAG}")"
+          remote_tag_object="$(git ls-remote origin "refs/tags/${EXPECTED_TAG}" | awk '{print $1}')"
+          remote_tag_commit="$(git ls-remote origin "refs/tags/${EXPECTED_TAG}^{}" | awk '{print $1}')"
+          if [ "$local_tag_object" != "$EXPECTED_TAG_OBJECT" ] \
+            || [ "$remote_tag_object" != "$EXPECTED_TAG_OBJECT" ] \
+            || [ "$tag_commit" != "$EXPECTED_TAG_COMMIT" ] \
+            || [ "$remote_tag_commit" != "$EXPECTED_TAG_COMMIT" ]; then
+            echo "::error title=Immutable tag identity mismatch::v1.0.9 tag object or peeled commit changed"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$tag_commit" "refs/remotes/origin/${DEFAULT_BRANCH}"; then
+            echo "::error title=Release source is not on main::${EXPECTED_TAG} is not contained in origin/${DEFAULT_BRANCH}"
+            exit 1
+          fi
+          repository_version="$(git show "${tag_commit}:VERSION" | tr -d '\r\n')"
+          if [ "$repository_version" != "$EXPECTED_VERSION" ]; then
+            echo "::error title=Release version mismatch::Expected ${EXPECTED_VERSION}, got ${repository_version}"
+            exit 1
+          fi
+
+          release_error="$(mktemp)"
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${EXPECTED_TAG}" >/dev/null 2>"$release_error"; then
+            echo "::error title=Release already exists::Refusing to overwrite GitHub Release ${EXPECTED_TAG}"
+            exit 1
+          fi
+          if ! grep -q 'HTTP 404' "$release_error"; then
+            sed -n '1,20p' "$release_error" >&2
+            echo "::error title=Release check failed::Could not prove GitHub Release ${EXPECTED_TAG} is unused"
+            exit 1
+          fi
+
+          successful_runs="$(mktemp)"
+          gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/runs" \
+            -f head_sha="$tag_commit" \
+            -f event=push \
+            -f status=success \
+            -f per_page=100 >"$successful_runs"
+          python3 - "$successful_runs" "$tag_commit" "$DEFAULT_BRANCH" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              runs = json.load(handle).get("workflow_runs", [])
+          expected_sha, expected_branch = sys.argv[2:]
+          required = {
+              ".github/workflows/quality-gate.yml": "Project Quality Gate",
+              ".github/workflows/public-git-safety.yml": "Public Git Safety",
+          }
+          successful = {
+              run.get("path"): run.get("name")
+              for run in runs
+              if run.get("conclusion") == "success"
+              and run.get("event") == "push"
+              and run.get("head_sha") == expected_sha
+              and run.get("head_branch") == expected_branch
+          }
+          missing = sorted(path for path, name in required.items() if successful.get(path) != name)
+          if missing:
+              raise SystemExit("Missing successful source workflow paths: " + ", ".join(missing))
+          PY
+
+      - name: Re-run immutable digest runtime evidence with fixed cleanup
+        env:
+          DOCKER_RELEASE_IMAGE: ghcr.io/sky121666/sky-personalledger@sha256:db2e60c66f72338357a3541845e6f52fae40f1c701d2b4124536f4663c43c457
+          RUNTIME_DOCKER_RELEASE_EVIDENCE: '1'
+          RUN_DOCKER_RELEASE_SMOKE: '1'
+          STRICT_DOCKER_RELEASE_EVIDENCE: '1'
+        run: |
+          image_tag="ghcr.io/${EXPECTED_REPOSITORY}:${EXPECTED_VERSION}"
+          actual_digest="$(docker buildx imagetools inspect "$image_tag" | awk '$1 == "Digest:" {print $2; exit}')"
+          if [ "$actual_digest" != "$EXPECTED_DIGEST" ]; then
+            echo "::error title=Published tag digest mismatch::Expected ${EXPECTED_DIGEST}, got ${actual_digest:-missing}"
+            exit 1
+          fi
+
+          ./scripts/check-docker-release-evidence.sh
+
+          immutable_image="ghcr.io/${EXPECTED_REPOSITORY}@${EXPECTED_DIGEST}"
+          docker pull "$immutable_image" >/dev/null
+          revision="$(docker image inspect "$immutable_image" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+          source="$(docker image inspect "$immutable_image" --format '{{ index .Config.Labels "org.opencontainers.image.source" }}')"
+          version="$(docker image inspect "$immutable_image" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')"
+          if [ "$revision" != "$EXPECTED_TAG_COMMIT" ] \
+            || [ "$source" != "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" ] \
+            || [ "$version" != "$EXPECTED_VERSION" ]; then
+            echo "::error title=Published image source mismatch::OCI labels do not bind the image to v1.0.9 source"
+            exit 1
+          fi
+
+  release:
+    name: Create the v1.0.9 Docker/Web Release once
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release-recovery
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout immutable v1.0.9 source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: 134c4fdbcfb6860672af9c044fcad96aa606b8cc
+          persist-credentials: false
+
+      - name: Reconfirm tag, digest, and unused Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$EXPECTED_TAG_COMMIT" ]; then
+            echo "::error title=Release checkout mismatch::Checkout must equal the immutable v1.0.9 commit"
+            exit 1
+          fi
+          remote_tag_object="$(git ls-remote origin "refs/tags/${EXPECTED_TAG}" | awk '{print $1}')"
+          remote_tag_commit="$(git ls-remote origin "refs/tags/${EXPECTED_TAG}^{}" | awk '{print $1}')"
+          if [ "$remote_tag_object" != "$EXPECTED_TAG_OBJECT" ] || [ "$remote_tag_commit" != "$EXPECTED_TAG_COMMIT" ]; then
+            echo "::error title=Remote tag identity mismatch::v1.0.9 changed before Release creation"
+            exit 1
+          fi
+          actual_digest="$(docker buildx imagetools inspect "ghcr.io/${EXPECTED_REPOSITORY}:${EXPECTED_VERSION}" | awk '$1 == "Digest:" {print $2; exit}')"
+          if [ "$actual_digest" != "$EXPECTED_DIGEST" ]; then
+            echo "::error title=Published tag digest mismatch::v1.0.9 changed before Release creation"
+            exit 1
+          fi
+          release_error="$(mktemp)"
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${EXPECTED_TAG}" >/dev/null 2>"$release_error"; then
+            echo "::error title=Release already exists::Refusing to overwrite GitHub Release ${EXPECTED_TAG}"
+            exit 1
+          fi
+          if ! grep -q 'HTTP 404' "$release_error"; then
+            sed -n '1,20p' "$release_error" >&2
+            echo "::error title=Release check failed::Could not prove GitHub Release ${EXPECTED_TAG} is unused"
+            exit 1
+          fi
+
+      - name: Generate immutable Compose asset and checksum
+        env:
+          RELEASE_IMAGE: ghcr.io/sky121666/sky-personalledger@sha256:db2e60c66f72338357a3541845e6f52fae40f1c701d2b4124536f4663c43c457
+          RELEASE_VERSION: 1.0.9
+        run: |
+          output="dist/docker-compose-v${RELEASE_VERSION}.yml"
+          bash ./scripts/generate-release-compose.sh "$output"
+          if [ "$(grep -F -c "$RELEASE_IMAGE" "$output")" -ne 1 ]; then
+            echo "::error title=Compose digest mismatch::Release Compose must contain the immutable digest exactly once"
+            exit 1
+          fi
+          env LEDGER_JWT_SECRET=release-compose-validation-only LEDGER_SETUP_TOKEN=release-compose-validation-only \
+            docker compose --env-file /dev/null -f "$output" config --quiet
+          (
+            cd dist
+            sha256sum "docker-compose-v${RELEASE_VERSION}.yml" >"docker-compose-v${RELEASE_VERSION}.yml.sha256"
+            sha256sum -c "docker-compose-v${RELEASE_VERSION}.yml.sha256"
+          )
+
+      - name: Create GitHub Release once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          compose="dist/docker-compose-v${EXPECTED_VERSION}.yml"
+          checksum="${compose}.sha256"
+          body="$(mktemp)"
+          cat >"$body" <<EOF
+          ## Personal Ledger v${EXPECTED_VERSION}
+
+          本次 Release 面向 Docker/Web 自托管部署，不自动包含正式签名
+          Android/iOS 安装包；移动端签名生成方法见项目开发文档。
+
+          ### Docker
+
+              docker pull ghcr.io/${EXPECTED_REPOSITORY}:${EXPECTED_VERSION}
+
+          不可变镜像：
+
+              ghcr.io/${EXPECTED_REPOSITORY}@${EXPECTED_DIGEST}
+
+          Release 附件 \`docker-compose-v${EXPECTED_VERSION}.yml\` 已固定到上述 digest；
+          同时下载对应 \`.sha256\` 后校验再部署。
+
+          ### 文档与截图
+
+          - README：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${EXPECTED_TAG}/README.md
+          - 功能文档：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${EXPECTED_TAG}/docs/features
+          - 运行截图索引：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${EXPECTED_TAG}/docs/screenshots
+          EOF
+
+          gh release create "$EXPECTED_TAG" "$compose" "$checksum" \
+            --verify-tag \
+            --target "$EXPECTED_TAG_COMMIT" \
+            --title "Release v${EXPECTED_VERSION}" \
+            --generate-notes \
+            --notes-file "$body"
+
+      - name: Verify created Release and downloaded assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_json="$(mktemp)"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${EXPECTED_TAG}" >"$release_json"
+          python3 - "$release_json" "$EXPECTED_TAG" "$EXPECTED_VERSION" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              release = json.load(handle)
+          expected_assets = {
+              f"docker-compose-v{sys.argv[3]}.yml",
+              f"docker-compose-v{sys.argv[3]}.yml.sha256",
+          }
+          actual_assets = {asset.get("name") for asset in release.get("assets", [])}
+          if release.get("tag_name") != sys.argv[2] or release.get("draft") or release.get("prerelease"):
+              raise SystemExit("Created Release metadata is invalid")
+          if actual_assets != expected_assets:
+              raise SystemExit(f"Created Release assets mismatch: {sorted(actual_assets)}")
+          if any(not asset.get("size") for asset in release.get("assets", [])):
+              raise SystemExit("Created Release contains an empty asset")
+          PY
+
+          assets_dir="$(mktemp -d)"
+          gh release download "$EXPECTED_TAG" --dir "$assets_dir"
+          (
+            cd "$assets_dir"
+            sha256sum -c "docker-compose-v${EXPECTED_VERSION}.yml.sha256"
+          )
+          if [ "$(grep -F -c "ghcr.io/${EXPECTED_REPOSITORY}@${EXPECTED_DIGEST}" "$assets_dir/docker-compose-v${EXPECTED_VERSION}.yml")" -ne 1 ]; then
+            echo "::error title=Downloaded Compose digest mismatch::Remote asset is not pinned to the released digest"
+            exit 1
+          fi

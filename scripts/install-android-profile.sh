@@ -7,7 +7,7 @@ PACKAGE_NAME="${PACKAGE_NAME:-com.skyapp.personal_ledger}"
 ANDROID_PREFER_EMULATOR="${ANDROID_PREFER_EMULATOR:-1}"
 SERIAL="${ANDROID_SERIAL:-}"
 ANDROID_EMULATOR_NAME="${ANDROID_EMULATOR_NAME:-}"
-ANDROID_EMULATOR_BOOT_TIMEOUT="${ANDROID_EMULATOR_BOOT_TIMEOUT:-120}"
+ANDROID_EMULATOR_BOOT_TIMEOUT="${ANDROID_EMULATOR_BOOT_TIMEOUT:-300}"
 HOST_HOME="${HOME:-/tmp}"
 
 if [[ "$ANDROID_PREFER_EMULATOR" != "1" ]]; then
@@ -102,7 +102,8 @@ start_android_emulator() {
   fi
 
   echo "未检测到 emulator，尝试自动启动: $avd_name"
-  "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect >>"/tmp/ledger-profile-emulator.log" 2>&1 &
+  nohup "$emulator_bin" -avd "$avd_name" -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect \
+    >>"/tmp/ledger-profile-emulator.log" 2>&1 </dev/null &
   if ! wait_emulator_boot "$ANDROID_EMULATOR_BOOT_TIMEOUT"; then
     fail "模拟器启动超时，日志路径: /tmp/ledger-profile-emulator.log"
   fi
