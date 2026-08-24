@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNBOOK_FILE="${FINAL_RELEASE_RUNBOOK_FILE:-docs/quality/final-release-runbook-2026-05-27.md}"
+VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 
 fail() {
   echo "$1" >&2
@@ -18,6 +19,10 @@ require_text() {
 
 [[ -f "$ROOT_DIR/$RUNBOOK_FILE" ]] || fail "Missing final release runbook: $RUNBOOK_FILE"
 
+if ! grep -Fxq "# Final Release Runbook - v${VERSION}" "$ROOT_DIR/$RUNBOOK_FILE"; then
+  fail "Final release runbook version does not match root VERSION: ${VERSION}"
+fi
+
 require_text '^## Conclusion'
 require_text '^## Preconditions'
 require_text '^## 1\. Configure Signing'
@@ -30,7 +35,7 @@ require_text '^## 7\. Finalize Release Notes'
 require_text '^## 8\. Final Gate'
 require_text '^## Failure Handling'
 require_text 'CHECK_SIGNING_SECRETS=1 ./scripts/check-release-artifacts-preflight.sh'
-require_text 'RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=X.Y.Z REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh'
+require_text "RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=${VERSION} REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh"
 require_text 'REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh'
 require_text 'RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-preflight.sh'
 require_text 'STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh'

@@ -15,6 +15,8 @@ web/.vite
 node_modules
 
 # Go
+.codex-go-cache
+.codex-*
 backend/.codex-go-cache
 backend/.codex-*
 backend/data/*.db*
@@ -55,6 +57,7 @@ google-services.json
 GoogleService-Info.plist
 
 # 其他
+.playwright-mcp
 *.md
 *.log
 .DS_Store

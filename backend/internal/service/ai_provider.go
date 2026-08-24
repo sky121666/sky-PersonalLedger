@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -25,7 +26,7 @@ const aiProviderTypeOpenAICompatible = "openai_compatible"
 type AIProviderService struct {
 	repo                 *repository.AIProviderRepository
 	client               *OpenAICompatibleClient
-	secret               string
+	credentialKeys       credentialKeyring
 	allowPrivateNetworks bool
 }
 
@@ -33,11 +34,11 @@ func NewAIProviderService(repo *repository.AIProviderRepository, client *OpenAIC
 	if client == nil {
 		client = NewOpenAICompatibleClient(nil)
 	}
-	secret := ""
-	if len(encryptionSecrets) > 0 {
-		secret = encryptionSecrets[0]
+	return &AIProviderService{
+		repo:           repo,
+		client:         client,
+		credentialKeys: newCredentialKeyring(encryptionSecrets...),
 	}
-	return &AIProviderService{repo: repo, client: client, secret: secret}
 }
 
 // WithPrivateOutboundNetworks enables local/private AI gateways only when the
@@ -123,7 +124,7 @@ func (s *AIProviderService) Create(userID uint, req SaveAIProviderRequest) (*AIP
 	if err != nil {
 		return nil, err
 	}
-	protectedKey, err := protectAISecret(req.APIKey, s.secret)
+	protectedKey, err := protectAISecret(req.APIKey, s.credentialKeys.primary())
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +169,7 @@ func (s *AIProviderService) Update(id string, userID uint, req SaveAIProviderReq
 	provider.ProviderType = normalized.ProviderType
 	provider.BaseURL = normalized.BaseURL
 	if strings.TrimSpace(req.APIKey) != "" {
-		protectedKey, err := protectAISecret(req.APIKey, s.secret)
+		protectedKey, err := protectAISecret(req.APIKey, s.credentialKeys.primary())
 		if err != nil {
 			return nil, err
 		}
@@ -198,11 +199,44 @@ func (s *AIProviderService) TestConnection(id string, userID uint) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	apiKey, err := revealAISecret(provider.APIKeyCiphertext, s.secret)
+	apiKey, err := revealAISecretWithKeyring(provider.APIKeyCiphertext, s.credentialKeys)
 	if err != nil {
 		return err
 	}
 	return s.client.TestConnection(ctx, provider.BaseURL, apiKey, provider.Model)
+}
+
+// MigrateStoredSecrets validates every provider credential before updating any
+// row. Fallback-key ciphertext and legacy plaintext are re-encrypted with the
+// active key in a single transaction.
+func (s *AIProviderService) MigrateStoredSecrets() error {
+	changedProviders, err := s.prepareStoredSecretMigration()
+	if err != nil {
+		return err
+	}
+	if err := s.repo.UpdateSecretsBatch(changedProviders); err != nil {
+		return fmt.Errorf("persist migrated AI provider credentials: %w", err)
+	}
+	return nil
+}
+
+func (s *AIProviderService) prepareStoredSecretMigration() ([]model.AIProvider, error) {
+	providers, err := s.repo.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("load AI providers for credential migration: %w", err)
+	}
+	changedProviders := make([]model.AIProvider, 0, len(providers))
+	for index := range providers {
+		migrated, changed, err := migrateAISecret(providers[index].APIKeyCiphertext, s.credentialKeys)
+		if err != nil {
+			return nil, fmt.Errorf("migrate AI provider credential %s: %w", providers[index].ID, err)
+		}
+		if changed {
+			providers[index].APIKeyCiphertext = migrated
+			changedProviders = append(changedProviders, providers[index])
+		}
+	}
+	return changedProviders, nil
 }
 
 func (s *AIProviderService) getOwnedProvider(id string, userID uint) (*model.AIProvider, error) {

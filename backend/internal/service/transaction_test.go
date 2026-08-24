@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -764,6 +765,199 @@ func TestUpdateAllowsManualTransaction(t *testing.T) {
 	}
 	if updated.Amount != 25 || updated.Remark != "after" {
 		t.Fatalf("updated manual transaction = %#v", updated)
+	}
+}
+
+func TestUpdateAttachmentsChangesOnlyAttachmentMetadata(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+	transaction, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          10,
+		AccountID:       accountID,
+		TransactionDate: "2026-07-31T10:00:00",
+		Remark:          "receipt",
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+	accountBefore, err := repos.Account.GetByID(accountID)
+	if err != nil {
+		t.Fatalf("get account before attachment update: %v", err)
+	}
+	logsBefore, err := repos.AccountLog.GetByTransactionID(userID, transaction.ID)
+	if err != nil {
+		t.Fatalf("get account logs before attachment update: %v", err)
+	}
+
+	owner := strconv.FormatUint(uint64(userID), 10)
+	images := `["/uploads/` + owner + `/transactions/` + transaction.ID + `/receipt.png"]`
+	updated, err := svc.UpdateAttachments(transaction.ID, userID, UpdateTransactionAttachmentsRequest{Images: &images})
+	if err != nil {
+		t.Fatalf("update transaction attachments: %v", err)
+	}
+	wantImages := `["` + owner + `/transactions/` + transaction.ID + `/receipt.png"]`
+	if updated.Images != wantImages {
+		t.Fatalf("updated images = %q, want %q", updated.Images, wantImages)
+	}
+	if updated.Amount != transaction.Amount || updated.AccountID != transaction.AccountID || updated.Remark != transaction.Remark {
+		t.Fatalf("attachment update changed transaction fields: before=%#v after=%#v", transaction, updated)
+	}
+
+	accountAfter, err := repos.Account.GetByID(accountID)
+	if err != nil {
+		t.Fatalf("get account after attachment update: %v", err)
+	}
+	if accountAfter.CurrentBalance != accountBefore.CurrentBalance {
+		t.Fatalf("account balance after attachment update = %v, want %v", accountAfter.CurrentBalance, accountBefore.CurrentBalance)
+	}
+	logsAfter, err := repos.AccountLog.GetByTransactionID(userID, transaction.ID)
+	if err != nil {
+		t.Fatalf("get account logs after attachment update: %v", err)
+	}
+	if len(logsAfter) != len(logsBefore) {
+		t.Fatalf("account log count after attachment update = %d, want %d", len(logsAfter), len(logsBefore))
+	}
+}
+
+func TestUpdateAttachmentsRejectsCrossUserAndManagedTransactions(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+	transaction, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          10,
+		AccountID:       accountID,
+		TransactionDate: "2026-07-31T10:00:00",
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+	otherUser := &model.User{Username: "other-attachment-owner", PasswordHash: "hash"}
+	if err := repos.User.Create(otherUser); err != nil {
+		t.Fatalf("create other user: %v", err)
+	}
+	otherImages := `["` + strconv.FormatUint(uint64(otherUser.ID), 10) + `/transactions/` + transaction.ID + `/receipt.png"]`
+	if _, err := svc.UpdateAttachments(transaction.ID, otherUser.ID, UpdateTransactionAttachmentsRequest{Images: &otherImages}); !errors.Is(err, ErrTransactionNotFound) {
+		t.Fatalf("cross-user attachment update error = %v, want ErrTransactionNotFound", err)
+	}
+	stored, err := svc.GetByID(transaction.ID, userID)
+	if err != nil {
+		t.Fatalf("get transaction after cross-user update: %v", err)
+	}
+	if stored.Images != "" {
+		t.Fatalf("cross-user update changed images to %q", stored.Images)
+	}
+
+	managed := &model.Transaction{
+		ID:              uuid.NewString(),
+		UserID:          userID,
+		AccountID:       accountID,
+		Type:            "expense",
+		Amount:          5,
+		TransactionDate: time.Now(),
+		Source:          "reminder",
+	}
+	if err := repos.Transaction.Create(managed); err != nil {
+		t.Fatalf("create managed transaction: %v", err)
+	}
+	managedImages := `["` + strconv.FormatUint(uint64(userID), 10) + `/transactions/` + managed.ID + `/receipt.png"]`
+	if _, err := svc.UpdateAttachments(managed.ID, userID, UpdateTransactionAttachmentsRequest{Images: &managedImages}); !errors.Is(err, ErrManagedTransactionImmutable) {
+		t.Fatalf("managed attachment update error = %v, want ErrManagedTransactionImmutable", err)
+	}
+}
+
+func TestUpdateAttachmentsNormalizesAndValidatesStoredPaths(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+	transaction, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          10,
+		AccountID:       accountID,
+		TransactionDate: "2026-07-31T10:00:00",
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+	owner := strconv.FormatUint(uint64(userID), 10)
+
+	tests := []struct {
+		name    string
+		images  string
+		wantErr error
+	}{
+		{name: "malformed array", images: `[{]`, wantErr: ErrInvalidTransactionImages},
+		{name: "external URL", images: `["https://example.test/receipt.png"]`, wantErr: ErrInvalidTransactionImages},
+		{name: "foreign owner", images: `["999999/transactions/` + transaction.ID + `/receipt.png"]`, wantErr: ErrTransactionAttachmentScope},
+		{name: "different transaction scope", images: `["` + owner + `/transactions/other/receipt.png"]`, wantErr: ErrTransactionAttachmentScope},
+		{name: "unsafe filename", images: `["` + owner + `/transactions/` + transaction.ID + `/bad\\name.png"]`, wantErr: ErrInvalidTransactionImages},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := svc.UpdateAttachments(transaction.ID, userID, UpdateTransactionAttachmentsRequest{Images: &tt.images}); !errors.Is(err, tt.wantErr) {
+				t.Fatalf("update error = %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+
+	legacy := owner + "/transactions/" + transaction.ID + "/one.png, " + owner + "/transactions/" + transaction.ID + "/two.pdf"
+	updated, err := svc.UpdateAttachments(transaction.ID, userID, UpdateTransactionAttachmentsRequest{Images: &legacy})
+	if err != nil {
+		t.Fatalf("normalize legacy attachment list: %v", err)
+	}
+	want := `["` + owner + `/transactions/` + transaction.ID + `/one.png","` + owner + `/transactions/` + transaction.ID + `/two.pdf"]`
+	if updated.Images != want {
+		t.Fatalf("normalized images = %q, want %q", updated.Images, want)
+	}
+}
+
+func TestCreateAndFullUpdateApplyAttachmentScopeValidation(t *testing.T) {
+	svc, repos, userID := newTransactionTestService(t)
+	accountID := createAccountForTest(t, repos, userID, 100)
+
+	foreignImages := `["999999/transactions/unknown/receipt.png"]`
+	if _, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          10,
+		AccountID:       accountID,
+		TransactionDate: "2026-07-31T10:00:00",
+		Images:          foreignImages,
+	}); !errors.Is(err, ErrCreateTransactionImages) {
+		t.Fatalf("create with non-empty attachment error = %v, want ErrCreateTransactionImages", err)
+	}
+
+	transaction, err := svc.Create(userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          10,
+		AccountID:       accountID,
+		TransactionDate: "2026-07-31T10:00:00",
+		Images:          "[]",
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+	if transaction.Images != "" {
+		t.Fatalf("empty create attachment list normalized to %q, want blank", transaction.Images)
+	}
+	accountBefore, err := repos.Account.GetByID(accountID)
+	if err != nil {
+		t.Fatalf("get account before rejected update: %v", err)
+	}
+	otherTransactionImages := `["` + strconv.FormatUint(uint64(userID), 10) + `/transactions/other/receipt.png"]`
+	if _, err := svc.Update(transaction.ID, userID, CreateTransactionRequest{
+		Type:            "expense",
+		Amount:          25,
+		AccountID:       accountID,
+		TransactionDate: "2026-07-31T12:00:00",
+		Images:          otherTransactionImages,
+	}); !errors.Is(err, ErrTransactionAttachmentScope) {
+		t.Fatalf("full update with another transaction attachment error = %v, want ErrTransactionAttachmentScope", err)
+	}
+	accountAfter, err := repos.Account.GetByID(accountID)
+	if err != nil {
+		t.Fatalf("get account after rejected update: %v", err)
+	}
+	if accountAfter.CurrentBalance != accountBefore.CurrentBalance {
+		t.Fatalf("rejected attachment update changed balance: before=%v after=%v", accountBefore.CurrentBalance, accountAfter.CurrentBalance)
 	}
 }
 

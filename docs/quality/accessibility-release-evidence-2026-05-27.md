@@ -4,7 +4,9 @@
 
 Widget-level semantics and tap-target tests are useful and currently pass, but they do not prove release-grade accessibility. This document records the automated baseline plus the manual VoiceOver and TalkBack pass required before claiming the mobile release is fully complete.
 
-Current status: automated premium accessibility baseline passed on 2026-05-27; real VoiceOver/TalkBack pass is still pending.
+Current status on 2026-08-24: the current Flutter suite, including the premium accessibility
+baseline, passes; the full suite records 404 passes and one designed skip. Real VoiceOver/TalkBack
+operation is still pending and is not replaced by simulator, widget, or screenshot tests.
 
 ## Automated Baseline
 
@@ -18,7 +20,7 @@ This baseline checks semantic labels, tooltips, form labels, and key tap targets
 
 | Gate | Scope | Status | Evidence |
 | --- | --- | --- | --- |
-| Premium accessibility widget baseline | Home, Quick Transaction, AI Reports, Family Hub | PASS | `flutter test test/premium_accessibility_test.dart`, 4 tests passed on 2026-05-27 |
+| Premium accessibility widget baseline | Home, Quick Transaction, AI Reports, Family Hub | PASS 2026-08-24 | Included in the current `flutter test` pass |
 | Semantic labels and tooltips | Premium actions and icon-only controls | PASS | Test asserts surface semantic labels and tooltips |
 | Form labels | Quick Transaction embedded form | PASS | Test asserts amount, account, category, member, close, tag, and save controls |
 | Key tap targets | Premium icon buttons and primary actions | PASS | Test asserts selected controls are at least 44 px |

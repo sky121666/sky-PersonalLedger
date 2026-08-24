@@ -2,11 +2,14 @@
 
 ## Conclusion
 
-The premium mobile target screens pass automated light/dark visual smoke coverage, a human screenshot review on the exported macOS artifacts, and a focused semantics/tap-target test pass. One light-mode Quick Transaction contrast issue was found and fixed by giving the embedded sheet a theme surface background instead of a transparent root. A second accessibility issue was found and fixed by raising themed `IconButton` minimum targets to 48 px.
+This is a historical human review of the 2026-05 screenshot set. The original `/tmp` PNG files were
+not retained and therefore are not durable current-candidate evidence. The current 2026-08-24 tree
+passes 48 automated light/dark screen cases and the Flutter accessibility suite; durable public
+runtime screenshots are indexed under `docs/screenshots/`.
 
 This review does not replace final physical iPhone QA or the full manual device checklist. It verifies visual structure, readability, and obvious overflow issues from the current screenshot set; Android native real-backend E2E is recorded separately.
 
-## Reviewed Evidence
+## Reviewed Evidence (historical; original `/tmp` files no longer retained)
 
 | Screen | Light | Dark | Result |
 | --- | --- | --- | --- |
@@ -41,11 +44,11 @@ This review does not replace final physical iPhone QA or the full manual device 
 
 | Command | Result |
 | --- | --- |
-| `flutter test integration_test/premium_screens_smoke_test.dart` | PASS, 8 light/dark premium cases |
+| `flutter test -d flutter-tester integration_test/premium_screens_smoke_test.dart` | PASS 2026-08-24, 48 light/dark cases |
 | `flutter test -d macos integration_test/premium_screens_smoke_test.dart --dart-define=LEDGER_PREMIUM_SCREENSHOT_DIR=/tmp/personal-ledger-premium-screenshots` | PASS, 10 PNG screenshots exported |
 | `flutter test test/premium_accessibility_test.dart` | PASS, premium semantic labels, tooltips, visible form labels, and 44+ px key tap targets |
 | `flutter analyze` | PASS |
-| `flutter test` | PASS, 192 tests |
+| `flutter test` | PASS 2026-08-24, 404 tests and 1 designed skip |
 
 ## Remaining Release Review
 

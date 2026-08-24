@@ -184,12 +184,9 @@ for name in workflow_names:
 docker_workflow = (root / ".github" / "workflows" / "docker.yml").read_text(
     encoding="utf-8"
 )
-if not re.search(
-    r"type=raw,value=latest,enable=.*inputs\.publish_latest"
-    r".*!contains\(steps\.version\.outputs\.VERSION, '-'\)",
-    docker_workflow,
-):
-    failures.append("docker workflow must not update latest for prerelease versions")
+for moving_tag_contract in ("publish_latest", "value=latest", 'docker://${image}:latest'):
+    if moving_tag_contract in docker_workflow:
+        failures.append("docker workflow must publish only immutable version tags, never latest")
 
 if failures:
     raise SystemExit("\n".join(failures))

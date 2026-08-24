@@ -48,6 +48,7 @@ func TestRegisteredRoutesMatchTagTemplateAndExportClients(t *testing.T) {
 		"POST /api/v1/imports/transactions/:id/validate",
 		"POST /api/v1/imports/transactions/:id/commit",
 		"POST /api/v1/imports/transactions/:id/rollback",
+		"PATCH /api/v1/transactions/:id/attachments",
 	} {
 		if !registered[expected] {
 			t.Errorf("production route %q is not registered", expected)

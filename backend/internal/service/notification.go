@@ -34,16 +34,16 @@ type NotificationService struct {
 	userRepo              *repository.UserRepository
 	httpClient            *http.Client
 	outboundNetworkPolicy *outboundNetworkPolicy
-	secret                string
+	credentialKeys        credentialKeyring
 	secretMu              sync.Mutex
 }
 
 func NewNotificationService(repo *repository.NotificationRepository, userRepo *repository.UserRepository, encryptionSecrets ...string) *NotificationService {
-	secret := ""
-	if len(encryptionSecrets) > 0 {
-		secret = encryptionSecrets[0]
-	}
-	return (&NotificationService{repo: repo, userRepo: userRepo, secret: secret}).WithPrivateOutboundNetworks(false)
+	return (&NotificationService{
+		repo:           repo,
+		userRepo:       userRepo,
+		credentialKeys: newCredentialKeyring(encryptionSecrets...),
+	}).WithPrivateOutboundNetworks(false)
 }
 
 // WithPrivateOutboundNetworks is an operator-controlled compatibility switch
@@ -110,10 +110,6 @@ func (s *NotificationService) Get(userID uint) (*model.NotificationSetting, erro
 }
 
 func (s *NotificationService) Update(userID uint, req NotificationSettingRequest) (*model.NotificationSetting, error) {
-	if err := s.validateSettingRequest(req); err != nil {
-		return nil, err
-	}
-
 	s.secretMu.Lock()
 	defer s.secretMu.Unlock()
 
@@ -126,13 +122,40 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 			return nil, err
 		}
 	}
+
+	var storedWecomWebhook, storedDingtalkWebhook, storedWebhookURL string
+	effectiveRequest := req
+	effectiveRequest.WecomWebhook, storedWecomWebhook, err = s.prepareNotificationEndpoint(req.WecomWebhook, existingEndpoint(existing, notificationChannelWecom))
+	if err != nil {
+		return nil, fmt.Errorf("prepare wecom notification credential: %w", err)
+	}
+	effectiveRequest.DingtalkWebhook, storedDingtalkWebhook, err = s.prepareNotificationEndpoint(req.DingtalkWebhook, existingEndpoint(existing, notificationChannelDingtalk))
+	if err != nil {
+		return nil, fmt.Errorf("prepare dingtalk notification credential: %w", err)
+	}
+	effectiveRequest.WebhookURL, storedWebhookURL, err = s.prepareNotificationEndpoint(req.WebhookURL, existingEndpoint(existing, notificationChannelWebhook))
+	if err != nil {
+		return nil, fmt.Errorf("prepare webhook notification credential: %w", err)
+	}
+	preserveDingtalkSecret, err := s.notificationEndpointUnchanged(req.DingtalkWebhook, existingEndpoint(existing, notificationChannelDingtalk))
+	if err != nil {
+		return nil, fmt.Errorf("compare dingtalk notification endpoint: %w", err)
+	}
+	preserveWebhookSecret, err := s.notificationEndpointUnchanged(req.WebhookURL, existingEndpoint(existing, notificationChannelWebhook))
+	if err != nil {
+		return nil, fmt.Errorf("compare webhook notification endpoint: %w", err)
+	}
+	if err := s.validateSettingRequest(effectiveRequest); err != nil {
+		return nil, err
+	}
+
 	setting := &model.NotificationSetting{
 		UserID:             userID,
 		Enabled:            req.Enabled,
 		WecomEnabled:       req.WecomEnabled,
-		WecomWebhook:       req.WecomWebhook,
+		WecomWebhook:       storedWecomWebhook,
 		DingtalkEnabled:    req.DingtalkEnabled,
-		DingtalkWebhook:    req.DingtalkWebhook,
+		DingtalkWebhook:    storedDingtalkWebhook,
 		EmailEnabled:       req.EmailEnabled,
 		SmtpHost:           req.SmtpHost,
 		SmtpPort:           req.SmtpPort,
@@ -140,7 +163,7 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 		SmtpFrom:           req.SmtpFrom,
 		EmailTo:            req.EmailTo,
 		WebhookEnabled:     req.WebhookEnabled,
-		WebhookURL:         req.WebhookURL,
+		WebhookURL:         storedWebhookURL,
 		NotifyPaymentDue:   req.NotifyPaymentDue,
 		NotifyBudgetAlert:  req.NotifyBudgetAlert,
 		NotifyLendingDue:   req.NotifyLendingDue,
@@ -149,17 +172,17 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 	}
 
 	if req.DingtalkSecret != "" {
-		setting.DingtalkSecret, err = protectNotificationSecret(req.DingtalkSecret, s.secret)
+		setting.DingtalkSecret, err = protectNotificationSecret(req.DingtalkSecret, s.credentialKeys.primary())
 		if err != nil {
 			return nil, fmt.Errorf("protect dingtalk notification credential: %w", err)
 		}
-	} else if existing != nil {
+	} else if existing != nil && preserveDingtalkSecret {
 		setting.DingtalkSecret = existing.DingtalkSecret
 	}
 
 	// Only update password if provided
 	if req.SmtpPassword != "" {
-		setting.SmtpPassword, err = protectNotificationSecret(req.SmtpPassword, s.secret)
+		setting.SmtpPassword, err = protectNotificationSecret(req.SmtpPassword, s.credentialKeys.primary())
 		if err != nil {
 			return nil, fmt.Errorf("protect smtp notification credential: %w", err)
 		}
@@ -168,11 +191,11 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 	}
 
 	if req.WebhookSecret != "" {
-		setting.WebhookSecret, err = protectNotificationSecret(req.WebhookSecret, s.secret)
+		setting.WebhookSecret, err = protectNotificationSecret(req.WebhookSecret, s.credentialKeys.primary())
 		if err != nil {
 			return nil, fmt.Errorf("protect webhook notification credential: %w", err)
 		}
-	} else if existing != nil {
+	} else if existing != nil && preserveWebhookSecret {
 		setting.WebhookSecret = existing.WebhookSecret
 	}
 
@@ -183,31 +206,88 @@ func (s *NotificationService) Update(userID uint, req NotificationSettingRequest
 	return s.repo.GetByUserID(userID)
 }
 
+func (s *NotificationService) notificationEndpointUnchanged(supplied string, existing *string) (bool, error) {
+	if existing == nil || strings.TrimSpace(*existing) == "" {
+		return false, nil
+	}
+	if strings.TrimSpace(supplied) == "" {
+		return true, nil
+	}
+	current, err := revealNotificationSecretWithKeyring(*existing, s.credentialKeys)
+	if err != nil {
+		return false, ErrNotificationCredentialUnavailable
+	}
+	return strings.TrimSpace(supplied) == strings.TrimSpace(current), nil
+}
+
+func existingEndpoint(setting *model.NotificationSetting, channel string) *string {
+	if setting == nil {
+		return nil
+	}
+	switch channel {
+	case notificationChannelWecom:
+		return &setting.WecomWebhook
+	case notificationChannelDingtalk:
+		return &setting.DingtalkWebhook
+	case notificationChannelWebhook:
+		return &setting.WebhookURL
+	default:
+		return nil
+	}
+}
+
+func (s *NotificationService) prepareNotificationEndpoint(supplied string, existing *string) (string, string, error) {
+	plainText := strings.TrimSpace(supplied)
+	if plainText != "" {
+		protected, err := protectNotificationSecret(plainText, s.credentialKeys.primary())
+		if err != nil {
+			return "", "", ErrNotificationCredentialUnavailable
+		}
+		return plainText, protected, nil
+	}
+	if existing == nil || *existing == "" {
+		return "", "", nil
+	}
+	plainText, err := revealNotificationSecretWithKeyring(*existing, s.credentialKeys)
+	if err != nil {
+		return "", "", ErrNotificationCredentialUnavailable
+	}
+	return plainText, *existing, nil
+}
+
 // MigrateStoredSecrets is called during startup and is safe to call repeatedly.
-// It also validates existing encrypted values so an incompatible JWT secret is
-// detected before background deliveries start.
+// It also validates existing encrypted values before background deliveries
+// start and re-encrypts values that used a configured fallback key.
 func (s *NotificationService) MigrateStoredSecrets() error {
 	s.secretMu.Lock()
 	defer s.secretMu.Unlock()
 
-	settings, err := s.repo.GetAll()
+	changedSettings, err := s.prepareStoredSecretMigration()
 	if err != nil {
-		return fmt.Errorf("load notification settings for credential migration: %w", err)
-	}
-	changedSettings := make([]model.NotificationSetting, 0, len(settings))
-	for index := range settings {
-		changed, err := s.prepareSettingSecrets(&settings[index])
-		if err != nil {
-			return err
-		}
-		if changed {
-			changedSettings = append(changedSettings, settings[index])
-		}
+		return err
 	}
 	if err := s.repo.UpdateSecretsBatch(changedSettings); err != nil {
 		return fmt.Errorf("persist migrated notification credentials: %w", err)
 	}
 	return nil
+}
+
+func (s *NotificationService) prepareStoredSecretMigration() ([]model.NotificationSetting, error) {
+	settings, err := s.repo.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("load notification settings for credential migration: %w", err)
+	}
+	changedSettings := make([]model.NotificationSetting, 0, len(settings))
+	for index := range settings {
+		changed, err := s.prepareSettingSecrets(&settings[index])
+		if err != nil {
+			return nil, err
+		}
+		if changed {
+			changedSettings = append(changedSettings, settings[index])
+		}
+	}
+	return changedSettings, nil
 }
 
 func (s *NotificationService) migrateSettingSecrets(setting *model.NotificationSetting) error {
@@ -233,26 +313,22 @@ func (s *NotificationService) prepareSettingSecrets(setting *model.NotificationS
 		name  string
 		value *string
 	}{
+		{name: "wecom endpoint", value: &setting.WecomWebhook},
+		{name: "dingtalk endpoint", value: &setting.DingtalkWebhook},
 		{name: "dingtalk", value: &setting.DingtalkSecret},
 		{name: "smtp", value: &setting.SmtpPassword},
+		{name: "webhook endpoint", value: &setting.WebhookURL},
 		{name: "webhook", value: &setting.WebhookSecret},
 	}
 	for _, credential := range credentials {
 		if *credential.value == "" {
 			continue
 		}
-		if isProtectedNotificationSecret(*credential.value) {
-			if _, err := revealNotificationSecret(*credential.value, s.secret); err != nil {
-				return false, fmt.Errorf("validate %s notification credential for setting %d: %w", credential.name, setting.ID, err)
-			}
-			continue
-		}
-
-		protectedValue, err := protectNotificationSecret(*credential.value, s.secret)
+		protectedValue, credentialChanged, err := migrateNotificationSecret(*credential.value, s.credentialKeys)
 		if err != nil {
 			return false, fmt.Errorf("migrate %s notification credential for setting %d: %w", credential.name, setting.ID, err)
 		}
-		if protectedValue != *credential.value {
+		if credentialChanged {
 			*credential.value = protectedValue
 			changed = true
 		}
@@ -297,6 +373,14 @@ func (s *NotificationService) TestWecom(webhook string) *TestResult {
 	return s.sendWebhook(webhook, payload)
 }
 
+func (s *NotificationService) TestWecomForUser(userID uint, suppliedEndpoint string) *TestResult {
+	endpoint, _, err := s.notificationTestTarget(userID, suppliedEndpoint, "", notificationChannelWecom)
+	if err != nil {
+		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或密钥"}
+	}
+	return s.TestWecom(endpoint)
+}
+
 func (s *NotificationService) TestDingtalk(webhook, secret string) *TestResult {
 	timestamp := time.Now().UnixMilli()
 	endpoint, err := s.dingtalkWebhookURL(webhook, secret, timestamp)
@@ -314,11 +398,11 @@ func (s *NotificationService) TestDingtalk(webhook, secret string) *TestResult {
 }
 
 func (s *NotificationService) TestDingtalkForUser(userID uint, webhook, suppliedSecret string) *TestResult {
-	secret, err := s.notificationCredentialForTest(userID, suppliedSecret, notificationChannelDingtalk)
+	endpoint, secret, err := s.notificationTestTarget(userID, webhook, suppliedSecret, notificationChannelDingtalk)
 	if err != nil {
 		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或密钥"}
 	}
-	return s.TestDingtalk(webhook, secret)
+	return s.TestDingtalk(endpoint, secret)
 }
 
 func (s *NotificationService) TestEmail(setting *model.NotificationSetting, userID uint) *TestResult {
@@ -342,7 +426,7 @@ func (s *NotificationService) TestWebhook(url, secret string) *TestResult {
 }
 
 func (s *NotificationService) TestWebhookForUser(userID uint, endpoint, suppliedSecret string) *TestResult {
-	secret, err := s.notificationCredentialForTest(userID, suppliedSecret, notificationChannelWebhook)
+	endpoint, secret, err := s.notificationTestTarget(userID, endpoint, suppliedSecret, notificationChannelWebhook)
 	if err != nil {
 		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或密钥"}
 	}
@@ -357,7 +441,11 @@ func (s *NotificationService) dingtalkSign(timestamp int64, secret string) strin
 }
 
 func (s *NotificationService) dingtalkWebhookURL(webhook, protectedSecret string, timestamp int64) (string, error) {
-	secret, err := revealNotificationSecret(protectedSecret, s.secret)
+	webhook, err := revealNotificationSecretWithKeyring(webhook, s.credentialKeys)
+	if err != nil {
+		return "", fmt.Errorf("%w: dingtalk endpoint", ErrNotificationCredentialUnavailable)
+	}
+	secret, err := revealNotificationSecretWithKeyring(protectedSecret, s.credentialKeys)
 	if err != nil {
 		return "", fmt.Errorf("%w: dingtalk", ErrNotificationCredentialUnavailable)
 	}
@@ -389,6 +477,10 @@ func (s *NotificationService) sendWebhookWithSecret(endpoint string, payload int
 }
 
 func (s *NotificationService) sendWebhookRequest(endpoint string, payload interface{}, protectedSecret string, validateRobotResponse bool) *TestResult {
+	endpoint, err := revealNotificationSecretWithKeyring(endpoint, s.credentialKeys)
+	if err != nil {
+		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或密钥"}
+	}
 	allowPrivate := s.outboundNetworkPolicy != nil && s.outboundNetworkPolicy.allowPrivateNetworks
 	if validateOutboundURL(endpoint, allowPrivate) != nil {
 		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或网络"}
@@ -397,7 +489,7 @@ func (s *NotificationService) sendWebhookRequest(endpoint string, payload interf
 	if err != nil {
 		return &TestResult{Success: false, Message: "通知发送失败，请检查通知配置"}
 	}
-	secret, err := revealNotificationSecret(protectedSecret, s.secret)
+	secret, err := revealNotificationSecretWithKeyring(protectedSecret, s.credentialKeys)
 	if err != nil {
 		return &TestResult{Success: false, Message: "通知发送失败，请检查通知地址或密钥"}
 	}
@@ -489,7 +581,7 @@ func (s *NotificationService) sendEmail(setting *model.NotificationSetting, user
 }
 
 func (s *NotificationService) smtpAuth(setting *model.NotificationSetting) (smtp.Auth, error) {
-	password, err := revealNotificationSecret(setting.SmtpPassword, s.secret)
+	password, err := revealNotificationSecretWithKeyring(setting.SmtpPassword, s.credentialKeys)
 	if err != nil {
 		return nil, fmt.Errorf("%w: smtp", ErrNotificationCredentialUnavailable)
 	}
@@ -499,22 +591,34 @@ func (s *NotificationService) smtpAuth(setting *model.NotificationSetting) (smtp
 	return smtp.PlainAuth("", setting.SmtpUser, password, setting.SmtpHost), nil
 }
 
-func (s *NotificationService) notificationCredentialForTest(userID uint, suppliedSecret, channel string) (string, error) {
-	if suppliedSecret != "" {
-		return suppliedSecret, nil
+func (s *NotificationService) notificationTestTarget(userID uint, suppliedEndpoint, suppliedSecret, channel string) (string, string, error) {
+	if strings.TrimSpace(suppliedEndpoint) != "" {
+		return suppliedEndpoint, suppliedSecret, nil
 	}
 	setting, err := s.Get(userID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+	var endpoint, secret string
 	switch channel {
+	case notificationChannelWecom:
+		endpoint = setting.WecomWebhook
 	case notificationChannelDingtalk:
-		return setting.DingtalkSecret, nil
+		endpoint = setting.DingtalkWebhook
+		secret = setting.DingtalkSecret
 	case notificationChannelWebhook:
-		return setting.WebhookSecret, nil
+		endpoint = setting.WebhookURL
+		secret = setting.WebhookSecret
 	default:
-		return "", errors.New("unsupported notification credential channel")
+		return "", "", errors.New("unsupported notification credential channel")
 	}
+	if strings.TrimSpace(endpoint) == "" {
+		return "", "", ErrNotificationCredentialUnavailable
+	}
+	if strings.TrimSpace(suppliedSecret) != "" {
+		secret = suppliedSecret
+	}
+	return endpoint, secret, nil
 }
 
 func (s *NotificationService) notificationEmailRecipient(setting *model.NotificationSetting, userID uint) (string, error) {

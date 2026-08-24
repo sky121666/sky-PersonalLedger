@@ -4,7 +4,12 @@
 
 This document is the release-candidate evidence log for signed mobile artifacts. A release is not considered fully proven until the Android APK/AAB and, when iOS distribution is in scope, the iOS IPA or TestFlight/archive evidence is recorded here with hashes and source workflow links.
 
-Current status: structural release evidence is prepared, source-level rehearsal has passed, local isolated backup operator drill has passed, automated accessibility baseline has passed, and external release evidence is intentionally deferred for the current local acceptance scope. Real signed artifacts, physical-device evidence, manual VoiceOver/TalkBack pass, and final release values remain pending for a later public release.
+Current status on 2026-08-24: structural release evidence, current source-level rehearsal,
+current-worktree Docker/Compose smokes, strict inventory, local isolated backup operator drill,
+automated Flutter accessibility tests, and the local final acceptance gate pass. Android emulator
+and iOS simulator real-backend E2E also pass. Real signed artifacts, physical-iPhone evidence,
+manual VoiceOver/TalkBack pass, published-image evidence, and final public release values remain
+pending for a later approved release.
 
 ## Artifact Verification Command
 
@@ -38,8 +43,8 @@ RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 
 | Android APK checksum | `personal-ledger-<version>-android.apk.sha256` | PENDING |  | `.github/workflows/android.yml` or local checksum |
 | Android AAB | `personal-ledger-<version>-android.aab` | PENDING |  | `.github/workflows/android.yml` or local signed build |
 | Android AAB checksum | `personal-ledger-<version>-android.aab.sha256` | PENDING |  | `.github/workflows/android.yml` or local checksum |
-| iOS IPA | `personal-ledger-<version>-ios.ipa` | PENDING |  | `.github/workflows/ios.yml`, tag release, local archive, or TestFlight export |
-| iOS IPA checksum | `personal-ledger-<version>-ios.ipa.sha256` | PENDING |  | `.github/workflows/ios.yml`, tag release, or local checksum |
+| iOS IPA | `personal-ledger-<version>-ios.ipa` | PENDING |  | manual signed mobile workflow, local archive, or TestFlight export |
+| iOS IPA checksum | `personal-ledger-<version>-ios.ipa.sha256` | PENDING |  | manual signed mobile workflow or local checksum |
 
 ## Release Candidate Checklist
 
@@ -54,7 +59,7 @@ RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 
 | iOS signing material | iOS workflow or local export validates certificate, provisioning profile, and export options | PENDING |
 | iOS artifact | IPA, TestFlight build, or Xcode archive is recorded with version/build number | PENDING |
 | iOS checksum | IPA `.sha256` file is attached to the CI artifact and matches the downloaded file | PENDING |
-| iOS/Android device QA | USB-connected iPhone evidence and Android emulator E2E or signed-install manual checklist are recorded | PENDING |
+| iOS/Android device QA | USB-connected iPhone evidence and Android emulator E2E or signed-install manual checklist are recorded | PARTIAL; Android emulator and iOS simulator E2E pass, physical iPhone pending |
 | Backup operator drill structure | `./scripts/check-backup-operator-drill.sh` passes | PASS |
 | Backup operator drill execution | `docs/quality/backup-operator-drill-2026-05-27.md` records real export/restore evidence from an isolated deployment | PASS |
 | Release notes structure | `./scripts/check-release-notes-candidate.sh` passes | PASS |
@@ -62,7 +67,7 @@ RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 
 | Release change inventory | `docs/quality/release-change-inventory-2026-05-27.md` lists every changed path and passes `STRICT_RELEASE_SCOPE=1 ./scripts/check-release-change-inventory.sh` | PASS |
 | Final release runbook structure | `./scripts/check-final-release-runbook.sh` passes | PASS |
 | Final release runbook values | `STRICT_FINAL_RELEASE_RUNBOOK=1 ./scripts/check-final-release-runbook.sh` passes | PENDING |
-| Local final acceptance | `LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` passes while external evidence is deferred | PASS REQUIRED FOR CURRENT SCOPE |
+| Local final acceptance | `LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` passes while external evidence is deferred | PASS 2026-08-24 |
 
 ## Recording Format
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -256,11 +258,233 @@ void main() {
       expect(attachmentRepository.uploadCalls, hasLength(1));
       expect(attachmentRepository.uploadCalls.single.category, 'lendings');
       expect(attachmentRepository.uploadCalls.single.refId, 'lend-1');
-      expect(lendingRepository.updateCalls, hasLength(2));
+      expect(lendingRepository.updateCalls, hasLength(1));
+      expect(lendingRepository.attachmentUpdateCalls, hasLength(1));
       expect(
-        lendingRepository.updateCalls.last.evidence,
+        lendingRepository.attachmentUpdateCalls.last.$2,
         '["1/lendings/lend-1/contract.pdf","lendings/lend-1/new.pdf"]',
       );
+    });
+
+    testWidgets('分批上传失败时保留成功凭证并仅重试失败文件', (tester) async {
+      final lendingRepository = _FakeLendingRepository();
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..uploadFailuresRemaining = 1;
+      await _pumpPage(
+        tester,
+        lendingRepository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: const _FakeAttachmentPickerService(
+          files: [
+            PendingAttachmentFile(path: '/tmp/a.pdf', name: 'a.pdf'),
+            PendingAttachmentFile(path: '/tmp/b.pdf', name: 'b.pdf'),
+          ],
+        ),
+      );
+
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+      await tester.tap(find.byKey(const ValueKey('lending-more-details')));
+      await tester.pumpAndSettle();
+      final addAttachmentButton = find.byKey(
+        const ValueKey('attachment-add-button'),
+        skipOffstage: false,
+      );
+      await tester.ensureVisible(addAttachmentButton);
+      await tester.tap(addAttachmentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
+      await tester.pumpAndSettle();
+
+      expect(attachmentRepository.uploadCalls, hasLength(2));
+      expect(lendingRepository.updateCalls, hasLength(1));
+      expect(lendingRepository.attachmentUpdateCalls, hasLength(1));
+      expect(
+        lendingRepository.attachmentUpdateCalls.last.$2,
+        contains('b.pdf'),
+      );
+      expect(
+        lendingRepository.attachmentUpdateCalls.last.$2,
+        isNot(contains('a.pdf')),
+      );
+      expect(
+        find.byKey(const ValueKey('lending-attachment-retry')),
+        findsOneWidget,
+      );
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('放弃附件重试？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, '继续重试'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('lending-attachment-retry')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('lending-attachment-retry')));
+      await tester.pumpAndSettle();
+
+      expect(attachmentRepository.uploadCalls, hasLength(3));
+      expect(attachmentRepository.uploadCalls.last.file.name, 'a.pdf');
+      expect(lendingRepository.updateCalls, hasLength(1));
+      expect(lendingRepository.attachmentUpdateCalls, hasLength(2));
+      expect(
+        lendingRepository.attachmentUpdateCalls.last.$2,
+        contains('a.pdf'),
+      );
+      expect(
+        lendingRepository.attachmentUpdateCalls.last.$2,
+        contains('b.pdf'),
+      );
+      expect(
+        find.byKey(const ValueKey('lending-attachment-retry')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('附件失败后再次编辑成功会清理旧重试且不覆盖新字段', (tester) async {
+      final lendingRepository = _FakeLendingRepository();
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..uploadFailuresRemaining = 1;
+      await _pumpPage(
+        tester,
+        lendingRepository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: const _FakeAttachmentPickerService(
+          files: [
+            PendingAttachmentFile(path: '/tmp/retry.pdf', name: 'retry.pdf'),
+          ],
+        ),
+      );
+
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+      await tester.tap(find.byKey(const ValueKey('lending-more-details')));
+      await tester.pumpAndSettle();
+      final addAttachmentButton = find.byKey(
+        const ValueKey('attachment-add-button'),
+        skipOffstage: false,
+      );
+      await tester.ensureVisible(addAttachmentButton);
+      await tester.tap(addAttachmentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('lending-attachment-retry')),
+        findsOneWidget,
+      );
+      expect(lendingRepository.updateCalls, hasLength(1));
+      expect(lendingRepository.attachmentUpdateCalls, hasLength(1));
+
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+      expect(find.text('先处理附件重试'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '放弃并编辑'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('lending-contact-name')),
+        '王五最新',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
+      await tester.pumpAndSettle();
+
+      expect(lendingRepository.updateCalls, hasLength(2));
+      expect(lendingRepository.updateCalls.last.contactName, '王五最新');
+      expect(lendingRepository.attachmentUpdateCalls, hasLength(1));
+      expect(
+        find.byKey(const ValueKey('lending-attachment-retry')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('旧附件重试后新编辑响应丢失不会保留旧闭包', (tester) async {
+      final lendingRepository = _FakeLendingRepository();
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..uploadFailuresRemaining = 1;
+      await _pumpPage(
+        tester,
+        lendingRepository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: const _FakeAttachmentPickerService(
+          files: [
+            PendingAttachmentFile(path: '/tmp/retry.pdf', name: 'retry.pdf'),
+          ],
+        ),
+      );
+
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+      await tester.tap(find.byKey(const ValueKey('lending-more-details')));
+      await tester.pumpAndSettle();
+      final addAttachmentButton = find.byKey(
+        const ValueKey('attachment-add-button'),
+        skipOffstage: false,
+      );
+      await tester.ensureVisible(addAttachmentButton);
+      await tester.tap(addAttachmentButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('lending-attachment-retry')),
+        findsOneWidget,
+      );
+
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+      expect(find.text('先处理附件重试'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '放弃并编辑'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('lending-contact-name')),
+        '响应丢失后的最新姓名',
+      );
+      lendingRepository.updateErrorsAfterCommit = 1;
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
+      await tester.pumpAndSettle();
+
+      expect(lendingRepository.updateCalls, hasLength(2));
+      expect(
+        lendingRepository.lendings
+            .firstWhere((item) => item.id == 'lend-1')
+            .contactName,
+        '响应丢失后的最新姓名',
+      );
+      expect(
+        find.byKey(const ValueKey('lending-attachment-retry')),
+        findsNothing,
+      );
+      expect(attachmentRepository.uploadCalls, hasLength(1));
+    });
+
+    testWidgets('保存进行中拦截返回操作', (tester) async {
+      final lendingRepository = _FakeLendingRepository()
+        ..updateGate = Completer<void>();
+      await _pumpPage(tester, lendingRepository);
+
+      await _openLendingMoreMenu(tester);
+      await _selectLendingMenuAction(tester, '编辑');
+      await tester.tap(find.widgetWithText(FilledButton, '保存记录'));
+      await tester.pump();
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(find.text('借贷操作正在处理中，请稍候'), findsOneWidget);
+
+      lendingRepository.updateGate!.complete();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('删除借贷记录前需要确认', (tester) async {
@@ -481,6 +705,7 @@ class _FakeLendingRepository implements LendingRepository {
 
   final List<CreateLendingRequest> createCalls = [];
   final List<UpdateLendingRequest> updateCalls = [];
+  final List<(String, String)> attachmentUpdateCalls = [];
   final List<_RepaymentCall> repaymentCalls = [];
   final List<String> deleteCalls = [];
   final List<String> recordCalls = [];
@@ -500,6 +725,8 @@ class _FakeLendingRepository implements LendingRepository {
   var listErrors = 0;
   String? createError;
   String? repaymentError;
+  Completer<void>? updateGate;
+  var updateErrorsAfterCommit = 0;
 
   @override
   Future<LendingItem?> create(CreateLendingRequest request) async {
@@ -577,7 +804,75 @@ class _FakeLendingRepository implements LendingRepository {
   @override
   Future<LendingItem?> update(String id, UpdateLendingRequest request) async {
     updateCalls.add(request);
-    return lendings.firstWhere((item) => item.id == id);
+    final gate = updateGate;
+    if (gate != null) {
+      await gate.future;
+    }
+    final old = lendings.firstWhere((item) => item.id == id);
+    final updated = LendingItem(
+      id: old.id,
+      type: old.type,
+      contactName: request.contactName,
+      contactPhone: request.contactPhone,
+      contactRemark: request.contactRemark,
+      principal: old.principal,
+      interestRate: request.interestRate,
+      currentBalance: old.currentBalance,
+      totalRepaid: old.totalRepaid,
+      lendDate: old.lendDate,
+      dueDate: request.dueDate == null
+          ? null
+          : DateTime.tryParse(request.dueDate!),
+      settledAt: old.settledAt,
+      accountId: old.accountId,
+      accountName: old.accountName,
+      remark: request.remark,
+      evidence: request.evidence,
+      isSettled: old.isSettled,
+      createdAt: old.createdAt,
+      updatedAt: old.updatedAt,
+    );
+    lendings = [
+      for (final item in lendings)
+        if (item.id == id) updated else item,
+    ];
+    if (updateErrorsAfterCommit > 0) {
+      updateErrorsAfterCommit -= 1;
+      throw StateError('update response lost after commit');
+    }
+    return updated;
+  }
+
+  @override
+  Future<LendingItem?> updateAttachments(String id, String evidence) async {
+    attachmentUpdateCalls.add((id, evidence));
+    final old = lendings.firstWhere((item) => item.id == id);
+    final updated = LendingItem(
+      id: old.id,
+      type: old.type,
+      contactName: old.contactName,
+      contactPhone: old.contactPhone,
+      contactRemark: old.contactRemark,
+      principal: old.principal,
+      interestRate: old.interestRate,
+      currentBalance: old.currentBalance,
+      totalRepaid: old.totalRepaid,
+      lendDate: old.lendDate,
+      dueDate: old.dueDate,
+      settledAt: old.settledAt,
+      accountId: old.accountId,
+      accountName: old.accountName,
+      remark: old.remark,
+      evidence: evidence,
+      isSettled: old.isSettled,
+      createdAt: old.createdAt,
+      updatedAt: old.updatedAt,
+    );
+    lendings = [
+      for (final item in lendings)
+        if (item.id == id) updated else item,
+    ];
+    return updated;
   }
 }
 
@@ -648,6 +943,9 @@ class _FakeAttachmentPickerService implements AttachmentPickerService {
   final List<PendingAttachmentFile> files;
 
   @override
+  bool supportsCamera() => true;
+
+  @override
   Future<PendingAttachmentFile?> pickImageFromCamera() async {
     return files.isEmpty ? null : files.first;
   }
@@ -666,6 +964,7 @@ class _FakeAttachmentPickerService implements AttachmentPickerService {
 class _FakeAttachmentRepository implements AttachmentRepository {
   final List<_UploadCall> uploadCalls = [];
   final List<String> deleteCalls = [];
+  var uploadFailuresRemaining = 0;
 
   @override
   Future<void> delete(String path) async {
@@ -693,6 +992,10 @@ class _FakeAttachmentRepository implements AttachmentRepository {
     void Function(int sent, int total)? onSendProgress,
   }) async {
     uploadCalls.add(_UploadCall(file: file, category: category, refId: refId));
+    if (uploadFailuresRemaining > 0) {
+      uploadFailuresRemaining -= 1;
+      throw StateError('upload failed');
+    }
     onSendProgress?.call(1, 1);
     return LedgerAttachment(
       path: '$category/$refId/${file.name}',

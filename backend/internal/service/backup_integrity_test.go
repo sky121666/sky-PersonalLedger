@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sky/personal-ledger/internal/config"
@@ -25,16 +27,20 @@ func TestRestoreBackupPreservesNotificationCredentials(t *testing.T) {
 	existing := &model.NotificationSetting{
 		UserID:             fixture.user.ID,
 		Enabled:            true,
+		WecomEnabled:       true,
+		WecomWebhook:       "https://target.example/wecom?key=target-wecom-key",
 		DingtalkEnabled:    true,
-		DingtalkWebhook:    "https://target.example/dingtalk",
+		DingtalkWebhook:    "https://target.example/dingtalk?access_token=target-dingtalk-token",
 		DingtalkSecret:     "target-dingtalk-secret",
 		EmailEnabled:       true,
 		SmtpHost:           "smtp.target.example",
 		SmtpPort:           465,
 		SmtpUser:           "target-user",
 		SmtpPassword:       "target-smtp-password",
+		SmtpFrom:           "sender@target.example",
+		EmailTo:            "recipient@target.example",
 		WebhookEnabled:     true,
-		WebhookURL:         "https://target.example/webhook",
+		WebhookURL:         "https://target.example/webhook?api_key=target-webhook-key",
 		WebhookSecret:      "target-webhook-secret",
 		NotifyPaymentDue:   true,
 		NotifyBudgetAlert:  true,
@@ -55,23 +61,11 @@ func TestRestoreBackupPreservesNotificationCredentials(t *testing.T) {
 			Name:   "Restored Cash",
 			Type:   "cash",
 		}},
-		NotificationSettings: &model.NotificationSetting{
-			UserID:             fixture.user.ID,
-			Enabled:            false,
-			DingtalkEnabled:    false,
-			DingtalkWebhook:    "https://backup.example/dingtalk",
-			DingtalkSecret:     "must-not-enter-json",
-			EmailEnabled:       false,
-			SmtpHost:           "smtp.backup.example",
-			SmtpPort:           587,
-			SmtpUser:           "backup-user",
-			SmtpPassword:       "must-not-enter-json",
-			WebhookEnabled:     false,
-			WebhookURL:         "https://backup.example/webhook",
-			WebhookSecret:      "must-not-enter-json",
+		NotificationSettings: &NotificationSettingsBackup{
 			NotifyPaymentDue:   false,
 			NotifyBudgetAlert:  false,
 			NotifyLendingDue:   false,
+			NotifyLogin:        false,
 			NotifyAnnualReport: false,
 			AdvanceDays:        9,
 		},
@@ -80,9 +74,7 @@ func TestRestoreBackupPreservesNotificationCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal backup: %v", err)
 	}
-	if strings.Contains(string(data), "must-not-enter-json") {
-		t.Fatalf("notification secret leaked into backup JSON: %s", data)
-	}
+	assertPortableNotificationBackupJSON(t, data)
 
 	if err := fixture.service.RestoreBackup(fixture.user.ID, writeRawBackupFile(t, data)); err != nil {
 		t.Fatalf("restore backup: %v", err)
@@ -95,13 +87,77 @@ func TestRestoreBackupPreservesNotificationCredentials(t *testing.T) {
 	if restored.ID != existing.ID {
 		t.Fatalf("notification row id = %d, want preserved id %d", restored.ID, existing.ID)
 	}
-	if restored.DingtalkSecret != existing.DingtalkSecret ||
+	if restored.Enabled != existing.Enabled ||
+		restored.WecomEnabled != existing.WecomEnabled ||
+		restored.DingtalkEnabled != existing.DingtalkEnabled ||
+		restored.EmailEnabled != existing.EmailEnabled ||
+		restored.WebhookEnabled != existing.WebhookEnabled ||
+		restored.DingtalkSecret != existing.DingtalkSecret ||
 		restored.SmtpPassword != existing.SmtpPassword ||
 		restored.WebhookSecret != existing.WebhookSecret {
-		t.Fatalf("notification credentials were not preserved: %#v", restored)
+		t.Fatalf("notification delivery state was not preserved: %#v", restored)
 	}
-	if restored.AdvanceDays != 9 || restored.SmtpHost != "smtp.backup.example" || restored.Enabled {
-		t.Fatalf("serializable notification settings were not restored: %#v", restored)
+	if restored.WecomWebhook != existing.WecomWebhook ||
+		restored.DingtalkWebhook != existing.DingtalkWebhook ||
+		restored.WebhookURL != existing.WebhookURL ||
+		restored.SmtpHost != existing.SmtpHost ||
+		restored.SmtpPort != existing.SmtpPort ||
+		restored.SmtpUser != existing.SmtpUser ||
+		restored.SmtpFrom != existing.SmtpFrom ||
+		restored.EmailTo != existing.EmailTo {
+		t.Fatalf("notification delivery identity was not preserved: %#v", restored)
+	}
+	if restored.AdvanceDays != 9 || restored.NotifyPaymentDue || restored.NotifyBudgetAlert ||
+		restored.NotifyLendingDue || restored.NotifyLogin || restored.NotifyAnnualReport {
+		t.Fatalf("portable notification preferences were not restored: %#v", restored)
+	}
+}
+
+func TestCreateBackupExcludesNotificationCredentialEndpoints(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	credentialValues := []string{
+		"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=wecom-backup-secret",
+		"https://oapi.dingtalk.com/robot/send?access_token=dingtalk-backup-secret",
+		"https://hooks.example.com/send?api_key=custom-backup-secret",
+		"encrypted-smtp-password",
+	}
+	if err := fixture.db.Create(&model.NotificationSetting{
+		UserID:           fixture.user.ID,
+		Enabled:          true,
+		WecomEnabled:     true,
+		WecomWebhook:     credentialValues[0],
+		DingtalkEnabled:  true,
+		DingtalkWebhook:  credentialValues[1],
+		DingtalkSecret:   "encrypted-dingtalk-secret",
+		EmailEnabled:     true,
+		SmtpHost:         "smtp.example.com",
+		SmtpUser:         "backup-user",
+		SmtpPassword:     credentialValues[3],
+		WebhookEnabled:   true,
+		WebhookURL:       credentialValues[2],
+		WebhookSecret:    "encrypted-webhook-secret",
+		NotifyPaymentDue: true,
+	}).Error; err != nil {
+		t.Fatalf("seed notification settings: %v", err)
+	}
+
+	backup, err := fixture.service.CreateBackup(fixture.user.ID)
+	if err != nil {
+		t.Fatalf("create backup: %v", err)
+	}
+	data, err := json.Marshal(backup)
+	if err != nil {
+		t.Fatalf("marshal backup: %v", err)
+	}
+	body := string(data)
+	for _, credential := range append(credentialValues, "encrypted-dingtalk-secret", "encrypted-webhook-secret") {
+		if strings.Contains(body, credential) {
+			t.Fatalf("backup exposed notification credential %q", credential)
+		}
+	}
+	assertPortableNotificationBackupJSON(t, data)
+	if backup.NotificationSettings == nil || !backup.NotificationSettings.NotifyPaymentDue {
+		t.Fatalf("portable notification preferences were not backed up: %#v", backup.NotificationSettings)
 	}
 }
 
@@ -147,6 +203,125 @@ func TestRestoreLegacyBackupWithoutNotificationSettingsPreservesTargetSettings(t
 	}
 }
 
+func TestRestoreNotificationSettingsWithoutTargetCredentialsKeepsChannelsDisabled(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	backup := &FullBackupData{
+		Version:     "2.2",
+		Attachments: []BackupAttachment{},
+		Accounts: []model.Account{{
+			ID:     uuid.NewString(),
+			UserID: fixture.user.ID,
+			Name:   "Restored Cash",
+			Type:   "cash",
+		}},
+		NotificationSettings: &NotificationSettingsBackup{
+			NotifyPaymentDue:   true,
+			NotifyAnnualReport: true,
+			AdvanceDays:        5,
+		},
+	}
+
+	if err := fixture.service.RestoreBackup(fixture.user.ID, writeBackupFile(t, backup)); err != nil {
+		t.Fatalf("restore backup: %v", err)
+	}
+	var restored model.NotificationSetting
+	if err := fixture.db.Where("user_id = ?", fixture.user.ID).First(&restored).Error; err != nil {
+		t.Fatalf("load restored notification settings: %v", err)
+	}
+	if restored.Enabled || restored.WecomEnabled || restored.DingtalkEnabled || restored.EmailEnabled || restored.WebhookEnabled {
+		t.Fatalf("credential-less target restored enabled delivery channels: %#v", restored)
+	}
+	if !restored.NotifyPaymentDue || !restored.NotifyAnnualReport || restored.NotifyBudgetAlert ||
+		restored.NotifyLendingDue || restored.NotifyLogin || restored.AdvanceDays != 5 {
+		t.Fatalf("notification preferences were not restored: %#v", restored)
+	}
+}
+
+func TestRestoreProfileEmailPinsExistingFallbackRecipient(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	if err := fixture.db.Model(&model.User{}).Where("id = ?", fixture.user.ID).Update("email", "old-profile@example.test").Error; err != nil {
+		t.Fatalf("seed current profile email: %v", err)
+	}
+	if err := fixture.db.Create(&model.NotificationSetting{
+		UserID:       fixture.user.ID,
+		Enabled:      true,
+		EmailEnabled: true,
+		SmtpHost:     "smtp.local.example",
+		EmailTo:      "",
+	}).Error; err != nil {
+		t.Fatalf("seed local notification settings: %v", err)
+	}
+	backup := &FullBackupData{
+		Version:     "2.3",
+		UserProfile: &UserProfileBackup{Email: "restored-profile@example.test"},
+		Attachments: []BackupAttachment{},
+		Accounts:    []model.Account{{ID: uuid.NewString(), Name: "Restored Cash", Type: "cash"}},
+	}
+	if err := fixture.service.RestoreBackup(fixture.user.ID, writeBackupFile(t, backup)); err != nil {
+		t.Fatalf("restore profile: %v", err)
+	}
+	var user model.User
+	if err := fixture.db.First(&user, fixture.user.ID).Error; err != nil {
+		t.Fatalf("load restored profile: %v", err)
+	}
+	var setting model.NotificationSetting
+	if err := fixture.db.Where("user_id = ?", fixture.user.ID).First(&setting).Error; err != nil {
+		t.Fatalf("load local notification settings: %v", err)
+	}
+	if user.Email != "restored-profile@example.test" || setting.EmailTo != "old-profile@example.test" || !setting.EmailEnabled {
+		t.Fatalf("profile/local delivery result = email %q, email_to %q, enabled %v", user.Email, setting.EmailTo, setting.EmailEnabled)
+	}
+}
+
+func TestRestoreProfileEmailDisablesFallbackWhenCurrentEmailIsEmpty(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	if err := fixture.db.Create(&model.NotificationSetting{
+		UserID:       fixture.user.ID,
+		Enabled:      true,
+		EmailEnabled: true,
+		SmtpHost:     "smtp.local.example",
+	}).Error; err != nil {
+		t.Fatalf("seed local notification settings: %v", err)
+	}
+	backup := &FullBackupData{
+		Version:     "2.3",
+		UserProfile: &UserProfileBackup{Email: "restored-profile@example.test"},
+		Attachments: []BackupAttachment{},
+		Accounts:    []model.Account{{ID: uuid.NewString(), Name: "Restored Cash", Type: "cash"}},
+	}
+	if err := fixture.service.RestoreBackup(fixture.user.ID, writeBackupFile(t, backup)); err != nil {
+		t.Fatalf("restore profile: %v", err)
+	}
+	var setting model.NotificationSetting
+	if err := fixture.db.Where("user_id = ?", fixture.user.ID).First(&setting).Error; err != nil {
+		t.Fatalf("load local notification settings: %v", err)
+	}
+	if setting.EmailEnabled {
+		t.Fatal("email channel remained enabled without a pre-restore recipient")
+	}
+}
+
+func assertPortableNotificationBackupJSON(t *testing.T, data []byte) {
+	t.Helper()
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		t.Fatalf("decode backup envelope: %v", err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(envelope["notification_settings"], &fields); err != nil {
+		t.Fatalf("decode notification settings backup: %v", err)
+	}
+	allowed := map[string]bool{
+		"notify_payment_due": true, "notify_budget_alert": true, "notify_lending_due": true,
+		"notify_login": true, "notify_annual_report": true, "advance_days": true,
+	}
+	for field := range fields {
+		if !allowed[field] {
+			t.Fatalf("non-portable notification field %q entered backup JSON", field)
+		}
+	}
+}
+
 func TestBackupAttachmentsRoundTripWithIntegrityMetadata(t *testing.T) {
 	fixture := newBackupIntegrityFixture(t)
 	relativePath := filepath.Join("transactions", "tx-1", "receipt.txt")
@@ -158,8 +333,8 @@ func TestBackupAttachmentsRoundTripWithIntegrityMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create backup: %v", err)
 	}
-	if backup.Version != "2.2" {
-		t.Fatalf("backup version = %q, want 2.2", backup.Version)
+	if backup.Version != "2.3" {
+		t.Fatalf("backup version = %q, want 2.3", backup.Version)
 	}
 	if backup.Attachments == nil || len(backup.Attachments) != 1 {
 		t.Fatalf("backup attachments = %#v, want one explicit attachment", backup.Attachments)
@@ -378,6 +553,12 @@ func TestRestoreRejectsUnsafeOrCorruptAttachmentManifestWithoutMutation(t *testi
 			},
 		},
 		{
+			name: "internal restore generation token",
+			attachments: []BackupAttachment{
+				backupAttachmentForContent(attachmentRestoreGenerationFile, []byte("forged generation")),
+			},
+		},
+		{
 			name: "duplicate path",
 			attachments: []BackupAttachment{
 				backupAttachmentForContent("transactions/tx/new.txt", []byte("first")),
@@ -561,6 +742,416 @@ func TestRestoreDatabaseFailureKeepsCurrentAttachmentsAndRollsBackData(t *testin
 		t.Fatalf("database failure activated new attachment: %v", err)
 	}
 	assertNoAttachmentRestoreArtifacts(t, fixture.uploadPath)
+}
+
+func TestRestorePostCommitAttachmentCleanupErrorStillReturnsSuccess(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	warning := errors.New("injected post-commit cleanup warning")
+	warned := false
+	fixture.service.cleanupWarning = func(err error) {
+		warned = errors.Is(err, warning)
+	}
+	fixture.service.attachmentCommit = func(plan *attachmentRestorePlan) error {
+		return errors.Join(plan.commit(), warning)
+	}
+	accountID := uuid.NewString()
+	backup := &FullBackupData{
+		Version:  "2.3",
+		Accounts: []model.Account{{ID: accountID, Name: "Committed Cash", Type: "cash"}},
+		Attachments: []BackupAttachment{
+			backupAttachmentForContent("transactions/committed/receipt.txt", []byte("committed attachment")),
+		},
+	}
+
+	if err := fixture.service.RestoreBackup(fixture.user.ID, writeBackupFile(t, backup)); err != nil {
+		t.Fatalf("committed restore returned a retry-inducing error: %v", err)
+	}
+	if !warned {
+		t.Fatal("post-commit attachment cleanup error was not reported as a warning")
+	}
+	var count int64
+	if err := fixture.db.Model(&model.Account{}).Where("id = ? AND user_id = ?", accountID, fixture.user.ID).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("committed database state missing: count=%d err=%v", count, err)
+	}
+	content, err := os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), "transactions", "committed", "receipt.txt"))
+	if err != nil || string(content) != "committed attachment" {
+		t.Fatalf("committed attachment missing: %q err=%v", content, err)
+	}
+}
+
+func TestRestoreResolvesReportedCommitErrorFromPermanentGeneration(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	reportedCommitError := errors.New("injected commit result error")
+	warned := false
+	fixture.service.cleanupWarning = func(err error) {
+		warned = errors.Is(err, reportedCommitError)
+	}
+	fixture.service.dbTransaction = func(callback func(*gorm.DB) error) error {
+		if err := fixture.db.Transaction(callback); err != nil {
+			return err
+		}
+		return reportedCommitError
+	}
+	accountID := uuid.NewString()
+	backup := &FullBackupData{
+		Version:  "2.3",
+		Accounts: []model.Account{{ID: accountID, Name: "Durable Cash", Type: "cash"}},
+		Attachments: []BackupAttachment{
+			backupAttachmentForContent("transactions/durable/receipt.txt", []byte("durable attachment")),
+		},
+	}
+	if err := fixture.service.RestoreBackup(fixture.user.ID, writeBackupFile(t, backup)); err != nil {
+		t.Fatalf("reported commit error caused an unsafe retry response: %v", err)
+	}
+	if !warned {
+		t.Fatal("reported commit error was not surfaced as a warning")
+	}
+	var count int64
+	if err := fixture.db.Model(&model.Account{}).Where("id = ? AND user_id = ?", accountID, fixture.user.ID).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("durably committed database state missing: count=%d err=%v", count, err)
+	}
+	content, err := os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), "transactions", "durable", "receipt.txt"))
+	if err != nil || string(content) != "durable attachment" {
+		t.Fatalf("durably committed attachment missing: %q err=%v", content, err)
+	}
+}
+
+func TestRestoreRetriesForwardActivationBeforeReturning(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	warned := false
+	fixture.service.cleanupWarning = func(error) { warned = true }
+	fixture.service.attachmentCommit = func(*attachmentRestorePlan) error {
+		return fmt.Errorf("%w: injected first activation failure", ErrAttachmentRecoveryPending)
+	}
+	backup := &FullBackupData{
+		Version:  "2.3",
+		Accounts: []model.Account{{ID: uuid.NewString(), Name: "Retried Cash", Type: "cash"}},
+		Attachments: []BackupAttachment{
+			backupAttachmentForContent("transactions/retried/receipt.txt", []byte("retried attachment")),
+		},
+	}
+	if err := fixture.service.RestoreBackup(fixture.user.ID, writeBackupFile(t, backup)); err != nil {
+		t.Fatalf("restore did not recover from the first activation failure: %v", err)
+	}
+	if !warned {
+		t.Fatal("immediate forward retry was not observable as a warning")
+	}
+	content, err := os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), "transactions", "retried", "receipt.txt"))
+	if err != nil || string(content) != "retried attachment" {
+		t.Fatalf("retried attachment = %q err=%v", content, err)
+	}
+}
+
+func TestRestorePersistentActivationFailureIsPendingAndFailsClosed(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	defer clearAttachmentRecoveryPending(fixture.user.ID)
+	currentPath := filepath.Join(fixture.userDirectory(), "transactions", "old", "old.txt")
+	writeIntegrityFixture(t, fixture.uploadPath, currentPath, []byte("old attachment"))
+	fixture.service.attachmentCommit = func(*attachmentRestorePlan) error {
+		return fmt.Errorf("%w: injected activation failure", ErrAttachmentRecoveryPending)
+	}
+	fixture.service.attachmentRetry = func(*attachmentRestorePlan) error {
+		return fmt.Errorf("%w: injected retry failure", ErrAttachmentRecoveryPending)
+	}
+	accountID := uuid.NewString()
+	backup := &FullBackupData{
+		Version:  "2.3",
+		Accounts: []model.Account{{ID: accountID, Name: "Committed Cash", Type: "cash"}},
+		Attachments: []BackupAttachment{
+			backupAttachmentForContent("transactions/new/new.txt", []byte("new attachment")),
+		},
+	}
+	err := fixture.service.RestoreBackup(fixture.user.ID, writeBackupFile(t, backup))
+	if !errors.Is(err, ErrAttachmentRecoveryPending) {
+		t.Fatalf("restore error = %v, want ErrAttachmentRecoveryPending", err)
+	}
+	var count int64
+	if dbErr := fixture.db.Model(&model.Account{}).Where("id = ? AND user_id = ?", accountID, fixture.user.ID).Count(&count).Error; dbErr != nil || count != 1 {
+		t.Fatalf("database commit was not retained: count=%d err=%v", count, dbErr)
+	}
+	if AttachmentStorageAvailable(fixture.user.ID) {
+		t.Fatal("user attachment storage remained available while committed generation was inactive")
+	}
+	if _, err := fixture.service.uploadService.ListFiles(fixture.user.ID, "transactions", "old"); !errors.Is(err, ErrAttachmentRecoveryPending) {
+		t.Fatalf("attachment read error = %v, want fail-closed recovery pending", err)
+	}
+	content, readErr := os.ReadFile(filepath.Join(fixture.uploadPath, currentPath))
+	if readErr != nil || string(content) != "old attachment" {
+		t.Fatalf("failed activation changed old active attachment: %q err=%v", content, readErr)
+	}
+
+	fixture.service.attachmentCommit = func(plan *attachmentRestorePlan) error { return plan.commit() }
+	fixture.service.attachmentRetry = fixture.service.retryCommittedAttachmentRestore
+	if err := fixture.service.RecoverAttachmentRestores(); err != nil {
+		t.Fatalf("recover pending attachment generation: %v", err)
+	}
+	if !AttachmentStorageAvailable(fixture.user.ID) {
+		t.Fatal("successful recovery did not reopen attachment storage")
+	}
+	content, readErr = os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), "transactions", "new", "new.txt"))
+	if readErr != nil || string(content) != "new attachment" {
+		t.Fatalf("recovered pending attachment = %q err=%v", content, readErr)
+	}
+}
+
+func TestRestoreBarrierPreventsConcurrentUploadFromBeingDiscarded(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	writeIntegrityFixture(t, fixture.uploadPath, filepath.Join(fixture.userDirectory(), "old.txt"), []byte("old"))
+	enteredFinalize := make(chan struct{})
+	allowFinalize := make(chan struct{})
+	fixture.service.attachmentCommit = func(plan *attachmentRestorePlan) error {
+		close(enteredFinalize)
+		<-allowFinalize
+		return plan.commit()
+	}
+	backup := &FullBackupData{
+		Version:  "2.3",
+		Accounts: []model.Account{{ID: uuid.NewString(), Name: "Barrier Cash", Type: "cash"}},
+		Attachments: []BackupAttachment{
+			backupAttachmentForContent("restored.txt", []byte("restored")),
+		},
+	}
+	backupFile := writeBackupFile(t, backup)
+	uploadFile := newUploadFileHeader(t, "concurrent.txt", "concurrent upload")
+	restoreDone := make(chan error, 1)
+	go func() {
+		restoreDone <- fixture.service.RestoreBackup(fixture.user.ID, backupFile)
+	}()
+	<-enteredFinalize
+
+	uploadStarted := make(chan struct{})
+	uploadDone := make(chan error, 1)
+	go func() {
+		close(uploadStarted)
+		_, err := fixture.service.uploadService.Upload(
+			fixture.user.ID,
+			"transactions",
+			"concurrent",
+			uploadFile,
+		)
+		uploadDone <- err
+	}()
+	<-uploadStarted
+	select {
+	case err := <-uploadDone:
+		t.Fatalf("concurrent upload crossed the restore barrier early: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(allowFinalize)
+	if err := <-restoreDone; err != nil {
+		t.Fatalf("restore with barrier: %v", err)
+	}
+	if err := <-uploadDone; err != nil {
+		t.Fatalf("upload after restore barrier: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), "transactions", "concurrent", "concurrent.txt"))
+	if err != nil || string(content) != "concurrent upload" {
+		t.Fatalf("concurrent upload was discarded by restore: %q err=%v", content, err)
+	}
+}
+
+func TestRecoverAttachmentRestoreForwardsCommittedGeneration(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	currentPath := filepath.Join(fixture.userDirectory(), "transactions", "old", "old.txt")
+	writeIntegrityFixture(t, fixture.uploadPath, currentPath, []byte("old attachment"))
+	plan, err := fixture.service.prepareAttachmentRestore(fixture.user.ID, []BackupAttachment{
+		backupAttachmentForContent("transactions/new/new.txt", []byte("new attachment")),
+	})
+	if err != nil {
+		t.Fatalf("prepare attachment restore: %v", err)
+	}
+	if err := fixture.db.Transaction(func(tx *gorm.DB) error {
+		return persistAttachmentRestoreMarkerTx(tx, plan)
+	}); err != nil {
+		t.Fatalf("commit desired generation: %v", err)
+	}
+	if err := plan.close(); err != nil {
+		t.Fatalf("simulate process close: %v", err)
+	}
+
+	if err := fixture.service.RecoverAttachmentRestores(); err != nil {
+		t.Fatalf("recover committed attachment generation: %v", err)
+	}
+	if err := fixture.service.RecoverAttachmentRestores(); err != nil {
+		t.Fatalf("repeat attachment recovery was not idempotent: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), "transactions", "new", "new.txt"))
+	if err != nil || string(content) != "new attachment" {
+		t.Fatalf("recovered attachment = %q err=%v", content, err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.uploadPath, currentPath)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("old attachment survived forward recovery: %v", err)
+	}
+	generation, err := os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), attachmentRestoreGenerationFile))
+	if err != nil || strings.TrimSpace(string(generation)) != plan.generation {
+		t.Fatalf("active generation token mismatch: err=%v", err)
+	}
+	assertNoAttachmentRestoreArtifacts(t, fixture.uploadPath)
+
+	backup, err := fixture.service.CreateBackup(fixture.user.ID)
+	if err != nil {
+		t.Fatalf("create backup after recovery: %v", err)
+	}
+	if len(backup.Attachments) != 1 || backup.Attachments[0].RelativePath != "transactions/new/new.txt" {
+		t.Fatalf("internal generation token entered backup manifest: %#v", backup.Attachments)
+	}
+}
+
+func TestRecoverAttachmentRestoreOrphanCleanupErrorIsWarningAfterActivation(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	writeIntegrityFixture(t, fixture.uploadPath, filepath.Join(fixture.userDirectory(), "old.txt"), []byte("old"))
+	plan, err := fixture.service.prepareAttachmentRestore(fixture.user.ID, []BackupAttachment{
+		backupAttachmentForContent("new.txt", []byte("new")),
+	})
+	if err != nil {
+		t.Fatalf("prepare attachment restore: %v", err)
+	}
+	if err := fixture.db.Transaction(func(tx *gorm.DB) error {
+		return persistAttachmentRestoreMarkerTx(tx, plan)
+	}); err != nil {
+		t.Fatalf("commit desired generation: %v", err)
+	}
+	if err := plan.close(); err != nil {
+		t.Fatalf("simulate process close: %v", err)
+	}
+
+	cleanupErr := errors.New("injected orphan stage cleanup failure")
+	warned := false
+	fixture.service.orphanStageCleanup = func(map[string]struct{}) error { return cleanupErr }
+	fixture.service.cleanupWarning = func(err error) { warned = errors.Is(err, cleanupErr) }
+	if err := fixture.service.RecoverAttachmentRestores(); err != nil {
+		t.Fatalf("cleanup-only failure blocked verified recovery: %v", err)
+	}
+	if !warned {
+		t.Fatal("cleanup-only recovery failure was not reported as a warning")
+	}
+	content, err := os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), "new.txt"))
+	if err != nil || string(content) != "new" {
+		t.Fatalf("active generation was not verified before cleanup warning: %q err=%v", content, err)
+	}
+}
+
+func TestRecoverAttachmentRestoreGenerationCleanupErrorIsWarningAfterActivation(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	writeIntegrityFixture(t, fixture.uploadPath, filepath.Join(fixture.userDirectory(), "old.txt"), []byte("old"))
+	plan, err := fixture.service.prepareAttachmentRestore(fixture.user.ID, []BackupAttachment{
+		backupAttachmentForContent("new.txt", []byte("new")),
+	})
+	if err != nil {
+		t.Fatalf("prepare attachment restore: %v", err)
+	}
+	if err := fixture.db.Transaction(func(tx *gorm.DB) error {
+		return persistAttachmentRestoreMarkerTx(tx, plan)
+	}); err != nil {
+		t.Fatalf("commit desired generation: %v", err)
+	}
+	if err := plan.close(); err != nil {
+		t.Fatalf("simulate process close: %v", err)
+	}
+
+	cleanupErr := errors.New("injected generation cleanup failure")
+	warned := false
+	fixture.service.attachmentCommit = func(plan *attachmentRestorePlan) error {
+		return errors.Join(plan.commit(), cleanupErr)
+	}
+	fixture.service.cleanupWarning = func(err error) { warned = errors.Is(err, cleanupErr) }
+	if err := fixture.service.RecoverAttachmentRestores(); err != nil {
+		t.Fatalf("generation cleanup-only failure blocked verified recovery: %v", err)
+	}
+	if !warned {
+		t.Fatal("generation cleanup-only failure was not reported as a warning")
+	}
+	content, err := os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), "new.txt"))
+	if err != nil || string(content) != "new" {
+		t.Fatalf("active generation was not verified before cleanup warning: %q err=%v", content, err)
+	}
+}
+
+func TestRecoverAttachmentRestoreCompletesEachRenameCrashWindow(t *testing.T) {
+	for _, crashAfterActivation := range []bool{false, true} {
+		name := "after moving previous"
+		if crashAfterActivation {
+			name = "after activating stage"
+		}
+		t.Run(name, func(t *testing.T) {
+			fixture := newBackupIntegrityFixture(t)
+			writeIntegrityFixture(t, fixture.uploadPath, filepath.Join(fixture.userDirectory(), "old.txt"), []byte("old"))
+			plan, err := fixture.service.prepareAttachmentRestore(fixture.user.ID, []BackupAttachment{
+				backupAttachmentForContent("new.txt", []byte("new")),
+			})
+			if err != nil {
+				t.Fatalf("prepare attachment restore: %v", err)
+			}
+			if err := fixture.db.Transaction(func(tx *gorm.DB) error { return persistAttachmentRestoreMarkerTx(tx, plan) }); err != nil {
+				t.Fatalf("commit desired generation: %v", err)
+			}
+			if err := plan.root.Rename(plan.userDirectory, plan.previousDirectory); err != nil {
+				t.Fatalf("simulate first rename: %v", err)
+			}
+			if err := syncRootDirectory(plan.root, "."); err != nil {
+				t.Fatalf("sync first rename: %v", err)
+			}
+			if crashAfterActivation {
+				if err := plan.root.Rename(plan.stageDirectory, plan.userDirectory); err != nil {
+					t.Fatalf("simulate second rename: %v", err)
+				}
+				if err := syncRootDirectory(plan.root, "."); err != nil {
+					t.Fatalf("sync second rename: %v", err)
+				}
+			}
+			if err := plan.close(); err != nil {
+				t.Fatalf("simulate process close: %v", err)
+			}
+
+			if err := fixture.service.RecoverAttachmentRestores(); err != nil {
+				t.Fatalf("recover crash window: %v", err)
+			}
+			content, err := os.ReadFile(filepath.Join(fixture.uploadPath, fixture.userDirectory(), "new.txt"))
+			if err != nil || string(content) != "new" {
+				t.Fatalf("forward recovery attachment = %q err=%v", content, err)
+			}
+			assertNoAttachmentRestoreArtifacts(t, fixture.uploadPath)
+		})
+	}
+}
+
+func TestRecoverAttachmentRestoreRemovesOnlyUncommittedOrphanStage(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	currentPath := filepath.Join(fixture.userDirectory(), "current.txt")
+	writeIntegrityFixture(t, fixture.uploadPath, currentPath, []byte("current"))
+	plan, err := fixture.service.prepareAttachmentRestore(fixture.user.ID, []BackupAttachment{
+		backupAttachmentForContent("new.txt", []byte("uncommitted")),
+	})
+	if err != nil {
+		t.Fatalf("prepare attachment restore: %v", err)
+	}
+	stageDirectory := plan.stageDirectory
+	if err := plan.close(); err != nil {
+		t.Fatalf("simulate process close: %v", err)
+	}
+	if err := fixture.service.RecoverAttachmentRestores(); err != nil {
+		t.Fatalf("cleanup uncommitted stage: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(fixture.uploadPath, stageDirectory)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("uncommitted stage survived recovery: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(fixture.uploadPath, currentPath))
+	if err != nil || string(content) != "current" {
+		t.Fatalf("uncommitted recovery changed active data: %q err=%v", content, err)
+	}
+}
+
+func TestRecoverAttachmentRestoreRejectsInvalidPermanentMarker(t *testing.T) {
+	fixture := newBackupIntegrityFixture(t)
+	if err := fixture.db.Create(&model.SystemSetting{
+		Key:   attachmentRestoreSettingKey(fixture.user.ID),
+		Value: `{"generation":"invalid"}`,
+	}).Error; err != nil {
+		t.Fatalf("seed invalid restore marker: %v", err)
+	}
+	if err := fixture.service.RecoverAttachmentRestores(); err == nil {
+		t.Fatal("invalid committed attachment marker did not block recovery")
+	}
 }
 
 type backupIntegrityFixture struct {

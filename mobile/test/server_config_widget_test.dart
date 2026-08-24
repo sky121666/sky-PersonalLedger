@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/widgets/auth_flow_shell.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/core/auth/auth_token_pair.dart';
+import 'package:personal_ledger/core/config/local_http_transport_policy.dart';
 import 'package:personal_ledger/features/auth/application/auth_controller.dart';
 import 'package:personal_ledger/features/auth/data/auth_repository.dart';
 import 'package:personal_ledger/features/server_config/presentation/server_config_page.dart';
@@ -73,6 +74,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.connectCalls, ['ledger.example.com:8080']);
+      expect(controller.insecureAcknowledgementCalls, [false]);
       expect(controller.debugState.stage, AuthStage.loginRequired);
       expect(find.byType(AuthFlowShell), findsOneWidget);
       expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
@@ -81,15 +83,62 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('私网 HTTP 必须确认风险后才进入连接流程', (tester) async {
+      final controller = await _pumpPage(tester);
+      final connectButton = find.byKey(const ValueKey('server-connect-button'));
+
+      await tester.enterText(
+        find.widgetWithText(TextField, '账本地址'),
+        'http://192.168.1.20:8080',
+      );
+      await _scrollIntoTapArea(tester, connectButton);
+      await tester.tap(connectButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('局域网 HTTP 风险'), findsOneWidget);
+      expect(find.textContaining('未加密的 HTTP'), findsOneWidget);
+      expect(controller.connectCalls, isEmpty);
+
+      await tester.tap(find.widgetWithText(FilledButton, '继续连接'));
+      await tester.pumpAndSettle();
+
+      expect(controller.connectCalls, ['http://192.168.1.20:8080']);
+      expect(controller.insecureAcknowledgementCalls, [true]);
+      expect(controller.debugState.stage, AuthStage.loginRequired);
+    });
+
+    testWidgets('Android 构建未启用明文传输时拒绝私网 HTTP', (tester) async {
+      final controller = await _pumpPage(tester, localHttpPermitted: false);
+      final connectButton = find.byKey(const ValueKey('server-connect-button'));
+
+      await tester.enterText(
+        find.widgetWithText(TextField, '账本地址'),
+        'http://192.168.1.20:8080',
+      );
+      await _scrollIntoTapArea(tester, connectButton);
+      await tester.tap(connectButton);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('当前 Android 构建未启用明文 HTTP'), findsOneWidget);
+      expect(find.text('局域网 HTTP 风险'), findsNothing);
+      expect(controller.connectCalls, isEmpty);
+    });
   });
 }
 
-Future<_TestAuthController> _pumpPage(WidgetTester tester) async {
+Future<_TestAuthController> _pumpPage(
+  WidgetTester tester, {
+  bool localHttpPermitted = true,
+}) async {
   late _TestAuthController controller;
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+        localHttpTransportPolicyProvider.overrideWithValue(
+          _FakeLocalHttpTransportPolicy(localHttpPermitted),
+        ),
         authControllerProvider.overrideWith((ref) {
           controller = _TestAuthController(ref);
           return controller;
@@ -105,6 +154,15 @@ Future<_TestAuthController> _pumpPage(WidgetTester tester) async {
   );
   await tester.pumpAndSettle();
   return controller;
+}
+
+class _FakeLocalHttpTransportPolicy extends LocalHttpTransportPolicy {
+  const _FakeLocalHttpTransportPolicy(this.permitted);
+
+  final bool permitted;
+
+  @override
+  Future<bool> isCleartextTrafficPermitted() async => permitted;
 }
 
 Future<void> _scrollIntoTapArea(WidgetTester tester, Finder finder) async {
@@ -130,13 +188,18 @@ class _TestAuthController extends AuthController {
   }
 
   final List<String> connectCalls = [];
+  final List<bool> insecureAcknowledgementCalls = [];
 
   @override
   AuthState get debugState => state;
 
   @override
-  Future<void> connectServer(String input) async {
+  Future<void> connectServer(
+    String input, {
+    bool acknowledgeInsecureLocalHttp = false,
+  }) async {
     connectCalls.add(input);
+    insecureAcknowledgementCalls.add(acknowledgeInsecureLocalHttp);
     final trimmed = input.trim();
     if (trimmed.isEmpty) {
       state = const AuthState(

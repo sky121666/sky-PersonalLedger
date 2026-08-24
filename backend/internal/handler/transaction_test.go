@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -201,6 +202,26 @@ func TestTransactionCreateInvalidDateIsBadRequest(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), "invalid transaction date") {
 		t.Fatalf("body = %s, want invalid transaction date", response.Body.String())
+	}
+}
+
+func TestTransactionCreateWithImagesRequiresCreateThenPatch(t *testing.T) {
+	handler, repos, userID := newTransactionHandlerForTest(t)
+	accountID := createTransactionHandlerAccount(t, repos, userID)
+	body := `{
+		"type":"expense",
+		"amount":12.5,
+		"account_id":"` + accountID + `",
+		"transaction_date":"2026-05-30",
+		"images":"[\"` + strconv.FormatUint(uint64(userID), 10) + `/transactions/client-id/receipt.png\"]"
+	}`
+
+	response := performTransactionCreateRequest(handler, userID, body)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "create the transaction before adding attachments") {
+		t.Fatalf("body = %s, want create-then-patch guidance", response.Body.String())
 	}
 }
 

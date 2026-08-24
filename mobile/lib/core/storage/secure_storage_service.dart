@@ -5,6 +5,8 @@ class SecureStorageService {
     : _storage = storage ?? const FlutterSecureStorage();
 
   static const _serverUrlKey = 'server_url';
+  static const _insecureLocalHttpAcknowledgedUrlKey =
+      'insecure_local_http_acknowledged_url';
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
 
@@ -23,6 +25,24 @@ class SecureStorageService {
   /// 删除服务器地址。
   Future<void> deleteServerUrl() {
     return _storage.delete(key: _serverUrlKey);
+  }
+
+  /// 读取已确认风险的局域网 HTTP 地址。
+  Future<String?> readInsecureLocalHttpAcknowledgedUrl() {
+    return _storage.read(key: _insecureLocalHttpAcknowledgedUrlKey);
+  }
+
+  /// 保存已确认风险的局域网 HTTP 地址。
+  Future<void> saveInsecureLocalHttpAcknowledgedUrl(String serverUrl) {
+    return _storage.write(
+      key: _insecureLocalHttpAcknowledgedUrlKey,
+      value: serverUrl,
+    );
+  }
+
+  /// 删除局域网 HTTP 风险确认。
+  Future<void> deleteInsecureLocalHttpAcknowledgedUrl() {
+    return _storage.delete(key: _insecureLocalHttpAcknowledgedUrlKey);
   }
 
   /// 读取 access token。

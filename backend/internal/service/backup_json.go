@@ -85,8 +85,9 @@ const (
 )
 
 type backupJSONEnvelope struct {
-	version          string
-	attachmentsState backupAttachmentsJSONState
+	version                             string
+	attachmentsState                    backupAttachmentsJSONState
+	notificationCredentialFieldsPresent bool
 }
 
 // preflightBackupJSON tokenizes the envelope and every collection before the
@@ -154,6 +155,13 @@ func preflightBackupJSON(data []byte) (backupJSONEnvelope, error) {
 			}
 			envelope.attachmentsState = state
 
+		case key == "notification_settings":
+			credentialsPresent, err := scanBackupNotificationSettings(decoder)
+			if err != nil {
+				return backupJSONEnvelope{}, err
+			}
+			envelope.notificationCredentialFieldsPresent = credentialsPresent
+
 		case isCollection:
 			if _, err := scanBackupCollection(decoder, key, collectionLimit, &totalRecords); err != nil {
 				return backupJSONEnvelope{}, err
@@ -189,11 +197,76 @@ func preflightBackupJSON(data []byte) (backupJSONEnvelope, error) {
 		if envelope.attachmentsState != backupAttachmentsArray {
 			return backupJSONEnvelope{}, invalidBackupJSON(errors.New("backup version 2.2 requires an attachment array"))
 		}
+	case "2.3":
+		// Version 2.3 makes attachment inclusion explicit: null means the
+		// backup did not include file data, while an array is an authoritative
+		// attachment manifest (including an intentionally empty one).
+		if envelope.attachmentsState == backupAttachmentsMissing {
+			return backupJSONEnvelope{}, invalidBackupJSON(errors.New("backup version 2.3 requires an explicit attachment value"))
+		}
+		if envelope.notificationCredentialFieldsPresent {
+			return backupJSONEnvelope{}, invalidBackupJSON(errors.New("backup version 2.3 cannot contain notification credentials"))
+		}
 	default:
 		return backupJSONEnvelope{}, invalidBackupJSON(errors.New("unsupported backup version"))
 	}
 
 	return envelope, nil
+}
+
+func scanBackupNotificationSettings(decoder *json.Decoder) (bool, error) {
+	opening, err := decoder.Token()
+	if err != nil {
+		return false, invalidBackupJSON(err)
+	}
+	if opening == nil {
+		return false, nil
+	}
+	if delimiter, ok := opening.(json.Delim); !ok || delimiter != '{' {
+		return false, invalidBackupJSON(errors.New("notification_settings must be an object or null"))
+	}
+
+	credentialsPresent := false
+	for decoder.More() {
+		keyToken, err := decoder.Token()
+		if err != nil {
+			return false, invalidBackupJSON(err)
+		}
+		key, ok := keyToken.(string)
+		if !ok {
+			return false, invalidBackupJSON(errors.New("invalid notification setting field name"))
+		}
+		if isNotificationCredentialBackupField(key) {
+			credentialsPresent = true
+		}
+		if err := skipBackupJSONValue(decoder, 1); err != nil {
+			return false, invalidBackupJSON(err)
+		}
+	}
+	closing, err := decoder.Token()
+	if err != nil {
+		return false, invalidBackupJSON(err)
+	}
+	if delimiter, ok := closing.(json.Delim); !ok || delimiter != '}' {
+		return false, invalidBackupJSON(errors.New("invalid notification_settings object"))
+	}
+	return credentialsPresent, nil
+}
+
+func isNotificationCredentialBackupField(value string) bool {
+	for _, field := range []string{
+		"wecom_webhook", "WecomWebhook",
+		"dingtalk_webhook", "DingtalkWebhook",
+		"dingtalk_secret", "DingtalkSecret",
+		"smtp_password", "SmtpPassword",
+		"webhook_url", "WebhookURL",
+		"webhook_secret", "WebhookSecret",
+	} {
+		if strings.EqualFold(value, field) {
+			return true
+		}
+	}
+	return false
 }
 
 func canonicalBackupJSONField(value string) (string, bool) {

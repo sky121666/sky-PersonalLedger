@@ -53,22 +53,24 @@ func (h *NotificationHandler) Update(c *gin.Context) {
 }
 
 type TestWecomRequest struct {
-	Webhook string `json:"webhook" binding:"required"`
+	Webhook string `json:"webhook"`
 }
 
 func (h *NotificationHandler) TestWecom(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
 	var req TestWecomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "invalid request")
 		return
 	}
 
-	result := h.service.TestWecom(req.Webhook)
+	result := h.service.TestWecomForUser(userID, req.Webhook)
 	response.Success(c, result)
 }
 
 type TestDingtalkRequest struct {
-	Webhook string `json:"webhook" binding:"required"`
+	Webhook string `json:"webhook"`
 	Secret  string `json:"secret"`
 }
 
@@ -133,7 +135,7 @@ func (h *NotificationHandler) TestEmail(c *gin.Context) {
 }
 
 type TestWebhookRequest struct {
-	URL    string `json:"url" binding:"required"`
+	URL    string `json:"url"`
 	Secret string `json:"secret"`
 }
 

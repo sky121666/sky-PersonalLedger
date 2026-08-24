@@ -94,11 +94,6 @@ func normalizeBackupForRestore(backup *FullBackupData, targetUserID uint) error 
 			return invalidBackupOwnership(err)
 		}
 	}
-	if backup.NotificationSettings != nil {
-		if err := acceptUserID(backup.NotificationSettings.UserID); err != nil {
-			return invalidBackupOwnership(err)
-		}
-	}
 	if err := visitBackupStoredUploadReferences(backup, func(value string) error {
 		reference, recognized, err := parseStoredUploadReference(value)
 		if err != nil {
@@ -114,6 +109,9 @@ func normalizeBackupForRestore(backup *FullBackupData, targetUserID uint) error 
 
 	backup.SourceUserID = sourceUserID
 	if sourceUserID == 0 {
+		if err := normalizeBackupAttachmentScopes(backup, targetUserID); err != nil {
+			return invalidBackupOwnership(err)
+		}
 		return nil
 	}
 
@@ -153,6 +151,51 @@ func normalizeBackupForRestore(backup *FullBackupData, targetUserID uint) error 
 		if err != nil {
 			return invalidBackupOwnership(err)
 		}
+	}
+	if err := normalizeBackupAttachmentScopes(backup, targetUserID); err != nil {
+		return invalidBackupOwnership(err)
+	}
+	return nil
+}
+
+func normalizeBackupAttachmentScopes(backup *FullBackupData, userID uint) error {
+	for index := range backup.Transactions {
+		normalized, err := normalizeTransactionAttachmentImages(backup.Transactions[index].ID, userID, backup.Transactions[index].Images)
+		if err != nil {
+			return err
+		}
+		backup.Transactions[index].Images = normalized
+	}
+	for index := range backup.Reminders {
+		normalized, err := normalizeAttachmentEvidence(
+			backup.Reminders[index].Evidence,
+			userID,
+			"reminders",
+			exactAttachmentRef(backup.Reminders[index].ID),
+		)
+		if err != nil {
+			return err
+		}
+		backup.Reminders[index].Evidence = normalized
+	}
+	for _, lending := range backup.Lendings {
+		normalized, err := normalizeAttachmentEvidence(lending.Evidence, userID, "lendings", exactAttachmentRef(lending.ID))
+		if err != nil {
+			return err
+		}
+		lending.Evidence = normalized
+	}
+	for _, record := range backup.LendingRecords {
+		normalized, err := normalizeAttachmentEvidence(
+			record.Evidence,
+			userID,
+			"lendings",
+			lendingRepaymentAttachmentRef(record.LendingID),
+		)
+		if err != nil {
+			return err
+		}
+		record.Evidence = normalized
 	}
 	return nil
 }

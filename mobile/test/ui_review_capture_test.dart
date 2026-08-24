@@ -589,6 +589,11 @@ class _FakeTransactionRepository implements TransactionRepository {
   Future<TransactionItem> update(String id, TransactionFormData form) async {
     throw UnimplementedError();
   }
+
+  @override
+  Future<TransactionItem> updateAttachments(String id, String images) async {
+    throw UnimplementedError();
+  }
 }
 
 class _FakeStatisticsRepository implements StatisticsRepository {
@@ -741,6 +746,10 @@ class _FakeLendingRepository implements LendingRepository {
   @override
   Future<LendingItem?> update(String id, UpdateLendingRequest request) async =>
       null;
+
+  @override
+  Future<LendingItem?> updateAttachments(String id, String evidence) async =>
+      null;
 }
 
 class _FakeAccountRepository implements AccountRepository {
@@ -836,6 +845,9 @@ class _FakeAttachmentRepository implements AttachmentRepository {
 
 class _EmptyAttachmentPickerService implements AttachmentPickerService {
   const _EmptyAttachmentPickerService();
+
+  @override
+  bool supportsCamera() => false;
 
   @override
   Future<PendingAttachmentFile?> pickImageFromCamera() async => null;

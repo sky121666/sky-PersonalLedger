@@ -5,7 +5,7 @@ FROM node:24.18.1-alpine3.24@sha256:f70403e87646dc51b45295f4b8b70cdad0b63d2297c4
 
 WORKDIR /app/web
 
-COPY web/package.json web/pnpm-lock.yaml ./
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile
 
 COPY web/ ./
@@ -52,6 +52,7 @@ ENV LEDGER_SERVER_PORT=8080 \
     LEDGER_SERVER_MODE=release \
     LEDGER_SERVER_WEB_PATH=/app/web/dist \
     LEDGER_SERVER_TRUSTED_PROXIES="" \
+    LEDGER_SERVER_MAX_JSON_BODY_BYTES=1048576 \
     # 数据库配置
     LEDGER_DATABASE_DRIVER=sqlite \
     LEDGER_DATABASE_PATH=/data/ledger.db \

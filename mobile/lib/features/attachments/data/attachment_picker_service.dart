@@ -16,6 +16,10 @@ class AttachmentPickerService {
 
   final ImagePicker _imagePicker;
 
+  bool supportsCamera() {
+    return _imagePicker.supportsImageSource(ImageSource.camera);
+  }
+
   Future<PendingAttachmentFile?> pickImageFromGallery() async {
     final image = await _imagePicker.pickImage(source: ImageSource.gallery);
     if (image == null) {

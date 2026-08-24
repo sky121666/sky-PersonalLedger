@@ -14,8 +14,34 @@ class ServerConfigService {
 
   final SecureStorageService _storage;
 
-  /// 读取服务器配置。
+  /// 读取可安全连接的服务器配置。
+  ///
+  /// 未绑定当前规范化 URL 风险确认的局域网 HTTP 地址不会被返回，
+  /// 避免 API Client 在启动阶段绕过交互确认。
   Future<ServerConfig?> readConfig() async {
+    final storedConfig = await readStoredConfig();
+    if (storedConfig == null) {
+      return null;
+    }
+
+    late final String normalizedUrl;
+    try {
+      normalizedUrl = normalizeServerUrl(storedConfig.baseUrl);
+    } on FormatException {
+      return null;
+    }
+
+    final config = ServerConfig(baseUrl: normalizedUrl);
+    if (!requiresInsecureLocalHttpConfirmation(normalizedUrl)) {
+      return config;
+    }
+    final acknowledgedUrl = await _storage
+        .readInsecureLocalHttpAcknowledgedUrl();
+    return acknowledgedUrl == normalizedUrl ? config : null;
+  }
+
+  /// 仅读取已保存的地址，供确认页预填充；不得用于发起网络请求。
+  Future<ServerConfig?> readStoredConfig() async {
     final serverUrl = await _storage.readServerUrl();
     if (serverUrl == null || serverUrl.isEmpty) {
       return null;
@@ -25,15 +51,32 @@ class ServerConfigService {
   }
 
   /// 保存并规范化服务器地址。
-  Future<ServerConfig> saveServerUrl(String input) async {
+  Future<ServerConfig> saveServerUrl(
+    String input, {
+    bool acknowledgeInsecureLocalHttp = false,
+  }) async {
     final normalizedUrl = normalizeServerUrl(input);
+    final requiresAcknowledgement = requiresInsecureLocalHttpConfirmation(
+      normalizedUrl,
+    );
+    if (requiresAcknowledgement && !acknowledgeInsecureLocalHttp) {
+      throw const FormatException('局域网 HTTP 需要确认风险后才能连接');
+    }
     await _storage.saveServerUrl(normalizedUrl);
+    if (requiresAcknowledgement) {
+      await _storage.saveInsecureLocalHttpAcknowledgedUrl(normalizedUrl);
+    } else {
+      await _storage.deleteInsecureLocalHttpAcknowledgedUrl();
+    }
     return ServerConfig(baseUrl: normalizedUrl);
   }
 
   /// 删除服务器配置。
-  Future<void> clearConfig() {
-    return _storage.deleteServerUrl();
+  Future<void> clearConfig() async {
+    await Future.wait([
+      _storage.deleteServerUrl(),
+      _storage.deleteInsecureLocalHttpAcknowledgedUrl(),
+    ]);
   }
 
   /// 规范化用户输入的服务器地址。
@@ -43,7 +86,10 @@ class ServerConfigService {
       throw const FormatException('账本地址不能为空');
     }
 
-    final urlWithScheme = trimmedInput.startsWith(RegExp('https?://'))
+    final hasExplicitScheme = trimmedInput.startsWith(
+      RegExp(r'[a-z][a-z0-9+.-]*://', caseSensitive: false),
+    );
+    final urlWithScheme = hasExplicitScheme
         ? trimmedInput
         : 'https://$trimmedInput';
     final uri = Uri.tryParse(urlWithScheme);
@@ -57,14 +103,31 @@ class ServerConfigService {
     return uri.replace(path: _trimTrailingSlash(uri.path)).toString();
   }
 
-  bool _isAllowedScheme(Uri uri) {
-    if (uri.scheme == 'https') {
-      return true;
-    }
-    return uri.scheme == 'http' && _isPrivateOrLoopbackHost(uri.host);
+  /// HTTP is only accepted for loopback/private-network hosts and must be
+  /// explicitly acknowledged by the user before connecting.
+  static bool requiresInsecureLocalHttpConfirmation(String input) {
+    final trimmedInput = input.trim();
+    final hasExplicitScheme = trimmedInput.startsWith(
+      RegExp(r'[a-z][a-z0-9+.-]*://', caseSensitive: false),
+    );
+    final urlWithScheme = hasExplicitScheme
+        ? trimmedInput
+        : 'https://$trimmedInput';
+    final uri = Uri.tryParse(urlWithScheme);
+    return uri != null &&
+        uri.scheme.toLowerCase() == 'http' &&
+        _isPrivateOrLoopbackHost(uri.host);
   }
 
-  bool _isPrivateOrLoopbackHost(String host) {
+  bool _isAllowedScheme(Uri uri) {
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme == 'https') {
+      return true;
+    }
+    return scheme == 'http' && _isPrivateOrLoopbackHost(uri.host);
+  }
+
+  static bool _isPrivateOrLoopbackHost(String host) {
     final normalizedHost = host.toLowerCase();
     if (normalizedHost == 'localhost' || normalizedHost == '::1') {
       return true;

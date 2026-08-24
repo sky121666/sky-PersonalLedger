@@ -44,6 +44,10 @@ void main() {
       );
       expect(notificationEnabledSemantics.properties.label, '启用通知');
       expect(find.text('企业微信'), findsWidgets);
+      final writeOnlyEndpoint = tester.widget<TextField>(
+        find.byKey(const ValueKey('notification-wecom-webhook')),
+      );
+      expect(writeOnlyEndpoint.controller?.text, isEmpty);
       expect(find.text('推送'), findsNothing);
       expect(find.text('提醒规则'), findsOneWidget);
       expect(find.text('4 项开启 · 提前 3 天'), findsOneWidget);
@@ -157,7 +161,7 @@ void main() {
       expect(find.textContaining('Webhook 不可用'), findsNothing);
     });
 
-    testWidgets('企业微信试发缺少地址时使用本地校验', (tester) async {
+    testWidgets('企业微信试发地址留空时复用已保存配置', (tester) async {
       final repository = _FakeNotificationRepository();
       await _pumpPage(tester, repository);
 
@@ -170,8 +174,58 @@ void main() {
       await tester.tap(find.text('试发'));
       await tester.pumpAndSettle();
 
-      expect(repository.wecomTestCalls, isEmpty);
-      expect(find.text('请填写企业微信地址'), findsOneWidget);
+      expect(repository.wecomTestCalls, ['']);
+      expect(find.text('试发成功'), findsOneWidget);
+    });
+
+    testWidgets('钉钉地址留空时仍传递本次新密钥', (tester) async {
+      final repository = _FakeNotificationRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.tap(
+        find.byKey(const ValueKey('notification-channel-dingtalk')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('notification-switch-semantics-启用钉钉')),
+          matching: find.byType(Switch),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('notification-dingtalk-secret')),
+        'new-signing-secret',
+      );
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('试发'));
+      await tester.pumpAndSettle();
+
+      expect(repository.dingtalkTestCalls, [
+        (webhook: '', secret: 'new-signing-secret'),
+      ]);
+      expect(find.text('试发成功'), findsOneWidget);
+    });
+
+    testWidgets('保存成功后清空不回显的通知凭据输入', (tester) async {
+      final repository = _FakeNotificationRepository();
+      await _pumpPage(tester, repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('notification-wecom-webhook')),
+        'https://qyapi.example.com/send?key=new',
+      );
+      await tester.drag(find.byType(ListView), const Offset(0, -900));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存设置'));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls.single.wecomWebhook, contains('key=new'));
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('notification-wecom-webhook')),
+      );
+      expect(field.controller?.text, isEmpty);
     });
 
     testWidgets('通知通道密钥输入框默认遮罩显示', (tester) async {
@@ -193,6 +247,10 @@ void main() {
         find.byKey(const ValueKey('notification-dingtalk-secret')),
       );
       expect(dingtalkSecret.obscureText, isTrue);
+      expect(
+        dingtalkSecret.decoration?.helperText,
+        '地址留空或不变时，密钥留空会保留；更换地址时留空会清除旧密钥',
+      );
 
       await tester.tap(
         find.byKey(const ValueKey('notification-channel-webhook')),
@@ -211,6 +269,10 @@ void main() {
         find.byKey(const ValueKey('notification-webhook-secret')),
       );
       expect(webhookSecret.obscureText, isTrue);
+      expect(
+        webhookSecret.decoration?.helperText,
+        '地址留空或不变时，密钥留空会保留；更换地址时留空会清除旧密钥',
+      );
     });
 
     testWidgets('通知通道分段按钮可切换当前通道', (tester) async {
@@ -384,6 +446,7 @@ class _FakeNotificationRepository implements NotificationRepository {
 
   final List<NotificationSettingRequest> updateCalls = [];
   final List<String> wecomTestCalls = [];
+  final List<({String webhook, String secret})> dingtalkTestCalls = [];
   int getSettingsCalls = 0;
   int getSettingsErrors = 0;
   String? updateSettingsError;
@@ -406,8 +469,9 @@ class _FakeNotificationRepository implements NotificationRepository {
   Future<TestNotificationResult?> testDingtalk({
     required String webhook,
     String secret = '',
-  }) {
-    throw UnimplementedError();
+  }) async {
+    dingtalkTestCalls.add((webhook: webhook, secret: secret));
+    return const TestNotificationResult(success: true, message: 'ok');
   }
 
   @override

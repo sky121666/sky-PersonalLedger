@@ -4,7 +4,9 @@
 
 Automated simulator/emulator evidence is strong, and Android QA now uses emulator-by-policy. This checklist records the exact checks needed to close remaining physical-device and assistive-technology gaps.
 
-Current device evidence: iPhone 17 Simulator is available; `sky的iPhone 12` is visible only as a wireless device, so it is not accepted as physical Flutter integration-test evidence.
+The original device list in this dated checklist is historical. On 2026-08-24, real-backend E2E
+passed on Android emulator `emulator-5554` and an iOS simulator. No USB-connected iPhone was
+available; a wireless iPhone discovery error is not accepted as physical-device evidence.
 
 ## Preflight
 
@@ -49,9 +51,9 @@ ANDROID_PREFER_EMULATOR=1 RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-pre
 | Device identity | Physical device model, OS version, device ID, and connection type | PENDING |  |
 | Build identity | App version, build number, and artifact/source used for install | PENDING |  |
 | USB iPhone preflight | `REQUIRE_PHYSICAL_IOS=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PENDING |  |
-| Android emulator preflight | `REQUIRE_ANDROID_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PASS | GitHub Actions native run `30776159138`, 2026-08-03 |
+| Android emulator preflight | `REQUIRE_ANDROID_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh` passes | PASS | Local preflight, 2026-08-24 |
 | Physical iPhone E2E | USB-connected iPhone E2E or signed-install manual result is recorded | PENDING |  |
-| Android E2E | Android emulator E2E or signed-install manual result is recorded | PASS | Real-backend create/edit/delete/balance flow, run `30776159138` |
+| Android E2E | Android emulator E2E or signed-install manual result is recorded | PASS | Local real-backend flow on `emulator-5554`, 2026-08-24 |
 
 ## Manual Physical Device Checklist
 

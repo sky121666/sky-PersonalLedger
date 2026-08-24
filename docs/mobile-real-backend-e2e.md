@@ -69,6 +69,16 @@ LEDGER_MOBILE_E2E_TEST_FILE=integration_test/app_real_backend_smoke_test.dart \
 ./scripts/verify-mobile-e2e.sh
 ```
 
+Native cold builds can take longer than the default 900 seconds. Set
+`LEDGER_MOBILE_E2E_TIMEOUT_SECONDS` to raise both the outer process timeout and the
+Flutter test-case timeout together, for example:
+
+```bash
+LEDGER_MOBILE_E2E_TIMEOUT_SECONDS=1800 \
+RUN_FLUTTER_TESTER_E2E=0 RUN_IOS_E2E=1 \
+./scripts/verify-mobile-e2e.sh
+```
+
 ## CI coverage
 
 `.github/workflows/mobile-e2e.yml` runs the real-backend `flutter-tester` path on GitHub push and pull request events that touch backend, mobile, or the E2E script. The workflow is guarded with `github.server_url == 'https://github.com'` so Forgejo does not execute GitHub-specific jobs.

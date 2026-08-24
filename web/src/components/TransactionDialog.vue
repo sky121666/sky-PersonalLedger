@@ -14,6 +14,7 @@ import { getCategoryEmoji } from '@/utils/constants'
 import { encodeTransactionTags, parseTransactionTags } from '@/utils/tagValues'
 import { loadTransactionDialogOptions } from '@/utils/transactionDialogOptions'
 import { toLedgerInstant } from '@/utils/ledgerDate'
+import { notifyLedgerMutation } from '@/composables/useLedgerMutation'
 import dayjs from 'dayjs'
 
 const props = defineProps<{
@@ -258,6 +259,7 @@ async function submit() {
       toast.success('记账成功')
     }
     
+    notifyLedgerMutation()
     emit('success')
     close()
   } catch (e: any) {

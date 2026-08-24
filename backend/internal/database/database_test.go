@@ -2,6 +2,7 @@ package database
 
 import (
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -80,6 +81,69 @@ func TestInitKeepsSQLitePathCompatibility(t *testing.T) {
 
 	if !db.Migrator().HasTable(&model.User{}) {
 		t.Fatal("users table was not migrated")
+	}
+}
+
+func TestInitHardensSQLiteFileAndDirectoryPermissions(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "data")
+	dbPath := filepath.Join(directory, "ledger.db")
+	if _, err := Init(dbPath); err != nil {
+		t.Fatalf("init sqlite: %v", err)
+	}
+
+	directoryInfo, err := os.Stat(directory)
+	if err != nil {
+		t.Fatalf("stat data directory: %v", err)
+	}
+	if got := directoryInfo.Mode().Perm(); got != 0700 {
+		t.Fatalf("data directory permissions = %o, want 700", got)
+	}
+	databaseInfo, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("stat sqlite database: %v", err)
+	}
+	if got := databaseInfo.Mode().Perm(); got != 0600 {
+		t.Fatalf("sqlite database permissions = %o, want 600", got)
+	}
+}
+
+func TestInitHardensSQLiteFileWhenDSNHasQueryParameters(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "ledger-query.db")
+	if err := os.WriteFile(dbPath, []byte{}, 0666); err != nil {
+		t.Fatalf("seed sqlite file: %v", err)
+	}
+	if err := os.Chmod(dbPath, 0666); err != nil {
+		t.Fatalf("set broad sqlite permissions: %v", err)
+	}
+
+	if _, err := Init(dbPath + "?cache=shared"); err != nil {
+		t.Fatalf("init sqlite query DSN: %v", err)
+	}
+	info, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("stat sqlite file: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Fatalf("sqlite database permissions = %o, want 600", got)
+	}
+}
+
+func TestSQLiteStoragePathSupportsFileURIAndMemoryDSN(t *testing.T) {
+	path, err := sqliteStoragePath("file:///tmp/ledger%20data.db?cache=shared")
+	if err != nil {
+		t.Fatalf("resolve sqlite file URI: %v", err)
+	}
+	if path != "/tmp/ledger data.db" {
+		t.Fatalf("sqlite file URI path = %q, want decoded filesystem path", path)
+	}
+	for _, dsn := range []string{":memory:", ":memory:?cache=shared", "file::memory:?cache=shared", "file:temporary?mode=memory&cache=shared"} {
+		path, err := sqliteStoragePath(dsn)
+		if err != nil {
+			t.Fatalf("resolve memory DSN %q: %v", dsn, err)
+		}
+		if path != "" {
+			t.Fatalf("memory DSN %q resolved to filesystem path %q", dsn, path)
+		}
 	}
 }
 
@@ -302,9 +366,12 @@ func TestInitWithConfigExpandsNotificationCredentialColumns(t *testing.T) {
 		t.Fatalf("inspect notification credential columns: %v", err)
 	}
 	credentialColumns := map[string]bool{
-		"dingtalk_secret": false,
-		"smtp_password":   false,
-		"webhook_secret":  false,
+		"wecom_webhook":    false,
+		"dingtalk_webhook": false,
+		"dingtalk_secret":  false,
+		"smtp_password":    false,
+		"webhook_url":      false,
+		"webhook_secret":   false,
 	}
 	for _, columnType := range columnTypes {
 		if _, ok := credentialColumns[columnType.Name()]; !ok {

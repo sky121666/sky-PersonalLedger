@@ -46,17 +46,25 @@ test('desktop completes login and transaction CRUD against the real backend', as
   createDialog = page.getByRole('dialog', { name: '新增交易' })
   await expect(createDialog).toBeVisible()
   await createDialog.getByLabel('金额').fill('18.50')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(createDialog.getByLabel('金额')).toHaveValue('18.50')
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await expect(createDialog.getByLabel('金额')).toHaveValue('18.50')
   await createDialog.getByRole('button', { name: '选择餐饮分类' }).click()
   await expect(createDialog.getByLabel('账户')).not.toHaveValue('')
   await createDialog.getByLabel('备注').fill(remark)
   await createDialog.getByRole('button', { name: '保存记录' }).click()
   await expect(page.getByText('记账成功', { exact: true })).toBeVisible()
+  await expect(page.getByText(remark, { exact: true })).toBeVisible()
+  const homeTransactionRow = page.locator('.group').filter({ hasText: remark }).first()
+  await expect(homeTransactionRow.getByText('-18.50', { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: '明细' }).click()
   await expect(page).toHaveURL(/\/#\/transactions$/)
   await expect(page.getByRole('heading', { name: '账单明细' })).toBeVisible()
   await expect(page.getByText(remark, { exact: true })).toBeVisible()
-  await expect(page.getByText('-18.50', { exact: true })).toBeVisible()
+  const transactionRow = page.locator('.group').filter({ hasText: remark }).first()
+  await expect(transactionRow.getByText('-18.50', { exact: true })).toBeVisible()
 
   await page.getByText(remark, { exact: true }).click()
   const editDialog = page.getByRole('dialog', { name: '编辑交易' })
@@ -66,7 +74,8 @@ test('desktop completes login and transaction CRUD against the real backend', as
   await editDialog.getByRole('button', { name: '保存记录' }).click()
   await expect(page.getByText('修改成功', { exact: true })).toBeVisible()
   await expect(page.getByText(editedRemark, { exact: true })).toBeVisible()
-  await expect(page.getByText('-19.75', { exact: true })).toBeVisible()
+  const editedTransactionRow = page.locator('.group').filter({ hasText: editedRemark }).first()
+  await expect(editedTransactionRow.getByText('-19.75', { exact: true })).toBeVisible()
 
   const deleteButton = page.getByRole('button', {
     name: `删除交易 ${editedRemark}`
@@ -93,7 +102,10 @@ test.describe('mobile shell', () => {
     await expect(page).toHaveURL(/\/#\/$/)
 
     for (const label of ['首页', '明细', '统计', '我的']) {
-      await expect(page.getByRole('button', { name: label, exact: true })).toBeVisible()
+      const navigationButton = page.getByRole('button', { name: label, exact: true })
+      await expect(navigationButton).toBeVisible()
+      const bounds = await navigationButton.boundingBox()
+      expect(bounds?.height ?? 0).toBeGreaterThanOrEqual(44)
     }
 
     await page.getByRole('button', { name: '记一笔' }).click()
@@ -103,5 +115,21 @@ test.describe('mobile shell', () => {
     await expect(dialog.getByLabel('账户')).toBeVisible()
     await dialog.getByRole('button', { name: '关闭交易表单' }).click()
     await expect(dialog).toHaveCount(0)
+
+    await page.getByRole('button', { name: '我的', exact: true }).click()
+    await expect(page).toHaveURL(/\/#\/settings$/)
+    const logoutTrigger = page.getByRole('button', { name: '退出登录' })
+    await logoutTrigger.click()
+    const logoutDialog = page.getByRole('dialog', { name: '确认退出' })
+    const cancelLogout = logoutDialog.getByRole('button', { name: '取消' })
+    const confirmLogout = logoutDialog.getByRole('button', { name: '退出', exact: true })
+    await expect(cancelLogout).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(confirmLogout).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(cancelLogout).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(logoutDialog).toHaveCount(0)
+    await expect(logoutTrigger).toBeFocused()
   })
 })

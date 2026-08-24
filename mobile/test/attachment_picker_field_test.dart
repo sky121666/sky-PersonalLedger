@@ -123,6 +123,24 @@ void main() {
       expect(find.text('invoice.pdf'), findsOneWidget);
       expect(find.text('完成'), findsOneWidget);
     });
+
+    testWidgets('当前平台不支持 camera 时不展示拍照入口', (tester) async {
+      await _pumpField(
+        tester,
+        attachments: const [],
+        pendingFiles: const [],
+        pickerService: const _FakeAttachmentPickerService(
+          cameraSupported: false,
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('attachment-add-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('从相册选择'), findsOneWidget);
+      expect(find.text('选择文件'), findsOneWidget);
+      expect(find.text('拍照'), findsNothing);
+    });
   });
 }
 
@@ -210,9 +228,16 @@ class _AttachmentFieldHarnessState extends State<_AttachmentFieldHarness> {
 }
 
 class _FakeAttachmentPickerService implements AttachmentPickerService {
-  const _FakeAttachmentPickerService({this.files = const []});
+  const _FakeAttachmentPickerService({
+    this.files = const [],
+    this.cameraSupported = true,
+  });
 
   final List<PendingAttachmentFile> files;
+  final bool cameraSupported;
+
+  @override
+  bool supportsCamera() => cameraSupported;
 
   @override
   Future<PendingAttachmentFile?> pickImageFromCamera() async {

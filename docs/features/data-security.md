@@ -30,6 +30,8 @@
 不要把以下内容写入 README、Issue、测试截图或日志：
 
 - LEDGER_JWT_SECRET；
+- LEDGER_CREDENTIAL_ENCRYPTION_KEY；
+- LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY；
 - LEDGER_SETUP_TOKEN；
 - AI Provider Key；
 - SMTP、Webhook、企业微信或钉钉凭据；
@@ -41,10 +43,16 @@
 
 可选的 /metrics 只暴露受保护的运行指标，默认关闭，启用时需要独立的 32 字符以上 Token。
 
+当前 JSON 备份格式是 2.3。附件内容使用 Base64 而不是加密；通知设置只迁移安全偏好，
+不导出或覆盖 webhook、钉钉、企业微信和 SMTP 凭据。完整兼容语义见
+[备份范围合同](../architecture/backup-scope.md)。
+
+附件恢复、上传、下载和删除通过进程内维护屏障协调。共享同一上传目录时仅支持一个
+可写应用实例；多副本写入需要外部分布式租约，当前不属于支持范围。
+
 ## 健康与安全检查
 
     curl -fsS http://127.0.0.1:8080/api/v1/health
     ./scripts/check-runtime-health-contract.sh
     ./scripts/check-ai-privacy-contract.sh
     ./scripts/check-public-git-safety.sh
-

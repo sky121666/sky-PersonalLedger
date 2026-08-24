@@ -1,10 +1,16 @@
-# Docker Release Evidence - 2026-05-27
+# Docker Release Evidence - v1.0.9
 
 ## Conclusion
 
-Docker is the primary "one place deploy, others can use it" distribution path for Personal Ledger. The source-level workflow is prepared, but a release is not fully proven until the versioned GHCR image is pushed, pulled, started with persistent `/data`, and health-checked.
+v1.0.9 separates evidence that can exist before a tag from evidence that only exists after
+publication. Source, Compose, build/scan ordering, immutable-version, and local runtime contracts are
+checked before publication. After GHCR publication, the tag workflow runs the real manifest and
+container smoke against the exact OCI digest before it is allowed to create the GitHub Release.
 
-Current status: Docker release structure is prepared, the current worktree has passed a local Docker build/run smoke, and local compose deployment smoke has passed. Real GHCR image publication and release deployment smoke evidence are still pending.
+This tracked document deliberately does not guess the future OCI digest. The successful non-draft
+v1.0.9 GitHub Release is the durable signal that the published-image gate passed; the exact digest is
+recorded in the Release Compose asset and the workflow output. Independent verification still reads
+that live digest and runs the same smoke instead of trusting prose.
 
 ## Preflight
 
@@ -12,80 +18,82 @@ Run from the repository root:
 
 ```bash
 ./scripts/check-docker-release-preflight.sh
-```
-
-This verifies the Docker workflow, tag release integration, multi-architecture build target, Dockerfile runtime shape, healthcheck, persistent `/data`, and docker-compose secret guard.
-
-Before publishing, verify that the current worktree can build and boot as a Docker image:
-
-```bash
 ./scripts/check-docker-local-smoke.sh
-```
-
-For a closer local compose rehearsal, including the `LEDGER_JWT_SECRET` and
-`LEDGER_SETUP_TOKEN` guards:
-
-```bash
 ./scripts/check-docker-compose-local-smoke.sh
 ```
 
-After the real image is published, verify the manifest:
+The preflight proves that one multi-architecture OCI layout is built; digest-pinned Skopeo exports
+and checks distinct amd64 and arm64 scan archives; both Trivy scans precede the only registry login;
+the sealed OCI archive checksum and digest are rechecked by a separate publisher; an existing version
+tag is rejected; and the unchanged layout is pushed without rebuilding.
+
+The source-level Docker/Web release gate is:
 
 ```bash
-DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z ./scripts/check-docker-release-evidence.sh
+RELEASE_SCOPE=docker-web RELEASE_PHASE=source STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 ```
 
-For strict release evidence, the image reference is required:
-
-```bash
-DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z STRICT_DOCKER_RELEASE_EVIDENCE=1 RUN_DOCKER_RELEASE_SMOKE=1 ./scripts/check-docker-release-evidence.sh
-```
-
-Optionally run an isolated local smoke test:
-
-```bash
-DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z RUN_DOCKER_RELEASE_SMOKE=1 ./scripts/check-docker-release-evidence.sh
-```
+It validates a clean versioned source tree, repository safety, version consistency, strict release
+notes/runbook/inventory, backup operator evidence, and the Docker release workflow contract. It does
+not ask for a GHCR digest before that digest exists.
 
 ## Image Evidence
 
-| Item | Required Evidence | Status | Evidence |
-| --- | --- | --- | --- |
-| Local Docker build smoke | Current worktree builds and serves HTTP from a temporary container | PASS | `./scripts/check-docker-local-smoke.sh`, image `personal-ledger:local-smoke`, HTTP served on temporary localhost port |
-| Local compose smoke | Current worktree image starts through Docker Compose with a persistent `/data` mount, image healthcheck, and JWT secret guard | PASS | `./scripts/check-docker-compose-local-smoke.sh`, image `personal-ledger:local-smoke`, HTTP served on temporary localhost port, container healthcheck became healthy, `ledger.db`, `uploads`, and `backups` created |
-| GHCR version tag | `ghcr.io/<owner>/<repo>:X.Y.Z` exists after tag release | PENDING |  |
-| Multi-arch manifest | Image includes `linux/amd64` and `linux/arm64` | PENDING |  |
-| Latest tag policy | `latest` is published only by intended release workflow | PENDING |  |
-| Image digest | Immutable digest is recorded | PENDING |  |
+| Item | Required Evidence | v1.0.9 Contract |
+| --- | --- | --- |
+| Local Docker build | Current source serves HTTP from a temporary container | PASS 2026-08-24; healthy, UID 10001, authenticated metrics, persistent database/uploads/backups |
+| Local Compose | Current source starts through Compose with safe defaults and secret guards | PASS 2026-08-24; loopback bind, `LEDGER_JWT_SECRET` and `LEDGER_SETUP_TOKEN` guards, persistence |
+| Publish ordering | Both architecture scans precede login and immutable tag creation | PASS in `./scripts/check-docker-release-preflight.sh` |
+| GHCR version | `ghcr.io/sky121666/sky-personalledger:1.0.9` resolves after publication | REQUIRED BY TAG WORKFLOW before GitHub Release creation |
+| Platforms | Manifest contains `linux/amd64` and `linux/arm64` | REQUIRED BY PUBLISHED-IMAGE GATE |
+| Trivy | Both verified architecture archives satisfy the HIGH/CRITICAL policy | REQUIRED BEFORE THE PUBLISH JOB CAN RUN |
+| OCI identity | Remote digest equals the sealed scanned layout digest | REQUIRED BY THE PUBLISH JOB |
+| Compose identity | Release Compose uses the same immutable digest | GENERATED ONLY AFTER THE PUBLISHED-IMAGE GATE PASSES |
+
+The tag workflow invokes the strict runtime path with the exact digest:
+
+```bash
+DOCKER_RELEASE_IMAGE=ghcr.io/sky121666/sky-personalledger@sha256:runtime-digest-from-workflow \
+RUNTIME_DOCKER_RELEASE_EVIDENCE=1 \
+RUN_DOCKER_RELEASE_SMOKE=1 \
+./scripts/check-docker-release-evidence.sh
+```
+
+`runtime-digest-from-workflow` is explanatory text, not a value to copy. Always read the real digest
+from the release workflow or digest-pinned Compose asset.
 
 ## Deployment Smoke
 
-Use a non-production test directory, a real random JWT secret, and a separate
-random setup token. Do not paste either secret into this document.
+The automated published-image gate checks:
+
+- the live manifest includes both supported Linux architectures;
+- the exact digest pulls successfully;
+- `/api/v1/health` becomes healthy;
+- unauthenticated metrics return 401 and a dedicated token succeeds;
+- PID 1 runs as UID 10001;
+- `ledger.db`, `uploads`, and `backups` persist under `/data`.
+
+Independent post-release verification:
 
 ```bash
-mkdir -p /tmp/personal-ledger-release-smoke/data
-cd /tmp/personal-ledger-release-smoke
-printf 'LEDGER_JWT_SECRET=%s\nLEDGER_SETUP_TOKEN=%s\n' \
-  '<random-jwt-secret>' '<random-setup-token>' > .env
-curl -fsSLO https://raw.githubusercontent.com/<owner>/<repo>/refs/tags/vX.Y.Z/docker-compose.yml
-export LEDGER_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z
-export LEDGER_SERVER_MODE=release
-docker compose pull
-docker compose up -d
-docker compose ps
-curl -fsS http://127.0.0.1:8080/api/v1/health >/dev/null
-docker compose down
+mkdir -p /tmp/personal-ledger-v1.0.9-verification
+gh release download v1.0.9 --repo sky121666/sky-PersonalLedger \
+  --dir /tmp/personal-ledger-v1.0.9-verification \
+  --pattern 'docker-compose-v1.0.9.yml*'
+(cd /tmp/personal-ledger-v1.0.9-verification && sha256sum -c docker-compose-v1.0.9.yml.sha256)
+DOCKER_RELEASE_IMAGE=ghcr.io/sky121666/sky-personalledger:1.0.9 \
+STRICT_DOCKER_RELEASE_EVIDENCE=1 \
+RUN_DOCKER_RELEASE_SMOKE=1 \
+./scripts/check-docker-release-evidence.sh
 ```
 
-| Check | Required Result | Status | Evidence |
-| --- | --- | --- | --- |
-| Compose pull | Versioned or latest image pulls successfully | PENDING |  |
-| Container start | Container enters running/healthy state | PENDING |  |
-| HTTP health | `curl -fsS http://127.0.0.1:8080/api/v1/health` succeeds | PENDING |  |
-| Persistence | `/data` contains database/config/uploads/backups paths as expected | PENDING |  |
-| Secret guards | Starting without `LEDGER_JWT_SECRET` or `LEDGER_SETUP_TOKEN` fails before container launch | PASS local, PENDING release image | Local compose config guards passed; repeat against published release compose/image |
+The `.env` used for an operator deployment must contain real random `LEDGER_JWT_SECRET` and
+`LEDGER_SETUP_TOKEN` values and remain outside the repository and evidence logs.
 
 ## Release Decision
 
-Do not mark Docker deployment complete until all rows above are changed from `PENDING` to `PASS` or a documented non-blocking exception, and `STRICT_DOCKER_RELEASE_EVIDENCE=1 ./scripts/check-docker-release-evidence.sh` passes.
+Do not describe v1.0.9 as published merely because its local checks pass. It is a completed
+Docker/Web release only when the immutable tag exists, the automated workflow is successful, the
+GitHub Release is non-draft, the Compose checksum verifies, GHCR reports both architectures, the
+Compose digest equals the GHCR digest, and an independent runtime smoke succeeds. A failed run never
+authorizes moving or recreating `v1.0.9`; source corrections require a new reviewed version.

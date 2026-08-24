@@ -37,8 +37,30 @@ func (r *AIProviderRepository) GetByUserID(userID uint) ([]model.AIProvider, err
 	return providers, err
 }
 
+func (r *AIProviderRepository) GetAll() ([]model.AIProvider, error) {
+	var providers []model.AIProvider
+	err := r.db.Order("created_at ASC, id ASC").Find(&providers).Error
+	return providers, err
+}
+
 func (r *AIProviderRepository) Update(provider *model.AIProvider) error {
 	return r.db.Save(provider).Error
+}
+
+func (r *AIProviderRepository) UpdateSecretsBatch(providers []model.AIProvider) error {
+	if len(providers) == 0 {
+		return nil
+	}
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		for index := range providers {
+			if err := tx.Model(&model.AIProvider{}).
+				Where("id = ?", providers[index].ID).
+				Update("api_key_ciphertext", providers[index].APIKeyCiphertext).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (r *AIProviderRepository) Delete(provider *model.AIProvider) error {

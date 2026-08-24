@@ -2,19 +2,46 @@ package service
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/sky/personal-ledger/internal/model"
 	"gorm.io/gorm"
 )
 
+// NotificationSettingsBackup contains only portable reminder preferences.
+// Delivery identity, endpoints, credentials, and channel switches are
+// target-instance state and must never be rebound by a restore.
+type NotificationSettingsBackup struct {
+	NotifyPaymentDue   bool `json:"notify_payment_due"`
+	NotifyBudgetAlert  bool `json:"notify_budget_alert"`
+	NotifyLendingDue   bool `json:"notify_lending_due"`
+	NotifyLogin        bool `json:"notify_login"`
+	NotifyAnnualReport bool `json:"notify_annual_report"`
+	AdvanceDays        int  `json:"advance_days"`
+}
+
+func newNotificationSettingsBackup(setting *model.NotificationSetting) *NotificationSettingsBackup {
+	if setting == nil {
+		return nil
+	}
+	return &NotificationSettingsBackup{
+		NotifyPaymentDue:   setting.NotifyPaymentDue,
+		NotifyBudgetAlert:  setting.NotifyBudgetAlert,
+		NotifyLendingDue:   setting.NotifyLendingDue,
+		NotifyLogin:        setting.NotifyLogin,
+		NotifyAnnualReport: setting.NotifyAnnualReport,
+		AdvanceDays:        setting.AdvanceDays,
+	}
+}
+
 // restoreNotificationSettingsTx deliberately treats notification credentials
 // as target-instance state. They are excluded from backup JSON, so replacing a
 // row from the decoded backup would silently erase working credentials.
 //
-// Legacy backups omit notification_settings entirely; in that case the target
-// row is left untouched. Newer backups restore the serializable settings while
-// retaining secrets already stored on the target instance.
-func restoreNotificationSettingsTx(tx *gorm.DB, userID uint, backup *model.NotificationSetting) error {
+// Backups without notification_settings leave the target row untouched.
+// Supported backups restore portable preferences while retaining endpoint and
+// secret material already stored on the target instance.
+func restoreNotificationSettingsTx(tx *gorm.DB, userID uint, backup *NotificationSettingsBackup) error {
 	if backup == nil {
 		return nil
 	}
@@ -25,39 +52,59 @@ func restoreNotificationSettingsTx(tx *gorm.DB, userID uint, backup *model.Notif
 		return err
 	}
 
-	restored := *backup
-	restored.ID = 0
-	restored.UserID = userID
+	preferences := map[string]any{
+		"notify_payment_due":   backup.NotifyPaymentDue,
+		"notify_budget_alert":  backup.NotifyBudgetAlert,
+		"notify_lending_due":   backup.NotifyLendingDue,
+		"notify_login":         backup.NotifyLogin,
+		"notify_annual_report": backup.NotifyAnnualReport,
+		"advance_days":         backup.AdvanceDays,
+	}
 	if err == nil {
-		// Update only fields that are intentionally represented in backup JSON.
-		// Any current or future json:"-" credential columns remain untouched.
-		return tx.Model(&existing).Updates(map[string]any{
-			"enabled":              restored.Enabled,
-			"wecom_enabled":        restored.WecomEnabled,
-			"wecom_webhook":        restored.WecomWebhook,
-			"dingtalk_enabled":     restored.DingtalkEnabled,
-			"dingtalk_webhook":     restored.DingtalkWebhook,
-			"email_enabled":        restored.EmailEnabled,
-			"smtp_host":            restored.SmtpHost,
-			"smtp_port":            restored.SmtpPort,
-			"smtp_user":            restored.SmtpUser,
-			"smtp_from":            restored.SmtpFrom,
-			"email_to":             restored.EmailTo,
-			"webhook_enabled":      restored.WebhookEnabled,
-			"webhook_url":          restored.WebhookURL,
-			"notify_payment_due":   restored.NotifyPaymentDue,
-			"notify_budget_alert":  restored.NotifyBudgetAlert,
-			"notify_lending_due":   restored.NotifyLendingDue,
-			"notify_login":         restored.NotifyLogin,
-			"notify_annual_report": restored.NotifyAnnualReport,
-			"advance_days":         restored.AdvanceDays,
-		}).Error
+		return tx.Model(&existing).Updates(preferences).Error
 	}
 
-	// No target credentials exist to preserve. Sensitive fields are empty after
-	// JSON decoding and are intentionally not accepted from a backup payload.
-	restored.DingtalkSecret = ""
-	restored.SmtpPassword = ""
-	restored.WebhookSecret = ""
-	return tx.Create(&restored).Error
+	// No target delivery identity exists. Create a disabled local row carrying
+	// only the portable reminder preferences.
+	created := model.NotificationSetting{
+		UserID:             userID,
+		NotifyPaymentDue:   backup.NotifyPaymentDue,
+		NotifyBudgetAlert:  backup.NotifyBudgetAlert,
+		NotifyLendingDue:   backup.NotifyLendingDue,
+		NotifyLogin:        backup.NotifyLogin,
+		NotifyAnnualReport: backup.NotifyAnnualReport,
+		AdvanceDays:        backup.AdvanceDays,
+	}
+	if err := tx.Create(&created).Error; err != nil {
+		return err
+	}
+	// GORM applies model default:true tags to zero bools during Create. Force
+	// the portable backup values afterward so false preferences round-trip.
+	return tx.Model(&created).Updates(preferences).Error
+}
+
+// pinNotificationEmailRecipientBeforeProfileRestoreTx prevents restoring a
+// profile email from silently redirecting a locally configured SMTP channel
+// that relied on the profile-email fallback.
+func pinNotificationEmailRecipientBeforeProfileRestoreTx(tx *gorm.DB, userID uint) error {
+	var setting model.NotificationSetting
+	if err := tx.Where("user_id = ?", userID).First(&setting).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+	if !setting.EmailEnabled || strings.TrimSpace(setting.EmailTo) != "" {
+		return nil
+	}
+
+	var user model.User
+	if err := tx.Select("id", "email").First(&user, "id = ?", userID).Error; err != nil {
+		return err
+	}
+	currentEmail := strings.TrimSpace(user.Email)
+	if currentEmail == "" {
+		return tx.Model(&setting).Update("email_enabled", false).Error
+	}
+	return tx.Model(&setting).Update("email_to", currentEmail).Error
 }

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -22,6 +24,7 @@ func TestValidateJWTSecretRejectsPublicPlaceholders(t *testing.T) {
 		"change-this-secret",
 		"change-this-to-a-random-secret-key",
 		"please-change-this-to-a-random-secret-key",
+		"your-secret-key-change-in-production",
 		"your-jwt-secret-change-this-in-production",
 	} {
 		t.Run(secret, func(t *testing.T) {
@@ -39,6 +42,26 @@ func TestValidateJWTSecretRejectsPublicPlaceholders(t *testing.T) {
 func TestValidateJWTSecretAcceptsStrongSecret(t *testing.T) {
 	if err := validateJWTSecret("ledger-secret-with-at-least-32-characters"); err != nil {
 		t.Fatalf("validate strong secret: %v", err)
+	}
+}
+
+func TestValidateCredentialEncryptionKeys(t *testing.T) {
+	if err := validateCredentialEncryption(config.CredentialConfig{}); err != nil {
+		t.Fatalf("legacy fallback configuration should remain valid: %v", err)
+	}
+	if err := validateCredentialEncryption(config.CredentialConfig{
+		EncryptionKey:         "active-credential-key-with-at-least-32-characters",
+		EncryptionPreviousKey: "previous-credential-key-with-at-least-32-characters",
+	}); err != nil {
+		t.Fatalf("strong credential encryption keys rejected: %v", err)
+	}
+	for _, credentials := range []config.CredentialConfig{
+		{EncryptionKey: "short"},
+		{EncryptionPreviousKey: "short"},
+	} {
+		if err := validateCredentialEncryption(credentials); err == nil {
+			t.Fatalf("short credential encryption key accepted: %#v", credentials)
+		}
 	}
 }
 
@@ -68,6 +91,188 @@ func TestValidateStorageLimits(t *testing.T) {
 		if err := validateStorageLimits(invalid); err == nil {
 			t.Fatalf("expected invalid storage limits to be rejected: %#v", invalid)
 		}
+	}
+}
+
+func TestEnsureStorageDirectoriesCreatesPrivateWritablePaths(t *testing.T) {
+	root := t.TempDir()
+	uploads := filepath.Join(root, "nested", "uploads")
+	backups := filepath.Join(root, "nested", "backups")
+	if err := ensureStorageDirectories(config.StorageConfig{UploadPath: uploads, BackupPath: backups}); err != nil {
+		t.Fatalf("ensure storage directories: %v", err)
+	}
+	for _, path := range []string{uploads, backups} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat storage directory: %v", err)
+		}
+		if !info.IsDir() || info.Mode().Perm() != 0700 {
+			t.Fatalf("storage path %s mode = %v, want private directory", path, info.Mode())
+		}
+		probe, err := os.CreateTemp(path, ".probe-*")
+		if err != nil {
+			t.Fatalf("storage path is not writable: %v", err)
+		}
+		probe.Close()
+		os.Remove(probe.Name())
+	}
+}
+
+func TestEnsureStorageDirectoriesTightensExistingPaths(t *testing.T) {
+	root := t.TempDir()
+	uploads := filepath.Join(root, "uploads")
+	backups := filepath.Join(root, "backups")
+	for _, path := range []string{uploads, backups} {
+		if err := os.Mkdir(path, 0755); err != nil {
+			t.Fatalf("create existing storage directory: %v", err)
+		}
+		if err := os.Chmod(path, 0755); err != nil {
+			t.Fatalf("set broad storage permissions: %v", err)
+		}
+		nested := filepath.Join(path, "legacy")
+		if err := os.Mkdir(nested, 0755); err != nil {
+			t.Fatalf("create broad nested storage directory: %v", err)
+		}
+		if err := os.Chmod(nested, 0755); err != nil {
+			t.Fatalf("set broad nested storage permissions: %v", err)
+		}
+		file := filepath.Join(nested, "legacy.dat")
+		if err := os.WriteFile(file, []byte("legacy"), 0644); err != nil {
+			t.Fatalf("create broad legacy storage file: %v", err)
+		}
+		if err := os.Chmod(file, 0644); err != nil {
+			t.Fatalf("set broad legacy file permissions: %v", err)
+		}
+	}
+
+	if err := ensureStorageDirectories(config.StorageConfig{UploadPath: uploads, BackupPath: backups}); err != nil {
+		t.Fatalf("secure existing storage directories: %v", err)
+	}
+	for _, path := range []string{uploads, backups} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat storage directory: %v", err)
+		}
+		if got := info.Mode().Perm(); got != 0700 {
+			t.Fatalf("storage path %s mode = %o, want 700", path, got)
+		}
+		nestedInfo, err := os.Stat(filepath.Join(path, "legacy"))
+		if err != nil {
+			t.Fatalf("stat nested storage directory: %v", err)
+		}
+		if nestedInfo.Mode().Perm() != 0700 {
+			t.Fatalf("nested storage mode = %v, want 700", nestedInfo.Mode())
+		}
+		fileInfo, err := os.Stat(filepath.Join(path, "legacy", "legacy.dat"))
+		if err != nil {
+			t.Fatalf("stat legacy storage file: %v", err)
+		}
+		if fileInfo.Mode().Perm() != 0600 {
+			t.Fatalf("legacy storage file mode = %v, want 600", fileInfo.Mode())
+		}
+	}
+}
+
+func TestEnsureStorageDirectoriesRejectsFilePath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(path, []byte("file"), 0600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	if err := ensureStorageDirectories(config.StorageConfig{BackupPath: path}); err == nil {
+		t.Fatal("file-backed storage path was accepted")
+	}
+}
+
+func TestEnsureStorageDirectoriesRejectsSymlinkLeaf(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target")
+	if err := os.Mkdir(target, 0755); err != nil {
+		t.Fatalf("create symlink target: %v", err)
+	}
+	link := filepath.Join(root, "uploads")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks are unavailable: %v", err)
+	}
+	if err := ensureStorageDirectories(config.StorageConfig{UploadPath: link}); err == nil {
+		t.Fatal("symlink-backed upload path was accepted")
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("stat symlink target: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0755 {
+		t.Fatalf("rejected symlink target mode = %o, want unchanged 755", got)
+	}
+}
+
+func TestEnsureStorageDirectoriesRejectsRelativeSymlinkEscapeBeforeCreation(t *testing.T) {
+	workingDirectory := t.TempDir()
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(workingDirectory, "escape")); err != nil {
+		t.Skipf("symlinks are unavailable: %v", err)
+	}
+	t.Chdir(workingDirectory)
+	if err := ensureStorageDirectories(config.StorageConfig{BackupPath: filepath.Join("escape", "backups")}); err == nil {
+		t.Fatal("relative storage path resolving outside the working directory was accepted")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "backups")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("rejected storage path created content outside working directory: %v", err)
+	}
+}
+
+func TestValidateStorageDirectoryPathRejectsParentTraversal(t *testing.T) {
+	if _, err := validateStorageDirectoryPath(filepath.Join("..", "backups")); err == nil {
+		t.Fatal("parent-traversing storage path was accepted")
+	}
+}
+
+func TestValidateStorageDirectoryPathRejectsWorkingDirectory(t *testing.T) {
+	if _, err := validateStorageDirectoryPath("."); err == nil {
+		t.Fatal("working directory was accepted as a storage root")
+	}
+}
+
+func TestValidateJSONBodyLimit(t *testing.T) {
+	for _, valid := range []int64{1024, 1 << 20, 64 << 20} {
+		if err := validateJSONBodyLimit(valid); err != nil {
+			t.Fatalf("valid limit %d rejected: %v", valid, err)
+		}
+	}
+	for _, invalid := range []int64{0, 1023, (64 << 20) + 1} {
+		if err := validateJSONBodyLimit(invalid); err == nil {
+			t.Fatalf("invalid limit %d accepted", invalid)
+		}
+	}
+}
+
+func TestRequestLoggerOmitsQueryValues(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	var output bytes.Buffer
+	previousWriter := gin.DefaultWriter
+	gin.DefaultWriter = &output
+	t.Cleanup(func() { gin.DefaultWriter = previousWriter })
+
+	router := gin.New()
+	router.Use(newRequestLogger())
+	router.GET("/probe", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/probe?token=super-secret", nil))
+
+	logged := output.String()
+	if strings.Contains(logged, "super-secret") || strings.Contains(logged, "token=") {
+		t.Fatalf("request logger exposed query: %s", logged)
+	}
+	if !strings.Contains(logged, "/probe") {
+		t.Fatalf("request logger omitted path: %s", logged)
+	}
+
+	output.Reset()
+	router.GET("/error", func(c *gin.Context) {
+		_ = c.Error(errors.New("test error"))
+		c.Status(http.StatusInternalServerError)
+	})
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/error", nil))
+	if logged := output.String(); !strings.HasSuffix(logged, "\n") {
+		t.Fatalf("request logger output does not end with a newline: %q", logged)
 	}
 }
 
@@ -192,6 +397,29 @@ func TestSetupUploadFilesRejectsDirectoryRequests(t *testing.T) {
 
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403; body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestSetupUploadFilesNeverServesRestoreGenerationToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	uploadPath := t.TempDir()
+	writeServerUploadFixture(t, uploadPath, "1/.ledger-restore-generation", "internal-generation")
+
+	jwtManager := jwt.NewManager("test-secret", 15, 60)
+	authService := service.NewAuthService(nil, nil, nil, nil, jwtManager)
+	token, err := jwtManager.GenerateAccessToken(1)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+	router := gin.New()
+	setupUploadFiles(router, uploadPath, authService, nil)
+
+	request := httptest.NewRequest(http.MethodGet, "/uploads/1/.ledger-restore-generation", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404; body=%s", response.Code, response.Body.String())
 	}
 }
 

@@ -1,19 +1,23 @@
-name: Forgejo Release
+name: Forgejo Smoke
 
 on:
   push:
-    tags:
-      - v*
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   runner-smoke:
-    name: Runner Smoke
+    name: Runner and repository smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
-        uses: https://data.forgejo.org/actions/checkout@v4
+        uses: https://data.forgejo.org/actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Check runner
         run: |
@@ -25,20 +29,21 @@ jobs:
           command -v corepack || true
           command -v pnpm || true
           docker version || true
-          echo "Release ref: ${GITHUB_REF_NAME:-manual}"
+          echo "Smoke ref: ${GITHUB_REF_NAME:-manual}"
 
       - name: Check tracked file safety
         run: ./scripts/check-public-git-safety.sh
 
   docker-build:
-    name: Docker Build
+    name: Local Docker build smoke
     needs: runner-smoke
     if: ${{ vars.FORGEJO_DOCKER_BUILD == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
-        uses: https://data.forgejo.org/actions/checkout@v4
+        uses: https://data.forgejo.org/actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Check Docker access
         run: docker version
@@ -47,8 +52,7 @@ jobs:
         run: |
           short_sha="${GITHUB_SHA:-dev}"
           short_sha="${short_sha:0:12}"
-          version="${GITHUB_REF_NAME:-forgejo-${short_sha}}"
-          version="${version#v}"
+          version="forgejo-${short_sha}"
           docker build \
             --pull=false \
             --build-arg VERSION="${version}" \

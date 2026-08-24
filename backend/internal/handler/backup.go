@@ -22,10 +22,16 @@ func NewBackupHandler(backupService *service.BackupService, backupScheduler *ser
 }
 
 func (h *BackupHandler) Create(c *gin.Context) {
+	c.Header("Cache-Control", "private, no-store")
+	c.Header("Pragma", "no-cache")
 	userID := middleware.GetUserID(c)
 
 	backup, err := h.backupService.CreateBackup(userID)
 	if err != nil {
+		if errors.Is(err, service.ErrAttachmentRecoveryPending) {
+			response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
+			return
+		}
 		if message, limited := backupLimitMessage(err); limited {
 			response.Error(c, http.StatusRequestEntityTooLarge, 41300, message)
 			return
@@ -69,6 +75,10 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 
 	err = h.backupService.RestoreBackup(userID, file)
 	if err != nil {
+		if errors.Is(err, service.ErrAttachmentRecoveryPending) {
+			response.Error(c, http.StatusServiceUnavailable, 50302, "restore committed; attachment recovery is pending")
+			return
+		}
 		if message, limited := backupLimitMessage(err); limited {
 			response.Error(c, http.StatusRequestEntityTooLarge, 41300, message)
 			return

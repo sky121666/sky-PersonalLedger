@@ -8,6 +8,7 @@ import { toast } from '@/composables/useToast'
 import { getCategoryEmoji } from '@/utils/constants'
 import { isManagedTransaction } from '@/utils/managedTransaction'
 import { buildTransactionListParams } from '@/utils/transactionListParams'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 
@@ -18,6 +19,7 @@ const loading = ref(false)
 const page = ref(1)
 const hasMore = ref(true)
 const total = ref(0)
+const ledgerMutationRevision = useLedgerMutationRevision()
 let listRequestGeneration = 0
 let keywordDebounceTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -176,6 +178,8 @@ watch(
     keywordDebounceTimer = setTimeout(() => void loadTransactions(), 300)
   }
 )
+
+watch(ledgerMutationRevision, () => void loadTransactions())
 
 onBeforeUnmount(() => clearTimeout(keywordDebounceTimer))
 </script>
@@ -356,7 +360,6 @@ onBeforeUnmount(() => clearTimeout(keywordDebounceTimer))
     <TransactionDialog
       v-model:visible="showDialog"
       :edit-id="editingId"
-      @success="loadTransactions"
     />
 
     <!-- Delete Confirm Modal -->

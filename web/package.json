@@ -7,11 +7,6 @@
     "node": ">=24.18.1 <25"
   },
   "type": "module",
-  "pnpm": {
-    "overrides": {
-      "nanoid": "3.3.18"
-    }
-  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",

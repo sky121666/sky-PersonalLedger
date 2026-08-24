@@ -234,6 +234,21 @@ class _MemorySecureStorageService extends SecureStorageService {
   }
 
   @override
+  Future<String?> readInsecureLocalHttpAcknowledgedUrl() async {
+    return _values['insecure_local_http_acknowledged_url'];
+  }
+
+  @override
+  Future<void> saveInsecureLocalHttpAcknowledgedUrl(String serverUrl) async {
+    _values['insecure_local_http_acknowledged_url'] = serverUrl;
+  }
+
+  @override
+  Future<void> deleteInsecureLocalHttpAcknowledgedUrl() async {
+    _values.remove('insecure_local_http_acknowledged_url');
+  }
+
+  @override
   Future<String?> readAccessToken() async => _values['access_token'];
 
   @override

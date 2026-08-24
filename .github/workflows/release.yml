@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Signed mobile release version, for example 1.0.8
+        description: Existing Docker/Web release version, for example 1.0.8
         required: true
         type: string
       build_number:
@@ -12,20 +12,32 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: read
+
+concurrency:
+  group: personal-ledger-release-publish
+  cancel-in-progress: false
+
 jobs:
-  # 提取版本号
   prepare:
-    name: Prepare Version
+    name: Validate existing protected release target
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
       build_number: ${{ steps.version.outputs.BUILD_NUMBER }}
+    permissions:
+      contents: read
     steps:
-      - name: Checkout
+      - name: Checkout selected release tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Get version from tag
+      - name: Resolve release version
         id: version
         env:
           INPUT_VERSION: ${{ inputs.version }}
@@ -36,6 +48,109 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
         run: ./scripts/check-version-consistency.sh
+
+      - name: Require immutable tag on main and an existing Docker/Web release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          tag="v${RELEASE_VERSION}"
+          if [ "${GITHUB_REF}" != "refs/tags/${tag}" ]; then
+            echo "::error title=Wrong workflow ref::Run this workflow from the existing ${tag} tag, not ${GITHUB_REF}"
+            exit 1
+          fi
+
+          git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
+          tag_commit="$(git rev-list -n 1 "refs/tags/${tag}")"
+          if [ "$tag_commit" != "$GITHUB_SHA" ]; then
+            echo "::error title=Tag commit mismatch::${tag} does not resolve to the selected workflow commit"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "::error title=Release is not on main::${tag} must point to a commit contained in origin/main"
+            exit 1
+          fi
+
+          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}")"
+          if [ "$(jq -r '.draft' <<<"$release_json")" != "false" ]; then
+            echo "::error title=Release is not published::The Docker/Web release for ${tag} must exist and not be a draft"
+            exit 1
+          fi
+
+          existing_assets="$(jq -r '.assets[].name' <<<"$release_json")"
+          compose_asset="docker-compose-v${RELEASE_VERSION}.yml"
+          compose_checksum_asset="${compose_asset}.sha256"
+          for asset in "$compose_asset" "$compose_checksum_asset"; do
+            if ! grep -Fxq "$asset" <<<"$existing_assets"; then
+              echo "::error title=Incomplete Docker/Web release::Required release asset is missing: $asset"
+              exit 1
+            fi
+          done
+
+          expected_assets=(
+            "personal-ledger-${RELEASE_VERSION}-android.apk"
+            "personal-ledger-${RELEASE_VERSION}-android.apk.sha256"
+            "personal-ledger-${RELEASE_VERSION}-android.aab"
+            "personal-ledger-${RELEASE_VERSION}-android.aab.sha256"
+            "personal-ledger-${RELEASE_VERSION}-ios.ipa"
+            "personal-ledger-${RELEASE_VERSION}-ios.ipa.sha256"
+          )
+          for asset in "${expected_assets[@]}"; do
+            if grep -Fxq "$asset" <<<"$existing_assets"; then
+              echo "::error title=Release asset already exists::Refusing to overwrite $asset"
+              exit 1
+            fi
+          done
+
+          release_contract_dir="${RUNNER_TEMP}/docker-web-release-contract"
+          mkdir -p "$release_contract_dir"
+          gh release download "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$compose_asset" \
+            --pattern "$compose_checksum_asset" \
+            --dir "$release_contract_dir"
+
+          compose_path="$release_contract_dir/$compose_asset"
+          checksum_path="$release_contract_dir/$compose_checksum_asset"
+          line_count="$(awk 'END { print NR + 0 }' "$checksum_path")"
+          read -r checksum_digest checksum_name checksum_extra <"$checksum_path"
+          if [ "$line_count" != "1" ] || \
+             [[ ! "$checksum_digest" =~ ^[0-9a-f]{64}$ ]] || \
+             [ "$checksum_name" != "$compose_asset" ] || \
+             [ -n "${checksum_extra:-}" ]; then
+            echo "::error title=Invalid Compose checksum::Expected one sha256sum line for $compose_asset"
+            exit 1
+          fi
+          (
+            cd "$release_contract_dir"
+            sha256sum -c "$compose_checksum_asset"
+          )
+
+          compose_image="$(env \
+            LEDGER_JWT_SECRET=release-contract-validation-only-000000000000 \
+            LEDGER_SETUP_TOKEN=release-contract-validation-only-000000000000 \
+            docker compose --env-file /dev/null -f "$compose_path" config --format json |
+            jq -er '.services["personal-ledger"].image')"
+          repository="${GITHUB_REPOSITORY,,}"
+          image_prefix="ghcr.io/${repository}@"
+          if [[ "$compose_image" != "${image_prefix}"* ]]; then
+            echo "::error title=Invalid release Compose image::Unexpected immutable image: $compose_image"
+            exit 1
+          fi
+          compose_digest="${compose_image#"$image_prefix"}"
+          if [[ ! "$compose_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error title=Invalid release Compose digest::Unexpected immutable digest: $compose_digest"
+            exit 1
+          fi
+
+          version_image="ghcr.io/${repository}:${RELEASE_VERSION}"
+          remote_digest="$(docker buildx imagetools inspect "$version_image" \
+            --format '{{json .Manifest}}' |
+            jq -er '.digest | select(test("^sha256:[0-9a-f]{64}$"))')"
+          if [ "$remote_digest" != "$compose_digest" ]; then
+            echo "::error title=Docker/Web release digest mismatch::Compose uses $compose_digest, but $version_image resolves to $remote_digest"
+            exit 1
+          fi
 
   web:
     name: Web quality gate
@@ -67,19 +182,6 @@ jobs:
     if: ${{ github.server_url == 'https://github.com' }}
     uses: ./.github/workflows/security-contracts.yml
 
-  # 调用 Docker 构建
-  docker:
-    name: Docker
-    if: ${{ github.server_url == 'https://github.com' }}
-    needs: [prepare, backend, web, mobile-quality, mobile-e2e, public-git-safety, backup-security]
-    uses: ./.github/workflows/docker.yml
-    with:
-      version: ${{ needs.prepare.outputs.version }}
-    permissions:
-      contents: read
-      packages: write
-
-  # 调用 Android 构建
   android:
     name: Android
     if: ${{ github.server_url == 'https://github.com' }}
@@ -88,24 +190,26 @@ jobs:
     with:
       version: ${{ needs.prepare.outputs.version }}
       build_number: ${{ needs.prepare.outputs.build_number }}
-    secrets: inherit
 
   verify-android-artifact:
     name: Verify Android Artifact
     if: ${{ github.server_url == 'https://github.com' }}
     needs: [prepare, android]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Java
         uses: actions/setup-java@d7793b545071e98d581d3bf084a51c3213318a07 # v4
         with:
-          distribution: 'zulu'
+          distribution: zulu
           java-version: '17'
 
       - name: Setup Flutter
@@ -135,9 +239,9 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           REQUIRE_IOS_ARTIFACT: '0'
           VERIFY_ARTIFACT_SIGNATURES: '1'
+          ANDROID_EXPECTED_SIGNER_SHA256: ${{ vars.ANDROID_EXPECTED_SIGNER_SHA256 }}
         run: ./scripts/check-release-artifact-files.sh
 
-  # 调用 iOS 构建
   ios:
     name: iOS
     if: ${{ github.server_url == 'https://github.com' }}
@@ -146,19 +250,21 @@ jobs:
     with:
       version: ${{ needs.prepare.outputs.version }}
       build_number: ${{ needs.prepare.outputs.build_number }}
-    secrets: inherit
 
   verify-ios-artifact:
     name: Verify iOS Artifact
     if: ${{ github.server_url == 'https://github.com' }}
     needs: [prepare, ios]
     runs-on: macos-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Download iOS artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -173,29 +279,29 @@ jobs:
           REQUIRE_ANDROID_ARTIFACTS: '0'
           REQUIRE_IOS_ARTIFACT: '1'
           VERIFY_ARTIFACT_SIGNATURES: '1'
+          IOS_EXPECTED_TEAM_IDENTIFIER: ${{ vars.IOS_EXPECTED_TEAM_IDENTIFIER }}
         run: ./scripts/check-release-artifact-files.sh
 
-  # 创建 GitHub Release
   release:
-    name: Create Release
+    name: Attach signed mobile assets to existing release
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: [prepare, backend, web, mobile-quality, mobile-e2e, public-git-safety, backup-security, docker, android, verify-android-artifact, ios, verify-ios-artifact]
+    needs: [prepare, backend, web, mobile-quality, mobile-e2e, public-git-safety, backup-security, android, verify-android-artifact, ios, verify-ios-artifact]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
     permissions:
       contents: write
       actions: read
-    
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Download all artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: artifacts
-
-      - name: List artifacts
-        run: find artifacts -type f
 
       - name: Verify Android release artifact checksums
         env:
@@ -212,13 +318,17 @@ jobs:
           REQUIRE_IOS_ARTIFACT: '1'
         run: ./scripts/check-release-artifact-files.sh
 
-      - name: Create Release
+      - name: Attach signed assets without overwriting the release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
+          tag_name: v${{ needs.prepare.outputs.version }}
+          target_commitish: ${{ github.sha }}
           name: Release v${{ needs.prepare.outputs.version }}
           draft: false
           prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
-          generate_release_notes: true
+          append_body: true
+          overwrite_files: false
+          fail_on_unmatched_files: true
           files: |
             artifacts/android-release/*.apk
             artifacts/android-release/*.apk.sha256
@@ -227,28 +337,8 @@ jobs:
             artifacts/ios-ipa/*.ipa
             artifacts/ios-ipa/*.ipa.sha256
           body: |
-            ## 📦 版本 v${{ needs.prepare.outputs.version }}
-            
-            ### Docker 部署 (推荐)
-            ```bash
-            docker pull ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
-            # Immutable digest: ghcr.io/${{ github.repository }}@${{ needs.docker.outputs.image_digest }}
-            
-            # 或使用当前 tag 的 compose 文件固定版本部署
-            curl -fsSLO https://raw.githubusercontent.com/${{ github.repository }}/refs/tags/v${{ needs.prepare.outputs.version }}/docker-compose.yml
-            export LEDGER_IMAGE=ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
-            export LEDGER_SERVER_MODE=release
-            docker compose up -d
-            ```
-            
-            ### 客户端下载
-            
-            | 平台 | 文件 | 说明 |
-            |------|------|------|
-            | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.apk` | 已使用 release keystore 签名 |
-            | Android | `personal-ledger-${{ needs.prepare.outputs.version }}-android.aab` | 已使用 release keystore 签名，适合正式商店分发 |
-            | iOS | `personal-ledger-${{ needs.prepare.outputs.version }}-ios.ipa` | 已使用 Apple 签名材料导出 |
-            | Docker digest | `ghcr.io/${{ github.repository }}@${{ needs.docker.outputs.image_digest }}` | 不可变镜像引用 |
-            | 校验文件 | `*.sha256` | 用于核对下载产物的 SHA-256 |
+            ### Signed mobile clients
 
-            macOS 和 Windows 客户端仍在平台回归阶段，暂不随本次 GitHub Release 发布。
+            Android APK/AAB and iOS IPA were built from this exact release tag,
+            signature-checked, checksum-checked, and attached by the manual signed
+            mobile workflow. Docker/Web artifacts remain owned by the tag workflow.

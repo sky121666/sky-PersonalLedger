@@ -181,11 +181,11 @@ type NotificationSetting struct {
 
 	// 企业微信
 	WecomEnabled bool   `gorm:"default:false" json:"wecom_enabled"`
-	WecomWebhook string `gorm:"size:500" json:"wecom_webhook"`
+	WecomWebhook string `gorm:"type:text" json:"-"`
 
 	// 钉钉
 	DingtalkEnabled bool   `gorm:"default:false" json:"dingtalk_enabled"`
-	DingtalkWebhook string `gorm:"size:500" json:"dingtalk_webhook"`
+	DingtalkWebhook string `gorm:"type:text" json:"-"`
 	DingtalkSecret  string `gorm:"type:text" json:"-"`
 
 	// 邮箱
@@ -199,7 +199,7 @@ type NotificationSetting struct {
 
 	// 自定义Webhook
 	WebhookEnabled bool   `gorm:"default:false" json:"webhook_enabled"`
-	WebhookURL     string `gorm:"size:500" json:"webhook_url"`
+	WebhookURL     string `gorm:"type:text" json:"-"`
 	WebhookSecret  string `gorm:"type:text" json:"-"`
 
 	// 通知选项

@@ -77,6 +77,59 @@ require_file "scripts/check-external-integration-contracts.sh"
 require_file ".github/dependabot.yml"
 require_file ".github/workflows/dependency-review.yml"
 
+RELEASE_SCOPE="${RELEASE_SCOPE:-signed-mobile}"
+RELEASE_PHASE="${RELEASE_PHASE:-source}"
+
+if [[ "${STRICT_FINAL_RELEASE:-0}" == "1" && "$RELEASE_SCOPE" == "docker-web" ]]; then
+  case "$RELEASE_PHASE" in
+    source|published) ;;
+    *) fail "RELEASE_PHASE must be source or published for RELEASE_SCOPE=docker-web." ;;
+  esac
+
+  docker_web_failures=0
+
+  run_strict_check "clean working tree" \
+    require_clean_worktree || docker_web_failures=1
+
+  run_strict_check "version consistency" \
+    "$ROOT_DIR/scripts/check-version-consistency.sh" || docker_web_failures=1
+
+  run_strict_check "public repository safety" \
+    "$ROOT_DIR/scripts/check-public-git-safety.sh" || docker_web_failures=1
+
+  run_strict_check "Docker release workflow contract" \
+    "$ROOT_DIR/scripts/check-docker-release-preflight.sh" || docker_web_failures=1
+
+  run_strict_check "release notes final values" \
+    env STRICT_RELEASE_NOTES=1 "$ROOT_DIR/scripts/check-release-notes-candidate.sh" || docker_web_failures=1
+
+  run_strict_check "release change inventory coverage" \
+    env STRICT_RELEASE_SCOPE=1 "$ROOT_DIR/scripts/check-release-change-inventory.sh" || docker_web_failures=1
+
+  run_strict_check "final release runbook values" \
+    env STRICT_FINAL_RELEASE_RUNBOOK=1 "$ROOT_DIR/scripts/check-final-release-runbook.sh" || docker_web_failures=1
+
+  run_strict_check "backup operator drill evidence" \
+    env STRICT_BACKUP_OPERATOR_DRILL=1 "$ROOT_DIR/scripts/check-backup-operator-drill.sh" || docker_web_failures=1
+
+  if [[ "$RELEASE_PHASE" == "published" ]]; then
+    run_strict_check "published Docker image runtime evidence" \
+      env RUNTIME_DOCKER_RELEASE_EVIDENCE=1 RUN_DOCKER_RELEASE_SMOKE=1 \
+        "$ROOT_DIR/scripts/check-docker-release-evidence.sh" || docker_web_failures=1
+  fi
+
+  if [[ "$docker_web_failures" != "0" ]]; then
+    fail "Docker/Web ${RELEASE_PHASE} release gate failed. See FAIL entries above."
+  fi
+
+  echo "Docker/Web ${RELEASE_PHASE} release gate checks passed."
+  exit 0
+fi
+
+if [[ "${STRICT_FINAL_RELEASE:-0}" == "1" && "$RELEASE_SCOPE" != "signed-mobile" ]]; then
+  fail "RELEASE_SCOPE must be docker-web or signed-mobile."
+fi
+
 run_strict_check "runtime health contract" \
   "$ROOT_DIR/scripts/check-runtime-health-contract.sh"
 
@@ -155,7 +208,7 @@ if [[ "${STRICT_FINAL_RELEASE:-0}" == "1" ]]; then
     require_no_pending "docs/quality/accessibility-release-evidence-2026-05-27.md" || strict_failures=1
 
   run_strict_check "release artifact files" \
-    env REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 "$ROOT_DIR/scripts/check-release-artifact-files.sh" || strict_failures=1
+    env RELEASE_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")" REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 "$ROOT_DIR/scripts/check-release-artifact-files.sh" || strict_failures=1
 
   run_strict_check "mobile device preflight" \
     env \

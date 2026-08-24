@@ -3,6 +3,7 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -35,6 +36,31 @@ func TestHealthServiceCheckPassesWithDatabaseAndStorage(t *testing.T) {
 		status.Checks["uploads"].Status != "ok" ||
 		status.Checks["backups"].Status != "ok" {
 		t.Fatalf("checks = %#v, want all ok", status.Checks)
+	}
+	for _, directory := range []string{uploads, backups} {
+		entries, err := os.ReadDir(directory)
+		if err != nil {
+			t.Fatalf("read storage directory: %v", err)
+		}
+		if len(entries) != 0 {
+			t.Fatalf("readiness probe left files in %s: %#v", directory, entries)
+		}
+	}
+}
+
+func TestHealthDirectoryCheckRequiresWriteAccess(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not enforce POSIX directory mode bits")
+	}
+	directory := filepath.Join(t.TempDir(), "read-only")
+	if err := os.Mkdir(directory, 0500); err != nil {
+		t.Fatalf("create read-only directory: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(directory, 0700) })
+
+	check := checkDirectory(directory)
+	if check.Status != "fail" || check.Message != "directory is not writable" {
+		t.Fatalf("read-only directory check = %#v, want generic write failure", check)
 	}
 }
 

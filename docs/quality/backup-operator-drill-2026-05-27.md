@@ -4,7 +4,10 @@
 
 Automated backup/restore tests prove service behavior. This local operator drill additionally exercises the real export and restore HTTP workflow against isolated source and target deployments.
 
-Current status: local isolated API operator drill passed on 2026-05-27 using `./scripts/check-backup-operator-drill-local.sh`.
+Evidence snapshot: the detailed local isolated API operator drill below passed on 2026-05-27 using
+`./scripts/check-backup-operator-drill-local.sh`; its byte counts and seeded values are historical.
+On 2026-08-24 the current tree separately passed the backup HTTP export/restore/restart rehearsal,
+backup restore contracts, and the strict drill-document checker.
 
 ## Scope
 
@@ -22,7 +25,7 @@ The drill must verify that a human operator can export a backup, restore it into
 | --- | --- |
 | Source deployment | Local isolated backend started by `./scripts/check-backup-operator-drill-local.sh` |
 | Target isolated deployment | Local isolated backend started by `./scripts/check-backup-operator-drill-local.sh` |
-| App version / build | Current worktree on 2026-05-27 |
+| App version / build | Historical worktree on 2026-05-27 |
 | Database engine | SQLite, temporary per-instance database |
 | Operator | Codex local drill script |
 | Drill date | 2026-05-27 |

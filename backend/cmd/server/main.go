@@ -37,6 +37,9 @@ func main() {
 	if err := validateJWTSecret(cfg.JWT.Secret); err != nil {
 		log.Fatal(err)
 	}
+	if err := validateCredentialEncryption(cfg.Credentials); err != nil {
+		log.Fatal(err)
+	}
 	if err := validateProductionCORS(cfg.Server.Mode, cfg.CORS.AllowedOrigins); err != nil {
 		log.Fatal(err)
 	}
@@ -46,12 +49,21 @@ func main() {
 	if err := validateStorageLimits(cfg.Storage); err != nil {
 		log.Fatal(err)
 	}
+	if err := validateJSONBodyLimit(cfg.Server.MaxJSONBodyBytes); err != nil {
+		log.Fatal(err)
+	}
 	if err := validateObservability(cfg.Observability); err != nil {
 		log.Fatal(err)
 	}
 
 	// Initialize logger
 	logger.Init(cfg.Log.Level, cfg.Log.Format)
+	if strings.TrimSpace(cfg.Credentials.EncryptionKey) == "" {
+		log.Print("Warning: LEDGER_CREDENTIAL_ENCRYPTION_KEY is not configured; credentials use the legacy JWT-secret compatibility key")
+	}
+	if err := ensureStorageDirectories(cfg.Storage); err != nil {
+		log.Fatalf("Failed to prepare storage directories: %v", err)
+	}
 
 	// Initialize database
 	db, err := database.InitWithConfig(cfg.Database, cfg.Log)
@@ -64,8 +76,11 @@ func main() {
 
 	// Initialize services
 	services := service.NewServices(repos, cfg)
-	if err := services.Notification.MigrateStoredSecrets(); err != nil {
-		log.Fatalf("Failed to migrate notification credentials: %v", err)
+	if err := service.MigrateStoredCredentials(services.Notification, services.AIProvider); err != nil {
+		log.Fatalf("Failed to migrate stored credentials: %v", err)
+	}
+	if err := services.Backup.RecoverAttachmentRestores(); err != nil {
+		log.Fatalf("Failed to recover committed attachment restores: %v", err)
 	}
 
 	// Sync security settings from config to database (config takes priority)
@@ -106,7 +121,8 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	r := gin.Default()
+	r := gin.New()
+	r.Use(newRequestLogger(), gin.Recovery())
 	if err := configureTrustedProxies(r, cfg.Server.TrustedProxies); err != nil {
 		log.Fatalf("FATAL: invalid LEDGER_SERVER_TRUSTED_PROXIES: %v", err)
 	}
@@ -125,6 +141,13 @@ func main() {
 	if globalRateLimiter != nil {
 		r.Use(globalRateLimiter.Middleware()) // Global API rate limiting (仅生产环境)
 	}
+	r.Use(middleware.LimitRequestBody(
+		cfg.Server.MaxJSONBodyBytes,
+		"/api/v1/restore",
+		"/api/v1/upload",
+		"/api/v1/upload/avatar",
+		"/api/v1/imports/transactions/preview",
+	))
 	if cfg.Observability.MetricsEnabled {
 		r.GET("/metrics", metricsRegistry.Handler(cfg.Observability.MetricsToken))
 		log.Printf("Operational metrics enabled at /metrics")
@@ -133,7 +156,7 @@ func main() {
 	// Setup API routes
 	handler.SetupRoutes(r, handlers, services.Auth, services.APIToken)
 
-	// Serve uploaded files (requires auth via JWT in query or header)
+	// Serve uploaded files (private files require a JWT Authorization header).
 	if cfg.Storage.UploadPath != "" {
 		setupUploadFiles(r, cfg.Storage.UploadPath, services.Auth, services.System)
 		log.Printf("Serving uploads from %s", cfg.Storage.UploadPath)
@@ -196,6 +219,7 @@ func validateJWTSecret(secret string) error {
 		"change-this-secret":                        {},
 		"change-this-to-a-random-secret-key":        {},
 		"please-change-this-to-a-random-secret-key": {},
+		"your-secret-key-change-in-production":      {},
 		"your-jwt-secret-change-this-in-production": {},
 	}
 	if value == "" {
@@ -206,6 +230,23 @@ func validateJWTSecret(secret string) error {
 	}
 	if len(value) < 32 {
 		return fmt.Errorf("FATAL: LEDGER_JWT_SECRET must be at least 32 characters long for security")
+	}
+	return nil
+}
+
+func validateCredentialEncryption(credentials config.CredentialConfig) error {
+	configuredKeys := []struct {
+		name  string
+		value string
+	}{
+		{name: "LEDGER_CREDENTIAL_ENCRYPTION_KEY", value: credentials.EncryptionKey},
+		{name: "LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY", value: credentials.EncryptionPreviousKey},
+	}
+	for _, configured := range configuredKeys {
+		value := strings.TrimSpace(configured.value)
+		if value != "" && len(value) < 32 {
+			return fmt.Errorf("FATAL: %s must be at least 32 characters long when configured", configured.name)
+		}
 	}
 	return nil
 }
@@ -233,6 +274,192 @@ func validateStorageLimits(storage config.StorageConfig) error {
 		return fmt.Errorf("FATAL: LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE must be between 1 and 4096 MB")
 	}
 	return nil
+}
+
+func ensureStorageDirectories(storage config.StorageConfig) error {
+	directories := []struct {
+		name string
+		path string
+	}{
+		{name: "upload", path: storage.UploadPath},
+		{name: "backup", path: storage.BackupPath},
+	}
+	for _, directory := range directories {
+		path := strings.TrimSpace(directory.path)
+		if path == "" {
+			continue
+		}
+		absolutePath, err := validateStorageDirectoryPath(path)
+		if err != nil {
+			return fmt.Errorf("validate %s storage directory: %w", directory.name, err)
+		}
+		info, statErr := os.Lstat(absolutePath)
+		if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
+			return fmt.Errorf("inspect %s storage directory: %w", directory.name, statErr)
+		}
+		if statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("%s storage directory must not be a symbolic link", directory.name)
+		}
+		if err := verifyStorageDirectoryAncestorResolution(path, absolutePath); err != nil {
+			return fmt.Errorf("verify %s storage directory ancestor: %w", directory.name, err)
+		}
+		if err := os.MkdirAll(absolutePath, 0700); err != nil {
+			return fmt.Errorf("create %s storage directory: %w", directory.name, err)
+		}
+		info, err = os.Lstat(absolutePath)
+		if err != nil {
+			return fmt.Errorf("inspect %s storage directory: %w", directory.name, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return fmt.Errorf("%s storage path is not a directory", directory.name)
+		}
+		if err := verifyStorageDirectoryResolution(path, absolutePath); err != nil {
+			return fmt.Errorf("verify %s storage directory: %w", directory.name, err)
+		}
+		if err := os.Chmod(absolutePath, 0700); err != nil {
+			return fmt.Errorf("secure %s storage directory: %w", directory.name, err)
+		}
+		if err := secureStorageTree(absolutePath); err != nil {
+			return fmt.Errorf("secure existing %s storage contents: %w", directory.name, err)
+		}
+	}
+	return nil
+}
+
+func secureStorageTree(root string) error {
+	return filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return errors.New("storage contents must not contain symbolic links")
+		}
+		if entry.IsDir() {
+			return os.Chmod(path, 0700)
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return errors.New("storage contents must be regular files or directories")
+		}
+		return os.Chmod(path, 0600)
+	})
+}
+
+func verifyStorageDirectoryAncestorResolution(configuredPath, absolutePath string) error {
+	if filepath.IsAbs(configuredPath) {
+		return nil
+	}
+	ancestor := absolutePath
+	for {
+		_, err := os.Lstat(ancestor)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		parent := filepath.Dir(ancestor)
+		if parent == ancestor {
+			return errors.New("storage directory has no resolvable ancestor")
+		}
+		ancestor = parent
+	}
+	resolvedAncestor, err := filepath.EvalSymlinks(ancestor)
+	if err != nil {
+		return err
+	}
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	resolvedWorkingDirectory, err := filepath.EvalSymlinks(workingDirectory)
+	if err != nil {
+		return err
+	}
+	if resolvedAncestor != resolvedWorkingDirectory && !strings.HasPrefix(resolvedAncestor, resolvedWorkingDirectory+string(os.PathSeparator)) {
+		return errors.New("relative storage directory ancestor resolves outside the working directory")
+	}
+	return nil
+}
+
+func validateStorageDirectoryPath(configuredPath string) (string, error) {
+	if filepath.Clean(configuredPath) == "." {
+		return "", errors.New("storage directory must not be the working directory")
+	}
+	for _, segment := range strings.Split(filepath.ToSlash(configuredPath), "/") {
+		if segment == ".." {
+			return "", errors.New("storage directory must not contain parent traversal")
+		}
+	}
+	absolutePath, err := filepath.Abs(configuredPath)
+	if err != nil {
+		return "", err
+	}
+	if filepath.Dir(absolutePath) == absolutePath {
+		return "", errors.New("storage directory must not be a filesystem root")
+	}
+	return absolutePath, nil
+}
+
+func verifyStorageDirectoryResolution(configuredPath, absolutePath string) error {
+	resolvedPath, err := filepath.EvalSymlinks(absolutePath)
+	if err != nil {
+		return err
+	}
+	resolvedParent, err := filepath.EvalSymlinks(filepath.Dir(absolutePath))
+	if err != nil {
+		return err
+	}
+	if resolvedPath != filepath.Join(resolvedParent, filepath.Base(absolutePath)) {
+		return errors.New("storage directory resolves through a symbolic-link leaf")
+	}
+	if filepath.IsAbs(configuredPath) {
+		return nil
+	}
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	resolvedWorkingDirectory, err := filepath.EvalSymlinks(workingDirectory)
+	if err != nil {
+		return err
+	}
+	if resolvedPath != resolvedWorkingDirectory && !strings.HasPrefix(resolvedPath, resolvedWorkingDirectory+string(os.PathSeparator)) {
+		return errors.New("relative storage directory resolves outside the working directory")
+	}
+	return nil
+}
+
+func validateJSONBodyLimit(limit int64) error {
+	if limit < 1024 || limit > 64<<20 {
+		return fmt.Errorf("FATAL: LEDGER_SERVER_MAX_JSON_BODY_BYTES must be between 1024 and 67108864 bytes")
+	}
+	return nil
+}
+
+func newRequestLogger() gin.HandlerFunc {
+	return gin.LoggerWithFormatter(func(params gin.LogFormatterParams) string {
+		path := params.Path
+		if index := strings.IndexByte(path, '?'); index >= 0 {
+			path = path[:index]
+		}
+		errorMessage := strings.TrimRight(params.ErrorMessage, "\r\n")
+		if errorMessage != "" {
+			errorMessage = "\n" + errorMessage
+		}
+		return fmt.Sprintf("[GIN] %s | %3d | %13v | %15s | %-7s %s%s\n",
+			params.TimeStamp.Format("2006/01/02 - 15:04:05"),
+			params.StatusCode,
+			params.Latency,
+			params.ClientIP,
+			params.Method,
+			path,
+			errorMessage,
+		)
+	})
 }
 
 func validateObservability(observability config.ObservabilityConfig) error {
@@ -263,6 +490,10 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 			return
 		}
 		pathParts := strings.Split(filepath.ToSlash(cleanPath), "/")
+		if service.IsInternalUploadPath(cleanPath) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
 
 		// 头像文件公开访问，无需认证（严格限制为用户头像目录）。
 		publicAvatar := len(pathParts) == 4 && pathParts[1] == "avatars" && pathParts[2] == "profile"
@@ -300,6 +531,17 @@ func setupUploadFiles(r *gin.Engine, uploadPath string, authService *service.Aut
 				c.JSON(403, gin.H{"error": "forbidden"})
 				return
 			}
+		}
+		pathUserID, err := strconv.ParseUint(pathParts[0], 10, 64)
+		if err != nil || pathUserID == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		releaseStorage := service.AcquireAttachmentStorageRead()
+		defer releaseStorage()
+		if !service.AttachmentStorageAvailable(uint(pathUserID)) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "attachment recovery is pending"})
+			return
 		}
 
 		fullPath, err := resolveExistingFileWithinRoot(uploadPath, cleanPath)

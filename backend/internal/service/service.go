@@ -36,12 +36,14 @@ type Services struct {
 
 func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 	jwtManager := jwt.NewManager(cfg.JWT.Secret, cfg.JWT.AccessExpire, cfg.JWT.RefreshExpire)
+	credentialSecrets := credentialEncryptionSecrets(cfg)
 	accountLogService := NewAccountLogService(repos.AccountLog, repos.Account)
-	transactionService := NewTransactionService(repos.Transaction, repos.Account, repos.Reminder, repos.Lending, repos.FamilyMember, accountLogService)
+	uploadService := NewUploadService(&cfg.Storage, repos.User.DB())
+	transactionService := NewTransactionService(repos.Transaction, repos.Account, repos.Reminder, repos.Lending, repos.FamilyMember, accountLogService).
+		WithUploadService(uploadService)
 	allowPrivateOutbound := cfg.Security.AllowPrivateOutbound
 	budgetService := NewBudgetService(repos.Budget, repos.Transaction, repos.FamilyMember, repos.Category)
-	notificationService := NewNotificationService(repos.Notification, repos.User, cfg.JWT.Secret).WithPrivateOutboundNetworks(allowPrivateOutbound)
-	uploadService := NewUploadService(&cfg.Storage, repos.User.DB())
+	notificationService := NewNotificationService(repos.Notification, repos.User, credentialSecrets...).WithPrivateOutboundNetworks(allowPrivateOutbound)
 	backupService := NewBackupService(
 		repos.Account.DB(),
 		repos.Account,
@@ -59,7 +61,7 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		cfg.Storage.RestoreMaxFileSize<<20,
 	).WithUploadService(uploadService)
 
-	aiReportService := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil, allowPrivateOutbound), cfg.JWT.Secret).
+	aiReportService := NewAIReportService(repos.AIReport, repos.AIProvider, repos.Transaction, repos.Category, repos.FamilyMember, NewOpenAICompatibleClient(nil, allowPrivateOutbound), credentialSecrets...).
 		WithBudgetRepository(repos.Budget).
 		WithAccountRepository(repos.Account)
 
@@ -70,12 +72,12 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		Transaction:       transactionService,
 		TransactionImport: NewTransactionImportService(transactionService),
 		Budget:            budgetService,
-		Reminder:          NewReminderService(repos.Reminder, repos.Account, repos.Transaction, repos.Category, accountLogService),
+		Reminder:          NewReminderService(repos.Reminder, repos.Account, repos.Transaction, repos.Category, accountLogService).WithUploadService(uploadService),
 		Statistics:        NewStatisticsService(repos.Transaction, repos.Category, repos.Account, repos.AccountLog),
 		Template:          NewTemplateService(repos.Template, transactionService),
 		Backup:            backupService,
 		Notification:      notificationService,
-		Lending:           NewLendingService(repos.Lending, repos.Account, repos.Transaction, repos.Category, accountLogService),
+		Lending:           NewLendingService(repos.Lending, repos.Account, repos.Transaction, repos.Category, accountLogService).WithUploadService(uploadService),
 		Export:            NewExportService(repos.Transaction, repos.Category, repos.Account),
 		System:            NewSystemService(repos.System),
 		Upload:            uploadService,
@@ -84,7 +86,7 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		Tag:               NewTagService(repos.Tag),
 		APIToken:          NewAPITokenService(repos.APIToken),
 		FamilyMember:      NewFamilyMemberService(repos.FamilyMember, repos.Transaction).WithCategoryRepository(repos.Category),
-		AIProvider:        NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil, allowPrivateOutbound), cfg.JWT.Secret).WithPrivateOutboundNetworks(allowPrivateOutbound),
+		AIProvider:        NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil, allowPrivateOutbound), credentialSecrets...).WithPrivateOutboundNetworks(allowPrivateOutbound),
 		AIReport:          aiReportService,
 		AIReportSchedule:  NewAIReportScheduler(aiReportService, repos.System, repos.User),
 		NotificationSchedule: NewNotificationScheduler(

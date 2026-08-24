@@ -7,6 +7,8 @@ import { lendingApi, type Lending, type CreateLendingParams, type LendingSummary
 import { accountApi, type Account } from '@/api/account'
 import { toast } from '@/composables/useToast'
 import { deleteRemovedAttachments } from '@/utils/attachmentCleanup'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -16,6 +18,8 @@ const accounts = ref<Account[]>([])
 const summary = ref<LendingSummary | null>(null)
 const loading = ref(false)
 const activeTab = ref<'lend_out' | 'borrow_in' | 'settled'>('lend_out')
+const ledgerMutationRevision = useLedgerMutationRevision()
+const dataRequests = createRequestGeneration()
 
 const showDialog = ref(false)
 const editingLending = ref<Lending | null>(null)
@@ -76,7 +80,10 @@ onMounted(() => {
   loadData()
 })
 
+watch(ledgerMutationRevision, () => void loadData())
+
 async function loadData() {
+  const requestGeneration = dataRequests.begin()
   loading.value = true
   try {
     const [lendingList, accountData, summaryData] = await Promise.all([
@@ -84,13 +91,18 @@ async function loadData() {
       accountApi.getList(),
       lendingApi.getSummary()
     ])
+    if (!dataRequests.isLatest(requestGeneration)) return
     lendings.value = lendingList
     accounts.value = accountData.list.filter(a => !a.is_archived)
     summary.value = summaryData
   } catch (e: any) {
-    toast.error('加载数据失败')
+    if (dataRequests.isLatest(requestGeneration)) {
+      toast.error('加载数据失败')
+    }
   } finally {
-    loading.value = false
+    if (dataRequests.isLatest(requestGeneration)) {
+      loading.value = false
+    }
   }
 }
 

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { accountLogApi, type AccountLog } from '@/api/accountLog'
 import { accountApi, type Account } from '@/api/account'
 import { ChevronLeft, TrendingUp, TrendingDown, RotateCcw, ArrowLeftRight, Sparkles, ScrollText } from 'lucide-vue-next'
 import DynamicIcon from '@/components/DynamicIcon.vue'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 import dayjs from 'dayjs'
 
 const route = useRoute()
@@ -18,42 +20,82 @@ const page = ref(1)
 const pageSize = ref(50)
 const total = ref(0)
 const hasMore = computed(() => logs.value.length < total.value)
+const ledgerMutationRevision = useLedgerMutationRevision()
+const accountRequests = createRequestGeneration()
+const logRequests = createRequestGeneration()
 
-onMounted(async () => {
-  if (accountId.value) {
-    try {
-      account.value = await accountApi.getById(accountId.value)
-    } catch (e) {
-      console.error('Failed to load account', e)
-    }
+onMounted(loadLedgerAccountData)
+watch(accountId, () => void loadLedgerAccountData(true))
+watch(ledgerMutationRevision, () => void loadLedgerAccountData())
+
+async function loadLedgerAccountData(clearPreviousScope = false) {
+  const requestedAccountId = accountId.value
+  const accountGeneration = accountRequests.begin()
+  if (clearPreviousScope) {
+    page.value = 1
+    account.value = null
+    logs.value = []
+    total.value = 0
   }
-  loadLogs()
-})
+  const logsPromise = loadLogs(1, true)
+  if (requestedAccountId) {
+    try {
+      const nextAccount = await accountApi.getById(requestedAccountId)
+      if (
+        accountRequests.isLatest(accountGeneration)
+        && accountId.value === requestedAccountId
+      ) {
+        account.value = nextAccount
+      }
+    } catch (e) {
+      if (accountRequests.isLatest(accountGeneration)) {
+        console.error('Failed to load account', e)
+      }
+    }
+  } else if (accountRequests.isLatest(accountGeneration)) {
+    account.value = null
+  }
+  await logsPromise
+}
 
-async function loadLogs() {
+async function loadLogs(requestedPage = page.value, replace = requestedPage === 1) {
+  const requestGeneration = logRequests.begin()
+  const requestedAccountId = accountId.value
   loading.value = true
   try {
-    const params = { page: page.value, page_size: pageSize.value }
-    const res = accountId.value 
-      ? await accountLogApi.getByAccountId(accountId.value, params)
+    const params = { page: requestedPage, page_size: pageSize.value }
+    const res = requestedAccountId
+      ? await accountLogApi.getByAccountId(requestedAccountId, params)
       : await accountLogApi.getAll(params)
-    
-    if (page.value === 1) {
+
+    if (
+      !logRequests.isLatest(requestGeneration)
+      || accountId.value !== requestedAccountId
+    ) return
+
+    if (replace) {
       logs.value = res.list || []
+      page.value = 1
     } else {
       logs.value = [...logs.value, ...(res.list || [])]
+      page.value = requestedPage
     }
     total.value = res.total
   } catch (e) {
-    console.error('Failed to load logs', e)
+    if (logRequests.isLatest(requestGeneration)) {
+      console.error('Failed to load logs', e)
+    }
   } finally {
-    loading.value = false
+    if (logRequests.isLatest(requestGeneration)) {
+      loading.value = false
+    }
   }
 }
 
 function loadMore() {
-  page.value++
-  loadLogs()
+  if (loading.value || !hasMore.value) return
+  const nextPage = page.value + 1
+  void loadLogs(nextPage, false)
 }
 
 function goBack() {

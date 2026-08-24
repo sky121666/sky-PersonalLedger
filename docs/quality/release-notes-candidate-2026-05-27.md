@@ -1,80 +1,82 @@
-# Release Notes Candidate - 2026-05-27
+# Release Notes - v1.0.9
 
-## Personal Ledger vX.Y.Z
+## Personal Ledger v1.0.9
 
 ## Supported Platforms
 
 | Platform | Status | Artifact |
 | --- | --- | --- |
-| Backend + Web | READY AFTER RELEASE WORKFLOW | Docker image `ghcr.io/<owner>/<repo>:X.Y.Z` |
-| Android | READY AFTER SIGNED ARTIFACT | `personal-ledger-X.Y.Z-android.apk`, `personal-ledger-X.Y.Z-android.aab`, and `.sha256` files |
-| iOS | PENDING SIGNED ARTIFACT | `personal-ledger-X.Y.Z-ios.ipa` from tag release or manual workflow, TestFlight build, or Xcode archive evidence |
-| macOS | NOT INCLUDED | Platform regression is not part of this release candidate |
-| Windows | NOT INCLUDED | Platform regression is not part of this release candidate |
+| Backend + Web | RELEASE SCOPE | Docker image `ghcr.io/sky121666/sky-personalledger:1.0.9` and the digest-pinned Release Compose pair |
+| Android | DEVELOPMENT VERIFIED | Current source passed Android emulator real-backend E2E; no signed APK or AAB is published |
+| iOS | DEVELOPMENT VERIFIED | Current source passed iOS Simulator real-backend E2E; no signed IPA or TestFlight build is published |
+| macOS | NOT INCLUDED | Platform regression and signed distribution are outside this release |
+| Windows | NOT INCLUDED | Platform regression and signed distribution are outside this release |
 
 ## Highlights
 
-- Family member management with member-linked transactions.
-- Family monthly summary and premium mobile Family Hub.
-- Family statistics expose member/category spending breakdown for Web Family page and native mobile Family Hub.
-- Member-level total and category budget foundation.
-- OpenAI-compatible AI provider setup and weekly/monthly AI reports across Web and native mobile.
-- Non-secret AI provider presets for DeepSeek, OpenAI, SiliconFlow, and custom gateways.
-- AI report snapshots include aggregate budget and member-budget context without raw transaction remarks.
-- Web AI report detail renders aggregate snapshot metrics, risk cards, and family member snapshots.
-- Native mobile AI reports can select report type, enabled Provider, period, and member/account masking before generation.
-- Aggregated AI snapshots that exclude raw transaction remarks by default.
-- Premium mobile Home, Quick Transaction, AI Reports, Family Hub, member-budget budget screen surfaces, and Family Hub budget strip.
+- Hardened transaction, reminder, lending, notification, and attachment mutations so clients refresh only after confirmed writes and surface partial attachment failures.
+- Added attachment maintenance barriers, recoverable restore staging, reference validation, size limits, and integrity evidence for backup format 2.3.
+- Added an independent credential-encryption keyring and transactional migration for AI Provider and notification credentials.
+- Tightened setup, JSON body limits, trusted-proxy handling, CORS, health checks, private-network outbound policy, and error responses.
+- Improved Web request-generation protection, responsive navigation, settings surfaces, and real-backend Playwright coverage.
+- Improved Flutter server validation, secure local state, staged attachment sync, quick entry, reminders, lending, and consistent refresh behavior.
+- Reworked Docker publication so one multi-architecture OCI layout is scanned before registry login, sealed, reverified, and then published without rebuilding.
+- Split the README, feature documentation, deployment guide, release evidence, and Web/Android/iOS screenshots into focused documents.
 
 ## Security And Privacy
 
-- AI analysis is optional and disabled until a provider is configured.
-- New AI provider API keys are protected at rest and are not returned by list/detail APIs.
-- AI provider secrets are excluded from normal backup export.
-- Backup/restore rehearsal covers family members, member-linked transactions, and AI report history.
-- Before upgrading, existing AI providers should be re-saved to protect any legacy plaintext key values.
+- AI analysis remains optional and disabled until an OpenAI-compatible AI provider is configured.
+- API keys and notification credentials are protected at rest, omitted from API responses, excluded from normal backup export, and never required in repository configuration.
+- A stable `LEDGER_CREDENTIAL_ENCRYPTION_KEY` separates credential encryption from JWT rotation; supported legacy values migrate transactionally at startup.
+- Backup restore rejects credential-capable notification fields, invalid references, unsafe attachment paths, oversize data, and integrity mismatches before activation.
+- Release mode rejects wildcard CORS and defaults to loopback binding plus private-network outbound blocking.
 
 ## Known Limitations
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Android signed artifacts | PENDING | Requires real signing secrets or local release keystore evidence |
-| iOS signed artifact | PENDING | Requires Apple certificate, provisioning profile, and IPA/TestFlight/archive evidence |
-| iOS/Android device validation | PENDING | Requires USB-connected iPhone evidence and Android emulator E2E or signed-install manual checklist |
-| VoiceOver/TalkBack | PENDING | Requires manual assistive-technology pass on release candidate |
-| Family features | PHASE 1+ | Member-level budgets are supported; roles and deeper permissions are reserved for later |
+| Android signed artifacts | OUT OF SCOPE | Signing material is optional and no APK or AAB is attached to v1.0.9 |
+| iOS signed artifact | OUT OF SCOPE | No Apple certificate, provisioning profile, IPA, TestFlight build, or physical-device claim is included |
+| iOS and Android device validation | DEVELOPMENT EVIDENCE ONLY | Android emulator and iOS Simulator real-backend E2E passed; this is not signed-install or physical-iPhone evidence |
+| VoiceOver/TalkBack | OUT OF SCOPE | Automated semantics tests passed; no manual screen-reader claim is made |
+| Attachment storage topology | SINGLE WRITER | The attachment maintenance barrier is process-local; a shared upload root does not support multiple write-capable replicas |
+| Family authorization | PHASE 1+ | Member-linked accounting and budgets are supported; deeper member roles and permissions are reserved for later work |
+| Source license | UNDECLARED | The repository contains public source but does not currently include a LICENSE file |
 
 ## Upgrade Notes
 
-1. Take a backup before upgrading.
-2. Keep the previous Docker image tag available until the new version is verified.
-3. Re-save existing AI providers after upgrade so legacy stored keys are protected by the new secret protection path.
-4. Verify family members, member-linked transactions, member-level budgets, and AI report history after restore or upgrade.
-5. Run `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` before tagging a release candidate.
+1. Back up the data directory and restricted local `.env` before upgrading.
+2. Keep the previous digest and pre-upgrade backup until v1.0.9 health, login, transactions, attachments, notifications, family data, and AI reports are verified.
+3. Configure and retain a stable `LEDGER_CREDENTIAL_ENCRYPTION_KEY`; do not discard the old key until startup migration and credential reads succeed.
+4. Download `docker-compose-v1.0.9.yml` and its `.sha256` sidecar from the GitHub Release, verify the checksum, and deploy that digest-pinned Compose file.
+5. Use one write-capable application instance for a shared attachment root.
 
 ## Rollback
 
-1. Stop the new deployment.
-2. Redeploy the previous Docker image tag.
-3. Restore the pre-upgrade backup only after confirming the target version supports the backup format.
-4. Keep the failed release artifacts and logs for diagnosis.
-5. Re-run login, account balance, transaction create/edit/delete, Family Hub, and AI report smoke checks.
+1. Stop the v1.0.9 deployment and preserve its logs and data directory.
+2. Redeploy the previously recorded immutable image or Compose asset.
+3. Restore the pre-upgrade backup only after confirming the target version supports its backup format and credential-key state.
+4. Re-run health, login, account balance, transaction create/edit/delete, attachment download, notification, Family Hub, and AI report checks.
 
 ## Verification Summary
 
 | Gate | Evidence | Status |
 | --- | --- | --- |
-| Source-level local rehearsal | `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` | PASS, 2026-05-27 local run |
-| Artifact preflight | `./scripts/check-release-artifacts-preflight.sh` | PASS REQUIRED |
-| Artifact file evidence | `REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh` | PENDING REAL ARTIFACTS |
-| Final release gate | `STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` | PENDING REAL EVIDENCE |
+| Backend regression | `go test`, race tests, targeted soak, and `go vet` | PASS on 2026-08-24 |
+| Web quality | 60 unit tests, production build, bundle and attachment checks, 2 real-backend Playwright flows | PASS on 2026-08-24 |
+| Flutter quality | Analyzer, 404 passing tests with 1 designed skip, and 48 light/dark screen cases | PASS on 2026-08-24 |
+| Mobile real-backend E2E | flutter-tester, Android emulator, and iOS Simulator | PASS on 2026-08-24 |
+| Backup and security contracts | Restore, attachment integrity, credential migration, health, and privacy suites | PASS on 2026-08-24 |
+| Local Docker | Current-worktree image and Compose health, persistence, non-root, and metrics checks | PASS on 2026-08-24 |
+| Artifact preflight | `./scripts/check-release-artifacts-preflight.sh` | PASS for workflow structure; signed mobile output is not required |
+| Optional signed artifact verifier | `RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=1.0.9 REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh` | NOT APPLICABLE to this Docker/Web release |
+| Docker/Web publication | Tag workflow, GHCR multi-architecture manifest, Release Compose checksum, and published-image smoke | REQUIRED POST-TAG VERIFICATION |
+| Full signed-mobile final gate | `STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` | NOT APPLICABLE to this Docker/Web-only scope |
 
 ## Release Decision
 
-Do not publish this release candidate as fully complete until:
-
-- Android signed APK/AAB and checksums are recorded.
-- iOS signed IPA, TestFlight build, or archive evidence is recorded if iOS distribution is in scope.
-- iOS and Android device validation is recorded.
-- VoiceOver/TalkBack evidence is recorded or explicitly scoped out.
-- This file has no unresolved `PENDING` rows for in-scope release gates.
+v1.0.9 is approved for the Docker/Web tag workflow after its source commit is merged into `main`.
+The release is complete only after the immutable tag, GHCR `linux/amd64` and `linux/arm64` image,
+digest-pinned Compose attachment, checksum, and clean deployment smoke are verified. Signed mobile
+artifacts, physical iPhone validation, and manual VoiceOver/TalkBack validation remain explicitly
+outside this release and must not be inferred from simulator, emulator, widget, or screenshot evidence.

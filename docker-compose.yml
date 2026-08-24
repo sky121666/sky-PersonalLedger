@@ -9,7 +9,8 @@ services:
     restart: unless-stopped
     
     ports:
-      - "8080:8080"
+      # 默认仅监听本机；仅在受控反向代理/防火墙场景显式改为 0.0.0.0。
+      - "${LEDGER_BIND_ADDRESS:-127.0.0.1}:${LEDGER_SERVER_PORT:-8080}:8080"
     
     volumes:
       # 持久化数据目录 (数据库 + 上传文件 + 备份)
@@ -19,54 +20,63 @@ services:
       # ========== 必须修改 ==========
       # JWT 密钥 (至少32位随机字符串)。建议在 .env 中设置:
       # LEDGER_JWT_SECRET=$(openssl rand -base64 32)
-      - LEDGER_JWT_SECRET=${LEDGER_JWT_SECRET:?Set LEDGER_JWT_SECRET in .env before starting}
+      LEDGER_JWT_SECRET: "${LEDGER_JWT_SECRET:?Set LEDGER_JWT_SECRET in .env before starting}"
       # 首次远程安装令牌；初始化完成后接口会自动禁用。
-      - LEDGER_SETUP_TOKEN=${LEDGER_SETUP_TOKEN:?Set LEDGER_SETUP_TOKEN in .env before starting}
-      - LEDGER_OBSERVABILITY_METRICS_ENABLED=${LEDGER_OBSERVABILITY_METRICS_ENABLED:-false}
-      - LEDGER_OBSERVABILITY_METRICS_TOKEN=${LEDGER_OBSERVABILITY_METRICS_TOKEN:-}
+      LEDGER_SETUP_TOKEN: "${LEDGER_SETUP_TOKEN:?Set LEDGER_SETUP_TOKEN in .env before starting}"
+      # AI/通知凭据的独立静态加密主密钥；未设置时后端兼容回退 JWT 密钥。
+      LEDGER_CREDENTIAL_ENCRYPTION_KEY: "${LEDGER_CREDENTIAL_ENCRYPTION_KEY:-}"
+      # 仅密钥轮换/迁移期间临时设置，迁移成功后必须删除。
+      LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY: "${LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY:-}"
+      LEDGER_OBSERVABILITY_METRICS_ENABLED: "${LEDGER_OBSERVABILITY_METRICS_ENABLED:-false}"
+      LEDGER_OBSERVABILITY_METRICS_TOKEN: "${LEDGER_OBSERVABILITY_METRICS_TOKEN:-}"
       
       # ========== 安全配置 (可选) ==========
       # 自定义入口路径 (设置后只能通过 /your-path 访问)
-      # - LEDGER_SECURITY_BASE_PATH=/my-secret-path
+      LEDGER_SECURITY_BASE_PATH: "${LEDGER_SECURITY_BASE_PATH:-}"
       
       # 默认阻止用户配置的 AI/Webhook/SMTP 访问容器内网；本地网关场景需由部署者显式开启。
-      - LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND=false
+      LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND: "${LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND:-false}"
       # 跨域白名单 (留空仅允许同站 Host/无 Origin 请求，多个来源用逗号分隔)
       # release 模式禁止使用 *；前后端分离部署时设置为具体 HTTPS 域名。
-      # - LEDGER_CORS_ALLOWED_ORIGINS=https://ledger.example.com
+      LEDGER_CORS_ALLOWED_ORIGINS: "${LEDGER_CORS_ALLOWED_ORIGINS:-}"
       
       # ========== JWT 配置 ==========
-      - LEDGER_JWT_ACCESS_EXPIRE=15       # Access Token 过期(分钟)
-      - LEDGER_JWT_REFRESH_EXPIRE=43200   # Refresh Token 过期(分钟，默认30天)
+      LEDGER_JWT_ACCESS_EXPIRE: "${LEDGER_JWT_ACCESS_EXPIRE:-15}"
+      LEDGER_JWT_REFRESH_EXPIRE: "${LEDGER_JWT_REFRESH_EXPIRE:-43200}"
       
       # ========== 存储配置 ==========
-      - LEDGER_STORAGE_MAX_FILE_SIZE=10   # 最大上传文件(MB)
-      - LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE=64 # 最大恢复备份(MB)
-      # - LEDGER_STORAGE_ALLOWED_TYPES=jpg,jpeg,png,gif,webp,pdf
+      LEDGER_STORAGE_UPLOAD_PATH: /data/uploads
+      LEDGER_STORAGE_BACKUP_PATH: /data/backups
+      LEDGER_STORAGE_MAX_FILE_SIZE: "${LEDGER_STORAGE_MAX_FILE_SIZE:-10}"
+      LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE: "${LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE:-64}"
+      LEDGER_STORAGE_ALLOWED_TYPES: "${LEDGER_STORAGE_ALLOWED_TYPES:-jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,txt}"
 
       # ========== 数据库配置 ==========
       # 默认使用 SQLite 单文件数据库。可改为 postgres / mysql / mariadb 并配置 DSN。
-      - LEDGER_DATABASE_DRIVER=sqlite
-      - LEDGER_DATABASE_PATH=/data/ledger.db
-      - LEDGER_SETUP_CONFIG_PATH=/data/config.yaml
-      # - LEDGER_DATABASE_DRIVER=postgres
-      # - LEDGER_DATABASE_DSN=postgres://ledger:password@db:5432/ledger?sslmode=disable&TimeZone=Asia/Shanghai
-      # - LEDGER_DATABASE_MAX_OPEN_CONNS=10
-      # - LEDGER_DATABASE_MAX_IDLE_CONNS=5
+      LEDGER_DATABASE_DRIVER: "${LEDGER_DATABASE_DRIVER:-sqlite}"
+      LEDGER_DATABASE_PATH: /data/ledger.db
+      LEDGER_DATABASE_DSN: "${LEDGER_DATABASE_DSN:-}"
+      LEDGER_DATABASE_MAX_OPEN_CONNS: "${LEDGER_DATABASE_MAX_OPEN_CONNS:-0}"
+      LEDGER_DATABASE_MAX_IDLE_CONNS: "${LEDGER_DATABASE_MAX_IDLE_CONNS:-0}"
+      LEDGER_SETUP_CONFIG_PATH: /data/config.yaml
       
       # ========== 日志配置 ==========
-      - LEDGER_LOG_LEVEL=info             # debug/info/warn/error
-      # - LEDGER_LOG_FORMAT=json          # json/text
+      LEDGER_LOG_LEVEL: "${LEDGER_LOG_LEVEL:-info}"
+      LEDGER_LOG_FORMAT: "${LEDGER_LOG_FORMAT:-json}"
       
       # ========== 限流配置 ==========
-      - LEDGER_SERVER_MODE=release        # 生产基础配置默认启用限流
+      # 容器内部始终监听 8080；LEDGER_SERVER_PORT 仅控制上面的宿主机映射。
+      LEDGER_SERVER_PORT: "8080"
+      LEDGER_SERVER_MODE: "${LEDGER_SERVER_MODE:-release}"
+      LEDGER_SERVER_WEB_PATH: /app/web/dist
       # 仅在反向代理部署时填写实际代理 IP/CIDR；留空时忽略 X-Forwarded-For。
-      - LEDGER_SERVER_TRUSTED_PROXIES=
-      - LEDGER_RATE_LIMIT_MAX_REQUESTS=2000    # 每分钟最大请求数 (仅 release 模式)
-      - LEDGER_RATE_LIMIT_WINDOW_SECS=60       # 限流时间窗口(秒，仅 release 模式)
+      LEDGER_SERVER_TRUSTED_PROXIES: "${LEDGER_SERVER_TRUSTED_PROXIES:-}"
+      LEDGER_SERVER_MAX_JSON_BODY_BYTES: "${LEDGER_SERVER_MAX_JSON_BODY_BYTES:-1048576}"
+      LEDGER_RATE_LIMIT_MAX_REQUESTS: "${LEDGER_RATE_LIMIT_MAX_REQUESTS:-2000}"
+      LEDGER_RATE_LIMIT_WINDOW_SECS: "${LEDGER_RATE_LIMIT_WINDOW_SECS:-60}"
       
       # ========== 时区 ==========
-      - TZ=Asia/Shanghai
+      TZ: "${TZ:-Asia/Shanghai}"
 
 # 数据目录结构:
 # ./data/

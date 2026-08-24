@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -293,11 +295,394 @@ void main() {
       expect(attachmentRepository.uploadCalls.single.file.name, 'receipt.jpg');
       expect(attachmentRepository.uploadCalls.single.category, 'transactions');
       expect(attachmentRepository.uploadCalls.single.refId, 'transaction-1');
+      expect(repository.updateCalls, isEmpty);
+      expect(repository.attachmentUpdateCalls, hasLength(1));
+      expect(repository.attachmentUpdateCalls.single.$1, 'transaction-1');
+      expect(
+        decodeAttachmentPaths(repository.attachmentUpdateCalls.single.$2),
+        ['transactions/transaction-1/receipt.jpg'],
+      );
+    });
+
+    testWidgets('附件上传失败后明确保留交易且重试不会重复创建', (tester) async {
+      final repository = _FakeTransactionRepository();
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..uploadFailuresRemaining = 1;
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: _FakeAttachmentPickerService(
+          files: const [
+            PendingAttachmentFile(
+              path: '/tmp/receipt.jpg',
+              name: 'receipt.jpg',
+              size: 120,
+              mimeType: 'image/jpeg',
+            ),
+          ],
+        ),
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '45',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _expandMoreOptions(tester);
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('attachment-add-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(attachmentRepository.uploadCalls, hasLength(1));
+      expect(repository.updateCalls, isEmpty);
+      expect(repository.attachmentUpdateCalls, isEmpty);
+      expect(find.textContaining('交易已保存'), findsWidgets);
+      expect(find.widgetWithText(FilledButton, '重试附件'), findsOneWidget);
+
+      await _tapSaveButton(tester, label: '重试附件');
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(attachmentRepository.uploadCalls, hasLength(2));
+      expect(repository.updateCalls, isEmpty);
+      expect(repository.attachmentUpdateCalls, hasLength(1));
+      expect(repository.attachmentUpdateCalls.single.$1, 'transaction-1');
+    });
+
+    testWidgets('附件待重试时返回操作要求明确确认后才关闭', (tester) async {
+      final repository = _FakeTransactionRepository();
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..uploadFailuresRemaining = 1;
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: _FakeAttachmentPickerService(
+          files: const [
+            PendingAttachmentFile(
+              path: '/tmp/receipt.jpg',
+              name: 'receipt.jpg',
+            ),
+          ],
+        ),
+        pushAsRoute: true,
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '45',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _expandMoreOptions(tester);
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('attachment-add-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('放弃附件重试？'), findsOneWidget);
+      expect(find.text('继续重试'), findsOneWidget);
+      expect(find.text('仍然关闭'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '重试附件'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, '继续重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('放弃附件重试？'), findsNothing);
+      expect(find.widgetWithText(FilledButton, '重试附件'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '仍然关闭'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickTransactionPage), findsNothing);
+      expect(
+        find.byKey(const ValueKey('open-quick-transaction-page')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('交易提交进行中拦截返回操作', (tester) async {
+      final repository = _FakeTransactionRepository()
+        ..createGate = Completer<void>();
+      await _pumpTransactionPage(tester, repository: repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '45',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _tapSaveButton(tester);
+      await tester.pump();
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(find.text('交易正在保存，请稍候'), findsOneWidget);
+      expect(repository.createCalls, hasLength(1));
+
+      repository.createGate!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('附件重试前修改核心表单会正常保存一次', (tester) async {
+      final repository = _FakeTransactionRepository();
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..uploadFailuresRemaining = 1;
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: _FakeAttachmentPickerService(
+          files: const [
+            PendingAttachmentFile(
+              path: '/tmp/receipt.jpg',
+              name: 'receipt.jpg',
+              size: 120,
+              mimeType: 'image/jpeg',
+            ),
+          ],
+        ),
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '45',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _expandMoreOptions(tester);
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('attachment-add-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(FilledButton, '重试附件'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '50',
+      );
+      await _tapSaveButton(tester, label: '重试附件');
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
       expect(repository.updateCalls, hasLength(1));
       expect(repository.updateCalls.single.$1, 'transaction-1');
-      expect(decodeAttachmentPaths(repository.updateCalls.single.$2.images), [
-        'transactions/transaction-1/receipt.jpg',
-      ]);
+      expect(repository.updateCalls.single.$2.amount, 50);
+      expect(repository.attachmentUpdateCalls, hasLength(1));
+      expect(attachmentRepository.uploadCalls, hasLength(2));
+    });
+
+    testWidgets('附件重试已保存核心修改后不误报为未保存', (tester) async {
+      final repository = _FakeTransactionRepository()
+        ..attachmentUpdateErrors = 1;
+      final attachmentRepository = _FakeAttachmentRepository()
+        ..uploadFailuresRemaining = 1;
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: _FakeAttachmentPickerService(
+          files: const [
+            PendingAttachmentFile(
+              path: '/tmp/receipt.jpg',
+              name: 'receipt.jpg',
+              size: 120,
+              mimeType: 'image/jpeg',
+            ),
+          ],
+        ),
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '45',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _expandMoreOptions(tester);
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('attachment-add-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '50',
+      );
+      await _tapSaveButton(tester, label: '重试附件');
+      await tester.pumpAndSettle();
+
+      expect(repository.updateCalls, hasLength(1));
+      expect(repository.updateCalls.single.$2.amount, 50);
+      expect(repository.attachmentUpdateCalls, hasLength(1));
+      expect(find.textContaining('本次表单修改未保存'), findsNothing);
+      expect(find.textContaining('交易已保存，但附件信息同步失败'), findsOneWidget);
+    });
+
+    testWidgets('附件元数据同步失败后重试不重写核心交易', (tester) async {
+      final repository = _FakeTransactionRepository()
+        ..attachmentUpdateErrors = 1;
+      final attachmentRepository = _FakeAttachmentRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: _FakeAttachmentPickerService(
+          files: const [
+            PendingAttachmentFile(
+              path: '/tmp/receipt.jpg',
+              name: 'receipt.jpg',
+              size: 120,
+              mimeType: 'image/jpeg',
+            ),
+          ],
+        ),
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '45',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _expandMoreOptions(tester);
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('attachment-add-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(repository.updateCalls, isEmpty);
+      expect(repository.attachmentUpdateCalls, hasLength(1));
+      expect(attachmentRepository.uploadCalls, hasLength(1));
+      expect(find.widgetWithText(FilledButton, '重试附件'), findsOneWidget);
+
+      await _tapSaveButton(tester, label: '重试附件');
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(repository.updateCalls, isEmpty);
+      expect(repository.attachmentUpdateCalls, hasLength(2));
+      expect(attachmentRepository.uploadCalls, hasLength(1));
+    });
+
+    testWidgets('元数据响应丢失后移除附件会在重试时强制回写目标状态', (tester) async {
+      final repository = _FakeTransactionRepository()
+        ..attachmentUpdateErrors = 1
+        ..attachmentUpdateCommitsBeforeError = true;
+      final attachmentRepository = _FakeAttachmentRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        attachmentRepository: attachmentRepository,
+        attachmentPickerService: _FakeAttachmentPickerService(
+          files: const [
+            PendingAttachmentFile(
+              path: '/tmp/receipt.jpg',
+              name: 'receipt.jpg',
+              size: 120,
+              mimeType: 'image/jpeg',
+            ),
+          ],
+        ),
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '45',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _expandMoreOptions(tester);
+      await tester.drag(find.byType(ListView), const Offset(0, -800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('attachment-add-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择文件'));
+      await tester.pumpAndSettle();
+
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+
+      expect(repository.serverAttachmentImages, contains('receipt.jpg'));
+      final removeAttachment = find.byKey(
+        const ValueKey('attachment-remove-receipt.jpg'),
+      );
+      await tester.ensureVisible(removeAttachment);
+      await tester.tap(removeAttachment);
+      await tester.pumpAndSettle();
+
+      await _tapSaveButton(tester, label: '重试附件');
+      await tester.pumpAndSettle();
+
+      expect(repository.attachmentUpdateCalls, hasLength(2));
+      expect(repository.attachmentUpdateCalls.last.$2, '[]');
+      expect(repository.serverAttachmentImages, '[]');
+      expect(attachmentRepository.uploadCalls, hasLength(1));
+    });
+
+    testWidgets('核心创建失败不会误报交易已保存', (tester) async {
+      final repository = _FakeTransactionRepository()..createErrors = 1;
+      await _pumpTransactionPage(tester, repository: repository);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-amount')),
+        '45',
+      );
+      await _selectDropdownItem(tester, fieldLabel: '分类', itemText: '餐饮');
+      await _tapSaveButton(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('记账失败'), findsOneWidget);
+      expect(find.textContaining('交易已保存'), findsNothing);
+    });
+
+    testWidgets('编辑核心更新失败不会误报交易已保存', (tester) async {
+      final repository = _FakeTransactionRepository()..updateErrors = 1;
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        editingTransaction: TransactionItem(
+          id: 'transaction-1',
+          type: TransactionType.expense,
+          amount: 18,
+          accountId: 'account-1',
+          categoryId: 'category-expense',
+          transactionDate: DateTime(2026, 5, 18, 8, 30),
+        ),
+      );
+
+      await _tapSaveButton(tester, label: '保存修改');
+      await tester.pumpAndSettle();
+
+      expect(find.text('交易保存失败'), findsOneWidget);
+      expect(find.textContaining('交易已保存'), findsNothing);
     });
 
     testWidgets('存在家庭成员时显示成员选择器并提交成员字段', (tester) async {
@@ -491,6 +876,7 @@ Future<void> _pumpTransactionPage(
   AttachmentPickerService? attachmentPickerService,
   List<FamilyMember> familyMembers = const [],
   bool embedded = false,
+  bool pushAsRoute = false,
   AppThemePalette palette = AppThemePalette.teal,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
@@ -516,14 +902,37 @@ Future<void> _pumpTransactionPage(
       child: MaterialApp(
         theme: AppTheme.lightTheme(palette),
         darkTheme: AppTheme.darkTheme(palette),
-        home: QuickTransactionPage(
-          editingTransaction: editingTransaction,
-          embedded: embedded,
-        ),
+        home: pushAsRoute
+            ? Builder(
+                builder: (context) => Scaffold(
+                  body: Center(
+                    child: FilledButton(
+                      key: const ValueKey('open-quick-transaction-page'),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => QuickTransactionPage(
+                            editingTransaction: editingTransaction,
+                            embedded: embedded,
+                          ),
+                        ),
+                      ),
+                      child: const Text('打开记账'),
+                    ),
+                  ),
+                ),
+              )
+            : QuickTransactionPage(
+                editingTransaction: editingTransaction,
+                embedded: embedded,
+              ),
       ),
     ),
   );
   await tester.pumpAndSettle();
+  if (pushAsRoute) {
+    await tester.tap(find.byKey(const ValueKey('open-quick-transaction-page')));
+    await tester.pumpAndSettle();
+  }
 }
 
 Future<void> _tapSaveButton(WidgetTester tester, {String label = '记一笔'}) async {
@@ -587,8 +996,15 @@ class _FixedThemeController extends ThemeController {
 class _FakeTransactionRepository implements TransactionRepository {
   final List<TransactionFormData> createCalls = [];
   final List<(String, TransactionFormData)> updateCalls = [];
+  final List<(String, String)> attachmentUpdateCalls = [];
   var tagErrors = 0;
   var listTagCalls = 0;
+  var createErrors = 0;
+  var updateErrors = 0;
+  var attachmentUpdateErrors = 0;
+  var attachmentUpdateCommitsBeforeError = false;
+  String serverAttachmentImages = '[]';
+  Completer<void>? createGate;
 
   @override
   Future<void> batchDelete(List<String> ids) async {}
@@ -622,6 +1038,14 @@ class _FakeTransactionRepository implements TransactionRepository {
   @override
   Future<TransactionItem> create(TransactionFormData formData) async {
     createCalls.add(formData);
+    final gate = createGate;
+    if (gate != null) {
+      await gate.future;
+    }
+    if (createErrors > 0) {
+      createErrors -= 1;
+      throw StateError('create failed');
+    }
     return TransactionItem(
       id: 'transaction-${createCalls.length}',
       type: formData.type,
@@ -667,6 +1091,10 @@ class _FakeTransactionRepository implements TransactionRepository {
     TransactionFormData formData,
   ) async {
     updateCalls.add((id, formData));
+    if (updateErrors > 0) {
+      updateErrors -= 1;
+      throw StateError('update failed');
+    }
     return TransactionItem(
       id: id,
       type: formData.type,
@@ -680,12 +1108,36 @@ class _FakeTransactionRepository implements TransactionRepository {
       toAccountId: formData.toAccountId,
     );
   }
+
+  @override
+  Future<TransactionItem> updateAttachments(String id, String images) async {
+    attachmentUpdateCalls.add((id, images));
+    if (attachmentUpdateErrors > 0) {
+      attachmentUpdateErrors -= 1;
+      if (attachmentUpdateCommitsBeforeError) {
+        serverAttachmentImages = images;
+      }
+      throw StateError('attachment update failed');
+    }
+    serverAttachmentImages = images;
+    return TransactionItem(
+      id: id,
+      type: TransactionType.expense,
+      amount: 1,
+      accountId: 'account-1',
+      transactionDate: DateTime(2026, 5, 14),
+      images: images,
+    );
+  }
 }
 
 class _FakeAttachmentPickerService implements AttachmentPickerService {
   const _FakeAttachmentPickerService({this.files = const []});
 
   final List<PendingAttachmentFile> files;
+
+  @override
+  bool supportsCamera() => true;
 
   @override
   Future<PendingAttachmentFile?> pickImageFromCamera() async {
@@ -707,6 +1159,7 @@ class _FakeAttachmentRepository implements AttachmentRepository {
   final List<_UploadCall> uploadCalls = [];
   final List<String> deleteCalls = [];
   var failDeletes = false;
+  var uploadFailuresRemaining = 0;
 
   @override
   Future<void> delete(String path) async {
@@ -737,6 +1190,10 @@ class _FakeAttachmentRepository implements AttachmentRepository {
     void Function(int sent, int total)? onSendProgress,
   }) async {
     uploadCalls.add(_UploadCall(file: file, category: category, refId: refId));
+    if (uploadFailuresRemaining > 0) {
+      uploadFailuresRemaining -= 1;
+      throw StateError('upload failed');
+    }
     onSendProgress?.call(1, 1);
     return LedgerAttachment(
       path: '$category/$refId/${file.name}',

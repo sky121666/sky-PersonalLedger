@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -118,7 +119,10 @@ func (s *AuthService) Init(password string) (*AuthResponse, error) {
 func (s *AuthService) Login(password string) (*AuthResponse, error) {
 	user, err := s.userRepo.GetByUsername("admin")
 	if err != nil {
-		return nil, ErrInvalidPassword
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidPassword
+		}
+		return nil, fmt.Errorf("load login user: %w", err)
 	}
 
 	// Check if locked
@@ -133,7 +137,9 @@ func (s *AuthService) Login(password string) (*AuthResponse, error) {
 			lockUntil := time.Now().Add(15 * time.Minute)
 			user.LockedUntil = &lockUntil
 		}
-		s.userRepo.Update(user)
+		if err := s.userRepo.Update(user); err != nil {
+			return nil, fmt.Errorf("persist failed login state: %w", err)
+		}
 		return nil, ErrInvalidPassword
 	}
 
@@ -142,7 +148,9 @@ func (s *AuthService) Login(password string) (*AuthResponse, error) {
 	user.LockedUntil = nil
 	now := time.Now()
 	user.LastLoginAt = &now
-	s.userRepo.Update(user)
+	if err := s.userRepo.Update(user); err != nil {
+		return nil, fmt.Errorf("persist successful login state: %w", err)
+	}
 
 	return s.generateTokens(user.ID)
 }

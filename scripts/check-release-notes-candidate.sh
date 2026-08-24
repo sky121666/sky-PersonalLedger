@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NOTES_FILE="${RELEASE_NOTES_FILE:-docs/quality/release-notes-candidate-2026-05-27.md}"
+VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 
 fail() {
   echo "$1" >&2
@@ -17,6 +18,10 @@ require_text() {
 }
 
 [[ -f "$ROOT_DIR/$NOTES_FILE" ]] || fail "Missing release notes candidate: $NOTES_FILE"
+
+if ! grep -Fxq "## Personal Ledger v${VERSION}" "$ROOT_DIR/$NOTES_FILE"; then
+  fail "Release notes version does not match root VERSION: ${VERSION}"
+fi
 
 require_text '^## Personal Ledger v'
 require_text '^## Supported Platforms'

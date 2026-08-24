@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,8 +12,10 @@ import '../../../app/widgets/app_state_views.dart';
 import '../../../app/widgets/premium_surface.dart';
 import '../../accounts/data/account.dart';
 import '../../attachments/data/attachment_cleanup.dart';
+import '../../attachments/data/attachment_after_save_exception.dart';
 import '../../attachments/data/attachment_models.dart';
 import '../../attachments/data/attachment_repository.dart';
+import '../../attachments/data/attachment_staged_sync.dart';
 import '../../attachments/presentation/attachment_picker_field.dart';
 import '../../transactions/application/ledger_refresh.dart';
 import '../data/reminder_repository.dart';
@@ -27,6 +30,10 @@ class ReminderPage extends ConsumerStatefulWidget {
 class _ReminderPageState extends ConsumerState<ReminderPage> {
   String? _busyAction;
   String? _errorMessage;
+  Future<void> Function()? _attachmentRetry;
+  String? _attachmentRetryRecordId;
+  bool _allowAttachmentRetryDismissal = false;
+  bool _dismissalPromptOpen = false;
 
   bool get _isBusy => _busyAction != null;
 
@@ -34,7 +41,7 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(reminderDashboardProvider);
 
-    return Scaffold(
+    final page = Scaffold(
       appBar: AppBar(
         title: const Text('负债'),
         actions: [
@@ -57,6 +64,9 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
           dashboard: dashboard,
           busyAction: _busyAction,
           errorMessage: _errorMessage,
+          onRetryAttachments: _attachmentRetry == null || _isBusy
+              ? null
+              : _retryAttachments,
           onRefresh: () => ref.refresh(reminderDashboardProvider.future),
           onToggle: _toggleReminder,
           onEdit: (reminder) => _openReminderForm(
@@ -69,17 +79,73 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
         ),
       ),
     );
+    return PopScope(
+      canPop:
+          !_isBusy &&
+          (_attachmentRetry == null || _allowAttachmentRetryDismissal),
+      onPopInvokedWithResult: _handlePopInvoked,
+      child: page,
+    );
+  }
+
+  void _handlePopInvoked(bool didPop, Object? result) {
+    if (didPop) {
+      return;
+    }
+    if (_isBusy) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('提醒操作正在处理中，请稍候')));
+      return;
+    }
+    if (_attachmentRetry != null) {
+      unawaited(_confirmDiscardAttachmentRetry());
+    }
+  }
+
+  Future<void> _confirmDiscardAttachmentRetry() async {
+    if (_dismissalPromptOpen) {
+      return;
+    }
+    _dismissalPromptOpen = true;
+    try {
+      final confirmed = await showAppConfirmDialog(
+        context: context,
+        title: '放弃附件重试？',
+        message: '负债提醒已保存，但附件尚未处理完成。关闭后将无法从此页面继续重试附件。',
+        cancelText: '继续重试',
+        confirmText: '仍然关闭',
+        isDanger: true,
+      );
+      if (!confirmed || !mounted) {
+        return;
+      }
+      setState(() => _allowAttachmentRetryDismissal = true);
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop();
+    } finally {
+      _dismissalPromptOpen = false;
+    }
   }
 
   void _refresh() {
-    setState(() => _errorMessage = null);
+    if (_attachmentRetry == null) {
+      setState(() => _errorMessage = null);
+    }
     ref.invalidate(reminderDashboardProvider);
   }
 
   Future<void> _toggleReminder(ReminderItem reminder) async {
+    if (!await _confirmDiscardRetryForMutation(reminder.id) || !mounted) {
+      return;
+    }
     await _runAction(
       action: 'toggle-${reminder.id}',
       successMessage: reminder.isEnabled ? '提醒已暂停' : '提醒已启用',
+      supersededAttachmentRetryRecordId: reminder.id,
       request: () => ref
           .read(reminderRepositoryProvider)
           .toggleReminder(reminder.id)
@@ -91,13 +157,22 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
     ReminderItem? reminder,
     List<Account> debtAccounts = const [],
   }) async {
+    var editingReminder = reminder;
     final dashboard = ref.read(reminderDashboardProvider).valueOrNull;
-    final accounts = debtAccounts.isEmpty
+    var accounts = debtAccounts.isEmpty
         ? dashboard?.debtAccounts ?? const <Account>[]
         : debtAccounts;
+    if (editingReminder != null && _hasAttachmentRetryFor(editingReminder.id)) {
+      final refreshed = await _prepareRetryRecordForEdit(editingReminder.id);
+      if (refreshed == null || !mounted) {
+        return;
+      }
+      editingReminder = refreshed.item;
+      accounts = refreshed.debtAccounts;
+    }
     final result = await _showReminderFormDialog(
       context: context,
-      reminder: reminder,
+      reminder: editingReminder,
       debtAccounts: accounts,
     );
     if (result == null || !mounted) {
@@ -106,57 +181,49 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
     final request = result.request;
 
     await _runAction(
-      action: reminder == null ? 'create' : 'edit-${reminder.id}',
-      successMessage: reminder == null ? '负债提醒已创建' : '负债提醒已更新',
+      action: editingReminder == null ? 'create' : 'edit-${editingReminder.id}',
+      successMessage: editingReminder == null ? '负债提醒已创建' : '负债提醒已更新',
+      supersededAttachmentRetryRecordId: editingReminder?.id,
       request: () async {
         final repository = ref.read(reminderRepositoryProvider);
-        if (reminder == null) {
+        if (editingReminder == null) {
           final saved = await repository.createReminder(request);
           if (result.pendingFiles.isEmpty) {
             return;
           }
           if (saved == null || saved.id.isEmpty) {
-            throw const FormatException('提醒已创建，但附件暂时无法添加');
+            throw const AttachmentAfterSaveException(
+              '负债提醒已创建，但缺少记录编号，无法继续处理附件。',
+            );
           }
-          final uploadedAttachments = await _uploadPendingAttachments(
-            result.pendingFiles,
-            saved.id,
-          );
-          await repository.updateReminder(
-            saved.id,
-            request.copyWith(
-              evidence: _encodeAttachmentEvidence([
-                ...result.attachments,
-                ...uploadedAttachments,
-              ]),
+          await syncPendingAttachments(
+            repository: ref.read(attachmentRepositoryProvider),
+            category: 'reminders',
+            refId: saved.id,
+            retainedAttachments: result.attachments,
+            pendingFiles: result.pendingFiles,
+            persistAttachments: (attachments) => repository.updateAttachments(
+              saved.id,
+              _encodeAttachmentEvidence(attachments),
             ),
+            failureMessage: '负债提醒已创建，但部分附件尚未保存。请点击“重试附件”，无需重复创建。',
           );
           return;
         }
-        final saved = await repository.updateReminder(reminder.id, request);
-        var retainedAttachments = result.attachments;
-        if (result.pendingFiles.isEmpty) {
-          await _deleteRemovedAttachments(
-            originalPaths: decodeAttachmentPaths(reminder.evidence),
-            retainedAttachments: retainedAttachments,
-          );
-          return;
-        }
-        final refId = saved?.id.isNotEmpty == true ? saved!.id : reminder.id;
-        final uploadedAttachments = await _uploadPendingAttachments(
-          result.pendingFiles,
-          refId,
+        final saved = await repository.updateReminder(
+          editingReminder.id,
+          request,
         );
-        retainedAttachments = [...result.attachments, ...uploadedAttachments];
-        await repository.updateReminder(
-          refId,
-          request.copyWith(
-            evidence: _encodeAttachmentEvidence(retainedAttachments),
-          ),
-        );
-        await _deleteRemovedAttachments(
-          originalPaths: decodeAttachmentPaths(reminder.evidence),
-          retainedAttachments: retainedAttachments,
+        final refId = saved?.id.isNotEmpty == true
+            ? saved!.id
+            : editingReminder.id;
+        await _completeReminderAttachmentEdit(
+          repository: repository,
+          refId: refId,
+          originalPaths: decodeAttachmentPaths(editingReminder.evidence),
+          retainedAttachments: result.attachments,
+          pendingFiles: result.pendingFiles,
+          attachmentsSynced: result.pendingFiles.isEmpty,
         );
       },
     );
@@ -173,10 +240,14 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
     if (!confirmed || !mounted) {
       return;
     }
+    if (!await _confirmDiscardRetryForMutation(reminder.id) || !mounted) {
+      return;
+    }
 
     await _runAction(
       action: 'delete-${reminder.id}',
       successMessage: '负债提醒已删除',
+      supersededAttachmentRetryRecordId: reminder.id,
       request: () =>
           ref.read(reminderRepositoryProvider).deleteReminder(reminder.id),
     );
@@ -194,10 +265,14 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
     if (result == null || !mounted) {
       return;
     }
+    if (!await _confirmDiscardRetryForMutation(reminder.id) || !mounted) {
+      return;
+    }
 
     await _runAction(
       action: 'payment-${reminder.id}',
       successMessage: '还款已记录',
+      supersededAttachmentRetryRecordId: reminder.id,
       request: () => ref
           .read(reminderRepositoryProvider)
           .recordPayment(
@@ -211,46 +286,104 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
     );
   }
 
-  Future<List<LedgerAttachment>> _uploadPendingAttachments(
-    List<PendingAttachmentFile> files,
-    String refId,
-  ) async {
-    if (files.isEmpty) {
-      return const [];
+  Future<void> _completeReminderAttachmentEdit({
+    required ReminderRepository repository,
+    required String refId,
+    required List<String> originalPaths,
+    required List<LedgerAttachment> retainedAttachments,
+    required List<PendingAttachmentFile> pendingFiles,
+    required bool attachmentsSynced,
+    Future<void> Function()? retrySync,
+  }) async {
+    const failureMessage = '负债提醒已更新，但部分附件尚未处理。请点击“重试附件”，无需重复保存记录。';
+    if (!attachmentsSynced) {
+      try {
+        if (retrySync != null) {
+          await retrySync();
+        } else {
+          await syncPendingAttachments(
+            repository: ref.read(attachmentRepositoryProvider),
+            category: 'reminders',
+            refId: refId,
+            retainedAttachments: retainedAttachments,
+            pendingFiles: pendingFiles,
+            persistAttachments: (attachments) => repository.updateAttachments(
+              refId,
+              _encodeAttachmentEvidence(attachments),
+            ),
+            failureMessage: failureMessage,
+          );
+        }
+      } on AttachmentAfterSaveException catch (error) {
+        throw AttachmentAfterSaveException(
+          failureMessage,
+          recordId: refId,
+          retry: error.retry == null
+              ? null
+              : () => _completeReminderAttachmentEdit(
+                  repository: repository,
+                  refId: refId,
+                  originalPaths: originalPaths,
+                  retainedAttachments: retainedAttachments,
+                  pendingFiles: pendingFiles,
+                  attachmentsSynced: false,
+                  retrySync: error.retry,
+                ),
+        );
+      }
     }
-    final repository = ref.read(attachmentRepositoryProvider);
-    final uploadedAttachments = <LedgerAttachment>[];
-    for (final file in files) {
-      uploadedAttachments.add(
-        await repository.upload(
-          file: file,
-          category: 'reminders',
+
+    try {
+      await _deleteRemovedAttachments(
+        originalPaths: originalPaths,
+        retainedAttachments: retainedAttachments,
+      );
+    } catch (_) {
+      throw AttachmentAfterSaveException(
+        failureMessage,
+        recordId: refId,
+        retry: () => _completeReminderAttachmentEdit(
+          repository: repository,
           refId: refId,
+          originalPaths: originalPaths,
+          retainedAttachments: retainedAttachments,
+          pendingFiles: const [],
+          attachmentsSynced: true,
         ),
       );
     }
-    return uploadedAttachments;
   }
 
   Future<void> _deleteRemovedAttachments({
     required Iterable<String> originalPaths,
     required Iterable<LedgerAttachment> retainedAttachments,
   }) async {
-    await deleteRemovedAttachments(
+    final failedPaths = await deleteRemovedAttachments(
       repository: ref.read(attachmentRepositoryProvider),
       originalPaths: originalPaths,
       retainedPaths: retainedAttachments.map((item) => item.path),
     );
+    if (failedPaths.isNotEmpty) {
+      throw StateError('failed to delete ${failedPaths.length} attachments');
+    }
   }
 
   Future<void> _runAction({
     required String action,
     required String successMessage,
     required Future<void> Function() request,
+    bool isAttachmentRetry = false,
+    String? supersededAttachmentRetryRecordId,
   }) async {
     setState(() {
+      if (_attachmentRetryRecordId != null &&
+          _attachmentRetryRecordId == supersededAttachmentRetryRecordId) {
+        _clearAttachmentRetryState();
+      }
       _busyAction = action;
-      _errorMessage = null;
+      if (_attachmentRetry == null || isAttachmentRetry) {
+        _errorMessage = null;
+      }
     });
 
     try {
@@ -260,6 +393,16 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
       }
       ref.invalidate(reminderDashboardProvider);
       ref.invalidateLedgerMutationViews();
+      if (isAttachmentRetry ||
+          (_attachmentRetryRecordId != null &&
+              _attachmentRetryRecordId == supersededAttachmentRetryRecordId)) {
+        setState(() {
+          _errorMessage = null;
+          _attachmentRetry = null;
+          _attachmentRetryRecordId = null;
+          _allowAttachmentRetryDismissal = false;
+        });
+      }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(successMessage)));
@@ -267,7 +410,114 @@ class _ReminderPageState extends ConsumerState<ReminderPage> {
       if (!mounted) {
         return;
       }
-      setState(() => _errorMessage = '负债提醒保存失败');
+      if (error is AttachmentAfterSaveException) {
+        ref.invalidate(reminderDashboardProvider);
+        ref.invalidateLedgerMutationViews();
+        setState(() {
+          _errorMessage = error.message;
+          _attachmentRetry = error.retry;
+          _attachmentRetryRecordId = error.recordId;
+          _allowAttachmentRetryDismissal = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      } else {
+        setState(() => _errorMessage = '负债提醒保存失败');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busyAction = null);
+      }
+    }
+  }
+
+  Future<void> _retryAttachments() async {
+    final retry = _attachmentRetry;
+    if (retry == null) {
+      return;
+    }
+    await _runAction(
+      action: 'attachment-retry',
+      successMessage: '提醒附件已处理完成',
+      request: retry,
+      isAttachmentRetry: true,
+    );
+  }
+
+  bool _hasAttachmentRetryFor(String recordId) {
+    return _attachmentRetry != null && _attachmentRetryRecordId == recordId;
+  }
+
+  void _clearAttachmentRetryState() {
+    _attachmentRetry = null;
+    _attachmentRetryRecordId = null;
+    _allowAttachmentRetryDismissal = false;
+    _errorMessage = null;
+  }
+
+  Future<bool> _confirmDiscardRetryForMutation(String recordId) async {
+    if (!_hasAttachmentRetryFor(recordId)) {
+      return true;
+    }
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '先处理附件重试',
+      message: '这条负债提醒还有未完成的附件重试。返回可先完成重试；继续将明确放弃旧重试，再执行当前操作。',
+      cancelText: '返回重试',
+      confirmText: '放弃并继续',
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) {
+      return false;
+    }
+    setState(_clearAttachmentRetryState);
+    return true;
+  }
+
+  Future<({ReminderItem item, List<Account> debtAccounts})?>
+  _prepareRetryRecordForEdit(String recordId) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '先处理附件重试',
+      message: '这条负债提醒还有未完成的附件重试。返回可先完成重试；继续将明确放弃旧重试，并在刷新后编辑服务端最新记录。',
+      cancelText: '返回重试',
+      confirmText: '放弃并编辑',
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) {
+      return null;
+    }
+
+    setState(() => _busyAction = 'refresh-edit-$recordId');
+    try {
+      final dashboard = await ref.refresh(reminderDashboardProvider.future);
+      if (!mounted) {
+        return null;
+      }
+      ReminderItem? latestItem;
+      for (final candidate in dashboard.reminders) {
+        if (candidate.id == recordId) {
+          latestItem = candidate;
+          break;
+        }
+      }
+      if (latestItem == null) {
+        setState(_clearAttachmentRetryState);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('负债提醒已不存在，旧附件重试已取消')));
+        return null;
+      }
+      setState(_clearAttachmentRetryState);
+      return (item: latestItem, debtAccounts: dashboard.debtAccounts);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('刷新最新负债提醒失败，已保留附件重试')));
+      }
+      return null;
     } finally {
       if (mounted) {
         setState(() => _busyAction = null);
@@ -281,6 +531,7 @@ class _ReminderContent extends StatelessWidget {
     required this.dashboard,
     required this.busyAction,
     required this.errorMessage,
+    required this.onRetryAttachments,
     required this.onRefresh,
     required this.onToggle,
     required this.onEdit,
@@ -291,6 +542,7 @@ class _ReminderContent extends StatelessWidget {
   final ReminderDashboard dashboard;
   final String? busyAction;
   final String? errorMessage;
+  final VoidCallback? onRetryAttachments;
   final Future<void> Function() onRefresh;
   final ValueChanged<ReminderItem> onToggle;
   final ValueChanged<ReminderItem> onEdit;
@@ -313,7 +565,10 @@ class _ReminderContent extends StatelessWidget {
             return Padding(
               padding: EdgeInsets.only(bottom: bottom),
               child: switch (row.kind) {
-                _ReminderRowKind.error => _MessagePanel(message: errorMessage!),
+                _ReminderRowKind.error => _MessagePanel(
+                  message: errorMessage!,
+                  onRetry: onRetryAttachments,
+                ),
                 _ReminderRowKind.summary => _DebtSummaryCard(
                   summary: dashboard.summary,
                 ),
@@ -448,9 +703,10 @@ class _ReminderErrorRow {
 }
 
 class _MessagePanel extends StatelessWidget {
-  const _MessagePanel({required this.message});
+  const _MessagePanel({required this.message, this.onRetry});
 
   final String message;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -472,6 +728,14 @@ class _MessagePanel extends StatelessWidget {
                 style: TextStyle(color: colorScheme.onErrorContainer),
               ),
             ),
+            if (onRetry != null) ...[
+              const SizedBox(width: 8),
+              TextButton(
+                key: const ValueKey('reminder-attachment-retry'),
+                onPressed: onRetry,
+                child: const Text('重试附件'),
+              ),
+            ],
           ],
         ),
       ),

@@ -21,25 +21,29 @@ on:
         type: string
     secrets:
       IOS_CERTIFICATE_BASE64:
-        required: true
+        required: false
       IOS_CERTIFICATE_PASSWORD:
-        required: true
+        required: false
       IOS_PROVISIONING_PROFILE_BASE64:
-        required: true
+        required: false
       IOS_EXPORT_OPTIONS_PLIST_BASE64:
-        required: true
+        required: false
       IOS_KEYCHAIN_PASSWORD:
-        required: true
+        required: false
 
 jobs:
   ios:
     name: Build signed iOS IPA
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: macos-latest
+    timeout-minutes: 90
+    environment: mobile-signing
 
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Set version
         id: version
@@ -65,6 +69,7 @@ jobs:
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
           IOS_EXPORT_OPTIONS_PLIST_BASE64: ${{ secrets.IOS_EXPORT_OPTIONS_PLIST_BASE64 }}
           IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+          IOS_EXPECTED_TEAM_IDENTIFIER: ${{ vars.IOS_EXPECTED_TEAM_IDENTIFIER }}
         run: |
           missing=0
           for name in IOS_CERTIFICATE_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE_BASE64 IOS_EXPORT_OPTIONS_PLIST_BASE64 IOS_KEYCHAIN_PASSWORD; do
@@ -74,6 +79,10 @@ jobs:
             fi
           done
           if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          if [[ ! "$IOS_EXPECTED_TEAM_IDENTIFIER" =~ ^[A-Z0-9]{10}$ ]]; then
+            echo "::error title=Missing iOS signing identity::IOS_EXPECTED_TEAM_IDENTIFIER must be a protected 10-character Team ID"
             exit 1
           fi
 
@@ -132,6 +141,7 @@ jobs:
       - name: Verify iOS IPA signature
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
+          IOS_EXPECTED_TEAM_IDENTIFIER: ${{ vars.IOS_EXPECTED_TEAM_IDENTIFIER }}
         run: |
           IPA_PATH="mobile/build/ios/ipa/personal-ledger-${VERSION}-ios.ipa"
           WORK_DIR="$(mktemp -d)"
@@ -148,6 +158,19 @@ jobs:
             exit 1
           fi
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+          ENTITLEMENTS_PATH="$WORK_DIR/signing-entitlements.plist"
+          codesign -d --entitlements :- "$APP_PATH" >"$ENTITLEMENTS_PATH" 2>/dev/null
+          TEAM_IDENTIFIER="$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.team-identifier' "$ENTITLEMENTS_PATH")"
+          APPLICATION_IDENTIFIER="$(/usr/libexec/PlistBuddy -c 'Print :application-identifier' "$ENTITLEMENTS_PATH")"
+          if [ "$TEAM_IDENTIFIER" != "$IOS_EXPECTED_TEAM_IDENTIFIER" ]; then
+            echo "::error title=Unexpected iOS TeamIdentifier::Signed app team does not match the protected release identity"
+            exit 1
+          fi
+          if [ "$APPLICATION_IDENTIFIER" != "${IOS_EXPECTED_TEAM_IDENTIFIER}.${BUNDLE_ID}" ]; then
+            echo "::error title=Unexpected iOS application identity::Signed application-identifier does not match the expected team and bundle id"
+            exit 1
+          fi
 
       - name: Generate IPA checksum
         env:

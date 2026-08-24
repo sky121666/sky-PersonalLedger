@@ -62,6 +62,12 @@ func TestLoadDatabaseCompatibilityDefaults(t *testing.T) {
 	if cfg.Server.TrustedProxies != "" {
 		t.Fatalf("trusted proxies = %q, want empty secure default", cfg.Server.TrustedProxies)
 	}
+	if cfg.Server.MaxJSONBodyBytes != 1<<20 {
+		t.Fatalf("max JSON body bytes = %d, want 1 MiB", cfg.Server.MaxJSONBodyBytes)
+	}
+	if cfg.Credentials.EncryptionKey != "" || cfg.Credentials.EncryptionPreviousKey != "" {
+		t.Fatalf("credential encryption keys must be empty by default: %#v", cfg.Credentials)
+	}
 	if cfg.Storage.RestoreMaxFileSize != 64 {
 		t.Fatalf("restore max file size = %d, want 64MB", cfg.Storage.RestoreMaxFileSize)
 	}
@@ -83,6 +89,9 @@ func TestLoadDatabaseCompatibilityConfigFromEnv(t *testing.T) {
 	t.Setenv("LEDGER_RATE_LIMIT_WINDOW_SECS", "45")
 	t.Setenv("LEDGER_SECURITY_ALLOW_PRIVATE_OUTBOUND", "true")
 	t.Setenv("LEDGER_SERVER_TRUSTED_PROXIES", "10.0.0.10,10.0.0.0/24")
+	t.Setenv("LEDGER_SERVER_MAX_JSON_BODY_BYTES", "2097152")
+	t.Setenv("LEDGER_CREDENTIAL_ENCRYPTION_KEY", "new-credential-encryption-key-with-32-characters")
+	t.Setenv("LEDGER_CREDENTIAL_ENCRYPTION_PREVIOUS_KEY", "old-credential-encryption-key-with-32-characters")
 	t.Setenv("LEDGER_STORAGE_RESTORE_MAX_FILE_SIZE", "96")
 	t.Setenv("LEDGER_OBSERVABILITY_METRICS_ENABLED", "true")
 	t.Setenv("LEDGER_OBSERVABILITY_METRICS_TOKEN", "metrics-token-with-at-least-32-characters")
@@ -118,6 +127,15 @@ func TestLoadDatabaseCompatibilityConfigFromEnv(t *testing.T) {
 	}
 	if cfg.Server.TrustedProxies != "10.0.0.10,10.0.0.0/24" {
 		t.Fatalf("trusted proxies = %q, want env value", cfg.Server.TrustedProxies)
+	}
+	if cfg.Server.MaxJSONBodyBytes != 2<<20 {
+		t.Fatalf("max JSON body bytes = %d, want 2 MiB", cfg.Server.MaxJSONBodyBytes)
+	}
+	if cfg.Credentials.EncryptionKey != "new-credential-encryption-key-with-32-characters" {
+		t.Fatal("credential encryption key was not loaded from env")
+	}
+	if cfg.Credentials.EncryptionPreviousKey != "old-credential-encryption-key-with-32-characters" {
+		t.Fatal("previous credential encryption key was not loaded from env")
 	}
 	if cfg.Storage.RestoreMaxFileSize != 96 {
 		t.Fatalf("restore max file size = %d, want 96MB", cfg.Storage.RestoreMaxFileSize)

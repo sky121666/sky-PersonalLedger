@@ -26,6 +26,12 @@ type ReminderService struct {
 	txRepo        *repository.TransactionRepository
 	categoryRepo  *repository.CategoryRepository
 	accountLogSvc *AccountLogService
+	uploadService *UploadService
+}
+
+func (s *ReminderService) WithUploadService(uploadService *UploadService) *ReminderService {
+	s.uploadService = uploadService
+	return s
 }
 
 func NewReminderService(
@@ -64,6 +70,10 @@ type CreateReminderRequest struct {
 }
 
 func (s *ReminderService) Create(userID uint, req CreateReminderRequest) (*model.Reminder, error) {
+	evidence, err := normalizeCreateAttachmentEvidence(req.Evidence)
+	if err != nil {
+		return nil, err
+	}
 	accountID := normalizeOptionalString(req.AccountID)
 	if err := s.ensureAccountBelongsToUser(accountID, userID); err != nil {
 		return nil, err
@@ -97,7 +107,7 @@ func (s *ReminderService) Create(userID uint, req CreateReminderRequest) (*model
 		TotalInterest:  req.TotalInterest,
 		Color:          req.Color,
 		Remark:         req.Remark,
-		Evidence:       req.Evidence,
+		Evidence:       evidence,
 		IsEnabled:      true,
 	}
 
@@ -146,6 +156,13 @@ func (s *ReminderService) ListByAccountID(userID uint, accountID string) ([]mode
 }
 
 func (s *ReminderService) Update(id string, userID uint, req CreateReminderRequest) (*model.Reminder, error) {
+	if s.uploadService != nil {
+		releaseStorage := acquireAttachmentStorageRead()
+		defer releaseStorage()
+		if !AttachmentStorageAvailable(userID) {
+			return nil, ErrAttachmentRecoveryPending
+		}
+	}
 	reminder, err := s.GetByID(id, userID)
 	if err != nil {
 		return nil, err
@@ -182,7 +199,15 @@ func (s *ReminderService) Update(id string, userID uint, req CreateReminderReque
 	reminder.TotalInterest = req.TotalInterest
 	reminder.Color = req.Color
 	reminder.Remark = req.Remark
-	reminder.Evidence = req.Evidence
+	reminder.Evidence, err = normalizeAttachmentEvidence(req.Evidence, userID, "reminders", exactAttachmentRef(id))
+	if err != nil {
+		return nil, err
+	}
+	if s.uploadService != nil {
+		if err := s.uploadService.validateStoredAttachmentPaths(userID, reminder.Evidence); err != nil {
+			return nil, err
+		}
+	}
 
 	if req.StartDate != nil {
 		parsed, err := parseLocalDate(*req.StartDate)
@@ -249,6 +274,13 @@ type PatchReminderRequest struct {
 }
 
 func (s *ReminderService) Patch(id string, userID uint, req PatchReminderRequest) (*model.Reminder, error) {
+	if s.uploadService != nil {
+		releaseStorage := acquireAttachmentStorageRead()
+		defer releaseStorage()
+		if !AttachmentStorageAvailable(userID) {
+			return nil, ErrAttachmentRecoveryPending
+		}
+	}
 	reminder, err := s.GetByID(id, userID)
 	if err != nil {
 		return nil, err
@@ -282,7 +314,7 @@ func (s *ReminderService) Patch(id string, userID uint, req PatchReminderRequest
 		updates["advance_days"] = req.AdvanceDays.Value
 	}
 	for column, field := range map[string]Optional[string]{
-		"color": req.Color, "remark": req.Remark, "evidence": req.Evidence,
+		"color": req.Color, "remark": req.Remark,
 	} {
 		if field.Set {
 			if field.Null {
@@ -290,6 +322,22 @@ func (s *ReminderService) Patch(id string, userID uint, req PatchReminderRequest
 			} else {
 				updates[column] = field.Value
 			}
+		}
+	}
+	if req.Evidence.Set {
+		if req.Evidence.Null {
+			updates["evidence"] = ""
+		} else {
+			evidence, err := normalizeAttachmentEvidence(req.Evidence.Value, userID, "reminders", exactAttachmentRef(id))
+			if err != nil {
+				return nil, err
+			}
+			if s.uploadService != nil {
+				if err := s.uploadService.validateStoredAttachmentPaths(userID, evidence); err != nil {
+					return nil, err
+				}
+			}
+			updates["evidence"] = evidence
 		}
 	}
 	for column, field := range map[string]Optional[money.Amount]{

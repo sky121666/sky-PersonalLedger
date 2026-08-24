@@ -82,15 +82,11 @@ class _NotificationSettingsFormState
     _notifyLendingDue = settings.notifyLendingDue;
     _notifyAnnualReport = settings.notifyAnnualReport;
     _advanceDays = _normalizeAdvanceDays(settings.advanceDays);
-    _wecomWebhookController = TextEditingController(
-      text: settings.wecomWebhook,
-    );
-    _dingtalkWebhookController = TextEditingController(
-      text: settings.dingtalkWebhook,
-    );
-    _dingtalkSecretController = TextEditingController(
-      text: settings.dingtalkSecret,
-    );
+    // Endpoint-bearing credentials are write-only even when talking to an
+    // older server that still includes them in the response.
+    _wecomWebhookController = TextEditingController();
+    _dingtalkWebhookController = TextEditingController();
+    _dingtalkSecretController = TextEditingController();
     _smtpHostController = TextEditingController(text: settings.smtpHost);
     _smtpPortController = TextEditingController(
       text: settings.smtpPort.toString(),
@@ -99,10 +95,8 @@ class _NotificationSettingsFormState
     _smtpPasswordController = TextEditingController();
     _smtpFromController = TextEditingController(text: settings.smtpFrom);
     _emailToController = TextEditingController(text: settings.emailTo);
-    _webhookUrlController = TextEditingController(text: settings.webhookUrl);
-    _webhookSecretController = TextEditingController(
-      text: settings.webhookSecret,
-    );
+    _webhookUrlController = TextEditingController();
+    _webhookSecretController = TextEditingController();
   }
 
   @override
@@ -213,6 +207,8 @@ class _NotificationSettingsFormState
             controller: _wecomWebhookController,
             decoration: const InputDecoration(
               labelText: '通知地址',
+              helperText: '已保存地址不回显；留空保留并可直接试发',
+              helperMaxLines: 2,
               prefixIcon: Icon(Icons.link_outlined),
             ),
           ),
@@ -228,9 +224,12 @@ class _NotificationSettingsFormState
         onTest: _testDingtalk,
         children: [
           TextField(
+            key: const ValueKey('notification-dingtalk-webhook'),
             controller: _dingtalkWebhookController,
             decoration: const InputDecoration(
               labelText: '通知地址',
+              helperText: '已保存地址不回显；留空保留并可直接试发',
+              helperMaxLines: 2,
               prefixIcon: Icon(Icons.link_outlined),
             ),
           ),
@@ -241,6 +240,8 @@ class _NotificationSettingsFormState
             obscureText: true,
             decoration: const InputDecoration(
               labelText: '密钥',
+              helperText: '地址留空或不变时，密钥留空会保留；更换地址时留空会清除旧密钥',
+              helperMaxLines: 2,
               prefixIcon: Icon(Icons.key_outlined),
             ),
           ),
@@ -322,9 +323,12 @@ class _NotificationSettingsFormState
         onTest: _testWebhook,
         children: [
           TextField(
+            key: const ValueKey('notification-webhook-url'),
             controller: _webhookUrlController,
             decoration: const InputDecoration(
               labelText: '通知地址',
+              helperText: '已保存地址不回显；留空保留并可直接试发',
+              helperMaxLines: 2,
               prefixIcon: Icon(Icons.link_outlined),
             ),
           ),
@@ -335,6 +339,8 @@ class _NotificationSettingsFormState
             obscureText: true,
             decoration: const InputDecoration(
               labelText: '密钥',
+              helperText: '地址留空或不变时，密钥留空会保留；更换地址时留空会清除旧密钥',
+              helperMaxLines: 2,
               prefixIcon: Icon(Icons.key_outlined),
             ),
           ),
@@ -407,24 +413,23 @@ class _NotificationSettingsFormState
       request: () => ref
           .read(notificationRepositoryProvider)
           .updateSettings(_buildRequest())
-          .then((_) => _clearSecretControllers()),
+          .then((_) => _clearCredentialControllers()),
       successMessage: '通知设置已保存',
     );
     ref.invalidate(notificationSettingsProvider);
   }
 
-  void _clearSecretControllers() {
+  void _clearCredentialControllers() {
+    _wecomWebhookController.clear();
+    _dingtalkWebhookController.clear();
     _dingtalkSecretController.clear();
     _smtpPasswordController.clear();
+    _webhookUrlController.clear();
     _webhookSecretController.clear();
   }
 
   Future<void> _testWecom() async {
     final webhook = _wecomWebhookController.text.trim();
-    if (webhook.isEmpty) {
-      setState(() => _errorMessage = '请填写企业微信地址');
-      return;
-    }
     await _runTestAction(
       action: 'test-wecom',
       request: () =>
@@ -434,10 +439,6 @@ class _NotificationSettingsFormState
 
   Future<void> _testDingtalk() async {
     final webhook = _dingtalkWebhookController.text.trim();
-    if (webhook.isEmpty) {
-      setState(() => _errorMessage = '请填写钉钉地址');
-      return;
-    }
     await _runTestAction(
       action: 'test-dingtalk',
       request: () => ref
@@ -473,10 +474,6 @@ class _NotificationSettingsFormState
 
   Future<void> _testWebhook() async {
     final url = _webhookUrlController.text.trim();
-    if (url.isEmpty) {
-      setState(() => _errorMessage = '请填写通知地址');
-      return;
-    }
     await _runTestAction(
       action: 'test-webhook',
       request: () => ref

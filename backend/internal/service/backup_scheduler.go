@@ -150,8 +150,11 @@ func (s *BackupScheduler) performBackup(settings *AutoBackupSettings) error {
 	}
 
 	// Create backup directory if not exists
-	if err := os.MkdirAll(s.backupPath, 0755); err != nil {
+	if err := os.MkdirAll(s.backupPath, 0700); err != nil {
 		return fmt.Errorf("create automatic backup directory: %w", err)
+	}
+	if err := os.Chmod(s.backupPath, 0700); err != nil {
+		return fmt.Errorf("secure automatic backup directory: %w", err)
 	}
 
 	createdFiles := make([]string, 0, len(users))
@@ -373,8 +376,11 @@ func (s *BackupScheduler) CreatePreRestoreBackup(userID uint) (*BackupFileInfo, 
 	if s.backupPath == "" {
 		return nil, fmt.Errorf("backup path is empty")
 	}
-	if err := os.MkdirAll(s.backupPath, 0755); err != nil {
+	if err := os.MkdirAll(s.backupPath, 0700); err != nil {
 		return nil, err
+	}
+	if err := os.Chmod(s.backupPath, 0700); err != nil {
+		return nil, fmt.Errorf("secure pre-restore backup directory: %w", err)
 	}
 
 	backup, err := s.createBackup(userID)
@@ -444,7 +450,7 @@ func writeFileAtomically(filePath string, data []byte) error {
 		return err
 	}
 	tempPath = ""
-	return nil
+	return syncDirectory(dir)
 }
 
 func (s *BackupScheduler) ListBackups() ([]BackupFileInfo, error) {

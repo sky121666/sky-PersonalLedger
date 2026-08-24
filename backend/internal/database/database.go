@@ -118,6 +118,15 @@ var schemaMigrations = []versionedMigration{
 			)
 		},
 	},
+	{
+		Version: 10,
+		Name:    "expand_notification_endpoint_columns",
+		Apply: func(tx *gorm.DB) error {
+			// Token-bearing webhook URLs are encrypted at rest. TEXT avoids
+			// truncating the AES-GCM envelope on databases that enforce varchar.
+			return tx.AutoMigrate(&model.NotificationSetting{})
+		},
+	},
 }
 
 type moneyColumnMigration struct {
@@ -223,6 +232,14 @@ func Init(dbPath string) (*gorm.DB, error) {
 
 func InitWithConfig(cfg config.DatabaseConfig, logConfigs ...config.LogConfig) (*gorm.DB, error) {
 	driver := normalizeDriver(cfg.Driver)
+	sqlitePath := ""
+	if driver == "sqlite" {
+		var err error
+		sqlitePath, err = sqliteStoragePath(cfg.Path)
+		if err != nil {
+			return nil, fmt.Errorf("resolve sqlite storage path: %w", err)
+		}
+	}
 
 	dialector, isSQLite, err := openDialector(driver, cfg)
 	if err != nil {
@@ -253,6 +270,9 @@ func InitWithConfig(cfg config.DatabaseConfig, logConfigs ...config.LogConfig) (
 		if err := db.Exec("PRAGMA journal_mode=WAL;").Error; err != nil {
 			return nil, fmt.Errorf("enable sqlite wal mode: %w", err)
 		}
+		if err := hardenSQLiteStorage(sqlitePath); err != nil {
+			return nil, fmt.Errorf("secure sqlite storage permissions: %w", err)
+		}
 	}
 
 	if err := guardSchemaVersion(db); err != nil {
@@ -261,6 +281,11 @@ func InitWithConfig(cfg config.DatabaseConfig, logConfigs ...config.LogConfig) (
 
 	if err := applySchemaMigrations(db); err != nil {
 		return nil, err
+	}
+	if isSQLite {
+		if err := hardenSQLiteStorage(sqlitePath); err != nil {
+			return nil, fmt.Errorf("secure sqlite storage permissions after migration: %w", err)
+		}
 	}
 
 	return db, nil
@@ -339,8 +364,14 @@ func openDialector(driver string, cfg config.DatabaseConfig) (gorm.Dialector, bo
 		if dbPath == "" {
 			return nil, false, errors.New("database path is required for sqlite")
 		}
-		if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-			return nil, false, err
+		storagePath, err := sqliteStoragePath(dbPath)
+		if err != nil {
+			return nil, false, fmt.Errorf("resolve sqlite storage path: %w", err)
+		}
+		if storagePath != "" {
+			if err := prepareSQLiteDirectory(storagePath); err != nil {
+				return nil, false, err
+			}
 		}
 		separator := "?"
 		if strings.Contains(dbPath, "?") {
@@ -366,6 +397,88 @@ func openDialector(driver string, cfg config.DatabaseConfig) (gorm.Dialector, bo
 	default:
 		return nil, false, fmt.Errorf("unsupported database driver %q", driver)
 	}
+}
+
+func sqliteStoragePath(dsn string) (string, error) {
+	value := strings.TrimSpace(dsn)
+	if value == "" {
+		return "", errors.New("database path is required for sqlite")
+	}
+	if !strings.HasPrefix(strings.ToLower(value), "file:") {
+		pathValue, _, _ := strings.Cut(value, "?")
+		if pathValue == ":memory:" {
+			return "", nil
+		}
+		return pathValue, nil
+	}
+
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return "", err
+	}
+	if parsed.Host != "" && !strings.EqualFold(parsed.Host, "localhost") {
+		return "", errors.New("sqlite file URI host must be empty or localhost")
+	}
+	if strings.EqualFold(parsed.Query().Get("mode"), "memory") {
+		return "", nil
+	}
+	pathValue := parsed.Path
+	if pathValue == "" {
+		pathValue, err = url.PathUnescape(parsed.Opaque)
+		if err != nil {
+			return "", err
+		}
+	}
+	if pathValue == ":memory:" {
+		return "", nil
+	}
+	if pathValue == "" {
+		return "", errors.New("sqlite file URI path is empty")
+	}
+	return filepath.FromSlash(pathValue), nil
+}
+
+func prepareSQLiteDirectory(dbPath string) error {
+	directory := filepath.Dir(dbPath)
+	// Do not change the process working directory or a filesystem root when a
+	// bare/root-level database filename is configured.
+	if directory == "." {
+		return nil
+	}
+	absoluteDirectory, err := filepath.Abs(directory)
+	if err != nil {
+		return err
+	}
+	if filepath.Dir(absoluteDirectory) == absoluteDirectory {
+		return nil
+	}
+	if info, err := os.Stat(directory); err == nil {
+		if !info.IsDir() {
+			return errors.New("sqlite parent path is not a directory")
+		}
+		// Existing directories may intentionally be shared; avoid mutating a
+		// broad operator-managed path such as /tmp. Database files themselves
+		// are still forced to 0600 below.
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if err := os.MkdirAll(directory, 0700); err != nil {
+		return err
+	}
+	return os.Chmod(directory, 0700)
+}
+
+func hardenSQLiteStorage(dbPath string) error {
+	if dbPath == "" {
+		return nil
+	}
+	for _, path := range []string{dbPath, dbPath + "-wal", dbPath + "-shm"} {
+		if err := os.Chmod(path, 0600); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	return nil
 }
 
 func normalizePostgresDSN(dsn string) (string, error) {

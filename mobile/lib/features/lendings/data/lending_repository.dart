@@ -66,6 +66,14 @@ class LendingRepository {
     );
   }
 
+  Future<LendingItem?> updateAttachments(String id, String evidence) {
+    return _apiClient.patch<LendingItem>(
+      '/lendings/$id',
+      data: {'evidence': evidence},
+      fromJsonT: LendingItem.fromJson,
+    );
+  }
+
   Future<void> delete(String id) async {
     await _apiClient.delete<void>('/lendings/$id');
   }

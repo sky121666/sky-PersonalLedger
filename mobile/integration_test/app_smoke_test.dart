@@ -95,7 +95,10 @@ class _TestAuthController extends AuthController {
   AuthState get debugState => state;
 
   @override
-  Future<void> connectServer(String input) async {
+  Future<void> connectServer(
+    String input, {
+    bool acknowledgeInsecureLocalHttp = false,
+  }) async {
     final trimmed = input.trim();
     if (trimmed.isEmpty) {
       state = const AuthState(

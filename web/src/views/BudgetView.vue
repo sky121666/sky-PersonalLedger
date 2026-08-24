@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronLeft, Plus, Trash2, Edit2, X, Target, AlertCircle, ChevronDown } from 'lucide-vue-next'
 import { budgetApi, type Budget } from '@/api/budget'
@@ -7,6 +7,8 @@ import { categoryApi, type Category } from '@/api/category'
 import { familyApi, type FamilyMember } from '@/api/family'
 import { toast } from '@/composables/useToast'
 import DynamicIcon from '@/components/DynamicIcon.vue'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 
 const router = useRouter()
 
@@ -16,6 +18,8 @@ const categoryBudgets = ref<Budget[]>([])
 const memberBudgets = ref<Budget[]>([])
 const categories = ref<Category[]>([])
 const familyMembers = ref<FamilyMember[]>([])
+const ledgerMutationRevision = useLedgerMutationRevision()
+const dataRequests = createRequestGeneration()
 
 // Dialog state
 const showDialog = ref(false)
@@ -51,26 +55,31 @@ onMounted(() => {
   loadData()
 })
 
+watch(ledgerMutationRevision, () => void loadData())
+
 async function loadData() {
+  const requestGeneration = dataRequests.begin()
   loading.value = true
   try {
-    const [bData, cData] = await Promise.all([
+    const [bData, cData, members] = await Promise.all([
       budgetApi.getList(),
-      categoryApi.getList('expense')
+      categoryApi.getList('expense'),
+      familyApi.listMembers().catch(() => [] as FamilyMember[])
     ])
+    if (!dataRequests.isLatest(requestGeneration)) return
     totalBudget.value = bData.total_budget
     categoryBudgets.value = bData.category_budgets || []
     memberBudgets.value = bData.member_budgets || []
     categories.value = cData
-    try {
-      familyMembers.value = await familyApi.listMembers()
-    } catch {
-      familyMembers.value = []
-    }
+    familyMembers.value = members
   } catch (e: any) {
-    toast.error('加载数据失败')
+    if (dataRequests.isLatest(requestGeneration)) {
+      toast.error('加载数据失败')
+    }
   } finally {
-    loading.value = false
+    if (dataRequests.isLatest(requestGeneration)) {
+      loading.value = false
+    }
   }
 }
 

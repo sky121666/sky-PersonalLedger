@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { accountApi, type Account, type CreateAccountParams, type AccountType } from '@/api/account'
 import { Plus, X, ChevronDown, Trash2, Archive, Wallet, CreditCard, ArchiveRestore, ChevronLeft, Pen, ScrollText } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
@@ -9,12 +9,16 @@ const router = useRouter()
 import { toast } from '@/composables/useToast'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 import Hover3D from '@/components/Hover3D.vue'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 
 const accounts = ref<Account[]>([])
 const archivedAccounts = ref<Account[]>([])
 const totalAssets = ref(0)
 const totalLiabilities = ref(0)
 const showArchived = ref(false)
+const ledgerMutationRevision = useLedgerMutationRevision()
+const accountRequests = createRequestGeneration()
 
 const showDialog = ref(false)
 const editingAccount = ref<Account | null>(null)
@@ -77,16 +81,22 @@ onMounted(() => {
   loadAccounts()
 })
 
+watch(ledgerMutationRevision, () => void loadAccounts())
+
 async function loadAccounts() {
+  const requestGeneration = accountRequests.begin()
   try {
     const allData = await accountApi.getList(true)
+    if (!accountRequests.isLatest(requestGeneration)) return
     accounts.value = allData.list.filter(a => !a.is_archived)
     archivedAccounts.value = allData.list.filter(a => a.is_archived)
     const totals = accountSummaryTotals(allData)
     totalAssets.value = totals.totalAssets
     totalLiabilities.value = totals.totalLiabilities
   } catch (e) {
-    console.error('Load accounts failed:', e)
+    if (accountRequests.isLatest(requestGeneration)) {
+      console.error('Load accounts failed:', e)
+    }
   }
 }
 

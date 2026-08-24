@@ -62,6 +62,46 @@ func revealAISecret(protectedValue string, secret string) (string, error) {
 	return string(plainText), nil
 }
 
+func revealAISecretWithKeyring(protectedValue string, keyring credentialKeyring) (string, error) {
+	value := strings.TrimSpace(protectedValue)
+	if value == "" || !strings.HasPrefix(value, aiSecretPrefix) {
+		return value, nil
+	}
+	for _, secret := range keyring.keys {
+		plainText, err := revealAISecret(value, secret)
+		if err == nil {
+			return plainText, nil
+		}
+	}
+	return "", errors.New("ai credential cannot be decrypted with the configured keys")
+}
+
+func migrateAISecret(protectedValue string, keyring credentialKeyring) (string, bool, error) {
+	value := strings.TrimSpace(protectedValue)
+	if value == "" {
+		return value, value != protectedValue, nil
+	}
+	if !strings.HasPrefix(value, aiSecretPrefix) {
+		migrated, err := protectAISecret(value, keyring.primary())
+		return migrated, migrated != protectedValue, err
+	}
+	for index, secret := range keyring.keys {
+		plainText, err := revealAISecret(value, secret)
+		if err != nil {
+			continue
+		}
+		if index == 0 {
+			return value, value != protectedValue, nil
+		}
+		migrated, err := protectAISecret(plainText, keyring.primary())
+		if err != nil {
+			return "", false, err
+		}
+		return migrated, true, nil
+	}
+	return "", false, errors.New("ai credential cannot be decrypted with the configured keys")
+}
+
 func newAIGCM(secret string) (cipher.AEAD, error) {
 	key := sha256.Sum256([]byte(secret))
 	block, err := aes.NewCipher(key[:])

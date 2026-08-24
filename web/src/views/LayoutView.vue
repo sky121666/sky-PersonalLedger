@@ -34,8 +34,14 @@ const isMobile = ref(window.innerWidth < 768)
 const sidebarCollapsed = ref(false)
 
 function checkMobile() {
-  isMobile.value = window.innerWidth < 768
-  if (isMobile.value) sidebarCollapsed.value = true
+  const nextIsMobile = window.innerWidth < 768
+  if (nextIsMobile === isMobile.value) return
+  isMobile.value = nextIsMobile
+  if (nextIsMobile) {
+    sidebarCollapsed.value = true
+  } else {
+    loadSidebarState()
+  }
 }
 
 function loadSidebarState() {
@@ -69,78 +75,12 @@ function switchTab(path: string) {
 </script>
 
 <template>
-  <!-- Mobile Layout -->
-  <div v-if="isMobile" class="h-full flex flex-col bg-[#F2F2F7] dark:bg-black">
-    <div class="flex-1 overflow-auto scrollbar-hide pb-16">
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
-    </div>
-
-    <!-- iOS Dock Style Bottom Navigation -->
-    <div class="fixed bottom-0 left-0 right-0 z-50">
-      <!-- Glass Background -->
-      <div class="absolute inset-0 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-white/10"></div>
-      
-      <div class="relative h-[56px] flex items-center justify-around px-2">
-        <!-- Left Tabs -->
-        <button
-          v-for="tab in tabs.slice(0, 2)"
-          :key="tab.name"
-          class="flex-1 flex flex-col items-center justify-center gap-1 h-full active:scale-95 transition-transform"
-          :class="currentTab === tab.name ? 'text-primary' : 'text-gray-400 dark:text-gray-500'"
-          @click="switchTab(tab.path)"
-        >
-          <component 
-            :is="tab.icon" 
-            :size="26" 
-            :stroke-width="currentTab === tab.name ? 2.5 : 2"
-            class="transition-all duration-300"
-          />
-          <span class="text-[10px] font-medium">{{ tab.label }}</span>
-        </button>
-
-        <!-- Center Add Button (Floating Dock Style) -->
-        <div class="relative -top-5">
-          <button
-            type="button"
-            aria-label="记一笔"
-            class="w-14 h-14 bg-gradient-to-b from-primary to-blue-600 rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-white active:scale-90 transition-transform"
-            @click="showQuickAdd = true"
-          >
-            <Plus :size="30" stroke-width="3" />
-          </button>
-        </div>
-
-        <!-- Right Tabs -->
-        <button
-          v-for="tab in tabs.slice(2)"
-          :key="tab.name"
-          class="flex-1 flex flex-col items-center justify-center gap-1 h-full active:scale-95 transition-transform"
-          :class="currentTab === tab.name ? 'text-primary' : 'text-gray-400 dark:text-gray-500'"
-          @click="switchTab(tab.path)"
-        >
-          <component 
-            :is="tab.icon" 
-            :size="26" 
-            :stroke-width="currentTab === tab.name ? 2.5 : 2"
-            class="transition-all duration-300"
-          />
-          <span class="text-[10px] font-medium">{{ tab.label }}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Quick Add Dialog -->
-    <TransactionDialog v-model:visible="showQuickAdd" @success="showQuickAdd = false" />
-  </div>
-
-  <!-- PC Layout -->
-  <div v-else class="h-full flex bg-[#F2F2F7] dark:bg-black">
-    <!-- Sidebar -->
+  <div
+    class="h-full flex bg-[#F2F2F7] dark:bg-black"
+    :class="isMobile ? 'flex-col' : 'flex-row'"
+  >
     <aside
+      v-if="!isMobile"
       class="h-full bg-white/60 dark:bg-[#1C1C1E]/60 backdrop-blur-xl border-r border-gray-200/50 dark:border-white/10 flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] z-20"
       :class="sidebarCollapsed ? 'w-20' : 'w-64'"
     >
@@ -161,6 +101,7 @@ function switchTab(path: string) {
       <nav class="flex-1 px-3 py-4 space-y-1">
         <!-- Quick Add (Desktop) -->
         <button
+          type="button"
           class="w-full flex items-center mb-6 transition-all duration-300 group"
           :class="sidebarCollapsed ? 'justify-center' : 'px-3'"
           @click="showQuickAdd = true"
@@ -179,6 +120,8 @@ function switchTab(path: string) {
         <button
           v-for="tab in tabs"
           :key="tab.name"
+          type="button"
+          :aria-current="currentTab === tab.name ? 'page' : undefined"
           class="w-full flex items-center rounded-xl transition-all duration-200 group relative"
           :class="[
             sidebarCollapsed ? 'justify-center py-3' : 'px-3 py-3',
@@ -214,6 +157,9 @@ function switchTab(path: string) {
       <!-- Collapse Toggle -->
       <div class="p-4">
         <button
+          type="button"
+          :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+          :aria-expanded="!sidebarCollapsed"
           class="w-full flex items-center justify-center p-2 text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-all"
           @click="toggleSidebar"
         >
@@ -222,23 +168,84 @@ function switchTab(path: string) {
       </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="flex-1 overflow-auto relative scrollbar-hide">
+    <main
+      class="flex-1 overflow-auto relative scrollbar-hide"
+      :class="isMobile ? 'mobile-content-safe' : ''"
+    >
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
         </transition>
       </router-view>
-      
-      <!-- Desktop Dialog -->
-      <TransactionDialog v-model:visible="showQuickAdd" @success="showQuickAdd = false" />
     </main>
+
+    <nav
+      v-if="isMobile"
+      aria-label="主导航"
+      class="fixed bottom-0 left-0 right-0 z-50 safe-bottom"
+    >
+      <div class="absolute inset-0 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-white/10"></div>
+      <div class="relative h-[56px] flex items-center justify-around px-2">
+        <button
+          v-for="tab in tabs.slice(0, 2)"
+          :key="tab.name"
+          type="button"
+          :aria-current="currentTab === tab.name ? 'page' : undefined"
+          class="flex-1 flex flex-col items-center justify-center gap-1 h-full active:scale-95 transition-transform"
+          :class="currentTab === tab.name ? 'text-primary' : 'text-gray-400 dark:text-gray-500'"
+          @click="switchTab(tab.path)"
+        >
+          <component
+            :is="tab.icon"
+            :size="26"
+            :stroke-width="currentTab === tab.name ? 2.5 : 2"
+            class="transition-all duration-300"
+          />
+          <span class="text-[10px] font-medium">{{ tab.label }}</span>
+        </button>
+
+        <div class="relative -top-5">
+          <button
+            type="button"
+            aria-label="记一笔"
+            class="w-14 h-14 bg-gradient-to-b from-primary to-blue-600 rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-white active:scale-90 transition-transform"
+            @click="showQuickAdd = true"
+          >
+            <Plus :size="30" stroke-width="3" />
+          </button>
+        </div>
+
+        <button
+          v-for="tab in tabs.slice(2)"
+          :key="tab.name"
+          type="button"
+          :aria-current="currentTab === tab.name ? 'page' : undefined"
+          class="flex-1 flex flex-col items-center justify-center gap-1 h-full active:scale-95 transition-transform"
+          :class="currentTab === tab.name ? 'text-primary' : 'text-gray-400 dark:text-gray-500'"
+          @click="switchTab(tab.path)"
+        >
+          <component
+            :is="tab.icon"
+            :size="26"
+            :stroke-width="currentTab === tab.name ? 2.5 : 2"
+            class="transition-all duration-300"
+          />
+          <span class="text-[10px] font-medium">{{ tab.label }}</span>
+        </button>
+      </div>
+    </nav>
+
+    <TransactionDialog v-model:visible="showQuickAdd" @success="showQuickAdd = false" />
   </div>
 </template>
 
 <style scoped>
 /* Safe area for iPhone X+ */
 .safe-bottom {
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mobile-content-safe {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
 }
 </style>

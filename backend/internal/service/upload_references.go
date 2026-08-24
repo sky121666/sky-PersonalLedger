@@ -29,6 +29,11 @@ func (s *UploadService) CollectOrphanedFiles(userID uint, olderThan time.Time) (
 	if s == nil || s.cfg == nil || s.db == nil {
 		return nil, nil
 	}
+	releaseStorage := acquireAttachmentStorageWrite()
+	defer releaseStorage()
+	if !AttachmentStorageAvailable(userID) {
+		return nil, ErrAttachmentRecoveryPending
+	}
 	references, err := s.referencedUploadPaths(userID)
 	if err != nil {
 		return nil, err
@@ -49,6 +54,9 @@ func (s *UploadService) CollectOrphanedFiles(userID uint, olderThan time.Time) (
 			return nil
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+		if IsInternalUploadPath(entry.Name()) {
 			return nil
 		}
 		info, err := entry.Info()

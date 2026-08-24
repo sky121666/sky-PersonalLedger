@@ -93,6 +93,8 @@ func (h *UploadHandler) respondUploadError(c *gin.Context, err error) {
 		response.Error(c, http.StatusUnsupportedMediaType, 41501, "file content does not match its type")
 	case errors.Is(err, service.ErrUploadScopeInvalid):
 		response.BadRequest(c, "invalid upload scope")
+	case errors.Is(err, service.ErrAttachmentRecoveryPending):
+		response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
 	default:
 		internalServerError(c, err, "failed to store uploaded file")
 	}
@@ -117,6 +119,10 @@ func (h *UploadHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.uploadService.Delete(userID, path); err != nil {
+		if errors.Is(err, service.ErrAttachmentRecoveryPending) {
+			response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
+			return
+		}
 		if errors.Is(err, service.ErrUploadPathInvalid) {
 			response.BadRequest(c, "invalid file path")
 			return
@@ -152,6 +158,10 @@ func (h *UploadHandler) List(c *gin.Context) {
 
 	files, err := h.uploadService.ListFiles(userID, category, refID)
 	if err != nil {
+		if errors.Is(err, service.ErrAttachmentRecoveryPending) {
+			response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
+			return
+		}
 		if errors.Is(err, service.ErrUploadScopeInvalid) {
 			response.BadRequest(c, "invalid upload scope")
 			return
@@ -173,6 +183,12 @@ func (h *UploadHandler) Download(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		response.Unauthorized(c, "unauthorized")
+		return
+	}
+	releaseStorage := service.AcquireAttachmentStorageRead()
+	defer releaseStorage()
+	if !service.AttachmentStorageAvailable(userID) {
+		response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
 		return
 	}
 

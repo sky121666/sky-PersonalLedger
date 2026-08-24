@@ -26,13 +26,21 @@ const colorMap = {
         <div
           v-for="item in toasts"
           :key="item.id"
+          :role="item.type === 'error' ? 'alert' : 'status'"
+          :aria-live="item.type === 'error' ? 'assertive' : 'polite'"
+          aria-atomic="true"
           class="pointer-events-auto flex items-center gap-3 px-4 py-3 bg-white rounded-xl shadow-lg border border-gray-100 min-w-[280px] max-w-[400px]"
         >
           <div :class="[colorMap[item.type], 'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0']">
             <component :is="iconMap[item.type]" :size="18" class="text-white" />
           </div>
           <span class="flex-1 text-gray-700">{{ item.message }}</span>
-          <button class="p-1 hover:bg-gray-100 rounded-lg flex-shrink-0" @click="remove(item.id)">
+          <button
+            type="button"
+            :aria-label="`关闭提示：${item.message}`"
+            class="p-1 hover:bg-gray-100 rounded-lg flex-shrink-0"
+            @click="remove(item.id)"
+          >
             <X :size="16" class="text-gray-400" />
           </button>
         </div>

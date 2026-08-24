@@ -6,6 +6,7 @@ import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.security.NetworkSecurityPolicy
 import android.text.TextUtils
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -14,6 +15,7 @@ import org.json.JSONArray
 
 class MainActivity : FlutterActivity() {
     private val smartQuickLedgerChannel = "personal_ledger/smart_quick_ledger"
+    private val networkPolicyChannel = "personal_ledger/network_policy"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,6 +85,18 @@ class MainActivity : FlutterActivity() {
                     SmartQuickLedgerStore.clearDrafts(this)
                     result.success(null)
                 }
+                else -> result.notImplemented()
+            }
+        }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            networkPolicyChannel,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isCleartextTrafficPermitted" ->
+                    result.success(
+                        NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted,
+                    )
                 else -> result.notImplemented()
             }
         }
