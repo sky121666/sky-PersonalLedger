@@ -22,7 +22,7 @@
     "lucide-vue-next": "^0.378.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.29",
-    "vue-router": "^4.3.3"
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
