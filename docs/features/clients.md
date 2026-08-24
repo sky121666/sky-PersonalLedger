@@ -40,8 +40,10 @@ HTTP，并且必须同时满足平台构建允许明文传输、用户明确确�
 
 ## 平台证据
 
-- Android：本次 v1.0.8 采用 API 35 模拟器生成运行截图；USB Android 真机 debug 安装受到设备策略限制。
-- iOS：iPhone 17 Simulator 生成运行截图；这是模拟器证据，不等同于实体 iPhone。
-- Web：本地 Go 后端 + Web dist 真实登录和账本数据。
+- Android：v1.0.9 采用临时 Pixel 8 API 35 模拟器完成真实后端运行与截图。
+- iOS：v1.0.9 采用临时 iPhone 17 / iOS 26.4 Simulator 完成真实后端运行与截图；这不等同于实体 iPhone。
+- Web：v1.0.9 使用本地 Go 后端 + Web dist 完成真实登录、账本数据和浏览器截图。
+
+完整证据见 [v1.0.9 运行截图](../screenshots/v1.0.9/README.md)。
 
 开发截图不代表商店发布包，也不替代正式签名和商店审核。

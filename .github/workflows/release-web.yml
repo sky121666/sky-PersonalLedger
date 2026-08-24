@@ -100,10 +100,31 @@ jobs:
     if: ${{ github.server_url == 'https://github.com' }}
     uses: ./.github/workflows/security-contracts.yml
 
+  source-release-contract:
+    name: Docker/Web source release contract
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Run scope-aware source release gate
+        env:
+          RELEASE_SCOPE: docker-web
+          RELEASE_PHASE: source
+          STRICT_FINAL_RELEASE: '1'
+        run: ./scripts/check-final-release-gates.sh
+
   docker:
     name: Docker multi-arch image
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: [prepare, web, backend, public-git-safety, backup-security]
+    needs: [prepare, web, backend, public-git-safety, backup-security, source-release-contract]
     uses: ./.github/workflows/docker.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -111,10 +132,32 @@ jobs:
       contents: read
       packages: write
 
+  published-image:
+    name: Published Docker image runtime gate
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: [prepare, docker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Verify published manifest and runtime
+        env:
+          DOCKER_RELEASE_IMAGE: ghcr.io/${{ needs.prepare.outputs.repository }}@${{ needs.docker.outputs.image_digest }}
+          RELEASE_SCOPE: docker-web
+          RELEASE_PHASE: published
+          STRICT_FINAL_RELEASE: '1'
+        run: ./scripts/check-final-release-gates.sh
+
   release:
     name: Create Docker/Web Release
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: [prepare, web, backend, public-git-safety, backup-security, docker]
+    needs: [prepare, web, backend, public-git-safety, backup-security, docker, published-image]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: release

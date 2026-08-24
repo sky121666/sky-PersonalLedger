@@ -4,7 +4,7 @@
 
 This document records the intended release change set before staging, commit, tag, or public distribution. The changed paths below are categorized into the release scope for the family, AI, client consistency, data protection, and release-readiness objective.
 
-Current status: the original 2026-05-27 inventory and the 2026-08-24 unified-hardening delta have both been reviewed. The current delta is one coherent change set; creating its local commit happens only after the listed gates pass, while tag creation and public distribution remain separate gates.
+Current status: the original 2026-05-27 inventory and the 2026-08-24 unified-hardening delta have both been reviewed. The unified-hardening implementation is committed as `2daa3a1`; the v1.0.9 publication-preparation delta below contains only release gates, truthful documentation, and isolated screenshots. It is committed only after its own listed gates pass, while tag creation remains a separate post-merge action.
 
 ## Scope Summary
 
@@ -680,6 +680,46 @@ docs/quality/release-artifact-evidence-2026-05-27.md
 docs/quality/release-notes-candidate-2026-05-27.md
 scripts/check-github-actions-pinning.sh
 scripts/generate-release-compose.sh
+```
+
+### v1.0.9 Publication Preparation (2026-08-24)
+
+Scope-aware Docker/Web pre-tag and post-publication gates:
+
+```text
+.github/workflows/release-web.yml
+scripts/check-docker-release-evidence.sh
+scripts/check-final-release-gates.sh
+scripts/check-final-release-runbook.sh
+scripts/check-production-readiness.sh
+scripts/check-release-notes-candidate.sh
+```
+
+Current release, deployment, feature, and remote-governance documentation:
+
+```text
+README.md
+docs/development/release-governance.md
+docs/features/clients.md
+docs/features/data-security.md
+docs/features/family-ai.md
+docs/quality/final-release-runbook-2026-05-27.md
+docs/quality/release-change-inventory-2026-05-27.md
+docs/quality/release-notes-candidate-2026-05-27.md
+docs/release/v1.0.9.md
+docs/screenshots/README.md
+```
+
+Current-source isolated Web, Android, and iOS runtime screenshots:
+
+```text
+docs/screenshots/v1.0.9/README.md
+docs/screenshots/v1.0.9/android-home-runtime.png
+docs/screenshots/v1.0.9/android-quick-entry-runtime.png
+docs/screenshots/v1.0.9/ios-home-runtime.png
+docs/screenshots/v1.0.9/web-home-runtime.jpg
+docs/screenshots/v1.0.9/web-quick-entry-runtime.jpg
+docs/screenshots/v1.0.9/web-transactions-runtime.jpg
 ```
 
 ## Excluded From Release

@@ -41,27 +41,26 @@
 这些门禁验证仓库内合同，不证明 GitHub 远端保护已经配置，也不证明真实镜像、签名资产或
 设备验收已经完成。
 
-## GitHub 远端设置（需管理员单独配置）
+## GitHub 远端设置
 
-本次仓库改动不会操作以下远端设置。发布管理员应在 GitHub UI/API 中逐项配置并留存截图
-或导出证据：
+2026-08-24 已通过 GitHub API 读取并复核以下真实配置：
 
-1. main branch ruleset：禁止 force push 和删除；要求 Pull Request、审批、对话解决、
-   必需状态检查，并限制直接 push 的 bypass actor。
-2. v* tag ruleset：限制创建者，禁止更新和删除；任何已发布 tag 都不得复用或移动。
-3. release environment：为实际 package/release 写入 job 配置审批人、部署分支/tag
-   规则和最小权限 secret；环境没有审批规则时，workflow 中的 environment 名称本身
-   不构成保护。
-4. Actions policy：只允许审查过的 action；组织策略支持时要求完整 commit SHA。仓库内
-   checker 同时扫描 .github 与 .forgejo，防止可变 tag 混入。
-5. GITHUB_TOKEN：默认只读；仅 Docker 发布 job 授予 packages:write，仅 Release job
-   授予 contents:write。
-6. mobile-signing environment：仅在决定启用可选移动签名发布时创建并保护；签名材料放在
-   该 environment 的 secrets 中，预期签名身份放在受管理员保护的 repository variables
-   中。当前未配置真实值是允许状态，但运行 signed workflow 会 fail closed。
+1. `main` 受分支保护：必须通过 Pull Request、必须与最新 main 同步、必须解决对话、要求
+   线性历史，禁止 force push 和删除，并且管理员同样受约束。
+2. 当前 required checks 是 `Tracked file safety`、
+   `Reject newly introduced vulnerable dependencies` 和 `Project quality gate`。审批数量为 0，
+   因此自动化不能把“代码已人工审批”描述为 GitHub 强制事实。
+3. 活跃 tag ruleset `Immutable version tags` 匹配 `refs/tags/v*`，禁止 update、delete 和
+   non-fast-forward，且当前管理员不能绕过；tag 创建仍允许，所以版本只能创建一次。
+4. `release` environment 已创建，要求 `sky121666` 审批，只允许匹配 `v*` 的 tag 部署。
+   `prevent_self_review=false`，适合当前单维护者仓库，但每个公开写入 job 仍会产生明确审批停点。
+5. `mobile-signing` environment 采用同一审批人与 `v*` tag 限制，当前没有签名 secrets；
+   因此误触发 signed workflow 会 fail closed，不会凭空生成可信签名资产。
+6. `GITHUB_TOKEN` 仓库默认权限为只读；仅 Docker 发布 job 授予 `packages:write`，仅 Release
+   job 授予 `contents:write`。仓库中所有外部 GitHub Actions 均锁定到完整 commit SHA。
 
-必需状态检查名称由 GitHub 当前 workflow run 生成，配置前应从 main 的最新成功 run
-选择，不要仅凭本文抄写名称。规则修改属于远端高风险操作，应单独审批、验证与记录。
+必需状态检查名称可能随 workflow job 重命名而变化。调整 workflow 后应再次从真实 PR/main
+run 复核，不要只凭本文抄写。任何远端规则修改都应继续通过 API/UI 回读确认。
 
 Docker/Web 有两个不同的公开写入点：先写 GHCR 不可变 version tag，再创建 GitHub Release，
 因此两个 job 都引用 release environment。GitHub 若按 job 分别要求审批，这两次审批

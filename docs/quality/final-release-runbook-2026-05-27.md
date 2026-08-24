@@ -1,193 +1,132 @@
-# Final Release Runbook - 2026-05-27
+# Final Release Runbook - v1.0.9
 
 ## Conclusion
 
-This runbook is the ordered path from a reviewed release candidate to a fully proven Personal Ledger release. It connects signing setup, CI release, artifact verification, physical-device QA, backup drill, accessibility evidence, release notes, and the strict final gate.
-
-Current status: source-level rehearsal passed on 2026-05-27. External release evidence is intentionally deferred for the current local acceptance scope; real signing, tag release, artifact verification, physical-device QA, and manual VoiceOver/TalkBack remain pending for a later public release.
+This is the exact operating path for the v1.0.9 Docker/Web release. Mobile source and simulator or
+emulator behavior are verified development targets, but signed APK, AAB, IPA, TestFlight, physical
+iPhone, VoiceOver, and TalkBack evidence are outside this release. Docker/Web publication does not
+require mobile signing material.
 
 ## Preconditions
 
-| Gate | Command / Evidence | Status |
+| Gate | Command or evidence | Status |
 | --- | --- | --- |
-| Source-level rehearsal | `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` | PASS, 2026-05-27 local run |
+| Version consistency | `./scripts/check-version-consistency.sh` | PASS for 1.0.9 |
+| Source rehearsal | `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` | PASS on 2026-08-24 |
+| Local final acceptance | `LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` | PASS on 2026-08-24 |
 | Release scope inventory | `STRICT_RELEASE_SCOPE=1 ./scripts/check-release-change-inventory.sh` | PASS |
-| Android/iOS workflow structure | `./scripts/check-release-artifacts-preflight.sh` | PASS |
-| Public git safety | `./scripts/check-public-git-safety.sh` | PASS |
-| Backup service rehearsal | `./scripts/check-backup-restore-rehearsal.sh` | PASS |
-
-## Local Acceptance Mode
-
-Use this mode while external release evidence is intentionally deferred:
-
-```bash
-LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
-```
-
-This verifies source readiness, strict change inventory, backup operator drill evidence, local Docker image smoke, local Docker Compose smoke, and whitespace checks. It intentionally skips signed APK/AAB/IPA files, GHCR release image evidence, USB iPhone validation, Android device validation, and manual VoiceOver/TalkBack evidence.
+| Release notes | `STRICT_RELEASE_NOTES=1 ./scripts/check-release-notes-candidate.sh` | REQUIRED BEFORE TAG |
+| Runbook values | `STRICT_FINAL_RELEASE_RUNBOOK=1 ./scripts/check-final-release-runbook.sh` | REQUIRED BEFORE TAG |
+| Public repository safety | `./scripts/check-public-git-safety.sh` | REQUIRED BEFORE COMMIT AND TAG |
+| Remote target | GitHub `sky121666/sky-PersonalLedger`, protected `main`, unused `v1.0.9` | REQUIRED BEFORE TAG |
 
 ## 1. Configure Signing
 
-Mobile signing is an optional tutorial path and this repository currently has no real signing
-material configured. The Docker/Web tag release does not require it. If the formal signed mobile
-workflow will be used, first create a protected `mobile-signing` environment and configure these
-environment secrets:
+No signing material is needed for v1.0.9 because its formal scope is Docker/Web. Do not configure,
+upload, or request mobile keys merely to publish this version.
 
-```text
-ANDROID_KEYSTORE_BASE64
-ANDROID_KEYSTORE_PASSWORD
-ANDROID_KEY_ALIAS
-ANDROID_KEY_PASSWORD
-IOS_CERTIFICATE_BASE64
-IOS_CERTIFICATE_PASSWORD
-IOS_PROVISIONING_PROFILE_BASE64
-IOS_EXPORT_OPTIONS_PLIST_BASE64
-IOS_KEYCHAIN_PASSWORD
-```
-
-Configure the protected repository variables `ANDROID_EXPECTED_SIGNER_SHA256` (64 hexadecimal
-characters) and `IOS_EXPECTED_TEAM_IDENTIFIER` (10-character Apple TeamIdentifier). The signed
-workflow deliberately fails closed if either expected identity is missing; it compares APK/AAB to
-the same expected signer and verifies the iOS TeamIdentifier plus signed application identifier.
-
-Validate the exported variables in a local shell or equivalent CI context without printing their values:
+For a future separately approved signed-mobile distribution, validate administrator-provided
+environment secrets without printing them:
 
 ```bash
-ANDROID_EXPECTED_SIGNER_SHA256=<64-hex-fingerprint> \
-IOS_EXPECTED_TEAM_IDENTIFIER=<10-character-team-id> \
+ANDROID_EXPECTED_SIGNER_SHA256=redacted-local-value \
+IOS_EXPECTED_TEAM_IDENTIFIER=redacted-local-value \
 CHECK_SIGNING_SECRETS=1 ./scripts/check-release-artifacts-preflight.sh
 ```
 
+The real values belong only in the protected `mobile-signing` environment or a restricted local
+shell. Never put them in source, `.env.example`, logs, issues, release notes, or screenshots.
+
 ## 2. Run Release Workflow
 
-Before creating a tag, confirm the GitHub main ruleset, immutable v* tag ruleset, and protected
-`release` environment described in
-[发布治理合同](../development/release-governance.md). These are remote settings and are not proven
-by a local preflight.
-
-Create and push a one-time annotated version tag only after source-level rehearsal passes:
+Merge the reviewed release commit to `main`, confirm the resulting commit contains root version
+`1.0.9`, then create the one-time annotated tag:
 
 ```bash
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin vX.Y.Z
+git fetch origin main
+git merge-base --is-ancestor HEAD origin/main
+git tag -a v1.0.9 -m "Release v1.0.9"
+git push origin v1.0.9
 ```
 
-The tag-triggered `Release Docker/Web` workflow should:
+The tag-triggered `Release Docker/Web` workflow must verify main ancestry and unused version state,
+run Web, backend, public-safety, backup, and security gates, build and scan one multi-architecture
+OCI layout, publish the unchanged scanned layout, and create a non-draft GitHub Release. It publishes
+only `ghcr.io/sky121666/sky-personalledger:1.0.9`; it does not create or move `latest`.
 
-- verify that the tag commit is contained in origin/main and that neither the Release nor GHCR
-  version tag already exists;
-- build one OCI layout, export and verify separate amd64/arm64 scan archives, scan both archives, then
-  hand off the scanned OCI archive with SHA-256 to a separate protected publisher, which rechecks
-  both the archive checksum and OCI digest before pushing the unchanged original layout;
-- publish only the immutable `ghcr.io/<owner>/<repo>:X.Y.Z` tag; the workflow does not create or
-  update `latest`;
-- create the Docker/Web GitHub Release with an immutable digest-specific Compose attachment and
-  checksum.
-
-Do not move or recreate a failed/released tag. Diagnose the run and choose a new version when the
-historical version has already been published.
-
-If formal mobile assets are required, wait for Docker/Web success, open Actions, select
-`Signed Mobile Release (manual)`, choose the exact `vX.Y.Z` tag as the run ref, and enter the same
-version. The manual workflow rechecks tag/main ancestry and the existing non-draft Release before it
-downloads and checks the exact version Compose/checksum, confirms its digest matches the GHCR
-version tag, then builds, verifies, and appends Android/iOS assets. It does not rebuild Docker.
+Do not move, recreate, or force-push the tag. If immutable publication has occurred and a defect
+requires source changes, prepare a new reviewed version.
 
 ## 3. Download And Verify Artifacts
 
-Download and verify the release-specific Docker Compose pair before deployment:
+Verify the two in-scope Release assets:
 
 ```bash
-gh release download vX.Y.Z --pattern 'docker-compose-vX.Y.Z.yml*'
-sha256sum -c docker-compose-vX.Y.Z.yml.sha256
+gh release download v1.0.9 --pattern 'docker-compose-v1.0.9.yml*'
+sha256sum -c docker-compose-v1.0.9.yml.sha256
 ```
 
-Download the GitHub Actions artifacts or release attachments into `artifacts/`, preserving the artifact directory names:
-
-```text
-artifacts/android-release/
-artifacts/ios-ipa/
-```
-
-Verify files, sidecar checksums, and local artifact signatures:
+Confirm the Compose image is digest-pinned, matches the GHCR `1.0.9` manifest digest, and has both
+`linux/amd64` and `linux/arm64` manifests. Then run the published-image smoke:
 
 ```bash
-RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=X.Y.Z REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
+DOCKER_RELEASE_IMAGE=ghcr.io/sky121666/sky-personalledger:1.0.9 \
+STRICT_DOCKER_RELEASE_EVIDENCE=1 \
+RUN_DOCKER_RELEASE_SMOKE=1 \
+./scripts/check-docker-release-evidence.sh
 ```
 
-Copy the verifier output into:
+If a future separately approved mobile release appends signed artifacts, verify them with:
 
-```text
-docs/quality/release-artifact-evidence-2026-05-27.md
+```bash
+RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=1.0.9 REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh
 ```
+
+Record optional signed-artifact results in
+`docs/quality/release-artifact-evidence-2026-05-27.md`; this file is not an in-scope v1.0.9 asset.
 
 ## 4. Mobile Device QA
 
-Connect the iPhone by USB, unlock it, trust this Mac, confirm Developer Mode is enabled, and start an Android emulator:
+Android emulator and iOS Simulator real-backend E2E passed for the current source. They are
+development evidence, not signed-install or physical-iPhone claims.
+
+For a future signed-mobile release, require both targets and record results in
+`docs/quality/mobile-device-qa-checklist-2026-05-27.md`:
 
 ```bash
 REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1 ./scripts/check-mobile-device-qa-preflight.sh
-```
-
-Run real-backend E2E on the USB-connected iPhone when available:
-
-```bash
-REQUIRE_PHYSICAL_IOS=1 \
-RUN_PHYSICAL_IOS_E2E=1 \
-IOS_PHYSICAL_DEVICE_ID=<device-id> \
-./scripts/check-mobile-device-qa-preflight.sh
-```
-
-Run real-backend E2E on Android when available:
-
-```bash
 RUN_ANDROID_E2E=1 ./scripts/check-mobile-device-qa-preflight.sh
-```
-
-Record device identity, build identity, screenshots or notes, and result rows in:
-
-```text
-docs/quality/mobile-device-qa-checklist-2026-05-27.md
 ```
 
 ## 5. Backup Operator Drill
 
-For the local release-candidate rehearsal, run the isolated source/target API drill:
+The isolated local source/target API drill is part of the current source evidence:
 
 ```bash
 ./scripts/check-backup-operator-drill-local.sh
 ```
 
-For a later non-local release deployment, use an isolated target deployment or test account and do not paste tokens into evidence docs. Record the drill result in:
-
-```text
-docs/quality/backup-operator-drill-2026-05-27.md
-```
+Before upgrading a real installation, take a data-directory and restricted `.env` backup. Record a
+future deployment-specific drill in `docs/quality/backup-operator-drill-2026-05-27.md` without tokens,
+credentials, private URLs, or user data.
 
 ## 6. Accessibility Pass
 
-Run the automated baseline:
+The automated baseline is included in the verified Flutter suite:
 
 ```bash
 cd mobile
 flutter test test/premium_accessibility_test.dart
 ```
 
-Then run manual iOS VoiceOver and Android TalkBack passes for Home, Quick Transaction, AI Reports, and Family Hub. Record results in:
-
-```text
-docs/quality/accessibility-release-evidence-2026-05-27.md
-```
+Manual VoiceOver and TalkBack are outside the v1.0.9 Docker/Web scope. If signed mobile distribution
+is later approved, record the manual pass in
+`docs/quality/accessibility-release-evidence-2026-05-27.md` before making accessibility claims.
 
 ## 7. Finalize Release Notes
 
-Replace candidate values and pending rows in:
-
-```text
-docs/quality/release-notes-candidate-2026-05-27.md
-```
-
-Then run:
+The v1.0.9 platform scope, limitations, upgrade path, rollback path, and verification boundary are
+recorded in `docs/quality/release-notes-candidate-2026-05-27.md`. Validate them before tagging:
 
 ```bash
 STRICT_RELEASE_NOTES=1 ./scripts/check-release-notes-candidate.sh
@@ -195,31 +134,34 @@ STRICT_RELEASE_NOTES=1 ./scripts/check-release-notes-candidate.sh
 
 ## 8. Final Gate
 
-Run the strict final gate only after all evidence documents are filled:
+Before commit and tag, require clean `git status --short`, strict notes/runbook/inventory checks,
+public-git safety, version consistency, and the approved local rehearsal. After tag publication,
+require the GHCR manifest, Compose checksum, and release-image compose smoke from section 3.
+
+The repository-wide signed-mobile gate remains available for a future broader release:
 
 ```bash
 STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 ```
 
-This strict gate also requires a clean `git status --short` so final release evidence is tied to committed source.
-Set `DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:X.Y.Z` (and record its resolved digest) when running
-the strict gate so the published image manifest and release-image compose smoke are verified live.
-
-The release can be called fully complete only when the strict final gate passes.
+It intentionally requires signed mobile files, physical iPhone QA, Android QA, and manual
+accessibility evidence, so it is not the completion criterion for this Docker/Web-only release.
 
 ## Failure Handling
 
 | Failure | Response |
 | --- | --- |
-| Missing signing secret or expected identity | Do not retry blindly; configure the protected `mobile-signing` environment secret or administrator-controlled repository variable |
-| Tag or Release already exists | Do not move/overwrite it; stop and choose a new version after review |
-| Docker architecture scan fails | The Git tag remains as immutable failure evidence, but no GHCR version image tag is published; remediate and release under a new reviewed version/tag |
-| Android artifact missing | Check Android workflow logs and release attachment paths |
-| iOS IPA missing | Check certificate import, provisioning profile, export options, and bundle ID |
-| Artifact checksum mismatch | Discard downloaded artifacts and re-download from the trusted CI/release source |
-| USB iPhone not detected | Unlock device, trust Mac, enable Developer Mode, use cable, then rerun preflight |
-| Android emulator not detected | Start Android emulator, then rerun preflight |
-| Backup drill fails | Keep the failed backup file and target logs for diagnosis, but do not publish release as complete |
-| Accessibility fail | Fix or document scoped non-blocking exception, then retest |
+| Tag or Release already exists | Stop; do not move or overwrite it, and prepare a new reviewed version if source must change |
+| Main ancestry check fails | Merge the reviewed commit through the protected branch before tagging |
+| Docker architecture scan fails | Do not publish or retry by bypassing the scan; diagnose and prepare a new version when required |
+| GHCR tag already exists | Stop because the version is not unused; never overwrite the immutable version tag |
+| Release environment waits for approval | Approve only after matching tag, commit, workflow, and scanned digest are reviewed |
+| Compose checksum mismatch | Discard the files and download the exact v1.0.9 assets again |
+| Manifest lacks amd64 or arm64 | Do not deploy; treat the Docker/Web release as failed |
+| Published-image smoke fails | Preserve logs and temporary evidence, do not describe the release as complete, and prepare a corrected version |
+| Missing signing secret or expected identity | Ignore for v1.0.9; configure protected signing only for a separately approved mobile release |
+| Android emulator not detected | Start Android emulator and rerun preflight for a future mobile validation |
+| USB iPhone not detected | Unlock, trust, cable-connect, and enable Developer Mode before a future physical-device validation |
 
-Do not paste secrets, token values, keychain passwords, certificate contents, provisioning profile contents, or private URLs into release notes or evidence documents.
+Do not paste secrets, tokens, passwords, certificates, provisioning profiles, private URLs, or real
+ledger data into commands, logs, evidence documents, screenshots, issues, or Release text.

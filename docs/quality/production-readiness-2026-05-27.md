@@ -9,9 +9,11 @@ Current source verification on 2026-08-24 is complete for the approved local sco
 and race tests plus `go vet`; Web unit/build/bundle/attachment checks and real-backend Playwright;
 Flutter analysis, 404 tests (one designed skip), 48 light/dark screen smokes, and real-backend E2E on
 flutter-tester, Android emulator, and iOS simulator; backup/security contracts; current-worktree
-Docker image and Compose smokes; strict inventory; and `LOCAL_FINAL_RELEASE=1` all pass. No signed
-mobile artifact, physical iPhone pass, new GHCR tag, GitHub Release, or published-image deployment
-smoke was produced, so external release evidence remains pending.
+Docker image and Compose smokes; strict inventory; and `LOCAL_FINAL_RELEASE=1` all pass. v1.0.9 now
+has exact release notes/runbook, current Web/Android/iOS screenshots, a scope-aware Docker/Web source
+gate, and a post-publish manifest/runtime gate. GitHub `main`, immutable `v*` tags, `release`, and
+`mobile-signing` are protected. The actual v1.0.9 tag, GHCR image, Release, checksum, and published
+runtime smoke remain tag-workflow evidence and are not claimed by this pre-tag source record.
 
 ## Historical product target
 
@@ -50,78 +52,40 @@ smoke was produced, so external release evidence remains pending.
 | Docker release preflight | One OCI layout, two scans before login, immutable tag check before push, digest/Compose contract | VERIFIED STRUCTURE 2026-08-24 | `./scripts/check-docker-release-preflight.sh` |
 | Local Docker smoke | Current worktree can be built into a Docker image and booted with a temporary `/data` mount | PASS 2026-08-24; healthy, UID 10001, metrics auth and persistence pass | `./scripts/check-docker-local-smoke.sh` |
 | Local Docker Compose smoke | Current worktree image can boot through Compose with a persistent `/data` mount and JWT/setup guards | PASS 2026-08-24; bound to 127.0.0.1 | `./scripts/check-docker-compose-local-smoke.sh` |
-| Docker release evidence | Published image manifest and optional compose smoke can be checked after tag release | PREPARED, AWAITING REAL IMAGE | `DOCKER_RELEASE_IMAGE=ghcr.io/<owner>/<repo>:<version> ./scripts/check-docker-release-evidence.sh` |
+| Docker release evidence | Published manifest and mandatory runtime smoke run between image push and Release creation | PRE-TAG CONTRACT PASS; POST-TAG ENFORCED | `RELEASE_SCOPE=docker-web RELEASE_PHASE=published STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` |
 | Release artifact file evidence | Produced APK/AAB/IPA files can be checked for naming, size, zip validity, sidecar checksums, SHA-256 evidence, and strict signature verification | PREPARED, AWAITING REAL ARTIFACTS | `RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh` |
-| Release notes candidate | Supported platforms, limitations, upgrade notes, rollback, and verification summary are checkable | PREPARED, AWAITING FINAL VALUES | `./scripts/check-release-notes-candidate.sh`; use `STRICT_RELEASE_NOTES=1` before release |
+| Release notes candidate | Supported platforms, limitations, upgrade notes, rollback, and verification summary are exact for v1.0.9 | PASS FINAL VALUES | `STRICT_RELEASE_NOTES=1 ./scripts/check-release-notes-candidate.sh` |
 | Release change inventory | Worktree changes have a path-by-path review template and forbidden local/generated files are checked | PASS 2026-08-24 in strict mode | `STRICT_RELEASE_SCOPE=1 ./scripts/check-release-change-inventory.sh` |
-| Final release runbook | Signing, tag release, artifact verification, physical QA, backup drill, accessibility, release notes, and final gate are ordered | PREPARED, AWAITING FINAL VALUES | `./scripts/check-final-release-runbook.sh`; use `STRICT_FINAL_RELEASE_RUNBOOK=1` before release |
+| Final release runbook | Docker/Web operations are exact for v1.0.9; optional signed-mobile steps retain their separate boundary | PASS FINAL VALUES | `STRICT_FINAL_RELEASE_RUNBOOK=1 ./scripts/check-final-release-runbook.sh` |
 | Mobile device QA preflight | Current device list is inspectable, wireless iPhone is distinguished from USB iPhone, Android emulator presence is checkable, and strict mode executes both platform E2E paths | PREPARED | `./scripts/check-mobile-device-qa-preflight.sh`; strict release uses `REQUIRE_PHYSICAL_IOS=1 REQUIRE_ANDROID_EMULATOR=1 RUN_PHYSICAL_IOS_E2E=1 RUN_ANDROID_E2E=1` |
 | Accessibility release evidence | Automated premium accessibility baseline passes; VoiceOver/TalkBack manual evidence template and pass criteria are defined | PARTIAL, AWAITING REAL ASSISTIVE-TECH PASS | `docs/quality/accessibility-release-evidence-2026-05-27.md` |
-| Final release gate | Structural readiness plus optional strict final proof for clean worktree, artifacts, iOS/Android device QA, and accessibility evidence | PREPARED | `./scripts/check-final-release-gates.sh`; use `STRICT_FINAL_RELEASE=1` only for a real release candidate |
+| Final release gate | Docker/Web has source and published phases; signed-mobile retains artifact/device/accessibility requirements | SCOPE-AWARE | `RELEASE_SCOPE=docker-web RELEASE_PHASE=source STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` |
 | Local final acceptance gate | Source readiness plus strict local-only proof while external release evidence is deferred | PASS 2026-08-24 | `LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` |
 
-## 100/100 Definition
+## Docker/Web Release Completion Definition
 
-The project can be called 100/100 for the current product goal only when all of these are true:
+v1.0.9 is complete for its declared Docker/Web scope only when all of these are true:
 
-1. Backend, web, mobile, and real-backend E2E gates pass from the current worktree.
-2. Android release artifact is signed and attached to a release or preserved as a CI artifact.
-3. iOS has either a successful physical-device run or a signed archive/TestFlight build.
-4. Backup/restore is rehearsed with a family member, member-linked transaction, and AI report history present.
-5. AI provider keys are verified to stay out of API responses, normal backups, logs, and git output.
-6. Release notes list supported platforms, known limitations, upgrade notes, and rollback path.
-7. The dirty worktree is reduced to intentional release changes only before staging.
-8. `STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` passes against real artifacts and completed evidence documents.
+1. The candidate is merged through protected `main`, and `v1.0.9` points to that immutable commit.
+2. Web, backend, security, repository-safety, source-contract, and both architecture scans pass.
+3. GHCR `1.0.9` resolves to one digest with `linux/amd64` and `linux/arm64`.
+4. The published-image runtime gate passes for health, metrics authentication, UID 10001, and persistence.
+5. The non-draft GitHub Release contains the digest-pinned Compose and its valid SHA-256 sidecar.
+6. An independent download, checksum, digest comparison, and runtime smoke confirm the public assets.
 
-Use `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` for the local source-level release rehearsal. The default script mode is intentionally lightweight and checks release structure, backup rehearsal, and public-git safety.
+Signed Android/iOS files, physical iPhone execution, and VoiceOver/TalkBack are not hidden gaps in
+this definition; they are explicitly outside v1.0.9. If mobile distribution is later approved, use
+`RELEASE_SCOPE=signed-mobile STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` and satisfy
+the separate signature, artifact, iOS/Android device validation, and accessibility evidence.
 
-## Remaining Work To Reach 100
+## Remaining Work Before Publication
 
-| Priority | Gap | Impact | Required Action |
-| --- | --- | --- | --- |
-| P0 | Physical iPhone execution and full manual device checklist remain incomplete | Simulator/emulator automation cannot prove real iPhone install, outdoor contrast, haptics, maximum text size, or assistive-technology behavior | Connect iPhone by USB, run physical E2E, then complete the premium manual checklist on both platforms |
-| P0 | Signed mobile artifacts are prepared but unproven | Cannot claim formal mobile distribution until signed APK/IPA artifacts exist | Run `CHECK_SIGNING_SECRETS=1 ./scripts/check-release-artifacts-preflight.sh`, then run Android/iOS release workflows or local signed builds |
-| P0 | Real artifact hash and signature evidence is not recorded yet | Release reviewers cannot independently verify which binary was shipped | Download CI artifacts or collect local signed outputs, then run `RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=<version> REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh` and record SHA-256/signature values in `docs/quality/release-artifact-evidence-2026-05-27.md` |
-| P0 | Current-candidate Docker publication and deployment smoke evidence is not recorded | The historical v1.0.8 image does not prove the current worktree | Run a new approved tag release, verify its digest/multi-arch manifest, deploy its digest-pinned Compose, and record results in `docs/quality/docker-release-evidence-2026-05-27.md` |
-| P1 | Release notes still contain candidate placeholders | Users need accurate platform, limitation, upgrade, and rollback information before install | Finalize `docs/quality/release-notes-candidate-2026-05-27.md` and run `STRICT_RELEASE_NOTES=1 ./scripts/check-release-notes-candidate.sh` |
-| P1 | Final release runbook still contains candidate placeholders | Operators need exact version and evidence state before pushing a real release tag | Finalize `docs/quality/final-release-runbook-2026-05-27.md` and run `STRICT_FINAL_RELEASE_RUNBOOK=1 ./scripts/check-final-release-runbook.sh` |
-| P2 | Production-environment backup operator drill is optional follow-up | Local isolated API drill proves the release-critical export/restore workflow, but not a deployed operator run | If required for a public release, repeat the drill against a non-local release candidate deployment |
-| P1 | VoiceOver/TalkBack pass is manual-only | Accessibility confidence is widget-level, not assistive-tech level | Run real screen-reader pass on release candidate |
-| P1 | Final release evidence still contains pending rows | Strict gate will intentionally fail until real artifacts, physical device, and accessibility evidence are recorded | Use `STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` after artifact, physical device, and accessibility evidence is recorded |
+| Priority | Gap | Required Action |
+| --- | --- | --- |
+| P0 | v1.0.9 has not yet been published | Merge through the protected PR, create the one-time tag, approve the protected `release` jobs, and wait for the full tag workflow |
+| P0 | Public digest and Release assets do not exist before the tag workflow | After success, independently verify GHCR platforms, Compose checksum, digest equality, and runtime smoke |
+| Optional | Production-specific backup drill | Repeat the operator drill against an isolated deployment if the installation owner requires environment-specific evidence |
 
-## Release Notes Template
-
-```markdown
-## Personal Ledger vX.Y.Z
-
-### Supported deployment
-- Backend + Web: Docker image `ghcr.io/<owner>/<repo>:X.Y.Z`
-- Android: signed APK/AAB artifact
-- iOS: signed IPA from `.github/workflows/ios.yml`, TestFlight, or manually signed archive, if available
-
-### Highlights
-- Family members and member-linked transactions
-- Family summary and mobile Family Hub
-- OpenAI-compatible AI reports with aggregated snapshots
-- Premium mobile Home, Quick Transaction, AI Reports, and Family Hub screens
-
-### Security and privacy
-- AI analysis is optional and disabled until a provider is configured
-- AI snapshots exclude raw transaction remarks by default
-- AI provider keys are not returned by API responses or normal backups
-
-### Known limitations
-- iOS/Android device validation: <PASS/BLOCKED with device and date>
-- Screen-reader manual pass: <PASS/PENDING>
-- Device-native marketing screenshots: <PASS/PENDING>
-
-### Upgrade notes
-- Configure and retain a stable `LEDGER_CREDENTIAL_ENCRYPTION_KEY` before upgrade
-- Let startup migrate legacy AI and notification credentials; do not re-save providers only for migration
-- Take a backup before upgrading
-
-### Rollback
-- Keep the previous Docker image tag
-- Keep the pre-upgrade backup export
-- Restore only after confirming the target version supports the backup format
-```
+Use `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` for a fresh local source rehearsal.
+The finalized user-facing scope is in
+`docs/quality/release-notes-candidate-2026-05-27.md`; historical templates are not retained here.

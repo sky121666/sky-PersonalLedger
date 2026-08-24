@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EVIDENCE_FILE="${DOCKER_RELEASE_EVIDENCE_FILE:-docs/quality/docker-release-evidence-2026-05-27.md}"
 IMAGE="${DOCKER_RELEASE_IMAGE:-}"
 RUN_SMOKE="${RUN_DOCKER_RELEASE_SMOKE:-0}"
+RUNTIME_ONLY="${RUNTIME_DOCKER_RELEASE_EVIDENCE:-0}"
 METRICS_TOKEN="release-evidence-metrics-token-32-characters"
 
 fail() {
@@ -54,6 +55,11 @@ if [[ "${STRICT_DOCKER_RELEASE_EVIDENCE:-0}" == "1" ]]; then
   fi
   [[ -n "$IMAGE" ]] || fail "DOCKER_RELEASE_IMAGE is required when STRICT_DOCKER_RELEASE_EVIDENCE=1."
   [[ "$RUN_SMOKE" == "1" ]] || fail "RUN_DOCKER_RELEASE_SMOKE=1 is required when STRICT_DOCKER_RELEASE_EVIDENCE=1."
+fi
+
+if [[ "$RUNTIME_ONLY" == "1" ]]; then
+  [[ -n "$IMAGE" ]] || fail "DOCKER_RELEASE_IMAGE is required for strict runtime evidence."
+  [[ "$RUN_SMOKE" == "1" ]] || fail "RUN_DOCKER_RELEASE_SMOKE=1 is required for strict runtime evidence."
 fi
 
 if [[ -n "$IMAGE" ]]; then
