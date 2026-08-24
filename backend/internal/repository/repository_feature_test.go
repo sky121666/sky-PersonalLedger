@@ -34,6 +34,22 @@ func TestAIRepositoriesManageProvidersAndReusableReports(t *testing.T) {
 	if err != nil || len(providers) != 1 || providers[0].Name != "Updated" || repos.AIProvider.DB() == nil {
 		t.Fatalf("owner providers = %#v, err=%v", providers, err)
 	}
+	allProviders, err := repos.AIProvider.GetAll()
+	if err != nil || len(allProviders) != 2 {
+		t.Fatalf("all providers = %#v, err=%v", allProviders, err)
+	}
+	loadedProvider.APIKeyCiphertext = "cipher-owner"
+	otherProvider.APIKeyCiphertext = "cipher-other"
+	if err := repos.AIProvider.UpdateSecretsBatch([]model.AIProvider{*loadedProvider, *otherProvider}); err != nil {
+		t.Fatalf("batch update provider secrets: %v", err)
+	}
+	if err := repos.AIProvider.UpdateSecretsBatch(nil); err != nil {
+		t.Fatalf("empty provider secret batch: %v", err)
+	}
+	rotatedProvider, err := repos.AIProvider.GetByID(provider.ID)
+	if err != nil || rotatedProvider.APIKeyCiphertext != "cipher-owner" || rotatedProvider.Name != "Updated" {
+		t.Fatalf("rotated provider = %#v, err=%v", rotatedProvider, err)
+	}
 
 	periodStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	periodEnd := time.Date(2026, 1, 31, 23, 59, 59, 0, time.UTC)
