@@ -314,7 +314,6 @@ required_finalize_contracts = [
     "docker-compose-v${RELEASE_VERSION}.yml.sha256",
     "gh release create",
     "--verify-tag",
-    '--target "$EXPECTED_TAG_COMMIT"',
     "gh release download",
     "sha256sum -c",
 ]

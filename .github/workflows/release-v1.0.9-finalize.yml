@@ -357,7 +357,6 @@ jobs:
 
           gh release create "$EXPECTED_TAG" "$compose" "$checksum" \
             --verify-tag \
-            --target "$EXPECTED_TAG_COMMIT" \
             --title "Release v${EXPECTED_VERSION}" \
             --generate-notes \
             --notes-file "$body"
