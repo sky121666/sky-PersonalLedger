@@ -4,13 +4,26 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing immutable vX.Y.Z tag whose automatic release did not start.
+        description: Existing immutable annotated vX.Y.Z tag to recover or verify.
         required: true
         type: string
       failed_run_id:
-        description: Startup-failed Release Docker/Web run for the same tag.
+        description: Completed Release Docker/Web tag run for this exact source.
         required: true
         type: string
+      expected_digest:
+        description: Required when the version image exists; full sha256 digest from its publisher.
+        required: false
+        type: string
+      publisher_run_id:
+        description: Required when the image exists; run with successful scan and publish jobs.
+        required: false
+        type: string
+      verify_only:
+        description: Never build or publish; fail unless the existing release is complete.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -26,192 +39,54 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      version: ${{ steps.version.outputs.VERSION }}
-      repository: ${{ steps.repository.outputs.value }}
+      mode: ${{ steps.target.outputs.mode }}
+      version: ${{ steps.target.outputs.version }}
+      repository: ${{ steps.target.outputs.repository }}
       release_tag: ${{ steps.target.outputs.release_tag }}
       release_sha: ${{ steps.target.outputs.release_sha }}
+      tag_object: ${{ steps.target.outputs.tag_object }}
+      image_digest: ${{ steps.target.outputs.image_digest }}
     permissions:
       actions: read
       contents: read
     steps:
-      - name: Validate recovery request and failed run
-        id: request
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          FAILED_RUN_ID: ${{ inputs.failed_run_id }}
-          GH_TOKEN: ${{ github.token }}
-          TARGET_TAG: ${{ inputs.tag }}
-        run: |
-          if [ "$GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
-            echo "::error title=Invalid recovery ref::Recovery must be dispatched from ${DEFAULT_BRANCH}"
-            exit 1
-          fi
-          expected_workflow_ref="${GITHUB_REPOSITORY}/.github/workflows/release-web-recovery.yml@refs/heads/${DEFAULT_BRANCH}"
-          if [ "$GITHUB_WORKFLOW_REF" != "$expected_workflow_ref" ]; then
-            echo "::error title=Invalid recovery workflow ref::Expected $expected_workflow_ref, got $GITHUB_WORKFLOW_REF"
-            exit 1
-          fi
-          if [[ ! "$TARGET_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error title=Invalid release tag::Expected vX.Y.Z or a SemVer prerelease tag"
-            exit 1
-          fi
-          if [[ ! "$FAILED_RUN_ID" =~ ^[0-9]+$ ]]; then
-            echo "::error title=Invalid failed run id::Expected a numeric Actions run id"
-            exit 1
-          fi
-
-          failed_run="$(mktemp)"
-          failed_jobs="$(mktemp)"
-          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${FAILED_RUN_ID}" >"$failed_run"
-          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${FAILED_RUN_ID}/jobs" >"$failed_jobs"
-          failed_sha="$(python3 - "$failed_run" "$failed_jobs" "$TARGET_TAG" <<'PY'
-          import json
-          import re
-          import sys
-
-          run_path, jobs_path, expected_tag = sys.argv[1:]
-          with open(run_path, encoding="utf-8") as handle:
-              run = json.load(handle)
-          with open(jobs_path, encoding="utf-8") as handle:
-              jobs = json.load(handle)
-
-          expected = {
-              "name": "Release Docker/Web",
-              "path": ".github/workflows/release-web.yml",
-              "event": "push",
-              "status": "completed",
-              "conclusion": "startup_failure",
-              "head_branch": expected_tag,
-          }
-          mismatches = [
-              f"{key}={run.get(key)!r}, expected {value!r}"
-              for key, value in expected.items()
-              if run.get(key) != value
-          ]
-          if mismatches:
-              raise SystemExit("Failed run does not authorize recovery: " + "; ".join(mismatches))
-          if jobs.get("total_count") != 0 or jobs.get("jobs"):
-              raise SystemExit("Recovery is allowed only when the failed tag workflow started no jobs")
-          failed_sha = run.get("head_sha", "")
-          if not re.fullmatch(r"[0-9a-f]{40}", failed_sha):
-              raise SystemExit("Failed run does not contain a valid release commit SHA")
-          print(failed_sha)
-          PY
-          )"
-          echo "failed_sha=$failed_sha" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout immutable release tag with history
+      - name: Checkout trusted tooling snapshot
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: ${{ github.sha }}
+          path: tooling
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify immutable tag and successful source gates
+      - name: Checkout immutable release source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Inspect source gates and published state without writing
         id: target
+        working-directory: tooling
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          FAILED_SOURCE_SHA: ${{ steps.request.outputs.failed_sha }}
           GH_TOKEN: ${{ github.token }}
           TARGET_TAG: ${{ inputs.tag }}
+          SOURCE_RUN_ID: ${{ inputs.failed_run_id }}
+          EXPECTED_DIGEST: ${{ inputs.expected_digest }}
+          PUBLISHER_RUN_ID: ${{ inputs.publisher_run_id }}
+          VERIFY_ONLY: ${{ inputs.verify_only }}
         run: |
-          if [ "$(git cat-file -t "refs/tags/${TARGET_TAG}")" != "tag" ]; then
-            echo "::error title=Unannotated release tag::${TARGET_TAG} must be an annotated tag"
-            exit 1
-          fi
-
-          local_tag_object="$(git rev-parse "refs/tags/${TARGET_TAG}")"
-          remote_tag_object="$(git ls-remote origin "refs/tags/${TARGET_TAG}" | awk '{print $1}')"
-          if [ -z "$remote_tag_object" ] || [ "$local_tag_object" != "$remote_tag_object" ]; then
-            echo "::error title=Remote tag identity mismatch::Could not prove ${TARGET_TAG} is the checked-out remote tag"
-            exit 1
-          fi
-
-          git fetch --no-tags origin "refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
-          tag_commit="$(git rev-list -n 1 "refs/tags/${TARGET_TAG}")"
-          checked_out_commit="$(git rev-parse HEAD)"
-          if [ "$tag_commit" != "$FAILED_SOURCE_SHA" ] || [ "$checked_out_commit" != "$tag_commit" ]; then
-            echo "::error title=Release source identity mismatch::Tag, failed run, and checkout must resolve to the same commit"
-            exit 1
-          fi
-          if ! git merge-base --is-ancestor "$tag_commit" "refs/remotes/origin/${DEFAULT_BRANCH}"; then
-            echo "::error title=Release is not on the default branch::${TARGET_TAG} is not contained in origin/${DEFAULT_BRANCH}"
-            exit 1
-          fi
-
-          release_error="$(mktemp)"
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TARGET_TAG}" >/dev/null 2>"$release_error"; then
-            echo "::error title=Release already exists::Refusing to overwrite GitHub Release ${TARGET_TAG}"
-            exit 1
-          fi
-          if ! grep -q 'HTTP 404' "$release_error"; then
-            sed -n '1,20p' "$release_error" >&2
-            echo "::error title=Release check failed::Could not prove GitHub Release ${TARGET_TAG} is unused"
-            exit 1
-          fi
-
-          successful_runs="$(mktemp)"
-          gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/runs" \
-            -f head_sha="$tag_commit" \
-            -f event=push \
-            -f status=success \
-            -f per_page=100 >"$successful_runs"
-          python3 - "$successful_runs" "$tag_commit" "$DEFAULT_BRANCH" <<'PY'
-          import json
-          import sys
-
-          with open(sys.argv[1], encoding="utf-8") as handle:
-              runs = json.load(handle).get("workflow_runs", [])
-
-          expected_sha = sys.argv[2]
-          expected_branch = sys.argv[3]
-          required = {
-              ".github/workflows/quality-gate.yml": "Project Quality Gate",
-              ".github/workflows/public-git-safety.yml": "Public Git Safety",
-          }
-          successful = {
-              run.get("path"): run.get("name")
-              for run in runs
-              if run.get("conclusion") == "success"
-              and run.get("event") == "push"
-              and run.get("head_sha") == expected_sha
-              and run.get("head_branch") == expected_branch
-          }
-          missing = sorted(
-              path for path, name in required.items() if successful.get(path) != name
-          )
-          if missing:
-              raise SystemExit("Missing successful source workflow paths for release commit: " + ", ".join(missing))
-          PY
-
-          echo "release_tag=$TARGET_TAG" >> "$GITHUB_OUTPUT"
-          echo "release_sha=$tag_commit" >> "$GITHUB_OUTPUT"
-
-      - name: Resolve tag version
-        id: version
-        env:
-          INPUT_VERSION: ${{ inputs.tag }}
-          INPUT_BUILD_NUMBER: ${{ github.run_number }}
-        run: ./scripts/resolve-release-version.sh --require-build-number
-
-      - name: Verify repository version matches tag
-        env:
-          RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
-        run: ./scripts/check-version-consistency.sh
-
-      - name: Normalize repository for GHCR
-        id: repository
-        run: echo "value=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-
-      - name: Run scope-aware source release gate
-        env:
-          RELEASE_SCOPE: docker-web
-          RELEASE_PHASE: source
-          STRICT_FINAL_RELEASE: '1'
-        run: ./scripts/check-final-release-gates.sh
+          mode_args=()
+          if [ "$VERIFY_ONLY" = "true" ]; then mode_args+=(--verify-only); fi
+          python3 scripts/release_contract.py recover-plan --source ../source \
+            --tag "$TARGET_TAG" --run-id "$SOURCE_RUN_ID" \
+            --digest "$EXPECTED_DIGEST" --publisher-run-id "$PUBLISHER_RUN_ID" "${mode_args[@]}"
 
   docker:
     name: Recover Docker multi-arch image
+    if: ${{ needs.validate.outputs.mode == 'build' && !inputs.verify_only }}
     needs: validate
     uses: ./.github/workflows/docker.yml
     with:
@@ -226,114 +101,108 @@ jobs:
 
   published-image:
     name: Recovered Docker image runtime gate
+    if: ${{ !cancelled() && needs.validate.result == 'success' && (needs.docker.result == 'success' || needs.docker.result == 'skipped') }}
     needs: [validate, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      image_digest: ${{ steps.identity.outputs.image_digest }}
     permissions:
       contents: read
     steps:
-      - name: Checkout immutable release tag
+      - name: Checkout trusted tooling snapshot
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ needs.validate.outputs.release_sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Verify published manifest and runtime
+      - name: Verify published identity using current tooling
+        id: identity
         env:
-          DOCKER_RELEASE_IMAGE: ghcr.io/${{ needs.validate.outputs.repository }}@${{ needs.docker.outputs.image_digest }}
-          RELEASE_SCOPE: docker-web
-          RELEASE_PHASE: published
-          STRICT_FINAL_RELEASE: '1'
-        run: ./scripts/check-final-release-gates.sh
+          TARGET_TAG: ${{ needs.validate.outputs.release_tag }}
+          RELEASE_SHA: ${{ needs.validate.outputs.release_sha }}
+          IMAGE_DIGEST: ${{ needs.validate.outputs.image_digest || needs.docker.outputs.image_digest }}
+        run: |
+          python3 scripts/release_contract.py verify-image --tag "$TARGET_TAG" --sha "$RELEASE_SHA" --digest "$IMAGE_DIGEST"
+          echo "image_digest=$IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Verify health metrics non-root persistence and cleanup
+        env:
+          DOCKER_RELEASE_IMAGE: ghcr.io/${{ needs.validate.outputs.repository }}@${{ steps.identity.outputs.image_digest }}
+          RUNTIME_DOCKER_RELEASE_EVIDENCE: '1'
+          RUN_DOCKER_RELEASE_SMOKE: '1'
+        run: ./scripts/check-docker-release-evidence.sh
 
   release:
     name: Create recovered Docker/Web Release
-    needs: [validate, docker, published-image]
+    if: ${{ !cancelled() && needs.validate.result == 'success' && needs.published-image.result == 'success' && needs.validate.outputs.mode != 'verify' && !inputs.verify_only }}
+    needs: [validate, published-image]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: release-recovery
     permissions:
       contents: write
     steps:
-      - name: Checkout immutable release tag
+      - name: Checkout trusted tooling snapshot
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+
+      - name: Checkout pinned release source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ needs.validate.outputs.release_sha }}
+          path: source
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Reconfirm unused GitHub Release
+      - name: Create only after rechecking tag and image identity
+        working-directory: tooling
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
-        run: |
-          release_error="$(mktemp)"
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" >/dev/null 2>"$release_error"; then
-            echo "::error title=Release already exists::Refusing to overwrite GitHub Release ${RELEASE_TAG}"
-            exit 1
-          fi
-          if ! grep -q 'HTTP 404' "$release_error"; then
-            sed -n '1,20p' "$release_error" >&2
-            echo "::error title=Release check failed::Could not prove GitHub Release ${RELEASE_TAG} is unused"
-            exit 1
-          fi
-
-      - name: Generate immutable release Compose asset
-        env:
-          RELEASE_IMAGE: ghcr.io/${{ needs.validate.outputs.repository }}@${{ needs.docker.outputs.image_digest }}
-          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          output="dist/docker-compose-v${RELEASE_VERSION}.yml"
-          bash ./scripts/generate-release-compose.sh "$output"
-          env LEDGER_JWT_SECRET=release-compose-validation-only LEDGER_SETUP_TOKEN=release-compose-validation-only docker compose --env-file /dev/null -f "$output" config --quiet
-          (
-            cd dist
-            sha256sum "docker-compose-v${RELEASE_VERSION}.yml" > "docker-compose-v${RELEASE_VERSION}.yml.sha256"
-          )
-
-      - name: Create GitHub Release once
-        env:
-          GH_TOKEN: ${{ github.token }}
-          IMAGE_DIGEST: ${{ needs.docker.outputs.image_digest }}
-          RELEASE_REPOSITORY: ${{ needs.validate.outputs.repository }}
+          TARGET_TAG: ${{ needs.validate.outputs.release_tag }}
           RELEASE_SHA: ${{ needs.validate.outputs.release_sha }}
-          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
-          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          TAG_OBJECT: ${{ needs.validate.outputs.tag_object }}
+          IMAGE_DIGEST: ${{ needs.published-image.outputs.image_digest }}
         run: |
-          compose="dist/docker-compose-v${RELEASE_VERSION}.yml"
-          checksum="${compose}.sha256"
-          body="$(mktemp)"
-          cat >"$body" <<EOF
-          ## Personal Ledger v${RELEASE_VERSION}
+          python3 scripts/release_contract.py publish --source ../source --tag "$TARGET_TAG" \
+            --sha "$RELEASE_SHA" --tag-object "$TAG_OBJECT" --digest "$IMAGE_DIGEST"
 
-          本次 Release 面向 Docker/Web 自托管部署，不自动包含正式签名
-          Android/iOS 安装包；签名移动端产物由同一 tag 上的手动工作流追加。
+  verify-assets:
+    name: Verify public Docker/Web assets independently
+    if: ${{ !cancelled() && needs.validate.result == 'success' && needs.published-image.result == 'success' && (needs.release.result == 'success' || needs.release.result == 'skipped') }}
+    needs: [validate, published-image, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted tooling snapshot
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
 
-          ### Docker
+      - name: Checkout pinned release source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.validate.outputs.release_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
 
-              docker pull ghcr.io/${RELEASE_REPOSITORY}:${RELEASE_VERSION}
-
-          不可变镜像：
-
-              ghcr.io/${RELEASE_REPOSITORY}@${IMAGE_DIGEST}
-
-          Release 附件 \`docker-compose-v${RELEASE_VERSION}.yml\` 已固定到上述 digest；
-          同时下载对应 \`.sha256\` 后校验再部署。
-
-          ### 文档与截图
-
-          - README：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/README.md
-          - 功能文档：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${RELEASE_TAG}/docs/features
-          - 运行截图索引：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${RELEASE_TAG}/docs/screenshots
-          EOF
-
-          prerelease_args=()
-          if [[ "$RELEASE_VERSION" == *-* ]]; then
-            prerelease_args+=(--prerelease)
-          fi
-          gh release create "$RELEASE_TAG" "$compose" "$checksum" \
-            --verify-tag \
-            --target "$RELEASE_SHA" \
-            --title "Release v${RELEASE_VERSION}" \
-            --generate-notes \
-            --notes-file "$body" \
-            "${prerelease_args[@]}"
+      - name: Download public assets and verify exact Compose image
+        working-directory: tooling
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_TAG: ${{ needs.validate.outputs.release_tag }}
+          RELEASE_SHA: ${{ needs.validate.outputs.release_sha }}
+          TAG_OBJECT: ${{ needs.validate.outputs.tag_object }}
+          IMAGE_DIGEST: ${{ needs.published-image.outputs.image_digest }}
+        run: |
+          python3 scripts/release_contract.py verify-tag --source ../source --tag "$TARGET_TAG" --sha "$RELEASE_SHA" --tag-object "$TAG_OBJECT"
+          python3 scripts/release_contract.py verify-image --tag "$TARGET_TAG" --sha "$RELEASE_SHA" --digest "$IMAGE_DIGEST"
+          python3 scripts/release_contract.py verify-assets --tag "$TARGET_TAG" --digest "$IMAGE_DIGEST"
