@@ -31,7 +31,7 @@ require_absent_text() {
   fi
 }
 
-required_files=(.github/workflows/docker.yml .github/workflows/release-web.yml .github/workflows/release-web-recovery.yml .github/workflows/release.yml Dockerfile .dockerignore docker-entrypoint.sh docker-compose.yml docker-compose.debug.yml .env.example web/pnpm-workspace.yaml scripts/generate-release-compose.sh scripts/check-toolchain-consistency.sh)
+required_files=(.github/workflows/docker.yml .github/workflows/release-web.yml .github/workflows/release-web-recovery.yml .github/workflows/release.yml Dockerfile .dockerignore docker-entrypoint.sh docker-compose.yml docker-compose.debug.yml .env.example web/pnpm-workspace.yaml scripts/generate-release-compose.sh scripts/check-toolchain-consistency.sh scripts/release_contract.py scripts/test_release_contract.py)
 for path in "${required_files[@]}"; do
   require_file "$path"
 done
@@ -196,12 +196,9 @@ required_release_contracts = [
     "releases/tags/",
     "Could not prove GitHub Release",
     "Refusing to overwrite",
-    "tag_name: v${{ needs.prepare.outputs.version }}",
-    "target_commitish: ${{ github.sha }}",
-    "overwrite_files: false",
-    "fail_on_unmatched_files: true",
-    "scripts/generate-release-compose.sh",
-    "docker-compose-v${{ needs.prepare.outputs.version }}.yml.sha256",
+    "scripts/release_contract.py verify-tag",
+    "scripts/release_contract.py publish",
+    "needs.prepare.outputs.tag_object",
     "environment: release",
 ]
 for contract in required_release_contracts:
@@ -235,37 +232,54 @@ recovery_release = job_block(recovery, "release")
 required_recovery_contracts = [
     "workflow_dispatch:",
     "failed_run_id:",
+    "expected_digest:",
+    "publisher_run_id:",
+    "verify_only:",
+    "mode_args+=(--verify-only)",
     "ref: refs/tags/${{ inputs.tag }}",
-    'GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}"',
-    'GITHUB_WORKFLOW_REF" != "$expected_workflow_ref"',
-    'git cat-file -t "refs/tags/${TARGET_TAG}"',
-    "git merge-base --is-ancestor",
-    "Project Quality Gate",
-    "Public Git Safety",
-    '"conclusion": "startup_failure"',
-    'jobs.get("total_count") != 0',
-    ".github/workflows/quality-gate.yml",
-    ".github/workflows/public-git-safety.yml",
-    "releases/tags/${TARGET_TAG}",
-    "STRICT_FINAL_RELEASE: '1'",
+    "ref: ${{ github.sha }}",
+    "path: tooling",
+    "path: source",
+    "working-directory: tooling",
+    "scripts/release_contract.py recover-plan --source ../source",
+    "scripts/release_contract.py publish --source ../source",
+    "scripts/release_contract.py verify-image",
+    "needs.validate.outputs.mode == 'build'",
+    "needs.validate.outputs.mode != 'verify'",
+    "needs.docker.result == 'skipped'",
+    "needs.release.result == 'skipped'",
     "source_ref: ${{ needs.validate.outputs.release_sha }}",
     "source_sha: ${{ needs.validate.outputs.release_sha }}",
     "publish_environment: release-recovery",
-    "actions: read",
-    "packages: write",
     "environment: release-recovery",
-    'checked_out_commit="$(git rev-parse HEAD)"',
-    "gh release create",
-    "--verify-tag",
-    "--target \"$RELEASE_SHA\"",
-    "--generate-notes",
-    "--notes-file \"$body\"",
-    'compose="dist/docker-compose-v${RELEASE_VERSION}.yml"',
-    'checksum="${compose}.sha256"',
+    "RUNTIME_DOCKER_RELEASE_EVIDENCE: '1'",
+    "RUN_DOCKER_RELEASE_SMOKE: '1'",
+    "scripts/check-docker-release-evidence.sh",
+    "needs.validate.outputs.tag_object",
 ]
 for contract in required_recovery_contracts:
     if contract not in recovery:
         raise SystemExit(f"Missing immutable release recovery contract: {contract}")
+for writer in (recovery_docker, recovery_release):
+    if "!inputs.verify_only" not in writer:
+        raise SystemExit("Read-only dispatch must explicitly disable each publisher")
+for workflow in (release, recovery):
+    if "target_commitish:" in workflow or "--target " in workflow or "softprops/action-gh-release@" in workflow:
+        raise SystemExit("Docker/Web creation must use the verified existing tag, without target override or update actions")
+    verifier = job_block(workflow, "verify-assets")
+    if "environment:" in verifier or ": write" in verifier:
+        raise SystemExit("Public asset verification must be read-only and outside deployment environments")
+    for contract in ("scripts/release_contract.py verify-assets", "scripts/release_contract.py verify-tag",
+                     "scripts/release_contract.py verify-image", "contents: read"):
+        if contract not in verifier:
+            raise SystemExit(f"Missing independent verification contract: {contract}")
+    writer = job_block(workflow, "release")
+    if "scripts/release_contract.py publish" not in writer or workflow.count("contents: write") != 1:
+        raise SystemExit("Only the protected Release creator may have contents write access")
+    if "scripts/release_contract.py verify-assets" in writer:
+        raise SystemExit("Public verification must have a separate job, not redefine publication outcome")
+if ": write" in recovery_validate or " publish " in recovery_validate:
+    raise SystemExit("Recovery inspection cannot write remote state")
 if "environment:" in recovery_validate or "packages: write" in recovery_validate:
     raise SystemExit("Recovery validation must remain read-only and outside a deployment environment")
 for contract in ("actions: read", "packages: write", "publish_environment: release-recovery"):

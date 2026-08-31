@@ -78,12 +78,18 @@ this definition; they are explicitly outside v1.0.9. If mobile distribution is l
 `RELEASE_SCOPE=signed-mobile STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh` and satisfy
 the separate signature, artifact, iOS/Android device validation, and accessibility evidence.
 
-## Remaining Work Before Publication
+## Publication Status and Remaining Acceptance
+
+Updated 2026-08-31: v1.0.9 is publicly available. Independent download and checksum validation
+of its Compose pair, both image architecture identities, and an isolated runtime smoke passed.
+Historical failed workflow runs remain visible; they are not proof that the public assets are absent.
+See [release recovery verification](release-recovery-verification-2026-08-31.md) for exact identities
+and the boundary between local repair, public artifact checks, and remote workflow acceptance.
 
 | Priority | Gap | Required Action |
 | --- | --- | --- |
-| P0 | v1.0.9 has not yet been published | Merge through the protected PR, create the one-time tag, approve the protected `release` jobs, and wait for the full tag workflow |
-| P0 | Public digest and Release assets do not exist before the tag workflow | After success, independently verify GHCR platforms, Compose checksum, digest equality, and runtime smoke |
+| P1 | Recovery automation repair is local, not yet merged or run in GitHub | Review and merge the repair; exercise the complete-release read-only path without replacing v1.0.9 |
+| P1 | No fresh target production upgrade/rollback acceptance | Verify on an isolated copy of the installation owner's data before changing production |
 | Optional | Production-specific backup drill | Repeat the operator drill against an isolated deployment if the installation owner requires environment-specific evidence |
 
 Use `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` for a fresh local source rehearsal.

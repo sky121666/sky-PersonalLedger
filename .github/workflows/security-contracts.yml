@@ -29,6 +29,11 @@ jobs:
       - name: Verify runtime health contract
         run: ./scripts/check-runtime-health-contract.sh
 
+      - name: Verify release recovery behavior and workflow contracts
+        run: |
+          python3 scripts/test_release_contract.py
+          ./scripts/check-docker-release-preflight.sh
+
       - name: Verify AI privacy contract
         run: ./scripts/check-ai-privacy-contract.sh
 
