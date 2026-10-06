@@ -18,9 +18,12 @@
   构建/扫描 job 没有 `packages:write` 或 `release` environment；两个扫描通过后，它把 OCI
   layout 封装为带 SHA-256 的 artifact。只有依赖该 job 的发布 job 才进入受保护的
   `release` environment、取得 `packages:write`，复验 archive 与 OCI digest 后用 Skopeo
-  把同一 layout 推送到不可变 version tag。checkout 不保留 GitHub 凭据。
+  把同一 layout 推送到不可变 version tag。发布 job 仅稀疏检出本次 workflow SHA 的校验
+  脚本，产品始终来自该 OCI layout，不重新构建。checkout 不保留 GitHub 凭据。
   发布链不自动创建或更新 latest，部署使用版本标签或 digest。
-- 发布前拒绝已有的 GitHub Release 或 GHCR version tag，避免覆盖历史版本。
+- 发布前拒绝已有的 GitHub Release 或 GHCR version tag，避免覆盖历史版本。正常发布和
+  恢复共用镜像查询合同：CLI 的 not found 只是线索，还必须由 GHCR 明确返回
+  MANIFEST_UNKNOWN；鉴权、网络或工具错误都停止，不能当作未发布。
 - 正常 tag 与恢复入口共用 `scripts/release_contract.py publish`。创建前再次确认 tag 对象、
   源码 SHA、版本镜像 digest 和 Release 不存在；只调用 `gh release create --verify-tag`，
   不传 `--target` / `target_commitish`，不调用 edit/upload/clobber。已有 tag 是唯一来源，
@@ -120,13 +123,18 @@ publisher run 只能来自同仓库的原 tag 发布流程，或默认分支上�
 job 日志的环境字段验证源码 SHA 与扫描后 digest。job 日志缺失、过期或不一致时停止；
 仅提供一个正确格式的 digest、或镜像里自报的标签，不足以授权补建 Release。
 
-运行验证使用本次工具提交的隔离 Docker smoke，仍检查两架构 manifest、健康、指标鉴权、
-非 root、持久化与清理。恢复不再把当前 main 的 VERSION 当成旧版本源数据。
+运行验证使用本次工具提交的隔离 Docker smoke，检查两架构 manifest、健康、指标鉴权、
+非 root，并通过 API 写入合成账户和交易，重建容器、重新登录后核对记录与余额。执行日志
+必须实际通过后才能认定该镜像的重建持久化验收完成；两架构 manifest 检查仍不代表两种
+架构都已运行。恢复不再把当前 main 的 VERSION 当成旧版本源数据。
 这不替代生产升级/回滚、实体手机、VoiceOver/TalkBack 或签名分发验收。
 
 2026-08-31 本地修复及公开产物复验记录：
-[发布恢复验证](../quality/release-recovery-verification-2026-08-31.md)。只有修改合入后，
-新的恢复入口才会在 GitHub 默认分支生效；本地检查不等于已触发远端恢复。
+[发布恢复验证](../quality/release-recovery-verification-2026-08-31.md)。该次修复已进入 main
+的 da8bed5；同提交的只读恢复 run 33344667117 在 validate 阶段失败，后续 job 均跳过。
+错误日志仅有 gh exit 1，不能据此推断具体 API 或权限根因。当前工具会保留静态阶段名、
+命令类别、退出码和可识别的 HTTP 状态，不回显请求参数、凭据、URL 或原始错误正文。
+仍需在工具合入后另行完成真实只读恢复验收；本地检查不等于已触发远端恢复。
 
 ## 未解决的许可证边界
 

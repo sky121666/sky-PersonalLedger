@@ -14,6 +14,7 @@ import { getCategoryEmoji } from '@/utils/constants'
 import { encodeTransactionTags, parseTransactionTags } from '@/utils/tagValues'
 import { loadTransactionDialogOptions } from '@/utils/transactionDialogOptions'
 import { toLedgerInstant } from '@/utils/ledgerDate'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 import { notifyLedgerMutation } from '@/composables/useLedgerMutation'
 import dayjs from 'dayjs'
 
@@ -37,6 +38,9 @@ const categories = ref<Category[]>([])
 const accounts = ref<Account[]>([])
 const familyMembers = ref<FamilyMember[]>([])
 const tags = ref<Tag[]>([])
+const dialogRequests = createRequestGeneration()
+const dialogGeneration = ref(0)
+const editTargetId = ref<string | null>(null)
 
 const form = ref({
   type: 'expense' as 'income' | 'expense' | 'transfer',
@@ -45,6 +49,7 @@ const form = ref({
   to_account_id: '',
   category_id: '',
   member_id: '',
+  paid_by_member_id: '',
   tag_names: [] as string[],
   transaction_date: dayjs().format('YYYY-MM-DDTHH:mm'),
   remark: '',
@@ -75,31 +80,43 @@ const isValid = computed(() => {
   return true
 })
 
-watch(() => props.visible, async (val) => {
-  if (val) {
-    previouslyFocusedElement = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null
-    loadingInitialData.value = true
-    transactionLoadFailed.value = false
-    resetForm('')
-    try {
-      await loadData()
-      if (props.editId) {
-        transactionLoadFailed.value = !(await loadTransaction())
-      }
-    } finally {
-      loadingInitialData.value = false
-    }
-    if (props.visible) {
-      await nextTick()
-      amountInput.value?.focus()
-    }
-  } else {
+function isCurrentDialog(generation: number, editId: string | null) {
+  return dialogRequests.isLatest(generation) && props.visible && (props.editId || null) === editId
+}
+
+watch(() => [props.visible, props.editId] as const, async ([visible, id]) => {
+  const generation = dialogRequests.begin()
+  dialogGeneration.value = generation
+  const editId = id || null
+  editTargetId.value = editId
+  loading.value = false
+  if (!visible) {
+    loadingInitialData.value = false
     await nextTick()
-    restorePreviousFocus()
+    if (dialogRequests.isLatest(generation)) restorePreviousFocus()
+    return
   }
-})
+  previouslyFocusedElement = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null
+  loadingInitialData.value = true
+  transactionLoadFailed.value = false
+  resetForm('')
+  try {
+    await loadData(generation, editId)
+    if (!isCurrentDialog(generation, editId)) return
+    if (editId) {
+      const loaded = await loadTransaction(editId, generation)
+      if (isCurrentDialog(generation, editId)) transactionLoadFailed.value = !loaded
+    }
+  } finally {
+    if (isCurrentDialog(generation, editId)) loadingInitialData.value = false
+  }
+  if (isCurrentDialog(generation, editId)) {
+    await nextTick()
+    if (isCurrentDialog(generation, editId)) amountInput.value?.focus()
+  }
+}, { immediate: true, flush: 'sync' })
 
 watch(() => form.value.type, () => {
   if (!props.editId) {
@@ -108,13 +125,14 @@ watch(() => form.value.type, () => {
   }
 })
 
-async function loadData() {
+async function loadData(generation: number, editId: string | null) {
   const options = await loadTransactionDialogOptions({
     categories: categoryApi.getList,
     accounts: accountApi.getList,
     familyMembers: familyApi.listMembers,
     tags: tagApi.list,
   })
+  if (!isCurrentDialog(generation, editId)) return
   categories.value = options.categories
   accounts.value = options.accounts
   familyMembers.value = options.familyMembers.filter(member => member.is_enabled)
@@ -129,17 +147,18 @@ async function loadData() {
   }
 }
 
-async function loadTransaction() {
-  if (!props.editId) return false
+async function loadTransaction(editId: string, generation: number) {
   try {
-    const tx = await transactionApi.getById(props.editId)
+    const tx = await transactionApi.getById(editId)
+    if (!isCurrentDialog(generation, editId)) return false
     form.value = {
       type: tx.type,
       amount: tx.amount.toString(),
       account_id: tx.account_id,
       to_account_id: tx.to_account_id || '',
       category_id: tx.category_id || '',
-      member_id: tx.member_id || tx.paid_by_member_id || '',
+      member_id: tx.member_id || '',
+      paid_by_member_id: tx.paid_by_member_id || '',
       tag_names: parseTransactionTags(tx.tags),
       transaction_date: dayjs(tx.transaction_date).format('YYYY-MM-DDTHH:mm'),
       remark: tx.remark || '',
@@ -149,6 +168,7 @@ async function loadTransaction() {
     savedTransactionId.value = tx.id
     return true
   } catch (e) {
+    if (!isCurrentDialog(generation, editId)) return false
     console.error('Load transaction failed:', e)
     toast.error('交易详情加载失败，请关闭后重试')
     return false
@@ -163,6 +183,7 @@ function resetForm(accountId = accounts.value[0]?.id || '') {
     to_account_id: '',
     category_id: '',
     member_id: '',
+    paid_by_member_id: '',
     tag_names: [],
     transaction_date: dayjs().format('YYYY-MM-DDTHH:mm'),
     remark: '',
@@ -173,6 +194,8 @@ function resetForm(accountId = accounts.value[0]?.id || '') {
 }
 
 function close() {
+  dialogRequests.begin()
+  loadingInitialData.value = false
   emit('update:visible', false)
 }
 
@@ -215,57 +238,65 @@ function handleDialogKeydown(event: KeyboardEvent) {
   }
 }
 
-onBeforeUnmount(restorePreviousFocus)
+onBeforeUnmount(() => {
+  dialogRequests.begin()
+  restorePreviousFocus()
+})
 
 async function submit() {
   if (!isValid.value || loading.value) return
   
+  const generation = dialogGeneration.value
+  const editId = editTargetId.value
+  if (!isCurrentDialog(generation, editId)) return
+  const submittedForm = { ...form.value, tag_names: [...form.value.tag_names] }
+  const submittedOriginalImages = originalImages.value
   loading.value = true
   try {
     // Convert datetime-local to ISO string
-    const txDate = toLedgerInstant(form.value.transaction_date)
+    const txDate = toLedgerInstant(submittedForm.transaction_date)
     
     const params: CreateTransactionParams = {
-      type: form.value.type,
-      amount: parseFloat(form.value.amount),
-      account_id: form.value.account_id,
+      type: submittedForm.type,
+      amount: parseFloat(submittedForm.amount),
+      account_id: submittedForm.account_id,
       transaction_date: txDate,
-      remark: form.value.remark || undefined,
-      images: form.value.images || undefined,
-      tags: encodeTransactionTags(form.value.tag_names)
+      remark: submittedForm.remark || undefined,
+      images: submittedForm.images || undefined,
+      tags: encodeTransactionTags(submittedForm.tag_names)
     }
 
-    if (form.value.member_id) {
-      params.member_id = form.value.member_id
-      params.paid_by_member_id = form.value.member_id
-    }
+    params.member_id = submittedForm.member_id || undefined
+    params.paid_by_member_id = submittedForm.paid_by_member_id || undefined
     
-    if (form.value.type === 'transfer') {
-      params.to_account_id = form.value.to_account_id
+    if (submittedForm.type === 'transfer') {
+      params.to_account_id = submittedForm.to_account_id
     } else {
-      params.category_id = form.value.category_id
+      params.category_id = submittedForm.category_id
     }
     
-    if (props.editId) {
-      await transactionApi.update(props.editId, params)
-      const failedCleanupPaths = await deleteRemovedAttachments(originalImages.value, form.value.images)
-      toast.success(
+    if (editId) {
+      await transactionApi.update(editId, params)
+      const failedCleanupPaths = await deleteRemovedAttachments(submittedOriginalImages, submittedForm.images)
+      if (isCurrentDialog(generation, editId)) toast.success(
         failedCleanupPaths.length > 0
           ? `修改成功，但有 ${failedCleanupPaths.length} 个旧附件清理失败`
           : '修改成功'
       )
     } else {
       await transactionApi.create(params)
-      toast.success('记账成功')
+      if (isCurrentDialog(generation, editId)) toast.success('记账成功')
     }
     
     notifyLedgerMutation()
-    emit('success')
-    close()
+    if (isCurrentDialog(generation, editId)) {
+      emit('success')
+      close()
+    }
   } catch (e: any) {
-    toast.error(e.message || '保存失败')
+    if (isCurrentDialog(generation, editId)) toast.error(e.message || '保存失败')
   } finally {
-    loading.value = false
+    if (isCurrentDialog(generation, editId)) loading.value = false
   }
 }
 
@@ -304,6 +335,7 @@ function toggleTag(name: string) {
               :key="opt.value"
               type="button"
               :aria-pressed="form.type === opt.value"
+              :disabled="loadingInitialData || transactionLoadFailed || loading"
               class="min-h-11 px-4 py-1.5 text-sm font-medium rounded-lg transition-all duration-200"
               :class="form.type === opt.value ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
               @click="form.type = opt.value as any"
@@ -323,7 +355,7 @@ function toggleTag(name: string) {
         </div>
         
         <!-- Form Content -->
-        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <fieldset :disabled="loadingInitialData || transactionLoadFailed || loading" class="flex-1 min-w-0 overflow-y-auto p-6 space-y-6">
           <!-- Amount Input -->
           <div>
             <label for="transaction-amount" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">金额</label>
@@ -429,8 +461,8 @@ function toggleTag(name: string) {
           </div>
 
           <!-- Family Member -->
-          <div v-if="familyMembers.length > 0">
-            <label for="transaction-member" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">家庭成员</label>
+          <div v-if="familyMembers.length > 0 || form.member_id || form.paid_by_member_id">
+            <label for="transaction-member" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">归属成员</label>
             <div class="relative">
               <div class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                 <Users :size="18" />
@@ -441,12 +473,26 @@ function toggleTag(name: string) {
                 class="w-full h-12 pl-11 pr-10 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none appearance-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
               >
                 <option value="">不指定成员</option>
+                <option v-if="form.member_id && !familyMembers.some(member => member.id === form.member_id)" :value="form.member_id">原归属成员（已停用或不可用）</option>
                 <option v-for="member in familyMembers" :key="member.id" :value="member.id">
                   {{ member.name }}{{ member.relationship ? ` · ${member.relationship}` : '' }}
                 </option>
               </select>
               <ChevronDown class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" :size="18" />
             </div>
+          </div>
+
+          <div v-if="familyMembers.length > 0 || form.member_id || form.paid_by_member_id">
+            <label for="transaction-payer" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">付款成员</label>
+            <select
+              id="transaction-payer"
+              v-model="form.paid_by_member_id"
+              class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
+            >
+              <option value="">不指定付款成员</option>
+              <option v-if="form.paid_by_member_id && !familyMembers.some(member => member.id === form.paid_by_member_id)" :value="form.paid_by_member_id">原付款成员（已停用或不可用）</option>
+              <option v-for="member in familyMembers" :key="member.id" :value="member.id">{{ member.name }}</option>
+            </select>
           </div>
 
           <!-- Tags -->
@@ -506,11 +552,13 @@ function toggleTag(name: string) {
           </div>
 
           <!-- Attachments -->
-          <div v-if="savedTransactionId || props.editId">
+          <div v-if="!loadingInitialData && !transactionLoadFailed && savedTransactionId">
             <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
               <Paperclip :size="14" class="inline mr-1" />附件
             </label>
             <FileUpload
+              :key="dialogGeneration"
+              :disabled="loading"
               v-model="form.images"
               category="transactions"
               :ref-id="savedTransactionId || props.editId || ''"
@@ -520,7 +568,7 @@ function toggleTag(name: string) {
           <div v-else class="text-xs text-gray-400 italic">
             保存后可添加附件
           </div>
-        </div>
+        </fieldset>
         
         <!-- Footer -->
         <div class="p-6 border-t border-gray-100/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md">

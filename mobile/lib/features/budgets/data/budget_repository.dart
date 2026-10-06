@@ -6,7 +6,7 @@ import '../../categories/application/category_controller.dart';
 import '../../categories/data/category.dart';
 
 final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
-  return BudgetRepository(ref.watch(apiClientProvider));
+  return BudgetRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final budgetDashboardProvider = FutureProvider.autoDispose<BudgetDashboard>((

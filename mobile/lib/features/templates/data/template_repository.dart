@@ -5,7 +5,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../transactions/data/transaction_models.dart';
 
 final templateRepositoryProvider = Provider<TemplateRepository>((ref) {
-  return TemplateRepository(ref.watch(apiClientProvider));
+  return TemplateRepository(ref.watch(ledgerApiClientProvider));
 });
 
 class TemplateRepository {

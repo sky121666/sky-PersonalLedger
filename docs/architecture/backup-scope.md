@@ -1,19 +1,66 @@
 # Backup Scope
 
-## Full backup contract (v2.3)
+## Full backup contract (v2.4)
 
-CreateBackup currently emits FullBackupData version 2.3. It contains the authenticated user's
+CreateBackup currently emits FullBackupData version 2.4 through an explicit backup codec, independent
+of the business API model JSON. It contains the authenticated user's
 ledger data:
 
 - profile display fields: nickname, email, avatar, and bio
 - accounts, categories, transactions, budgets, reminders, lendings and lending records
 - quick templates, tags, family members, AI report history and account/notification logs
-- notification preferences represented by the credential-free 2.3 DTO
+- notification preferences represented by the credential-free portable DTO
 - an explicit attachments value describing whether file data is included
 
 Restore replaces the user-owned ledger rows represented by the backup. Ownership is rebound to the
 authenticated target user, and stored upload references are remapped from source_user_id to that
 target user. Backups that mix owners or reference another user's rows are rejected.
+
+Version 2.4 includes an explicit `deleted_at` for every account, category, transaction, budget,
+reminder, lending, lending record, template, tag, family member and AI report. `null` denotes an
+active row; a timestamp denotes a soft-deleted row. Both active and deleted rows are retained so
+historical references and rollback logs remain connected. Missing deletion state in any of these
+records is rejected before replacement. Restoring tombstones does not replay balance changes:
+account balances, active transactions and spending statistics retain their backed-up state.
+Archived accounts, paid-off reminders and settled lending keep their separate state fields.
+Disabled budgets, reminders and members remain disabled. Restore also preserves zero-day reminder
+advance notice rather than allowing GORM insertion defaults to replace these explicit values.
+
+Every supported envelope must explicitly contain the collections its original exporter emitted:
+
+- v2.1: accounts, categories, transactions, budgets, reminders, lendings, lending_records, templates
+  and tags. Family members, AI reports and logs are optional because they were added after the
+  earliest 2.1 exporter without changing that version.
+- v2.2, v2.3 and v2.4: those nine collections plus family_members, ai_reports, account_logs and
+  notification_logs.
+
+Collection `null` and `[]` both explicitly describe an empty database collection. An envelope with
+all required collections explicitly empty is a valid intentional empty-ledger restore. A missing
+required collection, including a profile-only JSON object, is rejected before profile, database or
+file mutations. Optional profile and notification preferences retain their existing behavior.
+
+The 2.1–2.3 codecs remain readable with their original field semantics. Those formats did not
+serialize model tombstones. Earlier exporters sometimes excluded deleted rows; later exporters
+included them without deletion state. A legacy file cannot distinguish those included deleted rows
+from active rows, and restore cannot reconstruct or invent that lost information. Create a new 2.4
+backup from the original database when deletion-state preservation is needed. Do not relabel a
+legacy JSON file as 2.4.
+
+Creation reads every database collection, profile and notification preference through one database
+snapshot. SQLite uses a read transaction whose first SELECT fixes the WAL snapshot; PostgreSQL and
+MySQL explicitly request a read-only REPEATABLE READ transaction instead of relying on the server's
+default isolation level. MySQL deployments require transactional tables (InnoDB). A concurrent ledger
+write may finish during creation, but its account balance, transactions and logs are either all
+included or all excluded from that snapshot. A failed query fails creation rather than emitting a
+partial backup. The snapshot helper rejects an existing transaction because a nested GORM savepoint
+cannot establish a different isolation level.
+
+Creation also takes the attachment maintenance write barrier before opening the database snapshot
+and holds it until the attachment contents have been captured. Uploads, deletion, attachment metadata
+updates and garbage collection wait for creation to finish, so file contents cannot move while the
+database snapshot refers to them. This briefly serializes attachment access, including downloads;
+ordinary ledger writes remain available. The barrier has the same single-write-instance requirement
+as restore and does not coordinate another process or an operator changing files directly.
 
 ## Attachment manifest and restore semantics
 
@@ -28,7 +75,7 @@ upload_root/source_user_id is embedded in the JSON backup. Each attachments entr
 Base64 is transport encoding, not encryption. Backup JSON contains recoverable ledger and attachment
 data and must be stored and transferred as sensitive data.
 
-Version 2.3 requires the attachments field to be present and makes its meaning explicit:
+Versions 2.3 and 2.4 require the attachments field to be present and make its meaning explicit:
 
 - null means the backup did not include file data; restore preserves the target user's current files
 - an array is authoritative; an empty array intentionally replaces current attachments with an empty
@@ -72,12 +119,12 @@ download, upload-reference persistence, and normal GC traversal.
 
 ## Notification settings and credentials
 
-Version 2.3 serializes a dedicated NotificationSettingsBackup DTO containing only portable reminder
+Versions 2.3 and 2.4 serialize a dedicated NotificationSettingsBackup DTO containing only portable reminder
 preferences: payment-due, budget-alert, lending-due, login and annual-report switches plus advance
 days. Delivery enablement, SMTP configuration and recipient identity, endpoint URLs, and shared
 credentials are target-instance state and are never serialized.
 
-The 2.3 JSON preflight rejects notification_settings containing any credential-capable field,
+The 2.3/2.4 JSON preflight rejects notification_settings containing any credential-capable field,
 including:
 
 - wecom_webhook
@@ -121,6 +168,7 @@ Full backups do not contain or overwrite:
 - refresh tokens
 - API-token rows, including hashes and prefixes
 - AI-provider configuration or encrypted API keys
+- internal AI-report ProviderRevision and transaction import fingerprints
 - notification endpoints, webhook secrets or SMTP passwords
 - system-wide settings
 - another user's database rows or upload files

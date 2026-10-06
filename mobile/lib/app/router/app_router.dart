@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/providers/core_providers.dart';
+
 import '../../features/account_logs/presentation/account_log_page.dart';
 import '../../features/accounts/presentation/accounts_page.dart';
 import '../../features/api_tokens/presentation/api_token_page.dart';
@@ -34,10 +36,10 @@ import '../../features/transactions/presentation/transaction_details_page.dart';
 import 'app_route_paths.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  ref.watch(ledgerDataRevisionProvider);
   final refreshNotifier = _RouterRefreshNotifier(ref);
-  ref.onDispose(refreshNotifier.dispose);
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: AppRoutePaths.bootstrap,
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
@@ -202,6 +204,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(() {
+    router.dispose();
+    refreshNotifier.dispose();
+  });
+  return router;
 });
 
 String? _redirectAuthenticated(String location) {

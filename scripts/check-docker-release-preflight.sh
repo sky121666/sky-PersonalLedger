@@ -31,7 +31,7 @@ require_absent_text() {
   fi
 }
 
-required_files=(.github/workflows/docker.yml .github/workflows/release-web.yml .github/workflows/release-web-recovery.yml .github/workflows/release.yml Dockerfile .dockerignore docker-entrypoint.sh docker-compose.yml docker-compose.debug.yml .env.example web/pnpm-workspace.yaml scripts/generate-release-compose.sh scripts/check-toolchain-consistency.sh scripts/release_contract.py scripts/test_release_contract.py)
+required_files=(.github/workflows/docker.yml .github/workflows/release-web.yml .github/workflows/release-web-recovery.yml .github/workflows/release.yml Dockerfile .dockerignore docker-entrypoint.sh docker-compose.yml docker-compose.debug.yml .env.example web/pnpm-workspace.yaml scripts/generate-release-compose.sh scripts/check-toolchain-consistency.sh scripts/release_contract.py scripts/test_release_contract.py scripts/docker_persistence_probe.py scripts/test_docker_persistence_probe.py)
 for path in "${required_files[@]}"; do
   require_file "$path"
 done
@@ -91,6 +91,8 @@ ordered_markers = [
     "Login to GitHub Container Registry after both scans pass",
     "Reject an existing immutable image tag after both scans pass",
     "Push the scanned OCI layout without rebuilding",
+    "Bind source and successful scan policy to the published digest",
+    "Sign durable scan evidence after exact digest promotion",
 ]
 positions = []
 for marker in ordered_markers:
@@ -174,15 +176,33 @@ for contract in (
     "environment: ${{ inputs.publish_environment }}",
     "actions: read",
     "packages: write",
+    "id-token: write",
+    "attestations: write",
 ):
     if contract not in publish:
         raise SystemExit(f"Docker publisher is missing protected handoff contract: {contract}")
-if "actions/checkout@" in publish:
-    raise SystemExit("Docker publisher must use the immutable artifact handoff, not a fresh checkout")
+for contract in ("ref: ${{ github.sha }}", "path: tooling", "sparse-checkout: scripts/release_contract.py",
+                 "sparse-checkout-cone-mode: false", "persist-credentials: false"):
+    if contract not in publish:
+        raise SystemExit("Publisher may check out only pinned validation tooling: " + contract)
+if "docker/build-push-action@" in publish or "context: ." in publish:
+    raise SystemExit("Publisher must not rebuild product source; use only the scanned OCI handoff")
 if docker.count("uses: actions/upload-artifact@") != 1 or docker.count("uses: actions/download-artifact@") != 1:
     raise SystemExit("Docker release must upload and download exactly one immutable OCI handoff")
 if docker.count("packages: write") != 1:
     raise SystemExit("Only the protected Docker publisher may have package write access")
+if docker.count("id-token: write") != 1 or docker.count("attestations: write") != 1:
+    raise SystemExit("Only the protected Docker publisher may sign scan evidence")
+for contract in (
+    "source_sha: ${{ steps.source.outputs.sha }}",
+    "SOURCE_SHA: ${{ needs.build_scan.outputs.source_sha }}",
+    "uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6",
+    "subject-digest: ${{ steps.publish.outputs.image_digest }}",
+    "predicate-path: ${{ runner.temp }}/docker-scan-predicate.json",
+    "push-to-registry: true",
+):
+    if contract not in docker:
+        raise SystemExit("Missing durable signed scan proof contract: " + contract)
 for forbidden_prepare_auth in ("packages: read", "docker login ghcr.io", "uses: docker/login-action@", "docker buildx imagetools inspect"):
     if forbidden_prepare_auth in release:
         raise SystemExit(
@@ -205,13 +225,13 @@ for contract in required_release_contracts:
     if contract not in release:
         raise SystemExit(f"Missing tag release contract: {contract}")
 required_post_scan_publish_contracts = [
-    "docker buildx imagetools inspect",
-    "Image tag already exists",
-    "Could not prove ${image} is unused",
+    'python3 tooling/scripts/release_contract.py require-image-absent --tag "v${VERSION}"',
 ]
 for contract in required_post_scan_publish_contracts:
     if contract not in docker:
         raise SystemExit(f"Missing post-scan immutable image tag contract: {contract}")
+if "manifest unknown|name unknown|not found" in docker:
+    raise SystemExit("Publisher cannot infer manifest absence from a generic CLI error")
 if not re.search(r"(?ms)^  release:\n(?:(?!^  [^ ]).)*^    environment: release$", release):
     raise SystemExit("GitHub Release writer must use the protected release environment")
 
@@ -222,6 +242,8 @@ for contract in (
     "publish_environment: release",
     "actions: read",
     "packages: write",
+    "id-token: write",
+    "attestations: write",
 ):
     if contract not in release_docker:
         raise SystemExit(f"Tag release Docker caller is missing nested permission or source contract: {contract}")

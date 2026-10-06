@@ -1,5 +1,7 @@
 # Release Change Inventory - 2026-05-27
 
+此文件保留历史叙述，不再作为当前源码的严格发布证明。当前库存使用 `release-change-inventory.json`，按 `v1.0.9` 的已核验 SHA 到候选提交及本地修改的全部精确路径检查。
+
 ## Conclusion
 
 This document records the intended release change set before staging, commit, tag, or public distribution. The changed paths below are categorized into the release scope for the family, AI, client consistency, data protection, and release-readiness objective.

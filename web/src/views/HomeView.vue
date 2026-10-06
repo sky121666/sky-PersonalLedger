@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
   Eye, EyeOff, ChevronRight, RefreshCw, 
@@ -28,8 +28,11 @@ const router = useRouter()
 const ledgerMutationRevision = useLedgerMutationRevision()
 const dataRequestGeneration = createRequestGeneration()
 const dateTransactionsRequestGeneration = createRequestGeneration()
+const refreshRequests = createRequestGeneration()
 
 const loading = ref(false)
+const loadFailures = ref<string[]>([])
+const dateTransactionsFailed = ref(false)
 const showAmount = ref(true)
 const viewMode = ref<'list' | 'calendar'>('list')
 const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
@@ -39,6 +42,7 @@ const accountData = ref<AccountListResponse | null>(null)
 const overview = ref<OverviewResponse | null>(null)
 const recentTransactions = ref<Transaction[]>([])
 const dateTransactions = ref<Transaction[]>([])
+const dateTransactionsDate = ref('')
 const debtSummary = ref<DebtSummary | null>(null)
 const budgetSummary = ref<BudgetSummary | null>(null)
 const lendingSummary = ref<LendingSummary | null>(null)
@@ -62,11 +66,11 @@ watch(ledgerMutationRevision, () => {
   void refreshLedgerData()
 })
 
-async function loadData() {
+async function loadData(): Promise<'success' | 'partial' | 'failed' | 'stale'> {
   const requestGeneration = dataRequestGeneration.begin()
   loading.value = true
   try {
-    const [acc, ov, tx, debt, bud, lending, family, aiReports] = await Promise.all([
+    const [acc, ov, tx, debt, bud, lending, family, aiReports] = await Promise.allSettled([
       accountApi.getList(),
       statisticsApi.getOverview(),
       transactionApi.getList({ page_size: 20 }),
@@ -76,29 +80,43 @@ async function loadData() {
       familyApi.getSummary(dayjs().format('YYYY-MM')),
       aiApi.listReports()
     ])
-    if (!dataRequestGeneration.isLatest(requestGeneration)) return
-    accountData.value = acc
-    overview.value = ov
-    recentTransactions.value = tx.list.sort((a, b) => 
-      new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
-    )
-    debtSummary.value = debt
-    budgetSummary.value = bud
-    lendingSummary.value = lending
-    familySummary.value = family
-    latestAIReport.value = aiReports[0] || null
-  } catch (e: any) {
-    if (!dataRequestGeneration.isLatest(requestGeneration)) return
-    toast.error('加载失败，请重试')
-  } finally {
-    if (dataRequestGeneration.isLatest(requestGeneration)) {
-      loading.value = false
+    if (!dataRequestGeneration.isLatest(requestGeneration)) return 'stale'
+    const failures: string[] = []
+    if (acc.status === 'fulfilled') accountData.value = acc.value
+    else failures.push('账户资产')
+    if (ov.status === 'fulfilled') overview.value = ov.value
+    else failures.push('本月收支')
+    if (tx.status === 'fulfilled') {
+      recentTransactions.value = tx.value.list.sort((a, b) =>
+        new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
+      )
+    } else failures.push('近期交易')
+    if (debt.status === 'fulfilled') debtSummary.value = debt.value
+    else failures.push('债务提醒')
+    if (bud.status === 'fulfilled') budgetSummary.value = bud.value
+    else failures.push('预算')
+    if (lending.status === 'fulfilled') lendingSummary.value = lending.value
+    else failures.push('借贷')
+    if (family.status === 'fulfilled') familySummary.value = family.value
+    else failures.push('家庭成员')
+    if (aiReports.status === 'fulfilled') latestAIReport.value = aiReports.value[0] || null
+    else failures.push('AI 分析')
+    loadFailures.value = failures
+    if ([acc, ov, tx].some(result => result.status === 'rejected')) {
+      toast.error('部分核心数据加载失败，请重试')
+      return 'failed'
     }
+    return failures.length > 0 ? 'partial' : 'success'
+  } finally {
+    if (dataRequestGeneration.isLatest(requestGeneration)) loading.value = false
   }
 }
 
-async function loadDateTransactions(date: string) {
+async function loadDateTransactions(date: string): Promise<'success' | 'failed' | 'stale'> {
+  if (selectedDate.value !== date) return 'stale'
   const requestGeneration = dateTransactionsRequestGeneration.begin()
+  if (dateTransactionsDate.value !== date) dateTransactions.value = []
+  dateTransactionsFailed.value = false
   try {
     const res = await transactionApi.getList({
       start_date: date,
@@ -108,36 +126,51 @@ async function loadDateTransactions(date: string) {
     if (
       !dateTransactionsRequestGeneration.isLatest(requestGeneration) ||
       selectedDate.value !== date
-    ) return
+    ) return 'stale'
+    dateTransactionsDate.value = date
+    dateTransactionsFailed.value = false
     // Sort by transaction_date DESC
     dateTransactions.value = res.list.sort((a, b) => 
       new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
     )
-  } catch (e) {
+    return 'success'
+  } catch {
     if (
       !dateTransactionsRequestGeneration.isLatest(requestGeneration) ||
       selectedDate.value !== date
-    ) return
-    console.error(e)
+    ) return 'stale'
+    dateTransactionsFailed.value = true
+    return 'failed'
   }
 }
 
 async function refresh() {
-  await loadData()
-  if (viewMode.value === 'calendar') {
-    await loadDateTransactions(selectedDate.value)
-    // Refresh calendar data if exposed
-  }
-  toast.success('刷新成功')
+  const generation = refreshRequests.begin()
+  const refreshDate = selectedDate.value
+  const refreshCalendar = viewMode.value === 'calendar'
+  const result = await loadData()
+  if (
+    result === 'stale' || !refreshRequests.isLatest(generation)
+    || (refreshCalendar && selectedDate.value !== refreshDate)
+  ) return
+  const dateResult = refreshCalendar ? await loadDateTransactions(refreshDate) : 'success'
+  if (
+    !refreshRequests.isLatest(generation) || dateResult === 'stale'
+    || (refreshCalendar && selectedDate.value !== refreshDate)
+  ) return
+  if (dateResult === 'failed') toast.error('所选日期交易刷新失败，请重试')
+  else if (result === 'success') toast.success('刷新成功')
+  else if (result === 'partial') toast.warning('核心数据已刷新，部分辅助数据加载失败')
 }
 
 function handleDateSelect(date: string) {
+  refreshRequests.begin()
   selectedDate.value = date
   loadDateTransactions(date)
 }
 
 function formatMoney(value: number | undefined) {
-  if (value === undefined) return '0.00'
+  if (value === undefined) return '—'
   return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
@@ -185,6 +218,12 @@ async function refreshLedgerData() {
     loadDateTransactions(selectedDate.value),
   ])
 }
+onBeforeUnmount(() => {
+  dataRequestGeneration.begin()
+  dateTransactionsRequestGeneration.begin()
+  refreshRequests.begin()
+})
+
 </script>
 
 <template>
@@ -215,6 +254,11 @@ async function refreshLedgerData() {
     </div>
 
     <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
+      <div v-if="loadFailures.length" role="alert" class="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-800 dark:text-amber-200">
+        {{ loadFailures.join('、') }}加载失败；对应数据为上次成功结果或尚未加载。
+        <button type="button" class="ml-2 underline" @click="refresh">重试</button>
+      </div>
+      <div v-if="dateTransactionsFailed && viewMode === 'calendar'" role="alert" class="text-sm text-amber-700">所选日期交易加载失败，请重试。</div>
       <!-- Assets Card -->
       <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl md:rounded-3xl p-4 md:p-6 text-white shadow-xl relative overflow-hidden group">
         <!-- Decorative background elements -->
@@ -371,7 +415,7 @@ async function refreshLedgerData() {
                 <span>AI 分析</span>
               </h3>
               <span class="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-gray-700 text-cyan-600 dark:text-cyan-400 shadow-sm">
-                {{ latestAIReport?.status === 'completed' ? '已生成' : '待生成' }}
+                {{ loadFailures.includes('AI 分析') ? '加载失败' : latestAIReport?.status === 'completed' ? '已生成' : '待生成' }}
               </span>
             </div>
 
@@ -406,14 +450,14 @@ async function refreshLedgerData() {
                 <span>📊 本月预算</span>
               </h3>
               <span class="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm">
-                {{ budgetSummary?.percentage || 0 }}%
+                {{ budgetSummary ? `${budgetSummary.percentage}%` : '—' }}
               </span>
             </div>
 
             <div class="mb-4">
               <div class="flex justify-between text-xs text-gray-500 mb-1.5">
                 <span>已用 {{ formatMoney(budgetSummary?.total_spent) }}</span>
-                <span>剩余 {{ formatMoney((budgetSummary?.total_amount || 0) - (budgetSummary?.total_spent || 0)) }}</span>
+                <span>剩余 {{ formatMoney(budgetSummary ? budgetSummary.total_amount - budgetSummary.total_spent : undefined) }}</span>
               </div>
               <div class="h-2.5 bg-white dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
                 <div 
@@ -573,7 +617,7 @@ async function refreshLedgerData() {
             <div class="w-20 h-20 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
               <LayoutList :size="32" class="opacity-50" />
             </div>
-            <p>暂无交易记录</p>
+            <p>{{ loading ? '交易加载中' : loadFailures.includes('近期交易') ? '交易加载失败' : '暂无交易记录' }}</p>
           </div>
           <div v-else class="space-y-3">
             <div

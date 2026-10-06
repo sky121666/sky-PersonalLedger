@@ -114,7 +114,7 @@ router.beforeEach(async (to) => {
   }
 
   if (authStore.initialized === false) {
-    authStore.logout()
+    authStore.clearSession()
     return to.path === '/setup' ? true : '/setup'
   }
 

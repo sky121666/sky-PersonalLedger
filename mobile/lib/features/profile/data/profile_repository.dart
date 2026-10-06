@@ -6,7 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
-  return ProfileRepository(ref.watch(apiClientProvider));
+  return ProfileRepository(ref.watch(ledgerApiClientProvider));
 });
 
 class ProfileRepository {

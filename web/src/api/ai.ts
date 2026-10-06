@@ -107,7 +107,7 @@ export const aiApi = {
   },
 
   generateReport(params: GenerateAIReportParams): Promise<AIReport> {
-    return post<AIReport>('/ai/reports/generate', params)
+    return post<AIReport>('/ai/reports/generate', params, { timeout: 45_000 })
   },
 
   deleteReport(id: string): Promise<void> {

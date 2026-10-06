@@ -130,7 +130,7 @@ void main() {
   });
 
   group('SetupPasswordPage', () {
-    testWidgets('首次设置密码少于 8 位时显示本地校验错误且不提交初始化', (tester) async {
+    testWidgets('未初始化账本引导浏览器设置，不展示无法提交令牌的密码表单', (tester) async {
       final repository = _FakeAuthRepository();
       await _pumpAuthPage(
         tester,
@@ -143,43 +143,17 @@ void main() {
         ),
       );
 
-      final fields = find.byType(TextField);
-      await tester.enterText(fields.at(0), '1234567');
-      await tester.enterText(fields.at(1), '1234567');
-      await _scrollIntoTapArea(tester, find.text('完成设置'));
-      await tester.tap(find.text('完成设置'));
-      await tester.pump();
-
-      expect(find.text('密码至少需要 8 位'), findsOneWidget);
-      expect(repository.initCalls, isEmpty);
-      expect(find.byType(AuthFlowShell), findsOneWidget);
-    });
-
-    testWidgets('两次密码不一致时显示错误且不提交初始化', (tester) async {
-      final repository = _FakeAuthRepository();
-      await _pumpAuthPage(
-        tester,
-        const SetupPasswordPage(),
-        repository: repository,
-        state: const AuthState(
-          stage: AuthStage.setupRequired,
-          serverUrl: 'https://ledger.example.com',
-          initialized: false,
-        ),
+      expect(find.text('先在浏览器初始化'), findsOneWidget);
+      expect(find.textContaining('初始化令牌'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(
+        find.byKey(const ValueKey('auth-setup-copy-address')),
+        findsOneWidget,
       );
-
-      final fields = find.byType(TextField);
-      await tester.enterText(fields.at(0), '12345678');
-      await tester.enterText(fields.at(1), '87654321');
-      await _scrollIntoTapArea(tester, find.text('完成设置'));
-      await tester.tap(find.text('完成设置'));
-      await tester.pump();
-
-      expect(find.text('两次输入的密码不一致'), findsOneWidget);
       expect(repository.initCalls, isEmpty);
     });
 
-    testWidgets('首次设置有效密码后调用初始化并进入 authenticated', (tester) async {
+    testWidgets('浏览器完成初始化后重新检查进入登录，不尝试再次初始化', (tester) async {
       final repository = _FakeAuthRepository();
       final controller = await _pumpAuthPage(
         tester,
@@ -191,103 +165,14 @@ void main() {
           initialized: false,
         ),
       );
+      final button = find.byKey(const ValueKey('auth-setup-recheck-button'));
+      await _scrollIntoTapArea(tester, button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
 
-      final fields = find.byType(TextField);
-      await tester.enterText(fields.at(0), '12345678');
-      await tester.enterText(fields.at(1), '12345678');
-      await _scrollIntoTapArea(tester, find.text('完成设置'));
-      await tester.tap(find.text('完成设置'));
-      await tester.pump();
-
-      expect(repository.initCalls, ['12345678']);
-      expect(controller.debugState.stage, AuthStage.authenticated);
-      expect(find.text('设置密码'), findsOneWidget);
-      expect(find.text('账本保护'), findsAtLeastNWidgets(1));
-      expect(find.text('初始化密钥策略'), findsNothing);
-      expect(
-        find.byKey(const ValueKey('auth-setup-password-visibility-toggle')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(
-          const ValueKey('auth-setup-confirm-password-visibility-toggle'),
-        ),
-        findsOneWidget,
-      );
-      await tester.tap(
-        find.byKey(const ValueKey('auth-setup-password-visibility-toggle')),
-      );
-      await tester.tap(
-        find.byKey(
-          const ValueKey('auth-setup-confirm-password-visibility-toggle'),
-        ),
-      );
-      await tester.pump();
-      final setupPasswordVisibilityButtonSecond = tester.widget<IconButton>(
-        find.byKey(const ValueKey('auth-setup-password-visibility-toggle')),
-      );
-      final setupPasswordConfirmVisibilityButtonSecond = tester
-          .widget<IconButton>(
-            find.byKey(
-              const ValueKey('auth-setup-confirm-password-visibility-toggle'),
-            ),
-          );
-      expect(
-        (setupPasswordVisibilityButtonSecond.icon as Icon).icon,
-        Icons.visibility_off,
-      );
-      expect(
-        (setupPasswordConfirmVisibilityButtonSecond.icon as Icon).icon,
-        Icons.visibility_off,
-      );
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Semantics && widget.properties.label == '设置密码，账本保护',
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Semantics && widget.properties.label == '账本保护 表单',
-        ),
-        findsOneWidget,
-      );
-      final setupPasswordVisibilityButton = tester.widget<IconButton>(
-        find.byKey(const ValueKey('auth-setup-password-visibility-toggle')),
-      );
-      final setupPasswordConfirmVisibilityButton = tester.widget<IconButton>(
-        find.byKey(
-          const ValueKey('auth-setup-confirm-password-visibility-toggle'),
-        ),
-      );
-      expect(
-        (setupPasswordVisibilityButton.icon as Icon).icon,
-        Icons.visibility_off,
-      );
-      expect(
-        (setupPasswordConfirmVisibilityButton.icon as Icon).icon,
-        Icons.visibility_off,
-      );
-      expect(
-        find.byKey(const ValueKey('setup-submission-evidence-rail')),
-        findsNothing,
-      );
-      expect(find.text('提交证据'), findsNothing);
-      expect(find.text('长度证据'), findsNothing);
-      expect(
-        find.byKey(const ValueKey('setup-initialization-matrix')),
-        findsNothing,
-      );
-      expect(find.text('初始化控制矩阵'), findsNothing);
-      expect(find.byType(AuthFlowShell), findsOneWidget);
-      expect(find.byType(PremiumSurface), findsAtLeastNWidgets(2));
-      expect(find.byKey(const ValueKey('auth-experience-deck')), findsNothing);
-      expect(find.text('跨端安全控制台'), findsNothing);
-      expect(find.text('iOS 动效'), findsNothing);
-      expect(find.text('Android 状态层'), findsNothing);
-      expect(find.text('主题色联动'), findsNothing);
+      expect(controller.debugState.stage, AuthStage.loginRequired);
+      expect(repository.initCalls, isEmpty);
+      expect(repository.loginCalls, isEmpty);
     });
   });
 
@@ -419,14 +304,13 @@ class _TestAuthController extends AuthController {
   }
 
   @override
-  Future<void> setupPassword(String password) async {
-    state = state.copyWith(stage: AuthStage.checking, clearError: true);
-    final tokenPair = await _repository.init(password);
+  Future<void> bootstrap() async {
+    final status = await _repository.getStatus();
     state = state.copyWith(
-      stage: tokenPair.isValid
-          ? AuthStage.authenticated
+      stage: status.initialized
+          ? AuthStage.loginRequired
           : AuthStage.setupRequired,
-      errorMessage: tokenPair.isValid ? null : '认证响应无效',
+      initialized: status.initialized,
     );
   }
 

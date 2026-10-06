@@ -129,7 +129,7 @@ type FullBackupData struct {
 	NotificationLogs     []model.NotificationLog     `json:"notification_logs"`
 	NotificationSettings *NotificationSettingsBackup `json:"notification_settings,omitempty"`
 	// Attachments is nil when file data was not included (legacy backup or a
-	// 2.3 null attachment value). A non-nil empty slice is authoritative and
+	// 2.3/2.4 null attachment value). A non-nil empty slice is authoritative and
 	// means that the backed-up user directory was empty.
 	Attachments []BackupAttachment `json:"attachments"`
 }
@@ -142,78 +142,94 @@ type UserProfileBackup struct {
 }
 
 func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
-	releaseStorage := acquireAttachmentStorageRead()
+	// Freeze uploads, attachment metadata updates, deletes and GC until the
+	// database snapshot and file contents have both been captured. The barrier
+	// is process-local, matching the supported single-writer deployment.
+	releaseStorage := acquireAttachmentStorageWrite()
 	defer releaseStorage()
 	if !AttachmentStorageAvailable(userID) {
 		return nil, ErrAttachmentRecoveryPending
 	}
 
+	var backup *FullBackupData
+	err := withConsistentReadSnapshot(s.db, func(snapshot *gorm.DB) error {
+		var err error
+		backup, err = s.createBackupSnapshot(snapshot, userID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return backup, nil
+}
+
+func (s *BackupService) createBackupSnapshot(snapshot *gorm.DB, userID uint) (*FullBackupData, error) {
 	var accounts []model.Account
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&accounts).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&accounts).Error; err != nil {
 		return nil, err
 	}
 
 	var categories []model.Category
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&categories).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&categories).Error; err != nil {
 		return nil, err
 	}
 
 	var transactions []model.Transaction
-	if err := s.db.Unscoped().Where("user_id = ?", userID).
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).
 		Order("transaction_date ASC, created_at ASC, id ASC").Find(&transactions).Error; err != nil {
 		return nil, err
 	}
 
 	var budgets []model.Budget
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&budgets).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&budgets).Error; err != nil {
 		return nil, err
 	}
 
 	var reminders []model.Reminder
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&reminders).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&reminders).Error; err != nil {
 		return nil, err
 	}
 
 	var lendings []*model.Lending
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&lendings).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&lendings).Error; err != nil {
 		return nil, err
 	}
 
 	var allLendingRecords []*model.LendingRecord
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&allLendingRecords).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&allLendingRecords).Error; err != nil {
 		return nil, err
 	}
 
 	var templates []model.QuickTemplate
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&templates).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&templates).Error; err != nil {
 		return nil, err
 	}
 
 	var tags []model.Tag
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&tags).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&tags).Error; err != nil {
 		return nil, err
 	}
 
 	var familyMembers []model.FamilyMember
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&familyMembers).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&familyMembers).Error; err != nil {
 		return nil, err
 	}
 
 	var aiReports []model.AIReport
-	if err := s.db.Unscoped().Where("user_id = ?", userID).Find(&aiReports).Error; err != nil {
+	if err := snapshot.Unscoped().Where("user_id = ?", userID).Find(&aiReports).Error; err != nil {
 		return nil, err
 	}
 
 	var accountLogs []model.AccountLog
-	if err := s.db.Where("user_id = ?", userID).Order("created_at ASC, id ASC").Find(&accountLogs).Error; err != nil {
+	if err := snapshot.Where("user_id = ?", userID).Order("created_at ASC, id ASC").Find(&accountLogs).Error; err != nil {
 		return nil, err
 	}
 	var notificationLogs []model.NotificationLog
-	if err := s.db.Where("user_id = ?", userID).Order("created_at ASC, id ASC").Find(&notificationLogs).Error; err != nil {
+	if err := snapshot.Where("user_id = ?", userID).Order("created_at ASC, id ASC").Find(&notificationLogs).Error; err != nil {
 		return nil, err
 	}
 
-	notificationSettings, err := s.notificationRepo.GetByUserID(userID)
+	notificationSettings, err := repository.NewNotificationRepository(snapshot).GetByUserID(userID)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
@@ -223,13 +239,15 @@ func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
 
 	// Get user profile
 	var userProfile *UserProfileBackup
-	if user, err := s.userRepo.GetByID(userID); err == nil {
+	if user, err := repository.NewUserRepository(snapshot).GetByID(userID); err == nil {
 		userProfile = &UserProfileBackup{
 			Nickname: user.Nickname,
 			Email:    user.Email,
 			Avatar:   user.Avatar,
 			Bio:      user.Bio,
 		}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 
 	attachments, err := s.createBackupAttachments(userID)
@@ -237,7 +255,7 @@ func (s *BackupService) CreateBackup(userID uint) (*FullBackupData, error) {
 		return nil, fmt.Errorf("backup attachments: %w", err)
 	}
 	backup := &FullBackupData{
-		Version:              "2.3",
+		Version:              currentBackupVersion,
 		ExportedAt:           time.Now(),
 		SourceUserID:         userID,
 		UserProfile:          userProfile,
@@ -302,9 +320,6 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 	if err := json.Unmarshal(data, &backup); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidBackupFormat, err)
 	}
-	if err := validateBackupForRestore(backup); err != nil {
-		return err
-	}
 	if err := normalizeBackupForRestore(&backup, userID); err != nil {
 		return err
 	}
@@ -365,9 +380,17 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 			}
 		}
 
+		// GORM's Create substitutes non-zero schema defaults for zero values.
+		// Preserve imported switches and zero-day reminder preferences explicitly;
+		// UpdateColumn(s) avoids changing history timestamps and Unscoped includes
+		// tombstones that were just restored.
 		for _, member := range backup.FamilyMembers {
 			member.UserID = userID
+			isEnabled := member.IsEnabled
 			if err := tx.Omit(clause.Associations).Create(&member).Error; err != nil {
+				return err
+			}
+			if err := tx.Unscoped().Model(&member).UpdateColumn("is_enabled", isEnabled).Error; err != nil {
 				return err
 			}
 		}
@@ -381,14 +404,22 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 
 		for _, budget := range backup.Budgets {
 			budget.UserID = userID
+			defaults := map[string]any{"is_active": budget.IsActive, "alert_threshold": budget.AlertThreshold, "period": budget.Period}
 			if err := tx.Omit(clause.Associations).Create(&budget).Error; err != nil {
+				return err
+			}
+			if err := tx.Unscoped().Model(&budget).UpdateColumns(defaults).Error; err != nil {
 				return err
 			}
 		}
 
 		for _, reminder := range backup.Reminders {
 			reminder.UserID = userID
+			defaults := map[string]any{"is_enabled": reminder.IsEnabled, "advance_days": reminder.AdvanceDays, "loan_type": reminder.LoanType}
 			if err := tx.Omit(clause.Associations).Create(&reminder).Error; err != nil {
+				return err
+			}
+			if err := tx.Unscoped().Model(&reminder).UpdateColumns(defaults).Error; err != nil {
 				return err
 			}
 		}
@@ -509,28 +540,6 @@ func (s *BackupService) finalizeCommittedAttachmentRestore(plan *attachmentResto
 		return nil
 	}
 	return fmt.Errorf("%w: %v", ErrAttachmentRecoveryPending, errors.Join(commitErr, activeErr, retryErr, retryActiveErr))
-}
-
-func validateBackupForRestore(backup FullBackupData) error {
-	if backup.UserProfile != nil || backup.NotificationSettings != nil {
-		return nil
-	}
-	if len(backup.Accounts) > 0 ||
-		len(backup.Categories) > 0 ||
-		len(backup.Transactions) > 0 ||
-		len(backup.Budgets) > 0 ||
-		len(backup.Reminders) > 0 ||
-		len(backup.Lendings) > 0 ||
-		len(backup.LendingRecords) > 0 ||
-		len(backup.Templates) > 0 ||
-		len(backup.Tags) > 0 ||
-		len(backup.FamilyMembers) > 0 ||
-		len(backup.AIReports) > 0 ||
-		len(backup.AccountLogs) > 0 ||
-		len(backup.NotificationLogs) > 0 {
-		return nil
-	}
-	return ErrInvalidBackupData
 }
 
 func (s *BackupService) clearUserData(userID uint) {

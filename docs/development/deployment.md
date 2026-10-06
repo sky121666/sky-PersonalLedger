@@ -25,10 +25,10 @@ v1.0.8 digest。不要尝试下载并不存在的 v1.0.8 Compose 附件。
 
 base64 命令分别执行一次用于 LEDGER_JWT_SECRET 与
 LEDGER_CREDENTIAL_ENCRYPTION_KEY；hex 命令用于 LEDGER_SETUP_TOKEN。把输出只写入
-本机 .env，然后启动：
+本机 .env，然后明确选用已下载并校验过的版本 Compose（以下以 v1.0.9 为例）：
 
-    docker compose up -d
-    docker compose ps
+    docker compose --env-file .env -f docker-compose-v1.0.9.yml up -d
+    docker compose --env-file .env -f docker-compose-v1.0.9.yml ps
     curl -fsS http://127.0.0.1:8080/api/v1/health
 
 首次访问：
@@ -114,12 +114,29 @@ docker compose config --quiet；排障时也不要上传包含展开值的输出
 
 ## 升级与回滚
 
-升级前备份 ./data 和受限的 .env，记录当前镜像 digest。升级时下载新 Release 的
-Compose 与 checksum，校验后运行：
+本次修复新增 schema 11，用于 AI 报告的内部配置指纹。新版启动会自动升级；旧报告内容保留。
+schema 10 的旧二进制无法直接打开 schema 11 数据库，回退时须使用兼容版本或升级前的一致性备份。
 
-    docker compose pull
-    docker compose up -d
-    docker compose ps
+升级前记录当前版本 Compose、镜像 digest 与密钥版本；停止应用写入后制作一致的 ./data
+副本并备份受限的 .env。外部 PostgreSQL/MySQL/MariaDB 还需数据库自身的一致性备份，
+不能只复制 ./data。将备份加密后保存到独立设备或异地位置，并先在隔离副本上验证恢复；
+同一 ./data 下的自动备份不能抵抗整盘或整机损失。
 
-回滚必须同时考虑数据库、备份格式和凭据迁移兼容性；不要只把 latest 改回旧值。发布与
-远端保护要求见 [发布治理合同](release-governance.md)。
+升级时下载目标 Release 的 Compose 与 checksum，校验后每一步都明确传入同一个文件。
+以下以已发布的 v1.0.9 为例；其他版本将文件名同步替换为该版本的真实附件名：
+
+    sha256sum -c docker-compose-v1.0.9.yml.sha256
+    docker compose --env-file .env -f docker-compose-v1.0.9.yml pull
+    docker compose --env-file .env -f docker-compose-v1.0.9.yml up -d
+    docker compose --env-file .env -f docker-compose-v1.0.9.yml ps
+    curl -fsS http://127.0.0.1:8080/api/v1/health
+
+不要省略 -f：根 docker-compose.yml 保留旧基线，不会自动选中下载的版本附件。
+如果配置了其他宿主机端口，也应同步调整健康检查地址。确认登录、账户余额、交易、附件和
+凭据读取后再恢复正常使用，保留旧镜像、配置和升级前备份直到验收完成。
+
+回滚先停止新版本写入，确认旧版本支持数据库及凭据格式；不兼容时，将升级前的数据库、
+上传目录和对应密钥作为一组恢复到隔离环境验证，再切回原版本 Compose。若升级后已经有
+新增交易，恢复旧快照会丢失这些写入，必须先导出并安排核对。不要用原镜像直接打开未知
+兼容性的新数据库，也不要只把 latest 改回旧值。发布与远端保护要求见
+[发布治理合同](release-governance.md)。

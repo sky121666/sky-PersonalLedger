@@ -81,43 +81,63 @@ class AuthController extends StateNotifier<AuthState> {
   bool _apiInitialized = false;
 
   Future<void> bootstrap() async {
-    _emitState(state.copyWith(stage: AuthStage.checking, clearError: true));
-    final serverConfigService = _ref.read(serverConfigServiceProvider);
-    final secureStorage = _ref.read(secureStorageServiceProvider);
-    final storedConfig = await serverConfigService.readStoredConfig();
-    final config = await serverConfigService.readConfig();
+    final generation = _beginSessionChange(publishRevision: false);
+    try {
+      // The initial bootstrap starts while its provider is being built.
+      // Publish dependencies after construction, unless a user action won.
+      await Future<void>.value();
+      _checkGeneration(generation);
+      _ref.read(ledgerSessionRevisionProvider.notifier).state++;
+      final serverConfigService = _ref.read(serverConfigServiceProvider);
+      final secureStorage = _ref.read(secureStorageServiceProvider);
+      final storedConfig = await serverConfigService.readStoredConfig();
+      final config = await serverConfigService.readConfig();
+      _checkGeneration(generation);
 
-    if (config == null) {
-      if (await _maybeConnectRuntimeServerConfig(serverConfigService)) {
+      if (config == null) {
+        if (await _maybeConnectRuntimeServerConfig(serverConfigService)) {
+          return;
+        }
+        if (await _maybeBootstrapWithRuntimeE2E(serverConfigService)) {
+          return;
+        }
+
+        await _mutateSession(generation, secureStorage.clearTokens);
+        if (storedConfig != null &&
+            ServerConfigService.requiresInsecureLocalHttpConfirmation(
+              storedConfig.baseUrl,
+            )) {
+          _emitState(
+            AuthState(
+              stage: AuthStage.serverRequired,
+              serverUrl: storedConfig.baseUrl,
+              errorMessage: '局域网 HTTP 需要确认风险后才能连接',
+            ),
+          );
+        } else {
+          _emitState(const AuthState(stage: AuthStage.serverRequired));
+        }
         return;
       }
+
+      await _initializeApiClient();
+      _checkGeneration(generation);
       if (await _maybeBootstrapWithRuntimeE2E(serverConfigService)) {
         return;
       }
-
-      await secureStorage.clearTokens();
-      if (storedConfig != null &&
-          ServerConfigService.requiresInsecureLocalHttpConfirmation(
-            storedConfig.baseUrl,
-          )) {
+      await _detectInitialRoute(config.baseUrl, generation);
+    } on SessionChangedException {
+      // A newer connect/login action owns routing and storage now.
+    } catch (error) {
+      if (_isCurrentGeneration(generation)) {
         _emitState(
           AuthState(
             stage: AuthStage.serverRequired,
-            serverUrl: storedConfig.baseUrl,
-            errorMessage: '局域网 HTTP 需要确认风险后才能连接',
+            errorMessage: _formatError(error),
           ),
         );
-      } else {
-        _emitState(const AuthState(stage: AuthStage.serverRequired));
       }
-      return;
     }
-
-    await _initializeApiClient();
-    if (await _maybeBootstrapWithRuntimeE2E(serverConfigService)) {
-      return;
-    }
-    await _detectInitialRoute(config.baseUrl);
   }
 
   bool get _shouldAutoBootstrapE2E {
@@ -197,24 +217,36 @@ class AuthController extends StateNotifier<AuthState> {
     String input, {
     bool acknowledgeInsecureLocalHttp = false,
   }) async {
-    _emitState(state.copyWith(stage: AuthStage.checking, clearError: true));
+    final generation = _beginSessionChange();
     final serverConfigService = _ref.read(serverConfigServiceProvider);
     final secureStorage = _ref.read(secureStorageServiceProvider);
     var configSaved = false;
 
     try {
-      await secureStorage.clearTokens();
-      final config = await serverConfigService.saveServerUrl(
-        input,
-        acknowledgeInsecureLocalHttp: acknowledgeInsecureLocalHttp,
+      await _mutateSession(generation, secureStorage.clearTokens);
+      final config = await _mutateSession(
+        generation,
+        () => serverConfigService.saveServerUrl(
+          input,
+          acknowledgeInsecureLocalHttp: acknowledgeInsecureLocalHttp,
+        ),
       );
       configSaved = true;
       await _ref.read(apiClientProvider).reloadBaseUrl();
+      _checkGeneration(generation);
       await _initializeApiClient();
-      await _detectInitialRoute(config.baseUrl);
+      _checkGeneration(generation);
+      await _detectInitialRoute(config.baseUrl, generation);
+    } on SessionChangedException {
+      return;
     } catch (error) {
+      if (!_isCurrentGeneration(generation)) return;
       if (configSaved) {
-        await serverConfigService.clearConfig();
+        try {
+          await _mutateSession(generation, serverConfigService.clearConfig);
+        } on SessionChangedException {
+          return;
+        }
       }
       _emitState(
         AuthState(
@@ -237,6 +269,7 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    final generation = _beginSessionChange();
     final repository = _ref.read(authRepositoryProvider);
     final secureStorage = _ref.read(secureStorageServiceProvider);
     try {
@@ -246,22 +279,42 @@ class AuthController extends StateNotifier<AuthState> {
       // remote session has already expired. Tokens are cleared below in every
       // case, so a best-effort server revocation cannot trap the user locally.
     }
-    await secureStorage.clearTokens();
+    if (!_isCurrentGeneration(generation)) return;
+    try {
+      await _mutateSession(generation, secureStorage.clearTokens);
+    } on SessionChangedException {
+      return;
+    }
     _emitState(
       state.copyWith(stage: AuthStage.loginRequired, clearError: true),
     );
   }
 
   Future<void> changeServer() async {
+    final generation = _beginSessionChange();
     final serverConfigService = _ref.read(serverConfigServiceProvider);
     final secureStorage = _ref.read(secureStorageServiceProvider);
-    await secureStorage.clearTokens();
-    await serverConfigService.clearConfig();
+    try {
+      await _mutateSession(generation, secureStorage.clearTokens);
+      await _mutateSession(generation, serverConfigService.clearConfig);
+      await _ref.read(apiClientProvider).reloadBaseUrl();
+      _checkGeneration(generation);
+    } on SessionChangedException {
+      return;
+    }
     _emitState(const AuthState(stage: AuthStage.serverRequired));
   }
 
   Future<void> expireSession() async {
-    await _ref.read(secureStorageServiceProvider).clearTokens();
+    final generation = _beginSessionChange();
+    try {
+      await _mutateSession(
+        generation,
+        _ref.read(secureStorageServiceProvider).clearTokens,
+      );
+    } on SessionChangedException {
+      return;
+    }
     _emitState(
       state.copyWith(
         stage: AuthStage.loginRequired,
@@ -281,6 +334,7 @@ class AuthController extends StateNotifier<AuthState> {
         AuthInterceptor(
           dio: apiClient.dio,
           secureStorage: _ref.read(secureStorageServiceProvider),
+          session: apiClient.session,
           onSessionExpired: expireSession,
         ),
       ],
@@ -288,20 +342,29 @@ class AuthController extends StateNotifier<AuthState> {
     _apiInitialized = true;
   }
 
-  Future<void> _detectInitialRoute(String serverUrl) async {
+  Future<void> _detectInitialRoute(String serverUrl, int generation) async {
     try {
+      _checkGeneration(generation);
       final status = await _ref.read(authRepositoryProvider).getStatus();
+      _checkGeneration(generation);
       final accessToken = await _ref
           .read(secureStorageServiceProvider)
           .readAccessToken();
+      _checkGeneration(generation);
       final hasToken = accessToken != null && accessToken.isNotEmpty;
-      final hasValidSession = hasToken
+      final hasValidSession = status.initialized && hasToken
           ? await _ref.read(authRepositoryProvider).validateSession()
           : false;
+      _checkGeneration(generation);
 
       if (hasToken && !hasValidSession) {
-        await _ref.read(secureStorageServiceProvider).clearTokens();
+        await _mutateSession(
+          generation,
+          _ref.read(secureStorageServiceProvider).clearTokens,
+        );
       }
+
+      if (hasValidSession) _activateSession(generation);
 
       _emitState(
         AuthState(
@@ -314,7 +377,10 @@ class AuthController extends StateNotifier<AuthState> {
           initialized: status.initialized,
         ),
       );
+    } on SessionChangedException {
+      return;
     } catch (error) {
+      if (!_isCurrentGeneration(generation)) return;
       _emitState(
         AuthState(
           stage: AuthStage.serverRequired,
@@ -327,22 +393,38 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> _authenticate(Future<dynamic> Function() request) async {
-    _emitState(state.copyWith(stage: AuthStage.checking, clearError: true));
+    final generation = _beginSessionChange();
     try {
+      await _mutateSession(
+        generation,
+        _ref.read(secureStorageServiceProvider).clearTokens,
+      );
       final tokenPair = await request();
+      _checkGeneration(generation);
       if (!tokenPair.isValid) {
         throw const FormatException('认证响应无效');
       }
-      await _ref
-          .read(secureStorageServiceProvider)
-          .saveTokens(
-            accessToken: tokenPair.accessToken,
-            refreshToken: tokenPair.refreshToken,
-          );
-      _emitState(
-        state.copyWith(stage: AuthStage.authenticated, clearError: true),
+      await _mutateSession(
+        generation,
+        () => _ref
+            .read(secureStorageServiceProvider)
+            .saveTokens(
+              accessToken: tokenPair.accessToken,
+              refreshToken: tokenPair.refreshToken,
+            ),
       );
+      _activateSession(generation);
+      _emitState(
+        state.copyWith(
+          stage: AuthStage.authenticated,
+          initialized: true,
+          clearError: true,
+        ),
+      );
+    } on SessionChangedException {
+      return;
     } catch (error) {
+      if (!_isCurrentGeneration(generation)) return;
       final fallbackStage = state.initialized == false
           ? AuthStage.setupRequired
           : AuthStage.loginRequired;
@@ -350,6 +432,34 @@ class AuthController extends StateNotifier<AuthState> {
         state.copyWith(stage: fallbackStage, errorMessage: _formatError(error)),
       );
     }
+  }
+
+  int _beginSessionChange({bool publishRevision = true}) {
+    final generation = _ref.read(apiClientProvider).session.invalidate();
+    if (publishRevision) {
+      _ref.read(ledgerSessionRevisionProvider.notifier).state++;
+    }
+    _emitState(state.copyWith(stage: AuthStage.checking, clearError: true));
+    return generation;
+  }
+
+  void _activateSession(int generation) {
+    _checkGeneration(generation);
+    _ref.read(apiClientProvider).session.activate(generation);
+    _ref.read(ledgerSessionRevisionProvider.notifier).state++;
+  }
+
+  bool _isCurrentGeneration(int generation) =>
+      mounted && _ref.read(apiClientProvider).session.isCurrent(generation);
+
+  void _checkGeneration(int generation) {
+    if (!_isCurrentGeneration(generation)) {
+      throw const SessionChangedException();
+    }
+  }
+
+  Future<T> _mutateSession<T>(int generation, Future<T> Function() action) {
+    return _ref.read(apiClientProvider).session.mutate(generation, action);
   }
 
   void _emitState(AuthState next) {

@@ -1,10 +1,15 @@
 package repository
 
 import (
+	"errors"
+	"sync"
+
 	"github.com/sky/personal-ledger/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+var systemSettingWriteMu sync.Mutex
 
 type SystemRepository struct {
 	db *gorm.DB
@@ -27,20 +32,38 @@ func (r *SystemRepository) Get(key string) (string, error) {
 }
 
 func (r *SystemRepository) Set(key, value string) error {
-	var setting model.SystemSetting
-	err := r.db.Where(systemSettingKeyEquals(key)).First(&setting).Error
-	if err == gorm.ErrRecordNotFound {
-		setting = model.SystemSetting{
-			Key:   key,
-			Value: value,
+	return r.Update(key, func(string) (string, error) { return value, nil })
+}
+
+// Update atomically merges a setting with its current persisted value. The
+// callback must be short and must not perform network or database operations.
+// The process lock also handles first creation on the single-writer deployment.
+func (r *SystemRepository) Update(key string, update func(string) (string, error)) error {
+	systemSettingWriteMu.Lock()
+	defer systemSettingWriteMu.Unlock()
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if tx.Dialector.Name() == "sqlite" {
+			// Reserve the writer before the SELECT, rather than upgrading a WAL
+			// reader after an unrelated writer has committed.
+			if err := tx.Model(&model.SystemSetting{}).Where(systemSettingKeyEquals(key)).UpdateColumn("value", gorm.Expr("value")).Error; err != nil {
+				return err
+			}
 		}
-		return r.db.Create(&setting).Error
-	}
-	if err != nil {
-		return err
-	}
-	setting.Value = value
-	return r.db.Save(&setting).Error
+		var setting model.SystemSetting
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(systemSettingKeyEquals(key)).First(&setting).Error
+		missing := errors.Is(err, gorm.ErrRecordNotFound)
+		if err != nil && !missing {
+			return err
+		}
+		value, err := update(setting.Value)
+		if err != nil {
+			return err
+		}
+		if missing {
+			return tx.Create(&model.SystemSetting{Key: key, Value: value}).Error
+		}
+		return tx.Model(&setting).Update("value", value).Error
+	})
 }
 
 func (r *SystemRepository) Delete(key string) error {

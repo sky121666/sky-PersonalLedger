@@ -333,8 +333,8 @@ func TestBackupAttachmentsRoundTripWithIntegrityMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create backup: %v", err)
 	}
-	if backup.Version != "2.3" {
-		t.Fatalf("backup version = %q, want 2.3", backup.Version)
+	if backup.Version != "2.4" {
+		t.Fatalf("backup version = %q, want 2.4", backup.Version)
 	}
 	if backup.Attachments == nil || len(backup.Attachments) != 1 {
 		t.Fatalf("backup attachments = %#v, want one explicit attachment", backup.Attachments)

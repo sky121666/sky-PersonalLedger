@@ -1,10 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
 
 final aiReportRepositoryProvider = Provider<AIReportRepository>((ref) {
-  return AIReportRepository(ref.watch(apiClientProvider));
+  return AIReportRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final aiReportsProvider = FutureProvider.autoDispose<List<AIReportSummary>>((
@@ -52,6 +53,7 @@ class AIReportRepository {
     final report = await _apiClient.post<AIReportSummary>(
       '/ai/reports/generate',
       data: request.toJson(),
+      options: Options(receiveTimeout: const Duration(seconds: 45)),
       fromJsonT: (json) =>
           AIReportSummary.fromJson(json as Map<String, dynamic>? ?? const {}),
     );

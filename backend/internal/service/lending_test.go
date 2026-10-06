@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +13,67 @@ import (
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
 )
+
+func TestLendingRepaymentPreservesFinalCentUntilPaid(t *testing.T) {
+	for _, lendingType := range []string{"lend_out", "borrow_in"} {
+		t.Run(lendingType, func(t *testing.T) {
+			_, repos, userID := newTransactionTestService(t)
+			svc := newLendingTestService(repos)
+			lending, err := svc.Create(userID, CreateLendingRequest{
+				Type: lendingType, ContactName: "Final cent", Principal: 100,
+				LendDate: "2026-09-08",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			partial, err := svc.RecordRepayment(lending.ID, userID, RecordRepaymentRequest{Amount: 99.99, RecordDate: "2026-09-08"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if partial.IsSettled || partial.SettledAt != nil || partial.CurrentBalance.Cents() != 1 || partial.TotalRepaid.Cents() != 9999 {
+				t.Fatalf("partial repayment must retain one cent: %+v", partial)
+			}
+			settled, err := svc.RecordRepayment(lending.ID, userID, RecordRepaymentRequest{Amount: 0.01, RecordDate: "2026-09-08"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !settled.IsSettled || settled.SettledAt == nil || settled.CurrentBalance.Cents() != 0 || settled.TotalRepaid.Cents() != 10000 {
+				t.Fatalf("full repayment must settle exactly: %+v", settled)
+			}
+		})
+	}
+}
+
+func TestLendingRejectsInvalidAndSubCentAmountsWithoutWriting(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	svc := newLendingTestService(repos)
+	lending, err := svc.Create(userID, CreateLendingRequest{Type: "lend_out", ContactName: "Valid", Principal: 100, LendDate: "2026-09-08"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []money.Amount{0, -1, 0.001, money.Amount(math.NaN()), money.Amount(math.Inf(1))} {
+		if _, err := svc.Create(userID, CreateLendingRequest{Type: "lend_out", ContactName: "Invalid", Principal: value, LendDate: "2026-09-08"}); !errors.Is(err, ErrInvalidAmount) {
+			t.Fatalf("create amount %v: %v", value, err)
+		}
+		if _, err := svc.RecordRepayment(lending.ID, userID, RecordRepaymentRequest{Amount: value, RecordDate: "2026-09-08"}); !errors.Is(err, ErrInvalidAmount) {
+			t.Fatalf("repay amount %v: %v", value, err)
+		}
+	}
+	current, err := svc.GetByID(lending.ID, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.CurrentBalance.Cents() != 10000 || current.TotalRepaid.Cents() != 0 {
+		t.Fatalf("invalid repayments changed debt: %+v", current)
+	}
+	var count int64
+	if err := repos.Transaction.DB().Model(&model.Lending{}).Where("user_id = ?", userID).Count(&count).Error; err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("invalid principal created rows: %d", count)
+	}
+}
 
 func TestLendingPatchPreservesOmittedAndClearsExplicitNull(t *testing.T) {
 	_, repos, userID := newTransactionTestService(t)

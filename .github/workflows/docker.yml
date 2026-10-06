@@ -40,6 +40,7 @@ jobs:
       version: ${{ steps.version.outputs.VERSION }}
       repository: ${{ steps.repository.outputs.value }}
       image_digest: ${{ steps.identity.outputs.image_digest }}
+      source_sha: ${{ steps.source.outputs.sha }}
     permissions:
       contents: read
 
@@ -217,8 +218,19 @@ jobs:
       contents: read
       actions: read
       packages: write
+      id-token: write
+      attestations: write
 
     steps:
+      - name: Checkout only trusted release validation tooling
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          sparse-checkout: scripts/release_contract.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Download the scanned OCI handoff
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -257,20 +269,9 @@ jobs:
 
       - name: Reject an existing immutable image tag after both scans pass
         env:
-          REPOSITORY: ${{ needs.build_scan.outputs.repository }}
           VERSION: ${{ needs.build_scan.outputs.version }}
         run: |
-          image="${REGISTRY}/${REPOSITORY}:${VERSION}"
-          inspect_log="$(mktemp)"
-          if docker buildx imagetools inspect "$image" >"$inspect_log" 2>&1; then
-            echo "::error title=Image tag already exists::Refusing to overwrite ${image}"
-            exit 1
-          fi
-          if ! grep -Eqi 'manifest unknown|name unknown|not found' "$inspect_log"; then
-            sed -n '1,20p' "$inspect_log" >&2
-            echo "::error title=Image tag check failed::Could not prove ${image} is unused"
-            exit 1
-          fi
+          python3 tooling/scripts/release_contract.py require-image-absent --tag "v${VERSION}"
 
       - name: Push the scanned OCI layout without rebuilding
         id: publish
@@ -300,3 +301,35 @@ jobs:
           fi
 
           echo "image_digest=$local_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Bind source and successful scan policy to the published digest
+        env:
+          SOURCE_SHA: ${{ needs.build_scan.outputs.source_sha }}
+          VERSION: ${{ needs.build_scan.outputs.version }}
+          IMAGE_DIGEST: ${{ steps.publish.outputs.image_digest }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          predicate = {
+              "schema_version": 1, "repository": os.environ["GITHUB_REPOSITORY"],
+              "source_sha": os.environ["SOURCE_SHA"], "version": os.environ["VERSION"],
+              "tooling_sha": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "workflow_ref": os.environ["GITHUB_WORKFLOW_REF"],
+              "platforms": ["linux/amd64", "linux/arm64"], "scanner": "trivy",
+              "severity": ["HIGH", "CRITICAL"], "ignore_unfixed": True,
+              "vuln_type": ["os", "library"], "scan_exit_codes": {"amd64": 0, "arm64": 0},
+              "handoff_digest": os.environ["IMAGE_DIGEST"],
+          }
+          Path(os.environ["RUNNER_TEMP"], "docker-scan-predicate.json").write_text(json.dumps(predicate))
+          PY
+
+      - name: Sign durable scan evidence after exact digest promotion
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ghcr.io/${{ needs.build_scan.outputs.repository }}
+          subject-digest: ${{ steps.publish.outputs.image_digest }}
+          predicate-type: https://github.com/sky121666/sky-PersonalLedger/attestations/docker-scan/v1
+          predicate-path: ${{ runner.temp }}/docker-scan-predicate.json
+          push-to-registry: true

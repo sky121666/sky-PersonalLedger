@@ -6,7 +6,7 @@ import '../../accounts/application/account_controller.dart';
 import '../../accounts/data/account.dart';
 
 final lendingRepositoryProvider = Provider<LendingRepository>((ref) {
-  return LendingRepository(ref.watch(apiClientProvider));
+  return LendingRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final lendingDashboardProvider = FutureProvider.autoDispose<LendingDashboard>((

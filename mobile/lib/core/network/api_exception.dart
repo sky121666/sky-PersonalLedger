@@ -23,3 +23,7 @@ class ApiException implements Exception {
   @override
   String toString() => message;
 }
+
+class SessionChangedException extends ApiException {
+  const SessionChangedException() : super(message: '账本会话已变更，请重新打开当前页面');
+}

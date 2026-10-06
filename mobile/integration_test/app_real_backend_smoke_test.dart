@@ -38,7 +38,7 @@ void main() {
         find.byKey(const ValueKey('server-url-field')),
         find.text('连接服务器'),
         find.text('连接账本'),
-        find.byKey(const Key('auth-setup-password-field')),
+        find.byKey(const Key('auth-setup-recheck-button')),
         find.byKey(const Key('auth-login-password-field')),
         find.text('首页'),
       ]);
@@ -80,28 +80,10 @@ Future<void> _waitForAuthStep(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 200));
 
     if (find
-            .byKey(const Key('auth-setup-password-field'))
-            .evaluate()
-            .isNotEmpty ||
-        find
-            .byKey(const Key('auth-setup-password-confirm-field'))
-            .evaluate()
-            .isNotEmpty ||
-        find.text('设置密码').evaluate().isNotEmpty) {
-      await _enterTextByPossibleKeys(
-        tester,
-        const [Key('auth-setup-password-field')],
-        _password,
-        fallbackLabels: const ['密码'],
-      );
-      await _enterTextByPossibleKeys(
-        tester,
-        const [Key('auth-setup-password-confirm-field')],
-        _password,
-        fallbackLabels: const ['确认密码'],
-      );
-      await _tapByKey(tester, const ValueKey('auth-setup-submit-button'));
-      return;
+        .byKey(const Key('auth-setup-recheck-button'))
+        .evaluate()
+        .isNotEmpty) {
+      fail('隔离测试账本尚未初始化。请在启动客户端验收前完成后端初始化；手机端只提供浏览器初始化指引。');
     }
 
     if (find

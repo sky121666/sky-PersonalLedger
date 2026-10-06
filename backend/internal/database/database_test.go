@@ -210,7 +210,7 @@ func TestMoneyMigrationBackfillsRoundedCentsAndKeepsLegacyColumns(t *testing.T) 
 	if err != nil {
 		t.Fatalf("open v7 sqlite: %v", err)
 	}
-	if err := legacyDB.AutoMigrate(&schemaMigration{}, &legacyMoneyAccountV7{}); err != nil {
+	if err := legacyDB.AutoMigrate(&schemaMigration{}, &legacyMoneyAccountV7{}, &legacyAIReportV10{}); err != nil {
 		t.Fatalf("create v7 money schema: %v", err)
 	}
 	if err := legacyDB.Create(&schemaMigration{
@@ -320,7 +320,7 @@ func TestInitWithConfigExpandsNotificationCredentialColumns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open v1 sqlite: %v", err)
 	}
-	if err := legacyDB.AutoMigrate(&schemaMigration{}, &legacyNotificationSettingV1{}); err != nil {
+	if err := legacyDB.AutoMigrate(&schemaMigration{}, &legacyNotificationSettingV1{}, &legacyAIReportV10{}); err != nil {
 		t.Fatalf("create v1 notification schema: %v", err)
 	}
 	if err := legacyDB.Create(&schemaMigration{
@@ -395,7 +395,7 @@ func TestInitWithConfigMigratesLegacyAPITokenScopesWithoutLosingData(t *testing.
 	if err != nil {
 		t.Fatalf("open v6 sqlite: %v", err)
 	}
-	if err := legacyDB.AutoMigrate(&schemaMigration{}, &legacyAPITokenV6{}); err != nil {
+	if err := legacyDB.AutoMigrate(&schemaMigration{}, &legacyAPITokenV6{}, &legacyAIReportV10{}); err != nil {
 		t.Fatalf("create v6 api token schema: %v", err)
 	}
 	if err := legacyDB.Create(&schemaMigration{

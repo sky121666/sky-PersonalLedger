@@ -15,12 +15,40 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+
+      - name: Verify exact release inventory and evidence contracts
+        run: |
+          python3 scripts/test_release_evidence.py
+          STRICT_RELEASE_SCOPE=1 ./scripts/check-release-change-inventory.sh
+
+      - name: Execute current-source backup operator HTTP drill
+        env:
+          BACKUP_OPERATOR_DRILL_PROOF_FILE: ${{ runner.temp }}/backup-operator-drill-proof.json
+        run: ./scripts/check-backup-operator-drill-local.sh
+
+      - name: Verify current-source backup operator proof
+        env:
+          STRICT_BACKUP_OPERATOR_DRILL: '1'
+          BACKUP_OPERATOR_DRILL_PROOF_FILE: ${{ runner.temp }}/backup-operator-drill-proof.json
+          BACKUP_OPERATOR_DRILL_EXPECTED_COMMIT: ${{ github.sha }}
+          BACKUP_OPERATOR_DRILL_REQUIRE_CLEAN: '1'
+        run: ./scripts/check-backup-operator-drill.sh
+
+      - name: Upload executed current-source backup proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backup-operator-drill-proof
+          path: ${{ runner.temp }}/backup-operator-drill-proof.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Vet backend
         working-directory: backend
@@ -32,6 +60,8 @@ jobs:
       - name: Verify release recovery behavior and workflow contracts
         run: |
           python3 scripts/test_release_contract.py
+          python3 scripts/test_release_scan_proof.py
+          python3 scripts/test_docker_persistence_probe.py
           ./scripts/check-docker-release-preflight.sh
 
       - name: Verify AI privacy contract

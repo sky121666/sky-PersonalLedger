@@ -190,20 +190,11 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('设置密码'), findsOneWidget);
-        expect(find.text('账本保护'), findsOneWidget);
-        expect(find.text('密码'), findsOneWidget);
-        expect(find.text('确认密码'), findsOneWidget);
+        expect(find.text('先在浏览器初始化'), findsOneWidget);
+        expect(find.text('首次使用'), findsOneWidget);
+        expect(find.byType(TextField), findsNothing);
         expect(
-          find.byKey(const ValueKey('auth-setup-password-field')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('auth-setup-password-confirm-field')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('auth-setup-submit-button')),
+          find.byKey(const ValueKey('auth-setup-recheck-button')),
           findsOneWidget,
         );
         expect(find.text('初始化保护'), findsNothing);

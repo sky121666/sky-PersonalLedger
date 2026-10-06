@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ChevronLeft, ChevronRight, PieChart } from 'lucide-vue-next'
 import { statisticsApi, type OverviewResponse, type CategoryStatItem, type TrendItem } from '@/api/statistics'
 import { toast } from '@/composables/useToast'
@@ -15,6 +15,8 @@ const trendData = ref<TrendItem[]>([])
 const selectedMonth = ref(dayjs().format('YYYY-MM'))
 const statsType = ref<'expense' | 'income'>('expense')
 const loading = ref(false)
+const dataQueryKey = ref('')
+const loadFailed = ref(false)
 const ledgerMutationRevision = useLedgerMutationRevision()
 const dataRequests = createRequestGeneration()
 
@@ -63,6 +65,15 @@ async function loadData() {
   const requestGeneration = dataRequests.begin()
   const requestedMonth = selectedMonth.value
   const requestedType = statsType.value
+  const queryKey = `${requestedMonth}:${requestedType}`
+  // A different query cannot present a previous month's or category type's values.
+  if (dataQueryKey.value !== queryKey) {
+    overview.value = null
+    categoryStats.value = []
+    trendData.value = []
+    dataQueryKey.value = ''
+  }
+  loadFailed.value = false
   loading.value = true
   try {
     const [ov, stats, trend] = await Promise.all([
@@ -75,11 +86,13 @@ async function loadData() {
       || selectedMonth.value !== requestedMonth
       || statsType.value !== requestedType
     ) return
+    dataQueryKey.value = queryKey
     overview.value = ov
     categoryStats.value = stats.items
     trendData.value = trend.items
   } catch (e: any) {
     if (dataRequests.isLatest(requestGeneration)) {
+      loadFailed.value = true
       toast.error('加载统计数据失败')
     }
   } finally {
@@ -101,13 +114,14 @@ function nextMonth() {
 }
 
 function formatMoney(value: number | undefined) {
-  if (value === undefined) return '0.00'
+  if (value === undefined) return '—'
   return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function getDayLabel(dateStr: string) {
   return dayjs(dateStr).format('D')
 }
+onBeforeUnmount(() => { dataRequests.begin() })
 </script>
 
 <template>
@@ -128,12 +142,14 @@ function getDayLabel(dateStr: string) {
         <div class="flex items-center gap-1 bg-gray-100/50 dark:bg-white/5 p-0.5 rounded-full">
           <button
             class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm transition-all text-gray-500 hover:text-gray-900 dark:hover:text-white"
+            aria-label="上个月"
             @click="prevMonth"
           >
             <ChevronLeft :size="16" />
           </button>
           <button
             class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm transition-all text-gray-500 hover:text-gray-900 dark:hover:text-white"
+            aria-label="下个月"
             @click="nextMonth"
           >
             <ChevronRight :size="16" />
@@ -143,6 +159,10 @@ function getDayLabel(dateStr: string) {
     </div>
 
     <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
+      <div v-if="loadFailed" role="alert" class="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-800 dark:text-amber-200">
+        {{ currentMonthDisplay }}统计加载失败。{{ dataQueryKey ? '显示该月上次成功加载的结果。' : '尚无该查询的可用数据。' }}
+        <button type="button" class="ml-2 underline" @click="loadData">重新加载统计</button>
+      </div>
       <!-- Main Summary Card -->
       <div class="bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-xl rounded-[24px] p-6 shadow-sm border border-white/40 dark:border-white/5">
         <div class="flex flex-col items-center justify-center text-center py-2">
@@ -245,7 +265,7 @@ function getDayLabel(dateStr: string) {
         </div>
 
         <div v-if="categoryStats.length === 0" class="py-10 text-center text-gray-400">
-          <p class="text-xs">本月暂无数据</p>
+          <p class="text-xs">{{ loading ? '统计加载中' : dataQueryKey ? '本月暂无数据' : '统计尚未加载' }}</p>
         </div>
 
         <div v-else class="flex flex-col gap-8">

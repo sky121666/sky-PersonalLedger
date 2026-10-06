@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
@@ -11,7 +11,7 @@ import '../../../core/providers/core_providers.dart';
 final dataManagementRepositoryProvider = Provider<DataManagementRepository>((
   ref,
 ) {
-  return DataManagementRepository(ref.watch(apiClientProvider));
+  return DataManagementRepository(ref.watch(ledgerApiClientProvider));
 });
 
 class DataManagementRepository {
@@ -20,10 +20,7 @@ class DataManagementRepository {
   final ApiClient _apiClient;
 
   Future<DataFileResult> downloadBackup() async {
-    final response = await _apiClient.dio.get<List<int>>(
-      '/backup',
-      options: Options(responseType: ResponseType.bytes),
-    );
+    final response = await _apiClient.getBytes('/backup');
     final filename = safeDownloadFilename(
       _filenameFromDisposition(response.headers.value('content-disposition')),
       fallback: _timestampedFilename('backup', 'json'),
@@ -34,10 +31,9 @@ class DataManagementRepository {
   Future<DataFileResult> exportTransactionsCsv({
     ExportTransactionsFilter? filter,
   }) async {
-    final response = await _apiClient.dio.get<List<int>>(
+    final response = await _apiClient.getBytes(
       '/export/transactions/csv',
       queryParameters: filter?.toQueryParameters(),
-      options: Options(responseType: ResponseType.bytes),
     );
     final filename = safeDownloadFilename(
       _filenameFromDisposition(response.headers.value('content-disposition')),
@@ -202,12 +198,40 @@ class DataManagementRepository {
       throw const FormatException('下载内容为空');
     }
 
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/$filename');
-    await file.writeAsBytes(bytes, flush: true);
+    if (kIsWeb) {
+      // file_picker's locked Web implementation has no saveFile. Its existing
+      // XFile adapter sends a local Blob download with the supplied name.
+      await PlatformFile(
+        name: filename,
+        size: bytes.length,
+        bytes: Uint8List.fromList(bytes),
+      ).xFile.saveTo(filename);
+      return DataFileResult.downloadRequested(
+        filename: filename,
+        size: bytes.length,
+      );
+    }
+    final isMobile =
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android;
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: '保存账本文件',
+      fileName: filename,
+      type: FileType.custom,
+      allowedExtensions: [filename.split('.').last],
+      bytes: isMobile ? Uint8List.fromList(bytes) : null,
+    );
+    if (path == null || path.isEmpty) {
+      return DataFileResult.cancelled(filename: filename);
+    }
+    // Desktop pickers select a destination; mobile pickers write the bytes
+    // through their native document provider and may return a content URI.
+    if (!isMobile) await File(path).writeAsBytes(bytes, flush: true);
     return DataFileResult(
-      filename: filename,
-      path: file.path,
+      filename: path.startsWith('content:')
+          ? filename
+          : safeDownloadFilename(path, fallback: filename),
+      path: path,
       size: bytes.length,
     );
   }
@@ -391,16 +415,34 @@ class ExportTransactionsFilter {
   }
 }
 
+enum DataFileDisposition { saved, cancelled, downloadRequested }
+
 class DataFileResult {
   const DataFileResult({
     required this.filename,
     required this.path,
     required this.size,
+    this.disposition = DataFileDisposition.saved,
   });
+
+  const DataFileResult.cancelled({required this.filename})
+    : path = '',
+      size = 0,
+      disposition = DataFileDisposition.cancelled;
+
+  const DataFileResult.downloadRequested({
+    required this.filename,
+    required this.size,
+  }) : path = '',
+       disposition = DataFileDisposition.downloadRequested;
 
   final String filename;
   final String path;
   final int size;
+  final DataFileDisposition disposition;
+  bool get isCancelled => disposition == DataFileDisposition.cancelled;
+  bool get isDownloadRequested =>
+      disposition == DataFileDisposition.downloadRequested;
 }
 
 class AutoBackupOverview {
@@ -522,7 +564,7 @@ String safeDownloadFilename(String? candidate, {required String fallback}) {
   if (withoutPath.isEmpty ||
       withoutPath == '.' ||
       withoutPath == '..' ||
-      withoutPath.contains('\u0000')) {
+      RegExp(r'[\x00-\x1f<>:"|?*]').hasMatch(withoutPath)) {
     return fallback;
   }
   return withoutPath;

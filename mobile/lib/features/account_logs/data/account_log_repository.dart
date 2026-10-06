@@ -5,7 +5,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../accounts/data/account.dart';
 
 final accountLogRepositoryProvider = Provider<AccountLogRepository>((ref) {
-  return AccountLogRepository(ref.watch(apiClientProvider));
+  return AccountLogRepository(ref.watch(ledgerApiClientProvider));
 });
 
 class AccountLogRepository {

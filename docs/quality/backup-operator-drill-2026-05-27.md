@@ -1,5 +1,7 @@
 # Backup Operator Drill - 2026-05-27
 
+此文件仅保留历史演练记录，不能替代本次执行证明。严格门禁读取外部 JSON，验证版本、提交、运行源码指纹、执行时间和实际不变性结果；详见 [当前证据协议](current-release-evidence.md)。
+
 ## Conclusion
 
 Automated backup/restore tests prove service behavior. This local operator drill additionally exercises the real export and restore HTTP workflow against isolated source and target deployments.

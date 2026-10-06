@@ -149,6 +149,35 @@ void main() {
       expect(repository.updateCalls.single.$2.tags, contains('日常'));
     });
 
+    testWidgets('仅修改备注保留归属成员A与付款成员B', (tester) async {
+      final repository = _FakeTransactionRepository();
+      await _pumpTransactionPage(
+        tester,
+        repository: repository,
+        editingTransaction: TransactionItem(
+          id: 'transaction-1',
+          type: TransactionType.expense,
+          amount: 18,
+          accountId: 'account-1',
+          categoryId: 'category-expense',
+          transactionDate: DateTime(2026, 5, 18),
+          remark: '原备注',
+          memberId: 'member-a',
+          paidByMemberId: 'member-b',
+        ),
+      );
+      await _expandMoreOptions(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('transaction-remark')),
+        '新备注',
+      );
+      await _tapSaveButton(tester, label: '保存修改');
+      await tester.pumpAndSettle();
+      expect(repository.updateCalls.single.$2.remark, '新备注');
+      expect(repository.updateCalls.single.$2.memberId, 'member-a');
+      expect(repository.updateCalls.single.$2.paidByMemberId, 'member-b');
+    });
+
     testWidgets('编辑交易默认收起可选字段', (tester) async {
       final repository = _FakeTransactionRepository();
       await _pumpTransactionPage(

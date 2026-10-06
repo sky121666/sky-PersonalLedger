@@ -24,23 +24,39 @@ const instance = axios.create({
 
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean
+  _sessionGeneration?: number
 }
 
-const refreshCoordinator = createRefreshCoordinator()
+const refreshCoordinators = new Map<number, ReturnType<typeof createRefreshCoordinator>>()
+
+function sessionChangedError() {
+  return new Error('会话已变更，请重新操作')
+}
 
 instance.interceptors.request.use(
   (config) => {
     const authStore = useAuthStore()
+    const request = config as RetryableRequestConfig
+    if (request._sessionGeneration !== undefined && request._sessionGeneration !== authStore.sessionGeneration) {
+      throw sessionChangedError()
+    }
+    request._sessionGeneration = authStore.sessionGeneration
     if (authStore.accessToken) {
       config.headers.Authorization = `Bearer ${authStore.accessToken}`
     }
     return config
   },
-  (error) => Promise.reject(error)
+  (error) => { throw error },
+  { synchronous: true }
 )
 
 instance.interceptors.response.use(
   (response: AxiosResponse) => {
+    const config = response.config as RetryableRequestConfig
+    // Logout deliberately invalidates its own local session immediately.
+    if (config._sessionGeneration !== useAuthStore().sessionGeneration && !config.url?.endsWith('/auth/logout')) {
+      return Promise.reject(sessionChangedError())
+    }
     if (response.config.responseType === 'blob') {
       return response
     }
@@ -53,6 +69,10 @@ instance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config as RetryableRequestConfig | undefined
     const authStore = useAuthStore()
+    const generation = originalRequest?._sessionGeneration
+    if (generation !== undefined && generation !== authStore.sessionGeneration) {
+      return Promise.reject(sessionChangedError())
+    }
 
     // Handle 401 Unauthorized
     if (error.response?.status === 401) {
@@ -83,11 +103,24 @@ instance.interceptors.response.use(
 
         let success = false
         try {
-          success = await refreshCoordinator.run(() => authStore.refresh())
+          const session = authStore.sessionGeneration
+          let coordinator = refreshCoordinators.get(session)
+          if (!coordinator) {
+            coordinator = createRefreshCoordinator()
+            refreshCoordinators.set(session, coordinator)
+          }
+          try {
+            success = await coordinator.run(() => authStore.sessionGeneration === session
+              ? authStore.refresh(false, () => { void router.replace('/login?reason=expired') })
+              : Promise.resolve(false))
+          } finally {
+            if (refreshCoordinators.get(session) === coordinator) refreshCoordinators.delete(session)
+          }
         } catch {
           success = false
         }
 
+        if (generation !== authStore.sessionGeneration) return Promise.reject(sessionChangedError())
         if (success && authStore.accessToken) {
           originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`
           return instance(originalRequest)

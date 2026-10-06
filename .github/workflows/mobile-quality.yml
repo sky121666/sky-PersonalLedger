@@ -39,5 +39,10 @@ jobs:
       - name: Run Flutter tests
         run: flutter test
 
+      - name: Verify real browser export delivery
+        run: |
+          chrome_executable="$(command -v google-chrome)"
+          CHROME_EXECUTABLE="$chrome_executable" flutter test --platform chrome test/browser/data_export_browser.dart
+
       - name: Run premium screen smoke tests
         run: flutter test -d flutter-tester integration_test/premium_screens_smoke_test.dart

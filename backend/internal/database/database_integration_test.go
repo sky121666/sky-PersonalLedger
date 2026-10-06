@@ -33,6 +33,7 @@ func TestInitWithConfigPostgresIntegration(t *testing.T) {
 	assertCurrentSchemaVersion(t, db)
 	assertAPITokenScopesRoundTrip(t, db)
 	assertTransactionImportBatchRoundTrip(t, db)
+	assertAIReportProviderRevisionRoundTrip(t, db)
 }
 
 func TestInitWithConfigMySQLIntegration(t *testing.T) {
@@ -55,6 +56,33 @@ func TestInitWithConfigMySQLIntegration(t *testing.T) {
 	assertCurrentSchemaVersion(t, db)
 	assertAPITokenScopesRoundTrip(t, db)
 	assertTransactionImportBatchRoundTrip(t, db)
+	assertAIReportProviderRevisionRoundTrip(t, db)
+}
+
+func assertAIReportProviderRevisionRoundTrip(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	id := "provider-revision-" + db.Dialector.Name()
+	if err := db.Unscoped().Where("id = ?", id).Delete(&model.AIReport{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Unscoped().Where("id = ?", id).Delete(&model.AIReport{}).Error; err != nil {
+			t.Errorf("clean provider revision fixture: %v", err)
+		}
+	})
+	now := time.Now().UTC().Truncate(time.Second)
+	report := model.AIReport{ID: id, UserID: 42, ReportType: "weekly", PeriodStart: now.AddDate(0, 0, -6),
+		PeriodEnd: now, Status: "completed", ProviderRevision: strings.Repeat("a", 64)}
+	if err := db.Create(&report).Error; err != nil {
+		t.Fatalf("persist provider revision: %v", err)
+	}
+	var got model.AIReport
+	if err := db.First(&got, "id = ?", id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.ProviderRevision != report.ProviderRevision {
+		t.Fatal("provider revision did not round-trip through the matrix database")
+	}
 }
 
 func assertAPITokenScopesRoundTrip(t *testing.T, db *gorm.DB) {

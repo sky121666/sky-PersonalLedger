@@ -5,7 +5,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../statistics/data/statistics_models.dart';
 
 final familyRepositoryProvider = Provider<FamilyRepository>((ref) {
-  return FamilyRepository(ref.watch(apiClientProvider));
+  return FamilyRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final familyMembersProvider = FutureProvider.autoDispose<List<FamilyMember>>((

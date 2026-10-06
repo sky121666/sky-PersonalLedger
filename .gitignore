@@ -1,5 +1,5 @@
 # ===== 依赖 =====
-node_modules/
+node_modules
 vendor/
 
 # ===== 构建产物 =====
@@ -7,6 +7,8 @@ web/dist/
 mobile/build/
 output/
 *.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts
 *.exe
 *.dll
 *.so

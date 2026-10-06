@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUNBOOK_FILE="${FINAL_RELEASE_RUNBOOK_FILE:-docs/quality/final-release-runbook-2026-05-27.md}"
+RUNBOOK_FILE="${FINAL_RELEASE_RUNBOOK_FILE:-docs/quality/final-release-runbook-v1.0.10.md}"
 VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 
 fail() {

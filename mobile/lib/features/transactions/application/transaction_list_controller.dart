@@ -93,23 +93,51 @@ class TransactionListController extends StateNotifier<TransactionListState> {
 
   final TransactionRepository _repository;
   Timer? _searchDebounce;
+  int _queryGeneration = 0;
+  bool _hasCurrentPage = false;
 
   /// 下拉刷新交易列表。
   Future<void> refresh() async {
-    await _loadPage(page: 1, refresh: state.items.isNotEmpty);
+    if (!mounted) return;
+    _searchDebounce?.cancel();
+    final generation = ++_queryGeneration;
+    _hasCurrentPage = false;
+    await _loadPage(
+      page: 1,
+      generation: generation,
+      refresh: state.items.isNotEmpty,
+    );
   }
 
   /// 加载下一页交易。
   Future<void> loadMore() async {
-    if (state.isLoading || state.isLoadingMore || !state.hasMore) {
+    if (!mounted ||
+        !_hasCurrentPage ||
+        state.isLoading ||
+        state.isRefreshing ||
+        state.isLoadingMore ||
+        !state.hasMore) {
       return;
     }
-    await _loadPage(page: state.page + 1, append: true);
+    await _loadPage(
+      page: state.page + 1,
+      generation: _queryGeneration,
+      append: true,
+    );
   }
 
   /// 更新搜索关键词并执行 300ms 防抖刷新。
   void updateKeyword(String keyword) {
-    state = state.copyWith(keyword: keyword, clearError: true);
+    if (!mounted) return;
+    _queryGeneration++;
+    _hasCurrentPage = false;
+    state = state.copyWith(
+      keyword: keyword,
+      isLoading: false,
+      isRefreshing: false,
+      isLoadingMore: false,
+      clearError: true,
+    );
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 300), refresh);
   }
@@ -123,6 +151,7 @@ class TransactionListController extends StateNotifier<TransactionListState> {
     bool clearAccount = false,
     bool clearCategory = false,
   }) async {
+    if (!mounted) return;
     state = state.copyWith(
       type: type,
       accountId: accountId,
@@ -137,6 +166,7 @@ class TransactionListController extends StateNotifier<TransactionListState> {
 
   /// 清空全部筛选和搜索条件。
   Future<void> clearFilters() async {
+    if (!mounted) return;
     _searchDebounce?.cancel();
     state = state.copyWith(
       keyword: '',
@@ -166,15 +196,26 @@ class TransactionListController extends StateNotifier<TransactionListState> {
   /// 按页加载交易数据。
   Future<void> _loadPage({
     required int page,
+    required int generation,
     bool append = false,
     bool refresh = false,
   }) async {
     if (append) {
       state = state.copyWith(isLoadingMore: true, clearError: true);
     } else if (refresh) {
-      state = state.copyWith(isRefreshing: true, clearError: true);
+      state = state.copyWith(
+        isLoading: false,
+        isRefreshing: true,
+        isLoadingMore: false,
+        clearError: true,
+      );
     } else {
-      state = state.copyWith(isLoading: true, clearError: true);
+      state = state.copyWith(
+        isLoading: true,
+        isRefreshing: false,
+        isLoadingMore: false,
+        clearError: true,
+      );
     }
 
     try {
@@ -188,6 +229,8 @@ class TransactionListController extends StateNotifier<TransactionListState> {
           categoryId: state.categoryId,
         ),
       );
+      if (!mounted || generation != _queryGeneration) return;
+      _hasCurrentPage = true;
       state = state.copyWith(
         items: append ? [...state.items, ...result.list] : result.list,
         page: result.page,
@@ -199,6 +242,7 @@ class TransactionListController extends StateNotifier<TransactionListState> {
         clearError: true,
       );
     } catch (error) {
+      if (!mounted || generation != _queryGeneration) return;
       state = state.copyWith(
         isLoading: false,
         isRefreshing: false,
@@ -210,6 +254,7 @@ class TransactionListController extends StateNotifier<TransactionListState> {
 
   @override
   void dispose() {
+    _queryGeneration++;
     _searchDebounce?.cancel();
     super.dispose();
   }
