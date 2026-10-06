@@ -1,16 +1,16 @@
-# Final Release Runbook - v1.0.11
-
-**历史候选运行手册：安全扫描阻断，未发布。** 运行 `37410524297` 的双架构构建成功，amd64 Trivy 检出 OpenSSL 与 Go x/crypto 的可修复漏洞后失败；arm64 扫描、publisher 和 Release 均跳过，未发布镜像或 Release。既有 `v1.0.11` tag 保留且不可覆盖，不得依下文重打或重跑旧源码发布。新版本步骤见 [v1.0.12 运行手册](final-release-runbook-v1.0.12.md)。
+# Final Release Runbook - v1.0.12
 
 ## Conclusion
 
-本手册列出 v1.0.11 的发布步骤与前置合同，不证明步骤已执行。正式状态以 [GitHub Release](https://github.com/sky121666/sky-PersonalLedger/releases/tag/v1.0.11)、对应运行记录和公开产物核验为准。范围为现有 GitHub/GHCR Docker/Web；保留 PR、必需检查和 `release` 环境保护，正常批准已授权的具体产物，不使用强制推送、管理员绕过或移动历史 tag。
+本手册列出 v1.0.12 的发布步骤与前置合同，不证明步骤已执行。正式状态以 [GitHub Release](https://github.com/sky121666/sky-PersonalLedger/releases/tag/v1.0.12)、对应运行记录和公开产物核验为准。范围为现有 GitHub/GHCR Docker/Web；保留 PR、必需检查和 `release` 环境保护，正常批准已授权的具体产物，不使用强制推送、管理员绕过或移动历史 tag。
 
 v1.0.10 因证书调用 ref 未受约束而停止发布。原发布运行 `37407444646` 已停止后续发布，停止时无 GHCR 版本或 GitHub Release；既有 tag 保留且不可覆盖，不能重跑旧源码完成发布。
 
+v1.0.11 的运行 `37410524297` 双架构构建完成，amd64 Trivy 因 OpenSSL `CVE-2026-14456` 和 Go x/crypto `CVE-2026-56854` 失败；arm64 扫描、publisher 与 Release 均跳过，未发布镜像或 Release。该 tag 保留且不可覆盖，v1.0.12 用新源码重新构建、双架构扫描与验收。
+
 ## Preconditions
 
-- VERSION/Web/Flutter 同为 1.0.11，原有未提交修复已纳入独立工作树和发布库存；真实数据未参与测试。
+- VERSION/Web/Flutter 同为 1.0.12，原有未提交修复已纳入独立工作树和发布库存；真实数据未参与测试。
 - 所有功能回归、签名来源反例和独立复审须通过；当前备份演练 JSON 绑定新版本及当前源码，干净检出库存仍覆盖从 v1.0.9 基线起的完整改动。旧候选测试未覆盖来源反例，不能沿用其 PASS 证明来源可信。
 - 远端 main 的 Project quality gate、Tracked file safety 和 Reject newly introduced vulnerable dependencies 通过。
 - 创建前读取 GitHub Release、tag 和 GHCR 版本 manifest，确认新版本不存在；未知结果先读状态。
@@ -19,11 +19,15 @@ v1.0.10 因证书调用 ref 未受约束而停止发布。原发布运行 `37407
 
 Docker scan attestation 由受保护发布 job 的 OIDC 身份签名，只有 publisher 具有 `id-token` / `attestations` 写权限。签名 APK/AAB/IPA 不属于本次范围。未来单独移动发布才执行 `CHECK_SIGNING_SECRETS=1 ./scripts/check-release-artifacts-preflight.sh`，不得为本次流程增加机器签名材料。
 
-发布前验证的目标是证书实际调用 URI、ref 与来源提交，而不是仅匹配仓库和工作流文件名或相信谓词自报字段。正常签名必须来自 `release-web.yml`，调用 ref 精确为 `refs/tags/v1.0.11`，source/signer digest 为确切产品 tag SHA。恢复签名必须来自 `release-web-recovery.yml`，调用 ref 为 API 核对的受保护默认分支（当前为 `refs/heads/main`），source/signer digest 为通过 main ancestry 核验的工具 SHA；产品 `source_sha` 仍绑定独立产品 tag SHA。
+发布前验证的目标是证书实际调用 URI、ref 与来源提交，而不是仅匹配仓库和工作流文件名或相信谓词自报字段。正常签名必须来自 `release-web.yml`，调用 ref 精确为 `refs/tags/v1.0.12`，source/signer digest 为确切产品 tag SHA。恢复签名必须来自 `release-web-recovery.yml`，调用 ref 为 API 核对的受保护默认分支（当前为 `refs/heads/main`），source/signer digest 为通过 main ancestry 核验的工具 SHA；产品 `source_sha` 仍绑定独立产品 tag SHA。
+
+`buildConfigURI` 校验上层 caller，SAN 与 `buildSignerURI` 校验实际 reusable callee/signer `docker.yml` 及其准确 ref，不能混用这两种身份。
 
 ## 2. Run Release Workflow
 
-提交经验证的指定路径，创建 PR，等待检查通过后正常合并。main 检查通过后，在确切合并提交创建一次 `git tag -a v1.0.11 -m "Release v1.0.11"`，推送该 tag。`.github/workflows/release-web.yml` 构建一次 OCI、验证两架构并扫描，通过环境批准后推广原 digest，签名并做运行门禁，再创建 Release。
+提交经验证的指定路径，创建 PR，等待检查通过后正常合并。main 检查通过后，在确切合并提交创建一次 `git tag -a v1.0.12 -m "Release v1.0.12"`，推送该 tag。`.github/workflows/release-web.yml` 构建一次 OCI、验证两架构并扫描，通过环境批准后推广原 digest，签名并做运行门禁，再创建 Release。
+
+按真实镜像扫描发现升级依赖：本次要求 OpenSSL `libcrypto3/libssl3 >=3.5.8-r0` 和 Go `golang.org/x/crypto >=0.55.0`。核对安装后的 OS 包版本与最终 Go 二进制模块信息，再分别扫描 amd64/arm64 完整镜像。Go 可达性检查保留为另一层证据，不能代替这两次扫描；严重级别及既有未修复项策略保持不变，不新增忽略项换取放行。
 
 ## 3. Download And Verify Artifacts
 
@@ -31,7 +35,7 @@ Docker scan attestation 由受保护发布 job 的 OIDC 身份签名，只有 pu
 
 旧版本仍依赖其原发布日志；v1.0.11 起必须有签名证明，缺失不能降级为普通 JSON 或历史日志。签名来源可靠仍不等于未来无漏洞：策略仅要求当次 HIGH/CRITICAL、os/library 扫描忽略未修复项。
 
-未来移动签名资产才使用 `RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=1.0.11 REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh`；历史范围见 `docs/quality/release-artifact-evidence-2026-05-27.md`。
+未来移动签名资产才使用 `RELEASE_ARTIFACT_DIR=artifacts RELEASE_VERSION=1.0.12 REQUIRE_IOS_ARTIFACT=1 VERIFY_ARTIFACT_SIGNATURES=1 ./scripts/check-release-artifact-files.sh`；历史范围见 `docs/quality/release-artifact-evidence-2026-05-27.md`。
 
 ## 4. Mobile Device QA
 
@@ -49,7 +53,7 @@ Docker scan attestation 由受保护发布 job 的 OIDC 身份签名，只有 pu
 
 ## 7. Finalize Release Notes
 
-当前说明为 `docs/quality/release-notes-v1.0.11.md`，历史 `docs/quality/release-notes-candidate-2026-05-27.md` 保持历史。`STRICT_RELEASE_NOTES=1 ./scripts/check-release-notes-candidate.sh` 校验当前默认说明。
+当前说明为 `docs/quality/release-notes-v1.0.12.md`，历史 `docs/quality/release-notes-candidate-2026-05-27.md` 保持历史。`STRICT_RELEASE_NOTES=1 ./scripts/check-release-notes-candidate.sh` 校验当前默认说明。
 
 ## 8. Final Gate
 
@@ -58,6 +62,7 @@ Docker scan attestation 由受保护发布 job 的 OIDC 身份签名，只有 pu
 ## Failure Handling
 
 - PR 检查失败：定位根因、写回归、重新提交，不能删除断言换取成功。
+- 完整镜像扫描失败：保留架构、包版本、CVE 和失败阶段，按实际发现升级依赖后用新版本验收；不能降低严重级别、新增忽略项或用 Go 可达性通过代替镜像扫描。
 - 签名来源反例成立：停止受影响候选的推广，保留旧 tag 和失败证据，在新版本、新源码上修复并重新验收；不能用签名存在、同仓库身份或旧测试全绿放行。
 - 推送或创建 Release 超时：先查询 tag、manifest、Release 与运行状态，不重复写入。
 - 镜像已发布而 Release 尚缺：使用现有 recovery 流程，提供精确 digest 和 publisher run；签名核验失败即停止。
