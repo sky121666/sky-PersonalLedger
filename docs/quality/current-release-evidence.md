@@ -4,6 +4,8 @@
 
 库存使用 `docs/quality/release-change-inventory.json`，保存 `schema_version=1`、`base_ref=v1.0.9`、实际 tag 的 `base_commit`、当前 `VERSION` 和全部精确文件路径。它刻意不写候选 HEAD SHA，避免清单自己的提交导致循环更新。当前 `v1.0.9` 的 peeled SHA 为 `134c4fdbcfb6860672af9c044fcad96aa606b8cc`；生成和校验都重新读取本地 tag，并核对固定基线 SHA。`RELEASE_INVENTORY_BASE_COMMIT` 仅供隔离测试仓库覆盖固定值，正式发布沿用固定基线。
 
+v1.0.11 的正式发布状态须从对应 Release 页面、运行记录与公开资产核验，不由源码文档单独决定。v1.0.10 因签名证书调用 ref 未受约束而停止发布，旧 tag 保留且不可覆盖；它不是新的库存基线。版本或精确路径改变后，协调者须在所有源码和文档编辑完成后顺序重新生成库存，不能只手工改 JSON 版本字段。
+
 ```bash
 python3 scripts/release_evidence.py inventory --file docs/quality/release-change-inventory.json --write
 STRICT_RELEASE_SCOPE=1 ./scripts/check-release-change-inventory.sh
@@ -25,3 +27,11 @@ BACKUP_OPERATOR_DRILL_PROOF_FILE=/tmp/ledger-backup-http-proof.json ./scripts/ch
 机器证据只能写在 checkout 外的 runner temp 或 `/tmp`，不能提交含猜测 SHA 的结果。严格校验默认最多接受 48 小时前的执行，缺失证据、历史 Markdown、错误版本/提交、被改动的源码指纹或缺少不变性均失败。发布可通过 `BACKUP_OPERATOR_DRILL_EXPECTED_COMMIT` 指定可信候选 SHA，并设置 `BACKUP_OPERATOR_DRILL_REQUIRE_CLEAN=1` 拒绝脏源码证据。`BACKUP_OPERATOR_DRILL_MAX_AGE_HOURS` 可显式控制有效期。
 
 Security Contracts workflow 直接运行演练并上传 `backup-operator-drill-proof` artifact，文件名为 `backup-operator-drill-proof.json`。发布 source/published 门禁须从已经通过的、同一源码 SHA 的可信 workflow run 下载该 artifact；设置 `BACKUP_OPERATOR_DRILL_PROOF_FILE` 和期望 SHA 后执行严格检查。JSON 内容校验本身不认证来源，不能接受任意用户上传或手工编造的 JSON 作为可信 CI 执行证明。
+
+## 扫描签名的可信来源目标
+
+此前候选测试未覆盖普通同仓库分支签发伪造谓词的反例。密码学校验成功、仓库相同或工作流文件名相同，都不足以证明受保护发布 job 执行过扫描。四项初始来源反例在旧校验器的 RED 已归档；来源修复阶段 17 项本地来源回归通过，独立复核未发现确定 P1/P2。该源码阶段证据不替代真实远端发布身份验证。
+
+正常证明要求证书实际调用 URI 为 `.github/workflows/release-web.yml` 对应的可信 URI，调用 ref 精确为 `refs/tags/v1.0.11`，source/signer digest 精确为产品 tag SHA。恢复证明要求调用 URI 对应 `.github/workflows/release-web-recovery.yml`，调用 ref 为经 API 核对的受保护默认分支（当前为 `refs/heads/main`），source/signer digest 为通过 main ancestry 核验的工具 SHA。恢复谓词的产品 `source_sha` 仍是产品 tag SHA，不能替换成工具 SHA。
+
+验收还须绑定两架构扫描策略、发布 run 和 OCI digest，并从公开注册表/Release 重新下载核验。证书来源约束不能用谓词自报事件、ref、状态或版本来替代；证书 SAN 与实际 caller URI 须一致，混合候选先过滤错误来源再选择。来源缺失、错误或无法核实即停止，不降级为普通 JSON、短期日志或历史 PASS。以上是发布前置合同；执行完成情况以当次证据为准。
