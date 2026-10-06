@@ -52,6 +52,14 @@ func (r *RefreshTokenRepository) DeleteByUserID(userID uint) error {
 	return r.db.Where("user_id = ?", userID).Delete(&model.RefreshToken{}).Error
 }
 
+// DeleteSession also recognizes the pre-session-ID row of a legacy token.
+// Every predicate is scoped to the user authenticated by the signed refresh JWT.
+func (r *RefreshTokenRepository) DeleteSession(userID uint, sessionID, tokenHash, legacyToken string) (bool, error) {
+	result := r.db.Where("user_id = ? AND (id = ? OR token IN ?)", userID, sessionID, []string{tokenHash, legacyToken}).
+		Delete(&model.RefreshToken{})
+	return result.RowsAffected > 0, result.Error
+}
+
 func (r *RefreshTokenRepository) DeleteExpired() error {
 	return r.db.Where("expires_at < ?", time.Now()).Delete(&model.RefreshToken{}).Error
 }

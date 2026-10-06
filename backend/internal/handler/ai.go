@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/service"
@@ -190,6 +191,10 @@ func writeAIProviderError(c *gin.Context, err error) {
 
 func writeAIReportError(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, service.ErrAIReportGenerationLimited):
+		response.Error(c, http.StatusTooManyRequests, 42900, err.Error())
+	case errors.Is(err, service.ErrAIReportContentInvalid):
+		response.Error(c, http.StatusBadGateway, 50200, err.Error())
 	case errors.Is(err, service.ErrAIReportNotFound),
 		errors.Is(err, service.ErrAIReportProviderNotFound):
 		response.NotFound(c, err.Error())

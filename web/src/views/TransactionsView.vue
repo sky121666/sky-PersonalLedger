@@ -16,8 +16,12 @@ dayjs.locale('zh-cn')
 
 const transactions = ref<Transaction[]>([])
 const loading = ref(false)
+const loadError = ref('')
+const loadMoreError = ref('')
+const hasLoaded = ref(false)
+const loadedQueryKey = ref('')
 const page = ref(1)
-const hasMore = ref(true)
+const hasMore = ref(false)
 const total = ref(0)
 const ledgerMutationRevision = useLedgerMutationRevision()
 let listRequestGeneration = 0
@@ -36,6 +40,8 @@ const filters = ref({
   end_date: '',
   keyword: ''
 })
+const currentQueryKey = computed(() => JSON.stringify(buildTransactionListParams(1, 20, filters.value)))
+const canLoadMore = computed(() => hasLoaded.value && !loadError.value && loadedQueryKey.value === currentQueryKey.value)
 
 // Grouped Data Logic
 interface DailyGroup {
@@ -116,8 +122,12 @@ async function handleDelete() {
 }
 
 async function loadTransactions() {
+  clearTimeout(keywordDebounceTimer)
   const generation = ++listRequestGeneration
+  const queryKey = currentQueryKey.value
   loading.value = true
+  loadError.value = ''
+  loadMoreError.value = ''
   try {
     const params = buildTransactionListParams(1, 20, filters.value)
     const data = await transactionApi.getList(params)
@@ -126,9 +136,11 @@ async function loadTransactions() {
     total.value = data.total
     hasMore.value = data.list.length < data.total
     page.value = 1
+    hasLoaded.value = true
+    loadedQueryKey.value = queryKey
   } catch (e) {
     if (generation === listRequestGeneration) {
-      console.error('Load transactions failed:', e)
+      loadError.value = '交易加载失败，请检查网络后重试。'
     }
   } finally {
     if (generation === listRequestGeneration) {
@@ -138,10 +150,11 @@ async function loadTransactions() {
 }
 
 async function loadMore() {
-  if (!hasMore.value || loading.value) return
+  if (!hasMore.value || loading.value || !canLoadMore.value) return
   const generation = listRequestGeneration
   const nextPage = page.value + 1
   loading.value = true
+  loadMoreError.value = ''
   try {
     const params = buildTransactionListParams(nextPage, 20, filters.value)
     const data = await transactionApi.getList(params)
@@ -150,6 +163,10 @@ async function loadMore() {
     total.value = data.total
     page.value = nextPage
     hasMore.value = transactions.value.length < data.total
+  } catch (e) {
+    if (generation === listRequestGeneration) {
+      loadMoreError.value = '更多交易加载失败，已加载的记录仍然保留。'
+    }
   } finally {
     if (generation === listRequestGeneration) {
       loading.value = false
@@ -174,6 +191,9 @@ watch(
   () => filters.value.keyword,
   () => {
     listRequestGeneration++
+    loading.value = true
+    loadError.value = ''
+    loadMoreError.value = ''
     clearTimeout(keywordDebounceTimer)
     keywordDebounceTimer = setTimeout(() => void loadTransactions(), 300)
   }
@@ -181,7 +201,10 @@ watch(
 
 watch(ledgerMutationRevision, () => void loadTransactions())
 
-onBeforeUnmount(() => clearTimeout(keywordDebounceTimer))
+onBeforeUnmount(() => {
+  listRequestGeneration++
+  clearTimeout(keywordDebounceTimer)
+})
 </script>
 
 <template>
@@ -195,7 +218,7 @@ onBeforeUnmount(() => clearTimeout(keywordDebounceTimer))
           </div>
           <div>
             <h1 class="text-xl font-bold text-gray-900 dark:text-white">账单明细</h1>
-            <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ total }} 条记录</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ hasLoaded ? `${total} 条记录` : '尚未加载' }}</div>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -258,9 +281,17 @@ onBeforeUnmount(() => clearTimeout(keywordDebounceTimer))
     </div>
 
     <div class="max-w-3xl mx-auto px-4 md:px-8 py-4 space-y-6">
-      
+      <div v-if="loadError" role="alert" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+        <p>{{ loadError }}</p>
+        <p v-if="hasLoaded" class="mt-1">{{ loadedQueryKey !== currentQueryKey ? '以下为上次成功加载的结果，尚未更新到当前筛选条件。' : '以下为上次成功加载的结果，尚未完成本次更新。' }}</p>
+        <button class="mt-3 rounded-lg border border-current px-3 py-1.5 font-medium disabled:opacity-50" :disabled="loading" @click="loadTransactions">重新加载交易</button>
+      </div>
+      <p v-else-if="loading" role="status" class="text-center text-sm text-gray-500 dark:text-gray-400">
+        {{ hasLoaded ? '正在更新，以下暂时保留已加载的记录…' : '交易加载中…' }}
+      </p>
+
       <!-- Empty State -->
-      <div v-if="transactions.length === 0 && !loading" class="py-20 text-center">
+      <div v-if="hasLoaded && transactions.length === 0 && !loading && !loadError" class="py-20 text-center">
         <div class="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
           <Search :size="32" />
         </div>
@@ -343,15 +374,20 @@ onBeforeUnmount(() => clearTimeout(keywordDebounceTimer))
       </div>
 
       <!-- Load More -->
-      <div v-if="hasMore" class="py-4 text-center">
+      <div v-if="loadMoreError" role="alert" class="text-center text-sm text-amber-800 dark:text-amber-200">
+        <p>{{ loadMoreError }}</p>
+        <button class="mt-2 rounded-lg border border-current px-3 py-1.5 disabled:opacity-50" :disabled="loading || !canLoadMore" @click="loadMore">重试加载更多</button>
+      </div>
+      <div v-else-if="hasMore && canLoadMore" class="py-4 text-center">
         <button 
           class="px-6 py-2 bg-white/50 dark:bg-white/10 rounded-full text-xs text-gray-500 dark:text-gray-400 hover:bg-white/80 dark:hover:bg-white/20 transition-all"
+          :disabled="loading"
           @click="loadMore"
         >
           {{ loading ? '加载中...' : '点击加载更多' }}
         </button>
       </div>
-      <div v-else-if="transactions.length > 0" class="py-6 text-center text-xs text-gray-300 dark:text-gray-700">
+      <div v-else-if="transactions.length > 0 && canLoadMore && !loading" class="py-6 text-center text-xs text-gray-300 dark:text-gray-700">
         - 到底了 -
       </div>
     </div>

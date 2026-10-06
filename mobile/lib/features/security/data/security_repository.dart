@@ -4,7 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
 
 final securityRepositoryProvider = Provider<SecurityRepository>((ref) {
-  return SecurityRepository(ref.watch(apiClientProvider));
+  return SecurityRepository(ref.watch(ledgerApiClientProvider));
 });
 
 class SecurityRepository {

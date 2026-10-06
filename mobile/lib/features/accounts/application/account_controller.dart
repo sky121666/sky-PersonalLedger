@@ -5,12 +5,15 @@ import '../data/account.dart';
 import '../data/account_repository.dart';
 
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
-  return AccountRepository(ref.watch(apiClientProvider));
+  return AccountRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final accountListControllerProvider =
     StateNotifierProvider<AccountListController, AsyncValue<AccountListResult>>(
-      (ref) => AccountListController(ref)..load(),
+      (ref) {
+        ref.watch(accountRepositoryProvider);
+        return AccountListController(ref)..load();
+      },
     );
 
 class AccountListController
@@ -18,13 +21,17 @@ class AccountListController
   AccountListController(this._ref) : super(const AsyncValue.loading());
 
   final Ref _ref;
+  int _loadGeneration = 0;
 
   /// 加载账户列表。
   Future<void> load() async {
+    if (!mounted) return;
+    final generation = ++_loadGeneration;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(
+    final result = await AsyncValue.guard(
       () => _ref.read(accountRepositoryProvider).list(),
     );
+    if (mounted && generation == _loadGeneration) state = result;
   }
 
   /// 创建账户并刷新列表。

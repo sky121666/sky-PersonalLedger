@@ -4,7 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
 
 final apiTokenRepositoryProvider = Provider<ApiTokenRepository>((ref) {
-  return ApiTokenRepository(ref.watch(apiClientProvider));
+  return ApiTokenRepository(ref.watch(ledgerApiClientProvider));
 });
 
 const apiTokenAllowedScopes = <String>[

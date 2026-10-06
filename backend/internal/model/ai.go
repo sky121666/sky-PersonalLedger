@@ -21,20 +21,21 @@ type AIProvider struct {
 }
 
 type AIReport struct {
-	ID            string         `gorm:"primaryKey;size:36" json:"id"`
-	UserID        uint           `gorm:"not null;index" json:"user_id"`
-	ReportType    string         `gorm:"size:30;not null;index" json:"report_type"`
-	PeriodStart   time.Time      `gorm:"not null;index" json:"period_start"`
-	PeriodEnd     time.Time      `gorm:"not null;index" json:"period_end"`
-	Status        string         `gorm:"size:30;not null;default:pending" json:"status"`
-	SnapshotJSON  string         `gorm:"type:text" json:"snapshot_json"`
-	ContentJSON   string         `gorm:"type:text" json:"content_json"`
-	ProviderID    string         `gorm:"size:36;index" json:"provider_id"`
-	ProviderName  string         `gorm:"size:100" json:"provider_name"`
-	Model         string         `gorm:"size:100" json:"model"`
-	PromptVersion string         `gorm:"size:30" json:"prompt_version"`
-	ErrorMessage  string         `gorm:"type:text" json:"error_message,omitempty"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	ID               string         `gorm:"primaryKey;size:36" json:"id"`
+	UserID           uint           `gorm:"not null;index" json:"user_id"`
+	ReportType       string         `gorm:"size:30;not null;index" json:"report_type"`
+	PeriodStart      time.Time      `gorm:"not null;index" json:"period_start"`
+	PeriodEnd        time.Time      `gorm:"not null;index" json:"period_end"`
+	Status           string         `gorm:"size:30;not null;default:pending" json:"status"`
+	SnapshotJSON     string         `gorm:"type:text" json:"snapshot_json"`
+	ContentJSON      string         `gorm:"type:text" json:"content_json"`
+	ProviderID       string         `gorm:"size:36;index" json:"provider_id"`
+	ProviderName     string         `gorm:"size:100" json:"provider_name"`
+	ProviderRevision string         `gorm:"size:64;not null;default:''" json:"-"`
+	Model            string         `gorm:"size:100" json:"model"`
+	PromptVersion    string         `gorm:"size:30" json:"prompt_version"`
+	ErrorMessage     string         `gorm:"type:text" json:"error_message,omitempty"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 }

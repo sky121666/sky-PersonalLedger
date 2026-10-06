@@ -270,9 +270,11 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
       _lastSavedName = null;
     });
 
+    final completeRestore = ref.read(ledgerRestoreCompletionProvider)();
+    final repository = ref.read(dataManagementRepositoryProvider);
     try {
-      await ref.read(dataManagementRepositoryProvider).restoreBackup(file);
-      if (!mounted) {
+      await repository.restoreBackup(file);
+      if (!completeRestore() || !mounted) {
         return;
       }
       ScaffoldMessenger.of(
@@ -618,6 +620,18 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     try {
       final result = await request();
       if (!mounted) {
+        return;
+      }
+      if (result.isCancelled) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已取消保存')));
+        return;
+      }
+      if (result.isDownloadRequested) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('下载请求已发送：${result.filename}，请在浏览器中确认保存')),
+        );
         return;
       }
       setState(() => _lastSavedName = result.filename);

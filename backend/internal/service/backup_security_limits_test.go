@@ -113,7 +113,7 @@ func TestRestoreEnforcesBackupVersionAttachmentSemanticsWithoutMutation(t *testi
 	}
 }
 
-func TestCreateBackupWithoutUploadServiceUsesVersion23NullAttachmentSemantics(t *testing.T) {
+func TestCreateBackupWithoutUploadServiceUsesVersion24NullAttachmentSemantics(t *testing.T) {
 	fixture := newBackupIntegrityFixture(t)
 	withoutUploads := NewBackupService(
 		fixture.db,
@@ -135,25 +135,29 @@ func TestCreateBackupWithoutUploadServiceUsesVersion23NullAttachmentSemantics(t 
 	if err != nil {
 		t.Fatalf("create backup without upload service: %v", err)
 	}
-	if backup.Version != "2.3" || backup.Attachments != nil {
-		t.Fatalf("backup version/attachments = %q/%#v, want 2.3 with null attachment semantics", backup.Version, backup.Attachments)
+	if backup.Version != "2.4" || backup.Attachments != nil {
+		t.Fatalf("backup version/attachments = %q/%#v, want 2.4 with null attachment semantics", backup.Version, backup.Attachments)
 	}
 	data, err := json.Marshal(backup)
 	if err != nil {
 		t.Fatalf("marshal backup: %v", err)
 	}
 	if _, err := preflightBackupJSON(data); err != nil {
-		t.Fatalf("created 2.3 backup does not pass restore preflight: %v", err)
+		t.Fatalf("created 2.4 backup does not pass restore preflight: %v", err)
 	}
 }
 
 func TestBackupVersion23AcceptsExplicitAttachmentSemantics(t *testing.T) {
-	for _, payload := range []string{
-		`{"version":"2.3","accounts":[{}],"attachments":null}`,
-		`{"version":"2.3","accounts":[{}],"attachments":[]}`,
+	for _, attachments := range [][]BackupAttachment{
+		nil,
+		{},
 	} {
-		if _, err := preflightBackupJSON([]byte(payload)); err != nil {
-			t.Fatalf("valid 2.3 attachment semantics rejected for %s: %v", payload, err)
+		payload, err := json.Marshal(FullBackupData{Version: "2.3", Accounts: []model.Account{{}}, Attachments: attachments})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := preflightBackupJSON(payload); err != nil {
+			t.Fatalf("valid complete 2.3 attachment semantics rejected: %v", err)
 		}
 	}
 }

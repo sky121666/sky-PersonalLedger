@@ -80,6 +80,16 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 		auth.POST("/init", setupAccess, h.Auth.Init)
 		auth.POST("/login", h.Auth.Login)
 		auth.POST("/refresh", h.Auth.Refresh)
+		// Browser logout authenticates its refresh cookie with Origin/CSRF,
+		// so an expired access token cannot prevent revocation. Native callers
+		// retain the existing JWT/API-token authentication and logout contract.
+		auth.POST("/logout", func(c *gin.Context) {
+			if !h.Auth.usesBrowserCookie(c) {
+				middleware.AuthWithAPIToken(authService.GetJWTManager(), apiTokenService)(c)
+				return
+			}
+			c.Next()
+		}, middleware.EnforceAPITokenScopes(), h.Auth.Logout)
 		auth.POST("/verify-token", h.Auth.VerifyAPIToken) // API Token 验证（App 端使用）
 	}
 
@@ -98,7 +108,6 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 	protected.Use(middleware.EnforceAPITokenScopes())
 	{
 		// Auth
-		protected.POST("/auth/logout", h.Auth.Logout)
 		protected.POST("/auth/change-password", h.Auth.ChangePassword)
 		protected.GET("/auth/profile", h.Auth.GetProfile)
 		protected.PUT("/auth/profile", h.Auth.UpdateProfile)

@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ type AIReportScheduler struct {
 	now           func() time.Time
 	mu            sync.Mutex
 	running       bool
+	runMu         sync.Mutex
 }
 
 type AIReportScheduleSettings struct {
@@ -102,15 +104,55 @@ func (s *AIReportScheduler) GetSettings() (*AIReportScheduleSettings, error) {
 }
 
 func (s *AIReportScheduler) SaveSettings(settings *AIReportScheduleSettings) error {
-	normalizeAIReportScheduleSettings(settings)
-	data, err := json.Marshal(settings)
-	if err != nil {
-		return err
+	if settings == nil {
+		return errors.New("AI report schedule settings are required")
 	}
-	return s.systemRepo.Set(aiReportScheduleSettingKey, string(data))
+	requested := *settings
+	normalizeAIReportScheduleSettings(&requested)
+	var saved AIReportScheduleSettings
+	err := s.systemRepo.Update(aiReportScheduleSettingKey, func(value string) (string, error) {
+		current := decodeAIReportScheduleSettings(value)
+		current.Enabled, current.WeeklyEnabled, current.MonthlyEnabled, current.Hour = requested.Enabled, requested.WeeklyEnabled, requested.MonthlyEnabled, requested.Hour
+		data, err := json.Marshal(current)
+		saved = *current
+		return string(data), err
+	})
+	if err == nil {
+		*settings = saved
+	}
+	return err
+}
+
+func decodeAIReportScheduleSettings(value string) *AIReportScheduleSettings {
+	settings := defaultAIReportScheduleSettings()
+	if value != "" {
+		if err := json.Unmarshal([]byte(value), settings); err != nil {
+			return defaultAIReportScheduleSettings()
+		}
+	}
+	normalizeAIReportScheduleSettings(settings)
+	return settings
+}
+
+func (s *AIReportScheduler) recordRunCompletion(completed *AIReportScheduleSettings) error {
+	return s.systemRepo.Update(aiReportScheduleSettingKey, func(value string) (string, error) {
+		current := decodeAIReportScheduleSettings(value)
+		if completed.LastWeeklyRun > current.LastWeeklyRun {
+			current.LastWeeklyRun = completed.LastWeeklyRun
+		}
+		if completed.LastMonthlyRun > current.LastMonthlyRun {
+			current.LastMonthlyRun = completed.LastMonthlyRun
+		}
+		data, err := json.Marshal(current)
+		return string(data), err
+	})
 }
 
 func (s *AIReportScheduler) CheckAndGenerate() []AIReportScheduleRunResult {
+	if !s.runMu.TryLock() {
+		return nil
+	}
+	defer s.runMu.Unlock()
 	settings, err := s.GetSettings()
 	if err != nil || !settings.Enabled {
 		return nil
@@ -123,19 +165,25 @@ func (s *AIReportScheduler) CheckAndGenerate() []AIReportScheduleRunResult {
 
 	results := s.generateDueReports(settings, now, false)
 	if len(results) > 0 {
-		_ = s.SaveSettings(settings)
+		if err := s.recordRunCompletion(settings); err != nil {
+			log.Print("Warning: failed to record AI report schedule run")
+		}
 	}
 	return results
 }
 
 func (s *AIReportScheduler) TriggerDueReports() ([]AIReportScheduleRunResult, error) {
+	if !s.runMu.TryLock() {
+		return nil, ErrAIReportGenerationLimited
+	}
+	defer s.runMu.Unlock()
 	settings, err := s.GetSettings()
 	if err != nil {
 		return nil, err
 	}
 	results := s.generateDueReports(settings, s.now(), true)
 	if len(results) > 0 {
-		if err := s.SaveSettings(settings); err != nil {
+		if err := s.recordRunCompletion(settings); err != nil {
 			return results, err
 		}
 	}
@@ -148,20 +196,20 @@ func (s *AIReportScheduler) generateDueReports(settings *AIReportScheduleSetting
 
 	if settings.WeeklyEnabled && (force || settings.LastWeeklyRun != today) {
 		start, end := previousFullWeek(now)
-		result := s.generateForAllUsers("weekly", start, end)
+		result := s.generateForAllUsers("weekly", start, end, !force)
 		results = append(results, result)
 		settings.LastWeeklyRun = today
 	}
 	if settings.MonthlyEnabled && (force || settings.LastMonthlyRun != today) {
 		start, end := previousFullMonth(now)
-		result := s.generateForAllUsers("monthly", start, end)
+		result := s.generateForAllUsers("monthly", start, end, !force)
 		results = append(results, result)
 		settings.LastMonthlyRun = today
 	}
 	return results
 }
 
-func (s *AIReportScheduler) generateForAllUsers(reportType string, start time.Time, end time.Time) AIReportScheduleRunResult {
+func (s *AIReportScheduler) generateForAllUsers(reportType string, start time.Time, end time.Time, automatic ...bool) AIReportScheduleRunResult {
 	result := AIReportScheduleRunResult{
 		ReportType:  reportType,
 		PeriodStart: start.Format("2006-01-02"),
@@ -175,16 +223,37 @@ func (s *AIReportScheduler) generateForAllUsers(reportType string, start time.Ti
 
 	for _, user := range users {
 		result.Attempted++
-		_, err := s.reportService.Generate(user.ID, GenerateAIReportRequest{
+		request := GenerateAIReportRequest{
 			ReportType:  reportType,
 			PeriodStart: result.PeriodStart,
 			PeriodEnd:   result.PeriodEnd,
-		})
+		}
+		if len(automatic) > 0 && automatic[0] {
+			request.beforeProviderRequest = func() error {
+				current, err := s.GetSettings()
+				if err != nil {
+					return err
+				}
+				if !current.Enabled || reportType == "weekly" && !current.WeeklyEnabled || reportType == "monthly" && !current.MonthlyEnabled {
+					return ErrAIReportScheduleDisabled
+				}
+				return nil
+			}
+			if err := request.beforeProviderRequest(); err != nil {
+				if errors.Is(err, ErrAIReportScheduleDisabled) {
+					result.Skipped++
+				} else {
+					result.Failed++
+				}
+				continue
+			}
+		}
+		_, err := s.reportService.Generate(user.ID, request)
 		if err == nil {
 			result.Succeeded++
 			continue
 		}
-		if errors.Is(err, ErrAIReportProviderNotFound) {
+		if errors.Is(err, ErrAIReportProviderNotFound) || errors.Is(err, ErrAIReportScheduleDisabled) {
 			result.Skipped++
 			continue
 		}

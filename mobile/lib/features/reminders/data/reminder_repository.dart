@@ -7,7 +7,7 @@ import '../../accounts/application/account_controller.dart';
 import '../../accounts/data/account.dart';
 
 final reminderRepositoryProvider = Provider<ReminderRepository>((ref) {
-  return ReminderRepository(ref.watch(apiClientProvider));
+  return ReminderRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final reminderDashboardProvider = FutureProvider.autoDispose<ReminderDashboard>(

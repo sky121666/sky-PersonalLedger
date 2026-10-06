@@ -4,7 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
-  return NotificationRepository(ref.watch(apiClientProvider));
+  return NotificationRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final notificationSettingsProvider =

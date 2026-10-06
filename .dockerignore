@@ -12,6 +12,8 @@
 # Node
 web/node_modules
 web/.vite
+web/vite.config.js
+web/vite.config.d.ts
 node_modules
 
 # Go

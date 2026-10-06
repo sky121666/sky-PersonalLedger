@@ -25,6 +25,7 @@ const (
 type Claims struct {
 	UserID    uint   `json:"user_id"`
 	TokenType string `json:"token_type"`
+	SessionID string `json:"session_id,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -59,10 +60,17 @@ func (m *Manager) GenerateAccessToken(userID uint) (string, error) {
 }
 
 func (m *Manager) GenerateRefreshToken(userID uint) (string, time.Time, error) {
+	return m.GenerateRefreshTokenForSession(userID, uuid.New().String())
+}
+
+// GenerateRefreshTokenForSession retains the session identity while rotating
+// the one-time JWT ID. Access tokens never carry this revocation capability.
+func (m *Manager) GenerateRefreshTokenForSession(userID uint, sessionID string) (string, time.Time, error) {
 	expiresAt := time.Now().Add(m.refreshExpire)
 	claims := Claims{
 		UserID:    userID,
 		TokenType: tokenTypeRefresh,
+		SessionID: sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    tokenIssuer,
 			Audience:  jwt.ClaimStrings{refreshAudience},

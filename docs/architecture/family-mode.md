@@ -4,7 +4,7 @@
 
 Personal Ledger should support a lightweight family mode for a trusted personal or household deployment. This is not a multi-tenant SaaS model and should not introduce public registration, organization billing, or complex role-based access control.
 
-The first family-mode release should add family members as an accounting dimension. A member represents who a transaction belongs to, who paid, or who owns an account. Members do not need independent login accounts in the first version.
+Family members are an accounting dimension for transaction ownership and payment. Members do not have independent login accounts. The tables below describe current support; account ownership and automatic default-member assignment remain deferred.
 
 ## Product Scope
 
@@ -12,7 +12,7 @@ The first family-mode release should add family members as an accounting dimensi
 | --- | --- | --- |
 | Member profiles | Name, avatar or icon, color, relationship, enabled state | Independent member login |
 | Transaction ownership | Spending member and optional payer member | Split bills across many members |
-| Account ownership | Optional owner member for accounts | Per-member account permissions |
+| Account ownership | Accounts remain under the deployment owner | Member-owned accounts and per-member account permissions |
 | Budgets | Existing total/category budgets plus optional member budget | Complex approval workflow |
 | Statistics | Member spending ranking and member/category breakdown | Predictive member profiling |
 | Audit | Source device and actor label where available | Full enterprise audit trail |
@@ -31,7 +31,7 @@ The first family-mode release should add family members as an accounting dimensi
 | `avatar` | string | Optional upload path or icon name |
 | `color` | string | Member accent color |
 | `sort_order` | int | Stable ordering |
-| `is_default` | bool | Default member for new records |
+| `is_default` | bool | Saved preferred-member flag; omitted transaction members are not automatically assigned |
 | `is_enabled` | bool | Disabled members remain in historical data |
 | `created_at` | time | GORM timestamp |
 | `updated_at` | time | GORM timestamp |
@@ -43,9 +43,11 @@ The first family-mode release should add family members as an accounting dimensi
 | --- | --- | --- |
 | `transactions` | `member_id *string` | Who the spending/income belongs to |
 | `transactions` | `paid_by_member_id *string` | Who actually paid or received |
-| `accounts` | `owner_member_id *string` | Optional member-owned account |
 | `budgets` | `member_id *string` | Optional member-specific budget |
-| `account_logs` | `member_id *string` | Preserve member context for balance events |
+
+`accounts.owner_member_id` and a separate `account_logs.member_id` are not implemented.
+Account logs link to their originating transaction when available; this is not an immutable
+member-attribution snapshot.
 
 Do not remove `user_id` in this phase. It remains the deployment owner and authorization boundary. Family mode is a product dimension inside the owner account, not a new tenant model.
 
@@ -62,7 +64,7 @@ Do not remove `user_id` in this phase. It remains the deployment owner and autho
 | `/api/v1/budgets/total` | POST | Set owner-level or member-level total budget with optional `member_id` |
 | `/api/v1/budgets/category` | POST | Set owner-level or member-level category budget with optional `member_id` |
 
-Transaction create/update requests should accept `member_id` and `paid_by_member_id`. If `member_id` is omitted, the backend should use the default member when one exists and otherwise keep it empty for backward compatibility.
+Transaction create/update requests accept `member_id` and `paid_by_member_id`. If omitted, the backend keeps attribution empty; it does not substitute the preferred member. Existing unassigned records remain valid. The preferred-member flag does not authorize assigning historical data.
 
 Budget create/update requests can include `member_id`. When omitted, budgets keep the existing owner-level total/category behavior. When present, the backend validates that the member belongs to the current owner account and returns member-scoped budget progress in `member_budgets`.
 
@@ -91,9 +93,9 @@ Mobile should make family mode more visible:
 
 1. Create `family_members`.
 2. Add nullable member fields to existing tables.
-3. Create a default member named from the current user nickname when practical.
-4. Leave existing rows with null member fields unless the user chooses to backfill.
-5. Add a later guided backfill screen if users want to assign historical records.
+3. Leave member creation to the user; startup does not create a member from the owner nickname.
+4. Leave existing rows with null member fields. No automatic historical backfill is performed.
+5. A guided backfill screen and automatic default-member assignment remain future work.
 
 The first migration must be non-destructive and reversible at the data level by ignoring nullable member columns.
 

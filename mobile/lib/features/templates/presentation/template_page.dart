@@ -107,6 +107,7 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
   }
 
   Future<void> _applyTemplate(QuickTemplateItem template) async {
+    final refreshLedger = ref.read(ledgerMutationRefreshProvider);
     setState(() => _submitting = true);
     try {
       final repository = ref.read(templateRepositoryProvider);
@@ -114,15 +115,24 @@ class _TemplatePageState extends ConsumerState<TemplatePage> {
         template.id,
         ApplyTemplateRequest(transactionDate: DateTime.now()),
       );
-      final templates = await repository.list();
-      ref.invalidateLedgerMutationViews();
-      if (!mounted) {
-        return;
+      refreshLedger();
+      if (!mounted) return;
+      try {
+        final templates = await repository.list();
+        if (!mounted) return;
+        setState(() => _templates = templates);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已按模板记账')));
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('已按模板记账，模板列表刷新失败'),
+            action: SnackBarAction(label: '刷新列表', onPressed: _loadData),
+          ),
+        );
       }
-      setState(() => _templates = templates);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已按模板记账')));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(

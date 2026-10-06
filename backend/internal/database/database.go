@@ -127,6 +127,19 @@ var schemaMigrations = []versionedMigration{
 			return tx.AutoMigrate(&model.NotificationSetting{})
 		},
 	},
+	{
+		Version: 11,
+		Name:    "ai_report_provider_revision",
+		Apply: func(tx *gorm.DB) error {
+			// Existing reports retain an empty revision: their provider configuration
+			// cannot be reconstructed reliably and must not qualify for cache reuse.
+			// Add only this column; never rerun or broaden historical migrations.
+			if tx.Migrator().HasColumn(&model.AIReport{}, "ProviderRevision") {
+				return nil
+			}
+			return tx.Migrator().AddColumn(&model.AIReport{}, "ProviderRevision")
+		},
+	},
 }
 
 type moneyColumnMigration struct {

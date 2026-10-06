@@ -1,0 +1,3 @@
+# Unified diff context uses a required leading space, including blank lines.
+# Validate these generated patch artifacts with pnpm application/hash checks.
+web/patches/*.patch -whitespace

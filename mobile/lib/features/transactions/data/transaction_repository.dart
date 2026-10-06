@@ -5,7 +5,7 @@ import '../../../core/providers/core_providers.dart';
 import 'transaction_models.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
-  return TransactionRepository(ref.watch(apiClientProvider));
+  return TransactionRepository(ref.watch(ledgerApiClientProvider));
 });
 
 class TransactionRepository {

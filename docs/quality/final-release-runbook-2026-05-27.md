@@ -7,6 +7,11 @@ emulator behavior are verified development targets, but signed APK, AAB, IPA, Te
 iPhone, VoiceOver, and TalkBack evidence are outside this release. Docker/Web publication does not
 require mobile signing material.
 
+Publication steps below record the original one-time release procedure. v1.0.9 is already published;
+do not execute its tag creation again. Existing-version verification or recovery follows the current
+[release governance contract](../development/release-governance.md). The da8bed5 verify-only run
+33344667117 failed during validation, so that runner recovery path is not yet accepted.
+
 ## Preconditions
 
 | Gate | Command or evidence | Status |
@@ -18,7 +23,7 @@ require mobile signing material.
 | Release notes | `STRICT_RELEASE_NOTES=1 ./scripts/check-release-notes-candidate.sh` | REQUIRED BEFORE TAG |
 | Runbook values | `STRICT_FINAL_RELEASE_RUNBOOK=1 ./scripts/check-final-release-runbook.sh` | REQUIRED BEFORE TAG |
 | Public repository safety | `./scripts/check-public-git-safety.sh` | REQUIRED BEFORE COMMIT AND TAG |
-| Remote target | GitHub `sky121666/sky-PersonalLedger`, protected `main`, unused `v1.0.9` | REQUIRED BEFORE TAG |
+| Remote target | GitHub `sky121666/sky-PersonalLedger`, protected `main`; v1.0.9 already exists | HISTORICAL TAG PROCEDURE; DO NOT RECREATE |
 
 ## 1. Configure Signing
 
@@ -39,8 +44,8 @@ shell. Never put them in source, `.env.example`, logs, issues, release notes, or
 
 ## 2. Run Release Workflow
 
-Merge the reviewed release commit to `main`, confirm the resulting commit contains root version
-`1.0.9`, then create the one-time annotated tag:
+For a future new release, merge the reviewed release commit to `main` and use its new version.
+The following is the historical v1.0.9 sequence; its existing tag must not be recreated:
 
 ```bash
 git fetch origin main
@@ -152,10 +157,10 @@ accessibility evidence, so it is not the completion criterion for this Docker/We
 | Failure | Response |
 | --- | --- |
 | Tag or Release already exists | Stop; do not move or overwrite it, and prepare a new reviewed version if source must change |
-| Tag workflow fails before any job starts | Preserve the immutable tag; merge a reviewed workflow fix, then dispatch `Recover Docker/Web Release` from `main` with the original tag and failed run ID. The recovery must prove that run was a zero-job `startup_failure`, then verify the exact tag, successful source gates, unused GHCR/Release state, and protected `release-recovery` approval |
+| Tag workflow fails or publication is partial | Preserve the immutable tag and inspect remote state first. After a reviewed tooling fix, recovery from `main` accepts a completed original tag run with startup_failure, failure, cancelled or success. Existing images require the exact expected_digest and publisher_run_id; complete Releases use verify_only=true, missing/conflicting assets stop, and any necessary public writes still require release-recovery approval |
 | Main ancestry check fails | Merge the reviewed commit through the protected branch before tagging |
 | Docker architecture scan fails | Do not publish or retry by bypassing the scan; diagnose and prepare a new version when required |
-| GHCR tag already exists | Stop because the version is not unused; never overwrite the immutable version tag |
+| GHCR tag already exists | Normal publishing stops. Recovery verifies the digest and original scan/push provenance, then resumes only a missing Release or verifies a complete one; never overwrite the immutable version tag |
 | Release environment waits for approval | Approve only after matching tag, commit, workflow, and scanned digest are reviewed |
 | Compose checksum mismatch | Discard the files and download the exact v1.0.9 assets again |
 | Manifest lacks amd64 or arm64 | Do not deploy; treat the Docker/Web release as failed |

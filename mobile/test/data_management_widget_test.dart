@@ -1,8 +1,21 @@
+import 'dart:async';
+import 'package:personal_ledger/app/router/app_router.dart';
+import 'package:personal_ledger/app/router/app_route_paths.dart';
+import 'package:personal_ledger/features/auth/application/auth_controller.dart';
+import 'package:personal_ledger/features/home/data/home_repository.dart';
+import 'package:personal_ledger/features/home/presentation/home_page.dart';
+import 'package:personal_ledger/features/statistics/data/statistics_repository.dart';
+import 'package:personal_ledger/features/statistics/presentation/mobile_statistics_page.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
+import 'package:personal_ledger/features/categories/application/category_controller.dart';
+import 'package:personal_ledger/features/family/data/family_repository.dart';
+import 'package:personal_ledger/features/ai/data/ai_report_repository.dart';
+import 'package:personal_ledger/features/templates/data/template_repository.dart';
+import 'package:personal_ledger/core/providers/core_providers.dart';
 import 'package:personal_ledger/features/data_management/data/data_management_repository.dart';
 import 'package:personal_ledger/features/data_management/presentation/data_management_page.dart';
 
@@ -54,6 +67,181 @@ void main() {
       expect(find.textContaining('backup.json'), findsAtLeastNWidgets(1));
       expect(find.textContaining('文件未加密，请妥善保管'), findsOneWidget);
     });
+
+    testWidgets('取消系统保存时不显示副本已保存', (tester) async {
+      final repository = _FakeDataManagementRepository()..cancelDownload = true;
+      await _pumpPage(tester, repository);
+      await tester.tap(find.text('保存副本'));
+      await tester.pumpAndSettle();
+      expect(find.text('已取消保存'), findsOneWidget);
+      expect(find.textContaining('副本已保存'), findsNothing);
+    });
+
+    testWidgets('浏览器下载请求只提示确认保存且不冒充文件已保存', (tester) async {
+      final repository = _FakeDataManagementRepository()
+        ..browserDownload = true;
+      await _pumpPage(tester, repository);
+      await tester.tap(find.text('保存副本'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('下载请求已发送：backup.json'), findsOneWidget);
+      expect(find.textContaining('副本已保存'), findsNothing);
+      expect(find.text('已取消保存'), findsNothing);
+    });
+
+    testWidgets('恢复重建保活首页和统计本地state并保留认证', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _FakeDataManagementRepository();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(
+            (ref) => _AuthenticatedController(ref),
+          ),
+          homeSummaryByPeriodProvider.overrideWith(
+            (ref, query) async => throw StateError('合成离线首页'),
+          ),
+          statisticsDashboardProvider.overrideWith(
+            (ref, query) async => throw StateError('合成离线统计'),
+          ),
+          dataManagementRepositoryProvider.overrideWithValue(repository),
+          backupFilePickerProvider.overrideWithValue(
+            () async => PlatformFile(
+              name: 'fixture.json',
+              size: 2,
+              path: '/synthetic/fixture.json',
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const _RoutedApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final oldRouter = container.read(appRouterProvider);
+      final oldHome = tester.state(find.byType(HomePage));
+      oldRouter.go(AppRoutePaths.statistics);
+      await tester.pumpAndSettle();
+      final oldStatistics = tester.state(find.byType(MobileStatisticsPage));
+      expect(oldHome.mounted, isTrue);
+      oldRouter.push(AppRoutePaths.dataManagement);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('restore-panel-toggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择副本'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '确认恢复'));
+      await tester.pumpAndSettle();
+      expect(find.text('数据已恢复'), findsOneWidget);
+      expect(
+        () => oldRouter.routerDelegate.addListener(() {}),
+        throwsAssertionError,
+      );
+      expect(oldHome.mounted, isFalse);
+      expect(oldStatistics.mounted, isFalse);
+      expect(identical(container.read(appRouterProvider), oldRouter), isFalse);
+      expect(find.byType(HomePage), findsOneWidget);
+      expect(
+        container.read(authControllerProvider).stage,
+        AuthStage.authenticated,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final nextAction in ['return', 'logout', 'another restore']) {
+      testWidgets('恢复pending后$nextAction，迟到成功只刷新仍有效账本', (tester) async {
+        tester.view.physicalSize = const Size(1200, 2200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final first = Completer<void>();
+        final repository = _FakeDataManagementRepository()
+          ..restoreRelease = first;
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith(
+              (ref) => _AuthenticatedController(ref),
+            ),
+            homeSummaryByPeriodProvider.overrideWith((ref, query) async {
+              ref.watch(ledgerDataRevisionProvider);
+              return _restoredSummary(repository.restored ? 456 : 123);
+            }),
+            dataManagementRepositoryProvider.overrideWithValue(repository),
+            backupFilePickerProvider.overrideWithValue(
+              () async => PlatformFile(
+                name: 'fixture.json',
+                size: 2,
+                path: '/synthetic/fixture.json',
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const _RoutedApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final oldHome = tester.state(find.byType(HomePage));
+        final oldRouter = container.read(appRouterProvider);
+        expect(find.text('¥123.00'), findsWidgets);
+        await _startRoutedRestore(tester, container);
+        expect(repository.restoreBackupCalls, 1);
+        oldRouter.pop();
+        await tester.pumpAndSettle();
+        expect(find.byType(DataManagementPage), findsNothing);
+        expect(find.text('¥123.00'), findsWidgets);
+        final originalRevision = container.read(ledgerDataRevisionProvider);
+        if (nextAction == 'logout') {
+          (container.read(authControllerProvider.notifier)
+                  as _AuthenticatedController)
+              .simulateLogout();
+          container.read(ledgerSessionRevisionProvider.notifier).state++;
+          await tester.pumpAndSettle();
+        } else if (nextAction == 'another restore') {
+          final second = Completer<void>();
+          repository.restoreRelease = second;
+          await _startRoutedRestore(tester, container);
+          expect(repository.restoreBackupCalls, 2);
+          second.complete();
+          await tester.pumpAndSettle();
+          expect(
+            container.read(ledgerDataRevisionProvider),
+            originalRevision + 1,
+          );
+          expect(find.text('¥456.00'), findsWidgets);
+        }
+        first.complete();
+        await tester.pumpAndSettle();
+        if (nextAction == 'return') expect(find.text('¥123.00'), findsNothing);
+        expect(
+          container.read(ledgerDataRevisionProvider),
+          nextAction == 'logout' ? originalRevision : originalRevision + 1,
+        );
+        if (nextAction == 'return') {
+          expect(oldHome.mounted, isFalse);
+          expect(find.text('¥456.00'), findsWidgets);
+          expect(
+            container.read(authControllerProvider).stage,
+            AuthStage.authenticated,
+          );
+        } else if (nextAction == 'logout') {
+          expect(
+            container.read(authControllerProvider).stage,
+            AuthStage.loginRequired,
+          );
+          expect(find.text('数据已恢复'), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('点击保存明细时调用交易导出接口', (tester) async {
       final repository = _FakeDataManagementRepository();
@@ -132,11 +320,31 @@ void main() {
       expect(find.textContaining('服务端会先创建恢复前副本'), findsOneWidget);
       expect(repository.restoreBackupCalls, 0);
 
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(DataManagementPage)),
+      );
+      final before = [
+        container.read(categoryRepositoryProvider),
+        container.read(familyRepositoryProvider),
+        container.read(aiReportRepositoryProvider),
+        container.read(templateRepositoryProvider),
+      ];
+      final session = container.read(apiClientProvider).session.generation;
       await tester.tap(find.widgetWithText(FilledButton, '确认恢复'));
       await tester.pumpAndSettle();
 
       expect(repository.restoreBackupCalls, 1);
       expect(find.text('数据已恢复'), findsOneWidget);
+      final after = [
+        container.read(categoryRepositoryProvider),
+        container.read(familyRepositoryProvider),
+        container.read(aiReportRepositoryProvider),
+        container.read(templateRepositoryProvider),
+      ];
+      for (var i = 0; i < before.length; i++) {
+        expect(identical(before[i], after[i]), isFalse);
+      }
+      expect(container.read(apiClientProvider).session.generation, session);
     });
 
     testWidgets('保存自动保存设置时提交当前设置', (tester) async {
@@ -480,6 +688,8 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   int exportCsvCalls = 0;
   final exportFilters = <ExportTransactionsFilter?>[];
   int restoreBackupCalls = 0;
+  Completer<void>? restoreRelease;
+  bool restored = false;
   int getAutoBackupOverviewCalls = 0;
   int getAutoBackupSettingsCalls = 0;
   int triggerAutoBackupCalls = 0;
@@ -491,6 +701,8 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   int commitTransactionImportCalls = 0;
   int rollbackTransactionImportCalls = 0;
   final List<AutoBackupSettings> saveAutoBackupCalls = [];
+  bool cancelDownload = false;
+  bool browserDownload = false;
   String? downloadBackupError;
   String? triggerAutoBackupError;
   int getAutoBackupOverviewErrors = 0;
@@ -518,6 +730,15 @@ class _FakeDataManagementRepository implements DataManagementRepository {
     if (error != null) {
       throw Exception(error);
     }
+    if (browserDownload) {
+      return const DataFileResult.downloadRequested(
+        filename: 'backup.json',
+        size: 128,
+      );
+    }
+    if (cancelDownload) {
+      return const DataFileResult.cancelled(filename: 'backup.json');
+    }
     return const DataFileResult(
       filename: 'backup.json',
       path: '/tmp/backup.json',
@@ -541,6 +762,8 @@ class _FakeDataManagementRepository implements DataManagementRepository {
   @override
   Future<void> restoreBackup(PlatformFile file) async {
     restoreBackupCalls += 1;
+    await restoreRelease?.future;
+    restored = true;
   }
 
   @override
@@ -677,3 +900,60 @@ TransactionImportPreview _transactionImportPreview({
     rolledBackAt: status == 'rolled_back' ? now : null,
   );
 }
+
+class _AuthenticatedController extends AuthController {
+  void simulateLogout() {
+    state = state.copyWith(stage: AuthStage.loginRequired);
+  }
+
+  _AuthenticatedController(super.ref) {
+    state = const AuthState(
+      stage: AuthStage.authenticated,
+      serverUrl: 'https://synthetic.example',
+    );
+  }
+}
+
+class _RoutedApp extends ConsumerWidget {
+  const _RoutedApp();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) =>
+      MaterialApp.router(routerConfig: ref.watch(appRouterProvider));
+}
+
+Future<void> _startRoutedRestore(
+  WidgetTester tester,
+  ProviderContainer container,
+) async {
+  container.read(appRouterProvider).push(AppRoutePaths.dataManagement);
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('restore-panel-toggle')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('选择副本'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(FilledButton, '确认恢复'));
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
+HomeSummary _restoredSummary(double assets) => HomeSummary(
+  accounts: AccountListResponse(
+    list: const [],
+    totalAssets: assets,
+    totalLiabilities: 0,
+    netAssets: assets,
+  ),
+  overview: const StatisticsOverview(
+    income: 0,
+    expense: 0,
+    balance: 0,
+    transactionCount: 0,
+  ),
+  budgetSummary: const BudgetSummary(
+    totalAmount: 0,
+    totalSpent: 0,
+    percentage: 0,
+    dailyAvailable: 0,
+    daysRemaining: 0,
+    overBudgetCategories: [],
+  ),
+);

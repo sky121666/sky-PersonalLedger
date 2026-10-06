@@ -5,14 +5,17 @@ import '../data/category.dart';
 import '../data/category_repository.dart';
 
 final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
-  return CategoryRepository(ref.watch(apiClientProvider));
+  return CategoryRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final categoryListControllerProvider =
     StateNotifierProvider<
       CategoryListController,
       AsyncValue<CategoryListState>
-    >((ref) => CategoryListController(ref)..load());
+    >((ref) {
+      ref.watch(categoryRepositoryProvider);
+      return CategoryListController(ref)..load();
+    });
 
 class CategoryListState {
   const CategoryListState({required this.type, required this.categories});
@@ -39,6 +42,7 @@ class CategoryListController
 
   final Ref _ref;
   CategoryType _type = CategoryType.expense;
+  int _loadGeneration = 0;
 
   /// 切换分类类型并重新加载。
   Future<void> setType(CategoryType type) async {
@@ -51,11 +55,15 @@ class CategoryListController
 
   /// 加载当前类型分类列表。
   Future<void> load() async {
+    if (!mounted) return;
+    final generation = ++_loadGeneration;
+    final type = _type;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final result = await _ref.read(categoryRepositoryProvider).list(_type);
-      return CategoryListState(type: _type, categories: result.categories);
+    final result = await AsyncValue.guard(() async {
+      final result = await _ref.read(categoryRepositoryProvider).list(type);
+      return CategoryListState(type: type, categories: result.categories);
     });
+    if (mounted && generation == _loadGeneration) state = result;
   }
 
   /// 创建分类并刷新列表。

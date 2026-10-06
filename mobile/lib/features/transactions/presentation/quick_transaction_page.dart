@@ -49,6 +49,8 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
   List<LedgerTag> _tags = const [];
   List<FamilyMember> _familyMembers = const [];
   String? _memberId;
+  String? _paidByMemberId;
+  bool _paidByMemberChosen = false;
   List<LedgerAttachment> _attachments = const [];
   List<PendingAttachmentFile> _pendingAttachmentFiles = const [];
   List<AttachmentUploadProgress> _uploadProgress = const [];
@@ -414,6 +416,8 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
                     ],
                     if (_familyMembers.isNotEmpty) ...[
                       _buildMemberPicker(),
+                      const SizedBox(height: 12),
+                      _buildMemberPicker(payer: true),
                       const SizedBox(height: 8),
                     ],
                     TextFormField(
@@ -590,15 +594,19 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
     );
   }
 
-  Widget _buildMemberPicker() {
+  Widget _buildMemberPicker({bool payer = false}) {
+    final selectedId = payer ? _paidByMemberId : _memberId;
     return QuickTransactionDropdownField(
-      value: _familyMembers.any((member) => member.id == _memberId)
-          ? _memberId
+      value: _familyMembers.any((member) => member.id == selectedId)
+          ? selectedId
           : null,
-      label: '成员',
+      label: payer ? '付款成员' : '成员',
       icon: Icons.group_outlined,
       items: [
-        const DropdownMenuItem<String>(value: '', child: Text('不指定成员')),
+        DropdownMenuItem<String>(
+          value: '',
+          child: Text(payer ? '不指定付款成员' : '不指定成员'),
+        ),
         ..._familyMembers.map(
           (member) => DropdownMenuItem<String>(
             value: member.id,
@@ -607,9 +615,16 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
         ),
       ],
       onChanged: (value) {
-        setState(
-          () => _memberId = value == null || value.isEmpty ? null : value,
-        );
+        setState(() {
+          final id = value == null || value.isEmpty ? null : value;
+          if (payer) {
+            _paidByMemberId = id;
+            _paidByMemberChosen = true;
+          } else {
+            _memberId = id;
+            if (!_isEditing && !_paidByMemberChosen) _paidByMemberId = id;
+          }
+        });
       },
     );
   }
@@ -843,6 +858,8 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       _toAccountId = transaction.toAccountId;
       _categoryId = transaction.categoryId;
       _memberId = transaction.memberId;
+      _paidByMemberId = transaction.paidByMemberId;
+      _paidByMemberChosen = true;
       _selectedTags.addAll(transaction.tags);
       final attachmentPaths = decodeAttachmentPaths(transaction.images);
       _originalAttachmentPaths = attachmentPaths.toSet();
@@ -1040,7 +1057,7 @@ class _QuickTransactionPageState extends ConsumerState<QuickTransactionPage> {
       images: images,
       tags: _selectedTags.toList(),
       memberId: _memberId,
-      paidByMemberId: _memberId,
+      paidByMemberId: _paidByMemberId,
     );
   }
 

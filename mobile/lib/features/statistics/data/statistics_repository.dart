@@ -5,7 +5,7 @@ import '../../../core/providers/core_providers.dart';
 import 'statistics_models.dart';
 
 final statisticsRepositoryProvider = Provider<StatisticsRepository>((ref) {
-  return StatisticsRepository(ref.watch(apiClientProvider));
+  return StatisticsRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final statisticsDashboardProvider =
