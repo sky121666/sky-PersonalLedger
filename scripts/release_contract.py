@@ -10,7 +10,7 @@ import re
 import subprocess
 import tempfile
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 
@@ -202,6 +202,72 @@ def proof_bundle_bytes(results):
     return b"".join((json.dumps(bundle, separators=(",", ":")) + "\n").encode() for bundle in bundles)
 
 
+def trusted_main_ancestor(repository, tooling_sha, default=None):
+    """Anchor a commit to GitHub's actual protected default-branch history."""
+    if default is None:
+        default = api(f"repos/{repository}", stage="trusted release default branch").get("default_branch", "")
+    require(isinstance(default, str) and re.fullmatch(r"[A-Za-z0-9_./-]+", default),
+            "Invalid trusted default branch")
+    branch = api(f"repos/{repository}/branches/{quote(default, safe='')}",
+                 stage="protected release branch identity")
+    require(branch.get("name") == default and branch.get("protected") is True,
+            "Release tooling must belong to the protected default branch")
+    head = branch.get("commit", {}).get("sha", "")
+    require(isinstance(head, str) and re.fullmatch(SHA, head), "Invalid protected release head")
+    comparison = api(f"repos/{repository}/compare/{tooling_sha}...{head}",
+                     stage="release tooling main ancestry")
+    require(comparison.get("merge_base_commit", {}).get("sha") == tooling_sha,
+            "Release tooling commit is not in protected main history")
+    return default
+
+
+def scan_source_policy(repository, tag, sha, predicate):
+    """Claims may select a policy, but never define its trusted source.
+
+    Normal releases are anchored to the already verified product tag. Recovery
+    tooling must be an ancestor of the current protected default-branch head.
+    The resulting ref and digests are enforced against the signed certificate.
+    """
+    workflow = predicate.get("workflow_ref", "")
+    tooling_sha = predicate.get("tooling_sha", "")
+    normal = f"{repository}/.github/workflows/release-web.yml@refs/tags/{tag}"
+    if workflow == normal:
+        if tooling_sha != sha:
+            return None
+        trusted_main_ancestor(repository, sha)
+        return {"source_ref": f"refs/tags/{tag}", "tooling_sha": sha,
+                "caller_uri": "https://github.com/" + normal}
+    if not workflow.startswith(f"{repository}/.github/workflows/release-web-recovery.yml@refs/heads/"):
+        return None
+    default = api(f"repos/{repository}", stage="trusted recovery default branch").get("default_branch", "")
+    require(isinstance(default, str) and re.fullmatch(r"[A-Za-z0-9_./-]+", default),
+            "Invalid trusted default branch")
+    expected = f"{repository}/.github/workflows/release-web-recovery.yml@refs/heads/{default}"
+    if workflow != expected:
+        return None
+    trusted_main_ancestor(repository, tooling_sha, default)
+    return {"source_ref": f"refs/heads/{default}", "tooling_sha": tooling_sha,
+            "caller_uri": "https://github.com/" + expected}
+
+
+def certificate_matches_policy(result, repository, policy):
+    """These flat fields are signed Fulcio certificate extensions, not claims.
+
+    gh 2.88.1 uses sigstore-go v1.1.4 CertificateSummary with anonymously
+    embedded Extensions; there is intentionally no nested `extensions` object.
+    """
+    certificate = result.get("verificationResult", {}).get("signature", {}).get("certificate", {})
+    expected = {"buildConfigURI": policy["caller_uri"],
+                "buildConfigDigest": policy["tooling_sha"],
+                "buildSignerURI": f"https://github.com/{repository}/.github/workflows/docker.yml@{policy['source_ref']}",
+                "buildSignerDigest": policy["tooling_sha"],
+                "subjectAlternativeName": f"https://github.com/{repository}/.github/workflows/docker.yml@{policy['source_ref']}",
+                "sourceRepositoryURI": "https://github.com/" + repository,
+                "sourceRepositoryDigest": policy["tooling_sha"],
+                "sourceRepositoryRef": policy["source_ref"]}
+    return isinstance(certificate, dict) and all(certificate.get(key) == value for key, value in expected.items())
+
+
 def verify_scan_attestation(tag, sha, digest, *, publisher=None, bundle_file=None):
     """Trust gh's signature/certificate verification, then enforce our scan policy.
 
@@ -241,7 +307,8 @@ def verify_scan_attestation(tag, sha, digest, *, publisher=None, bundle_file=Non
         tooling_sha = predicate.get("tooling_sha", "")
         workflow = predicate.get("workflow_ref", "")
         if not (run_id.isdigit() and int(run_id) > 0 and attempt.isdigit() and int(attempt) > 0
-                and re.fullmatch(SHA, tooling_sha)):
+                and isinstance(tooling_sha, str) and re.fullmatch(SHA, tooling_sha)
+                and isinstance(workflow, str)):
             continue
         if not (workflow == f"{repository}/.github/workflows/release-web.yml@refs/tags/{tag}" or
                 re.fullmatch(re.escape(repository) + r"/\.github/workflows/release-web-recovery\.yml@refs/heads/[A-Za-z0-9_./-]+", workflow)):
@@ -249,18 +316,37 @@ def verify_scan_attestation(tag, sha, digest, *, publisher=None, bundle_file=Non
         if publisher and (run_id != str(publisher["id"]) or attempt != str(publisher["run_attempt"])
                           or tooling_sha != publisher["head_sha"]):
             continue
-        if not publisher:
-            # Pin the claim's tooling commit back to the signed certificate;
-            # preserve the actual bundle so this check needs no expiring logs.
-            with tempfile.TemporaryDirectory(prefix="ledger-proof-verify-") as directory:
-                bundle = Path(directory) / "proof.jsonl"
-                bundle.write_bytes(proof_bundle_bytes([entry]))
-                pinned = argv + ["--signer-digest", tooling_sha]
-                if "--bundle" in pinned:
-                    pinned[pinned.index("--bundle") + 1] = str(bundle)
-                else:
-                    pinned += ["--bundle", str(bundle)]
-                command(pinned, stage="scan proof signer commit verification")
+        # The first gh call has already verified these certificate fields.
+        # Filter inconsistent branch claims before querying GitHub ancestry:
+        # a forged recovery claim must not poison an otherwise valid bundle set.
+        claimed = {"source_ref": workflow.rsplit("@", 1)[1], "tooling_sha": tooling_sha,
+                   "caller_uri": "https://github.com/" + workflow}
+        if not certificate_matches_policy(entry, repository, claimed):
+            continue
+        policy = scan_source_policy(repository, tag, sha, predicate)
+        if policy is None:
+            continue
+        # Verify this exact bundle against an independent trust anchor. A
+        # signature from another branch cannot authorize its own tooling SHA.
+        with tempfile.TemporaryDirectory(prefix="ledger-proof-verify-") as directory:
+            bundle = Path(directory) / "proof.jsonl"
+            bundle.write_bytes(proof_bundle_bytes([entry]))
+            pinned = list(argv)
+            if "--signer-digest" in pinned:
+                pinned[pinned.index("--signer-digest") + 1] = policy["tooling_sha"]
+            else:
+                pinned += ["--signer-digest", policy["tooling_sha"]]
+            pinned += ["--source-ref", policy["source_ref"],
+                       "--source-digest", policy["tooling_sha"]]
+            if "--bundle" in pinned:
+                pinned[pinned.index("--bundle") + 1] = str(bundle)
+            else:
+                pinned += ["--bundle", str(bundle)]
+            verified = json.loads(command(pinned, stage="scan proof trusted source certificate verification"))
+            require(isinstance(verified, list) and verified
+                    and all(isinstance(item, dict) and certificate_matches_policy(item, repository, policy)
+                            for item in verified),
+                    "Signed certificate does not bind the approved caller, ref and trusted source")
         selected.append(entry)
     require(selected, "Signed scan proof does not bind the source, run, digest and required scan policy")
     proof_bundle_bytes(selected)

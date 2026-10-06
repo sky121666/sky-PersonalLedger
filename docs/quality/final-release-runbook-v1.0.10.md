@@ -1,5 +1,7 @@
 # Final Release Runbook - v1.0.10
 
+**历史候选运行手册：已停止发布，未发布。** 旧签名校验器未约束证书调用 ref，普通同仓库分支可伪造扫描谓词。既有 `v1.0.10` tag 必须保留且不可覆盖；不得照下文重打或重跑该版本发布。当前候选的步骤见 [v1.0.11 运行手册](final-release-runbook-v1.0.11.md)。
+
 ## Conclusion
 
 本次自动发布范围为现有 GitHub/GHCR Docker/Web。保留 PR、必需检查和 `release` 环境保护，正常批准已授权的具体候选产物，不使用强制推送、管理员绕过或移动历史 tag。

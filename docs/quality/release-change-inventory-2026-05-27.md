@@ -2,6 +2,8 @@
 
 此文件保留历史叙述，不再作为当前源码的严格发布证明。当前库存使用 `release-change-inventory.json`，按 `v1.0.9` 的已核验 SHA 到候选提交及本地修改的全部精确路径检查。
 
+v1.0.11 的正式状态以对应 Release 页面、运行记录与公开资产核验为准。v1.0.10 因签名来源反例停止发布，原 tag 不可覆盖，库存基线仍是 v1.0.9。新版本与文档路径加入后，协调者在所有编辑结束后重新生成机器库存；不把本历史表格或只改 JSON 版本当作新清单验收。
+
 ## Conclusion
 
 This document records the intended release change set before staging, commit, tag, or public distribution. The changed paths below are categorized into the release scope for the family, AI, client consistency, data protection, and release-readiness objective.
