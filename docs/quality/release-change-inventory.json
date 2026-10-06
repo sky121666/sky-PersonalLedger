@@ -4,6 +4,7 @@
   "base_commit": "134c4fdbcfb6860672af9c044fcad96aa606b8cc",
   "version": "1.0.10",
   "paths": [
+    ".dockerignore",
     ".github/workflows/docker.yml",
     ".github/workflows/mobile-quality.yml",
     ".github/workflows/release-web-recovery.yml",

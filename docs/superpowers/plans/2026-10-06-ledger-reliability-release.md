@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 工作树 `codex/ledger-reliability-release-v1.0.10`，原 84 个修复路径均保留。
+- 发布分支 `codex/ledger-reliability-release-v1.0.10-clean`；原本地修复分支保留恢复，原 84 个修复路径均保留。
 - 支持 SQLite/PostgreSQL/MySQL，单可写实例，不引入离线同步、多租户或分布式系统。
 - 编辑、测试、提交、PR/合并及既有 GitHub/GHCR 发布已获用户授权；保留平台保护。
 - 保留旧备份读取语义，新增格式不能让有效数据因未知新增规则丢失。
