@@ -4,7 +4,7 @@
 
 库存使用 `docs/quality/release-change-inventory.json`，保存 `schema_version=1`、`base_ref=v1.0.9`、实际 tag 的 `base_commit`、当前 `VERSION` 和全部精确文件路径。它刻意不写候选 HEAD SHA，避免清单自己的提交导致循环更新。当前 `v1.0.9` 的 peeled SHA 为 `134c4fdbcfb6860672af9c044fcad96aa606b8cc`；生成和校验都重新读取本地 tag，并核对固定基线 SHA。`RELEASE_INVENTORY_BASE_COMMIT` 仅供隔离测试仓库覆盖固定值，正式发布沿用固定基线。
 
-v1.0.11 的正式发布状态须从对应 Release 页面、运行记录与公开资产核验，不由源码文档单独决定。v1.0.10 因签名证书调用 ref 未受约束而停止发布，旧 tag 保留且不可覆盖；它不是新的库存基线。版本或精确路径改变后，协调者须在所有源码和文档编辑完成后顺序重新生成库存，不能只手工改 JSON 版本字段。
+v1.0.12 的正式发布状态须从对应 Release 页面、运行记录与公开资产核验，不由源码文档单独决定。v1.0.10 因签名证书调用 ref 未受约束而停止发布；v1.0.11 因完整镜像漏洞扫描阻断而未发布。两者旧 tag 均保留且不可覆盖，也不成为新的库存基线。版本或精确路径改变后，协调者须在所有源码和文档编辑完成后顺序重新生成库存，不能只手工改 JSON 版本字段。
 
 ```bash
 python3 scripts/release_evidence.py inventory --file docs/quality/release-change-inventory.json --write
@@ -32,6 +32,12 @@ Security Contracts workflow 直接运行演练并上传 `backup-operator-drill-p
 
 此前候选测试未覆盖普通同仓库分支签发伪造谓词的反例。密码学校验成功、仓库相同或工作流文件名相同，都不足以证明受保护发布 job 执行过扫描。四项初始来源反例在旧校验器的 RED 已归档；来源修复阶段 17 项本地来源回归通过，独立复核未发现确定 P1/P2。该源码阶段证据不替代真实远端发布身份验证。
 
-正常证明要求证书实际调用 URI 为 `.github/workflows/release-web.yml` 对应的可信 URI，调用 ref 精确为 `refs/tags/v1.0.11`，source/signer digest 精确为产品 tag SHA。恢复证明要求调用 URI 对应 `.github/workflows/release-web-recovery.yml`，调用 ref 为经 API 核对的受保护默认分支（当前为 `refs/heads/main`），source/signer digest 为通过 main ancestry 核验的工具 SHA。恢复谓词的产品 `source_sha` 仍是产品 tag SHA，不能替换成工具 SHA。
+正常证明要求证书实际调用 URI 为 `.github/workflows/release-web.yml` 对应的可信 URI，调用 ref 精确为 `refs/tags/v1.0.12`，source/signer digest 精确为产品 tag SHA。恢复证明要求调用 URI 对应 `.github/workflows/release-web-recovery.yml`，调用 ref 为经 API 核对的受保护默认分支（当前为 `refs/heads/main`），source/signer digest 为通过 main ancestry 核验的工具 SHA。恢复谓词的产品 `source_sha` 仍是产品 tag SHA，不能替换成工具 SHA。
 
 验收还须绑定两架构扫描策略、发布 run 和 OCI digest，并从公开注册表/Release 重新下载核验。证书来源约束不能用谓词自报事件、ref、状态或版本来替代。`buildConfigURI` 核对上层 caller（`release-web.yml` 或 `release-web-recovery.yml`）；SAN 与 `buildSignerURI` 核对实际 signer（reusable `docker.yml`）及其准确 ref，两种 URI 不得混用。混合候选先过滤错误来源再选择。来源缺失、错误或无法核实即停止，不降级为普通 JSON、短期日志或历史 PASS。以上是发布前置合同；执行完成情况以当次证据为准。
+
+## 完整镜像扫描证据
+
+v1.0.11 的运行 `37410524297` 证明双架构构建成功和 amd64 Trivy 因受影响 OpenSSL/Go x/crypto 失败；它没有 arm64 扫描通过、publisher 或 Release 成功证据。构建成功不等于镜像安全验收通过，跳过的步骤不能记作 PASS。
+
+v1.0.12 需记录整改后镜像实际 OS 包版本、Go 二进制模块信息与 amd64/arm64 各自扫描结果，并保持原严重级别及未修复项策略。Go 可达性检查的结果另行保留，不能替代完整镜像扫描；扫描发现也不能推断实际漏洞利用或业务数据被篡改。

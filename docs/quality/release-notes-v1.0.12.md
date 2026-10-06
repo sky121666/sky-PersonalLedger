@@ -1,17 +1,18 @@
-# Release Notes - v1.0.11
+# Release Notes - v1.0.12
 
-## Personal Ledger v1.0.11
+## Personal Ledger v1.0.12
 
-**历史候选状态：安全扫描阻断，未发布。** 运行 `37410524297` 双架构构建成功，amd64 Trivy 因 OpenSSL `CVE-2026-14456` 与 Go x/crypto `CVE-2026-56854` 失败；arm64 扫描、publisher 和 Release 均跳过，未发布镜像或 Release。既有 tag 不可覆盖，后续说明见 [v1.0.12](release-notes-v1.0.12.md)。以下为原候选记录。
+v1.0.10 因签名校验缺少可信调用 ref 约束而停止发布，既有 tag 不可覆盖。此说明列出 v1.0.12 的内容与发布前置条件；源码文档不单独证明发布完成，正式状态以 [GitHub Release](https://github.com/sky121666/sky-PersonalLedger/releases/tag/v1.0.12)、对应运行记录和公开产物核验为准。
 
-v1.0.10 因签名校验缺少可信调用 ref 约束而停止发布，既有 tag 不可覆盖。此说明列出 v1.0.11 的内容与发布前置条件；源码文档不单独证明发布完成，正式状态以 [GitHub Release](https://github.com/sky121666/sky-PersonalLedger/releases/tag/v1.0.11)、对应运行记录和公开产物核验为准。
+v1.0.11 的运行 `37410524297` 双架构构建成功，但 amd64 Trivy 检出 OpenSSL 与 Go x/crypto 的可修复漏洞，后续 arm64 扫描、publisher 和 Release 跳过，未发布镜像或 Release。其 tag 保留且不可覆盖，后续使用 v1.0.12 新源码与版本。
 
 ## Supported Platforms
 
-发布范围为 Docker image `ghcr.io/sky121666/sky-personalledger:1.0.11`、Vue Web 和不可变 digest 的 Compose；实际产物身份须从注册表和 Release 下载核验。Android、iOS 和 Flutter Web 同步源码与自动测试；本版本不包含签名 APK/AAB/IPA。
+发布范围为 Docker image `ghcr.io/sky121666/sky-personalledger:1.0.12`、Vue Web 和不可变 digest 的 Compose；实际产物身份须从注册表和 Release 下载核验。Android、iOS 和 Flutter Web 同步源码与自动测试；本版本不包含签名 APK/AAB/IPA。
 
 ## Highlights
 
+- 处理完整镜像扫描实际发现的 `CVE-2026-14456`、`CVE-2026-56854`：要求 OpenSSL `libcrypto3/libssl3 >=3.5.8-r0`、Go `golang.org/x/crypto >=0.55.0`，并核对实际包版本及二进制模块信息。可达性检查与完整镜像扫描分别保留，两架构都通过原扫描策略后才可推广。
 - 备份格式 2.4 明确保留软删除、禁用及归档状态，拒绝缺少必需集合的 JSON，避免恢复后删除记录复活或状态变化。
 - Web 编辑绑定固定交易身份；家庭成员与付款人独立，修改备注不会改写付款人。迟到查询不覆盖当前日期、月份或登录状态。
 - 首页区分核心账务、可选 AI 和查询失败，未知金额不显示为零，失效刷新不冒充成功。
@@ -26,7 +27,11 @@ v1.0.10 因签名校验缺少可信调用 ref 约束而停止发布，既有 tag
 
 AI provider 为可选外部服务，测试使用本地合成响应。凭据不进入普通 backup；独立凭据加密 keyring 保持原有迁移和密钥轮换约束。认证和 Cookie 相关修改必须经过真实 HTTP 和响应交错检查，单凭前端 generation 不能证明后端撤销成功。
 
-签名有效只能证明内容由证书所示身份签发，不能单独证明受保护发布 job 执行过扫描。正常路径要求 `release-web.yml` 的证书调用 ref 等于 `refs/tags/v1.0.11`，来源与 signer digest 等于产品 tag SHA。恢复路径要求 `release-web-recovery.yml` 的证书调用 ref 等于 API 返回的受保护默认分支，来源与 signer digest 等于通过 main ancestry 核验的工具 SHA；谓词中的产品 `source_sha` 仍是产品 tag SHA。普通分支、错误 ref 或混淆两种 SHA 的证明必须拒绝。
+签名有效只能证明内容由证书所示身份签发，不能单独证明受保护发布 job 执行过扫描。正常路径要求 `release-web.yml` 的证书调用 ref 等于 `refs/tags/v1.0.12`，来源与 signer digest 等于产品 tag SHA。恢复路径要求 `release-web-recovery.yml` 的证书调用 ref 等于 API 返回的受保护默认分支，来源与 signer digest 等于通过 main ancestry 核验的工具 SHA；谓词中的产品 `source_sha` 仍是产品 tag SHA。普通分支、错误 ref 或混淆两种 SHA 的证明必须拒绝。
+
+证书 `buildConfigURI` 对应上层 caller（正常 `release-web.yml`、恢复 `release-web-recovery.yml`）；SAN 与 `buildSignerURI` 对应实际 callee/signer（reusable `docker.yml`），必须核对其准确 ref，不能将 SAN 与 caller 混用。
+
+Go 可达性检查只证明其分析范围；Trivy 检查镜像实际包含的 OS 包及二进制依赖，不能用前者的通过替代后者。扫描失败按实际受影响版本整改，不降低严重级别或新增忽略项。本次发布前阻断没有提供实际入侵或业务数据污染的证据。
 
 ## Known Limitations
 
@@ -41,7 +46,7 @@ AI provider 为可选外部服务，测试使用本地合成响应。凭据不�
 ## Upgrade Notes
 
 1. 停止写入，保留升级前数据库、附件目录、配置及凭据加密密钥的一致性副本和旧镜像 digest。
-2. 核验该版本 Release 存在，下载 `docker-compose-v1.0.11.yml`、`.sha256` 和 `docker-scan-proof-v1.0.11.jsonl`，确认 checksum、签名来源与公开资产身份后部署。
+2. 核验该版本 Release 存在，下载 `docker-compose-v1.0.12.yml`、`.sha256` 和 `docker-scan-proof-v1.0.12.jsonl`，确认 checksum、签名来源与公开资产身份后部署。
 3. 使用一次受控 backup/restore 演练确认余额、删除状态、成员/付款人、附件和历史报告不变，再恢复日常写入。
 4. v1.0.9 的 schema 10 升级至本版本 schema 11。旧版不能直接读取已升级数据库或新版 2.4 备份；回滚使用升级前副本。
 
@@ -61,4 +66,4 @@ Docker/Web 门禁：`RELEASE_SCOPE=docker-web RELEASE_PHASE=source STRICT_FINAL_
 
 ## Release Decision
 
-只有候选源码检查、可信来源反例、独立复审、正常受保护 PR 合并和 main 必需检查通过后，才创建一次 v1.0.11 注释 tag。v1.0.10 保持停止发布状态，禁止覆盖旧 tag 或用旧源码补发。发布完成须核实两架构扫描、源码 SHA、镜像 digest、签名证明的证书来源、公开 Compose checksum 与实际容器运行相符。自动化失败必须停止对应写入，先读取状态再决定恢复，不能覆盖现有版本。
+只有候选源码检查、可信来源反例、独立复审、正常受保护 PR 合并和 main 必需检查通过后，才创建一次 v1.0.12 注释 tag。v1.0.10 保持停止发布状态，禁止覆盖旧 tag 或用旧源码补发。发布完成须核实两架构扫描、源码 SHA、镜像 digest、签名证明的证书来源、公开 Compose checksum 与实际容器运行相符。自动化失败必须停止对应写入，先读取状态再决定恢复，不能覆盖现有版本。

@@ -63,15 +63,21 @@
 
 v1.0.10 在公开发布前因签名来源反例停止。旧校验器只核对仓库、signer 与谓词，未约束证书中的实际调用 ref；普通同仓库分支可签发伪造扫描谓词。既有 tag 保留且不可覆盖，后续版本使用 v1.0.11。此前功能测试和签名结构测试没有覆盖这个反例，不能据其 PASS 声称发布来源可信。
 
-v1.0.11 的发布前验收合同如下；执行状态须另行核对当次 CI 与公开产物，不能从本文推断：
+从 v1.0.11 引入的来源合同沿用到 v1.0.12；执行状态须另行核对当次 CI 与公开产物，不能从本文推断：
 
-- 正常签名的实际调用 URI 必须对应 `.github/workflows/release-web.yml`；证书调用 ref 精确匹配当前版本 tag，v1.0.11 为 `refs/tags/v1.0.11`。来源与 signer digest 必须等于经核验的产品 tag SHA。
+- 正常签名的实际调用 URI 必须对应 `.github/workflows/release-web.yml`；证书调用 ref 精确匹配当前版本 tag，v1.0.12 为 `refs/tags/v1.0.12`。来源与 signer digest 必须等于经核验的产品 tag SHA。
 - 恢复签名的实际调用 URI 必须对应 `.github/workflows/release-web-recovery.yml`；证书调用 ref 精确匹配 API 返回且受保护的默认分支，当前为 `refs/heads/main`。来源与 signer digest 必须等于通过 main ancestry 核验的受信工具 SHA。
 - 恢复谓词中的产品 `source_sha` 仍是原产品 tag SHA；它与恢复工具 SHA 各自核验，不能互相替代。签名证书来源不能由谓词中的自报 ref、事件、状态或工作流名称代替。
 - 证书 `buildConfigURI` 对应上层 caller：正常路径为 `release-web.yml`，恢复路径为 `release-web-recovery.yml`。证书 SAN 与 `buildSignerURI` 对应实际 signer，即 reusable `docker.yml`，须匹配其准确 ref；SAN 不能与 caller URI 混用。
 - 独立反证必须拒绝普通分支、错误版本 ref、错误调用工作流及工具/产品身份混淆；混合候选先过滤错误来源再选择。旧代码的 RED 仅证明缺陷；发布必须具备修复后的反例、独立复审和真实发布身份核验。
 
-版本说明与执行步骤见 [v1.0.11 发布说明](../release/v1.0.11.md) 和 [运行手册](../quality/final-release-runbook-v1.0.11.md)。正式状态以 Release 页面、当次运行记录与公开资产核验为准。发布库存继续以 v1.0.9 为固定基线，停止发布的 v1.0.10 不能成为新基线。
+版本说明与执行步骤见 [v1.0.12 发布说明](../release/v1.0.12.md) 和 [运行手册](../quality/final-release-runbook-v1.0.12.md)。正式状态以 Release 页面、当次运行记录与公开资产核验为准。发布库存继续以 v1.0.9 为固定基线，停止发布的 v1.0.10 和 v1.0.11 均不能成为新基线。
+
+## 完整镜像与 Go 可达性门禁
+
+v1.0.11 的运行 `37410524297` 在双架构构建完成后，amd64 Trivy 检出 OpenSSL `libcrypto3/libssl3 3.5.7-r0` 的 `CVE-2026-14456` 和 Go x/crypto `0.53.0` 的 `CVE-2026-56854`，因此失败；arm64 扫描、publisher 和 Release 跳过，未发布镜像或 Release。既有 tag 保留且不可覆盖，整改使用 v1.0.12 新源码和版本。
+
+Go 可达性检查分析当前代码调用路径，Trivy 则检查镜像实际包含的 OS 包和二进制依赖。可达性结果未命中，不代表镜像没有受影响组件；按扫描实际发现升级至对应修复版本，并核对最终镜像安装版本及二进制模块信息。两架构完整镜像扫描都须通过，保留原严重级别与未修复项策略，不降低阈值或新增忽略项换取放行。扫描发现是依赖风险证据，不是实际入侵或业务数据被污染的证据。
 
 ## GitHub 远端设置
 
