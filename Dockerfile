@@ -6,6 +6,7 @@ FROM node:24.18.1-alpine3.24@sha256:f70403e87646dc51b45295f4b8b70cdad0b63d2297c4
 WORKDIR /app/web
 
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+COPY web/patches/ ./patches/
 RUN corepack enable && pnpm install --frozen-lockfile
 
 COPY web/ ./
