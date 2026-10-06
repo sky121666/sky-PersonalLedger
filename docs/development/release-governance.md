@@ -68,7 +68,8 @@ v1.0.11 的发布前验收合同如下；执行状态须另行核对当次 CI �
 - 正常签名的实际调用 URI 必须对应 `.github/workflows/release-web.yml`；证书调用 ref 精确匹配当前版本 tag，v1.0.11 为 `refs/tags/v1.0.11`。来源与 signer digest 必须等于经核验的产品 tag SHA。
 - 恢复签名的实际调用 URI 必须对应 `.github/workflows/release-web-recovery.yml`；证书调用 ref 精确匹配 API 返回且受保护的默认分支，当前为 `refs/heads/main`。来源与 signer digest 必须等于通过 main ancestry 核验的受信工具 SHA。
 - 恢复谓词中的产品 `source_sha` 仍是原产品 tag SHA；它与恢复工具 SHA 各自核验，不能互相替代。签名证书来源不能由谓词中的自报 ref、事件、状态或工作流名称代替。
-- 独立反证必须拒绝普通分支、错误版本 ref、错误调用工作流及工具/产品身份混淆；证书 SAN 须与实际 caller URI 一致，混合候选先过滤错误来源再选择。旧代码的 RED 仅证明缺陷；发布必须具备修复后的反例、独立复审和真实发布身份核验。
+- 证书 `buildConfigURI` 对应上层 caller：正常路径为 `release-web.yml`，恢复路径为 `release-web-recovery.yml`。证书 SAN 与 `buildSignerURI` 对应实际 signer，即 reusable `docker.yml`，须匹配其准确 ref；SAN 不能与 caller URI 混用。
+- 独立反证必须拒绝普通分支、错误版本 ref、错误调用工作流及工具/产品身份混淆；混合候选先过滤错误来源再选择。旧代码的 RED 仅证明缺陷；发布必须具备修复后的反例、独立复审和真实发布身份核验。
 
 版本说明与执行步骤见 [v1.0.11 发布说明](../release/v1.0.11.md) 和 [运行手册](../quality/final-release-runbook-v1.0.11.md)。正式状态以 Release 页面、当次运行记录与公开资产核验为准。发布库存继续以 v1.0.9 为固定基线，停止发布的 v1.0.10 不能成为新基线。
 

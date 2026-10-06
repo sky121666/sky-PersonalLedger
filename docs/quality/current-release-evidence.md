@@ -34,4 +34,4 @@ Security Contracts workflow 直接运行演练并上传 `backup-operator-drill-p
 
 正常证明要求证书实际调用 URI 为 `.github/workflows/release-web.yml` 对应的可信 URI，调用 ref 精确为 `refs/tags/v1.0.11`，source/signer digest 精确为产品 tag SHA。恢复证明要求调用 URI 对应 `.github/workflows/release-web-recovery.yml`，调用 ref 为经 API 核对的受保护默认分支（当前为 `refs/heads/main`），source/signer digest 为通过 main ancestry 核验的工具 SHA。恢复谓词的产品 `source_sha` 仍是产品 tag SHA，不能替换成工具 SHA。
 
-验收还须绑定两架构扫描策略、发布 run 和 OCI digest，并从公开注册表/Release 重新下载核验。证书来源约束不能用谓词自报事件、ref、状态或版本来替代；证书 SAN 与实际 caller URI 须一致，混合候选先过滤错误来源再选择。来源缺失、错误或无法核实即停止，不降级为普通 JSON、短期日志或历史 PASS。以上是发布前置合同；执行完成情况以当次证据为准。
+验收还须绑定两架构扫描策略、发布 run 和 OCI digest，并从公开注册表/Release 重新下载核验。证书来源约束不能用谓词自报事件、ref、状态或版本来替代。`buildConfigURI` 核对上层 caller（`release-web.yml` 或 `release-web-recovery.yml`）；SAN 与 `buildSignerURI` 核对实际 signer（reusable `docker.yml`）及其准确 ref，两种 URI 不得混用。混合候选先过滤错误来源再选择。来源缺失、错误或无法核实即停止，不降级为普通 JSON、短期日志或历史 PASS。以上是发布前置合同；执行完成情况以当次证据为准。
