@@ -80,6 +80,10 @@ type CreateLendingRequest struct {
 }
 
 func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.Lending, error) {
+	if !req.Principal.IsValid() || req.Principal.Cents() <= 0 {
+		return nil, ErrInvalidAmount
+	}
+	req.Principal = roundMoney(req.Principal)
 	lendDate, err := parseDateTime(req.LendDate)
 	if err != nil {
 		return nil, err
@@ -381,7 +385,7 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 			return nil, ErrAttachmentRecoveryPending
 		}
 	}
-	if req.Amount <= 0 {
+	if !req.Amount.IsValid() || req.Amount.Cents() <= 0 {
 		return nil, ErrInvalidAmount
 	}
 
@@ -422,7 +426,7 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 		nextTotalRepaid := lending.TotalRepaid.Add(repaymentAmount)
 		isSettled := lending.IsSettled
 		settledAt := lending.SettledAt
-		if nextBalance <= 0.01 {
+		if nextBalance.Cents() == 0 {
 			nextBalance = 0
 			isSettled = true
 			now := time.Now()

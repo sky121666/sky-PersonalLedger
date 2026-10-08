@@ -197,18 +197,30 @@ func preflightBackupJSON(data []byte) (backupJSONEnvelope, error) {
 		if envelope.attachmentsState != backupAttachmentsArray {
 			return backupJSONEnvelope{}, invalidBackupJSON(errors.New("backup version 2.2 requires an attachment array"))
 		}
-	case "2.3":
+	case "2.3", currentBackupVersion:
 		// Version 2.3 makes attachment inclusion explicit: null means the
 		// backup did not include file data, while an array is an authoritative
 		// attachment manifest (including an intentionally empty one).
 		if envelope.attachmentsState == backupAttachmentsMissing {
-			return backupJSONEnvelope{}, invalidBackupJSON(errors.New("backup version 2.3 requires an explicit attachment value"))
+			return backupJSONEnvelope{}, invalidBackupJSON(errors.New("backup requires an explicit attachment value"))
 		}
 		if envelope.notificationCredentialFieldsPresent {
-			return backupJSONEnvelope{}, invalidBackupJSON(errors.New("backup version 2.3 cannot contain notification credentials"))
+			return backupJSONEnvelope{}, invalidBackupJSON(errors.New("backup cannot contain notification credentials"))
 		}
 	default:
 		return backupJSONEnvelope{}, invalidBackupJSON(errors.New("unsupported backup version"))
+	}
+	// Every real 2.1 exporter emitted these nine collections, even when empty.
+	// Family/AI collections and logs were added later without a 2.1 version
+	// bump, so they cannot be required for the original 2.1 envelope.
+	required := []string{"accounts", "categories", "transactions", "budgets", "reminders", "lendings", "lending_records", "templates", "tags"}
+	if envelope.version != "2.1" {
+		required = append(required, "family_members", "ai_reports", "account_logs", "notification_logs")
+	}
+	for _, field := range required {
+		if _, exists := seenKnownFields[field]; !exists {
+			return backupJSONEnvelope{}, invalidBackupJSON(fmt.Errorf("backup version %s requires %s", envelope.version, field))
+		}
 	}
 
 	return envelope, nil

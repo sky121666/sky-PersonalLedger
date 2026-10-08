@@ -16,7 +16,7 @@ func TestUserAndCategoryRepositoriesPersistAndScopeData(t *testing.T) {
 	repos, owner, other := newRepositoryTestFixture(t)
 
 	owner.Nickname = "Owner"
-	if err := repos.User.Update(owner); err != nil {
+	if err := repos.User.UpdateProfile(owner); err != nil {
 		t.Fatalf("update user: %v", err)
 	}
 	byID, err := repos.User.GetByID(owner.ID)

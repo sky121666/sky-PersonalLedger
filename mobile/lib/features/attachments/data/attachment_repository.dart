@@ -6,7 +6,7 @@ import '../../../core/providers/core_providers.dart';
 import 'attachment_models.dart';
 
 final attachmentRepositoryProvider = Provider<AttachmentRepository>((ref) {
-  return AttachmentRepository(ref.watch(apiClientProvider));
+  return AttachmentRepository(ref.watch(ledgerApiClientProvider));
 });
 
 class AttachmentRepository {
@@ -44,14 +44,17 @@ class AttachmentRepository {
   }
 
   Future<void> download(String path, String savePath) async {
-    await _apiClient.dio.download(downloadUri(path).toString(), savePath);
+    await _apiClient.download(
+      '/upload/download',
+      savePath,
+      queryParameters: {'path': path},
+    );
   }
 
   Future<List<int>> downloadBytes(String path) async {
-    final response = await _apiClient.dio.get<List<int>>(
+    final response = await _apiClient.getBytes(
       '/upload/download',
       queryParameters: {'path': path},
-      options: Options(responseType: ResponseType.bytes),
     );
     return response.data ?? const <int>[];
   }

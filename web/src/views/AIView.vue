@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { AlertTriangle, ArrowLeft, Bot, CalendarClock, KeyRound, PlayCircle, RefreshCw, ShieldCheck, Sparkles, Trash2, TrendingUp, Zap } from 'lucide-vue-next'
 import { aiApi, type AIProvider, type AIProviderPreset, type AIReport, type AIReportScheduleRunResult, type SaveAIProviderParams } from '@/api/ai'
 import { toast } from '@/composables/useToast'
 import { formatLocalDate } from '@/utils/localDate'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 
 const router = useRouter()
 const loading = ref(false)
@@ -18,7 +19,10 @@ const providerPresets = ref<AIProviderPreset[]>([])
 const reports = ref<AIReport[]>([])
 const selectedReport = ref<AIReport | null>(null)
 const selectedPresetId = ref('deepseek')
+const editingProviderId = ref<string | null>(null)
 const scheduleResults = ref<AIReportScheduleRunResult[]>([])
+const dataRequests = createRequestGeneration()
+const loadError = ref('')
 
 const providerForm = reactive({
   name: 'DeepSeek',
@@ -55,16 +59,20 @@ const snapshotMembers = computed(() => Array.isArray(reportSnapshot.value?.famil
 const snapshotAccounts = computed(() => Array.isArray(reportSnapshot.value?.account_changes) ? reportSnapshot.value.account_changes.slice(0, 5) : [])
 
 onMounted(loadData)
+onBeforeUnmount(() => dataRequests.begin())
 
-async function loadData() {
+async function loadData(preferredReportId?: string) {
+  const generation = dataRequests.begin()
   loading.value = true
+  loadError.value = ''
   try {
-    const [presetList, providerList, reportList] = await Promise.all([
+    const [presetList, providerList, reportList, schedule] = await Promise.all([
       aiApi.listProviderPresets(),
       aiApi.listProviders(),
-      aiApi.listReports()
+      aiApi.listReports(),
+      aiApi.getScheduleSettings()
     ])
-    const schedule = await aiApi.getScheduleSettings()
+    if (!dataRequests.isLatest(generation)) return
     providerPresets.value = presetList
     providers.value = providerList
     reports.value = reportList
@@ -76,12 +84,17 @@ async function loadData() {
       last_weekly_run: schedule.last_weekly_run || '',
       last_monthly_run: schedule.last_monthly_run || ''
     })
-    reportForm.provider_id ||= enabledProviders.value[0]?.id || ''
-    selectedReport.value = reportList[0] || null
+    if (!enabledProviders.value.some(provider => provider.id === reportForm.provider_id)) {
+      reportForm.provider_id = enabledProviders.value[0]?.id || ''
+    }
+    const selectionId = preferredReportId || selectedReport.value?.id
+    selectedReport.value = reportList.find(report => report.id === selectionId) || reportList[0] || null
   } catch (error: any) {
+    if (!dataRequests.isLatest(generation)) return
+    loadError.value = 'AI 数据加载失败，当前显示的内容可能不是最新状态。'
     toast.error(error.message || 'AI 数据加载失败')
   } finally {
-    loading.value = false
+    if (dataRequests.isLatest(generation)) loading.value = false
   }
 }
 
@@ -135,6 +148,22 @@ function applyProviderPreset(preset: AIProviderPreset) {
   providerForm.enabled = true
 }
 
+function editProvider(provider: AIProvider) {
+  editingProviderId.value = provider.id
+  selectedPresetId.value = 'openai-compatible'
+  Object.assign(providerForm, {
+    name: provider.name, base_url: provider.base_url, model: provider.model,
+    enabled: provider.enabled, api_key: ''
+  })
+}
+
+function cancelProviderEdit() {
+  editingProviderId.value = null
+  providerForm.api_key = ''
+  const preset = providerPresets.value[0]
+  if (preset) applyProviderPreset(preset)
+}
+
 async function saveProvider() {
   if (!providerForm.name.trim() || !providerForm.base_url.trim() || !providerForm.model.trim()) {
     toast.error('请完整填写 Provider 信息')
@@ -153,8 +182,12 @@ async function saveProvider() {
     if (apiKey) {
       params.api_key = apiKey
     }
-    await aiApi.createProvider(params)
-    providerForm.api_key = ''
+    if (editingProviderId.value) {
+      await aiApi.updateProvider(editingProviderId.value, params)
+    } else {
+      await aiApi.createProvider(params)
+    }
+    if (providerForm.api_key.trim() === apiKey) providerForm.api_key = ''
     toast.success('Provider 已保存')
     await loadData()
   } catch (error: any) {
@@ -180,6 +213,7 @@ async function deleteProvider(provider: AIProvider) {
   if (!confirm(`删除 Provider「${provider.name}」？已生成报告不会删除。`)) return
   try {
     await aiApi.deleteProvider(provider.id)
+    if (editingProviderId.value === provider.id) cancelProviderEdit()
     toast.success('Provider 已删除')
     await loadData()
   } catch (error: any) {
@@ -188,6 +222,7 @@ async function deleteProvider(provider: AIProvider) {
 }
 
 async function generateReport() {
+  if (generating.value || enabledProviders.value.length === 0) return
   generating.value = true
   try {
     const report = await aiApi.generateReport({
@@ -199,7 +234,7 @@ async function generateReport() {
     })
     selectedReport.value = report
     toast.success('AI 报告已生成')
-    await loadData()
+    await loadData(report.id)
   } catch (error: any) {
     toast.error(error.message || '报告生成失败')
   } finally {
@@ -304,18 +339,23 @@ function defaultWeekEnd() {
             <p class="text-sm text-gray-500 dark:text-gray-400">OpenAI-compatible Provider、聚合快照和周报/月报管理。</p>
           </div>
         </div>
-        <button class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/80 dark:bg-white/10 border border-black/5 dark:border-white/10" @click="loadData">
+        <button class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/80 dark:bg-white/10 border border-black/5 dark:border-white/10" @click="loadData()">
           <RefreshCw :size="16" />
           刷新
         </button>
       </header>
 
-      <section class="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6">
+      <div v-if="loadError" role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+        <span>{{ loadError }}</span>
+        <button type="button" class="rounded-lg border border-current px-3 py-2" @click="loadData()">重试</button>
+      </div>
+
+      <section class="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6">
         <div class="space-y-6">
           <form class="rounded-2xl bg-white/90 dark:bg-[#1C1C1E]/90 border border-black/5 dark:border-white/10 p-5 space-y-4" @submit.prevent="saveProvider">
             <div class="flex items-center gap-2">
               <KeyRound :size="18" />
-              <h2 class="font-semibold">Provider 配置</h2>
+              <h2 class="font-semibold">{{ editingProviderId ? '编辑 Provider' : 'Provider 配置' }}</h2>
             </div>
             <div v-if="providerPresets.length" class="grid grid-cols-2 gap-2">
               <button
@@ -333,8 +373,8 @@ function defaultWeekEnd() {
                 <span class="mt-1 block truncate text-xs opacity-70">{{ preset.model }}</span>
               </button>
             </div>
-            <input v-model="providerForm.name" autocomplete="off" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="名称" />
-            <input v-model="providerForm.base_url" autocomplete="url" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="Base URL" />
+            <input v-model="providerForm.name" aria-label="Provider 名称" autocomplete="off" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="名称" />
+            <input v-model="providerForm.base_url" aria-label="Provider Base URL" autocomplete="url" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="Base URL" />
             <select v-if="selectedPreset && selectedPreset.id !== 'openai-compatible'" v-model="providerForm.model" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none">
               <option
                 v-for="model in selectedPreset.models"
@@ -344,15 +384,16 @@ function defaultWeekEnd() {
                 {{ model }}
               </option>
             </select>
-            <input v-else v-model="providerForm.model" autocomplete="off" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="模型，例如 deepseek-v4-flash" />
-            <input v-model="providerForm.api_key" type="password" autocomplete="new-password" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="API Key，保存后不会回显" />
+            <input v-else v-model="providerForm.model" aria-label="Provider 模型" autocomplete="off" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" placeholder="模型，例如 deepseek-v4-flash" />
+            <input v-model="providerForm.api_key" aria-label="Provider API Key" type="password" autocomplete="new-password" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" :placeholder="editingProviderId ? '留空保留现有 API Key' : 'API Key，保存后不会回显'" />
             <label class="flex items-center gap-2 text-sm">
               <input v-model="providerForm.enabled" type="checkbox" />
               启用
             </label>
             <button class="w-full py-3 rounded-xl bg-primary text-white font-medium disabled:opacity-60" :disabled="saving">
-              {{ saving ? '保存中...' : '保存 Provider' }}
+              {{ saving ? '保存中...' : editingProviderId ? '保存修改' : '保存 Provider' }}
             </button>
+            <button v-if="editingProviderId" type="button" class="w-full py-2 text-sm text-gray-500" :disabled="saving" @click="cancelProviderEdit">取消编辑</button>
           </form>
 
           <form class="rounded-2xl bg-white/90 dark:bg-[#1C1C1E]/90 border border-black/5 dark:border-white/10 p-5 space-y-4" @submit.prevent="generateReport">
@@ -360,21 +401,21 @@ function defaultWeekEnd() {
               <Bot :size="18" />
               <h2 class="font-semibold">生成报告</h2>
             </div>
-            <select v-model="reportForm.report_type" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none">
+            <select v-model="reportForm.report_type" aria-label="报告类型" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none">
               <option value="weekly">每周总结</option>
               <option value="monthly">月度总结</option>
               <option value="family">家庭分析</option>
               <option value="budget">预算建议</option>
             </select>
-            <select v-model="reportForm.provider_id" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none">
+            <select v-model="reportForm.provider_id" aria-label="报告 Provider" class="w-full px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none">
               <option value="">自动选择启用 Provider</option>
               <option v-for="provider in enabledProviders" :key="provider.id" :value="provider.id">
                 {{ provider.name }} / {{ provider.model }}
               </option>
             </select>
             <div class="grid grid-cols-2 gap-3">
-              <input v-model="reportForm.period_start" type="date" class="px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" />
-              <input v-model="reportForm.period_end" type="date" class="px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" />
+              <input v-model="reportForm.period_start" aria-label="报告开始日期" type="date" class="min-w-0 px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" />
+              <input v-model="reportForm.period_end" aria-label="报告结束日期" type="date" class="min-w-0 px-3 py-3 rounded-xl bg-gray-100 dark:bg-white/10 outline-none" />
             </div>
             <label class="flex items-center justify-between gap-3 rounded-xl bg-gray-100/80 px-3 py-3 text-sm dark:bg-white/10">
               <span>
@@ -383,7 +424,7 @@ function defaultWeekEnd() {
               </span>
               <input v-model="reportForm.mask_names" type="checkbox" class="h-5 w-5" />
             </label>
-            <button class="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white font-medium disabled:opacity-60" :disabled="generating">
+            <button class="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white font-medium disabled:opacity-60" :disabled="generating || enabledProviders.length === 0">
               <PlayCircle :size="18" />
               {{ generating ? '生成中...' : '生成 AI 报告' }}
             </button>
@@ -446,8 +487,8 @@ function defaultWeekEnd() {
           <section class="rounded-2xl bg-white/90 dark:bg-[#1C1C1E]/90 border border-black/5 dark:border-white/10 overflow-hidden">
             <div class="p-5 border-b border-black/5 dark:border-white/10 font-semibold">Provider 列表</div>
             <div v-if="loading" class="p-6 text-center text-gray-500">加载中...</div>
-            <div v-else-if="providers.length === 0" class="p-6 text-center text-gray-500">暂无 Provider</div>
-            <div v-for="provider in providers" v-else :key="provider.id" class="flex items-center gap-4 p-4 border-b border-black/5 dark:border-white/10">
+            <div v-else-if="providers.length === 0 && !loadError" class="p-6 text-center text-gray-500">暂无 Provider</div>
+            <div v-for="provider in providers" v-else :key="provider.id" class="flex flex-wrap items-center gap-3 p-4 border-b border-black/5 dark:border-white/10">
               <span class="w-10 h-10 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center"><Bot :size="18" /></span>
               <span class="flex-1 min-w-0">
                 <span class="block font-medium truncate">{{ provider.name }}</span>
@@ -456,6 +497,7 @@ function defaultWeekEnd() {
               <span class="text-xs px-2 py-1 rounded-full" :class="provider.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'">
                 {{ provider.enabled ? '启用' : '停用' }}
               </span>
+              <button type="button" :aria-label="`编辑 Provider ${provider.name}`" class="px-3 py-2 rounded-lg bg-gray-100 dark:bg-white/10" :disabled="saving" @click="editProvider(provider)">编辑</button>
               <button class="px-3 py-2 rounded-lg bg-gray-100 dark:bg-white/10" @click="testProvider(provider)">
                 {{ testingId === provider.id ? '测试中' : '测试' }}
               </button>
@@ -465,7 +507,7 @@ function defaultWeekEnd() {
             </div>
           </section>
 
-          <section class="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-6">
+          <section class="grid grid-cols-1 2xl:grid-cols-[240px_minmax(0,1fr)] gap-6">
             <div class="rounded-2xl bg-white/90 dark:bg-[#1C1C1E]/90 border border-black/5 dark:border-white/10 overflow-hidden">
               <div class="p-5 border-b border-black/5 dark:border-white/10 font-semibold">报告历史</div>
               <button
@@ -479,10 +521,10 @@ function defaultWeekEnd() {
                 <span class="block text-sm text-gray-500">{{ shortDate(report.period_start) }} - {{ shortDate(report.period_end) }}</span>
                 <span class="block text-xs text-gray-400">{{ statusText(report.status) }} · {{ report.model }}</span>
               </button>
-              <div v-if="reports.length === 0" class="p-6 text-center text-gray-500">暂无报告</div>
+              <div v-if="reports.length === 0 && !loading && !loadError" class="p-6 text-center text-gray-500">暂无报告</div>
             </div>
 
-            <div class="rounded-2xl bg-white/90 dark:bg-[#1C1C1E]/90 border border-black/5 dark:border-white/10 p-5 min-h-[320px]">
+            <div class="min-w-0 break-words rounded-2xl bg-white/90 dark:bg-[#1C1C1E]/90 border border-black/5 dark:border-white/10 p-5 min-h-[320px]">
               <div v-if="!selectedReport" class="h-full flex items-center justify-center text-gray-500">选择一份报告查看详情</div>
               <div v-else class="space-y-4">
                 <div class="flex items-start justify-between gap-4">
@@ -495,7 +537,7 @@ function defaultWeekEnd() {
                   </button>
                 </div>
                 <p class="text-gray-700 dark:text-gray-300 leading-7">{{ reportContent?.summary || selectedReport.error_message || '暂无内容' }}</p>
-                <div v-if="reportSnapshot" class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div v-if="reportSnapshot" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div class="rounded-2xl border border-black/5 bg-gray-50/90 p-4 dark:border-white/10 dark:bg-white/[0.04]">
                     <div class="flex items-center gap-2 text-xs text-gray-500">
                       <TrendingUp :size="15" />
@@ -509,8 +551,9 @@ function defaultWeekEnd() {
                       <ShieldCheck :size="15" />
                       <span>预算使用</span>
                     </div>
-                    <p class="mt-2 text-2xl font-black tabular-nums">{{ snapshotBudget?.used_percent ?? 0 }}%</p>
+                    <p class="mt-2 text-2xl font-black tabular-nums">{{ snapshotBudget?.used_percent == null ? '未设总预算' : `${snapshotBudget.used_percent}%` }}</p>
                     <p class="mt-1 text-xs text-gray-500">已用 {{ formatMoney(snapshotBudget?.spent) }}</p>
+                    <p v-if="snapshotBudget?.period_start && snapshotBudget?.period_end" class="mt-1 text-xs text-gray-500">{{ snapshotBudget.period_start }} 至 {{ snapshotBudget.period_end }} · 按当前预算设置计算</p>
                   </div>
                   <div class="rounded-2xl border border-black/5 bg-gray-50/90 p-4 dark:border-white/10 dark:bg-white/[0.04]">
                     <div class="flex items-center gap-2 text-xs text-gray-500">

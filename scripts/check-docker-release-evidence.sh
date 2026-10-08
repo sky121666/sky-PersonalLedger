@@ -7,6 +7,7 @@ IMAGE="${DOCKER_RELEASE_IMAGE:-}"
 RUN_SMOKE="${RUN_DOCKER_RELEASE_SMOKE:-0}"
 RUNTIME_ONLY="${RUNTIME_DOCKER_RELEASE_EVIDENCE:-0}"
 METRICS_TOKEN="release-evidence-metrics-token-32-characters"
+SMOKE_SETUP_TOKEN="local-docker-setup-token-only-32-characters"
 
 fail() {
   echo "$1" >&2
@@ -150,7 +151,7 @@ services:
       - ./data:/data
     environment:
       - LEDGER_JWT_SECRET=local-docker-smoke-only-change-me-32-characters
-      - LEDGER_SETUP_TOKEN=local-docker-setup-token-only-32-characters
+      - LEDGER_SETUP_TOKEN=$SMOKE_SETUP_TOKEN
       - LEDGER_SERVER_MODE=release
       - LEDGER_DATABASE_DRIVER=sqlite
       - LEDGER_DATABASE_PATH=/data/ledger.db
@@ -169,48 +170,63 @@ EOF
   )
 
   health_url="http://127.0.0.1:$smoke_port/api/v1/health"
-  for _ in $(seq 1 30); do
-    if curl -fsS "$health_url" >/dev/null 2>&1; then
-      break
+  verify_runtime() {
+    for _ in $(seq 1 30); do
+      if curl -fsS "$health_url" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 2
+    done
+
+    if ! curl -fsS "$health_url" >/dev/null 2>&1; then
+      docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
+      fail "Docker release smoke did not become healthy: $IMAGE"
     fi
-    sleep 2
-  done
 
-  if ! curl -fsS "$health_url" >/dev/null 2>&1; then
-    docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
-    fail "Docker release smoke did not become healthy: $IMAGE"
-  fi
-
-  metrics_url="http://127.0.0.1:$smoke_port/metrics"
-  if [[ "$(curl -sS -o /dev/null -w '%{http_code}' "$metrics_url")" != "401" ]]; then
-    fail "Docker release metrics endpoint did not reject an unauthenticated scrape: $IMAGE"
-  fi
-  metrics_body="$(curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" "$metrics_url")"
-  if [[ "$metrics_body" != *"ledger_http_requests_total"* || "$metrics_body" != *"ledger_db_open_connections"* ]]; then
-    fail "Docker release metrics endpoint omitted required operational metrics: $IMAGE"
-  fi
-
-  container_id="$(cd "$smoke_dir" && docker compose ps -q personal-ledger)"
-  health_status=""
-  for _ in $(seq 1 10); do
-    health_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$container_id")"
-    if [[ "$health_status" == "healthy" ]]; then
-      break
+    metrics_url="http://127.0.0.1:$smoke_port/metrics"
+    if [[ "$(curl -sS -o /dev/null -w '%{http_code}' "$metrics_url")" != "401" ]]; then
+      fail "Docker release metrics endpoint did not reject an unauthenticated scrape: $IMAGE"
     fi
-    sleep 3
-  done
+    metrics_body="$(curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" "$metrics_url")"
+    if [[ "$metrics_body" != *"ledger_http_requests_total"* || "$metrics_body" != *"ledger_db_open_connections"* ]]; then
+      fail "Docker release metrics endpoint omitted required operational metrics: $IMAGE"
+    fi
 
-  if [[ "$health_status" != "healthy" ]]; then
-    docker inspect --format '{{json .State.Health}}' "$container_id" >&2 || true
-    docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
-    fail "Docker release image HEALTHCHECK did not become healthy; status=${health_status:-unknown}: $IMAGE"
-  fi
+    container_id="$(cd "$smoke_dir" && docker compose ps -q personal-ledger)"
+    health_status=""
+    for _ in $(seq 1 10); do
+      health_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$container_id")"
+      if [[ "$health_status" == "healthy" ]]; then
+        break
+      fi
+      sleep 3
+    done
 
-  runtime_uid="$(docker exec "$container_id" awk '/^Uid:/{print $2}' /proc/1/status)"
-  if [[ "$runtime_uid" != "10001" ]]; then
-    docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
-    fail "Docker release server process must run as UID 10001; actual UID=${runtime_uid:-unknown}: $IMAGE"
-  fi
+    if [[ "$health_status" != "healthy" ]]; then
+      docker inspect --format '{{json .State.Health}}' "$container_id" >&2 || true
+      docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
+      fail "Docker release image HEALTHCHECK did not become healthy; status=${health_status:-unknown}: $IMAGE"
+    fi
+
+    runtime_uid="$(docker exec "$container_id" awk '/^Uid:/{print $2}' /proc/1/status)"
+    if [[ "$runtime_uid" != "10001" ]]; then
+      docker compose -f "$smoke_dir/docker-compose.yml" logs >&2 || true
+      fail "Docker release server process must run as UID 10001; actual UID=${runtime_uid:-unknown}: $IMAGE"
+    fi
+  }
+
+  verify_runtime
+  original_container_id="$container_id"
+  SMOKE_SETUP_TOKEN="$SMOKE_SETUP_TOKEN" python3 "$ROOT_DIR/scripts/docker_persistence_probe.py" seed \
+    --port "$smoke_port" --state "$smoke_dir/persistence-state.json"
+  (
+    cd "$smoke_dir"
+    docker compose up -d --force-recreate --no-deps personal-ledger
+  )
+  verify_runtime
+  [[ "$container_id" != "$original_container_id" ]] || fail "Persistence smoke did not recreate the container."
+  python3 "$ROOT_DIR/scripts/docker_persistence_probe.py" verify \
+    --port "$smoke_port" --state "$smoke_dir/persistence-state.json"
 
   for required_path in "$smoke_dir/data/ledger.db" "$smoke_dir/data/uploads" "$smoke_dir/data/backups"; do
     if [[ ! -e "$required_path" ]]; then
@@ -223,6 +239,7 @@ EOF
   echo "Runtime UID: 10001"
   echo "Metrics auth: PASS"
   echo "Persistent paths: ledger.db, uploads, backups"
+  echo "Ledger persistence: account and expense survived container recreation; balance 87.66 verified"
 fi
 
 echo "Docker release evidence checks passed."

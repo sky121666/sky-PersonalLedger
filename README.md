@@ -3,11 +3,15 @@
 Personal Ledger 是一个面向个人和家庭的私有部署记账系统。数据保存在自己的服务器，
 Web 与 Flutter 客户端共用 Go API，适合单用户或家庭账本，不是 SaaS 多租户服务。
 
-当前正式版本：**v1.0.9** · [发布说明](docs/release/v1.0.9.md) · [GitHub Release](https://github.com/sky121666/sky-PersonalLedger/releases/tag/v1.0.9)
+本分支版本：**v1.0.12** · [版本说明](docs/release/v1.0.12.md) · [GitHub Release](https://github.com/sky121666/sky-PersonalLedger/releases/tag/v1.0.12)。正式发布状态以该 Release 页面、对应运行记录和公开产物核验为准；源码文档本身不证明发布完成。**v1.0.9** 为升级与回退基线，历史说明见 [v1.0.9](docs/release/v1.0.9.md)。
+
+v1.0.10 候选因签名证明未约束可信调用 ref 而停止发布；既有 tag 保留且不可覆盖，记录见 [v1.0.10 停止发布说明](docs/release/v1.0.10.md)。v1.0.12 的来源约束、反例验收和发布门禁必须全部满足后才可发布。
+
+v1.0.11 在双架构构建后因 amd64 镜像漏洞扫描失败而未发布，既有 tag 保留且不可覆盖，记录见 [v1.0.11 扫描阻断说明](docs/release/v1.0.11.md)。v1.0.12 必须按实际扫描发现升级受影响依赖，并通过两架构完整镜像扫描；源码可达性检查不能替代此门禁。
 
 ## 运行截图
 
-以下图片由 v1.0.9 当前源码连接隔离 SQLite 后端后实际采集，数据均为合成展示数据。
+以下保留 v1.0.9 的实际运行截图，来自隔离 SQLite 和合成展示数据；不作为 v1.0.12 的新验收证据。
 
 ### Web
 
@@ -40,17 +44,17 @@ Web 与 Flutter 客户端共用 Go API，适合单用户或家庭账本，不是
 
 ## Docker 快速部署
 
-v1.0.9 的正式发布范围是 Docker/Web。需要 Docker Engine、Docker Compose v2、Git、
+v1.0.12 的发布范围为 Docker/Web。执行以下下载命令前先核验该版本 Release 存在；下载后必须通过 checksum 和签名来源核验再部署。升级与回退基线见 [v1.0.9 说明](docs/release/v1.0.9.md)。需要 Docker Engine、Docker Compose v2、Git、
 OpenSSL 和校验工具。
 
 ### 1. 下载固定版本和发布 Compose
 
 ```bash
-git clone --branch v1.0.9 --depth 1 https://github.com/sky121666/sky-PersonalLedger.git
+git clone --branch v1.0.12 --depth 1 https://github.com/sky121666/sky-PersonalLedger.git
 cd sky-PersonalLedger
-curl -fLO https://github.com/sky121666/sky-PersonalLedger/releases/download/v1.0.9/docker-compose-v1.0.9.yml
-curl -fLO https://github.com/sky121666/sky-PersonalLedger/releases/download/v1.0.9/docker-compose-v1.0.9.yml.sha256
-sha256sum -c docker-compose-v1.0.9.yml.sha256
+curl -fLO https://github.com/sky121666/sky-PersonalLedger/releases/download/v1.0.12/docker-compose-v1.0.12.yml
+curl -fLO https://github.com/sky121666/sky-PersonalLedger/releases/download/v1.0.12/docker-compose-v1.0.12.yml.sha256
+sha256sum -c docker-compose-v1.0.12.yml.sha256
 cp .env.example .env
 chmod 600 .env
 ```
@@ -58,12 +62,12 @@ chmod 600 .env
 macOS 可把最后的校验命令换成：
 
 ```bash
-shasum -a 256 -c docker-compose-v1.0.9.yml.sha256
+shasum -a 256 -c docker-compose-v1.0.12.yml.sha256
 ```
 
-Release 附件中的 Compose 已固定到 v1.0.9 不可变镜像 digest。仓库根目录的
+Release 附件中的 Compose 必须固定到 v1.0.12 不可变镜像 digest，并通过公开资产核验。仓库根目录的
 `docker-compose.yml` 与 `.env.example` 保留上一已验证 digest 作为源码演练基线；正式
-安装 v1.0.9 应使用上面下载并校验过的版本专属 Compose，避免发布 digest 的循环依赖。
+安装 v1.0.12 应使用上面下载并校验过的版本专属 Compose，避免发布 digest 的循环依赖。
 
 ### 2. 生成本机密钥
 
@@ -90,8 +94,8 @@ LEDGER_SETUP_TOKEN=第三条随机值
 ### 3. 启动和检查
 
 ```bash
-docker compose --env-file .env -f docker-compose-v1.0.9.yml up -d
-docker compose --env-file .env -f docker-compose-v1.0.9.yml ps
+docker compose --env-file .env -f docker-compose-v1.0.12.yml up -d
+docker compose --env-file .env -f docker-compose-v1.0.12.yml ps
 curl -fsS http://127.0.0.1:8080/api/v1/health
 ```
 
@@ -153,21 +157,23 @@ cd mobile && flutter analyze && flutter test
 cd .. && ./scripts/verify-mobile-e2e.sh
 ```
 
-完整本地门禁：
+Docker/Web 候选发布门禁（先提交完整候选源码，保持干净工作区）：
 
 ```bash
-RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh
-LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
+BACKUP_OPERATOR_DRILL_PROOF_FILE=/tmp/ledger-drill-proof.json ./scripts/check-backup-operator-drill-local.sh
+BACKUP_OPERATOR_DRILL_PROOF_FILE=/tmp/ledger-drill-proof.json BACKUP_OPERATOR_DRILL_REQUIRE_CLEAN=1 RELEASE_SCOPE=docker-web RELEASE_PHASE=source STRICT_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 ```
 
 项目版本以根目录 `VERSION` 为准；Web 和 Flutter 版本字段、Node、Go、Flutter 与 Docker
 工具链均由 CI 校验。
 
-## v1.0.9 发布边界
+旧的全平台 readiness/签名移动门禁及设备要求见运行手册，不能用其历史文本 PASS 替代当前 Docker/Web 执行证据。
 
-- 正式产物：GHCR `linux/amd64`、`linux/arm64` 镜像，以及 digest 固定的 Compose 和 SHA-256 附件。
+## v1.0.12 发布边界
+
+- 发布产物要求：GHCR `linux/amd64`、`linux/arm64` 镜像、digest 固定的 Compose、SHA-256 附件和签名扫描证明；完成状态须核对 Release 与公开资产。
 - Web：生产构建、单元测试、真实后端 Playwright 和发布镜像运行检查纳入正式门禁。
-- Android/iOS：当前源码已通过模拟器真实后端 E2E 并提供运行截图，但不附带签名 APK、AAB、IPA，也不声称实体 iPhone 或商店验收完成。
+- Android/iOS：自动单元与 flutter-tester 真实后端 E2E 纳入门禁；旧版模拟器截图单独标注，不附带签名 APK、AAB、IPA，不声称本版本实体设备或商店验收完成。
 - 附件维护屏障是进程内机制；共享同一上传目录时仅支持一个可写应用实例，多副本写入需要外部分布式租约，当前不支持。
 - 仓库当前没有 `LICENSE` 文件；源码公开可见不等于已经授予明确的开源许可证。
 
@@ -176,8 +182,8 @@ LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 ## 数据安全
 
 - 不要提交 `.env`、数据库、上传目录、备份、keystore、证书或 API Key。
-- 备份格式 2.3 不导出 AI Provider 或通知凭据；附件内容仍是敏感明文数据的 Base64 表示。
-- 升级前备份 `data/` 与受限的本机 `.env`，并保留旧镜像 digest。
+- 备份格式 2.4 保留删除与禁用状态，不导出 AI Provider 或通知凭据；附件内容仍是敏感明文数据的 Base64 表示。
+- 停止写入后保留 `data/` 与受限本机 `.env` 的一致性副本和旧镜像 digest；回滚到 v1.0.9 使用升级前副本，旧版不能读取新 2.4 备份。
 - AI、Webhook、SMTP 私网出站默认阻止；确有内网网关需求时再显式开启并限制范围。
 
 ## 文档导航
@@ -187,7 +193,7 @@ LOCAL_FINAL_RELEASE=1 ./scripts/check-final-release-gates.sh
 | [docs/features](docs/features/README.md) | 用户功能与接口边界 |
 | [docs/development](docs/development) | 部署、客户端、测试、签名与发布治理 |
 | [docs/architecture](docs/architecture) | 家庭、AI、备份与存储合同 |
-| [docs/release](docs/release) | 每个正式版本的范围、变更和限制 |
+| [docs/release](docs/release) | 正式版本及未发布候选的范围、变更和限制 |
 | [docs/screenshots](docs/screenshots/README.md) | 脱敏运行截图与采集证据 |
 | [docs/quality](docs/quality) | 门禁、演练和验收边界 |
 

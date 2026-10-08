@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { accountApi, type Account, type CreateAccountParams, type AccountType } from '@/api/account'
 import { Plus, X, ChevronDown, Trash2, Archive, Wallet, CreditCard, ArchiveRestore, ChevronLeft, Pen, ScrollText } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
@@ -19,6 +19,9 @@ const totalLiabilities = ref(0)
 const showArchived = ref(false)
 const ledgerMutationRevision = useLedgerMutationRevision()
 const accountRequests = createRequestGeneration()
+const loading = ref(false)
+const loadError = ref('')
+const hasLoaded = ref(false)
 
 const showDialog = ref(false)
 const editingAccount = ref<Account | null>(null)
@@ -82,9 +85,12 @@ onMounted(() => {
 })
 
 watch(ledgerMutationRevision, () => void loadAccounts())
+onBeforeUnmount(() => accountRequests.begin())
 
 async function loadAccounts() {
   const requestGeneration = accountRequests.begin()
+  loading.value = true
+  loadError.value = ''
   try {
     const allData = await accountApi.getList(true)
     if (!accountRequests.isLatest(requestGeneration)) return
@@ -93,9 +99,14 @@ async function loadAccounts() {
     const totals = accountSummaryTotals(allData)
     totalAssets.value = totals.totalAssets
     totalLiabilities.value = totals.totalLiabilities
+    hasLoaded.value = true
   } catch (e) {
     if (accountRequests.isLatest(requestGeneration)) {
-      console.error('Load accounts failed:', e)
+      loadError.value = '账户加载失败，请检查网络后重试。'
+    }
+  } finally {
+    if (accountRequests.isLatest(requestGeneration)) {
+      loading.value = false
     }
   }
 }
@@ -220,7 +231,7 @@ const displayAccounts = computed(() => showArchived.value ? archivedAccounts.val
           </div>
           <div>
             <h1 class="text-xl font-bold text-gray-900 dark:text-white">我的钱包</h1>
-            <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ accounts.length }} 个账户</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ hasLoaded ? `${accounts.length} 个账户` : '尚未加载' }}</div>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -243,8 +254,16 @@ const displayAccounts = computed(() => showArchived.value ? archivedAccounts.val
     </div>
 
     <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
+      <div v-if="loadError" role="alert" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+        <p>{{ loadError }}</p>
+        <p v-if="hasLoaded" class="mt-1">以下账户和余额为上次成功加载的结果，尚未更新。</p>
+        <button class="mt-3 rounded-lg border border-current px-3 py-1.5 font-medium disabled:opacity-50" :disabled="loading" @click="loadAccounts">重新加载账户</button>
+      </div>
+      <p v-else-if="loading" role="status" class="text-center text-sm text-gray-500 dark:text-gray-400">
+        {{ hasLoaded ? '账户更新中，以下暂时保留已加载的余额…' : '账户加载中…' }}
+      </p>
       <!-- Asset Overview Cards -->
-      <div class="grid grid-cols-3 gap-2 md:gap-4">
+      <div v-if="hasLoaded" class="grid grid-cols-3 gap-2 md:gap-4">
         <div class="bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-xl rounded-2xl p-3 md:p-4 flex flex-col items-center justify-center gap-0.5 shadow-sm border border-white/40 dark:border-white/5">
           <div class="text-base md:text-2xl font-bold font-nums text-gray-900 dark:text-white truncate w-full text-center">¥{{ formatMoney(netAssets) }}</div>
           <div class="text-[10px] md:text-xs text-gray-500">净资产</div>
@@ -260,7 +279,7 @@ const displayAccounts = computed(() => showArchived.value ? archivedAccounts.val
       </div>
 
       <!-- Section Title -->
-      <div class="flex items-center justify-between pt-2">
+      <div v-if="hasLoaded" class="flex items-center justify-between pt-2">
         <h2 class="text-sm font-bold text-gray-900 dark:text-white px-1">{{ showArchived ? '已归档账户' : '我的账户' }}</h2>
         <span class="text-xs text-gray-400">{{ displayAccounts.length }} 张卡片</span>
       </div>
@@ -338,6 +357,7 @@ const displayAccounts = computed(() => showArchived.value ? archivedAccounts.val
                 </button>
                 <button 
                   class="p-2.5 bg-white/20 active:bg-white/40 md:hover:bg-white/30 rounded-xl text-white backdrop-blur-xl transition-all active:scale-95 md:hover:scale-110 border border-white/25 shadow-md"
+                  :aria-label="`${account.is_archived ? '恢复' : '归档'}账户 ${account.name}`"
                   @click.stop="toggleArchive(account)"
                 >
                   <ArchiveRestore v-if="account.is_archived" :size="14" />
@@ -413,7 +433,7 @@ const displayAccounts = computed(() => showArchived.value ? archivedAccounts.val
       </div>
 
       <!-- Empty State -->
-      <div v-else class="py-24 text-center">
+      <div v-else-if="hasLoaded && !loading && !loadError" class="py-24 text-center">
         <div class="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-3xl flex items-center justify-center mx-auto mb-6 text-gray-400 shadow-lg shadow-gray-200/50 dark:shadow-black/30">
           <Archive v-if="showArchived" :size="40" stroke-width="1.5" />
           <Wallet v-else :size="40" stroke-width="1.5" />

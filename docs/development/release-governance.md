@@ -18,9 +18,12 @@
   构建/扫描 job 没有 `packages:write` 或 `release` environment；两个扫描通过后，它把 OCI
   layout 封装为带 SHA-256 的 artifact。只有依赖该 job 的发布 job 才进入受保护的
   `release` environment、取得 `packages:write`，复验 archive 与 OCI digest 后用 Skopeo
-  把同一 layout 推送到不可变 version tag。checkout 不保留 GitHub 凭据。
+  把同一 layout 推送到不可变 version tag。发布 job 仅稀疏检出本次 workflow SHA 的校验
+  脚本，产品始终来自该 OCI layout，不重新构建。checkout 不保留 GitHub 凭据。
   发布链不自动创建或更新 latest，部署使用版本标签或 digest。
-- 发布前拒绝已有的 GitHub Release 或 GHCR version tag，避免覆盖历史版本。
+- 发布前拒绝已有的 GitHub Release 或 GHCR version tag，避免覆盖历史版本。正常发布和
+  恢复共用镜像查询合同：CLI 的 not found 只是线索，还必须由 GHCR 明确返回
+  MANIFEST_UNKNOWN；鉴权、网络或工具错误都停止，不能当作未发布。
 - 正常 tag 与恢复入口共用 `scripts/release_contract.py publish`。创建前再次确认 tag 对象、
   源码 SHA、版本镜像 digest 和 Release 不存在；只调用 `gh release create --verify-tag`，
   不传 `--target` / `target_commitish`，不调用 edit/upload/clobber。已有 tag 是唯一来源，
@@ -55,6 +58,26 @@
 
 这些门禁验证仓库内合同，不证明 GitHub 远端保护已经配置，也不证明真实镜像、签名资产或
 设备验收已经完成。
+
+## 签名来源验收（v1.0.11 起）
+
+v1.0.10 在公开发布前因签名来源反例停止。旧校验器只核对仓库、signer 与谓词，未约束证书中的实际调用 ref；普通同仓库分支可签发伪造扫描谓词。既有 tag 保留且不可覆盖，后续版本使用 v1.0.11。此前功能测试和签名结构测试没有覆盖这个反例，不能据其 PASS 声称发布来源可信。
+
+从 v1.0.11 引入的来源合同沿用到 v1.0.12；执行状态须另行核对当次 CI 与公开产物，不能从本文推断：
+
+- 正常签名的实际调用 URI 必须对应 `.github/workflows/release-web.yml`；证书调用 ref 精确匹配当前版本 tag，v1.0.12 为 `refs/tags/v1.0.12`。来源与 signer digest 必须等于经核验的产品 tag SHA。
+- 恢复签名的实际调用 URI 必须对应 `.github/workflows/release-web-recovery.yml`；证书调用 ref 精确匹配 API 返回且受保护的默认分支，当前为 `refs/heads/main`。来源与 signer digest 必须等于通过 main ancestry 核验的受信工具 SHA。
+- 恢复谓词中的产品 `source_sha` 仍是原产品 tag SHA；它与恢复工具 SHA 各自核验，不能互相替代。签名证书来源不能由谓词中的自报 ref、事件、状态或工作流名称代替。
+- 证书 `buildConfigURI` 对应上层 caller：正常路径为 `release-web.yml`，恢复路径为 `release-web-recovery.yml`。证书 SAN 与 `buildSignerURI` 对应实际 signer，即 reusable `docker.yml`，须匹配其准确 ref；SAN 不能与 caller URI 混用。
+- 独立反证必须拒绝普通分支、错误版本 ref、错误调用工作流及工具/产品身份混淆；混合候选先过滤错误来源再选择。旧代码的 RED 仅证明缺陷；发布必须具备修复后的反例、独立复审和真实发布身份核验。
+
+版本说明与执行步骤见 [v1.0.12 发布说明](../release/v1.0.12.md) 和 [运行手册](../quality/final-release-runbook-v1.0.12.md)。正式状态以 Release 页面、当次运行记录与公开资产核验为准。发布库存继续以 v1.0.9 为固定基线，停止发布的 v1.0.10 和 v1.0.11 均不能成为新基线。
+
+## 完整镜像与 Go 可达性门禁
+
+v1.0.11 的运行 `37410524297` 在双架构构建完成后，amd64 Trivy 检出 OpenSSL `libcrypto3/libssl3 3.5.7-r0` 的 `CVE-2026-14456` 和 Go x/crypto `0.53.0` 的 `CVE-2026-56854`，因此失败；arm64 扫描、publisher 和 Release 跳过，未发布镜像或 Release。既有 tag 保留且不可覆盖，整改使用 v1.0.12 新源码和版本。
+
+Go 可达性检查分析当前代码调用路径，Trivy 则检查镜像实际包含的 OS 包和二进制依赖。可达性结果未命中，不代表镜像没有受影响组件；按扫描实际发现升级至对应修复版本，并核对最终镜像安装版本及二进制模块信息。两架构完整镜像扫描都须通过，保留原严重级别与未修复项策略，不降低阈值或新增忽略项换取放行。扫描发现是依赖风险证据，不是实际入侵或业务数据被污染的证据。
 
 ## GitHub 远端设置
 
@@ -120,13 +143,18 @@ publisher run 只能来自同仓库的原 tag 发布流程，或默认分支上�
 job 日志的环境字段验证源码 SHA 与扫描后 digest。job 日志缺失、过期或不一致时停止；
 仅提供一个正确格式的 digest、或镜像里自报的标签，不足以授权补建 Release。
 
-运行验证使用本次工具提交的隔离 Docker smoke，仍检查两架构 manifest、健康、指标鉴权、
-非 root、持久化与清理。恢复不再把当前 main 的 VERSION 当成旧版本源数据。
+运行验证使用本次工具提交的隔离 Docker smoke，检查两架构 manifest、健康、指标鉴权、
+非 root，并通过 API 写入合成账户和交易，重建容器、重新登录后核对记录与余额。执行日志
+必须实际通过后才能认定该镜像的重建持久化验收完成；两架构 manifest 检查仍不代表两种
+架构都已运行。恢复不再把当前 main 的 VERSION 当成旧版本源数据。
 这不替代生产升级/回滚、实体手机、VoiceOver/TalkBack 或签名分发验收。
 
 2026-08-31 本地修复及公开产物复验记录：
-[发布恢复验证](../quality/release-recovery-verification-2026-08-31.md)。只有修改合入后，
-新的恢复入口才会在 GitHub 默认分支生效；本地检查不等于已触发远端恢复。
+[发布恢复验证](../quality/release-recovery-verification-2026-08-31.md)。该次修复已进入 main
+的 da8bed5；同提交的只读恢复 run 33344667117 在 validate 阶段失败，后续 job 均跳过。
+错误日志仅有 gh exit 1，不能据此推断具体 API 或权限根因。当前工具会保留静态阶段名、
+命令类别、退出码和可识别的 HTTP 状态，不回显请求参数、凭据、URL 或原始错误正文。
+仍需在工具合入后另行完成真实只读恢复验收；本地检查不等于已触发远端恢复。
 
 ## 未解决的许可证边界
 

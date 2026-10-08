@@ -206,6 +206,48 @@ void main() {
     expect(storage.accessToken, isNull);
     expect(storage.refreshToken, isNull);
   });
+
+  for (final failurePhase in ['refresh', 'retried-request']) {
+    test(
+      'transient $failurePhase failure preserves credentials for a later retry',
+      () async {
+        final storage = _MemorySecureStorage(
+          accessToken: 'expired-access',
+          refreshToken: 'valid-refresh',
+        );
+        final adapter = _TokenRefreshAdapter(
+          transientFailurePhase: failurePhase,
+        );
+        var expiredCalls = 0;
+        final dio = Dio(
+          BaseOptions(baseUrl: 'https://ledger.example.com/api/v1'),
+        )..httpClientAdapter = adapter;
+        dio.interceptors.add(
+          AuthInterceptor(
+            dio: dio,
+            secureStorage: storage,
+            onSessionExpired: () {
+              expiredCalls++;
+            },
+          ),
+        );
+
+        await expectLater(
+          dio.get<Object?>('/protected'),
+          throwsA(isA<DioException>()),
+        );
+        expect(expiredCalls, 0);
+        expect(
+          storage.refreshToken,
+          failurePhase == 'refresh' ? 'valid-refresh' : 'fresh-refresh',
+        );
+        expect(
+          storage.accessToken,
+          failurePhase == 'refresh' ? 'expired-access' : 'fresh-access',
+        );
+      },
+    );
+  }
 }
 
 class _TokenRefreshAdapter implements HttpClientAdapter {
@@ -213,11 +255,13 @@ class _TokenRefreshAdapter implements HttpClientAdapter {
     this.refreshShouldFail = false,
     this.retriedRequestShouldFail = false,
     this.genericUnauthorized = false,
+    this.transientFailurePhase,
   });
 
   final bool refreshShouldFail;
   final bool retriedRequestShouldFail;
   final bool genericUnauthorized;
+  final String? transientFailurePhase;
   int protectedRequests = 0;
   int refreshRequests = 0;
   final List<String?> protectedRequestAuthHeaders = [];
@@ -233,6 +277,12 @@ class _TokenRefreshAdapter implements HttpClientAdapter {
       refreshRequests++;
       refreshRequestAuthHeaders.add(_authorizationHeader(options));
       await Future<void>.delayed(const Duration(milliseconds: 20));
+      if (transientFailurePhase == 'refresh') {
+        return _jsonResponse(options, 503, {
+          'code': 50000,
+          'message': 'temporary outage',
+        });
+      }
       if (refreshShouldFail) {
         return _jsonResponse(options, 401, {
           'code': 40102,
@@ -255,6 +305,13 @@ class _TokenRefreshAdapter implements HttpClientAdapter {
       protectedRequests++;
       final authHeader = _authorizationHeader(options);
       protectedRequestAuthHeaders.add(authHeader);
+      if (authHeader == 'Bearer fresh-access' &&
+          transientFailurePhase == 'retried-request') {
+        return _jsonResponse(options, 503, {
+          'code': 50000,
+          'message': 'temporary outage',
+        });
+      }
       if (genericUnauthorized) {
         return _jsonResponse(options, 401, {
           'code': 40101,

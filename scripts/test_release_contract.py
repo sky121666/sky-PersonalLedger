@@ -28,13 +28,13 @@ NAME = f"docker-compose-{TAG}.yml"
 def metadata():
     return {"tag_name": TAG, "draft": False, "prerelease": False,
             "assets": [{"name": name, "state": "uploaded", "size": 42}
-                       for name in contract.asset_names(TAG)]}
+                       for name in (*contract.asset_names(TAG), contract.scan_proof_name(TAG))]}
 
 
 def source_run():
     return {"repository": {"full_name": REPO}, "path": ".github/workflows/release-web.yml",
             "event": "push", "head_sha": SHA, "head_branch": TAG,
-            "status": "completed", "conclusion": "failure", "run_attempt": 1}
+            "status": "completed", "conclusion": "failure", "run_attempt": 1, "id": 20}
 
 
 def publisher_jobs():
@@ -153,12 +153,66 @@ class ReleaseContractTests(unittest.TestCase):
 
     @patch.object(contract.subprocess, "run")
     def test_registry_transport_and_auth_failures_are_not_absence(self, run):
-        for stderr in [b"unauthorized", b"HTTP 403", b"HTTP 404", b"network timeout", b"not found"]:
+        for stderr in [b"unauthorized", b"HTTP 403", b"HTTP 404", b"network timeout", b"not found",
+                       b"ERROR: lookup credentials: helper not found",
+                       b"ERROR: failed to authorize: token endpoint returned 404 Not Found"]:
             run.return_value = SimpleNamespace(returncode=1, stderr=stderr)
             with self.subTest(stderr=stderr), self.assertRaises(ValueError):
                 contract.image_digest("image")
-        run.return_value = SimpleNamespace(returncode=1, stderr=b"manifest unknown")
-        self.assertIsNone(contract.image_digest("image"))
+
+    @patch.dict(os.environ, GITHUB_REPOSITORY=REPO)
+    @patch.object(contract, "public_manifest_absent")
+    @patch.object(contract.subprocess, "run")
+    def test_publisher_requires_registry_proof_and_rejects_lookup_errors(self, run, absent):
+        image = f"ghcr.io/{REPO}:{TAG[1:]}"
+        for stderr in (b"manifest unknown", b"name unknown", f"ERROR: {image}: not found".encode()):
+            run.return_value = SimpleNamespace(returncode=1, stderr=stderr)
+            absent.return_value = True
+            contract.require_image_absent(TAG)
+            absent.assert_called_with(image)
+            absent.return_value = False
+            with self.assertRaises(ValueError):
+                contract.require_image_absent(TAG)
+            absent.side_effect = ValueError("registry token HTTP 401")
+            with self.assertRaisesRegex(ValueError, "HTTP 401"):
+                contract.require_image_absent(TAG)
+            absent.side_effect = None
+        for stderr in (b"helper not found", b"HTTP 404 Not Found", b"network timeout"):
+            absent.reset_mock()
+            run.return_value = SimpleNamespace(returncode=1, stderr=stderr)
+            with self.assertRaises(ValueError):
+                contract.require_image_absent(TAG)
+            absent.assert_not_called()
+        manifest = {"manifests": [{"platform": {"os": "linux", "architecture": arch}}
+                                  for arch in ("amd64", "arm64")]}
+        run.return_value = SimpleNamespace(returncode=0, stdout=json.dumps(manifest).encode())
+        with self.assertRaisesRegex(ValueError, "already exists"):
+            contract.require_image_absent(TAG)
+
+    @patch.object(contract.subprocess, "run")
+    def test_command_diagnostics_keep_stage_and_http_without_echoing_secrets(self, run):
+        secret = "private-fixture-do-not-disclose"
+        run.return_value = SimpleNamespace(returncode=1, stdout=secret.encode(),
+            stderr=f"gh: HTTP 403 forbidden https://user:{secret}@private.test Authorization: Bearer {secret}".encode())
+        with self.assertRaises(ValueError) as raised:
+            contract.command(["gh", "api", f"private/path?token={secret}"],
+                             env={"GH_TOKEN": secret}, stage="publisher push log")
+        message = str(raised.exception)
+        for expected in ("publisher push log", "gh api", "exit 1", "http=403", "reason=permission"):
+            self.assertIn(expected, message)
+        for forbidden in (secret, "private.test", "private/path", "Authorization"):
+            self.assertNotIn(forbidden, message)
+        self.assertEqual(run.call_count, 1, "Never retry uncertain commands automatically")
+
+    @patch.object(contract.subprocess, "run")
+    def test_read_api_diagnostics_and_optional_not_found_are_distinct(self, run):
+        run.return_value = SimpleNamespace(returncode=1, stdout=b"", stderr=b"HTTP 401 private-response-fixture")
+        with self.assertRaisesRegex(ValueError, "source gates: gh api.*http=401"):
+            contract.api("private/path", optional=True, stage="source gates")
+        run.return_value.stderr = b"HTTP 404"
+        self.assertIsNone(contract.api("private/path", optional=True))
+        with self.assertRaisesRegex(ValueError, "http=404"):
+            contract.api("private/path", stage="required publisher log")
 
     @patch.object(contract.subprocess, "run")
     def test_registry_requires_both_architectures_and_exact_bytes(self, run):
@@ -239,7 +293,8 @@ class ReleaseContractTests(unittest.TestCase):
                 self.assertNotIn(forbidden, argv)
             raise ValueError("Simulated ambiguous write result")
         command.side_effect = execute
-        with self.assertRaisesRegex(ValueError, "ambiguous"):
+        with patch.object(contract, "verify_scan_attestation", return_value=[{"attestation": {"bundle": {"fixture": True}}}]), \
+             self.assertRaisesRegex(ValueError, "ambiguous"):
             contract.publish(SimpleNamespace(source="source", tag=TAG, sha=SHA, tag_object=OBJECT, digest=DIGEST))
         self.assertEqual(len(creations), 1)
 
@@ -285,6 +340,7 @@ class ReleaseContractTests(unittest.TestCase):
                  patch.object(contract, "git", return_value=SHA), patch.object(contract, "api", side_effect=read_api), \
                  patch.object(contract, "command", side_effect=read_command), \
                  patch.object(contract, "image_digest", return_value=None if mode == "build" else DIGEST), \
+                 patch.object(contract, "verify_scan_attestation", side_effect=ValueError("Bad signed proof") if bad_logs else None) as scan, \
                  patch.object(contract, "verify_assets", side_effect=ValueError("Partial assets") if bad_assets else None) as verify:
                 if bad_assets or bad_logs or missing_gate or untrusted or (verify_only and mode != "verify"):
                     with self.assertRaises(ValueError):
@@ -295,6 +351,7 @@ class ReleaseContractTests(unittest.TestCase):
                     self.assertIn(f"mode={mode}\n", output.read_text())
                     self.assertIn(f"tag_object={OBJECT}\n", output.read_text())
                     self.assertEqual(verify.call_count, int(mode == "verify"))
+                    self.assertEqual(scan.call_count, int(mode != "build"), "New recovery must use durable signed proof, not logs")
 
     def test_recovery_orchestration_all_three_modes(self):
         for mode in ("build", "resume", "verify"):

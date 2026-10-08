@@ -28,6 +28,11 @@ var (
 
 var authInitMu sync.Mutex
 
+// SQLite has no SELECT FOR UPDATE. Keep authentication write transactions
+// short and serialize them across service instances before taking a snapshot.
+// Password hashing remains outside this lock and outside the transaction.
+var authSQLiteWriteMu sync.Mutex
+
 type AuthService struct {
 	userRepo         *repository.UserRepository
 	refreshTokenRepo *repository.RefreshTokenRepository
@@ -79,7 +84,7 @@ func (s *AuthService) Init(password string) (*AuthResponse, error) {
 	authInitMu.Lock()
 	defer authInitMu.Unlock()
 
-	var userID uint
+	var response *AuthResponse
 	if err := s.userRepo.DB().Transaction(func(tx *gorm.DB) error {
 		var count int64
 		if err := tx.Model(&model.User{}).Count(&count).Error; err != nil {
@@ -107,13 +112,14 @@ func (s *AuthService) Init(password string) (*AuthResponse, error) {
 			return err
 		}
 
-		userID = user.ID
-		return nil
+		var err error
+		response, err = s.generateTokensWithRepository(user.ID, repository.NewRefreshTokenRepository(tx))
+		return err
 	}); err != nil {
 		return nil, err
 	}
 
-	return s.generateTokens(userID)
+	return response, nil
 }
 
 func (s *AuthService) Login(password string) (*AuthResponse, error) {
@@ -125,34 +131,48 @@ func (s *AuthService) Login(password string) (*AuthResponse, error) {
 		return nil, fmt.Errorf("load login user: %w", err)
 	}
 
-	// Check if locked
 	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
 		return nil, ErrUserLocked
 	}
+	passwordMatches := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) == nil
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		// Increment fail count
-		user.LoginFailCount++
-		if user.LoginFailCount >= 5 {
-			lockUntil := time.Now().Add(15 * time.Minute)
-			user.LockedUntil = &lockUntil
+	var response *AuthResponse
+	var authenticationErr error
+	err = s.withAuthUserTransaction(user.ID, func(txdb *gorm.DB, current *model.User) error {
+		// The password may have changed during bcrypt. Never accept an old
+		// verification or let it overwrite the new credentials or lock state.
+		if current.PasswordHash != user.PasswordHash {
+			return ErrInvalidPassword
 		}
-		if err := s.userRepo.Update(user); err != nil {
-			return nil, fmt.Errorf("persist failed login state: %w", err)
+		now := time.Now()
+		if current.LockedUntil != nil && current.LockedUntil.After(now) {
+			return ErrUserLocked
 		}
-		return nil, ErrInvalidPassword
+		users := repository.NewUserRepository(txdb)
+		if !passwordMatches {
+			current.LoginFailCount++
+			if current.LoginFailCount >= 5 {
+				lockUntil := now.Add(15 * time.Minute)
+				current.LockedUntil = &lockUntil
+			}
+			if err := users.RecordFailedLogin(current.ID, current.LoginFailCount, current.LockedUntil); err != nil {
+				return fmt.Errorf("persist failed login state: %w", err)
+			}
+			// Commit the failed-attempt state before returning the auth error.
+			authenticationErr = ErrInvalidPassword
+			return nil
+		}
+		if err := users.RecordSuccessfulLogin(current.ID, now); err != nil {
+			return fmt.Errorf("persist successful login state: %w", err)
+		}
+		var err error
+		response, err = s.generateTokensWithRepository(current.ID, repository.NewRefreshTokenRepository(txdb))
+		return err
+	})
+	if err != nil {
+		return nil, err
 	}
-
-	// Reset fail count on success
-	user.LoginFailCount = 0
-	user.LockedUntil = nil
-	now := time.Now()
-	user.LastLoginAt = &now
-	if err := s.userRepo.Update(user); err != nil {
-		return nil, fmt.Errorf("persist successful login state: %w", err)
-	}
-
-	return s.generateTokens(user.ID)
+	return response, authenticationErr
 }
 
 func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
@@ -168,9 +188,18 @@ func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
 	if claims.UserID == 0 {
 		return nil, ErrInvalidToken
 	}
+	sessionID := claims.SessionID
+	if sessionID == "" {
+		// Older refresh JWTs have a unique jti but no session_id. It becomes
+		// the stable identity so even the pre-rotation token can revoke its child.
+		sessionID = claims.ID
+	}
+	if sessionID == "" {
+		return nil, ErrInvalidToken
+	}
 
 	var response *AuthResponse
-	err = s.userRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	err = s.withAuthUserTransaction(claims.UserID, func(txdb *gorm.DB, _ *model.User) error {
 		repo := repository.NewRefreshTokenRepository(txdb)
 		now := time.Now()
 		consumed, err := repo.Consume(hashRefreshToken(normalizedToken), claims.UserID, now)
@@ -188,7 +217,7 @@ func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
 		if !consumed {
 			return ErrInvalidToken
 		}
-		response, err = s.generateTokensWithRepository(claims.UserID, repo)
+		response, err = s.generateTokensForSession(claims.UserID, repo, sessionID)
 		return err
 	})
 	if err != nil {
@@ -198,7 +227,37 @@ func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
 }
 
 func (s *AuthService) Logout(userID uint) error {
-	return s.refreshTokenRepo.DeleteByUserID(userID)
+	return s.withAuthUserTransaction(userID, func(txdb *gorm.DB, _ *model.User) error {
+		return repository.NewRefreshTokenRepository(txdb).DeleteByUserID(userID)
+	})
+}
+
+// LogoutBrowserSession revokes only the authenticated refresh-token family.
+// It shares the refresh transaction lock: a rotation either precedes this
+// deletion (and its successor is removed), or follows it and cannot consume.
+func (s *AuthService) LogoutBrowserSession(refreshToken string) error {
+	normalized := strings.TrimSpace(refreshToken)
+	claims, err := s.jwtManager.ValidateRefreshToken(normalized)
+	if err != nil || claims.UserID == 0 {
+		return ErrInvalidToken
+	}
+	sessionID := claims.SessionID
+	if sessionID == "" {
+		sessionID = claims.ID
+	}
+	if sessionID == "" {
+		return ErrInvalidToken
+	}
+	return s.withAuthUserTransaction(claims.UserID, func(txdb *gorm.DB, _ *model.User) error {
+		deleted, err := repository.NewRefreshTokenRepository(txdb).DeleteSession(claims.UserID, sessionID, hashRefreshToken(normalized), normalized)
+		if err != nil {
+			return err
+		}
+		if !deleted {
+			return ErrInvalidToken
+		}
+		return nil
+	})
 }
 
 func (s *AuthService) ChangePassword(userID uint, oldPassword, newPassword string) error {
@@ -220,13 +279,33 @@ func (s *AuthService) ChangePassword(userID uint, oldPassword, newPassword strin
 		return err
 	}
 
-	user.PasswordHash = string(hash)
-	if err := s.userRepo.Update(user); err != nil {
-		return err
-	}
+	return s.withAuthUserTransaction(userID, func(txdb *gorm.DB, current *model.User) error {
+		if current.PasswordHash != user.PasswordHash {
+			return ErrInvalidPassword
+		}
+		if err := repository.NewUserRepository(txdb).UpdatePasswordHash(userID, string(hash)); err != nil {
+			return err
+		}
+		// Sharing the user lock with login/refresh prevents an older session
+		// from creating a refresh token after this revocation commits. Access
+		// JWTs already issued remain valid until their configured expiry.
+		return repository.NewRefreshTokenRepository(txdb).DeleteByUserID(userID)
+	})
+}
 
-	// Invalidate all tokens
-	return s.refreshTokenRepo.DeleteByUserID(userID)
+func (s *AuthService) withAuthUserTransaction(userID uint, fn func(*gorm.DB, *model.User) error) error {
+	db := s.userRepo.DB()
+	if db.Dialector.Name() == "sqlite" {
+		authSQLiteWriteMu.Lock()
+		defer authSQLiteWriteMu.Unlock()
+	}
+	return db.Transaction(func(txdb *gorm.DB) error {
+		user, err := repository.NewUserRepository(txdb).GetByIDForUpdate(userID)
+		if err != nil {
+			return err
+		}
+		return fn(txdb, user)
+	})
 }
 
 func (s *AuthService) IsInitialized() (bool, error) {
@@ -246,18 +325,22 @@ func (s *AuthService) generateTokens(userID uint) (*AuthResponse, error) {
 }
 
 func (s *AuthService) generateTokensWithRepository(userID uint, refreshTokens *repository.RefreshTokenRepository) (*AuthResponse, error) {
+	return s.generateTokensForSession(userID, refreshTokens, uuid.New().String())
+}
+
+func (s *AuthService) generateTokensForSession(userID uint, refreshTokens *repository.RefreshTokenRepository, sessionID string) (*AuthResponse, error) {
 	accessToken, err := s.jwtManager.GenerateAccessToken(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	refreshToken, expiresAt, err := s.jwtManager.GenerateRefreshToken(userID)
+	refreshToken, expiresAt, err := s.jwtManager.GenerateRefreshTokenForSession(userID, sessionID)
 	if err != nil {
 		return nil, err
 	}
 
 	rt := &model.RefreshToken{
-		ID:        uuid.New().String(),
+		ID:        sessionID,
 		UserID:    userID,
 		Token:     hashRefreshToken(refreshToken),
 		ExpiresAt: expiresAt,
@@ -439,7 +522,7 @@ func (s *AuthService) UpdateProfile(userID uint, nickname, email, avatar, bio st
 	user.Avatar = avatar
 	user.Bio = bio
 
-	if err := s.userRepo.Update(user); err != nil {
+	if err := s.userRepo.UpdateProfile(user); err != nil {
 		return nil, err
 	}
 

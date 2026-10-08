@@ -49,7 +49,7 @@ void main() {
         find.byKey(const ValueKey('server-url-field')),
         find.text('连接服务器'),
         find.text('连接账本'),
-        find.byKey(const Key('auth-setup-password-field')),
+        find.byKey(const Key('auth-setup-recheck-button')),
         find.byKey(const Key('auth-login-password-field')),
         find.text('首页'),
       ]);
@@ -192,32 +192,10 @@ Future<void> _waitForAuthForm(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 200));
 
     if (find
-            .byKey(const Key('auth-setup-password-field'))
-            .evaluate()
-            .isNotEmpty ||
-        find
-            .byKey(const Key('auth-setup-password-confirm-field'))
-            .evaluate()
-            .isNotEmpty ||
-        find.text('设置密码').evaluate().isNotEmpty) {
-      await _enterTextByPossibleKeys(
-        tester,
-        const [Key('auth-setup-password-field')],
-        _password,
-        fallbackLabels: const ['密码'],
-      );
-      await _enterTextByPossibleKeys(
-        tester,
-        const [Key('auth-setup-password-confirm-field')],
-        _password,
-        fallbackLabels: const ['确认密码'],
-      );
-      await _tapKeyOrText(
-        tester,
-        key: const ValueKey('auth-setup-submit-button'),
-        fallbackTexts: const ['完成设置'],
-      );
-      return;
+        .byKey(const Key('auth-setup-recheck-button'))
+        .evaluate()
+        .isNotEmpty) {
+      fail('隔离测试账本尚未初始化。请在启动客户端验收前完成后端初始化；手机端只提供浏览器初始化指引。');
     }
 
     if (find
@@ -245,7 +223,7 @@ Future<void> _waitForAuthForm(WidgetTester tester) async {
     '${find.text('账本连接失败，请检查地址或网络').evaluate().isNotEmpty ? '账本连接失败；' : ''}'
     '${find.text('连接账本').evaluate().isNotEmpty ? '连接账本；' : ''}'
     '${find.text('连接服务器').evaluate().isNotEmpty ? '连接服务器；' : ''}'
-    '${find.text('设置密码').evaluate().isNotEmpty ? '设置密码；' : ''}'
+    '${find.text('先在浏览器初始化').evaluate().isNotEmpty ? '等待浏览器初始化；' : ''}'
     '${find.text('账本解锁').evaluate().isNotEmpty ? '账本解锁；' : ''}'
     '${find.text('登录').evaluate().isNotEmpty ? '登录；' : ''}',
   );

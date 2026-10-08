@@ -93,13 +93,13 @@ func (c *OpenAICompatibleClient) TestConnection(ctx context.Context, baseURL str
 	return nil
 }
 
-func (c *OpenAICompatibleClient) GenerateReport(ctx context.Context, baseURL string, apiKey string, model string, snapshotJSON string) (string, error) {
+func (c *OpenAICompatibleClient) GenerateReport(ctx context.Context, baseURL string, apiKey string, model string, snapshotJSON string, reportType string) (string, error) {
 	payload := map[string]any{
 		"model": model,
 		"messages": []map[string]string{
 			{
 				"role":    "system",
-				"content": "You are a financial analysis assistant for a private household ledger. Use only the provided facts.",
+				"content": aiReportTaskPrompt(reportType),
 			},
 			{
 				"role":    "user",
@@ -107,6 +107,7 @@ func (c *OpenAICompatibleClient) GenerateReport(ctx context.Context, baseURL str
 			},
 		},
 		"temperature": 0.2,
+		"max_tokens":  4096,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -154,4 +155,16 @@ func (c *OpenAICompatibleClient) GenerateReport(ctx context.Context, baseURL str
 		return "", errors.New("ai provider returned empty content")
 	}
 	return content, nil
+}
+
+func aiReportTaskPrompt(reportType string) string {
+	tasks := map[string]string{
+		"weekly":  "Summarize the selected week's cash flow and spending. Distinguish weekly totals from the explicit monthly budget period.",
+		"monthly": "Review the selected month's cash flow, category composition and budget progress.",
+		"family":  "Analyze household member spending and member budgets, preserving each anonymous member identity.",
+		"budget":  "Explain allowance usage, remaining amounts and over-budget categories for the explicit budget period. Unknown allowances are not zero.",
+		"anomaly": "Identify only risks supported by supplied aggregates. Do not claim transaction-level outliers or historical comparisons absent from the facts.",
+	}
+	return "You are a financial analysis assistant for a private household ledger. Use only the provided facts. Report type: " + reportType + ". " + tasks[reportType] +
+		" Return one JSON object without Markdown fences. Required summary is a non-empty string. Optional title is a string; highlights and suggestions are arrays of strings; risks is an array of objects with level (low, medium or high), non-empty title and detail. Never fabricate missing history, transactions or budget settings."
 }

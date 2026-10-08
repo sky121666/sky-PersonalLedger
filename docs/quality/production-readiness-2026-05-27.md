@@ -86,11 +86,15 @@ Historical failed workflow runs remain visible; they are not proof that the publ
 See [release recovery verification](release-recovery-verification-2026-08-31.md) for exact identities
 and the boundary between local repair, public artifact checks, and remote workflow acceptance.
 
+Read-only status refresh on 2026-09-08 confirmed recovery run 33344667117 used da8bed5 and
+verify_only=true, failed at validation, and skipped all downstream jobs. The table below reflects
+that result; the earlier source and runtime records above remain historical evidence.
+
 | Priority | Gap | Required Action |
 | --- | --- | --- |
-| P1 | Recovery automation repair is local, not yet merged or run in GitHub | Review and merge the repair; exercise the complete-release read-only path without replacing v1.0.9 |
+| P1 | Recovery repair merged as da8bed5, but verify-only run 33344667117 failed at validation with only a generic gh exit 1 | Preserve publication state, add safe stage diagnostics, and separately verify the complete-release read-only path after the next tooling merge |
 | P1 | No fresh target production upgrade/rollback acceptance | Verify on an isolated copy of the installation owner's data before changing production |
-| Optional | Production-specific backup drill | Repeat the operator drill against an isolated deployment if the installation owner requires environment-specific evidence |
+| Deployment | Production-specific backup drill and independent backup copy | Check an encrypted copy on independent storage and repeat restore against an isolated deployment before relying on it for disaster recovery |
 
 Use `RUN_EXPENSIVE=1 ./scripts/check-production-readiness.sh` for a fresh local source rehearsal.
 The finalized user-facing scope is in

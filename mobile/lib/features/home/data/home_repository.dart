@@ -390,7 +390,7 @@ class HomeRepository {
 }
 
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
-  return HomeRepository(ref.watch(apiClientProvider));
+  return HomeRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final homeSummaryProvider = FutureProvider<HomeSummary>((ref) {

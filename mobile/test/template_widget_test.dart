@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,7 @@ import 'package:personal_ledger/app/theme/app_theme.dart';
 import 'package:personal_ledger/app/widgets/finance_dashboard_widgets.dart';
 import 'package:personal_ledger/app/widgets/premium_surface.dart';
 import 'package:personal_ledger/features/templates/data/template_repository.dart';
+import 'package:personal_ledger/features/home/data/home_repository.dart';
 import 'package:personal_ledger/features/templates/presentation/template_page.dart';
 import 'package:personal_ledger/features/transactions/data/transaction_models.dart';
 
@@ -124,6 +126,76 @@ void main() {
       expect(repository.applyCalls.single.$2.transactionDate, isNotNull);
       expect(find.text('已按模板记账'), findsOneWidget);
       expect(find.text('已用 4 次'), findsOneWidget);
+    });
+
+    testWidgets('模板记账成功后列表失败仍报告成功且刷新只重读不重记', (tester) async {
+      final repository = _FakeTemplateRepository();
+      await _pumpPage(tester, repository);
+      repository.listErrors = 1;
+      await tester.tap(find.byKey(const ValueKey('template-apply-tpl-1')));
+      await tester.pumpAndSettle();
+      expect(repository.applyCalls, hasLength(1));
+      expect(find.text('模板使用失败'), findsNothing);
+      expect(find.text('已按模板记账，模板列表刷新失败'), findsOneWidget);
+      await tester.tap(find.text('刷新列表'));
+      await tester.pumpAndSettle();
+      expect(repository.applyCalls, hasLength(1));
+      expect(find.text('已用 4 次'), findsOneWidget);
+    });
+
+    testWidgets('模板套用请求期间返回后成功仍刷新首页账务缓存', (tester) async {
+      final release = Completer<void>();
+      final repository = _FakeTemplateRepository()..applyRelease = release;
+      var assets = 123.0;
+      final container = ProviderContainer(
+        overrides: [
+          templateRepositoryProvider.overrideWithValue(repository),
+          homeSummaryProvider.overrideWith(
+            (ref) async => _assetSummary(assets),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final subscription = container.listen(homeSummaryProvider, (_, __) {});
+      addTearDown(subscription.close);
+      expect(
+        (await container.read(homeSummaryProvider.future)).accounts.netAssets,
+        123,
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const TemplatePage(),
+                    ),
+                  ),
+                  child: const Text('打开模板'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('打开模板'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('template-apply-tpl-1')));
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      assets = 456;
+      release.complete();
+      await tester.pumpAndSettle();
+      expect(
+        (await container.read(homeSummaryProvider.future)).accounts.netAssets,
+        456,
+      );
+      expect(repository.applyCalls, hasLength(1));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('删除模板前需要确认', (tester) async {
@@ -336,6 +408,7 @@ class _FakeTemplateRepository implements TemplateRepository {
   var listErrors = 0;
   String? createError;
   String? applyError;
+  Completer<void>? applyRelease;
   String? deleteError;
   List<LedgerAccount> accounts = const [
     LedgerAccount(id: 'account-1', name: '现金', type: 'cash'),
@@ -349,6 +422,7 @@ class _FakeTemplateRepository implements TemplateRepository {
   @override
   Future<TransactionItem> apply(String id, ApplyTemplateRequest request) async {
     applyCalls.add((id, request));
+    await applyRelease?.future;
     final error = applyError;
     if (error != null) {
       throw StateError(error);
@@ -430,3 +504,26 @@ class _FakeTemplateRepository implements TemplateRepository {
     return templates;
   }
 }
+
+HomeSummary _assetSummary(double assets) => HomeSummary(
+  accounts: AccountListResponse(
+    list: const [],
+    totalAssets: assets,
+    totalLiabilities: 0,
+    netAssets: assets,
+  ),
+  overview: const StatisticsOverview(
+    income: 0,
+    expense: 0,
+    balance: 0,
+    transactionCount: 0,
+  ),
+  budgetSummary: const BudgetSummary(
+    totalAmount: 0,
+    totalSpent: 0,
+    percentage: 0,
+    dailyAvailable: 0,
+    daysRemaining: 0,
+    overBudgetCategories: [],
+  ),
+);

@@ -6,6 +6,7 @@ FROM node:24.18.1-alpine3.24@sha256:f70403e87646dc51b45295f4b8b70cdad0b63d2297c4
 WORKDIR /app/web
 
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+COPY web/patches/ ./patches/
 RUN corepack enable && pnpm install --frozen-lockfile
 
 COPY web/ ./
@@ -35,7 +36,10 @@ FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6ee
 
 WORKDIR /app
 
+# The pinned base includes OpenSSL 3.5.7; require the CVE-2026-14456 fix
+# instead of leaving preinstalled vulnerable libraries untouched by apk add.
 RUN apk add --no-cache ca-certificates su-exec tzdata wget \
+    "libcrypto3>=3.5.8-r0" "libssl3>=3.5.8-r0" \
     && addgroup -S -g 10001 ledger \
     && adduser -S -D -H -u 10001 -G ledger ledger
 

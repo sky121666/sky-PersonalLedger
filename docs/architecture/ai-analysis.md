@@ -74,6 +74,7 @@ Operational rules:
 | `provider_name` | string | Provider used |
 | `model` | string | Model used |
 | `prompt_version` | string | Template version |
+| `provider_revision` | string | Private configuration fingerprint, excluded from API and backup JSON |
 | `error_message` | string | Sanitized error |
 | `created_at` | time | GORM timestamp |
 | `updated_at` | time | GORM timestamp |
@@ -117,6 +118,9 @@ Weekly and monthly reports should send aggregated facts:
   "expense_total": 4380.5,
   "net_cashflow": 7619.5,
   "budget": {
+    "period_start": "2026-05-01",
+    "period_end": "2026-05-24",
+    "settings_basis": "current_budget_settings",
     "monthly_budget": 8000,
     "spent": 4380.5,
     "remaining": 3619.5,
@@ -148,6 +152,19 @@ Weekly and monthly reports should send aggregated facts:
 ```
 
 Names should be anonymized when the user enables data masking. Remarks should be excluded by default.
+
+The snapshot reads all financial facts in one consistent database transaction. Income, expense,
+category, member, and account changes use the requested report period. Budget progress uses the
+first day of the report's ending month through the inclusive report end. For example, a report
+covering April 27 through May 3 compares May 1–3 spending with the current monthly allowance.
+Total, category, and member budgets use this same monthly scope; inactive budgets are excluded.
+Actual spending is still included when no budget exists, while allowance, remaining, and usage
+percentage stay null. Budget settings are not versioned historically: regenerated past reports
+use the settings in effect at generation time, as declared by `current_budget_settings`.
+
+Member masking builds one stable member-ID mapping shared by spending and all member budgets.
+An individual therefore has the same anonymous label throughout one snapshot, even when that
+member has several category budgets.
 
 ## AI Output Contract
 
@@ -209,10 +226,37 @@ Manual report generation accepts an optional `mask_names` flag. Member names are
 - Do not send API tokens, passwords, webhook URLs, or backup contents.
 - Provide a masking option for member names and account names.
 - Do not reuse an unmasked completed report for a masked request.
-- Cache completed reports by user, report type, period, provider, model, and prompt version to avoid repeated external calls for the same scope.
+- Before reusing a completed report in the same user/type/period/provider/model/prompt scope,
+  rebuild the financial snapshot and require exact snapshot and provider-configuration matches.
+  Changed transactions, budget facts, or provider settings create a new report while retaining
+  the old report as history. A cache database error fails the request before any provider call.
 - Allow deleting reports.
 - Protect stored provider API keys at rest.
 - Keep AI providers and raw provider keys out of normal ledger backup exports.
+
+Schema 11 adds only the private `provider_revision` column. Historical reports retain their
+content and empty revision, so they are readable but cannot satisfy the new cache check. Normal
+backup exports omit the revision, and restored reports also require regeneration before reuse.
+Prompt versions are `personal-ledger-v3` and `personal-ledger-v3-masked`. Web and mobile report
+generation allow 45 seconds for the backend's 30-second provider request; ordinary API requests
+retain their existing timeout. Generation serialization is local to one writable server instance.
+
+Provider requests now carry a report-specific analysis task: weekly and monthly summaries,
+member-focused family analysis, budget progress, or aggregate-supported anomaly explanations.
+All tasks require a non-empty string summary. Optional title, highlight/suggestion string arrays,
+and risk objects are type-checked before completion; null, arrays, empty objects, and malformed
+JSON do not become completed cache entries. Useful plain-text responses remain compatible and
+are stored as a summary. JSON code fences are normalized.
+
+Each request is bounded to 4096 output tokens. A user can have at most two active generations
+and six actual provider attempts per minute; cache hits do not consume an attempt. The limits
+are local to the supported single writable server and reset on restart. They bound call volume,
+not a currency-denominated cost budget. Provider-side spending limits remain an operator task.
+
+Schedule saves update only user-editable configuration. Completion atomically merges run dates
+into the latest settings, so an in-flight task cannot re-enable a schedule that the user disabled.
+Automatic requests recheck current switches before sending. Requests already sent can complete;
+disabling a schedule prevents subsequent sends and does not undo an external call already made.
 
 ## Validation
 
@@ -221,6 +265,10 @@ Manual report generation accepts an optional `mask_names` flag. Member names are
 - Handler tests proving API keys are not returned.
 - Report generation test using a fake OpenAI-compatible server.
 - Cache test proving repeated generation for the same completed scope returns the existing report without another provider request.
+- Cache invalidation tests for edited ledger facts, budget settings, and provider configuration,
+  including configuration edits racing with report creation.
+- Budget tests for earlier weeks, cutoff dates, cross-month reports, no configured allowance,
+  inactive budgets, and consistent masked member identities.
 - Scheduler test proving automatic weekly reports use the previous complete week and do not run again on the same day.
 - Scheduler test proving users without an enabled provider are skipped rather than failing the whole run.
 - Snapshot tests proving raw remarks are excluded by default.

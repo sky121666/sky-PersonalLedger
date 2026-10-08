@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify bounded brace parsing through installed build dependencies
+        run: pnpm verify:brace-depth
+
       - name: Run tests
         run: pnpm test
 

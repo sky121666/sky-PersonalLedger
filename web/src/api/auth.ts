@@ -2,6 +2,8 @@ import type { AxiosRequestConfig } from 'axios'
 
 import { get, post, put } from '@/utils/request'
 import { setupAccessConfig } from '@/utils/setupAccess'
+import { browserAuthMutation } from '@/utils/browserAuthQueue'
+import { useAuthStore } from '@/stores/auth'
 
 export interface AuthStatus {
   initialized: boolean
@@ -37,29 +39,30 @@ export const authApi = {
   },
 
   init(password: string): Promise<AuthResponse> {
-    return post<AuthResponse>(
+    const config = boundBrowserSession(setupAccessConfig())
+    return browserAuthMutation(() => post<AuthResponse>(
       '/auth/init',
       { password },
-      withBrowserSession(setupAccessConfig())
-    )
+      config
+    ))
   },
 
   login(password: string): Promise<AuthResponse> {
-    return post<AuthResponse>('/auth/login', { password }, withBrowserSession())
+    const config = boundBrowserSession()
+    return browserAuthMutation(() => post<AuthResponse>('/auth/login', { password }, config))
   },
 
   refresh(silent = false): Promise<AuthResponse> {
-    return post<AuthResponse>(
+    const config = boundBrowserSession(silent ? { headers: { 'X-Session-Bootstrap': '1' } } : undefined)
+    return browserAuthMutation(() => post<AuthResponse>(
       '/auth/refresh',
       {},
-      withBrowserSession(
-        silent ? { headers: { 'X-Session-Bootstrap': '1' } } : undefined
-      )
-    )
+      config
+    ))
   },
 
   logout(): Promise<void> {
-    return post<void>('/auth/logout', undefined, withBrowserSession())
+    return browserAuthMutation(() => post<void>('/auth/logout', undefined, withBrowserSession()))
   },
 
   changePassword(oldPassword: string, newPassword: string): Promise<void> {
@@ -76,6 +79,12 @@ export const authApi = {
   updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
     return put<UserProfile>('/auth/profile', data)
   }
+}
+
+function boundBrowserSession(config?: AxiosRequestConfig): AxiosRequestConfig {
+  // Bind before queuing: a delayed dispatch still belongs to its originating
+  // session, even when a login/logout has already changed the store generation.
+  return { ...withBrowserSession(config), _sessionGeneration: useAuthStore().sessionGeneration } as AxiosRequestConfig
 }
 
 function withBrowserSession(config: AxiosRequestConfig = {}): AxiosRequestConfig {

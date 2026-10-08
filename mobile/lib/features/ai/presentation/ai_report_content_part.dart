@@ -220,6 +220,21 @@ class _AIReportCard extends StatelessWidget {
           ),
           children: [
             _AIReportContent(data: parsed),
+            if (snapshot.budget case final budget?) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '月预算进度 · ${budget.periodStart} 至 ${budget.periodEnd}\n'
+                  '${budget.remaining == null ? '未设置总预算' : '剩余 ${formatMoney(budget.remaining!)}'} · 已用 ${formatMoney(budget.spent)}\n'
+                  '按当前预算设置计算',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
             if (snapshot.accountChanges.isNotEmpty) ...[
               const SizedBox(height: 12),
               _AIReportAccountChanges(changes: snapshot.accountChanges),
@@ -441,9 +456,10 @@ class _AIReportSection extends StatelessWidget {
 }
 
 class AIReportSnapshotData {
-  const AIReportSnapshotData({required this.accountChanges});
+  const AIReportSnapshotData({required this.accountChanges, this.budget});
 
   final List<AIReportAccountChangeData> accountChanges;
+  final AIReportBudgetData? budget;
 
   static AIReportSnapshotData parse(String value) {
     if (value.trim().isEmpty) {
@@ -456,6 +472,7 @@ class AIReportSnapshotData {
       }
       final changes = decoded['account_changes'];
       return AIReportSnapshotData(
+        budget: AIReportBudgetData.parse(decoded['budget']),
         accountChanges: changes is List
             ? changes
                   .whereType<Map<String, dynamic>>()
@@ -468,6 +485,48 @@ class AIReportSnapshotData {
     } catch (_) {
       return const AIReportSnapshotData(accountChanges: []);
     }
+  }
+}
+
+class AIReportBudgetData {
+  const AIReportBudgetData({
+    required this.periodStart,
+    required this.periodEnd,
+    required this.spent,
+    this.remaining,
+  });
+
+  final String periodStart;
+  final String periodEnd;
+  final double spent;
+  final double? remaining;
+
+  static AIReportBudgetData? parse(Object? value) {
+    if (value is! Map<String, dynamic>) return null;
+    final start = value['period_start'];
+    final end = value['period_end'];
+    final spent = _finiteNumber(value['spent']);
+    // Older reports have no explicit monthly scope; don't relabel their
+    // historical period-only figures as month-to-date budget progress.
+    if (start is! String ||
+        end is! String ||
+        spent == null ||
+        value['settings_basis'] != 'current_budget_settings' ||
+        !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(start) ||
+        !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(end)) {
+      return null;
+    }
+    return AIReportBudgetData(
+      periodStart: start,
+      periodEnd: end,
+      spent: spent,
+      remaining: _finiteNumber(value['remaining']),
+    );
+  }
+
+  static double? _finiteNumber(Object? value) {
+    final parsed = value is num ? value.toDouble() : double.tryParse('$value');
+    return parsed != null && parsed.isFinite ? parsed : null;
   }
 }
 

@@ -5,7 +5,7 @@ import '../../../core/providers/core_providers.dart';
 import 'yearly_report_models.dart';
 
 final yearlyReportRepositoryProvider = Provider<YearlyReportRepository>((ref) {
-  return YearlyReportRepository(ref.watch(apiClientProvider));
+  return YearlyReportRepository(ref.watch(ledgerApiClientProvider));
 });
 
 final yearlyReportDashboardProvider = FutureProvider.autoDispose

@@ -152,7 +152,6 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		var err error
 		refreshToken, err = c.Cookie(refreshTokenCookieName)
 		if err != nil || strings.TrimSpace(refreshToken) == "" {
-			h.clearBrowserSessionCookies(c)
 			response.Unauthorized(c, "invalid refresh token")
 			return
 		}
@@ -167,9 +166,8 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 	result, err := h.service.RefreshToken(refreshToken)
 	if err != nil {
-		if h.usesBrowserCookie(c) {
-			h.clearBrowserSessionCookies(c)
-		}
+		// A failed, delayed request cannot know which cookie the browser has
+		// now. Deleting it here could erase an independent newer login.
 		response.Unauthorized(c, "invalid refresh token")
 		return
 	}
@@ -181,6 +179,34 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
+	if h.usesBrowserCookie(c) {
+		if !sameOriginBrowserRequest(c.Request) {
+			response.Forbidden(c, "invalid csrf token")
+			return
+		}
+		refreshToken, err := c.Cookie(refreshTokenCookieName)
+		if err != nil || strings.TrimSpace(refreshToken) == "" {
+			// Already logged out; do not send cookie writes that could arrive
+			// after an unrelated login in another client.
+			response.Success(c, nil)
+			return
+		}
+		if !validCSRFToken(c) {
+			response.Forbidden(c, "invalid csrf token")
+			return
+		}
+		if err := h.service.LogoutBrowserSession(refreshToken); err != nil {
+			if errors.Is(err, service.ErrInvalidToken) {
+				response.Success(c, nil)
+				return
+			}
+			internalServerError(c, err, "failed to logout")
+			return
+		}
+		h.clearBrowserSessionCookies(c)
+		response.Success(c, nil)
+		return
+	}
 	userID := middleware.GetUserID(c)
 	h.clearBrowserSessionCookies(c)
 	if err := h.service.Logout(userID); err != nil {
@@ -217,7 +243,9 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	h.clearBrowserSessionCookies(c)
+	// ChangePassword already revokes server-side refresh sessions. Do not
+	// mutate cookies here: this response can arrive after a new-password
+	// login. The Web client clears its local access state on success.
 	response.Success(c, gin.H{"message": "password changed, please login again"})
 }
 

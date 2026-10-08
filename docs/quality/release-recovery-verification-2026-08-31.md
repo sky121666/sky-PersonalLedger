@@ -85,3 +85,25 @@ DOCKER_RELEASE_IMAGE=ghcr.io/sky121666/sky-personalledger@sha256:db2e60c66f72338
 - 不配置签名材料，不代替所有者选择许可证。
 
 规则及操作入口见 [发布治理合同](../development/release-governance.md)。
+
+## 2026-09-08 状态复核与本地改进
+
+本节更新后续状态，不改写上面的 2026-08-31 本地阶段快照。修复已进入 main 的
+`da8bed52006ca38d4486e3bcac73a7b23afc65a2`。本轮只读查询确认
+[run 33344667117](https://github.com/sky121666/sky-PersonalLedger/actions/runs/33344667117)
+使用该提交和 `verify_only=true`，在 validate 阶段失败，随后 Docker、runtime、Release、
+assets job 全部跳过。原错误只有 `gh operation failed (exit 1)`，无法据此确定具体 API
+或权限根因。
+
+当前本地改进统一正常发布与恢复的镜像不存在判定：CLI 未找到镜像还需 GHCR 明确证明
+`MANIFEST_UNKNOWN`，通用 404、凭据助手缺失、鉴权和网络错误均停止。命令错误增加静态
+阶段名、命令类别、退出码和可识别的 HTTP 状态，省略 URL、参数、凭据及原始响应正文。
+发布 job 只稀疏读取本次 workflow SHA 的校验脚本，仍仅推广已扫描的同一个 OCI layout。
+
+发布 smoke 现增加经 API 写入合成账户及支出、强制重建容器、重新登录并核对交易和余额。
+离线行为测试覆盖数据丢失、金额或归属变化、已有部署拒绝初始化、认证 token 不落盘，
+以及镜像查询失败与安全诊断。该脚本改进尚未在真实镜像或 GitHub runner 上执行，本节
+不把离线回归描述成镜像持久化验收、双架构运行或生产升级/回滚通过。
+
+本轮没有重新触发远端 workflow、推送、发布、覆盖镜像或更改 tag；后续真实只读恢复与
+镜像验收仍须在本地改进合入后单独完成。

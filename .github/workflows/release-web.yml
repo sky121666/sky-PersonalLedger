@@ -112,22 +112,33 @@ jobs:
   source-release-contract:
     name: Docker/Web source release contract
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: prepare
+    needs: [prepare, backup-security]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
+      actions: read
     steps:
       - name: Checkout release tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Download this run's executed backup proof
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: backup-operator-drill-proof
+          path: ${{ runner.temp }}/backup-proof
 
       - name: Run scope-aware source release gate
         env:
           RELEASE_SCOPE: docker-web
           RELEASE_PHASE: source
           STRICT_FINAL_RELEASE: '1'
+          BACKUP_OPERATOR_DRILL_PROOF_FILE: ${{ runner.temp }}/backup-proof/backup-operator-drill-proof.json
+          BACKUP_OPERATOR_DRILL_EXPECTED_COMMIT: ${{ github.sha }}
+          BACKUP_OPERATOR_DRILL_REQUIRE_CLEAN: '1'
         run: ./scripts/check-final-release-gates.sh
 
   docker:
@@ -144,20 +155,30 @@ jobs:
       actions: read
       contents: read
       packages: write
+      id-token: write
+      attestations: write
 
   published-image:
     name: Published Docker image runtime gate
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: [prepare, docker]
+    needs: [prepare, docker, backup-security]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
+      actions: read
     steps:
       - name: Checkout release tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Download this run's executed backup proof
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: backup-operator-drill-proof
+          path: ${{ runner.temp }}/backup-proof
 
       - name: Verify published manifest and runtime
         env:
@@ -165,6 +186,9 @@ jobs:
           RELEASE_SCOPE: docker-web
           RELEASE_PHASE: published
           STRICT_FINAL_RELEASE: '1'
+          BACKUP_OPERATOR_DRILL_PROOF_FILE: ${{ runner.temp }}/backup-proof/backup-operator-drill-proof.json
+          BACKUP_OPERATOR_DRILL_EXPECTED_COMMIT: ${{ github.sha }}
+          BACKUP_OPERATOR_DRILL_REQUIRE_CLEAN: '1'
         run: ./scripts/check-final-release-gates.sh
 
   release:
@@ -176,6 +200,7 @@ jobs:
     environment: release
     permissions:
       contents: write
+      attestations: read
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -200,6 +225,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      attestations: read
     steps:
       - name: Checkout release tag with history
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

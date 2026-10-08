@@ -4,7 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/providers/core_providers.dart';
 
 final tagRepositoryProvider = Provider<TagRepository>((ref) {
-  return TagRepository(ref.watch(apiClientProvider));
+  return TagRepository(ref.watch(ledgerApiClientProvider));
 });
 
 class TagRepository {

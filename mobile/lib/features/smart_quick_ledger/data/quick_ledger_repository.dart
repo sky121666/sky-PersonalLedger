@@ -38,7 +38,7 @@ class QuickLedgerDraftController extends StateNotifier<List<QuickLedgerDraft>> {
 
   Future<void> loadFromPlatform() async {
     final drafts = await _platformClient.getPendingDrafts();
-    if (drafts.isNotEmpty) {
+    if (mounted && drafts.isNotEmpty) {
       state = drafts;
     }
   }
@@ -69,6 +69,7 @@ class QuickLedgerDraftController extends StateNotifier<List<QuickLedgerDraft>> {
   }
 
   Future<void> dismiss(String id) async {
+    if (!mounted) return;
     state = state.where((draft) => draft.id != id).toList();
     await _platformClient.dismissDraft(id);
   }
@@ -119,6 +120,7 @@ class QuickLedgerDraftController extends StateNotifier<List<QuickLedgerDraft>> {
     }
 
     final transaction = await _transactionWriter.create(formData);
+    if (!mounted) return transaction;
     await dismiss(id);
     return transaction;
   }

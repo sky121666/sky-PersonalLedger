@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NOTES_FILE="${RELEASE_NOTES_FILE:-docs/quality/release-notes-candidate-2026-05-27.md}"
+NOTES_FILE="${RELEASE_NOTES_FILE:-docs/quality/release-notes-v1.0.12.md}"
 VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 
 fail() {
