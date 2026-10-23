@@ -42,9 +42,19 @@ const router = createRouter({
           component: () => import('@/views/SettingsView.vue')
         },
         {
+          path: 'appearance',
+          name: 'appearance',
+          component: () => import('@/views/AppearanceView.vue')
+        },
+        {
           path: 'accounts',
           name: 'accounts',
           component: () => import('@/views/AccountsView.vue')
+        },
+        {
+          path: 'debt',
+          name: 'debt',
+          redirect: to => ({ path: '/reminders', query: to.query, hash: to.hash })
         },
         {
           path: 'categories',
@@ -69,7 +79,7 @@ const router = createRouter({
         {
           path: 'reminders',
           name: 'reminders',
-          component: () => import('@/views/ReminderView.vue')
+          component: () => import('@/views/DebtManagementView.vue')
         },
         {
           path: 'lendings',
@@ -85,6 +95,11 @@ const router = createRouter({
           path: 'family',
           name: 'family',
           component: () => import('@/views/FamilyView.vue')
+        },
+        {
+          path: 'ai/settings',
+          name: 'ai-settings',
+          component: () => import('@/views/AISettingsView.vue')
         },
         {
           path: 'ai',

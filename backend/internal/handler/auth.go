@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -103,7 +104,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Check account rate limit
 	allowed, lockedUntil := h.rateLimiter.CheckAccount("admin")
 	if !allowed {
-		remainingSeconds := int(time.Until(lockedUntil).Seconds())
+		remainingSeconds := middleware.RetryAfterSeconds(lockedUntil)
+		c.Header("Retry-After", strconv.Itoa(remainingSeconds))
 		c.JSON(429, gin.H{
 			"code":         42902,
 			"message":      "Account temporarily locked due to too many failed attempts.",
@@ -374,6 +376,14 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 	profile, err := h.service.UpdateProfile(userID, req.Nickname, req.Email, req.Avatar, req.Bio)
 	if err != nil {
+		if errors.Is(err, service.ErrAttachmentRecoveryPending) {
+			response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
+			return
+		}
+		if errors.Is(err, service.ErrUploadPathInvalid) || errors.Is(err, service.ErrUploadPathForbidden) || errors.Is(err, service.ErrAttachmentFileUnavailable) {
+			response.BadRequest(c, "头像文件无效或已丢失，请重新上传头像")
+			return
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			response.NotFound(c, "profile not found")
 			return

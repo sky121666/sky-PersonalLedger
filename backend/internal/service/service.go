@@ -32,6 +32,7 @@ type Services struct {
 	AIReportSchedule     *AIReportScheduler
 	NotificationSchedule *NotificationScheduler
 	Health               *HealthService
+	Debt                 *DebtService
 }
 
 func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
@@ -66,7 +67,8 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		WithAccountRepository(repos.Account)
 
 	return &Services{
-		Auth:              NewAuthService(repos.User, repos.RefreshToken, repos.Category, repos.Account, jwtManager),
+		Debt:              NewDebtService(repos.Account.DB()),
+		Auth:              NewAuthService(repos.User, repos.RefreshToken, repos.Category, repos.Account, jwtManager).WithUploadService(uploadService),
 		Account:           NewAccountService(repos.Account),
 		Category:          NewCategoryService(repos.Category),
 		Transaction:       transactionService,
@@ -85,7 +87,7 @@ func NewServices(repos *repository.Repositories, cfg *config.Config) *Services {
 		AccountLog:        accountLogService,
 		Tag:               NewTagService(repos.Tag),
 		APIToken:          NewAPITokenService(repos.APIToken),
-		FamilyMember:      NewFamilyMemberService(repos.FamilyMember, repos.Transaction).WithCategoryRepository(repos.Category),
+		FamilyMember:      NewFamilyMemberService(repos.FamilyMember, repos.Transaction).WithCategoryRepository(repos.Category).WithUploadService(uploadService),
 		AIProvider:        NewAIProviderService(repos.AIProvider, NewOpenAICompatibleClient(nil, allowPrivateOutbound), credentialSecrets...).WithPrivateOutboundNetworks(allowPrivateOutbound),
 		AIReport:          aiReportService,
 		AIReportSchedule:  NewAIReportScheduler(aiReportService, repos.System, repos.User),

@@ -53,6 +53,10 @@ func (h *AccountHandler) Create(c *gin.Context) {
 
 	account, err := h.service.Create(userID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidDebtRequest) {
+			debtResponseError(c, err)
+			return
+		}
 		if errors.Is(err, service.ErrInvalidLocalDate) {
 			response.Error(c, 422, 42202, "invalid account date")
 			return
@@ -109,6 +113,10 @@ func (h *AccountHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.service.Delete(id, userID); err != nil {
+		if errors.Is(err, service.ErrAccountHasHistory) {
+			response.Error(c, 409, 40904, err.Error())
+			return
+		}
 		if errors.Is(err, service.ErrAccountNotFound) {
 			response.NotFound(c, "account not found")
 			return

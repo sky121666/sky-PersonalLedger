@@ -138,12 +138,20 @@ func (h *TransactionHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.service.Delete(id, userID); err != nil {
+		if errors.Is(err, service.ErrReminderRollbackUnverified) {
+			response.Error(c, http.StatusConflict, 40909, "无法核实原还款账户或实际本金变动，请先核对历史记录；本次未撤销")
+			return
+		}
 		if errors.Is(err, service.ErrTransactionNotFound) {
 			response.NotFound(c, "transaction not found")
 			return
 		}
 		if errors.Is(err, service.ErrSystemTransactionImmutable) {
 			response.BadRequest(c, "system transaction cannot be changed directly")
+			return
+		}
+		if errors.Is(err, service.ErrLendingInitialHasRepayments) {
+			response.Error(c, http.StatusConflict, 40906, "该借贷仍有还款记录或已还款金额，不能删除初始流水。请先单独撤销还款；无还款流水或数据异常时请先核对。")
 			return
 		}
 		internalServerError(c, err, "failed to delete transaction")
@@ -167,12 +175,20 @@ func (h *TransactionHandler) BatchDelete(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteBatch(req.IDs, userID); err != nil {
+		if errors.Is(err, service.ErrReminderRollbackUnverified) {
+			response.Error(c, http.StatusConflict, 40909, "无法核实原还款账户或实际本金变动，请先核对历史记录；本批次未撤销")
+			return
+		}
 		if errors.Is(err, service.ErrTransactionNotFound) {
 			response.NotFound(c, "transaction not found")
 			return
 		}
 		if errors.Is(err, service.ErrSystemTransactionImmutable) {
 			response.BadRequest(c, "system transaction cannot be changed directly")
+			return
+		}
+		if errors.Is(err, service.ErrLendingInitialHasRepayments) {
+			response.Error(c, http.StatusConflict, 40906, "该借贷仍有还款记录或已还款金额，不能删除初始流水。请先单独撤销还款；无还款流水或数据异常时请先核对。")
 			return
 		}
 		internalServerError(c, err, "failed to delete transactions")
@@ -258,6 +274,15 @@ func (h *TransactionHandler) Export(c *gin.Context) {
 
 func handleTransactionRequestError(c *gin.Context, err error) bool {
 	switch {
+	case errors.Is(err, service.ErrTransactionIdempotencyConflict):
+		response.Error(c, http.StatusConflict, 40903, err.Error())
+	case errors.Is(err, service.ErrTransactionRequestUnavailable):
+		response.Error(c, http.StatusConflict, 40913, err.Error())
+	case errors.Is(err, service.ErrInvalidIdempotencyKey):
+		response.BadRequest(c, err.Error())
+	case errors.Is(err, service.ErrManagedDebt), errors.Is(err, service.ErrDebtReconciliation),
+		errors.Is(err, service.ErrDebtDependency):
+		debtResponseError(c, err)
 	case errors.Is(err, service.ErrSameAccount):
 		response.BadRequest(c, "source and target account must be different")
 	case errors.Is(err, service.ErrAccountNotFound):

@@ -33,12 +33,14 @@ type Handlers struct {
 	Family       *FamilyHandler
 	AI           *AIHandler
 	Health       *HealthHandler
+	Debt         *DebtHandler
 	setupToken   string
 }
 
 func NewHandlers(services *service.Services, backupScheduler *service.BackupScheduler, rateLimiter *middleware.RateLimiter, cfg *config.Config) *Handlers {
 	secureBrowserCookies := cfg != nil && strings.EqualFold(strings.TrimSpace(cfg.Server.Mode), "release")
 	return &Handlers{
+		Debt:         NewDebtHandler(services.Debt),
 		Auth:         NewAuthHandler(services.Auth, services.APIToken, services.Notification, rateLimiter, secureBrowserCookies),
 		Account:      NewAccountHandler(services.Account),
 		Category:     NewCategoryHandler(services.Category),
@@ -106,6 +108,9 @@ func SetupRoutesWithGroup(api *gin.RouterGroup, h *Handlers, authService *servic
 	protected := api.Group("")
 	protected.Use(middleware.AuthWithAPIToken(authService.GetJWTManager(), apiTokenService))
 	protected.Use(middleware.EnforceAPITokenScopes())
+	if h.Debt != nil {
+		h.Debt.RegisterRoutes(protected.Group("/debt"))
+	}
 	{
 		// Auth
 		protected.POST("/auth/change-password", h.Auth.ChangePassword)

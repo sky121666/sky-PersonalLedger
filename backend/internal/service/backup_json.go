@@ -16,23 +16,31 @@ const (
 )
 
 var backupCollectionRecordLimits = map[string]int{
-	"accounts":          10_000,
-	"categories":        10_000,
-	"transactions":      100_000,
-	"budgets":           10_000,
-	"reminders":         10_000,
-	"lendings":          10_000,
-	"lending_records":   50_000,
-	"templates":         10_000,
-	"tags":              10_000,
-	"family_members":    10_000,
-	"ai_reports":        10_000,
-	"account_logs":      100_000,
-	"notification_logs": 100_000,
-	"attachments":       maxBackupAttachmentCount,
+	"debt_plans":         10_000,
+	"debt_operations":    100_000,
+	"debt_allocations":   100_000,
+	"repayment_requests": 100_000,
+	"accounts":           10_000,
+	"categories":         10_000,
+	"transactions":       100_000,
+	"budgets":            10_000,
+	"reminders":          10_000,
+	"lendings":           10_000,
+	"lending_records":    50_000,
+	"templates":          10_000,
+	"tags":               10_000,
+	"family_members":     10_000,
+	"ai_reports":         10_000,
+	"account_logs":       100_000,
+	"notification_logs":  100_000,
+	"attachments":        maxBackupAttachmentCount,
 }
 
 var backupJSONTopLevelFields = map[string]string{
+	"debt_plans":            "debt_plans",
+	"debt_operations":       "debt_operations",
+	"debt_allocations":      "debt_allocations",
+	"repayment_requests":    "repayment_requests",
 	"version":               "version",
 	"exported_at":           "exported_at",
 	"source_user_id":        "source_user_id",
@@ -55,6 +63,10 @@ var backupJSONTopLevelFields = map[string]string{
 }
 
 var backupJSONStructFieldAliases = map[string]string{
+	"DebtPlans":            "debt_plans",
+	"DebtOperations":       "debt_operations",
+	"DebtAllocations":      "debt_allocations",
+	"RepaymentRequests":    "repayment_requests",
 	"Version":              "version",
 	"ExportedAt":           "exported_at",
 	"SourceUserID":         "source_user_id",
@@ -197,7 +209,7 @@ func preflightBackupJSON(data []byte) (backupJSONEnvelope, error) {
 		if envelope.attachmentsState != backupAttachmentsArray {
 			return backupJSONEnvelope{}, invalidBackupJSON(errors.New("backup version 2.2 requires an attachment array"))
 		}
-	case "2.3", currentBackupVersion:
+	case "2.3", currentBackupVersion, managedDebtBackupVersion:
 		// Version 2.3 makes attachment inclusion explicit: null means the
 		// backup did not include file data, while an array is an authoritative
 		// attachment manifest (including an intentionally empty one).
@@ -216,6 +228,15 @@ func preflightBackupJSON(data []byte) (backupJSONEnvelope, error) {
 	required := []string{"accounts", "categories", "transactions", "budgets", "reminders", "lendings", "lending_records", "templates", "tags"}
 	if envelope.version != "2.1" {
 		required = append(required, "family_members", "ai_reports", "account_logs", "notification_logs")
+	}
+	if envelope.version == managedDebtBackupVersion {
+		required = append(required, "debt_plans", "debt_operations", "debt_allocations")
+	} else {
+		for _, field := range []string{"debt_plans", "debt_operations", "debt_allocations"} {
+			if _, exists := seenKnownFields[field]; exists {
+				return backupJSONEnvelope{}, invalidBackupJSON(errors.New("legacy backup cannot contain debt evidence"))
+			}
+		}
 	}
 	for _, field := range required {
 		if _, exists := seenKnownFields[field]; !exists {

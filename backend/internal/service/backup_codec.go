@@ -11,12 +11,21 @@ import (
 )
 
 const currentBackupVersion = "2.4"
+const managedDebtBackupVersion = "2.5"
+
+type backupV25 struct {
+	backupV24
+	DebtPlans       []model.DebtPlan       `json:"debt_plans"`
+	DebtOperations  []model.DebtOperation  `json:"debt_operations"`
+	DebtAllocations []model.DebtAllocation `json:"debt_allocations"`
+}
 
 // backupV24 is a storage contract independent of the business API's JSON.
 // Explicit fields prevent newly added model fields or associations from silently
 // entering backups. In particular credentials, ImportFingerprint and
 // ProviderRevision are intentionally absent.
 type backupV24 struct {
+	RepaymentRequests    []model.RepaymentRequest    `json:"repayment_requests,omitempty"`
 	Version              string                      `json:"version"`
 	ExportedAt           time.Time                   `json:"exported_at"`
 	SourceUserID         uint                        `json:"source_user_id,omitempty"`
@@ -57,12 +66,13 @@ func (d *backupDeletedAt) UnmarshalJSON(data []byte) error {
 // All current producers (HTTP exports and scheduled backups) marshal this same
 // service value. Legacy values retain their original model JSON representation.
 func (b FullBackupData) MarshalJSON() ([]byte, error) {
-	if b.Version != currentBackupVersion {
+	if b.Version != currentBackupVersion && b.Version != managedDebtBackupVersion {
 		type legacy FullBackupData
 		return json.Marshal(legacy(b))
 	}
 	wire := backupV24{
-		Version: b.Version, ExportedAt: b.ExportedAt, SourceUserID: b.SourceUserID,
+		RepaymentRequests: b.RepaymentRequests,
+		Version:           b.Version, ExportedAt: b.ExportedAt, SourceUserID: b.SourceUserID,
 		UserProfile: b.UserProfile, NotificationSettings: b.NotificationSettings,
 		Attachments: b.Attachments,
 	}
@@ -79,19 +89,38 @@ func (b FullBackupData) MarshalJSON() ([]byte, error) {
 	wire.AIReports = mapBackupSlice(b.AIReports, encodeBackupAIReport)
 	wire.AccountLogs = mapBackupSlice(b.AccountLogs, encodeBackupAccountLog)
 	wire.NotificationLogs = mapBackupSlice(b.NotificationLogs, encodeBackupNotificationLog)
+	if b.Version == managedDebtBackupVersion {
+		return json.Marshal(backupV25{backupV24: wire,
+			DebtPlans: nonNilDebtSlice(b.DebtPlans), DebtOperations: nonNilDebtSlice(b.DebtOperations),
+			DebtAllocations: nonNilDebtSlice(b.DebtAllocations)})
+	}
 	return json.Marshal(wire)
+}
+
+func nonNilDebtSlice[T any](rows []T) []T {
+	if rows == nil {
+		return []T{}
+	}
+	return rows
 }
 
 func (b *FullBackupData) UnmarshalJSON(data []byte) error {
 	// Restore runs streaming preflight before this allocation. This method also
 	// supports decoding exported service values without changing business models.
 	var version struct {
-		Version string `json:"version"`
+		Version         string          `json:"version"`
+		DebtPlans       json.RawMessage `json:"debt_plans"`
+		DebtOperations  json.RawMessage `json:"debt_operations"`
+		DebtAllocations json.RawMessage `json:"debt_allocations"`
 	}
 	if err := json.Unmarshal(data, &version); err != nil {
 		return err
 	}
-	if version.Version != currentBackupVersion {
+	if version.Version != managedDebtBackupVersion &&
+		(len(version.DebtPlans) != 0 || len(version.DebtOperations) != 0 || len(version.DebtAllocations) != 0) {
+		return invalidBackupJSON(fmt.Errorf("legacy backup cannot contain debt evidence"))
+	}
+	if version.Version != currentBackupVersion && version.Version != managedDebtBackupVersion {
 		type legacy FullBackupData
 		var decoded legacy
 		if err := json.Unmarshal(data, &decoded); err != nil {
@@ -101,14 +130,24 @@ func (b *FullBackupData) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	var wire backupV24
-	if err := json.Unmarshal(data, &wire); err != nil {
-		return err
+	var debt backupV25
+	if version.Version == managedDebtBackupVersion {
+		if err := json.Unmarshal(data, &debt); err != nil {
+			return err
+		}
+		wire = debt.backupV24
+	} else {
+		if err := json.Unmarshal(data, &wire); err != nil {
+			return err
+		}
 	}
 	if err := wire.validateTombstones(); err != nil {
 		return err
 	}
 	decoded := FullBackupData{
-		Version: wire.Version, ExportedAt: wire.ExportedAt, SourceUserID: wire.SourceUserID,
+		DebtPlans: debt.DebtPlans, DebtOperations: debt.DebtOperations, DebtAllocations: debt.DebtAllocations,
+		RepaymentRequests: wire.RepaymentRequests,
+		Version:           wire.Version, ExportedAt: wire.ExportedAt, SourceUserID: wire.SourceUserID,
 		UserProfile: wire.UserProfile, NotificationSettings: wire.NotificationSettings,
 		Attachments: wire.Attachments,
 	}
@@ -214,32 +253,38 @@ func mapBackupPointerSlice[A, B any](rows []*A, convert func(A) B) []*B {
 }
 
 type backupAccount struct {
-	ID             string          `json:"id"`
-	UserID         uint            `json:"user_id"`
-	Name           string          `json:"name"`
-	Type           string          `json:"type"`
-	Icon           string          `json:"icon"`
-	Color          string          `json:"color"`
-	InitialBalance money.Amount    `json:"initial_balance"`
-	CurrentBalance money.Amount    `json:"current_balance"`
-	PaymentDay     *int            `json:"payment_day"`
-	BillingDay     *int            `json:"billing_day"`
-	CreditLimit    *money.Amount   `json:"credit_limit"`
-	InterestRate   *float64        `json:"interest_rate"`
-	TotalPaid      money.Amount    `json:"total_paid"`
-	StartDate      *time.Time      `json:"start_date"`
-	TargetDate     *time.Time      `json:"target_date"`
-	PaidOffAt      *time.Time      `json:"paid_off_at"`
-	Remark         string          `json:"remark"`
-	IsArchived     bool            `json:"is_archived"`
-	SortOrder      int             `json:"sort_order"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
-	DeletedAt      backupDeletedAt `json:"deleted_at"`
+	DebtTrackingMode string          `json:"debt_tracking_mode,omitempty"`
+	UnplannedDebt    money.Amount    `json:"unplanned_debt,omitempty"`
+	UnappliedPayment money.Amount    `json:"unapplied_payment,omitempty"`
+	DebtUnclassified money.Amount    `json:"debt_unclassified,omitempty"`
+	ID               string          `json:"id"`
+	UserID           uint            `json:"user_id"`
+	Name             string          `json:"name"`
+	Type             string          `json:"type"`
+	Icon             string          `json:"icon"`
+	Color            string          `json:"color"`
+	InitialBalance   money.Amount    `json:"initial_balance"`
+	CurrentBalance   money.Amount    `json:"current_balance"`
+	PaymentDay       *int            `json:"payment_day"`
+	BillingDay       *int            `json:"billing_day"`
+	CreditLimit      *money.Amount   `json:"credit_limit"`
+	InterestRate     *float64        `json:"interest_rate"`
+	TotalPaid        money.Amount    `json:"total_paid"`
+	StartDate        *time.Time      `json:"start_date"`
+	TargetDate       *time.Time      `json:"target_date"`
+	PaidOffAt        *time.Time      `json:"paid_off_at"`
+	Remark           string          `json:"remark"`
+	IsArchived       bool            `json:"is_archived"`
+	SortOrder        int             `json:"sort_order"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
+	DeletedAt        backupDeletedAt `json:"deleted_at"`
 }
 
 func encodeBackupAccount(row model.Account) backupAccount {
 	return backupAccount{
+		DebtTrackingMode: backupDebtMode(row.DebtTrackingMode), UnplannedDebt: row.UnplannedDebt,
+		UnappliedPayment: row.UnappliedPayment, DebtUnclassified: row.DebtUnclassified,
 		ID:             row.ID,
 		UserID:         row.UserID,
 		Name:           row.Name,
@@ -267,6 +312,8 @@ func encodeBackupAccount(row model.Account) backupAccount {
 
 func decodeBackupAccount(row backupAccount) model.Account {
 	return model.Account{
+		DebtTrackingMode: row.DebtTrackingMode, UnplannedDebt: row.UnplannedDebt,
+		UnappliedPayment: row.UnappliedPayment, DebtUnclassified: row.DebtUnclassified,
 		ID:             row.ID,
 		UserID:         row.UserID,
 		Name:           row.Name,
@@ -339,6 +386,7 @@ func decodeBackupCategory(row backupCategory) model.Category {
 }
 
 type backupTransaction struct {
+	DebtOperationID *string         `json:"debt_operation_id,omitempty"`
 	ID              string          `json:"id"`
 	UserID          uint            `json:"user_id"`
 	AccountID       string          `json:"account_id"`
@@ -365,6 +413,7 @@ type backupTransaction struct {
 
 func encodeBackupTransaction(row model.Transaction) backupTransaction {
 	return backupTransaction{
+		DebtOperationID: row.DebtOperationID,
 		ID:              row.ID,
 		UserID:          row.UserID,
 		AccountID:       row.AccountID,
@@ -392,6 +441,7 @@ func encodeBackupTransaction(row model.Transaction) backupTransaction {
 
 func decodeBackupTransaction(row backupTransaction) model.Transaction {
 	return model.Transaction{
+		DebtOperationID: row.DebtOperationID,
 		ID:              row.ID,
 		UserID:          row.UserID,
 		AccountID:       row.AccountID,
@@ -885,22 +935,31 @@ func decodeBackupAIReport(row backupAIReport) model.AIReport {
 }
 
 type backupAccountLog struct {
-	ID            string       `json:"id"`
-	UserID        uint         `json:"user_id"`
-	AccountID     string       `json:"account_id"`
-	Type          string       `json:"type"`
-	Amount        money.Amount `json:"amount"`
-	BalanceBefore money.Amount `json:"balance_before"`
-	BalanceAfter  money.Amount `json:"balance_after"`
-	TransactionID *string      `json:"transaction_id,omitempty"`
-	ReminderID    *string      `json:"reminder_id,omitempty"`
-	LendingID     *string      `json:"lending_id,omitempty"`
-	Remark        string       `json:"remark"`
-	CreatedAt     time.Time    `json:"created_at"`
+	DebtOperationID    *string      `json:"debt_operation_id,omitempty"`
+	DebtEffectRole     string       `json:"debt_effect_role,omitempty"`
+	UnplannedDebtDelta money.Amount `json:"unplanned_debt_delta,omitempty"`
+	UnappliedDelta     money.Amount `json:"unapplied_delta,omitempty"`
+	PrincipalPaidDelta money.Amount `json:"principal_paid_delta,omitempty"`
+	UnclassifiedDelta  money.Amount `json:"unclassified_delta,omitempty"`
+	ID                 string       `json:"id"`
+	UserID             uint         `json:"user_id"`
+	AccountID          string       `json:"account_id"`
+	Type               string       `json:"type"`
+	Amount             money.Amount `json:"amount"`
+	BalanceBefore      money.Amount `json:"balance_before"`
+	BalanceAfter       money.Amount `json:"balance_after"`
+	TransactionID      *string      `json:"transaction_id,omitempty"`
+	ReminderID         *string      `json:"reminder_id,omitempty"`
+	LendingID          *string      `json:"lending_id,omitempty"`
+	Remark             string       `json:"remark"`
+	CreatedAt          time.Time    `json:"created_at"`
 }
 
 func encodeBackupAccountLog(row model.AccountLog) backupAccountLog {
 	return backupAccountLog{
+		DebtOperationID: row.DebtOperationID, DebtEffectRole: row.DebtEffectRole,
+		UnplannedDebtDelta: row.UnplannedDebtDelta, UnappliedDelta: row.UnappliedDelta,
+		PrincipalPaidDelta: row.PrincipalPaidDelta, UnclassifiedDelta: row.UnclassifiedDelta,
 		ID:            row.ID,
 		UserID:        row.UserID,
 		AccountID:     row.AccountID,
@@ -918,6 +977,9 @@ func encodeBackupAccountLog(row model.AccountLog) backupAccountLog {
 
 func decodeBackupAccountLog(row backupAccountLog) model.AccountLog {
 	return model.AccountLog{
+		DebtOperationID: row.DebtOperationID, DebtEffectRole: row.DebtEffectRole,
+		UnplannedDebtDelta: row.UnplannedDebtDelta, UnappliedDelta: row.UnappliedDelta,
+		PrincipalPaidDelta: row.PrincipalPaidDelta, UnclassifiedDelta: row.UnclassifiedDelta,
 		ID:            row.ID,
 		UserID:        row.UserID,
 		AccountID:     row.AccountID,

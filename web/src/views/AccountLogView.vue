@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import FinancePage from '@/components/ui/FinancePage.vue'
+import FinanceListFooter from '@/components/ui/FinanceListFooter.vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { accountLogApi, type AccountLog } from '@/api/accountLog'
 import { accountApi, type Account } from '@/api/account'
-import { ChevronLeft, TrendingUp, TrendingDown, RotateCcw, ArrowLeftRight, Sparkles, ScrollText } from 'lucide-vue-next'
+import { TrendingUp, TrendingDown, RotateCcw, ArrowLeftRight, Sparkles, ScrollText } from '@lucide/vue'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
 import { createRequestGeneration } from '@/utils/requestGeneration'
@@ -19,10 +21,15 @@ const loading = ref(false)
 const page = ref(1)
 const pageSize = ref(50)
 const total = ref(0)
+const logsLoaded = ref(false)
+const logsFailed = ref(false)
+const failedPage = ref(1)
+const accountFailed = ref(false)
 const hasMore = computed(() => logs.value.length < total.value)
 const ledgerMutationRevision = useLedgerMutationRevision()
 const accountRequests = createRequestGeneration()
 const logRequests = createRequestGeneration()
+onBeforeUnmount(() => { accountRequests.begin(); logRequests.begin() })
 
 onMounted(loadLedgerAccountData)
 watch(accountId, () => void loadLedgerAccountData(true))
@@ -36,7 +43,10 @@ async function loadLedgerAccountData(clearPreviousScope = false) {
     account.value = null
     logs.value = []
     total.value = 0
+    logsLoaded.value = false
+    logsFailed.value = false
   }
+  accountFailed.value = false
   const logsPromise = loadLogs(1, true)
   if (requestedAccountId) {
     try {
@@ -49,7 +59,7 @@ async function loadLedgerAccountData(clearPreviousScope = false) {
       }
     } catch (e) {
       if (accountRequests.isLatest(accountGeneration)) {
-        console.error('Failed to load account', e)
+        accountFailed.value = true
       }
     }
   } else if (accountRequests.isLatest(accountGeneration)) {
@@ -58,10 +68,11 @@ async function loadLedgerAccountData(clearPreviousScope = false) {
   await logsPromise
 }
 
-async function loadLogs(requestedPage = page.value, replace = requestedPage === 1) {
+async function loadLogs(requestedPage = page.value, replace = requestedPage === 1): Promise<'success' | 'failed' | 'stale'> {
   const requestGeneration = logRequests.begin()
   const requestedAccountId = accountId.value
   loading.value = true
+  logsFailed.value = false
   try {
     const params = { page: requestedPage, page_size: pageSize.value }
     const res = requestedAccountId
@@ -71,7 +82,7 @@ async function loadLogs(requestedPage = page.value, replace = requestedPage === 
     if (
       !logRequests.isLatest(requestGeneration)
       || accountId.value !== requestedAccountId
-    ) return
+    ) return 'stale'
 
     if (replace) {
       logs.value = res.list || []
@@ -81,10 +92,15 @@ async function loadLogs(requestedPage = page.value, replace = requestedPage === 
       page.value = requestedPage
     }
     total.value = res.total
+    logsLoaded.value = true
+    return 'success'
   } catch (e) {
     if (logRequests.isLatest(requestGeneration)) {
-      console.error('Failed to load logs', e)
+      logsFailed.value = true
+      failedPage.value = requestedPage
+      return 'failed'
     }
+    return 'stale'
   } finally {
     if (logRequests.isLatest(requestGeneration)) {
       loading.value = false
@@ -172,24 +188,16 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
-    <!-- Header with Glassmorphism -->
-    <div class="sticky top-0 z-10 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border-b border-gray-200/50 dark:border-gray-700/50">
-      <div class="max-w-3xl mx-auto flex items-center justify-between px-4 py-3">
-        <button @click="goBack" class="p-2 -ml-2 rounded-xl hover:bg-gray-100/80 dark:hover:bg-gray-800/80 transition-colors">
-          <ChevronLeft :size="24" class="text-gray-600 dark:text-gray-300" />
-        </button>
-        <h1 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <ScrollText :size="20" class="text-blue-500" />
-          {{ account ? account.name + ' 流水' : '账户流水' }}
-        </h1>
-        <div class="w-10"></div>
+  <FinancePage :title="account ? account.name + ' 流水' : '账户流水'" :icon="ScrollText" back-label="返回账户" @back="goBack">
+    <div>
+      <div v-if="(logsFailed && (!logsLoaded || failedPage === 1)) || accountFailed" role="alert" class="py-3 text-sm text-amber-700">
+        <p v-if="accountFailed">账户信息加载失败。<button class="underline" @click="loadLedgerAccountData()">重试账户信息</button></p>
+        <p v-if="logsFailed && (!logsLoaded || failedPage === 1)">流水加载失败。{{ logsLoaded ? '已加载的流水仍保留。' : '尚未获得流水数据。' }}
+          <button class="underline" @click="loadLogs(failedPage, failedPage === 1)">重新加载流水</button>
+        </p>
       </div>
-    </div>
-
-    <div class="max-w-3xl mx-auto">
       <!-- Account Summary Card -->
-      <div v-if="account" class="px-4 pt-4">
+      <div v-if="account">
         <div 
           class="relative overflow-hidden rounded-2xl p-5 text-white shadow-xl"
           :style="{ 
@@ -214,14 +222,15 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
       </div>
 
       <!-- Stats Bar -->
-      <div class="px-4 py-3 flex items-center justify-between">
+      <div class="py-3 flex items-center justify-between">
         <span class="text-sm font-medium text-gray-500 dark:text-gray-400">
-          共 <span class="text-gray-900 dark:text-white font-semibold">{{ total }}</span> 条流水记录
+          <template v-if="logsLoaded">共 <span class="text-gray-900 dark:text-white font-semibold">{{ total }}</span> 条流水记录</template>
+          <template v-else>流水总数待加载</template>
         </span>
       </div>
 
       <!-- Log List with Date Groups -->
-      <div class="px-4 pb-6 space-y-4">
+      <div class="pb-6 space-y-4">
       <div v-for="group in groupedLogs" :key="group.date">
         <!-- Date Header -->
         <div class="flex items-center gap-3 py-2">
@@ -239,7 +248,7 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
             <div class="flex items-center gap-3">
               <!-- Type Icon Badge -->
               <div 
-                class="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm"
+                class="w-11 h-11 shrink-0 rounded-xl flex items-center justify-center shadow-sm"
                 :class="[getLogTypeInfo(log.type).bgColor]"
               >
                 <component 
@@ -251,20 +260,20 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
 
               <!-- Content -->
               <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0 flex flex-1 flex-wrap items-center gap-2">
                     <span 
-                      class="font-semibold text-sm px-2 py-0.5 rounded-lg"
+                      class="shrink-0 font-semibold text-sm px-2 py-0.5 rounded-lg"
                       :class="[getLogTypeInfo(log.type).bgColor, getLogTypeInfo(log.type).textColor]"
                     >
                       {{ getLogTypeInfo(log.type).label }}
                     </span>
-                    <span v-if="log.account && !accountId" class="text-xs text-gray-500 dark:text-gray-400">
+                    <span v-if="log.account && !accountId" class="min-w-0 [overflow-wrap:anywhere] text-xs text-gray-500 dark:text-gray-400">
                       {{ log.account.name }}
                     </span>
                   </div>
                   <span 
-                    class="text-lg font-bold tabular-nums"
+                    class="shrink-0 text-lg font-bold tabular-nums"
                     :class="getAmountChangeStyle(log)"
                   >
                     {{ getAmountChange(log) }}
@@ -279,7 +288,7 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
                 </div>
 
                 <!-- Footer -->
-                <div class="mt-2 flex items-center justify-between">
+                <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <span v-if="log.remark" class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[65%] bg-gray-50 dark:bg-gray-700/50 px-2 py-0.5 rounded">
                     {{ log.remark }}
                   </span>
@@ -287,6 +296,8 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
                   <span class="text-xs text-gray-400 dark:text-gray-500" :title="formatFullDate(log.created_at)">
                     {{ dayjs(log.created_at).format('HH:mm') }}
                   </span>
+                  <RouterLink v-if="log.debt_operation_id" :to="{ path: '/reminders', query: { operation_id: log.debt_operation_id } }"
+                    :aria-label="`查看分期凭证 ${log.id}`" class="inline-flex min-h-11 items-center rounded-lg px-2 text-xs font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10">查看分期凭证</RouterLink>
                 </div>
               </div>
             </div>
@@ -295,7 +306,7 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
       </div>
 
       <!-- Empty State -->
-      <div v-if="!loading && logs.length === 0" class="py-20 text-center">
+      <div v-if="logsLoaded && !logsFailed && !loading && logs.length === 0" class="py-20 text-center">
         <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
           <ScrollText :size="32" class="text-gray-300 dark:text-gray-600" />
         </div>
@@ -304,7 +315,7 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
       </div>
 
       <!-- Loading -->
-      <div v-if="loading" class="py-12 text-center">
+      <div v-if="loading && (!logsLoaded || logs.length === 0)" role="status" class="py-12 text-center">
         <div class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 rounded-full shadow-sm">
           <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           <span class="text-sm text-gray-500 dark:text-gray-400">加载中...</span>
@@ -312,15 +323,10 @@ const groupedLogs = computed(() => groupLogsByDate(logs.value))
       </div>
       </div>
 
-      <!-- Load More -->
-      <div v-if="hasMore && !loading" class="px-4 pb-6">
-        <button 
-          @click="loadMore"
-          class="w-full py-3.5 text-center text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-700 font-medium shadow-sm hover:shadow transition-all"
-        >
-          加载更多
-        </button>
-      </div>
+      <FinanceListFooter v-if="logsLoaded && logs.length > 0 && !(logsFailed && failedPage === 1)"
+        label="流水列表加载" :count="logs.length" :has-more="hasMore" :loading="loading"
+        :error="logsFailed ? '更多流水加载失败，已加载的流水仍保留。' : ''"
+        retry-label="重新加载流水" @more="logsFailed ? loadLogs(failedPage, false) : loadMore()" />
     </div>
-  </div>
+  </FinancePage>
 </template>

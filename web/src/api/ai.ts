@@ -95,7 +95,7 @@ export const aiApi = {
   },
 
   testProvider(id: string): Promise<{ ok: boolean }> {
-    return post<{ ok: boolean }>(`/ai/providers/${id}/test`)
+    return post<{ ok: boolean }>(`/ai/providers/${id}/test`, undefined, { timeout: 15_000 })
   },
 
   listReports(): Promise<AIReport[]> {
@@ -107,7 +107,7 @@ export const aiApi = {
   },
 
   generateReport(params: GenerateAIReportParams): Promise<AIReport> {
-    return post<AIReport>('/ai/reports/generate', params, { timeout: 45_000 })
+    return post<AIReport>('/ai/reports/generate', params, { timeout: 60_000 })
   },
 
   deleteReport(id: string): Promise<void> {

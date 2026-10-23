@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import dayjs from 'dayjs'
 
 const e2ePassword = process.env.LEDGER_WEB_E2E_PASSWORD || 'LedgerWebE2ePass123!'
 
@@ -34,7 +35,9 @@ test('desktop completes login and transaction CRUD against the real backend', as
   await expect(page.getByRole('button', { name: '记一笔' })).toBeVisible()
 
   const quickEntryButton = page.getByRole('button', { name: '记一笔' })
-  await quickEntryButton.click()
+  // Keyboard focus restoration must start with a focused trigger.
+  await quickEntryButton.focus()
+  await quickEntryButton.press('Enter')
   let createDialog = page.getByRole('dialog', { name: '新增交易' })
   await expect(createDialog).toBeVisible()
   await expect(createDialog.getByLabel('金额')).toBeFocused()
@@ -53,10 +56,13 @@ test('desktop completes login and transaction CRUD against the real backend', as
   await createDialog.getByRole('button', { name: '选择餐饮分类' }).click()
   await expect(createDialog.getByLabel('账户')).not.toHaveValue('')
   await createDialog.getByLabel('备注').fill(remark)
+  // Prior debt scenarios create second-precision rows. Give this fixture an
+  // explicit later occurrence so it belongs in the home's latest 20 rows.
+  await createDialog.locator('input[type="datetime-local"]').fill(dayjs().add(2, 'minute').format('YYYY-MM-DDTHH:mm'))
   await createDialog.getByRole('button', { name: '保存记录' }).click()
   await expect(page.getByText('记账成功', { exact: true })).toBeVisible()
   await expect(page.getByText(remark, { exact: true })).toBeVisible()
-  const homeTransactionRow = page.locator('.group').filter({ hasText: remark }).first()
+  const homeTransactionRow = page.getByRole('article', { name: '最近交易', exact: true }).getByRole('button', { name: `查看交易 ${remark}`, exact: true })
   await expect(homeTransactionRow.getByText('-18.50', { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: '明细' }).click()
@@ -64,7 +70,7 @@ test('desktop completes login and transaction CRUD against the real backend', as
   await expect(page.getByRole('heading', { name: '账单明细' })).toBeVisible()
   await expect(page.getByText(remark, { exact: true })).toBeVisible()
   const transactionRow = page.locator('.group').filter({ hasText: remark }).first()
-  await expect(transactionRow.getByText('-18.50', { exact: true })).toBeVisible()
+  await expect(transactionRow.getByText('−18.50', { exact: true })).toBeVisible()
 
   await page.getByText(remark, { exact: true }).click()
   const editDialog = page.getByRole('dialog', { name: '编辑交易' })
@@ -75,13 +81,13 @@ test('desktop completes login and transaction CRUD against the real backend', as
   await expect(page.getByText('修改成功', { exact: true })).toBeVisible()
   await expect(page.getByText(editedRemark, { exact: true })).toBeVisible()
   const editedTransactionRow = page.locator('.group').filter({ hasText: editedRemark }).first()
-  await expect(editedTransactionRow.getByText('-19.75', { exact: true })).toBeVisible()
+  await expect(editedTransactionRow.getByText('−19.75', { exact: true })).toBeVisible()
 
-  const deleteButton = page.getByRole('button', {
-    name: `删除交易 ${editedRemark}`
-  })
-  await deleteButton.hover()
-  await deleteButton.click()
+  await page.setViewportSize({ width: 390, height: 844 })
+  const actions = page.getByRole('button', { name: `交易操作 ${editedRemark}`, exact: true })
+  await expect(actions).toBeVisible()
+  await actions.click()
+  await page.getByRole('menuitem', { name: '删除…', exact: true }).click()
   await expect(page.getByRole('heading', { name: '确认删除' })).toBeVisible()
   await page.getByRole('button', { name: '删除', exact: true }).click()
   await expect(page.getByText('删除成功', { exact: true })).toBeVisible()
@@ -91,7 +97,6 @@ test('desktop completes login and transaction CRUD against the real backend', as
 test.describe('mobile shell', () => {
   test.use({
     viewport: { width: 390, height: 844 },
-    isMobile: true,
     hasTouch: true
   })
 
@@ -119,15 +124,19 @@ test.describe('mobile shell', () => {
     await page.getByRole('button', { name: '我的', exact: true }).click()
     await expect(page).toHaveURL(/\/#\/settings$/)
     const logoutTrigger = page.getByRole('button', { name: '退出登录' })
-    await logoutTrigger.click()
+    await logoutTrigger.focus()
+    await logoutTrigger.press('Enter')
     const logoutDialog = page.getByRole('dialog', { name: '确认退出' })
     const cancelLogout = logoutDialog.getByRole('button', { name: '取消' })
     const confirmLogout = logoutDialog.getByRole('button', { name: '退出', exact: true })
     await expect(cancelLogout).toBeFocused()
+    const closeLogout = logoutDialog.getByRole('button', { name: '关闭确认退出', exact: true })
+    await page.keyboard.press('Shift+Tab')
+    await expect(closeLogout).toBeFocused()
     await page.keyboard.press('Shift+Tab')
     await expect(confirmLogout).toBeFocused()
     await page.keyboard.press('Tab')
-    await expect(cancelLogout).toBeFocused()
+    await expect(closeLogout).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(logoutDialog).toHaveCount(0)
     await expect(logoutTrigger).toBeFocused()

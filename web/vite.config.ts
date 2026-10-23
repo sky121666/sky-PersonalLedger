@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import Components from 'unplugin-vue-components/vite'
-import { VantResolver } from 'unplugin-vue-components/resolvers'
+import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
@@ -9,21 +8,23 @@ export default defineConfig({
   base: process.env.VITE_BASE_PATH || '/',
   plugins: [
     vue(),
-    Components({
-      resolvers: [VantResolver()]
-    })
+    tailwindcss()
   ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
+  build: {
+    target: ['chrome111', 'firefox128', 'safari16.4']
+  },
   server: {
     port: 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true
+        // Keep the browser Host aligned with Origin for cookie-session CSRF checks.
+        changeOrigin: false
       }
     }
   }

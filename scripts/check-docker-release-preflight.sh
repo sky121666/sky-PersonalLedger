@@ -114,7 +114,7 @@ required_docker_contracts = [
     "input: ${{ runner.temp }}/personal-ledger-arm64.tar",
     "quay.io/skopeo/stable@sha256:",
     "docker.io/tonistiigi/binfmt@sha256:",
-    "moby/buildkit:v0.32.2@sha256:",
+    "moby/buildkit:v0.34.0@sha256:",
     "docker.io/docker/buildkit-syft-scanner@sha256:",
     "copy --all --preserve-digests",
     "-e REGISTRY_AUTH_FILE=/tmp/auth.json",

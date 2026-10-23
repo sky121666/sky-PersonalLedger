@@ -9,6 +9,7 @@ ledger data:
 - profile display fields: nickname, email, avatar, and bio
 - accounts, categories, transactions, budgets, reminders, lendings and lending records
 - quick templates, tags, family members, AI report history and account/notification logs
+- optional `repayment_requests` holding completed reminder/lending idempotency claims
 - notification preferences represented by the credential-free portable DTO
 - an explicit attachments value describing whether file data is included
 
@@ -25,6 +26,18 @@ account balances, active transactions and spending statistics retain their backe
 Archived accounts, paid-off reminders and settled lending keep their separate state fields.
 Disabled budgets, reminders and members remain disabled. Restore also preserves zero-day reminder
 advance notice rather than allowing GORM insertion defaults to replace these explicit values.
+
+Schema 12 adds `repayment_requests` as an optional v2.4 collection. Each claim stores the owner,
+operation (`reminder` or `lending`), target ID, SHA-256 key and payload hashes, and creation time;
+the original client key and payload are not exported. Claims are captured in the same snapshot as
+their ledger effects, cleared and restored in the same replacement transaction, and rebound to the
+restore target user. Validation rejects mixed owners, missing business targets, malformed hashes,
+unsupported operations and duplicate claim scopes. Soft-deleted targets are included in the backup.
+Restoring a backup created before this field existed clears current claims along with the replaced
+ledger. Such a backup cannot preserve retry protection for payments whose claims were never saved;
+operators must reconcile restored balances and payment history before retrying unconfirmed requests
+after a legacy restore. Opening a new form does not recover a missing claim. Older application versions do not
+understand this field and cannot promise preservation of retry protection.
 
 Every supported envelope must explicitly contain the collections its original exporter emitted:
 
@@ -151,7 +164,7 @@ test notification credentials separately on the target instance.
 - A manifest may contain at most 10,000 files. A relative path may contain at most 4 KiB,
   32 segments, and 255 bytes per segment.
 - Streaming JSON preflight allows at most 100,000 total collection records. Transactions,
-  account logs, and notification logs are individually capped at 100,000; lending records at
+  account logs, notification logs and repayment requests are individually capped at 100,000; lending records at
   50,000; every other collection, including attachments, at 10,000. Backup creation applies the
   same preflight, so it cannot emit a file restore would reject.
 - Absolute paths, traversal, backslashes, NUL bytes, leading user-ID segments, Windows-reserved or

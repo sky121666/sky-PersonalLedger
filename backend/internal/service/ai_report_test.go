@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -468,6 +470,160 @@ func TestSanitizeAIErrorRedactsCredentialLikeValues(t *testing.T) {
 	}
 	if strings.Count(message, "[redacted]") < 4 {
 		t.Fatalf("sanitized message = %q, want redacted placeholders", message)
+	}
+}
+
+func TestAIReportGenerateCancelsLockWaitWithoutSideEffects(t *testing.T) {
+	for _, mode := range []string{"deadline", "cancel"} {
+		t.Run(mode, func(t *testing.T) {
+			svc, providers, userID := newAIReportTestServices(t)
+			seedAIReportFacts(t, providers, userID, "https://example.com")
+			req := GenerateAIReportRequest{ReportType: "weekly", PeriodStart: "2026-05-18", PeriodEnd: "2026-05-24"}
+			provider, err := svc.selectProvider(userID, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			start, end, err := parseAIReportPeriod(req.PeriodStart, req.PeriodEnd)
+			if err != nil {
+				t.Fatal(err)
+			}
+			unlock, err := lockAIReportGeneration(context.Background(), userID, req.ReportType, start, end, provider.ID, aiReportPromptVersionForRequest(req))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var once sync.Once
+			release := func() { once.Do(unlock) }
+			defer release()
+			gate := time.AfterFunc(100*time.Millisecond, release)
+			defer gate.Stop()
+			var calls atomic.Int32
+			svc.client.httpClient = &http.Client{Transport: aiContractTransport(func(r *http.Request) (*http.Response, error) {
+				calls.Add(1)
+				return aiContractResponse(`{"summary":"Synthetic report"}`), nil
+			})}
+			ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+			defer cancel()
+			want := context.DeadlineExceeded
+			if mode == "cancel" {
+				ctx, cancel = context.WithCancel(context.Background())
+				defer cancel()
+				timer := time.AfterFunc(25*time.Millisecond, cancel)
+				defer timer.Stop()
+				want = context.Canceled
+			}
+			report, err := svc.generate(ctx, userID, req)
+			if !errors.Is(err, want) || report != nil {
+				t.Errorf("canceled waiter returned report=%v error=%v, want nil/%v", report != nil, err, want)
+			}
+			if calls.Load() != 0 {
+				t.Errorf("canceled waiter made %d provider calls", calls.Load())
+			}
+			var count int64
+			if err := providers.repo.DB().Model(&model.AIReport{}).Count(&count).Error; err != nil {
+				t.Fatal(err)
+			}
+			if count != 0 {
+				t.Errorf("canceled waiter created %d reports", count)
+			}
+			aiReportGenerationLocks.Lock()
+			refs := 0
+			for _, entry := range aiReportGenerationLocks.entries {
+				refs += entry.refs
+			}
+			aiReportGenerationLocks.Unlock()
+			if refs != 1 {
+				t.Errorf("waiter did not release its ref while holder remains: refs=%d", refs)
+			}
+			release()
+			aiReportGenerationLocks.Lock()
+			remaining := len(aiReportGenerationLocks.entries)
+			aiReportGenerationLocks.Unlock()
+			if remaining != 0 {
+				t.Errorf("generation locks leaked: %d", remaining)
+			}
+		})
+	}
+}
+
+func TestAIReportGenerateAlreadyCanceledDoesNotAcquireOrSend(t *testing.T) {
+	svc, providers, userID := newAIReportTestServices(t)
+	seedAIReportFacts(t, providers, userID, "https://example.com")
+	var calls atomic.Int32
+	svc.client.httpClient = &http.Client{Transport: aiContractTransport(func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		return aiContractResponse(`{"summary":"Synthetic report"}`), nil
+	})}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	report, err := svc.generate(ctx, userID, GenerateAIReportRequest{ReportType: "weekly", PeriodStart: "2026-05-18", PeriodEnd: "2026-05-24"})
+	if report != nil || !errors.Is(err, context.Canceled) || calls.Load() != 0 {
+		t.Fatalf("already canceled call returned report=%v error=%v calls=%d", report, err, calls.Load())
+	}
+	var count int64
+	if err := providers.repo.DB().Model(&model.AIReport{}).Count(&count).Error; err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Errorf("already canceled call created %d reports", count)
+	}
+	aiReportGenerationLocks.Lock()
+	remaining := len(aiReportGenerationLocks.entries)
+	aiReportGenerationLocks.Unlock()
+	if remaining != 0 {
+		t.Errorf("generation locks leaked: %d", remaining)
+	}
+}
+
+func TestAIReportGenerateSharesDeadlineAfterLockWait(t *testing.T) {
+	svc, providers, userID := newAIReportTestServices(t)
+	seedAIReportFacts(t, providers, userID, "https://example.com")
+	req := GenerateAIReportRequest{ReportType: "weekly", PeriodStart: "2026-05-18", PeriodEnd: "2026-05-24"}
+	provider, err := svc.selectProvider(userID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	start, end, err := parseAIReportPeriod(req.PeriodStart, req.PeriodEnd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unlock, err := lockAIReportGeneration(context.Background(), userID, req.ReportType, start, end, provider.ID, aiReportPromptVersionForRequest(req))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var once sync.Once
+	release := func() { once.Do(unlock) }
+	defer release()
+	gate := time.AfterFunc(100*time.Millisecond, release)
+	defer gate.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	wantDeadline, _ := ctx.Deadline()
+	var calls atomic.Int32
+	svc.client.httpClient = &http.Client{Transport: aiContractTransport(func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		deadline, ok := r.Context().Deadline()
+		if !ok || !deadline.Equal(wantDeadline) {
+			t.Error("provider budget was reset after lock wait")
+		}
+		select {
+		case <-r.Context().Done():
+			return nil, r.Context().Err()
+		case <-time.After(350 * time.Millisecond):
+			return aiContractResponse(`{"summary":"Synthetic late report"}`), nil
+		}
+	})}
+	report, err := svc.generate(ctx, userID, req)
+	if !errors.Is(err, context.DeadlineExceeded) || report == nil || report.Status != "failed" {
+		t.Errorf("shared deadline did not fail generation: report=%v error=%v", report, err)
+	}
+	if calls.Load() != 1 {
+		t.Errorf("provider calls=%d, want 1", calls.Load())
+	}
+	aiReportGenerationLocks.Lock()
+	remaining := len(aiReportGenerationLocks.entries)
+	aiReportGenerationLocks.Unlock()
+	if remaining != 0 {
+		t.Errorf("generation locks leaked: %d", remaining)
 	}
 }
 

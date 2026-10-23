@@ -87,6 +87,7 @@ export const notificationApi = {
     smtp_user: string
     smtp_password?: string
     smtp_from?: string
+    email_to?: string
   }): Promise<TestResult> {
     return post<TestResult>('/notifications/test/email', params)
   },

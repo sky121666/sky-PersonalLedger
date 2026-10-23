@@ -24,7 +24,9 @@ func (r *TransactionRepository) Create(tx *model.Transaction) error {
 
 func (r *TransactionRepository) GetByID(id string) (*model.Transaction, error) {
 	var tx model.Transaction
-	err := r.db.Preload("Account").Preload("Category").Preload("ToAccount").
+	err := r.db.Preload("Account").Preload("Category", func(db *gorm.DB) *gorm.DB {
+		return db.Unscoped().Where("user_id = (SELECT user_id FROM transactions WHERE id = ?)", id)
+	}).Preload("ToAccount").
 		First(&tx, "id = ?", id).Error
 	if err != nil {
 		return nil, err
@@ -38,7 +40,9 @@ func (r *TransactionRepository) GetByIDForUser(id string, userID uint) (*model.T
 
 func (r *TransactionRepository) GetByIDForUserWithDB(db *gorm.DB, id string, userID uint) (*model.Transaction, error) {
 	var tx model.Transaction
-	err := db.Preload("Account").Preload("Category").Preload("ToAccount").
+	err := db.Preload("Account").Preload("Category", func(db *gorm.DB) *gorm.DB {
+		return db.Unscoped().Where("user_id = ?", userID)
+	}).Preload("ToAccount").
 		First(&tx, "id = ? AND user_id = ?", id, userID).Error
 	if err != nil {
 		return nil, err
@@ -103,7 +107,9 @@ func (r *TransactionRepository) List(filter TransactionFilter) ([]model.Transact
 	}
 
 	offset := (filter.Page - 1) * filter.PageSize
-	err := query.Preload("Account").Preload("Category").Preload("ToAccount").
+	err := query.Preload("Account").Preload("Category", func(db *gorm.DB) *gorm.DB {
+		return db.Unscoped().Where("user_id = ?", filter.UserID)
+	}).Preload("ToAccount").
 		Order("transaction_date DESC, created_at DESC").
 		Offset(offset).Limit(filter.PageSize).
 		Find(&transactions).Error
@@ -263,11 +269,16 @@ func (r *TransactionRepository) SumExpenseByMember(userID uint, startDate, endDa
 
 func (r *TransactionRepository) SumBalanceDeltaByAccount(userID uint, startDate, endDate time.Time) ([]AccountBalanceDeltaSum, error) {
 	var results []AccountBalanceDeltaSum
+	// External debt payments have no transaction projection. Include only their
+	// active debt-side balance effects; even deleted projections block fallback.
 	err := r.db.Raw(`
+		SELECT account_totals.account_id, account_totals.balance_delta
+		FROM (
 		SELECT
 			account_deltas.account_id,
 			SUM(
 				CASE
+					WHEN account_deltas.direct_balance = 1 THEN account_deltas.cash_flow_delta
 					WHEN accounts.type IN ? THEN -account_deltas.cash_flow_delta
 					ELSE account_deltas.cash_flow_delta
 				END
@@ -280,26 +291,53 @@ func (r *TransactionRepository) SumBalanceDeltaByAccount(userID uint, startDate,
 					WHEN type = 'expense' THEN -amount_cents
 					WHEN type = 'transfer' THEN -amount_cents
 					ELSE 0
-				END AS cash_flow_delta
+				END AS cash_flow_delta, 0 AS direct_balance
 			FROM transactions
 			WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND deleted_at IS NULL
 			UNION ALL
-			SELECT to_account_id AS account_id, amount_cents AS cash_flow_delta
+			SELECT to_account_id AS account_id, amount_cents AS cash_flow_delta, 0 AS direct_balance
 			FROM transactions
 			WHERE user_id = ? AND transaction_date >= ? AND transaction_date <= ? AND type = 'transfer' AND to_account_id IS NOT NULL AND to_account_id <> '' AND deleted_at IS NULL
+			UNION ALL
+			SELECT logs.account_id, logs.balance_after_cents - logs.balance_before_cents AS cash_flow_delta, 1 AS direct_balance
+			FROM account_logs logs
+			LEFT JOIN transactions payment ON payment.id = logs.transaction_id AND payment.user_id = logs.user_id
+			WHERE logs.user_id = ? AND logs.reminder_id IS NOT NULL AND logs.type = 'adjustment'
+			  AND (
+			    ((logs.transaction_id IS NULL OR logs.transaction_id = '') AND logs.created_at >= ? AND logs.created_at <= ?)
+			    OR (payment.id IS NOT NULL AND payment.deleted_at IS NULL AND payment.transaction_date >= ? AND payment.transaction_date <= ?
+			      AND logs.account_id <> payment.account_id AND (payment.to_account_id IS NULL OR logs.account_id <> payment.to_account_id))
+			  )
+			UNION ALL
+			SELECT logs.account_id, logs.balance_after_cents - logs.balance_before_cents AS cash_flow_delta, 1 AS direct_balance
+			FROM account_logs logs
+			JOIN debt_operations operation ON operation.id = logs.debt_operation_id AND operation.user_id = logs.user_id
+			WHERE logs.user_id = ? AND logs.type = 'adjustment' AND logs.debt_effect_role = 'debt'
+			  AND operation.kind = 'payment' AND operation.source_kind = 'external' AND operation.reversed_by IS NULL
+			  AND (operation.source_account_id IS NULL OR operation.source_account_id = '')
+			  AND logs.account_id = operation.account_id
+			  AND operation.occurred_at >= ? AND operation.occurred_at <= ?
+			  AND NOT EXISTS (
+			    SELECT 1 FROM transactions projection
+			    WHERE projection.user_id = logs.user_id AND projection.debt_operation_id = operation.id
+			      AND (projection.account_id = logs.account_id OR projection.to_account_id = logs.account_id)
+			  )
 		) account_deltas
 		JOIN accounts ON accounts.id = account_deltas.account_id AND accounts.user_id = ?
 		WHERE account_deltas.account_id IS NOT NULL AND account_deltas.account_id <> ''
 		GROUP BY account_deltas.account_id
 		HAVING SUM(
 			CASE
-				WHEN accounts.type IN ? THEN -account_deltas.cash_flow_delta
+				WHEN account_deltas.direct_balance = 1 THEN account_deltas.cash_flow_delta
+					WHEN accounts.type IN ? THEN -account_deltas.cash_flow_delta
 				ELSE account_deltas.cash_flow_delta
 			END
 		) <> 0
-		ORDER BY ABS(balance_delta) DESC, account_deltas.account_id ASC
+		) account_totals
+		ORDER BY ABS(account_totals.balance_delta) DESC, account_totals.account_id ASC
 		LIMIT 10
-	`, model.DebtAccountTypeValues(), userID, startDate, endDate, userID, startDate, endDate, userID, model.DebtAccountTypeValues()).Scan(&results).Error
+	`, model.DebtAccountTypeValues(), userID, startDate, endDate, userID, startDate, endDate, userID, startDate, endDate, startDate, endDate,
+		userID, startDate, endDate, userID, model.DebtAccountTypeValues()).Scan(&results).Error
 	return results, err
 }
 
@@ -322,6 +360,7 @@ func applyMemberExpenseStatisticsScope(query *gorm.DB) *gorm.DB {
 func applySpendingStatisticsScope(query *gorm.DB) *gorm.DB {
 	return query.
 		Where("COALESCE(source, '') <> ?", "system").
+		Where("COALESCE(source, '') <> ?", "debt_principal").
 		Where("(lending_id IS NULL OR lending_id = '')")
 }
 

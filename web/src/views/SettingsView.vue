@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, watch } from 'vue'
+import AppDialog from '@/components/ui/AppDialog.vue'
+import FinancePage from '@/components/ui/FinancePage.vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { AxiosResponse } from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { authApi } from '@/api/auth'
-import { statisticsApi } from '@/api/statistics'
+import { transactionApi } from '@/api/transaction'
 import { accountApi } from '@/api/account'
 import { toast } from '@/composables/useToast'
 import packageMetadata from '../../package.json'
 import {
   Lock, Upload, Download, Info, ChevronRight,
-  User, Shield, Database, X, Check, LogOut, Wallet, Moon, HardDrive, Bell,
-  FolderOpen, Target, Users, FileText, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone, Sparkles, Tag, Bolt
-} from 'lucide-vue-next'
+  User, Shield, Check, LogOut, Wallet, Moon, HardDrive, Bell,
+  FolderOpen, Copy, RefreshCw, Clock, Key, Trash2, Plus, Smartphone
+} from '@lucide/vue'
 import { notificationApi, type UpdateNotificationParams } from '@/api/notification'
 import { systemApi } from '@/api/system'
 import {
@@ -39,34 +41,20 @@ const userStatsRequests = createRequestGeneration()
 
 // User stats
 const userStats = ref({
-  totalTransactions: 0,
-  accountCount: 0,
+  totalTransactions: null as number | null,
+  accountCount: null as number | null,
   memberSince: dayjs().format('YYYY-MM-DD')
 })
-
-// Services / Functions (Merged from ManagementView)
-const services = [
-  { icon: Wallet, label: '账户管理', route: 'accounts', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-  { icon: FolderOpen, label: '分类管理', route: 'categories', color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-  { icon: Tag, label: '标签管理', route: 'tags', color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-900/20' },
-  { icon: Bolt, label: '快捷模板', route: 'templates', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-  { icon: Target, label: '预算设置', route: 'budgets', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-  { icon: Bell, label: '负债管理', route: 'reminders', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' },
-  { icon: Users, label: '借贷往来', route: 'lendings', color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20' },
-  { icon: Users, label: '家庭成员', route: 'family', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-  { icon: Sparkles, label: 'AI 分析', route: 'ai', color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-900/20' },
-  { icon: FileText, label: '年度报告', route: 'report', color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' }
-]
 
 async function loadUserStats() {
   const requestGeneration = userStatsRequests.begin()
   try {
-    const [overview, accounts] = await Promise.all([
-      statisticsApi.getOverview(),
+    const [transactions, accounts] = await Promise.all([
+      transactionApi.getList({ page: 1, page_size: 1 }),
       accountApi.getList()
     ])
     if (!userStatsRequests.isLatest(requestGeneration)) return
-    userStats.value.totalTransactions = overview.transaction_count || 0
+    userStats.value.totalTransactions = transactions.total
     userStats.value.accountCount = accounts.list?.length || 0
   } catch (e) {
     if (userStatsRequests.isLatest(requestGeneration)) {
@@ -77,17 +65,7 @@ async function loadUserStats() {
 
 onMounted(async () => {
   void loadUserStats()
-  try {
-    const profile = await authApi.getProfile()
-    profileForm.value = {
-      nickname: profile.nickname || '',
-      email: profile.email || '',
-      avatar: profile.avatar || '',
-      bio: profile.bio || ''
-    }
-  } catch (e) {
-    console.error('Load user profile failed:', e)
-  }
+  await loadProfile()
 })
 
 watch(ledgerMutationRevision, () => void loadUserStats())
@@ -105,57 +83,16 @@ const showTransactionImportModal = ref(false)
 const showSecurityModal = ref(false)
 const showProfileModal = ref(false)
 const showAutoBackupModal = ref(false)
-const logoutDialog = ref<HTMLElement | null>(null)
-let logoutReturnFocus: HTMLElement | null = null
-
-async function openLogoutModal() {
-  logoutReturnFocus = document.activeElement instanceof HTMLElement
-    ? document.activeElement
-    : null
-  showLogoutModal.value = true
-  await nextTick()
-  logoutDialog.value
-    ?.querySelector<HTMLElement>('[data-logout-cancel]')
-    ?.focus()
+const settingsTrigger = ref<HTMLElement | null>(null)
+const nestedTrigger = ref<HTMLElement | null>(null)
+function captureSettingsTrigger(event: MouseEvent) {
+  if (event.target instanceof Element) settingsTrigger.value = event.target.closest<HTMLElement>('button, a')
 }
-
-async function closeLogoutModal() {
-  const returnFocus = logoutReturnFocus
-  logoutReturnFocus = null
-  showLogoutModal.value = false
-  await nextTick()
-  returnFocus?.focus()
+function captureNestedTrigger(event: MouseEvent) {
+  if (event.target instanceof Element) nestedTrigger.value = event.target.closest<HTMLElement>('button, a')
 }
-
-function handleLogoutDialogKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    void closeLogoutModal()
-    return
-  }
-  if (event.key !== 'Tab' || !logoutDialog.value) return
-
-  const focusable = Array.from(
-    logoutDialog.value.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    )
-  )
-  if (focusable.length === 0) {
-    event.preventDefault()
-    logoutDialog.value.focus()
-    return
-  }
-
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
+function openLogoutModal() { showLogoutModal.value = true }
+function closeLogoutModal() { showLogoutModal.value = false }
 
 // Auto backup form
 const autoBackupForm = ref({
@@ -165,6 +102,10 @@ const autoBackupForm = ref({
   max_backups: 10
 })
 const autoBackupLoading = ref(false)
+const autoBackupReady = ref(false)
+const autoBackupError = ref('')
+const autoBackupFilesLoading = ref(false)
+const autoBackupFilesError = ref('')
 const autoBackupFiles = ref<{filename: string, size: number, created_at: string}[]>([])
 
 interface UploadResult {
@@ -190,18 +131,26 @@ const profileForm = ref({
   bio: ''
 })
 const profileLoading = ref(false)
+const profileReady = ref(false)
+const profileError = ref('')
 const avatarUploading = ref(false)
 
 // Security entry path
 const entryPathEnabled = ref(false)
 const entryPath = ref('')
 const entryPathLoading = ref(false)
+const entryPathReady = ref(false)
+const entryPathError = ref('')
+const savedEntryPath = ref('')
+const entryPathIsDraft = computed(() => entryPath.value !== savedEntryPath.value)
 const entryFullUrl = computed(() => window.location.origin + entryPath.value)
+const manualCopyText = ref('')
 
 // API Token
 const showApiTokenModal = ref(false)
 const apiTokens = ref<APIToken[]>([])
 const apiTokenLoading = ref(false)
+const tokenToRevoke = ref<APIToken | null>(null)
 const newTokenName = ref('')
 const newTokenExpiry = ref(90)
 const apiTokenScopeOptions: Array<{
@@ -242,6 +191,8 @@ const transactionImportFile = ref<File | null>(null)
 const transactionImportPreview = ref<TransactionImportPreview | null>(null)
 const transactionImportHistory = ref<TransactionImportPreview[]>([])
 const transactionImportLoading = ref(false)
+const transactionImportWriting = ref(false)
+const transactionImportRequests = createRequestGeneration()
 const transactionImportOtherHistory = computed(() =>
   transactionImportHistory.value.filter(
     item => item.id !== transactionImportPreview.value?.id
@@ -259,6 +210,8 @@ const transactionImportCanCommit = computed(() => {
 // Notification settings
 const showNotificationModal = ref(false)
 const notificationLoading = ref(false)
+const notificationReady = ref(false)
+const notificationError = ref('')
 const notificationForm = ref({
   enabled: false,
   wecom_enabled: false,
@@ -289,7 +242,7 @@ const menuGroups = [
   {
     title: '系统与安全',
     items: [
-      { icon: Moon, label: '深色模式', desc: '切换显示外观', action: () => themeStore.toggle(), color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/30', isToggle: true },
+      { icon: Moon, label: '外观设置', desc: '主题与桌面导航', action: () => navigateTo('appearance'), color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/30', isToggle: false },
       { icon: Bell, label: '通知设置', desc: '消息提醒配置', action: openNotificationModal, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/30' },
       { icon: Lock, label: '修改密码', desc: '更新登录密码', action: openPasswordModal, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-900/30' },
       { icon: Shield, label: '安全入口', desc: '防止暴力破解', action: openSecurityModal, color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/30' },
@@ -314,7 +267,6 @@ const menuGroups = [
 ]
 
 async function handleLogout() {
-  logoutReturnFocus = null
   showLogoutModal.value = false
   try {
     await authStore.logout()
@@ -328,7 +280,14 @@ async function handleLogout() {
 // Profile functions
 async function openProfileModal() {
   showProfileModal.value = true
+  await loadProfile()
+}
+
+async function loadProfile() {
+  if (profileLoading.value) return
   profileLoading.value = true
+  profileReady.value = false
+  profileError.value = ''
   try {
     const profile = await authApi.getProfile()
     profileForm.value = {
@@ -337,14 +296,16 @@ async function openProfileModal() {
       avatar: profile.avatar || '',
       bio: profile.bio || ''
     }
-  } catch (e) {
-    console.error('Load profile failed:', e)
+    profileReady.value = true
+  } catch (e: any) {
+    profileError.value = e.message || '读取个人信息失败'
   } finally {
     profileLoading.value = false
   }
 }
 
 async function saveProfile() {
+  if (!profileReady.value || profileLoading.value || avatarUploading.value) return
   profileLoading.value = true
   try {
     await authApi.updateProfile(profileForm.value)
@@ -358,6 +319,7 @@ async function saveProfile() {
 }
 
 async function handleAvatarUpload(e: Event) {
+  if (!profileReady.value || profileLoading.value || avatarUploading.value) return
   const target = e.target as HTMLInputElement
   if (!target.files || !target.files[0]) return
   
@@ -392,42 +354,49 @@ async function handleAvatarUpload(e: Event) {
 // Security entry path functions
 async function openSecurityModal() {
   showSecurityModal.value = true
+  if (entryPathLoading.value) return
   entryPathLoading.value = true
+  entryPathReady.value = false
+  entryPathError.value = ''
   try {
     const res = await systemApi.getEntryPath()
     entryPath.value = res.entry_path
     entryPathEnabled.value = res.enabled
-  } catch (e) {
-    console.error('Load entry path failed:', e)
+    savedEntryPath.value = res.entry_path
+    entryPathReady.value = true
+  } catch (e: any) {
+    entryPathError.value = e.message || '读取安全入口失败'
   } finally {
     entryPathLoading.value = false
   }
 }
 
 async function saveEntryPath() {
+  if (!entryPathReady.value || entryPathLoading.value) return
   entryPathLoading.value = true
   try {
     const res = await systemApi.setEntryPath(entryPath.value)
     entryPath.value = res.entry_path
     entryPathEnabled.value = res.enabled
+    savedEntryPath.value = res.entry_path
     toast.success('入口路径已更新')
     if (res.entry_path) {
       toast.info(`新入口: ${window.location.origin}${res.entry_path}`)
     }
-  } catch (e) {
-    toast.error('保存失败')
+  } catch (e: any) {
+    toast.error(e.message || '保存失败')
   } finally {
     entryPathLoading.value = false
   }
 }
 
 async function generateEntryPath() {
+  if (!entryPathReady.value || entryPathLoading.value) return
   entryPathLoading.value = true
   try {
-    const res = await systemApi.generateEntryPath()
+    const res = await systemApi.generateEntryPath({ draft: true })
     entryPath.value = res.entry_path
-    entryPathEnabled.value = res.enabled
-    toast.success('已生成随机入口路径')
+    toast.info('已生成随机路径，保存后生效')
   } catch (e) {
     toast.error('生成失败')
   } finally {
@@ -436,11 +405,13 @@ async function generateEntryPath() {
 }
 
 async function disableEntryPath() {
+  if (!entryPathReady.value || entryPathLoading.value) return
   entryPathLoading.value = true
   try {
     await systemApi.disableEntryPath()
     entryPath.value = ''
     entryPathEnabled.value = false
+    savedEntryPath.value = ''
     toast.success('安全入口已禁用')
   } catch (e) {
     toast.error('禁用失败')
@@ -449,10 +420,9 @@ async function disableEntryPath() {
   }
 }
 
-function copyEntryUrl() {
+async function copyEntryUrl() {
   const url = window.location.origin + entryPath.value
-  navigator.clipboard.writeText(url)
-  toast.success('已复制到剪贴板')
+  await copyText(url)
 }
 
 // API Token functions
@@ -510,13 +480,15 @@ function apiTokenScopeLabel(scope: string) {
   return apiTokenScopeOptions.find(option => option.value === scope)?.label || scope
 }
 
-async function deleteApiToken(id: number) {
-  if (!confirm('确定要删除此令牌吗？删除后使用此令牌的应用将无法访问。')) return
+async function deleteApiToken() {
+  if (!tokenToRevoke.value || apiTokenLoading.value) return
+  const id = tokenToRevoke.value.id
   apiTokenLoading.value = true
   try {
     await apiTokenApi.delete(id)
     toast.success('令牌已删除')
     await loadApiTokens()
+    tokenToRevoke.value = null
   } catch (e: any) {
     toast.error(e.message || '删除失败')
   } finally {
@@ -524,21 +496,35 @@ async function deleteApiToken(id: number) {
   }
 }
 
-function copyToken(token: string) {
-  navigator.clipboard.writeText(token)
-  toast.success('已复制到剪贴板')
+async function copyToken(token: string) {
+  await copyText(token)
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    manualCopyText.value = ''
+    toast.success('已复制到剪贴板')
+  } catch {
+    manualCopyText.value = text
+    toast.warning('无法访问剪贴板，请在弹窗中手动复制')
+  }
 }
 
 // Notification functions
 async function openNotificationModal() {
   showNotificationModal.value = true
+  if (notificationLoading.value) return
   notificationLoading.value = true
+  notificationReady.value = false
+  notificationError.value = ''
   try {
     const settings = await notificationApi.getSettings()
     Object.assign(notificationForm.value, settings)
     clearNotificationCredentialInputs()
-  } catch (e) {
-    console.error('Load notification settings failed:', e)
+    notificationReady.value = true
+  } catch (e: any) {
+    notificationError.value = e.message || '读取通知配置失败'
   } finally {
     notificationLoading.value = false
   }
@@ -570,6 +556,7 @@ function buildNotificationUpdateParams(): UpdateNotificationParams {
 }
 
 async function saveNotificationSettings() {
+  if (!notificationReady.value || notificationLoading.value || testingChannel.value) return
   notificationLoading.value = true
   try {
     await notificationApi.updateSettings(buildNotificationUpdateParams())
@@ -584,6 +571,7 @@ async function saveNotificationSettings() {
 }
 
 async function testNotification(channel: string) {
+  if (!notificationReady.value || notificationLoading.value || testingChannel.value) return
   testingChannel.value = channel
   try {
     let result
@@ -604,7 +592,8 @@ async function testNotification(channel: string) {
           smtp_port: notificationForm.value.smtp_port,
           smtp_user: notificationForm.value.smtp_user,
           smtp_password: notificationForm.value.smtp_password,
-          smtp_from: notificationForm.value.smtp_from
+          smtp_from: notificationForm.value.smtp_from,
+          email_to: notificationForm.value.email_to
         })
         break
       case 'webhook':
@@ -696,6 +685,7 @@ function handleRestoreFileSelect(e: Event) {
 }
 
 async function handleRestore() {
+  if (restoreLoading.value) return
   if (!restoreFile.value) {
     toast.warning('请选择备份文件')
     return
@@ -722,6 +712,8 @@ async function handleRestore() {
 }
 
 async function openTransactionImport() {
+  if (transactionImportWriting.value) return
+  const generation = transactionImportRequests.begin()
   showTransactionImportModal.value = true
   transactionImportFile.value = null
   transactionImportPreview.value = null
@@ -729,20 +721,25 @@ async function openTransactionImport() {
   transactionImportLoading.value = true
   try {
     const history = await transactionImportApi.list()
+    if (!transactionImportRequests.isLatest(generation)) return
     transactionImportHistory.value = history.list || []
     const latest = transactionImportHistory.value[0]
-    transactionImportPreview.value = latest
+    const restoredPreview = latest
       ? await transactionImportApi.get(latest.id)
       : null
+    if (transactionImportRequests.isLatest(generation)) {
+      transactionImportPreview.value = restoredPreview
+    }
   } catch (error: any) {
-    toast.error(error.message || '恢复最近导入状态失败')
+    if (transactionImportRequests.isLatest(generation)) toast.error(error.message || '恢复最近导入状态失败')
   } finally {
-    transactionImportLoading.value = false
+    if (transactionImportRequests.isLatest(generation)) transactionImportLoading.value = false
   }
 }
 
 function closeTransactionImport() {
   if (transactionImportLoading.value) return
+  transactionImportRequests.begin()
   showTransactionImportModal.value = false
   transactionImportFile.value = null
   transactionImportPreview.value = null
@@ -751,45 +748,60 @@ function closeTransactionImport() {
 
 function handleTransactionImportFileSelect(event: Event) {
   const target = event.target as HTMLInputElement
+  if (transactionImportWriting.value) {
+    target.value = ''
+    return
+  }
+  transactionImportRequests.begin()
+  transactionImportLoading.value = false
   transactionImportFile.value = target.files?.[0] || null
   transactionImportPreview.value = null
 }
 
 async function previewTransactionImport() {
+  if (transactionImportLoading.value) return
   if (!transactionImportFile.value) {
     toast.warning('请选择 CSV 或 JSON 文件')
     return
   }
+  const generation = transactionImportRequests.begin()
   transactionImportLoading.value = true
   try {
     const preview = await transactionImportApi.preview(transactionImportFile.value)
+    if (!transactionImportRequests.isLatest(generation)) return
     setTransactionImportPreview(preview)
     toast.success('导入预览已生成，尚未修改账本')
   } catch (error: any) {
-    toast.error(error.message || '导入预览失败')
+    if (transactionImportRequests.isLatest(generation)) toast.error(error.message || '导入预览失败')
   } finally {
-    transactionImportLoading.value = false
+    if (transactionImportRequests.isLatest(generation)) transactionImportLoading.value = false
   }
 }
 
 async function validateTransactionImport() {
+  if (transactionImportLoading.value) return
   const preview = transactionImportPreview.value
   if (!preview) return
+  const generation = transactionImportRequests.begin()
   transactionImportLoading.value = true
   try {
-    setTransactionImportPreview(await transactionImportApi.validate(preview.id))
+    const validated = await transactionImportApi.validate(preview.id)
+    if (!transactionImportRequests.isLatest(generation)) return
+    setTransactionImportPreview(validated)
     toast.success('已按当前账户和分类重新验证')
   } catch (error: any) {
-    toast.error(error.message || '重新验证失败')
+    if (transactionImportRequests.isLatest(generation)) toast.error(error.message || '重新验证失败')
   } finally {
-    transactionImportLoading.value = false
+    if (transactionImportRequests.isLatest(generation)) transactionImportLoading.value = false
   }
 }
 
 async function commitTransactionImport() {
+  if (transactionImportLoading.value) return
   const preview = transactionImportPreview.value
   if (!preview || !transactionImportCanCommit.value) return
   transactionImportLoading.value = true
+  transactionImportWriting.value = true
   try {
     setTransactionImportPreview(await transactionImportApi.commit(preview.id))
     toast.success('交易已原子导入，可在 24 小时内撤销')
@@ -797,13 +809,16 @@ async function commitTransactionImport() {
     toast.error(error.message || '导入提交失败，请重新验证')
   } finally {
     transactionImportLoading.value = false
+    transactionImportWriting.value = false
   }
 }
 
 async function rollbackTransactionImport() {
+  if (transactionImportLoading.value) return
   const preview = transactionImportPreview.value
   if (!preview || preview.status !== 'committed') return
   transactionImportLoading.value = true
+  transactionImportWriting.value = true
   try {
     setTransactionImportPreview(await transactionImportApi.rollback(preview.id))
     toast.success('本次导入已完整撤销')
@@ -811,6 +826,7 @@ async function rollbackTransactionImport() {
     toast.error(error.message || '撤销导入失败')
   } finally {
     transactionImportLoading.value = false
+    transactionImportWriting.value = false
   }
 }
 
@@ -824,14 +840,17 @@ function setTransactionImportPreview(preview: TransactionImportPreview) {
 
 async function selectTransactionImport(preview: TransactionImportPreview) {
   if (transactionImportLoading.value) return
+  const generation = transactionImportRequests.begin()
   transactionImportLoading.value = true
   try {
-    setTransactionImportPreview(await transactionImportApi.get(preview.id))
+    const selected = await transactionImportApi.get(preview.id)
+    if (!transactionImportRequests.isLatest(generation)) return
+    setTransactionImportPreview(selected)
     transactionImportFile.value = null
   } catch (error: any) {
-    toast.error(error.message || '加载导入批次失败')
+    if (transactionImportRequests.isLatest(generation)) toast.error(error.message || '加载导入批次失败')
   } finally {
-    transactionImportLoading.value = false
+    if (transactionImportRequests.isLatest(generation)) transactionImportLoading.value = false
   }
 }
 
@@ -854,27 +873,48 @@ function transactionImportStatusLabel(status: string) {
 // Auto backup functions
 async function openAutoBackupModal() {
   showAutoBackupModal.value = true
+  if (autoBackupLoading.value) return
+  await Promise.all([loadAutoBackupSettings(), loadAutoBackupFiles()])
+}
+
+async function loadAutoBackupSettings() {
+  if (autoBackupLoading.value) return
   autoBackupLoading.value = true
+  autoBackupReady.value = false
+  autoBackupError.value = ''
   try {
-    const [settings, files] = await Promise.all([
-      get<AutoBackupSettings>('/backup/auto/settings'),
-      get<AutoBackupListResponse>('/backup/auto/list')
-    ])
+    const settings = await get<AutoBackupSettings>('/backup/auto/settings')
     autoBackupForm.value = {
       enabled: settings.enabled || false,
       frequency: settings.frequency || 'daily',
       hour: settings.hour ?? 3,
       max_backups: settings.max_backups || 10
     }
-    autoBackupFiles.value = files.files || []
-  } catch (e) {
-    console.error('Load auto backup settings failed:', e)
+    autoBackupReady.value = true
+  } catch (e: any) {
+    autoBackupError.value = e.message || '读取自动备份配置失败'
   } finally {
     autoBackupLoading.value = false
   }
 }
 
+async function loadAutoBackupFiles() {
+  if (autoBackupFilesLoading.value) return
+  autoBackupFilesLoading.value = true
+  autoBackupFilesError.value = ''
+  try {
+    const files = await get<AutoBackupListResponse>('/backup/auto/list')
+    autoBackupFiles.value = files.files || []
+  } catch (e: any) {
+    autoBackupFiles.value = []
+    autoBackupFilesError.value = e.message || '读取备份文件列表失败'
+  } finally {
+    autoBackupFilesLoading.value = false
+  }
+}
+
 async function saveAutoBackupSettings() {
+  if (!autoBackupReady.value || autoBackupLoading.value) return
   autoBackupLoading.value = true
   try {
     await put('/backup/auto/settings', autoBackupForm.value)
@@ -910,85 +950,37 @@ function formatFileSize(bytes: number) {
 </script>
 
 <template>
-  <div class="min-h-full bg-[#F2F2F7] dark:bg-black pb-8">
-    <!-- Header / User Profile -->
-    <div class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
-       <div class="max-w-3xl mx-auto flex items-center justify-between">
-          <button class="flex items-center gap-4 text-left hover:opacity-80 transition" @click="openProfileModal">
-            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center overflow-hidden shadow-inner border border-white/20">
-               <img v-if="profileForm.avatar" :src="profileForm.avatar" class="w-full h-full object-cover" />
-               <User v-else class="text-gray-400" :size="32" />
-            </div>
-            <div>
-               <h1 class="text-xl font-bold text-gray-900 dark:text-white">{{ profileForm.nickname || '用户账户' }}</h1>
-               <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ profileForm.bio || '点击编辑个人信息' }}</div>
-               <!-- Badges -->
-               <div class="flex items-center gap-2 mt-2">
-                  <div class="flex items-center gap-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-2 py-0.5 rounded text-[10px] font-medium border border-green-100 dark:border-green-900/30">
-                    <Shield :size="10" />
-                    <span>私有部署</span>
-                  </div>
-                  <div class="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded text-[10px] font-medium border border-blue-100 dark:border-blue-900/30">
-                    <Database :size="10" />
-                    <span>服务端数据库</span>
-                  </div>
-               </div>
-            </div>
-          </button>
-          <button 
-            type="button"
-            aria-label="退出登录"
-            class="p-2.5 bg-gray-100/50 dark:bg-white/5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded-full transition-all"
-            @click="openLogoutModal"
-          >
-             <LogOut :size="20" />
-          </button>
-       </div>
-    </div>
+  <FinancePage :title="profileForm.nickname || '用户账户'" @click.capture="captureSettingsTrigger">
+    <template #heading>
+      <button type="button" class="finance-profile-trigger" aria-label="编辑个人信息" @click="openProfileModal">
+        <span class="finance-profile-avatar"><img v-if="profileForm.avatar" :src="profileForm.avatar" alt="个人头像" /><User v-else :size="24" /></span>
+        <span class="flex-1 min-w-0"><span class="finance-title-line"><h1>{{ profileForm.nickname || '用户账户' }}</h1></span><span class="finance-subtitle block">{{ profileForm.bio || '点击编辑个人信息' }}</span></span>
+      </button>
+    </template>
+    <template #actions><button type="button" aria-label="退出登录" class="finance-icon-button" @click="openLogoutModal"><LogOut :size="19" /></button></template>
 
-    <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
+    <div class="space-y-6">
        <!-- Stats Cards -->
        <div class="grid grid-cols-2 gap-4">
           <div class="bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-xl rounded-[20px] p-4 flex flex-col items-center justify-center gap-1 shadow-sm border border-white/40 dark:border-white/5">
-             <div class="text-2xl font-bold font-nums text-gray-900 dark:text-white">{{ userStats.totalTransactions }}</div>
+             <div class="text-2xl font-bold font-nums text-gray-900 dark:text-white">{{ userStats.totalTransactions ?? '—' }}</div>
              <div class="text-xs text-gray-500">累计记账</div>
           </div>
           <div class="bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-xl rounded-[20px] p-4 flex flex-col items-center justify-center gap-1 shadow-sm border border-white/40 dark:border-white/5">
-             <div class="text-2xl font-bold font-nums text-gray-900 dark:text-white">{{ userStats.accountCount }}</div>
+             <div class="text-2xl font-bold font-nums text-gray-900 dark:text-white">{{ userStats.accountCount ?? '—' }}</div>
              <div class="text-xs text-gray-500">账户数量</div>
-          </div>
-       </div>
-
-       <!-- Services Grid (Management) -->
-       <div class="bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-xl rounded-[24px] p-5 shadow-sm border border-white/40 dark:border-white/5">
-          <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-5 px-1">常用功能</h3>
-          <div class="grid grid-cols-4 gap-y-6">
-             <button 
-                v-for="item in services" 
-                :key="item.route" 
-                class="flex flex-col items-center gap-2 group"
-                @click="navigateTo(item.route)"
-              >
-                <div 
-                  class="w-12 h-12 rounded-[18px] flex items-center justify-center transition-transform duration-300 group-hover:scale-105 shadow-sm" 
-                  :class="item.bg"
-                >
-                   <component :is="item.icon" :size="24" :class="item.color" />
-                </div>
-                <div class="text-[11px] font-medium text-gray-600 dark:text-gray-300">{{ item.label }}</div>
-             </button>
           </div>
        </div>
 
       <!-- Settings Groups -->
       <div class="space-y-6">
         <div v-for="(group, gi) in menuGroups" :key="gi">
-          <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-3">{{ group.title }}</h3>
+          <h2 class="settings-group-title">{{ group.title }}</h2>
           <div class="bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-xl rounded-[20px] overflow-hidden shadow-sm border border-white/40 dark:border-white/5">
             <button
               v-for="(item, ii) in group.items"
               :key="ii"
-              class="w-full flex items-center px-4 py-3.5 hover:bg-black/5 dark:hover:bg-white/5 transition active:bg-black/10 dark:active:bg-white/10 group border-b border-gray-100/50 dark:border-white/5 last:border-b-0"
+              class="settings-row group"
               @click="item.action"
             >
               <div 
@@ -997,9 +989,7 @@ function formatFileSize(bytes: number) {
               >
                 <component :is="item.icon" :size="16" :class="item.color" />
               </div>
-              <div class="flex-1 text-left">
-                <div class="text-[15px] font-medium text-gray-900 dark:text-white">{{ item.label }}</div>
-              </div>
+              <div class="flex-1 min-w-0 text-left"><div class="settings-row-label">{{ item.label }}</div></div>
               
               <!-- Toggle Switch for theme -->
               <div v-if="(item as any).isToggle" class="relative mr-1">
@@ -1021,54 +1011,32 @@ function formatFileSize(bytes: number) {
 
       <!-- Version -->
       <div class="text-center py-4">
-        <p class="text-xs text-gray-400">Personal Ledger v{{ appVersion }}</p>
+          <p class="finance-muted">Personal Ledger v{{ appVersion }}</p>
       </div>
     </div>
 
     <!-- Logout Confirm Modal -->
-    <Teleport to="body">
-      <div v-if="showLogoutModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" @click="closeLogoutModal"></div>
-        <div
-          ref="logoutDialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="logout-dialog-title"
-          tabindex="-1"
-          class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[20px] p-6 w-[280px] shadow-2xl animate-in zoom-in-95 duration-200 text-center"
-          @keydown="handleLogoutDialogKeydown"
-        >
-          <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 mx-auto text-red-500">
-            <LogOut :size="24" />
-          </div>
-          <h3 id="logout-dialog-title" class="text-lg font-bold text-gray-900 dark:text-white mb-2">确认退出</h3>
-          <p class="text-[13px] text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">确定要退出登录吗？下次登录需要重新输入密码。</p>
-          <div class="flex gap-3 justify-center border-t border-gray-200/50 dark:border-white/10 pt-4 -mx-6 -mb-2">
-            <button
+    <AppDialog v-if="showLogoutModal" title="确认退出" initial-focus="[data-logout-cancel]" :busy="false" :return-focus="settingsTrigger" sheet @close="closeLogoutModal()">
+      <fieldset :disabled="false" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><p class="text-[13px] text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">确定要退出登录吗？下次登录需要重新输入密码。</p></fieldset>
+      <template #footer><button
               data-logout-cancel
               class="flex-1 py-2 text-[17px] text-blue-500 font-medium active:opacity-70 transition"
               @click="closeLogoutModal"
-            >
+             :disabled="false">
               取消
             </button>
             <div class="w-px bg-gray-200/50 dark:bg-white/10"></div>
             <button
               class="flex-1 py-2 text-[17px] text-red-500 font-medium active:opacity-70 transition"
               @click="handleLogout"
-            >
+             :disabled="false">
               退出
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+            </button></template>
+    </AppDialog>
 
     <!-- About Modal -->
-    <Teleport to="body">
-      <div v-if="showAboutModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showAboutModal = false"></div>
-        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10">
-          <div class="w-20 h-20 bg-gradient-to-br from-primary to-blue-600 rounded-[20px] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20">
+    <AppDialog v-if="showAboutModal" title="关于应用" :busy="false" :return-focus="settingsTrigger" sheet @close="showAboutModal = false">
+      <fieldset :disabled="false" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><div class="w-20 h-20 bg-gradient-to-br from-primary to-blue-600 rounded-[20px] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20">
             <Wallet class="text-white" :size="40" />
           </div>
           <h3 class="text-2xl font-bold mb-2 text-gray-900 dark:text-white text-center">Personal Ledger</h3>
@@ -1089,31 +1057,18 @@ function formatFileSize(bytes: number) {
               <span>开发者</span>
               <span class="font-medium text-gray-900 dark:text-white">Sky</span>
             </div>
-          </div>
-
-          <button
+          </div></fieldset>
+      <template #footer><button
             class="w-full py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-medium hover:opacity-80 transition shadow-lg"
             @click="showAboutModal = false"
-          >
+           :disabled="false">
             知道了
-          </button>
-        </div>
-      </div>
-    </Teleport>
+          </button></template>
+    </AppDialog>
 
     <!-- Password Modal -->
-    <Teleport to="body">
-      <div v-if="showPasswordModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showPasswordModal = false"></div>
-        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10">
-          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-white/10">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white">修改密码</h3>
-            <button class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" @click="showPasswordModal = false">
-              <X :size="20" class="text-gray-500" />
-            </button>
-          </div>
-          
-          <div v-if="passwordSuccess" class="p-10 text-center">
+    <AppDialog v-if="showPasswordModal" title="修改密码" :busy="passwordLoading || passwordSuccess" :return-focus="settingsTrigger" sheet @close="showPasswordModal = false">
+      <fieldset :disabled="passwordLoading || passwordSuccess" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><div v-if="passwordSuccess" class="p-10 text-center">
             <div class="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
               <Check class="text-green-500" :size="32" />
             </div>
@@ -1121,31 +1076,31 @@ function formatFileSize(bytes: number) {
             <p class="text-gray-500 dark:text-gray-400 text-sm">即将重新登录...</p>
           </div>
           
-          <div v-else class="p-6 space-y-4">
+          <div v-else class="space-y-4">
             <div class="space-y-1.5">
               <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">当前密码</label>
-              <input
+              <input name="passwordForm-oldPassword" aria-label="当前密码" style="min-width: 0; max-width: 100%"
                 v-model="passwordForm.oldPassword"
                 type="password"
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white"
               />
             </div>
             <div class="space-y-1.5">
               <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">新密码</label>
-              <input
+              <input name="passwordForm-newPassword" aria-label="新密码" style="min-width: 0; max-width: 100%"
                 v-model="passwordForm.newPassword"
                 type="password"
                 placeholder="至少8位"
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
               />
             </div>
             <div class="space-y-1.5">
               <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">确认新密码</label>
-              <input
+              <input name="passwordForm-confirmPassword" aria-label="确认新密码" style="min-width: 0; max-width: 100%"
                 v-model="passwordForm.confirmPassword"
                 type="password"
                 placeholder="再次输入新密码"
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
               />
             </div>
             
@@ -1154,34 +1109,20 @@ function formatFileSize(bytes: number) {
               {{ passwordError }}
             </div>
 
-            <button
+
+          </div></fieldset>
+      <template #footer v-if="!passwordSuccess"><button
               class="w-full h-12 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-primary/20 mt-2"
               :disabled="passwordLoading"
               @click="handleChangePassword"
             >
               {{ passwordLoading ? '修改中...' : '确认修改' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+            </button></template>
+    </AppDialog>
 
     <!-- Restore Modal -->
-    <Teleport to="body">
-      <div v-if="showRestoreModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showRestoreModal = false"></div>
-        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10">
-          <div class="flex items-center gap-4 mb-6">
-            <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600">
-              <Download :size="24" />
-            </div>
-            <div>
-              <h3 class="text-lg font-bold text-gray-900 dark:text-white">恢复备份</h3>
-              <p class="text-gray-500 dark:text-gray-400 text-sm">选择备份文件恢复数据</p>
-            </div>
-          </div>
-          
-          <div class="space-y-4">
+    <AppDialog v-if="showRestoreModal" title="恢复备份" :busy="restoreLoading" :return-focus="settingsTrigger" sheet @close="showRestoreModal = false">
+      <fieldset :disabled="restoreLoading" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><div class="space-y-4">
             <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
               ⚠️ 恢复备份将覆盖当前所有数据，请谨慎操作。建议先备份当前数据。
             </div>
@@ -1191,7 +1132,7 @@ function formatFileSize(bytes: number) {
                 class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-6 text-center hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all cursor-pointer group"
                 :class="restoreFile ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/30' : ''"
               >
-                <input 
+                <input aria-label="选择备份文件" style="min-width: 0; max-width: 100%"
                   type="file" 
                   accept=".json" 
                   class="hidden" 
@@ -1210,11 +1151,12 @@ function formatFileSize(bytes: number) {
               </div>
             </label>
 
-            <div class="flex gap-3">
-              <button
+
+          </div></fieldset>
+      <template #footer><button
                 class="flex-1 py-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                 @click="showRestoreModal = false; restoreFile = null"
-              >
+               :disabled="restoreLoading">
                 取消
               </button>
               <button
@@ -1223,40 +1165,18 @@ function formatFileSize(bytes: number) {
                 @click="handleRestore"
               >
                 {{ restoreLoading ? '恢复中...' : '开始恢复' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+              </button></template>
+    </AppDialog>
 
     <!-- Transaction Import Modal -->
-    <Teleport to="body">
-      <div v-if="showTransactionImportModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeTransactionImport"></div>
-        <div class="relative bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl rounded-[24px] w-full max-w-2xl max-h-[90vh] shadow-2xl border border-white/20 dark:border-white/10 flex flex-col">
-          <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-white/10 shrink-0">
-            <div class="flex items-center gap-3">
-              <div class="w-11 h-11 rounded-2xl bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 flex items-center justify-center">
-                <Upload :size="22" />
-              </div>
-              <div>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">交易导入</h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400">先预览和验证，确认后才写入账本</p>
-              </div>
-            </div>
-            <button class="min-w-11 min-h-11 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition" aria-label="关闭交易导入" @click="closeTransactionImport">
-              <X :size="20" class="text-gray-500" />
-            </button>
-          </div>
-
-          <div class="p-6 space-y-5 overflow-y-auto">
+    <AppDialog v-if="showTransactionImportModal" title="交易导入" :busy="transactionImportWriting" :return-focus="settingsTrigger" sheet @close="closeTransactionImport()">
+      <fieldset :disabled="transactionImportWriting" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><div class="space-y-5">
             <label v-if="!transactionImportPreview" class="block">
               <div
                 class="border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all"
                 :class="transactionImportFile ? 'border-cyan-400 bg-cyan-50 dark:bg-cyan-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-cyan-400'"
               >
-                <input type="file" accept=".csv,.json,text/csv,application/json" class="hidden" @change="handleTransactionImportFileSelect" />
+                <input style="min-width: 0; max-width: 100%" type="file" accept=".csv,.json,text/csv,application/json" class="hidden" :disabled="transactionImportWriting" @change="handleTransactionImportFileSelect" />
                 <Check v-if="transactionImportFile" :size="32" class="mx-auto mb-2 text-cyan-600" />
                 <Upload v-else :size="32" class="mx-auto mb-2 text-gray-400" />
                 <p class="font-medium text-sm text-gray-800 dark:text-gray-100">
@@ -1331,7 +1251,7 @@ function formatFileSize(bytes: number) {
             </template>
 
             <label v-if="transactionImportPreview" class="min-h-11 inline-flex items-center gap-2 px-3 rounded-xl text-sm font-medium text-cyan-700 dark:text-cyan-300 cursor-pointer hover:bg-cyan-50 dark:hover:bg-cyan-900/20">
-              <input type="file" accept=".csv,.json,text/csv,application/json" class="hidden" @change="handleTransactionImportFileSelect" />
+              <input aria-label="选择其他文件" style="min-width: 0; max-width: 100%" type="file" accept=".csv,.json,text/csv,application/json" class="hidden" :disabled="transactionImportWriting" @change="handleTransactionImportFileSelect" />
               <FolderOpen :size="17" />
               选择其他文件
             </label>
@@ -1355,10 +1275,8 @@ function formatFileSize(bytes: number) {
                 </button>
               </div>
             </section>
-          </div>
-
-          <div class="p-5 border-t border-gray-100 dark:border-white/10 flex flex-wrap gap-3 justify-end shrink-0">
-            <button class="min-h-11 px-5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium" :disabled="transactionImportLoading" @click="closeTransactionImport">
+          </div></fieldset>
+      <template #footer><button class="min-h-11 px-5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium" :disabled="transactionImportLoading" @click="closeTransactionImport">
               {{ transactionImportPreview?.status === 'committed' || transactionImportPreview?.status === 'rolled_back' ? '关闭' : '取消' }}
             </button>
             <button
@@ -1384,30 +1302,22 @@ function formatFileSize(bytes: number) {
               @click="rollbackTransactionImport"
             >
               {{ transactionImportLoading ? '撤销中...' : '撤销本次导入' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+            </button></template>
+    </AppDialog>
 
     <!-- Notification Settings Modal -->
-    <Teleport to="body">
-      <div v-if="showNotificationModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showNotificationModal = false"></div>
-        <div class="relative bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl rounded-[24px] w-full max-w-lg max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col border border-white/20 dark:border-white/10">
-          <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white">通知设置</h3>
-            <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition" @click="showNotificationModal = false">
-              <X :size="20" class="text-gray-500" />
-            </button>
-          </div>
-          
-          <div v-if="notificationLoading" class="p-10 text-center">
+    <AppDialog v-if="showNotificationModal" title="通知设置" :busy="notificationLoading || !!testingChannel" :return-focus="settingsTrigger" sheet @close="showNotificationModal = false">
+      <fieldset :disabled="notificationLoading || !!testingChannel" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><div v-if="notificationLoading" class="p-10 text-center">
             <div class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
             <p class="text-gray-500 mt-4 text-sm">加载配置...</p>
           </div>
+
+          <div v-else-if="notificationError" class="space-y-3" role="alert">
+            <p class="text-sm text-red-600 dark:text-red-400">{{ notificationError }}，读取成功后才能修改。</p>
+            <button class="min-h-11 px-4 rounded-xl bg-gray-100 dark:bg-gray-800" @click="openNotificationModal">重新读取通知配置</button>
+          </div>
           
-          <div v-else class="flex-1 overflow-y-auto p-6 space-y-6">
+          <div v-else class="space-y-6">
             <!-- Master Toggle -->
             <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 rounded-2xl">
               <div>
@@ -1454,7 +1364,7 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">Webhook 地址</label>
-                <input v-model="notificationForm.wecom_webhook" type="text" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input name="notificationForm-wecom_webhook" aria-label="Webhook 地址" style="min-width: 0; max-width: 100%" v-model="notificationForm.wecom_webhook" type="text" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'wecom'" @click="testNotification('wecom')">
                 {{ testingChannel === 'wecom' ? '测试中...' : '发送测试消息' }}
@@ -1475,11 +1385,11 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">Webhook 地址</label>
-                <input v-model="notificationForm.dingtalk_webhook" type="text" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input name="notificationForm-dingtalk_webhook" aria-label="Webhook 地址" style="min-width: 0; max-width: 100%" v-model="notificationForm.dingtalk_webhook" type="text" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">加签密钥（可选）</label>
-                <input v-model="notificationForm.dingtalk_secret" type="password" autocomplete="new-password" placeholder="地址留空或不变时，留空保留已存密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input name="notificationForm-dingtalk_secret" aria-label="加签密钥（可选）" style="min-width: 0; max-width: 100%" v-model="notificationForm.dingtalk_secret" type="password" autocomplete="new-password" placeholder="地址留空或不变时，留空保留已存密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
                 <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">更换 Webhook 地址时，密钥留空会清除旧密钥。</p>
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'dingtalk'" @click="testNotification('dingtalk')">
@@ -1502,25 +1412,29 @@ function formatFileSize(bytes: number) {
               <div class="grid grid-cols-2 gap-3">
                 <div class="space-y-1.5">
                   <label class="text-xs font-bold text-gray-400 uppercase">SMTP 服务器</label>
-                  <input v-model="notificationForm.smtp_host" type="text" placeholder="smtp.qq.com" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                  <input name="notificationForm-smtp_host" aria-label="SMTP 服务器" style="min-width: 0; max-width: 100%" v-model="notificationForm.smtp_host" type="text" placeholder="smtp.qq.com" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
                 </div>
                 <div class="space-y-1.5">
                   <label class="text-xs font-bold text-gray-400 uppercase">端口</label>
-                  <input v-model.number="notificationForm.smtp_port" type="number" placeholder="587" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                  <input name="notificationForm-smtp_port" aria-label="端口" style="min-width: 0; max-width: 100%" v-model.number="notificationForm.smtp_port" type="number" placeholder="587" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
                 </div>
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">邮箱账号</label>
-                <input v-model="notificationForm.smtp_user" type="text" placeholder="your@email.com" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input name="notificationForm-smtp_user" aria-label="邮箱账号" style="min-width: 0; max-width: 100%" v-model="notificationForm.smtp_user" type="text" placeholder="your@email.com" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">密码/授权码</label>
-                <input v-model="notificationForm.smtp_password" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密码" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input name="notificationForm-smtp_password" aria-label="密码/授权码" style="min-width: 0; max-width: 100%" v-model="notificationForm.smtp_password" type="password" autocomplete="new-password" placeholder="留空则使用已保存的密码" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                 <p class="text-xs text-blue-600 dark:text-blue-400">
-                  📧 邮件将发送至个人信息中设置的邮箱地址
+                  测试邮件和提醒均发送至：{{ notificationForm.email_to.trim() || (profileReady ? profileForm.email.trim() || '尚未设置收件邮箱' : '个人信息邮箱（尚未读取成功）') }}
                 </p>
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs font-bold text-gray-400 uppercase" for="notification-email-to">收件邮箱</label>
+                <input name="notificationForm-email_to" aria-label="收件邮箱" style="min-width: 0; max-width: 100%" id="notification-email-to" v-model="notificationForm.email_to" type="email" placeholder="留空则使用个人信息中的邮箱" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'email'" @click="testNotification('email')">
                 {{ testingChannel === 'email' ? '测试中...' : '发送测试邮件' }}
@@ -1541,11 +1455,11 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">Webhook URL</label>
-                <input v-model="notificationForm.webhook_url" type="text" placeholder="https://your-server.com/webhook" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input name="notificationForm-webhook_url" aria-label="Webhook URL" style="min-width: 0; max-width: 100%" v-model="notificationForm.webhook_url" type="text" placeholder="https://your-server.com/webhook" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
               </div>
               <div class="space-y-1.5">
                 <label class="text-xs font-bold text-gray-400 uppercase">密钥（可选）</label>
-                <input v-model="notificationForm.webhook_secret" type="password" autocomplete="new-password" placeholder="地址留空或不变时，留空保留已存密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
+                <input name="notificationForm-webhook_secret" aria-label="密钥（可选）" style="min-width: 0; max-width: 100%" v-model="notificationForm.webhook_secret" type="password" autocomplete="new-password" placeholder="地址留空或不变时，留空保留已存密钥" class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm text-gray-900 dark:text-white" />
                 <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">更换 Webhook 地址时，密钥留空会清除旧密钥。</p>
               </div>
               <button class="w-full py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition" :disabled="testingChannel === 'webhook'" @click="testNotification('webhook')">
@@ -1598,7 +1512,7 @@ function formatFileSize(bytes: number) {
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-700 dark:text-gray-300">提前提醒天数</span>
-                <select v-model.number="notificationForm.advance_days" class="h-9 px-3 bg-gray-50 dark:bg-black/30 rounded-lg border-0 outline-none text-sm text-gray-900 dark:text-white">
+                <select name="notificationForm-advance_days" style="min-width: 0; max-width: 100%" v-model.number="notificationForm.advance_days" class="h-9 px-3 bg-gray-50 dark:bg-black/30 rounded-lg border-0 outline-hidden text-sm text-gray-900 dark:text-white">
                   <option :value="1">1 天</option>
                   <option :value="2">2 天</option>
                   <option :value="3">3 天</option>
@@ -1607,34 +1521,24 @@ function formatFileSize(bytes: number) {
                 </select>
               </div>
             </div>
-          </div>
-          
-          <div class="p-6 border-t border-gray-100 dark:border-gray-700 shrink-0">
-            <button
+          </div></fieldset>
+      <template #footer><button
               class="w-full h-12 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 transition shadow-lg shadow-primary/20"
-              :disabled="notificationLoading"
+              :disabled="notificationLoading || !notificationReady || !!testingChannel"
               @click="saveNotificationSettings"
             >
               {{ notificationLoading ? '保存中...' : '保存设置' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+            </button></template>
+    </AppDialog>
 
     <!-- Security Entry Path Modal -->
-    <Teleport to="body">
-      <div v-if="showSecurityModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showSecurityModal = false"></div>
-        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10">
-          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-white/10">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white">安全入口</h3>
-            <button class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" @click="showSecurityModal = false">
-              <X :size="20" class="text-gray-500" />
-            </button>
+    <AppDialog v-if="showSecurityModal" title="安全入口" :busy="entryPathLoading" :return-focus="settingsTrigger" sheet @close="showSecurityModal = false">
+      <fieldset :disabled="entryPathLoading" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><div v-if="entryPathError" class="space-y-3" role="alert">
+            <p class="text-sm text-red-600 dark:text-red-400">{{ entryPathError }}，读取成功后才能修改。</p>
+            <button class="min-h-11 px-4 rounded-xl bg-gray-100 dark:bg-gray-800" @click="openSecurityModal">重新读取安全入口</button>
           </div>
-          
-          <div class="p-6 space-y-6">
+          <div v-else-if="!entryPathReady" class="text-sm text-gray-500">读取安全入口...</div>
+          <div v-else class="space-y-6">
             <!-- Info Notice -->
             <div class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-100 dark:border-amber-900/30">
               <div class="flex gap-3">
@@ -1659,27 +1563,28 @@ function formatFileSize(bytes: number) {
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">入口路径</label>
               <div class="flex gap-2">
-                <input
+                <input name="entryPath" style="min-width: 0; max-width: 100%"
                   v-model="entryPath"
                   type="text"
                   placeholder="/your-secret-path"
-                  class="flex-1 h-11 px-4 bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono text-sm"
+                  class="flex-1 h-11 px-4 bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-hidden focus:ring-2 focus:ring-primary/50 font-mono text-sm"
                 />
                 <button
                   @click="generateEntryPath"
-                  :disabled="entryPathLoading"
+                  :disabled="entryPathLoading || !entryPathReady"
                   class="h-11 px-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition"
                   title="生成随机路径"
                 >
                   <RefreshCw :size="18" :class="{ 'animate-spin': entryPathLoading }" />
                 </button>
               </div>
-              <p class="text-xs text-gray-500 mt-2">以 / 开头，例如: /my-secret-2024</p>
+              <p class="text-xs text-gray-500 mt-2">以 / 开头，例如: /my-secret-2024；不能使用 /api、/assets 等系统路径。</p>
+              <p v-if="entryPathIsDraft" class="text-xs text-amber-600 mt-2">当前路径尚未保存，保存后生效。</p>
             </div>
 
             <!-- Current URL Preview -->
             <div v-if="entryPath" class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-              <p class="text-xs text-blue-600 dark:text-blue-400 mb-2">完整访问地址:</p>
+              <p class="text-xs text-blue-600 dark:text-blue-400 mb-2">{{ entryPathIsDraft ? '待保存地址' : '完整访问地址' }}:</p>
               <div class="flex items-center gap-2">
                 <code class="flex-1 text-xs font-mono text-blue-700 dark:text-blue-300 break-all">
                   {{ entryFullUrl }}
@@ -1693,12 +1598,10 @@ function formatFileSize(bytes: number) {
                 </button>
               </div>
             </div>
-          </div>
-          
-          <div class="p-6 border-t border-gray-100 dark:border-gray-700 space-y-3">
-            <button
+          </div></fieldset>
+      <template #footer><button
               class="w-full h-11 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 disabled:opacity-50 transition"
-              :disabled="entryPathLoading"
+              :disabled="entryPathLoading || !entryPathReady"
               @click="saveEntryPath"
             >
               {{ entryPathLoading ? '保存中...' : '保存设置' }}
@@ -1706,33 +1609,16 @@ function formatFileSize(bytes: number) {
             <button
               v-if="entryPathEnabled"
               class="w-full h-11 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition"
-              :disabled="entryPathLoading"
+              :disabled="entryPathLoading || !entryPathReady"
               @click="disableEntryPath"
             >
               禁用安全入口
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+            </button></template>
+    </AppDialog>
 
     <!-- API Token Modal -->
-    <Teleport to="body">
-      <div v-if="showApiTokenModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showApiTokenModal = false"></div>
-        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10 max-h-[90vh] flex flex-col">
-          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-white/10 shrink-0">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white">API Token 管理</h3>
-            <button
-              class="min-w-11 min-h-11 p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition flex items-center justify-center"
-              aria-label="关闭 API Token 管理"
-              @click="showApiTokenModal = false"
-            >
-              <X :size="20" class="text-gray-500" />
-            </button>
-          </div>
-          
-          <div class="p-6 space-y-6 overflow-y-auto">
+    <AppDialog v-if="showApiTokenModal" title="API Token 管理" :busy="apiTokenLoading" :return-focus="settingsTrigger" sheet @close="showApiTokenModal = false">
+      <fieldset :disabled="apiTokenLoading" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><div class="space-y-6">
             <!-- Info -->
             <div class="bg-cyan-50 dark:bg-cyan-900/20 rounded-xl p-4 border border-cyan-100 dark:border-cyan-900/30">
               <div class="flex gap-3">
@@ -1752,18 +1638,18 @@ function formatFileSize(bytes: number) {
               <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_8.5rem] gap-3">
                 <label class="space-y-1.5">
                   <span class="block text-xs font-medium text-gray-500 dark:text-gray-400">令牌名称</span>
-                  <input
+                  <input name="newTokenName" aria-label="令牌名称" style="min-width: 0; max-width: 100%"
                     v-model="newTokenName"
                     type="text"
                     maxlength="100"
                     autocomplete="off"
                     placeholder="例如：我的手机"
-                    class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
+                    class="w-full h-11 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
                   />
                 </label>
                 <label class="space-y-1.5">
                   <span class="block text-xs font-medium text-gray-500 dark:text-gray-400">有效期</span>
-                  <select v-model.number="newTokenExpiry" class="w-full h-11 px-3 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none text-sm text-gray-900 dark:text-white">
+                  <select name="newTokenExpiry" aria-label="令牌有效期" style="min-width: 0; max-width: 100%" v-model.number="newTokenExpiry" class="w-full h-11 px-3 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden text-sm text-gray-900 dark:text-white">
                     <option :value="30">30 天</option>
                     <option :value="90">90 天</option>
                     <option :value="365">1 年</option>
@@ -1778,13 +1664,13 @@ function formatFileSize(bytes: number) {
                   :key="scope.value"
                   class="min-h-11 flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-50 dark:bg-black/20 cursor-pointer"
                 >
-                  <input
+                  <input name="newTokenScopes" style="min-width: 0; max-width: 100%"
                     v-model="newTokenScopes"
                     type="checkbox"
                     :value="scope.value"
                     class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/30"
                   />
-                  <span class="min-w-0">
+                  <span class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ scope.label }}</span>
                     <span class="block text-xs text-gray-500 dark:text-gray-400">{{ scope.description }}</span>
                   </span>
@@ -1836,7 +1722,7 @@ function formatFileSize(bytes: number) {
             <!-- Token List -->
             <div class="space-y-3">
               <h4 class="text-sm font-bold text-gray-500">已创建的令牌</h4>
-              <div v-if="apiTokenLoading" class="text-center py-4">
+              <div v-if="apiTokenLoading && apiTokens.length === 0" class="text-center py-4">
                 <div class="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
               </div>
               <div v-else-if="apiTokens.length === 0" class="text-center py-6 text-gray-400 text-sm">
@@ -1865,7 +1751,7 @@ function formatFileSize(bytes: number) {
                     </div>
                   </div>
                   <button
-                    @click="deleteApiToken(token.id)"
+                    @click="tokenToRevoke = token" :disabled="apiTokenLoading"
                     class="min-w-11 min-h-11 p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition flex items-center justify-center"
                     :aria-label="`撤销令牌 ${token.name}`"
                   >
@@ -1874,45 +1760,39 @@ function formatFileSize(bytes: number) {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+          </div></fieldset>
+
+    </AppDialog>
 
     <!-- Profile Edit Modal -->
-    <Teleport to="body">
-      <div v-if="showProfileModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showProfileModal = false"></div>
-        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10">
-          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-white/10">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white">编辑个人信息</h3>
-            <button class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" @click="showProfileModal = false">
-              <X :size="20" class="text-gray-500" />
-            </button>
-          </div>
-          
-          <div v-if="profileLoading" class="p-10 text-center">
+    <AppDialog v-if="showProfileModal" title="编辑个人信息" :busy="profileLoading || avatarUploading" :return-focus="settingsTrigger" sheet @close="showProfileModal = false">
+      <fieldset :disabled="profileLoading || avatarUploading" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><div v-if="profileLoading" class="p-10 text-center">
             <div class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
             <p class="text-gray-500 mt-4 text-sm">加载中...</p>
           </div>
+
+          <div v-else-if="profileError" class="space-y-3" role="alert">
+            <p class="text-sm text-red-600 dark:text-red-400">{{ profileError }}，读取成功后才能修改。</p>
+            <button class="min-h-11 px-4 rounded-xl bg-gray-100 dark:bg-gray-800" @click="loadProfile">重新读取个人信息</button>
+          </div>
           
-          <div v-else class="p-6 space-y-4">
+          <div v-else class="space-y-4">
             <div class="space-y-1.5">
               <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">昵称</label>
-              <input
+              <input name="profileForm-nickname" aria-label="昵称" style="min-width: 0; max-width: 100%"
                 v-model="profileForm.nickname"
                 type="text"
                 placeholder="输入昵称"
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
               />
             </div>
             <div class="space-y-1.5">
               <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">邮箱</label>
-              <input
+              <input name="profileForm-email" aria-label="邮箱" style="min-width: 0; max-width: 100%"
                 v-model="profileForm.email"
                 type="email"
                 placeholder="your@email.com"
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
               />
             </div>
             <div class="space-y-1.5">
@@ -1929,51 +1809,45 @@ function formatFileSize(bytes: number) {
                   >
                     {{ avatarUploading ? '上传中...' : '点击上传头像' }}
                   </div>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" :disabled="avatarUploading" @change="handleAvatarUpload" />
+                  <input style="min-width: 0; max-width: 100%" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" :disabled="avatarUploading" @change="handleAvatarUpload" />
                 </label>
               </div>
             </div>
             <div class="space-y-1.5">
               <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">个性签名</label>
-              <input
+              <input name="profileForm-bio" aria-label="个性签名" style="min-width: 0; max-width: 100%"
                 v-model="profileForm.bio"
                 type="text"
                 placeholder="一句话介绍自己"
                 maxlength="50"
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400"
               />
             </div>
 
-            <button
+
+          </div></fieldset>
+      <template #footer v-if="profileReady && !profileError"><button
               class="w-full h-12 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-primary/20 mt-2"
-              :disabled="profileLoading"
+              :disabled="profileLoading || !profileReady || avatarUploading"
               @click="saveProfile"
             >
               {{ profileLoading ? '保存中...' : '保存' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+            </button></template>
+    </AppDialog>
 
     <!-- Auto Backup Modal -->
-    <Teleport to="body">
-      <div v-if="showAutoBackupModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showAutoBackupModal = false"></div>
-        <div class="relative bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl rounded-[24px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-white/10 max-h-[85vh] overflow-hidden flex flex-col">
-          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-white/10">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white">自动备份设置</h3>
-            <button class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition" @click="showAutoBackupModal = false">
-              <X :size="20" class="text-gray-500" />
-            </button>
-          </div>
-          
-          <div v-if="autoBackupLoading" class="p-10 text-center">
+    <AppDialog v-if="showAutoBackupModal" title="自动备份设置" :busy="autoBackupLoading" :return-focus="settingsTrigger" sheet @close="showAutoBackupModal = false">
+      <fieldset :disabled="autoBackupLoading" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><div v-if="autoBackupLoading" class="p-10 text-center">
             <div class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
             <p class="text-gray-500 mt-4 text-sm">加载中...</p>
           </div>
+
+          <div v-else-if="autoBackupError" class="space-y-3" role="alert">
+            <p class="text-sm text-red-600 dark:text-red-400">{{ autoBackupError }}，读取成功后才能修改。</p>
+            <button class="min-h-11 px-4 rounded-xl bg-gray-100 dark:bg-gray-800" @click="loadAutoBackupSettings">重新读取备份配置</button>
+          </div>
           
-          <div v-else class="p-6 space-y-5 overflow-y-auto flex-1">
+          <div v-else class="space-y-5">
             <!-- Enable toggle -->
             <div class="flex items-center justify-between">
               <div>
@@ -2008,9 +1882,9 @@ function formatFileSize(bytes: number) {
             <!-- Hour -->
             <div class="space-y-2">
               <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">备份时间</label>
-              <select 
+              <select name="autoBackupForm-hour" aria-label="备份时间" style="min-width: 0; max-width: 100%"
                 v-model="autoBackupForm.hour" 
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none text-gray-900 dark:text-white"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden text-gray-900 dark:text-white"
               >
                 <option v-for="h in 24" :key="h-1" :value="h-1">{{ String(h-1).padStart(2, '0') }}:00</option>
               </select>
@@ -2019,15 +1893,20 @@ function formatFileSize(bytes: number) {
             <!-- Max backups -->
             <div class="space-y-2">
               <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">保留备份数量</label>
-              <select 
+              <select name="autoBackupForm-max_backups" aria-label="保留备份数量" style="min-width: 0; max-width: 100%"
                 v-model="autoBackupForm.max_backups" 
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-none text-gray-900 dark:text-white"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-black/30 rounded-xl border-0 outline-hidden text-gray-900 dark:text-white"
               >
                 <option v-for="n in [5, 10, 20, 30, 50]" :key="n" :value="n">最多保留 {{ n }} 份</option>
               </select>
             </div>
 
             <!-- Backup list -->
+            <p v-if="autoBackupFilesLoading" class="text-sm text-gray-500">正在读取备份文件列表...</p>
+            <div v-else-if="autoBackupFilesError" class="space-y-2" role="alert">
+              <p class="text-sm text-red-600 dark:text-red-400">{{ autoBackupFilesError }}。已加载的备份配置仍可保存。</p>
+              <button class="min-h-11 px-4 rounded-xl bg-gray-100 dark:bg-gray-800" @click="loadAutoBackupFiles">重试文件列表</button>
+            </div>
             <div v-if="autoBackupFiles.length > 0" class="space-y-2">
               <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">已有备份 ({{ autoBackupFiles.length }})</label>
               <div class="max-h-32 overflow-y-auto space-y-1">
@@ -2043,26 +1922,47 @@ function formatFileSize(bytes: number) {
             </div>
 
             <!-- Actions -->
-            <div class="flex gap-3 pt-2">
-              <button
+
+          </div></fieldset>
+      <template #footer v-if="autoBackupReady && !autoBackupError"><button
                 class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-                :disabled="autoBackupLoading"
+                :disabled="autoBackupLoading || !autoBackupReady"
                 @click="triggerAutoBackup"
               >
                 立即备份
               </button>
               <button
                 class="flex-1 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition shadow-lg shadow-primary/20"
-                :disabled="autoBackupLoading"
+                :disabled="autoBackupLoading || !autoBackupReady"
                 @click="saveAutoBackupSettings"
               >
                 保存设置
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+              </button></template>
+    </AppDialog>
 
-  </div>
+    <AppDialog v-if="manualCopyText" title="手动复制" :busy="false" :return-focus="nestedTrigger" sheet @close="manualCopyText = ''">
+      <fieldset :disabled="false" class="min-w-0 border-0 p-0 m-0 space-y-4" @click.capture="captureNestedTrigger"><p class="text-sm text-gray-500">点击下方内容全选后，使用系统复制操作。</p>
+          <textarea style="min-width: 0; max-width: 100%" :value="manualCopyText" readonly aria-label="待复制内容" class="w-full min-h-28 rounded-xl p-3 bg-gray-100 dark:bg-gray-800 text-sm font-mono select-text" @focus="($event.target as HTMLTextAreaElement).select()"></textarea></fieldset>
+      <template #footer><button class="min-h-11 w-full rounded-xl bg-primary text-white" @click="manualCopyText = ''" :disabled="false">关闭</button></template>
+    </AppDialog>
+    <AppDialog v-if="tokenToRevoke" title="撤销令牌" :busy="apiTokenLoading" :return-focus="nestedTrigger" sheet @close="tokenToRevoke = null">
+      <p class="finance-muted">撤销「{{ tokenToRevoke.name }}」后，使用此令牌的应用将无法访问。</p>
+      <template #footer><button class="finance-button" :disabled="apiTokenLoading" @click="tokenToRevoke = null">取消</button><button class="finance-button is-danger" :disabled="apiTokenLoading" @click="deleteApiToken">{{ apiTokenLoading ? '撤销中…' : '确认撤销' }}</button></template>
+    </AppDialog>
+  </FinancePage>
 </template>
+
+<style scoped>
+.settings-group-title { margin: 0 12px 8px; color: var(--fp-secondary); font-size: 12px; line-height: 1.55; font-weight: 500; }
+.settings-row { display: flex; align-items: center; width: 100%; min-height: 58px; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--fp-line); text-align: left; transition: background-color 150ms ease; }
+.settings-row:last-child { border-bottom: 0; }
+.settings-row:hover { background: rgb(0 0 0 / 3.5%); }
+.settings-row-label { color: var(--fp-ink); font-size: 14px; line-height: 1.5; font-weight: 500; }
+:global(.dark) .settings-row:hover { background: rgb(255 255 255 / 5%); }
+@media (max-width: 767px) {
+  .settings-row { min-height: 60px; padding: 10px 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-row { transition: none; }
+}
+</style>

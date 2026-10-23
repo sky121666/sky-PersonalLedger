@@ -1,16 +1,27 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import AppDialog from '@/components/ui/AppDialog.vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronLeft, Plus, Trash2, Edit2, X, Bell, BellOff, Calendar, CreditCard, Home, Car, Wallet, Target, Banknote, Paperclip } from 'lucide-vue-next'
+import { ChevronLeft, Plus, Trash2, Edit2, Bell, BellOff, Calendar, CreditCard, Home, Car, Wallet, Target, Banknote, Paperclip } from '@lucide/vue'
 import FileUpload from '@/components/FileUpload.vue'
 import { reminderApi, type Reminder, type CreateReminderParams, type DebtSummary, type LoanType } from '@/api/reminder'
 import { accountApi, type Account, isDebtAccount } from '@/api/account'
 import { toast } from '@/composables/useToast'
 import { deleteRemovedAttachments } from '@/utils/attachmentCleanup'
-import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
+import { notifyLedgerMutation, useLedgerMutationRevision } from '@/composables/useLedgerMutation'
 import { createRequestGeneration } from '@/utils/requestGeneration'
+import { createFormSubmission } from '@/utils/formSubmission'
+import { clearPendingRepayment, createPendingRepayment, isDefinitiveRepaymentRejection, pendingRepaymentMessage, readPendingRepayment, startPendingRepaymentAttempt, type PendingRepayment } from '@/utils/pendingRepayment'
 
+const props = defineProps<{ embedded?: boolean; active?: boolean }>()
 const router = useRouter()
+const dialogTrigger = ref<HTMLElement | null>(null)
+const dialogFallback = ref<HTMLElement | null>(null)
+function captureDialogTrigger(event?: Event) {
+  if (typeof document === 'undefined') return
+  dialogTrigger.value = event?.currentTarget instanceof HTMLElement ? event.currentTarget : document.activeElement as HTMLElement | null
+}
+
 
 const reminders = ref<Reminder[]>([])
 const accounts = ref<Account[]>([])
@@ -50,6 +61,9 @@ const showDialog = ref(false)
 const editingReminder = ref<Reminder | null>(null)
 const originalEvidence = ref('')
 const form = ref<CreateReminderParams>(defaultForm())
+const formSubmission = createFormSubmission()
+const saving = formSubmission.saving
+const attachmentsUploading = ref(false)
 
 const showPaymentDialog = ref(false)
 const payingReminder = ref<Reminder | null>(null)
@@ -57,21 +71,47 @@ const paymentAmount = ref<number>(0)
 const paymentPrincipal = ref<number>(0)
 const paymentInterest = ref<number>(0)
 const paymentAccountId = ref<string>('')
+const paymentSubmission = createFormSubmission()
+const paying = paymentSubmission.saving
+const paymentError = ref('')
+type PaymentPayload = { amount: number; accountId: string; principal: number; interest: number }
+const pendingPayment = ref<PendingRepayment<PaymentPayload> | null>(null)
+const pendingRevision = ref(0)
+const pendingPayments = computed(() => {
+  void pendingRevision.value
+  return reminders.value.filter(reminder => {
+    try { return !!readPendingRepayment('reminder', reminder.id) } catch { return false }
+  })
+})
 
 const showDeleteModal = ref(false)
 const deletingId = ref<string | null>(null)
+const deleting = ref(false)
 
 const activeLoans = computed(() => reminders.value.filter(r => r.is_enabled && !r.paid_off_at))
 const paidOffLoans = computed(() => reminders.value.filter(r => r.paid_off_at))
 const inactiveLoans = computed(() => reminders.value.filter(r => !r.is_enabled && !r.paid_off_at))
-const debtAccounts = computed(() => accounts.value.filter(a => isDebtAccount(a.type)))
+const debtAccounts = computed(() => accounts.value.filter(a => isDebtAccount(a.type) &&
+  (a.debt_tracking_mode !== 'managed' || a.id === editingReminder.value?.account_id)))
 const sourceAccounts = computed(() => accounts.value.filter(a => !isDebtAccount(a.type)))
+
+watch(() => props.active, active => {
+  if (active !== false) return
+  if (!saving.value) closeDialog()
+  if (!paying.value) closePaymentDialog()
+  if (!deleting.value) showDeleteModal.value = false
+})
 
 onMounted(() => {
   loadData()
 })
 
 watch(ledgerMutationRevision, () => void loadData())
+onBeforeUnmount(() => {
+  dataRequests.begin()
+  formSubmission.reset()
+  paymentSubmission.reset()
+})
 
 async function loadData() {
   const requestGeneration = dataRequests.begin()
@@ -117,18 +157,26 @@ function getDaysUntilPayment(day: number): number {
   const today = new Date()
   const currentDay = today.getDate()
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
-  if (day >= currentDay) return day - currentDay
-  return daysInMonth - currentDay + day
+  const paymentDay = Math.min(day, daysInMonth)
+  if (paymentDay >= currentDay) return paymentDay - currentDay
+  const daysInNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0).getDate()
+  return daysInMonth - currentDay + Math.min(day, daysInNextMonth)
 }
 
-function openCreate() {
+function openCreate(event?: Event) {
+  captureDialogTrigger(event)
+  attachmentsUploading.value = false
+  formSubmission.reset()
   editingReminder.value = null
   originalEvidence.value = ''
   form.value = defaultForm()
   showDialog.value = true
 }
 
-function openEdit(reminder: Reminder) {
+function openEdit(reminder: Reminder, event?: Event) {
+  captureDialogTrigger(event)
+  attachmentsUploading.value = false
+  formSubmission.reset()
   editingReminder.value = reminder
   originalEvidence.value = reminder.evidence || ''
   form.value = {
@@ -152,84 +200,185 @@ function openEdit(reminder: Reminder) {
 }
 
 function closeDialog() {
+  attachmentsUploading.value = false
+  formSubmission.reset()
   showDialog.value = false
   editingReminder.value = null
   originalEvidence.value = ''
 }
 
-function openPayment(reminder: Reminder) {
+function openPayment(reminder: Reminder, event?: Event) {
+  captureDialogTrigger(event)
+  paymentSubmission.reset()
+  paymentError.value = ''
   payingReminder.value = reminder
   paymentAmount.value = reminder.amount || 0
   paymentPrincipal.value = 0
   paymentInterest.value = 0
   paymentAccountId.value = ''
+  pendingPayment.value = null
+  try {
+    const pending = readPendingRepayment<PaymentPayload>('reminder', reminder.id)
+    if (pending) restorePendingPayment(pending)
+  } catch (error: any) {
+    paymentError.value = error.message
+  }
   showPaymentDialog.value = true
 }
 
+function restorePendingPayment(pending: PendingRepayment<PaymentPayload>) {
+  pendingPayment.value = pending
+  paymentAmount.value = pending.payload.amount
+  paymentPrincipal.value = pending.payload.principal
+  paymentInterest.value = pending.payload.interest
+  paymentAccountId.value = pending.payload.accountId
+  paymentError.value = pendingRepaymentMessage
+}
+
+function closePaymentDialog() {
+  paymentSubmission.reset()
+  paymentError.value = ''
+  showPaymentDialog.value = false
+  payingReminder.value = null
+  pendingPayment.value = null
+}
+
 async function submitPayment() {
-  if (!payingReminder.value || paymentAmount.value <= 0) return
-  if (!paymentAccountId.value) {
-    toast.warning('请选择还款账户')
+  if (paying.value || !payingReminder.value) return
+  const id = payingReminder.value.id
+  let pending: PendingRepayment<PaymentPayload> | null
+  try {
+    pending = readPendingRepayment<PaymentPayload>('reminder', id) || pendingPayment.value
+  } catch (error: any) {
+    paymentError.value = error.message
+    toast.error(paymentError.value)
     return
   }
-  // Validate repayment doesn't exceed remaining balance
-  const remaining = payingReminder.value.current_balance ?? 0
-  if (remaining > 0 && paymentAmount.value > remaining) {
-    toast.warning(`还款金额不能超过待还金额 ¥${remaining.toFixed(2)}`)
-    return
-  }
-  // Validate principal + interest = total
-  if (paymentPrincipal.value > 0 || paymentInterest.value > 0) {
-    const sum = paymentPrincipal.value + paymentInterest.value
-    if (Math.abs(sum - paymentAmount.value) > 0.01) {
+  const confirmingPrevious = !!pending
+  if (pending) {
+    // A committed payment may already have reduced the balance to zero.
+    restorePendingPayment(pending)
+  } else {
+    if (!paymentAccountId.value) {
+      toast.warning('请选择还款账户')
+      return
+    }
+    const amount = Math.round(paymentAmount.value * 100)
+    let principal = Math.round(paymentPrincipal.value * 100)
+    let interest = Math.round(paymentInterest.value * 100)
+    if (![amount, principal, interest].every(Number.isFinite) || amount <= 0 || principal < 0 || interest < 0) {
+      toast.warning('还款金额必须大于 0，本金和利息不能为负数')
+      return
+    }
+    // Match the backend: an omitted split is all principal; one part infers the other.
+    if (principal === 0 && interest === 0) principal = amount
+    else if (principal === 0) principal = amount - interest
+    else if (interest === 0) interest = amount - principal
+    if (principal < 0 || interest < 0 || principal + interest !== amount) {
       toast.warning('本金+利息必须等于还款金额')
+      return
+    }
+    const remaining = payingReminder.value.current_balance
+    if (remaining != null && principal > Math.round(remaining * 100)) {
+      toast.warning(`还款本金不能超过待还本金 ¥${remaining.toFixed(2)}`)
+      return
+    }
+    try {
+      pending = createPendingRepayment('reminder', id, { amount: amount / 100, accountId: paymentAccountId.value, principal: principal / 100, interest: interest / 100 })
+      pendingPayment.value = pending
+      pendingRevision.value += 1
+    } catch (error: any) {
+      paymentError.value = error.message
+      toast.error(paymentError.value)
       return
     }
   }
   try {
+    pending = startPendingRepaymentAttempt('reminder', id, pending)
+    pendingPayment.value = pending
+  } catch (error: any) {
+    paymentError.value = error.message
+    toast.error(paymentError.value)
+    return
+  }
+  const payload = pending.payload
+  const key = pending.key
+  const submission = paymentSubmission.begin()
+  if (!submission) return
+  let confirmed = false
+  try {
     await reminderApi.recordPayment(
-      payingReminder.value.id, 
-      paymentAmount.value,
-      paymentAccountId.value,
-      paymentPrincipal.value || undefined,
-      paymentInterest.value || undefined
+      id, payload.amount, payload.accountId, payload.principal, payload.interest, key
     )
+    confirmed = true
+    notifyLedgerMutation()
+    clearPendingRepayment('reminder', id, key)
+    pendingRevision.value += 1
+    if (!submission.isCurrent()) return
     toast.success('还款记录成功，已同步到明细')
-    showPaymentDialog.value = false
-    payingReminder.value = null
+    closePaymentDialog()
     paymentAmount.value = 0
     paymentPrincipal.value = 0
     paymentInterest.value = 0
     paymentAccountId.value = ''
-    loadData()
   } catch (e: any) {
-    toast.error(e.message || '记录失败')
+    let rejected = !confirmingPrevious && isDefinitiveRepaymentRejection(e)
+    if (rejected) {
+      try {
+        rejected = clearPendingRepayment('reminder', id, key, pending.attempt)
+        pendingRevision.value += 1
+      } catch { rejected = false }
+    }
+    if (submission.isCurrent()) {
+      if (rejected) pendingPayment.value = null
+      else restorePendingPayment(pending)
+      paymentError.value = rejected || confirmed ? e.message || '记录失败' : pendingRepaymentMessage
+      toast.error(paymentError.value)
+    } else if (rejected && !paying.value && pendingPayment.value?.key === key) {
+      // A reopened confirmation can become editable when its only request was rejected.
+      pendingPayment.value = null
+      paymentError.value = e.message || '记录失败'
+    }
+  } finally {
+    submission.finish()
   }
 }
 
 async function submitForm() {
+  if (saving.value || attachmentsUploading.value) return
   if (!form.value.name) {
     toast.warning('请输入名称')
     return
   }
 
+  const submission = formSubmission.begin()
+  if (!submission) return
+  const editingId = editingReminder.value?.id
+  const payload = { ...form.value }
+  const previousEvidence = originalEvidence.value
   try {
-    if (editingReminder.value) {
-      await reminderApi.update(editingReminder.value.id, form.value)
-      const failedCleanupPaths = await deleteRemovedAttachments(originalEvidence.value, form.value.evidence)
+    if (editingId) {
+      await reminderApi.update(editingId, payload)
+      notifyLedgerMutation()
+      if (!submission.isCurrent()) return
+      const failedCleanupPaths = await deleteRemovedAttachments(previousEvidence, payload.evidence)
+      if (!submission.isCurrent()) return
       toast.success(
         failedCleanupPaths.length > 0
           ? `更新成功，但有 ${failedCleanupPaths.length} 个旧附件清理失败`
           : '更新成功'
       )
     } else {
-      await reminderApi.create(form.value)
+      await reminderApi.create(payload)
+      notifyLedgerMutation()
+      if (!submission.isCurrent()) return
       toast.success('创建成功')
     }
     closeDialog()
-    loadData()
   } catch (e: any) {
-    toast.error(e.message || '保存失败')
+    if (submission.isCurrent()) toast.error(e.message || '保存失败')
+  } finally {
+    submission.finish()
   }
 }
 
@@ -242,13 +391,15 @@ async function toggleReminder(id: string) {
   }
 }
 
-function confirmDelete(id: string) {
+function confirmDelete(id: string, event?: Event) {
+  captureDialogTrigger(event)
   deletingId.value = id
   showDeleteModal.value = true
 }
 
 async function handleDelete() {
-  if (!deletingId.value) return
+  if (!deletingId.value || deleting.value) return
+  deleting.value = true
   try {
     await reminderApi.delete(deletingId.value)
     showDeleteModal.value = false
@@ -257,6 +408,8 @@ async function handleDelete() {
     loadData()
   } catch (e: any) {
     toast.error(e.message || '删除失败')
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -289,9 +442,9 @@ function selectAccount(accountId: string | undefined) {
 </script>
 
 <template>
-  <div class="min-h-full bg-[#F2F2F7] dark:bg-black pb-8">
+  <div :class="props.embedded ? '' : 'min-h-full bg-[#F2F2F7] dark:bg-black pb-8'">
     <!-- Header -->
-    <div class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
+    <div v-if="!props.embedded" class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
       <div class="max-w-3xl mx-auto flex items-center justify-between">
         <div class="flex items-center gap-4">
           <button @click="goBack" class="p-2 -ml-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl transition">
@@ -301,7 +454,7 @@ function selectAccount(accountId: string | undefined) {
             <Calendar class="text-white" :size="28" />
           </div>
           <div>
-            <h1 class="text-xl font-bold text-gray-900 dark:text-white">负债管理</h1>
+            <h1 ref="dialogFallback" tabindex="-1" class="text-xl font-bold text-gray-900 dark:text-white">负债管理</h1>
             <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ reminders.length }} 笔负债</div>
           </div>
         </div>
@@ -314,7 +467,21 @@ function selectAccount(accountId: string | undefined) {
       </div>
     </div>
 
-    <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
+    <div class="mx-auto space-y-6" :class="props.embedded ? '' : 'max-w-3xl px-4 md:px-8 py-6'">
+      <div v-if="props.embedded" class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 ref="dialogFallback" tabindex="-1" class="text-base font-bold text-gray-900 dark:text-white">还款提醒</h2>
+          <p class="mt-1 text-xs text-gray-500">{{ reminders.length }} 笔提醒 · 按原有规则继续管理</p>
+        </div>
+        <button class="flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-white" @click="openCreate"><Plus :size="17" />添加提醒</button>
+      </div>
+      <p v-if="props.embedded" class="rounded-2xl border border-blue-100/70 bg-blue-50/50 p-4 text-xs leading-relaxed text-gray-600 dark:border-blue-500/15 dark:bg-blue-500/5 dark:text-gray-400">
+        原有提醒和还款记录继续保留。一个账户下的多笔提醒，请在“账户与分期”中管理；此处的提醒进度不与分期余额相加。
+      </p>
+      <div v-for="reminder in pendingPayments" :key="`pending-${reminder.id}`" role="alert" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+        <p>{{ reminder.name }} 有一笔未确认还款，请先确认上次结果。</p>
+        <button class="mt-2 rounded-lg border border-current px-3 py-1.5 font-medium" @click="openPayment(reminder, $event)">确认上次还款结果</button>
+      </div>
       <!-- Debt Summary Card -->
       <div v-if="debtSummary && (debtSummary.total_principal > 0 || activeLoans.length > 0)" class="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-5 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
         <div class="flex items-center justify-between mb-4">
@@ -343,7 +510,7 @@ function selectAccount(accountId: string | undefined) {
         </div>
         <div v-if="paidOffLoans.length > 0" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2 text-teal-600 dark:text-teal-400 text-sm">
           <span>🎉</span>
-          <span>已还清 {{ paidOffLoans.length }} 笔分期</span>
+          <span>已还清 {{ paidOffLoans.length }} 笔提醒</span>
         </div>
       </div>
 
@@ -372,14 +539,14 @@ function selectAccount(accountId: string | undefined) {
                   </div>
                 </div>
               </div>
-              <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition" @click="openEdit(loan)">
+              <div class="flex flex-wrap justify-end gap-0.5">
+                <button :aria-label="`编辑提醒 ${loan.name}`" class="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition" @click="openEdit(loan, $event)">
                   <Edit2 :size="14" />
                 </button>
-                <button class="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition" @click="toggleReminder(loan.id)" title="禁用提醒">
+                <button :aria-label="`暂停提醒 ${loan.name}`" class="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition" @click="toggleReminder(loan.id)" title="禁用提醒">
                   <BellOff :size="14" />
                 </button>
-                <button class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition" @click="confirmDelete(loan.id)">
+                <button :aria-label="`删除提醒 ${loan.name}`" class="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition" @click="confirmDelete(loan.id, $event)">
                   <Trash2 :size="14" />
                 </button>
               </div>
@@ -415,8 +582,8 @@ function selectAccount(accountId: string | undefined) {
             <!-- Record Payment Button -->
             <button 
               v-if="loan.principal"
-              class="mt-3 w-full py-2 border border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-gray-400 hover:border-primary hover:text-primary transition text-xs font-medium"
-              @click="openPayment(loan)"
+              class="mt-3 min-h-11 w-full py-2 border border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-gray-400 hover:border-primary hover:text-primary transition text-xs font-medium"
+              @click="openPayment(loan, $event)"
             >
               + 记录还款
             </button>
@@ -443,7 +610,7 @@ function selectAccount(accountId: string | undefined) {
                   <div class="text-xs text-teal-600/60 dark:text-teal-400/60">已还清 {{ formatMoney(loan.total_paid) }}</div>
                 </div>
               </div>
-              <button class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition opacity-0 group-hover:opacity-100" @click="confirmDelete(loan.id)">
+              <button :aria-label="`删除提醒 ${loan.name}`" class="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition" @click="confirmDelete(loan.id, $event)">
                 <Trash2 :size="14" />
               </button>
             </div>
@@ -470,11 +637,11 @@ function selectAccount(accountId: string | undefined) {
                   <div class="text-xs text-gray-400">每月 {{ loan.payment_day }} 日</div>
                 </div>
               </div>
-              <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="p-1.5 text-gray-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-lg transition" @click="toggleReminder(loan.id)" title="启用">
+              <div class="flex gap-0.5">
+                <button :aria-label="`启用提醒 ${loan.name}`" class="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-lg transition" @click="toggleReminder(loan.id)" title="启用">
                   <Bell :size="14" />
                 </button>
-                <button class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition" @click="confirmDelete(loan.id)">
+                <button :aria-label="`删除提醒 ${loan.name}`" class="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition" @click="confirmDelete(loan.id, $event)">
                   <Trash2 :size="14" />
                 </button>
               </div>
@@ -488,10 +655,10 @@ function selectAccount(accountId: string | undefined) {
         <div class="w-20 h-20 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">
           💳
         </div>
-        <p class="text-gray-500 mb-2">暂无分期记录</p>
-        <p class="text-gray-400 text-sm mb-6">添加分期，跟踪还款进度，早日上岸</p>
-        <button class="px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition font-medium" @click="openCreate">
-          添加分期
+        <p class="text-gray-500 mb-2">暂无还款提醒</p>
+        <p class="text-gray-400 text-sm mb-6">添加提醒，跟踪还款进度，按时偿还</p>
+        <button v-if="!props.embedded" class="px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition font-medium" @click="openCreate">
+          添加提醒
         </button>
       </div>
 
@@ -500,22 +667,12 @@ function selectAccount(accountId: string | undefined) {
     </div>
 
     <!-- Create/Edit Dialog -->
-    <Teleport to="body">
-      <div v-if="showDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeDialog"></div>
-        <div class="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-white/20 dark:border-gray-700/50">
-          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-gray-700/50 bg-transparent">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ editingReminder ? '编辑分期' : '添加分期' }}</h3>
-            <button class="p-2 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 rounded-xl transition" @click="closeDialog">
-              <X :size="20" class="text-gray-500" />
-            </button>
-          </div>
-          
-          <div class="flex-1 overflow-y-auto p-6 space-y-5">
+    <AppDialog v-if="showDialog && props.active !== false" :title="editingReminder ? '编辑提醒' : '添加提醒'" :busy="saving || attachmentsUploading" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(saving || attachmentsUploading) || (closeDialog())">
+      <fieldset :disabled="saving || attachmentsUploading" class="min-w-0 border-0 p-0 m-0"><div class="space-y-5">
             <!-- Loan Type -->
             <div>
-              <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">分期类型</label>
-              <div class="grid grid-cols-5 gap-2">
+              <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">负债类型</label>
+              <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 <button
                   v-for="type in loanTypes"
                   :key="type.value"
@@ -524,7 +681,7 @@ function selectAccount(accountId: string | undefined) {
                   @click="selectLoanType(type.value)"
                 >
                   <component :is="type.icon" :size="20" :style="{ color: type.color }" />
-                  <span class="text-[10px] text-gray-500 dark:text-gray-400">{{ type.label }}</span>
+                  <span class="whitespace-nowrap text-[10px] text-gray-500 dark:text-gray-400">{{ type.label }}</span>
                 </button>
               </div>
             </div>
@@ -534,7 +691,8 @@ function selectAccount(accountId: string | undefined) {
               <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">关联账户（可选）</label>
               <select
                 :value="form.account_id || ''"
-                class="w-full h-12 px-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border-0 outline-none appearance-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
+                aria-label="提醒关联账户"
+                class="w-full h-12 px-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border-0 outline-hidden appearance-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
                 @change="(e: any) => selectAccount(e.target.value || undefined)"
               >
                 <option value="">不关联账户</option>
@@ -547,12 +705,12 @@ function selectAccount(accountId: string | undefined) {
 
             <!-- Name -->
             <div>
-              <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">分期名称</label>
-              <input
+              <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">提醒名称</label>
+              <input name="name" aria-label="提醒名称" style="min-width: 0; max-width: 100%"
                 v-model="form.name"
                 type="text"
                 placeholder="例如：房贷、花呗"
-                class="w-full h-12 px-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
+                class="w-full h-12 px-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
               />
             </div>
 
@@ -560,24 +718,24 @@ function selectAccount(accountId: string | undefined) {
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">还款日</label>
-                <input
+                <input name="payment_day" aria-label="还款日" style="min-width: 0; max-width: 100%"
                   v-model.number="form.payment_day"
                   type="number"
                   min="1"
                   max="31"
                   placeholder="1-31"
-                  class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
+                  class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
                 />
               </div>
               <div>
                 <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">账单日（可选）</label>
-                <input
+                <input name="billing_day" aria-label="账单日" style="min-width: 0; max-width: 100%"
                   v-model.number="form.billing_day"
                   type="number"
                   min="1"
                   max="31"
                   placeholder="信用卡账单日"
-                  class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
+                  class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
                 />
               </div>
             </div>
@@ -585,15 +743,15 @@ function selectAccount(accountId: string | undefined) {
             <!-- Principal & Current Balance -->
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">分期总额</label>
+                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">负债总额</label>
                 <div class="relative">
                   <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">¥</span>
-                  <input
+                  <input name="principal" aria-label="负债总额" style="min-width: 0; max-width: 100%"
                     v-model.number="form.principal"
                     type="number"
                     step="0.01"
                     placeholder="本金/额度"
-                    class="w-full h-12 pl-10 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
+                    class="w-full h-12 pl-10 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
                   />
                 </div>
               </div>
@@ -601,12 +759,12 @@ function selectAccount(accountId: string | undefined) {
                 <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">当前欠款</label>
                 <div class="relative">
                   <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">¥</span>
-                  <input
+                  <input name="current_balance" aria-label="当前欠款" style="min-width: 0; max-width: 100%"
                     v-model.number="form.current_balance"
                     type="number"
                     step="0.01"
                     placeholder="待还金额"
-                    class="w-full h-12 pl-10 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
+                    class="w-full h-12 pl-10 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
                   />
                 </div>
               </div>
@@ -617,12 +775,12 @@ function selectAccount(accountId: string | undefined) {
               <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">月供/最低还款</label>
               <div class="relative">
                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">¥</span>
-                <input
+                <input name="amount" aria-label="月供/最低还款" style="min-width: 0; max-width: 100%"
                   v-model.number="form.amount"
                   type="number"
                   step="0.01"
                   placeholder="每月还款金额"
-                  class="w-full h-12 pl-10 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
+                  class="w-full h-12 pl-10 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
                 />
               </div>
             </div>
@@ -630,23 +788,23 @@ function selectAccount(accountId: string | undefined) {
             <!-- Advance Days -->
             <div>
               <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">提前几天提醒</label>
-              <input
+              <input name="advance_days" aria-label="提前几天提醒" style="min-width: 0; max-width: 100%"
                 v-model.number="form.advance_days"
                 type="number"
                 min="0"
                 max="30"
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
               />
             </div>
 
             <!-- Remark -->
             <div>
               <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">备注（可选）</label>
-              <input
+              <input name="remark" aria-label="备注" style="min-width: 0; max-width: 100%"
                 v-model="form.remark"
                 type="text"
                 placeholder="添加备注"
-                class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
+                class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
               />
             </div>
 
@@ -656,6 +814,9 @@ function selectAccount(accountId: string | undefined) {
                 <Paperclip :size="14" class="inline mr-1" />合同/凭证
               </label>
               <FileUpload
+                :key="editingReminder.id"
+                :disabled="saving"
+                @uploading-change="attachmentsUploading = $event"
                 v-model="form.evidence"
                 category="reminders"
                 :ref-id="editingReminder.id"
@@ -666,48 +827,44 @@ function selectAccount(accountId: string | undefined) {
               保存后可添加合同/凭证附件
             </div>
 
-            <button
-              class="w-full h-12 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg shadow-primary/20"
+
+          </div>
+      </fieldset>
+      <template #footer><button
+              class="w-full h-12 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="saving || attachmentsUploading"
               @click="submitForm"
             >
-              保存
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+              {{ attachmentsUploading ? '附件上传中…' : saving ? '保存中…' : '保存' }}
+            </button></template>
+    </AppDialog>
 
     <!-- Record Payment Dialog -->
-    <Teleport to="body">
-      <div v-if="showPaymentDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showPaymentDialog = false"></div>
-        <div class="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-gray-700/50">
-          <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4 mx-auto text-green-500">
-            <Banknote :size="24" />
-          </div>
-          <h3 class="text-lg font-bold text-center mb-2 dark:text-white">记录还款</h3>
-          <p class="text-gray-500 dark:text-gray-400 text-center text-sm mb-4">{{ payingReminder?.name }}</p>
+    <AppDialog v-if="showPaymentDialog && props.active !== false" title="记录还款" :busy="paying" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(paying) || (closePaymentDialog())">
+      <fieldset :disabled="paying" class="min-w-0 border-0 p-0 m-0"><p class="text-gray-500 dark:text-gray-400 text-center text-sm mb-4">{{ payingReminder?.name }}</p>
           <div class="relative mb-4">
             <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2">还款总额</label>
             <span class="absolute left-4 bottom-4 text-gray-400 font-bold text-lg">¥</span>
-            <input
+            <input name="paymentAmount" aria-label="还款总额" style="min-width: 0; max-width: 100%"
               v-model.number="paymentAmount"
+              :disabled="paying || !!pendingPayment"
               type="number"
               step="0.01"
-              class="w-full h-14 pl-10 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-2xl font-bold text-center dark:text-white"
+              class="w-full h-14 pl-10 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all text-2xl font-bold text-center dark:text-white"
             />
           </div>
-          <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <div>
               <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2">本金</label>
               <div class="relative">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">¥</span>
-                <input
+                <input name="paymentPrincipal" aria-label="本金" style="min-width: 0; max-width: 100%"
                   v-model.number="paymentPrincipal"
+                  :disabled="paying || !!pendingPayment"
                   type="number"
                   step="0.01"
                   placeholder="可选"
-                  class="w-full h-12 pl-8 pr-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all dark:text-white"
+                  class="w-full h-12 pl-8 pr-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all dark:text-white"
                 />
               </div>
             </div>
@@ -715,21 +872,23 @@ function selectAccount(accountId: string | undefined) {
               <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2">利息</label>
               <div class="relative">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">¥</span>
-                <input
+                <input name="paymentInterest" aria-label="利息" style="min-width: 0; max-width: 100%"
                   v-model.number="paymentInterest"
+                  :disabled="paying || !!pendingPayment"
                   type="number"
                   step="0.01"
                   placeholder="可选"
-                  class="w-full h-12 pl-8 pr-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all dark:text-white"
+                  class="w-full h-12 pl-8 pr-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all dark:text-white"
                 />
               </div>
             </div>
           </div>
           <div class="mb-4">
             <label class="block text-sm text-gray-500 dark:text-gray-400 mb-2">还款账户</label>
-            <select
+            <select name="paymentAccountId" aria-label="还款账户" style="min-width: 0; max-width: 100%"
               v-model="paymentAccountId"
-              class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all dark:text-white"
+              :disabled="paying || !!pendingPayment"
+              class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all dark:text-white"
             >
               <option value="">请选择账户</option>
               <option v-for="acc in sourceAccounts" :key="acc.id" :value="acc.id">
@@ -738,50 +897,40 @@ function selectAccount(accountId: string | undefined) {
             </select>
             <p class="text-xs text-gray-400 mt-2">选择账户后将自动扣减余额并记录到明细</p>
           </div>
-          <div class="flex gap-3">
-            <button
+
+          <p v-if="paymentError" role="alert" class="mt-3 text-sm text-amber-700 dark:text-amber-300">{{ paymentError }}</p>
+      </fieldset>
+      <template #footer><button
               class="flex-1 py-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-              @click="showPaymentDialog = false"
-            >
+              @click="closePaymentDialog"
+             :disabled="paying">
               取消
             </button>
             <button
-              class="flex-1 py-3 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition shadow-lg shadow-green-500/30"
+              class="flex-1 py-3 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition shadow-lg shadow-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="paying"
               @click="submitPayment"
             >
-              确认还款
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+              {{ paying ? '确认中…' : pendingPayment ? '确认上次还款结果' : '确认还款' }}
+            </button></template>
+    </AppDialog>
 
     <!-- Delete Confirm Modal -->
-    <Teleport to="body">
-      <div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showDeleteModal = false"></div>
-        <div class="relative bg-white dark:bg-gray-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
-          <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 mx-auto text-red-500">
-            <Trash2 :size="24" />
-          </div>
-          <h3 class="text-lg font-bold text-center mb-2 dark:text-white">确认删除</h3>
-          <p class="text-gray-500 dark:text-gray-400 text-center text-sm mb-6">删除后相关还款记录将从提醒中移除，已生成的账本交易会保留。</p>
-          <div class="flex gap-3">
-            <button
+    <AppDialog v-if="showDeleteModal && props.active !== false" title="确认删除" :busy="deleting" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(deleting) || (showDeleteModal = false)">
+      <fieldset :disabled="deleting" class="min-w-0 border-0 p-0 m-0"><p class="text-gray-500 dark:text-gray-400 text-center text-sm mb-6">删除后相关还款记录将从提醒中移除，已生成的账本交易会保留。</p>
+      </fieldset>
+      <template #footer><button
               class="flex-1 py-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"
               @click="showDeleteModal = false"
-            >
+             :disabled="deleting">
               取消
             </button>
             <button
               class="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition shadow-lg shadow-red-500/30"
               @click="handleDelete"
-            >
+             :disabled="deleting">
               确认删除
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+            </button></template>
+    </AppDialog>
   </div>
 </template>

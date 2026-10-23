@@ -1,251 +1,197 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Home, List, PieChart, User, Wallet, ChevronLeft, ChevronRight, Plus } from 'lucide-vue-next'
 import TransactionDialog from '@/components/TransactionDialog.vue'
-
-const showQuickAdd = ref(false)
+import WorkspaceHeader from '@/components/navigation/WorkspaceHeader.vue'
+import PinnedRail from '@/components/navigation/PinnedRail.vue'
+import MobileNavigation from '@/components/navigation/MobileNavigation.vue'
+import FunctionMenu from '@/components/navigation/FunctionMenu.vue'
+import { getActiveNavigationId, getNavigationItem, type NavigationId } from '@/components/navigation/catalog'
+import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
+import { useWorkspacePreferencesStore } from '@/stores/workspacePreferences'
+import { toast } from '@/composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
-
-// Updated tabs structure for "Chinese Style" app
-// Order: Home (Dashboard) | Transactions (List) | [ADD] | Statistics (Chart) | Mine (Settings/Management)
-const tabs = [
-  { name: 'home', path: '/', label: '首页', icon: Home },
-  { name: 'transactions', path: '/transactions', label: '明细', icon: List },
-  // Middle button is handled separately in template
-  { name: 'statistics', path: '/statistics', label: '统计', icon: PieChart },
-  { name: 'settings', path: '/settings', label: '我的', icon: User }
-]
-
-// Routes that should highlight "我的" tab
-const settingsChildRoutes = ['accounts', 'categories', 'tags', 'templates', 'budgets', 'reminders', 'lendings', 'report', 'family', 'ai']
-
-const currentTab = computed(() => {
-  const name = route.name as string
-  // If on a child route of settings, highlight "我的"
-  if (settingsChildRoutes.includes(name)) {
-    return 'settings'
-  }
-  return name
-})
+const auth = useAuthStore()
+const theme = useThemeStore()
+const preferences = useWorkspacePreferencesStore()
+const showQuickAdd = ref(false)
+const content = ref<HTMLElement | null>(null)
 const isMobile = ref(window.innerWidth < 768)
-const sidebarCollapsed = ref(false)
+const menuOpen = ref(false)
+const preferenceFailed = ref(false)
+let menuTrigger: HTMLElement | null = null
+let disposed = false
+const activeId = computed(() => getActiveNavigationId(typeof route.name === 'string' ? route.name : null))
+const canCustomize = computed(() => preferences.ready && !preferences.navigationIssue)
+const preferenceMessage = computed(() => {
+  if (preferences.navigationIssue === 'unsupported') return '导航偏好来自更高版本，原配置已保留，当前使用默认导航。'
+  if (preferences.navigationIssue === 'invalid') return '导航偏好已损坏，当前使用默认导航。'
+  return '导航偏好暂不可用，账本功能仍可使用。'
+})
+
+watch(() => route.path, () => {
+  closeMenu(false)
+  content.value?.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+}, { flush: 'post' })
+
+async function loadPreferences() {
+  const generation = auth.sessionGeneration
+  preferenceFailed.value = false
+  if (preferences.ready) {
+    preferenceFailed.value = !preferences.reloadNavigation()
+    return
+  }
+  try {
+    preferences.attachStorage(localStorage)
+    const loaded = await preferences.resolveOwner(generation)
+    if (!disposed && auth.sessionGeneration === generation) preferenceFailed.value = !loaded || !!preferences.navigationIssue
+  } catch {
+    if (!disposed && auth.sessionGeneration === generation) preferenceFailed.value = true
+  }
+}
+
+watch(() => auth.sessionGeneration, () => {
+  preferences.invalidateOwner()
+  closeMenu(false)
+  showQuickAdd.value = false
+  if (auth.isLoggedIn) void loadPreferences()
+})
 
 function checkMobile() {
-  const nextIsMobile = window.innerWidth < 768
-  if (nextIsMobile === isMobile.value) return
-  isMobile.value = nextIsMobile
-  if (nextIsMobile) {
-    sidebarCollapsed.value = true
-  } else {
-    loadSidebarState()
+  const mobile = window.innerWidth < 768
+  if (mobile !== isMobile.value) closeMenu(false)
+  isMobile.value = mobile
+}
+
+function handleStorage(event: StorageEvent) { preferences.handleStorage(event) }
+
+function openMenu(event: MouseEvent) {
+  if (menuOpen.value) return closeMenu()
+  menuTrigger = event.currentTarget as HTMLElement
+  menuOpen.value = true
+}
+
+function closeMenu(restoreFocus = true) {
+  if (!menuOpen.value) return
+  menuOpen.value = false
+  if (restoreFocus) {
+    void nextTick(() => {
+      const trigger = menuTrigger?.isConnected ? menuTrigger : document.querySelector<HTMLElement>('[aria-controls="workspace-functions"]')
+      trigger?.focus({ preventScroll: true })
+    })
   }
 }
 
-function loadSidebarState() {
-  const saved = localStorage.getItem('sidebar-collapsed')
-  if (saved !== null && !isMobile.value) {
-    sidebarCollapsed.value = saved === 'true'
+function restoreNavigation() {
+  preferenceFailed.value = !preferences.restoreNavigationDefaults()
+  if (preferenceFailed.value) toast.error('默认导航恢复失败，原配置已保留，请重试')
+}
+
+function handleFocus(event: FocusEvent) {
+  const target = event.target as HTMLElement | null
+  if (menuOpen.value && target && !target.closest('.workspace-function-layer') && target !== menuTrigger) closeMenu(false)
+  if (!isMobile.value || !target || !content.value?.contains(target)) return
+  // WebKit can focus a tabindex ancestor when clicking a button. Scrolling that
+  // whole region moves the button between pointerdown and pointerup.
+  if (!target.matches('button, a[href], input, select, textarea, summary, [role="button"], [role="combobox"], [role="menuitem"], [role="tab"]')) return
+  const nav = document.querySelector<HTMLElement>('.workspace-mobile-nav')
+  if (!nav) return
+  const bounds = target.getBoundingClientRect()
+  const limit = nav.getBoundingClientRect().top - 12
+  // Native focus scrolling knows the viewport, but not the floating navigation.
+  if (bounds.bottom > limit) {
+    content.value.scrollBy({ top: bounds.bottom - limit, behavior: 'instant' })
   }
 }
 
-function saveSidebarState(collapsed: boolean) {
-  localStorage.setItem('sidebar-collapsed', String(collapsed))
+function handleMenuKey(event: KeyboardEvent) {
+  if (!menuOpen.value || event.key !== 'Escape') return
+  event.preventDefault()
+  closeMenu()
 }
 
-function toggleSidebar() {
-  sidebarCollapsed.value = !sidebarCollapsed.value
-  saveSidebarState(sidebarCollapsed.value)
+function navigate(id: NavigationId) {
+  const item = getNavigationItem(id)
+  closeMenu(false)
+  if (item.path && route.path !== item.path) void router.push(item.path)
+}
+
+function pin(id: NavigationId) {
+  if (!getNavigationItem(id).canUnpin) return
+  try {
+    const pinned = preferences.navigation.pinned
+    preferences.setPinned(pinned.includes(id) ? pinned.filter(item => item !== id) : [...pinned, id])
+  } catch {
+    toast.error('导航偏好未保存，请重试加载；其他标签可能已更新')
+    preferenceFailed.value = true
+  }
+}
+
+async function changeMode() {
+  const scrollTop = content.value?.scrollTop ?? 0
+  try {
+    preferences.setNavigationMode(preferences.navigation.mode === 'top' ? 'rail' : 'top')
+    closeMenu(false)
+    await nextTick()
+    content.value?.scrollTo({ top: scrollTop, behavior: 'instant' })
+    document.querySelector<HTMLButtonElement>('.workspace-mode-toggle')?.focus({ preventScroll: true })
+  } catch {
+    toast.error('导航偏好未保存，请重试加载；其他标签可能已更新')
+    preferenceFailed.value = true
+  }
 }
 
 onMounted(() => {
-  loadSidebarState()
+  void loadPreferences()
   window.addEventListener('resize', checkMobile)
+  window.addEventListener('storage', handleStorage)
+  document.addEventListener('focusin', handleFocus)
+  document.addEventListener('keydown', handleMenuKey)
 })
-
 onUnmounted(() => {
+  disposed = true
   window.removeEventListener('resize', checkMobile)
+  window.removeEventListener('storage', handleStorage)
+  document.removeEventListener('focusin', handleFocus)
+  document.removeEventListener('keydown', handleMenuKey)
+  preferences.invalidateOwner()
 })
-
-function switchTab(path: string) {
-  router.push(path)
-}
 </script>
 
 <template>
-  <div
-    class="h-full flex bg-[#F2F2F7] dark:bg-black"
-    :class="isMobile ? 'flex-col' : 'flex-row'"
-  >
-    <aside
-      v-if="!isMobile"
-      class="h-full bg-white/60 dark:bg-[#1C1C1E]/60 backdrop-blur-xl border-r border-gray-200/50 dark:border-white/10 flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] z-20"
-      :class="sidebarCollapsed ? 'w-20' : 'w-64'"
-    >
-      <!-- Logo -->
-      <div class="h-16 flex items-center px-6">
-        <div class="w-8 h-8 bg-gradient-to-br from-primary to-blue-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary/20 flex-shrink-0">
-          <Wallet :size="18" />
+  <div class="ledger-workspace" :data-mode="isMobile ? 'mobile' : preferences.navigation.mode">
+    <WorkspaceHeader
+      v-if="isMobile || preferences.navigation.mode === 'top'"
+      :mobile="isMobile" :pinned="preferences.navigation.pinned" :active-id="activeId" :dark="theme.isDark" :menu-open="menuOpen" :can-customize="canCustomize"
+      @navigate="navigate" @more="openMenu" @mode="changeMode" @quick-add="showQuickAdd = true" @theme="theme.toggle()"
+    />
+    <div class="workspace-body">
+      <PinnedRail
+        v-if="!isMobile && preferences.navigation.mode === 'rail'"
+        :pinned="preferences.navigation.pinned" :active-id="activeId" :dark="theme.isDark" :menu-open="menuOpen" :can-customize="canCustomize"
+        @navigate="navigate" @more="openMenu" @mode="changeMode" @quick-add="showQuickAdd = true" @theme="theme.toggle()"
+      />
+      <main ref="content" class="workspace-content scrollbar-hide" :class="{ 'mobile-content-safe': isMobile }">
+        <div v-if="preferenceFailed" role="status" class="workspace-preference-notice">
+          {{ preferenceMessage }}<button type="button" @click="loadPreferences">重试加载偏好</button>
+          <button v-if="preferences.navigationIssue === 'invalid'" type="button" @click="restoreNavigation">恢复默认导航</button>
         </div>
-        <span 
-          class="ml-3 font-bold text-lg text-gray-900 dark:text-white overflow-hidden whitespace-nowrap transition-all duration-300"
-          :class="sidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'"
-        >
-          Personal Ledger
-        </span>
-      </div>
-
-      <!-- Navigation -->
-      <nav class="flex-1 px-3 py-4 space-y-1">
-        <!-- Quick Add (Desktop) -->
-        <button
-          type="button"
-          class="w-full flex items-center mb-6 transition-all duration-300 group"
-          :class="sidebarCollapsed ? 'justify-center' : 'px-3'"
-          @click="showQuickAdd = true"
-        >
-          <div class="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-            <Plus :size="24" stroke-width="2.5" />
-          </div>
-          <span 
-            class="ml-3 font-medium text-gray-900 dark:text-white overflow-hidden whitespace-nowrap transition-all duration-300"
-            :class="sidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'"
-          >
-            记一笔
-          </span>
-        </button>
-
-        <button
-          v-for="tab in tabs"
-          :key="tab.name"
-          type="button"
-          :aria-current="currentTab === tab.name ? 'page' : undefined"
-          class="w-full flex items-center rounded-xl transition-all duration-200 group relative"
-          :class="[
-            sidebarCollapsed ? 'justify-center py-3' : 'px-3 py-3',
-            currentTab === tab.name
-              ? 'bg-black/5 dark:bg-white/10 text-primary font-medium'
-              : 'text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
-          ]"
-          @click="switchTab(tab.path)"
-        >
-          <component
-            :is="tab.icon"
-            :size="22"
-            :stroke-width="currentTab === tab.name ? 2.5 : 2"
-            class="flex-shrink-0 transition-transform duration-300"
-          />
-          <span 
-            class="ml-3 overflow-hidden whitespace-nowrap transition-all duration-300"
-            :class="sidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'"
-          >
-            {{ tab.label }}
-          </span>
-          
-          <!-- Tooltip for collapsed mode -->
-          <div 
-            v-if="sidebarCollapsed"
-            class="absolute left-full ml-4 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap shadow-xl z-50 translate-x-2 group-hover:translate-x-0"
-          >
-            {{ tab.label }}
-          </div>
-        </button>
-      </nav>
-
-      <!-- Collapse Toggle -->
-      <div class="p-4">
-        <button
-          type="button"
-          :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-          :aria-expanded="!sidebarCollapsed"
-          class="w-full flex items-center justify-center p-2 text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-all"
-          @click="toggleSidebar"
-        >
-          <component :is="sidebarCollapsed ? ChevronRight : ChevronLeft" :size="20" />
-        </button>
-      </div>
-    </aside>
-
-    <main
-      class="flex-1 overflow-auto relative scrollbar-hide"
-      :class="isMobile ? 'mobile-content-safe' : ''"
-    >
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
-    </main>
-
-    <nav
-      v-if="isMobile"
-      aria-label="主导航"
-      class="fixed bottom-0 left-0 right-0 z-50 safe-bottom"
-    >
-      <div class="absolute inset-0 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-white/10"></div>
-      <div class="relative h-[56px] flex items-center justify-around px-2">
-        <button
-          v-for="tab in tabs.slice(0, 2)"
-          :key="tab.name"
-          type="button"
-          :aria-current="currentTab === tab.name ? 'page' : undefined"
-          class="flex-1 flex flex-col items-center justify-center gap-1 h-full active:scale-95 transition-transform"
-          :class="currentTab === tab.name ? 'text-primary' : 'text-gray-400 dark:text-gray-500'"
-          @click="switchTab(tab.path)"
-        >
-          <component
-            :is="tab.icon"
-            :size="26"
-            :stroke-width="currentTab === tab.name ? 2.5 : 2"
-            class="transition-all duration-300"
-          />
-          <span class="text-[10px] font-medium">{{ tab.label }}</span>
-        </button>
-
-        <div class="relative -top-5">
-          <button
-            type="button"
-            aria-label="记一笔"
-            class="w-14 h-14 bg-gradient-to-b from-primary to-blue-600 rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-white active:scale-90 transition-transform"
-            @click="showQuickAdd = true"
-          >
-            <Plus :size="30" stroke-width="3" />
-          </button>
-        </div>
-
-        <button
-          v-for="tab in tabs.slice(2)"
-          :key="tab.name"
-          type="button"
-          :aria-current="currentTab === tab.name ? 'page' : undefined"
-          class="flex-1 flex flex-col items-center justify-center gap-1 h-full active:scale-95 transition-transform"
-          :class="currentTab === tab.name ? 'text-primary' : 'text-gray-400 dark:text-gray-500'"
-          @click="switchTab(tab.path)"
-        >
-          <component
-            :is="tab.icon"
-            :size="26"
-            :stroke-width="currentTab === tab.name ? 2.5 : 2"
-            class="transition-all duration-300"
-          />
-          <span class="text-[10px] font-medium">{{ tab.label }}</span>
-        </button>
-      </div>
-    </nav>
-
+        <router-view v-slot="{ Component }">
+          <component :is="Component" :key="route.path" />
+        </router-view>
+      </main>
+    </div>
+    <MobileNavigation
+      v-if="isMobile" :pinned="preferences.navigation.pinned" :active-id="activeId" :menu-open="menuOpen"
+      @navigate="navigate" @more="openMenu"
+    />
+    <FunctionMenu
+      v-if="menuOpen" :pinned="preferences.navigation.pinned" :active-id="activeId" :can-customize="canCustomize"
+      @navigate="navigate" @pin="pin" @close="closeMenu()"
+    />
     <TransactionDialog v-model:visible="showQuickAdd" @success="showQuickAdd = false" />
   </div>
 </template>
-
-<style scoped>
-/* Safe area for iPhone X+ */
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.mobile-content-safe {
-  padding-bottom: calc(56px + env(safe-area-inset-bottom));
-}
-</style>

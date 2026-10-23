@@ -16,9 +16,10 @@ const shineY = ref(50)
 
 const intensityValue = computed(() => props.intensity ?? 15)
 const hoverScale = computed(() => props.scale ?? 1.02)
+const hoverMedia = window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)')
 
 function handleMouseMove(e: MouseEvent) {
-  if (!cardRef.value) return
+  if (!cardRef.value || !hoverMedia.matches) return
   
   const rect = cardRef.value.getBoundingClientRect()
   const centerX = rect.left + rect.width / 2
@@ -35,6 +36,7 @@ function handleMouseMove(e: MouseEvent) {
 }
 
 function handleMouseEnter() {
+  if (!hoverMedia.matches) return
   isHovering.value = true
 }
 
@@ -107,5 +109,19 @@ function handleMouseLeave() {
   border-radius: inherit;
   transition: opacity 0.25s ease, background 0.1s ease;
   z-index: 19;
+}
+
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .hover-3d-wrapper {
+    transform: none !important;
+    transition: none !important;
+    will-change: auto;
+  }
+
+  .shine-overlay,
+  .shine-overlay-secondary {
+    opacity: 0 !important;
+    transition: none;
+  }
 }
 </style>

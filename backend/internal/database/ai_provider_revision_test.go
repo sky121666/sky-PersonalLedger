@@ -82,7 +82,7 @@ func TestAIProviderRevisionMigrationPreservesV10HistoryAndIsIdempotent(t *testin
 		!got.CreatedAt.Equal(old.CreatedAt) || !got.UpdatedAt.Equal(old.UpdatedAt) {
 		t.Fatalf("v11 migration changed historical report data: %+v", got)
 	}
-	if version, err := latestSchemaVersion(db); err != nil || version != 11 {
+	if version, err := latestSchemaVersion(db); err != nil || version != currentSchemaVersion {
 		t.Fatalf("upgraded version=%d err=%v", version, err)
 	}
 	// A restart must retain a revision written after the migration, not backfill
@@ -112,7 +112,7 @@ func TestAIProviderRevisionMigrationPreservesV10HistoryAndIsIdempotent(t *testin
 	if err := db.Order("version ASC").Find(&migrations).Error; err != nil {
 		t.Fatal(err)
 	}
-	if len(migrations) != 2 || migrations[0].Version != 10 || migrations[1].Version != 11 || migrations[1].Name != "ai_report_provider_revision" {
+	if len(migrations) != currentSchemaVersion-9 || migrations[0].Version != 10 || migrations[1].Version != 11 || migrations[1].Name != "ai_report_provider_revision" {
 		t.Fatalf("upgrade reran historical migrations or duplicated v11: %+v", migrations)
 	}
 }

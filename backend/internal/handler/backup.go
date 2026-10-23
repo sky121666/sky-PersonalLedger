@@ -28,6 +28,10 @@ func (h *BackupHandler) Create(c *gin.Context) {
 
 	backup, err := h.backupService.CreateBackup(userID)
 	if err != nil {
+		if errors.Is(err, service.ErrBackupAttachmentIntegrity) {
+			response.Error(c, http.StatusConflict, 40905, "备份附件不完整，请先核对缺失附件；未生成备份")
+			return
+		}
 		if errors.Is(err, service.ErrAttachmentRecoveryPending) {
 			response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
 			return

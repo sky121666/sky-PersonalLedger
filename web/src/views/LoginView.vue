@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { Wallet, Shield, Database, Smartphone, ArrowRight, Lock, Eye, EyeOff } from 'lucide-vue-next'
+import { Wallet, Shield, Database, Smartphone, ArrowRight, Lock, Eye, EyeOff } from '@lucide/vue'
 import { toast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -34,7 +34,6 @@ async function handleSubmit() {
   loading.value = true
   try {
     await authStore.login(password.value)
-    toast.success('欢迎回来')
     router.replace('/')
   } catch (e: any) {
     toast.error(e.message || '登录失败，请重试')
@@ -110,7 +109,7 @@ const features = [
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 placeholder="请输入密码"
-                class="w-full h-12 pl-11 pr-12 bg-white/50 dark:bg-gray-700/50 rounded-xl border border-gray-200/50 dark:border-gray-600/50 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium dark:text-white"
+                class="w-full h-12 pl-11 pr-12 bg-white/50 dark:bg-gray-700/50 rounded-xl border border-gray-200/50 dark:border-gray-600/50 outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium dark:text-white"
                 :disabled="loading"
                 autocomplete="current-password"
                 @keyup.enter="handleSubmit"

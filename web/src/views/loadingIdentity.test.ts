@@ -1,12 +1,17 @@
+import { createPinia, setActivePinia } from 'pinia'
+import { useWorkspacePreferencesStore } from '@/stores/workspacePreferences'
 import { ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
+vi.mock('@/api/auth', () => ({ authApi: { getProfile: async () => ({ id: 1 }) } }))
 import { componentScript, deferred, flushWork } from '@/test/componentScript'
 
 function setupHome(fail: 'ai' | 'account' | null = null, transactionLoader?: (params: any) => Promise<any>, accountLoader?: () => Promise<any>) {
   const toast = { error: vi.fn(), success: vi.fn(), warning: vi.fn() }
   const data = { list: [], net_assets: 1234, total_assets: 1234, total_liabilities: 0 }
-  const view = componentScript('views/HomeView.vue', ['refresh', 'loadData', 'accountData', 'overview', 'formatMoney', 'handleDateSelect', 'dateTransactions', 'selectedDate', 'viewMode', 'loadDateTransactions', 'dateTransactionsFailed'], {
+  const view = componentScript('views/HomeView.vue', ['preferences', 'refresh', 'loadData', 'accountData', 'overview', 'formatMoney', 'handleDateSelect', 'dateTransactions', 'selectedDate', 'viewMode', 'loadDateTransactions', 'dateTransactionsFailed'], {
+    '@/stores/auth': { useAuthStore: () => ({ sessionGeneration: 0 }) },
     '@/composables/useLedgerMutation': { useLedgerMutationRevision: () => ref(0) },
+    '@/stores/workspacePreferences': { useWorkspacePreferencesStore: () => { setActivePinia(createPinia()); return useWorkspacePreferencesStore() } },
     '@/composables/useToast': { toast },
     '@/api/account': { accountApi: { getList: accountLoader || (async () => { if (fail === 'account') throw Error('account unavailable'); return data }) } },
     '@/api/statistics': { statisticsApi: { getOverview: async () => ({ expense: 20 }) } },
@@ -17,6 +22,7 @@ function setupHome(fail: 'ai' | 'account' | null = null, transactionLoader?: (pa
     '@/api/family': { familyApi: { getSummary: async () => ({}) } },
     '@/api/ai': { aiApi: { listReports: async () => { if (fail === 'ai') throw Error('AI unavailable'); return [] } } },
   })
+  if (fail === 'ai') { view.entry.preferences.committed = { ...view.entry.preferences.home, widgets: [...view.entry.preferences.home.widgets, { id: 'ai', kind: 'ai', config: {}, sizes: { desktop: 'medium', mobile: 'medium' } }] } }
   return { ...view, toast, data }
 }
 

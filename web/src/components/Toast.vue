@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-vue-next'
+import { CheckCircle, XCircle, AlertCircle, Info, X } from '@lucide/vue'
 import { toast } from '@/composables/useToast'
 
 const { toasts, remove } = toast
@@ -21,7 +21,7 @@ const colorMap = {
 
 <template>
   <Teleport to="body">
-    <div class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none">
+    <div class="toast-stack fixed md:top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none">
       <TransitionGroup name="toast">
         <div
           v-for="item in toasts"
@@ -29,7 +29,7 @@ const colorMap = {
           :role="item.type === 'error' ? 'alert' : 'status'"
           :aria-live="item.type === 'error' ? 'assertive' : 'polite'"
           aria-atomic="true"
-          class="pointer-events-auto flex items-center gap-3 px-4 py-3 bg-white rounded-xl shadow-lg border border-gray-100 min-w-[280px] max-w-[400px]"
+          class="flex items-center gap-3 px-4 py-3 bg-white rounded-xl shadow-lg border border-gray-100 min-w-[280px] max-w-[400px]"
         >
           <div :class="[colorMap[item.type], 'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0']">
             <component :is="iconMap[item.type]" :size="18" class="text-white" />
@@ -38,7 +38,7 @@ const colorMap = {
           <button
             type="button"
             :aria-label="`关闭提示：${item.message}`"
-            class="p-1 hover:bg-gray-100 rounded-lg flex-shrink-0"
+            class="pointer-events-auto p-1 hover:bg-gray-100 rounded-lg flex-shrink-0"
             @click="remove(item.id)"
           >
             <X :size="16" class="text-gray-400" />
@@ -75,5 +75,8 @@ const colorMap = {
     opacity: 0;
     transform: translateY(-10px) scale(0.95);
   }
+}
+@media (max-width: 767px) {
+  .toast-stack { top: auto; bottom: calc(96px + env(safe-area-inset-bottom)); max-height: min(40dvh, calc(100dvh - 240px)); overflow-y: auto; overscroll-behavior: contain; }
 }
 </style>

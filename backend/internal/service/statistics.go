@@ -171,7 +171,7 @@ func (s *StatisticsService) GetCategoryStatsByPeriod(userID uint, month, period,
 		return nil, err
 	}
 
-	categories, err := s.categoryRepo.GetByUserID(userID, txType)
+	categories, err := s.categoryRepo.GetHistoricalByUserID(userID, txType)
 	if err != nil {
 		return nil, err
 	}
@@ -200,9 +200,10 @@ func (s *StatisticsService) GetCategoryStatsByPeriod(userID uint, month, period,
 
 	for _, cs := range sums {
 		item := CategoryStatItem{
-			CategoryID: cs.CategoryID,
-			Amount:     cs.Total,
-			Count:      cs.Count,
+			CategoryID:   cs.CategoryID,
+			CategoryName: "未分类",
+			Amount:       cs.Total,
+			Count:        cs.Count,
 		}
 		if total > 0 {
 			item.Percentage = moneyRatioPercentage(cs.Total, total)

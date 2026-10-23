@@ -314,7 +314,7 @@ func daysUntilNextMonthDay(now time.Time, paymentDay int) int {
 	today := startOfLocalDay(now)
 	due := clampedMonthDay(today.Year(), today.Month(), paymentDay, today.Location())
 	if due.Before(today) {
-		nextMonth := today.AddDate(0, 1, 0)
+		nextMonth := time.Date(today.Year(), today.Month()+1, 1, 0, 0, 0, 0, today.Location())
 		due = clampedMonthDay(nextMonth.Year(), nextMonth.Month(), paymentDay, today.Location())
 	}
 	return calendarDayDifference(today, due)

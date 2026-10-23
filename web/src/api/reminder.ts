@@ -95,13 +95,15 @@ export const reminderApi = {
     amount: number,
     accountId?: string,
     principalAmount?: number,
-    interestAmount?: number
+    interestAmount?: number,
+    idempotencyKey?: string
   ): Promise<Reminder> {
     return post<Reminder>(`/reminders/${id}/payment`, {
       amount,
       account_id: accountId,
       principal_amount: principalAmount,
-      interest_amount: interestAmount
+      interest_amount: interestAmount,
+      idempotency_key: idempotencyKey
     })
   },
 

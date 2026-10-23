@@ -9,7 +9,7 @@ const localRequire = createRequire(import.meta.url)
 
 // Execute the actual <script setup> with Vue reactivity. Only browser lifecycle,
 // DOM focus and API boundaries are supplied by the test; no business logic is copied.
-export function componentScript(file: string, exposed: string[], mocks: Record<string, unknown>, props = {}) {
+export function componentScript(file: string, exposed: string[], mocks: Record<string, unknown>, props = {}, globals: Record<string, unknown> = {}) {
   const scope = vue.effectScope()
   const unmount: (() => void)[] = []
   const mounted: (() => void)[] = []
@@ -22,12 +22,12 @@ export function componentScript(file: string, exposed: string[], mocks: Record<s
       if (name in mocks) return mocks[name]
       if (name === 'vue') return { ...vue, onMounted: (fn: () => void) => mounted.push(fn), onBeforeUnmount: (fn: () => void) => unmount.push(fn) }
       if (name === 'vue-router') return { useRouter: () => ({ push() {} }) }
-      if (name === 'lucide-vue-next' || name.endsWith('.vue')) return {}
+      if (name === '@lucide/vue' || name.endsWith('.vue')) return {}
       if (name.startsWith('@/')) return evaluate(readFileSync(resolve(sourceRoot, name.slice(2) + '.ts'), 'utf8'))
       return localRequire(name)
     }
     const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
-    runInNewContext(compiled, { require, module, exports: module.exports, console, setTimeout, clearTimeout, document: { activeElement: null }, HTMLElement: class {}, defineProps: () => reactiveProps, defineEmits: () => (...args: unknown[]) => emitted.push(args) })
+    runInNewContext(compiled, { require, module, exports: module.exports, console, setTimeout, clearTimeout, Date, crypto: globalThis.crypto, document: { activeElement: null }, HTMLElement: class {}, defineProps: () => reactiveProps, defineEmits: () => (...args: unknown[]) => emitted.push(args), defineExpose: () => {}, ...globals })
     return module.exports
   }
   const raw = readFileSync(resolve(sourceRoot, file), 'utf8').split('<script setup lang="ts">')[1]!.split('</script>')[0]!

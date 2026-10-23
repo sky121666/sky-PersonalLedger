@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/sky/personal-ledger/internal/model"
+	"github.com/sky/personal-ledger/internal/money"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -17,7 +18,7 @@ func loadLinkedReminderForRollbackTx(txdb *gorm.DB, tx *model.Transaction) (*mod
 	if err := txdb.Unscoped().Clauses(clause.Locking{Strength: "UPDATE"}).
 		First(&reminder, "id = ? AND user_id = ?", *tx.ReminderID, tx.UserID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
+			return nil, ErrReminderRollbackUnverified
 		}
 		return nil, err
 	}
@@ -32,13 +33,17 @@ func (s *TransactionService) revertReminderPaymentTx(txdb *gorm.DB, tx *model.Tr
 	}
 
 	amount := tx.Amount
-	principalAmount := tx.PrincipalAmount
-	if principalAmount == 0 {
-		principalAmount = amount
+	principalAmount, interestAmount, err := normalizeReminderPaymentSplit(RecordPaymentRequest{
+		Amount: amount, PrincipalAmount: tx.PrincipalAmount, InterestAmount: tx.InterestAmount,
+	})
+	if err != nil {
+		return ErrReminderRollbackUnverified
 	}
-	interestAmount := tx.InterestAmount
-	if interestAmount == 0 && amount > principalAmount {
-		interestAmount = amount.Sub(principalAmount)
+	if err := validateReminderRollbackEvidenceTx(txdb, tx, reminder, principalAmount); err != nil {
+		return err
+	}
+	if reminder.TotalPaid < amount || reminder.InterestPaid < interestAmount {
+		return ErrReminderRollbackUnverified
 	}
 
 	reminder.TotalPaid = reminder.TotalPaid.Sub(amount)
@@ -74,7 +79,7 @@ func (s *TransactionService) revertReminderPaymentTx(txdb *gorm.DB, tx *model.Tr
 		return ErrReminderNotFound
 	}
 
-	if reminder.AccountID != nil && *reminder.AccountID != "" {
+	if principalAmount > 0 && reminder.AccountID != nil && *reminder.AccountID != "" {
 		var account model.Account
 		if err := txdb.Clauses(clause.Locking{Strength: "UPDATE"}).
 			First(&account, "id = ? AND user_id = ?", *reminder.AccountID, tx.UserID).Error; err != nil {
@@ -82,6 +87,9 @@ func (s *TransactionService) revertReminderPaymentTx(txdb *gorm.DB, tx *model.Tr
 				return ErrAccountNotFound
 			}
 			return err
+		}
+		if account.TotalPaid < principalAmount {
+			return ErrReminderRollbackUnverified
 		}
 		account.CurrentBalance = account.CurrentBalance.Add(principalAmount)
 		account.TotalPaid = account.TotalPaid.Sub(principalAmount)
@@ -120,6 +128,32 @@ func (s *TransactionService) revertReminderPaymentTx(txdb *gorm.DB, tx *model.Tr
 		if result.RowsAffected != 1 {
 			return ErrAccountNotFound
 		}
+	}
+	return nil
+}
+
+// A historical target or clamped payment must never be inferred from the
+// reminder's current binding. Missing or conflicting evidence requires review.
+func validateReminderRollbackEvidenceTx(txdb *gorm.DB, tx *model.Transaction, reminder *model.Reminder, principal money.Amount) error {
+	var logs []model.AccountLog
+	if err := txdb.Where("user_id = ? AND transaction_id = ? AND type = ?", tx.UserID, tx.ID, "adjustment").
+		Find(&logs).Error; err != nil {
+		return err
+	}
+	target := normalizeOptionalString(reminder.AccountID)
+	if principal == 0 {
+		if len(logs) != 0 {
+			return ErrReminderRollbackUnverified
+		}
+		return nil
+	}
+	if target == nil || len(logs) != 1 {
+		return ErrReminderRollbackUnverified
+	}
+	log := logs[0]
+	if log.AccountID != *target || log.ReminderID == nil || *log.ReminderID != reminder.ID ||
+		log.Amount.Cents() != principal.Cents() || log.BalanceBefore.Sub(log.BalanceAfter).Cents() != principal.Cents() {
+		return ErrReminderRollbackUnverified
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -77,6 +78,30 @@ func (s *BackupService) rejectCrossUserBackupReferences(targetUserID uint, backu
 		transactionIDs.reference(optionalBackupReference(entry.TransactionID))
 		reminderIDs.reference(optionalBackupReference(entry.ReminderID))
 		lendingIDs.reference(optionalBackupReference(entry.LendingID))
+	}
+
+	seenRequests := make(map[string]bool)
+	for _, request := range backup.RepaymentRequests {
+		key, keyErr := hex.DecodeString(request.KeyHash)
+		payload, payloadErr := hex.DecodeString(request.PayloadHash)
+		if keyErr != nil || payloadErr != nil || len(key) != 32 || len(payload) != 32 || hex.EncodeToString(key) != request.KeyHash || hex.EncodeToString(payload) != request.PayloadHash || request.TargetID == "" || len(request.TargetID) > 36 {
+			return invalidBackupOwnership(errors.New("invalid repayment request"))
+		}
+		identity := request.Operation + ":" + request.TargetID + ":" + request.KeyHash
+		if seenRequests[identity] {
+			return invalidBackupOwnership(errors.New("duplicate repayment request"))
+		}
+		seenRequests[identity] = true
+		switch request.Operation {
+		case "reminder":
+			reminderIDs.reference(request.TargetID)
+		case "lending":
+			lendingIDs.reference(request.TargetID)
+		case "transaction":
+			transactionIDs.reference(request.TargetID)
+		default:
+			return invalidBackupOwnership(errors.New("invalid repayment operation"))
+		}
 	}
 
 	checks := []struct {

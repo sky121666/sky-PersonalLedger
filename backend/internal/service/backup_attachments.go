@@ -456,6 +456,34 @@ func (s *BackupService) hasUploadStorage() bool {
 	return s != nil && s.uploadService != nil && s.uploadService.cfg != nil && strings.TrimSpace(s.uploadService.cfg.UploadPath) != ""
 }
 
+// Export requires every internal reference, including avatars, to be portable
+// and present in the manifest. Keep legacy nil-manifest restore rules separate.
+func (s *BackupService) validateBackupExportAttachmentReferences(userID uint, backup *FullBackupData) error {
+	if err := s.validateBackupAttachmentMetadataFiles(userID, backup); err != nil {
+		return err
+	}
+	manifest := make(map[string]struct{}, len(backup.Attachments))
+	for _, attachment := range backup.Attachments {
+		manifest[attachment.RelativePath] = struct{}{}
+	}
+	return visitBackupStoredUploadReferences(backup, func(value string) error {
+		reference, internal, err := parseStoredUploadReference(value)
+		if err != nil {
+			return invalidBackupAttachment(err)
+		}
+		if !internal {
+			return nil
+		}
+		if reference.owner != userID {
+			return invalidBackupAttachment(ErrUploadPathForbidden)
+		}
+		if _, exists := manifest[reference.suffix]; !exists {
+			return invalidBackupAttachment(errors.New("internal upload reference is missing from the manifest"))
+		}
+		return nil
+	})
+}
+
 func (s *BackupService) validateBackupAttachmentMetadataFiles(userID uint, backup *FullBackupData) error {
 	if backup == nil {
 		return nil

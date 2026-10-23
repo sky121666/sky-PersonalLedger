@@ -15,6 +15,9 @@ func (s *TransactionService) applyBalanceChangesTx(txdb *gorm.DB, tx *model.Tran
 	if err := lockBalanceAccountsTx(txdb, tx); err != nil {
 		return err
 	}
+	if handled, err := applyManagedTransactionTx(txdb, tx); handled || err != nil {
+		return err
+	}
 
 	switch tx.Type {
 	case "expense":
@@ -164,6 +167,9 @@ func applyAccountBalanceMutationTx(
 	remark string,
 	logChange bool,
 ) error {
+	if err := rejectLegacyManagedAccountTx(txdb, userID, accountID); err != nil {
+		return err
+	}
 	if err := logAccountBalanceChangeTx(
 		txdb,
 		accountLogSvc,

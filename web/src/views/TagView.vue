@@ -1,13 +1,22 @@
 <script setup lang="ts">
+import AppDialog from '@/components/ui/AppDialog.vue'
+import FinancePage from '@/components/ui/FinancePage.vue'
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronLeft, Edit2, Plus, Tag as TagIcon, Trash2, X } from 'lucide-vue-next'
+import { Edit2, Plus, Tag as TagIcon, Trash2 } from '@lucide/vue'
 
 import { tagApi, type Tag } from '@/api/tag'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 import { toast } from '@/composables/useToast'
 
 const router = useRouter()
+const dialogTrigger = ref<HTMLElement | null>(null)
+const dialogFallback = ref<HTMLElement | null>(null)
+function captureDialogTrigger(event?: Event) {
+  if (typeof document === 'undefined') return
+  dialogTrigger.value = event?.currentTarget instanceof HTMLElement ? event.currentTarget : document.activeElement as HTMLElement | null
+}
+
 const tags = ref<Tag[]>([])
 const loading = ref(true)
 const submitting = ref(false)
@@ -36,13 +45,15 @@ async function loadTags() {
   }
 }
 
-function openCreate() {
+function openCreate(event?: Event) {
+  captureDialogTrigger(event)
   editingTag.value = null
   form.value = { name: '', icon: '🏷️', color: '#007AFF' }
   showForm.value = true
 }
 
-function openEdit(tag: Tag) {
+function openEdit(tag: Tag, event?: Event) {
+  captureDialogTrigger(event)
   editingTag.value = tag
   form.value = {
     name: tag.name,
@@ -59,6 +70,7 @@ function closeForm() {
 }
 
 async function saveTag() {
+  if (submitting.value) return
   const name = form.value.name.trim()
   if (!name) {
     toast.warning('请输入标签名称')
@@ -102,28 +114,10 @@ async function deleteTag() {
 </script>
 
 <template>
-  <div class="min-h-full bg-[#F2F2F7] dark:bg-black pb-8">
-    <header class="sticky top-0 z-30 border-b border-gray-200/50 bg-white/75 px-4 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#1C1C1E]/75 md:px-8">
-      <div class="mx-auto flex max-w-3xl items-center justify-between">
-        <div class="flex items-center gap-3">
-          <button class="-ml-2 rounded-xl p-2 text-gray-500 transition hover:bg-black/5 dark:hover:bg-white/10" @click="router.back()">
-            <ChevronLeft :size="20" />
-          </button>
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <TagIcon :size="24" />
-          </div>
-          <div>
-            <h1 class="text-xl font-bold text-gray-900 dark:text-white">标签管理</h1>
-            <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ tags.length }} 个标签 · 按真实使用次数排序</p>
-          </div>
-        </div>
-        <button class="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/20 transition active:scale-95" @click="openCreate">
-          <Plus :size="20" />
-        </button>
-      </div>
-    </header>
+  <FinancePage title="标签管理" :context="`${tags.length} 个标签`" :icon="TagIcon" back-label="返回上一页" @back="router.back()">
+    <template #actions><button ref="dialogFallback" type="button" aria-label="添加标签" class="finance-icon-button" @click="openCreate"><Plus :size="20" /></button></template>
 
-    <main class="mx-auto max-w-3xl space-y-3 px-4 py-6 md:px-8">
+    <div class="space-y-3">
       <div v-if="loading" class="py-20 text-center text-sm text-gray-400">正在加载标签...</div>
       <div v-else-if="loadError" class="rounded-3xl border border-white/50 bg-white/75 p-8 text-center shadow-sm dark:border-white/5 dark:bg-[#1C1C1E]/75">
         <p class="text-gray-600 dark:text-gray-300">标签加载失败</p>
@@ -153,43 +147,36 @@ async function deleteTag() {
           </div>
           <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">已用于 {{ tag.used_count }} 笔交易</p>
         </div>
-        <button class="rounded-xl p-2 text-gray-400 transition hover:bg-black/5 hover:text-primary dark:hover:bg-white/10" @click="openEdit(tag)">
+        <button class="rounded-xl p-2 text-gray-400 transition hover:bg-black/5 hover:text-primary dark:hover:bg-white/10" :aria-label="`编辑标签 ${tag.name}`" @click="openEdit(tag, $event)">
           <Edit2 :size="17" />
         </button>
         <button
           class="rounded-xl p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-25 dark:hover:bg-red-900/20"
-          :disabled="tag.is_system"
-          @click="deletingTag = tag"
+          :disabled="tag.is_system" :aria-label="`删除标签 ${tag.name}`"
+          @click="captureDialogTrigger($event); deletingTag = tag"
         >
           <Trash2 :size="17" />
         </button>
         </article>
       </template>
-    </main>
+    </div>
 
-    <Teleport to="body">
-      <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeForm"></div>
-        <div class="relative w-full max-w-sm rounded-3xl border border-white/30 bg-white/95 p-6 shadow-2xl dark:border-white/10 dark:bg-[#1C1C1E]/95">
-          <div class="mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-gray-900 dark:text-white">{{ editingTag ? '编辑标签' : '创建标签' }}</h2>
-            <button class="rounded-full p-2 text-gray-400 hover:bg-black/5 dark:hover:bg-white/10" @click="closeForm"><X :size="19" /></button>
-          </div>
-          <div class="space-y-4">
+    <AppDialog v-if="showForm" :title="editingTag ? '编辑标签' : '创建标签'" :busy="submitting" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(submitting) || (closeForm())">
+      <fieldset :disabled="submitting" class="min-w-0 border-0 p-0 m-0"><div class="space-y-4">
             <label class="block">
               <span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">名称</span>
-              <input v-model="form.name" maxlength="50" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 text-gray-900 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="例如：报销" />
+              <input name="name" aria-label="名称" style="min-width: 0; max-width: 100%" v-model="form.name" maxlength="50" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 text-gray-900 outline-hidden focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="例如：报销" />
             </label>
             <label class="block">
               <span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">图标或 Emoji</span>
-              <input v-model="form.icon" maxlength="50" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 text-gray-900 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="🏷️" />
+              <input name="icon" aria-label="图标或 Emoji" style="min-width: 0; max-width: 100%" v-model="form.icon" maxlength="50" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 text-gray-900 outline-hidden focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="🏷️" />
             </label>
             <div>
               <span class="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-400">颜色</span>
               <div class="flex flex-wrap gap-2">
                 <button
                   v-for="color in colors"
-                  :key="color"
+                  :key="color" :aria-label="`选择颜色 ${color}`" :aria-pressed="form.color === color"
                   type="button"
                   class="h-8 w-8 rounded-full border-2 transition"
                   :class="form.color === color ? 'scale-110 border-gray-900 dark:border-white' : 'border-transparent'"
@@ -198,25 +185,19 @@ async function deleteTag() {
                 ></button>
               </div>
             </div>
-            <button class="h-12 w-full rounded-xl bg-primary font-semibold text-white transition disabled:opacity-50" :disabled="submitting" @click="saveTag">
-              {{ submitting ? '保存中...' : '保存标签' }}
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <div v-if="deletingTag" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="deletingTag = null"></div>
-        <div class="relative w-full max-w-xs rounded-3xl bg-white/95 p-6 text-center shadow-2xl dark:bg-[#1C1C1E]/95">
-          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-500 dark:bg-red-900/30"><Trash2 :size="22" /></div>
-          <h2 class="font-bold text-gray-900 dark:text-white">删除「{{ deletingTag.name }}」？</h2>
-          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">历史交易中的文字标签会保留。</p>
-          <div class="mt-6 grid grid-cols-2 gap-3">
-            <button class="h-11 rounded-xl bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200" @click="deletingTag = null">取消</button>
-            <button class="h-11 rounded-xl bg-red-500 font-medium text-white disabled:opacity-50" :disabled="submitting" @click="deleteTag">删除</button>
           </div>
-        </div>
-      </div>
-    </Teleport>
-  </div>
+      </fieldset>
+      <template #footer><button class="h-12 w-full rounded-xl bg-primary font-semibold text-white transition disabled:opacity-50" :disabled="submitting" @click="saveTag">
+              {{ submitting ? '保存中...' : '保存标签' }}
+            </button></template>
+    </AppDialog>
+
+    <AppDialog v-if="deletingTag" :title="`删除「${deletingTag.name}」？`" :busy="submitting" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(submitting) || (deletingTag = null)">
+      <fieldset :disabled="submitting" class="min-w-0 border-0 p-0 m-0"><p class="mt-2 text-sm text-gray-500 dark:text-gray-400">历史交易中的文字标签会保留。</p>
+      </fieldset>
+      <template #footer><button class="h-11 rounded-xl bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200" @click="deletingTag = null" :disabled="submitting">取消</button>
+            <button class="h-11 rounded-xl bg-red-500 font-medium text-white disabled:opacity-50" :disabled="submitting" @click="deleteTag">删除</button></template>
+    </AppDialog>
+  </FinancePage>
 </template>

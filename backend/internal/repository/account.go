@@ -8,6 +8,7 @@ import (
 )
 
 var ErrAccountBalancePreventsDeletion = errors.New("account balance prevents deletion")
+var ErrAccountReferencesPreventDeletion = errors.New("account references prevent deletion")
 var ErrUnsafeAccountFieldUpdate = errors.New("unsafe account field update")
 
 var accountMetadataFields = map[string]struct{}{
@@ -88,25 +89,48 @@ func (r *AccountRepository) UpdateMetadataForUser(id string, userID uint, update
 }
 
 func (r *AccountRepository) DeleteForUserIfBalanceAllows(id string, userID uint) error {
-	result := r.db.
-		Where("id = ? AND user_id = ? AND (is_archived = ? OR current_balance_cents = ?)", id, userID, true, 0).
-		Delete(&model.Account{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 1 {
+	return FinanceWriteTransaction(r.db, func(tx *gorm.DB) error {
+		var account model.Account
+		if err := FinanceQueryForUpdate(tx).First(&account, "id = ? AND user_id = ?", id, userID).Error; err != nil {
+			return err
+		}
+		// Query references only after the account lock has been acquired. A
+		// separate statement observes the writer that released the lock, rather
+		// than retaining a pre-wait subquery snapshot on PostgreSQL READ COMMITTED.
+		for _, ref := range accountDeletionReferences(id) {
+			var count int64
+			if err := tx.Unscoped().Table(ref.table).Where(ref.condition, ref.args...).Count(&count).Error; err != nil {
+				return err
+			}
+			if count > 0 {
+				return ErrAccountReferencesPreventDeletion
+			}
+		}
+		if !account.IsArchived && account.CurrentBalance != 0 {
+			return ErrAccountBalancePreventsDeletion
+		}
+		result := tx.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Account{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
 		return nil
-	}
+	})
+}
 
-	var account model.Account
-	if err := r.db.Select("id", "current_balance_cents", "is_archived").
-		First(&account, "id = ? AND user_id = ?", id, userID).Error; err != nil {
-		return err
+type accountDeletionReference struct {
+	table, condition string
+	args             []any
+}
+
+func accountDeletionReferences(id string) []accountDeletionReference {
+	refs := []accountDeletionReference{{"transactions", "account_id = ? OR to_account_id = ?", []any{id, id}}}
+	for _, table := range []string{"account_logs", "reminders", "lendings", "lending_records", "quick_templates", "recurring_transactions", "debt_plans", "debt_operations"} {
+		refs = append(refs, accountDeletionReference{table, "account_id = ?", []any{id}})
 	}
-	if !account.IsArchived && account.CurrentBalance != 0 {
-		return ErrAccountBalancePreventsDeletion
-	}
-	return gorm.ErrRecordNotFound
+	return refs
 }
 
 func (r *AccountRepository) DeleteAllByUserID(userID uint) error {

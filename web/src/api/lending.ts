@@ -78,6 +78,7 @@ export interface UpdateLendingParams {
 }
 
 export interface RecordRepaymentParams {
+  idempotency_key?: string
   amount: number
   record_date: string
   account_id?: string

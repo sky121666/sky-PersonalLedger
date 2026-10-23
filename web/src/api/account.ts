@@ -23,6 +23,10 @@ export interface Account {
   remark?: string
   is_archived: boolean
   sort_order: number
+  debt_tracking_mode?: 'legacy' | 'managed'
+  unplanned_debt?: number
+  unapplied_payment?: number
+  debt_unclassified?: number
 }
 
 export interface AccountListResponse {
@@ -38,6 +42,7 @@ export interface CreateAccountParams {
   icon?: string
   color?: string
   initial_balance: number
+  debt_tracking_mode?: 'managed'
   payment_day?: number
   billing_day?: number
   credit_limit?: number

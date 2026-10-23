@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import AppDialog from '@/components/ui/AppDialog.vue'
+import FinancePage from '@/components/ui/FinancePage.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Bolt, ChevronLeft, Clock3, Plus, Trash2, X } from 'lucide-vue-next'
+import { Bolt, Clock3, Plus, Trash2 } from '@lucide/vue'
 
 import { accountApi, type Account } from '@/api/account'
 import { categoryApi, type Category } from '@/api/category'
@@ -11,6 +13,13 @@ import { toast } from '@/composables/useToast'
 import { toLedgerInstant } from '@/utils/ledgerDate'
 
 const router = useRouter()
+const dialogTrigger = ref<HTMLElement | null>(null)
+const dialogFallback = ref<HTMLElement | null>(null)
+function captureDialogTrigger(event?: Event) {
+  if (typeof document === 'undefined') return
+  dialogTrigger.value = event?.currentTarget instanceof HTMLElement ? event.currentTarget : document.activeElement as HTMLElement | null
+}
+
 const templates = ref<QuickTemplate[]>([])
 const accounts = ref<Account[]>([])
 const categories = ref<Category[]>([])
@@ -65,7 +74,8 @@ function categoryName(id: string | null) {
   return categories.value.find((category) => category.id === id)?.name || '分类不可用'
 }
 
-function openCreateForm() {
+function openCreateForm(event?: Event) {
+  captureDialogTrigger(event)
   if (!canCreate.value) {
     toast.warning('请先补充可用账户和分类')
     return
@@ -87,6 +97,7 @@ function changeType(type: 'expense' | 'income') {
 }
 
 async function createTemplate() {
+  if (submitting.value) return
   const amount = Number(form.value.amount || 0)
   if (!form.value.name.trim()) {
     toast.warning('请输入模板名称')
@@ -120,7 +131,8 @@ async function createTemplate() {
   }
 }
 
-function openApply(template: QuickTemplate) {
+function openApply(template: QuickTemplate, event?: Event) {
+  captureDialogTrigger(event)
   applyingTemplate.value = template
   applyForm.value = {
     amount: template.amount > 0 ? String(template.amount) : '',
@@ -129,6 +141,7 @@ function openApply(template: QuickTemplate) {
 }
 
 async function applyTemplate() {
+  if (submitting.value) return
   const template = applyingTemplate.value
   const amount = Number(applyForm.value.amount)
   if (!template || !Number.isFinite(amount) || amount <= 0) {
@@ -174,22 +187,10 @@ async function deleteTemplate() {
 </script>
 
 <template>
-  <div class="min-h-full bg-[#F2F2F7] dark:bg-black pb-8">
-    <header class="sticky top-0 z-30 border-b border-gray-200/50 bg-white/75 px-4 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#1C1C1E]/75 md:px-8">
-      <div class="mx-auto flex max-w-3xl items-center justify-between">
-        <div class="flex items-center gap-3">
-          <button class="-ml-2 rounded-xl p-2 text-gray-500 transition hover:bg-black/5 dark:hover:bg-white/10" @click="router.back()"><ChevronLeft :size="20" /></button>
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-100 text-orange-500 dark:bg-orange-900/25"><Bolt :size="24" /></div>
-          <div>
-            <h1 class="text-xl font-bold text-gray-900 dark:text-white">快捷模板</h1>
-            <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ templates.length }} 个模板 · 一次确认后记账</p>
-          </div>
-        </div>
-        <button class="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/20 transition active:scale-95 disabled:opacity-40" :disabled="!canCreate" @click="openCreateForm"><Plus :size="20" /></button>
-      </div>
-    </header>
+  <FinancePage title="快捷模板" :context="`${templates.length} 个模板`" :icon="Bolt" tone="orange" back-label="返回上一页" @back="router.back()">
+    <template #actions><button ref="dialogFallback" type="button" aria-label="添加模板" class="finance-icon-button" :disabled="!canCreate" @click="openCreateForm"><Plus :size="20" /></button></template>
 
-    <main class="mx-auto max-w-3xl space-y-3 px-4 py-6 md:px-8">
+    <div class="space-y-3">
       <div v-if="!loading && !canCreate" class="rounded-2xl border border-orange-200/60 bg-orange-50/80 p-4 text-sm text-orange-700 dark:border-orange-900/40 dark:bg-orange-900/20 dark:text-orange-300">
         创建模板需要至少一个可用账户和对应的收支分类。
       </div>
@@ -226,55 +227,45 @@ async function deleteTemplate() {
           </div>
         </div>
         <div class="mt-4 grid grid-cols-[1fr_auto] gap-2 border-t border-gray-100/60 pt-3 dark:border-white/5">
-          <button class="h-10 rounded-xl bg-primary/10 text-sm font-semibold text-primary transition hover:bg-primary/15 disabled:opacity-50" :disabled="submitting" @click="openApply(template)">使用模板</button>
-          <button class="flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" :disabled="submitting" @click="deletingTemplate = template"><Trash2 :size="17" /></button>
+          <button class="h-10 rounded-xl bg-primary/10 text-sm font-semibold text-primary transition hover:bg-primary/15 disabled:opacity-50" :disabled="submitting" @click="openApply(template, $event)">使用模板</button>
+          <button class="flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" :disabled="submitting" :aria-label="`删除模板 ${template.name}`" @click="captureDialogTrigger($event); deletingTemplate = template"><Trash2 :size="17" /></button>
         </div>
         </article>
       </template>
-    </main>
+    </div>
 
-    <Teleport to="body">
-      <div v-if="showCreate" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="showCreate = false"></div>
-        <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-white/30 bg-white/95 p-6 shadow-2xl dark:border-white/10 dark:bg-[#1C1C1E]/95">
-          <div class="mb-5 flex items-center justify-between"><h2 class="text-lg font-bold text-gray-900 dark:text-white">创建快捷模板</h2><button class="rounded-full p-2 text-gray-400 hover:bg-black/5 dark:hover:bg-white/10" @click="showCreate = false"><X :size="19" /></button></div>
-          <div class="space-y-4">
+    <AppDialog v-if="showCreate" title="创建快捷模板" :busy="submitting" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(submitting) || (showCreate = false)">
+      <fieldset :disabled="submitting" class="min-w-0 border-0 p-0 m-0"><div class="space-y-4">
             <div class="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-white/10">
               <button class="rounded-lg py-2 text-sm font-medium transition" :class="form.type === 'expense' ? 'bg-white text-gray-900 shadow-sm dark:bg-white/15 dark:text-white' : 'text-gray-500'" @click="changeType('expense')">支出</button>
               <button class="rounded-lg py-2 text-sm font-medium transition" :class="form.type === 'income' ? 'bg-white text-gray-900 shadow-sm dark:bg-white/15 dark:text-white' : 'text-gray-500'" @click="changeType('income')">收入</button>
             </div>
-            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">模板名称</span><input v-model="form.name" maxlength="100" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="例如：工作日午餐" /></label>
-            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">默认金额</span><input v-model="form.amount" type="number" min="0" step="0.01" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="0 表示使用时填写" /></label>
-            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">账户</span><select v-model="form.account_id" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white"><option v-for="account in activeAccounts" :key="account.id" :value="account.id">{{ account.name }}</option></select></label>
-            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">分类</span><select v-model="form.category_id" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white"><option v-for="category in filteredCategories" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
-            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">备注</span><input v-model="form.remark" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="选填" /></label>
-            <button class="h-12 w-full rounded-xl bg-primary font-semibold text-white disabled:opacity-50" :disabled="submitting" @click="createTemplate">{{ submitting ? '保存中...' : '保存模板' }}</button>
-          </div>
-        </div>
-      </div>
+            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">模板名称</span><input name="name" aria-label="模板名称" style="min-width: 0; max-width: 100%" v-model="form.name" maxlength="100" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-hidden focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="例如：工作日午餐" /></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">默认金额</span><input name="amount" aria-label="默认金额" style="min-width: 0; max-width: 100%" v-model="form.amount" type="number" min="0" step="0.01" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-hidden focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="0 表示使用时填写" /></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">账户</span><select name="account_id" aria-label="账户" style="min-width: 0; max-width: 100%" v-model="form.account_id" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-hidden focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white"><option v-for="account in activeAccounts" :key="account.id" :value="account.id">{{ account.name }}</option></select></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">分类</span><select name="category_id" aria-label="分类" style="min-width: 0; max-width: 100%" v-model="form.category_id" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-hidden focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white"><option v-for="category in filteredCategories" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">备注</span><input name="remark" aria-label="备注" style="min-width: 0; max-width: 100%" v-model="form.remark" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-hidden focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" placeholder="选填" /></label>
 
-      <div v-if="applyingTemplate" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="applyingTemplate = null"></div>
-        <div class="relative w-full max-w-sm rounded-3xl bg-white/95 p-6 shadow-2xl dark:bg-[#1C1C1E]/95">
-          <div class="mb-1 flex items-center justify-between"><h2 class="text-lg font-bold text-gray-900 dark:text-white">使用「{{ applyingTemplate.name }}」</h2><button class="rounded-full p-2 text-gray-400 hover:bg-black/5 dark:hover:bg-white/10" @click="applyingTemplate = null"><X :size="19" /></button></div>
-          <p class="mb-5 text-sm text-gray-500 dark:text-gray-400">确认金额和日期后才会写入账本。</p>
+          </div>
+      </fieldset>
+      <template #footer><button class="h-12 w-full rounded-xl bg-primary font-semibold text-white disabled:opacity-50" :disabled="submitting" @click="createTemplate">{{ submitting ? '保存中...' : '保存模板' }}</button></template>
+    </AppDialog>
+
+    <AppDialog v-if="applyingTemplate" :title="`使用「${applyingTemplate.name}」`" :busy="submitting" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(submitting) || (applyingTemplate = null)">
+      <fieldset :disabled="submitting" class="min-w-0 border-0 p-0 m-0"><p class="mb-5 text-sm text-gray-500 dark:text-gray-400">确认金额和日期后才会写入账本。</p>
           <div class="space-y-4">
-            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">金额</span><input v-model="applyForm.amount" type="number" min="0.01" step="0.01" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" /></label>
-            <label class="block"><span class="mb-1.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-gray-400"><Clock3 :size="13" />日期时间</span><input v-model="applyForm.transaction_date" type="datetime-local" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" /></label>
-            <button class="h-12 w-full rounded-xl bg-primary font-semibold text-white disabled:opacity-50" :disabled="submitting" @click="applyTemplate">{{ submitting ? '记账中...' : '确认记账' }}</button>
-          </div>
-        </div>
-      </div>
+            <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-400">金额</span><input name="amount" aria-label="金额" style="min-width: 0; max-width: 100%" v-model="applyForm.amount" type="number" min="0.01" step="0.01" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-hidden focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" /></label>
+            <label class="block"><span class="mb-1.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-gray-400"><Clock3 :size="13" />日期时间</span><input name="transaction_date" aria-label="日期时间" style="min-width: 0; max-width: 100%" v-model="applyForm.transaction_date" type="datetime-local" class="h-12 w-full rounded-xl border-0 bg-gray-100 px-4 outline-hidden focus:ring-2 focus:ring-primary/30 dark:bg-white/10 dark:text-white" /></label>
 
-      <div v-if="deletingTemplate" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="deletingTemplate = null"></div>
-        <div class="relative w-full max-w-xs rounded-3xl bg-white/95 p-6 text-center shadow-2xl dark:bg-[#1C1C1E]/95">
-          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-500 dark:bg-red-900/30"><Trash2 :size="22" /></div>
-          <h2 class="font-bold text-gray-900 dark:text-white">删除「{{ deletingTemplate.name }}」？</h2>
-          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">已按模板创建的交易不会受影响。</p>
-          <div class="mt-6 grid grid-cols-2 gap-3"><button class="h-11 rounded-xl bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200" @click="deletingTemplate = null">取消</button><button class="h-11 rounded-xl bg-red-500 font-medium text-white disabled:opacity-50" :disabled="submitting" @click="deleteTemplate">删除</button></div>
-        </div>
-      </div>
-    </Teleport>
-  </div>
+          </div>
+      </fieldset>
+      <template #footer><button class="h-12 w-full rounded-xl bg-primary font-semibold text-white disabled:opacity-50" :disabled="submitting" @click="applyTemplate">{{ submitting ? '记账中...' : '确认记账' }}</button></template>
+    </AppDialog>
+
+    <AppDialog v-if="deletingTemplate" :title="`删除「${deletingTemplate.name}」？`" :busy="submitting" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(submitting) || (deletingTemplate = null)">
+      <fieldset :disabled="submitting" class="min-w-0 border-0 p-0 m-0"><p class="mt-2 text-sm text-gray-500 dark:text-gray-400">已按模板创建的交易不会受影响。</p>
+      </fieldset>
+      <template #footer><button class="h-11 rounded-xl bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200" @click="deletingTemplate = null" :disabled="submitting">取消</button><button class="h-11 rounded-xl bg-red-500 font-medium text-white disabled:opacity-50" :disabled="submitting" @click="deleteTemplate">删除</button></template>
+    </AppDialog>
+  </FinancePage>
 </template>

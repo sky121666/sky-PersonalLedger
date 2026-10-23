@@ -1,53 +1,120 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch, defineAsyncComponent, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { 
-  Eye, EyeOff, ChevronRight, RefreshCw, 
-  LayoutList, Calendar as CalendarIcon, Wallet,
-  AlertCircle, Check, Home, Users, Sparkles
-} from 'lucide-vue-next'
-import { accountApi, type AccountListResponse } from '@/api/account'
+import { RefreshCw, Eye, EyeOff, SlidersHorizontal, Plus, Undo2, Ellipsis } from '@lucide/vue'
 import { transactionApi, type Transaction } from '@/api/transaction'
-import { statisticsApi, type OverviewResponse } from '@/api/statistics'
-import { budgetApi, type BudgetSummary } from '@/api/budget'
-import { reminderApi, type DebtSummary } from '@/api/reminder'
-import { lendingApi, type LendingSummary } from '@/api/lending'
-import { familyApi, type FamilySummary } from '@/api/family'
-import { aiApi, type AIReport } from '@/api/ai'
-import { getAccountTypeName, AMOUNT_COLORS } from '@/utils/constants'
 import { isManagedTransaction } from '@/utils/managedTransaction'
 import TransactionDialog from '@/components/TransactionDialog.vue'
-import CalendarView from '@/components/CalendarView.vue'
-import DynamicIcon from '@/components/DynamicIcon.vue'
 import { toast } from '@/composables/useToast'
 import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
 import { createRequestGeneration } from '@/utils/requestGeneration'
 import dayjs from 'dayjs'
+import HomeWidget from '@/components/home/HomeWidget.vue'
+import { createHomeReadModels, getTransactionPresentation } from '@/components/home/readModels'
+import { getColumnCount } from '@/components/home/layout'
+import WidgetGrid from '@/components/home/WidgetGrid.vue'
+import { useWorkspacePreferencesStore } from '@/stores/workspacePreferences'
+import { useHomeOverview } from '@/composables/useHomeOverview'
+import { useAuthStore } from '@/stores/auth'
+import { type WidgetKind, type WidgetSize } from '@/components/home/model'
+const WidgetGallery = defineAsyncComponent(() => import('@/components/home/WidgetGallery.vue'))
 
 const router = useRouter()
 const ledgerMutationRevision = useLedgerMutationRevision()
-const dataRequestGeneration = createRequestGeneration()
 const dateTransactionsRequestGeneration = createRequestGeneration()
 const refreshRequests = createRequestGeneration()
 
-const loading = ref(false)
-const loadFailures = ref<string[]>([])
 const dateTransactionsFailed = ref(false)
 const showAmount = ref(true)
 const viewMode = ref<'list' | 'calendar'>('list')
 const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
+const calendarRef = ref<{ loadData: () => Promise<'success' | 'failed' | 'stale'> } | null>(null)
+const dateTransactionsLoading = ref(false)
+const dateTransactionsTotal = ref(0)
+const dateTransactionsPage = ref(1)
+const dateFailedPage = ref(1)
 
-// Data states
-const accountData = ref<AccountListResponse | null>(null)
-const overview = ref<OverviewResponse | null>(null)
-const recentTransactions = ref<Transaction[]>([])
+const preferences = useWorkspacePreferencesStore()
+const auth = useAuthStore()
+const homeLayout = computed(() => preferences.home)
+const optionalSources = computed(() => {
+  const widgets = homeLayout.value.widgets
+  const enabled = (kind: WidgetKind) => widgets.some(widget => widget.kind === kind)
+  return {
+    lending: enabled('lending'), family: enabled('family'), ai: enabled('ai'),
+    budgetDetails: widgets.some(widget => widget.kind === 'budget' && widget.sizes[preferences.viewport] === 'large'),
+    accountIds: widgets.filter(widget => widget.kind === 'account' && widget.sizes[preferences.viewport] === 'medium').map(widget => widget.config.accountId),
+  }
+})
+const homeData = useHomeOverview({ optional: () => optionalSources.value, sessionGeneration: () => auth.sessionGeneration })
+const loading = homeData.loading
+const loadFailures = homeData.failures
+const accountData = computed(() => homeData.accounts.value.data)
+const overview = computed(() => homeData.overview.value.data)
+const recentTransactions = computed(() => homeData.recentTransactions.value.data ?? [])
+const debtSummary = computed(() => homeData.debt.value.data)
+const budgetSummary = computed(() => homeData.budget.value.data)
+const lendingSummary = computed(() => homeData.lending.value.data)
+const familySummary = computed(() => homeData.family.value.data)
+const latestAIReport = computed(() => homeData.ai.value.data?.[0] ?? null)
 const dateTransactions = ref<Transaction[]>([])
 const dateTransactionsDate = ref('')
-const debtSummary = ref<DebtSummary | null>(null)
-const budgetSummary = ref<BudgetSummary | null>(null)
-const lendingSummary = ref<LendingSummary | null>(null)
-const familySummary = ref<FamilySummary | null>(null)
-const latestAIReport = ref<AIReport | null>(null)
+watch(optionalSources, () => { void homeData.loadOptional() })
+watch(() => auth.sessionGeneration, () => {
+  homeData.reset(); dateTransactionsRequestGeneration.begin(); refreshRequests.begin()
+  dateTransactions.value = []; dateTransactionsDate.value = ''; dateTransactionsTotal.value = 0
+  showDialog.value = false; showGallery.value = false
+}, { flush: 'sync' })
+const showGallery = ref(false)
+const galleryReturnFocus = ref<HTMLElement | null>(null)
+const configuringAccount = ref<string | undefined>()
+const editingError = ref('')
+const canUndo = computed(() => preferences.undoStack.length > 0)
+function startEditing() {
+  if (!preferences.ready) return toast.error('请先重试加载界面偏好')
+  preferences.beginEdit(); preferences.setViewport(widgetViewport.value); editingError.value = ''
+}
+function cancelEditing() { preferences.cancelEdit(); editingError.value = ''; showGallery.value = false }
+async function finishEditing() {
+  const result = await preferences.commitEdit()
+  if (result.status === 'conflict' && preferences.homeIssue) { editingError.value = preferences.homeIssue === 'unsupported' ? '首页布局来自更高版本，原配置已保留，当前草稿不能保存。' : '首页布局已损坏，请从更多恢复两端默认布局后完成。'; return }
+  editingError.value = result.status === 'conflict' ? '布局已在其他标签更新或版本不兼容，草稿已保留。' : result.status === 'failed' ? '布局保存失败，草稿已保留，请重试。' : ''
+}
+function reloadLatestHome() { if (preferences.reloadHome()) editingError.value = ''; else toast.error('无法载入最新布局，当前草稿已保留') }
+function openGallery(id?: string) {
+  configuringAccount.value = id
+  galleryReturnFocus.value = id
+    ? Array.from(widgetGrid.value?.element?.querySelectorAll<HTMLElement>('[data-widget-id]') ?? []).find(el => el.dataset.widgetId === id)?.querySelector<HTMLElement>('.widget-menu-trigger') ?? null
+    : document.querySelector<HTMLElement>('[aria-label="添加小组件"]')
+  showGallery.value = true
+}
+function closeGallery(target: HTMLElement | null = galleryReturnFocus.value, reveal = false) {
+  showGallery.value = false
+  void nextTick(() => {
+    const destination = target?.isConnected ? target : document.querySelector<HTMLElement>('[aria-label="添加小组件"]')
+    if (reveal) destination?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    destination?.focus({ preventScroll: true })
+  })
+}
+function addWidget(kind: WidgetKind, size: WidgetSize, accountId?: string) {
+  const existing = homeLayout.value.widgets.find(w => w.kind === kind && (w.kind !== 'account' || w.config.accountId === accountId))
+  if (existing) {
+    const target = Array.from(widgetGrid.value?.element?.querySelectorAll<HTMLElement>('[data-widget-id]') ?? []).find(el => el.dataset.widgetId === existing.id)?.querySelector<HTMLElement>('.widget-drag-handle') ?? null
+    closeGallery(target, true)
+    return
+  }
+  try {
+    if (configuringAccount.value && kind === 'account' && accountId) { preferences.configureAccount(configuringAccount.value, accountId); closeGallery(); configuringAccount.value = undefined }
+    else preferences.addWidget(kind, { accountId }, size)
+  } catch { toast.error('组件配置无效，请检查账户是否重复') }
+}
+const widgetColumns = ref<4 | 2 | 1>(4)
+const previewGridWidth = ref(928)
+const widgetViewport = ref<'desktop' | 'mobile'>(typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'mobile' : 'desktop')
+const widgetGrid = ref<{ element: HTMLElement | null; cancelDrag: () => void } | null>(null)
+let widgetGridObserver: ResizeObserver | null = null
+let widgetResizeFrame: number | null = null
+let observedWidgetWidth = -1
 
 // Dialog states
 const showDialog = ref(false)
@@ -56,114 +123,142 @@ const editingId = ref<string | null>(null)
 // Computed
 const currentMonth = computed(() => dayjs().format('YYYY年M月'))
 const isToday = computed(() => selectedDate.value === dayjs().format('YYYY-MM-DD'))
+const homeReadModels = computed(() => createHomeReadModels({
+  accounts: accountData.value, overview: overview.value, budget: budgetSummary.value, debt: debtSummary.value,
+  lending: lendingSummary.value, family: familySummary.value, aiReport: latestAIReport.value,
+  recentTransactions: recentTransactions.value, showAmounts: showAmount.value, failures: loadFailures.value,
+  budgetDetails: homeData.budgetDetails.value, accountTransactions: homeData.accountTransactions.value,
+}))
+const transactionTypes = { income: '收入', expense: '支出', transfer: '转账' }
+const dateTransactionItems = computed(() => dateTransactions.value.map(transaction => ({
+  transaction, presentation: getTransactionPresentation(transaction, showAmount.value),
+})))
+
+
+
 
 onMounted(() => {
   loadData()
-  loadDateTransactions(selectedDate.value)
+  if (homeLayout.value.widgets.some(widget => widget.kind === 'calendar')) loadDateTransactions(selectedDate.value)
+  updateWidgetColumns()
+  if (typeof ResizeObserver !== 'undefined' && widgetGrid.value?.element) {
+    widgetGridObserver = new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect.width
+      if (width === undefined || width === observedWidgetWidth) return
+      observedWidgetWidth = width
+      if (widgetResizeFrame !== null) return
+      widgetResizeFrame = window.requestAnimationFrame(() => {
+        widgetResizeFrame = null
+        updateWidgetColumns()
+      })
+    })
+    widgetGridObserver.observe(widgetGrid.value.element)
+  }
+  if (typeof window !== 'undefined') window.addEventListener('resize', updateWidgetColumns)
 })
+
+onBeforeUnmount(() => {
+  widgetGridObserver?.disconnect()
+  if (widgetResizeFrame !== null) window.cancelAnimationFrame(widgetResizeFrame)
+  if (typeof window !== 'undefined') window.removeEventListener('resize', updateWidgetColumns)
+})
+
+function updateWidgetColumns() {
+  if (typeof window === 'undefined') return
+  const width = widgetGrid.value?.element?.clientWidth ?? (window.innerWidth - 32)
+  previewGridWidth.value = width
+  widgetColumns.value = getColumnCount(width)
+  const next = window.matchMedia('(max-width: 767px)').matches ? 'mobile' : 'desktop'
+  if (next !== widgetViewport.value) widgetGrid.value?.cancelDrag()
+  widgetViewport.value = next
+  preferences.setViewport(next)
+}
 
 watch(ledgerMutationRevision, () => {
   void refreshLedgerData()
 })
 
 async function loadData(): Promise<'success' | 'partial' | 'failed' | 'stale'> {
-  const requestGeneration = dataRequestGeneration.begin()
-  loading.value = true
-  try {
-    const [acc, ov, tx, debt, bud, lending, family, aiReports] = await Promise.allSettled([
-      accountApi.getList(),
-      statisticsApi.getOverview(),
-      transactionApi.getList({ page_size: 20 }),
-      reminderApi.getDebtSummary(),
-      budgetApi.getSummary(),
-      lendingApi.getSummary(),
-      familyApi.getSummary(dayjs().format('YYYY-MM')),
-      aiApi.listReports()
-    ])
-    if (!dataRequestGeneration.isLatest(requestGeneration)) return 'stale'
-    const failures: string[] = []
-    if (acc.status === 'fulfilled') accountData.value = acc.value
-    else failures.push('账户资产')
-    if (ov.status === 'fulfilled') overview.value = ov.value
-    else failures.push('本月收支')
-    if (tx.status === 'fulfilled') {
-      recentTransactions.value = tx.value.list.sort((a, b) =>
-        new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
-      )
-    } else failures.push('近期交易')
-    if (debt.status === 'fulfilled') debtSummary.value = debt.value
-    else failures.push('债务提醒')
-    if (bud.status === 'fulfilled') budgetSummary.value = bud.value
-    else failures.push('预算')
-    if (lending.status === 'fulfilled') lendingSummary.value = lending.value
-    else failures.push('借贷')
-    if (family.status === 'fulfilled') familySummary.value = family.value
-    else failures.push('家庭成员')
-    if (aiReports.status === 'fulfilled') latestAIReport.value = aiReports.value[0] || null
-    else failures.push('AI 分析')
-    loadFailures.value = failures
-    if ([acc, ov, tx].some(result => result.status === 'rejected')) {
-      toast.error('部分核心数据加载失败，请重试')
-      return 'failed'
-    }
-    return failures.length > 0 ? 'partial' : 'success'
-  } finally {
-    if (dataRequestGeneration.isLatest(requestGeneration)) loading.value = false
-  }
+  const result = await homeData.load()
+  if (result === 'failed') toast.error('部分核心数据加载失败，请重试')
+  return result
 }
 
-async function loadDateTransactions(date: string): Promise<'success' | 'failed' | 'stale'> {
+async function loadDateTransactions(date: string, requestedPage = 1): Promise<'success' | 'failed' | 'stale'> {
   if (selectedDate.value !== date) return 'stale'
   const requestGeneration = dateTransactionsRequestGeneration.begin()
-  if (dateTransactionsDate.value !== date) dateTransactions.value = []
+  const ownerGeneration = auth.sessionGeneration
+  if (dateTransactionsDate.value !== date) {
+    dateTransactions.value = []
+    dateTransactionsDate.value = ''
+    dateTransactionsTotal.value = 0
+    dateTransactionsPage.value = 1
+  }
+  dateTransactionsLoading.value = true
   dateTransactionsFailed.value = false
   try {
     const res = await transactionApi.getList({
       start_date: date,
       end_date: date,
+      page: requestedPage,
       page_size: 100
     })
     if (
-      !dateTransactionsRequestGeneration.isLatest(requestGeneration) ||
+      !dateTransactionsRequestGeneration.isLatest(requestGeneration) || auth.sessionGeneration !== ownerGeneration ||
       selectedDate.value !== date
     ) return 'stale'
     dateTransactionsDate.value = date
     dateTransactionsFailed.value = false
-    // Sort by transaction_date DESC
-    dateTransactions.value = res.list.sort((a, b) => 
+    dateTransactionsPage.value = requestedPage
+    dateTransactionsTotal.value = res.total ?? res.list.length
+    const items = requestedPage === 1 ? res.list : [...dateTransactions.value, ...res.list]
+    dateTransactions.value = [...new Map(items.map(item => [item.id, item])).values()].sort((a, b) =>
       new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
     )
     return 'success'
   } catch {
     if (
-      !dateTransactionsRequestGeneration.isLatest(requestGeneration) ||
+      !dateTransactionsRequestGeneration.isLatest(requestGeneration) || auth.sessionGeneration !== ownerGeneration ||
       selectedDate.value !== date
     ) return 'stale'
     dateTransactionsFailed.value = true
+    dateFailedPage.value = requestedPage
     return 'failed'
+  } finally {
+    if (dateTransactionsRequestGeneration.isLatest(requestGeneration)) dateTransactionsLoading.value = false
   }
+}
+
+function loadMoreDateTransactions() {
+  if (dateTransactionsLoading.value || dateTransactions.value.length >= dateTransactionsTotal.value) return
+  void loadDateTransactions(selectedDate.value, dateTransactionsPage.value + 1)
 }
 
 async function refresh() {
   const generation = refreshRequests.begin()
   const refreshDate = selectedDate.value
-  const refreshCalendar = viewMode.value === 'calendar'
+  const refreshCalendar = viewMode.value === 'calendar' || homeLayout.value.widgets.some(widget => widget.kind === 'calendar')
   const result = await loadData()
   if (
     result === 'stale' || !refreshRequests.isLatest(generation)
     || (refreshCalendar && selectedDate.value !== refreshDate)
   ) return
-  const dateResult = refreshCalendar ? await loadDateTransactions(refreshDate) : 'success'
+  const [dateResult, calendarResult] = refreshCalendar
+    ? await Promise.all([loadDateTransactions(refreshDate), calendarRef.value?.loadData() ?? Promise.resolve('success')])
+    : ['success', 'success']
   if (
     !refreshRequests.isLatest(generation) || dateResult === 'stale'
     || (refreshCalendar && selectedDate.value !== refreshDate)
   ) return
   if (dateResult === 'failed') toast.error('所选日期交易刷新失败，请重试')
+  else if (calendarResult === 'failed') toast.error('日历金额刷新失败，请重试')
+  else if (calendarResult === 'stale') return
   else if (result === 'success') toast.success('刷新成功')
   else if (result === 'partial') toast.warning('核心数据已刷新，部分辅助数据加载失败')
 }
 
 function handleDateSelect(date: string) {
+  viewMode.value = 'calendar'
   refreshRequests.begin()
   selectedDate.value = date
   loadDateTransactions(date)
@@ -174,32 +269,23 @@ function formatMoney(value: number | undefined) {
   return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function getAIReportSummary(report: AIReport | null) {
-  if (!report?.content_json) return '还没有报告'
-  try {
-    const content = JSON.parse(report.content_json)
-    return content.summary || content.title || '报告已生成'
-  } catch {
-    return report.content_json
+
+
+function setCalendarRef(kind: WidgetKind, instance: unknown) { if (kind === 'calendar') calendarRef.value = instance as typeof calendarRef.value }
+
+function handleWidgetNavigate(kind: string, accountId?: string) {
+  const routes: Record<string, string | { path: string; query?: Record<string, string> }> = {
+    netAssets: '/accounts', monthlyFlow: '/statistics', budget: '/budgets',
+    reminders: { path: '/reminders', query: { view: 'reminders' } }, transactions: '/transactions',
+    accounts: '/accounts', account: accountId ? `/account-logs/${accountId}` : '/accounts',
+    calendar: '/transactions', lending: '/lendings', family: '/family', ai: '/ai',
   }
+  const destination = routes[kind] ?? '/'
+  void router.push(destination)
 }
 
-function getCategoryIcon(icon: string | undefined, name: string) {
-  if (icon) return icon
-  const map: Record<string, string> = {
-    '餐饮': '🍽️', '交通': '🚗', '购物': '🛍️', '娱乐': '🎮',
-    '居住': '🏠', '医疗': '💊', '教育': '📚', '工资': '💰',
-    '奖金': '🎁', '理财': '📈', '通讯': '📱', '服饰': '👔',
-    '美容': '💄', '运动': '🏃', '旅行': '✈️', '社交': '👥',
-    '宠物': '🐱', '兼职': '💼', '报销': '📄', '红包': '🧧',
-    '其他': '💳'
-  }
-  return map[name] || '💳'
-}
 
-function goToTransactions() {
-  router.push('/transactions')
-}
+
 
 function addTransaction() {
   editingId.value = null
@@ -215,503 +301,65 @@ function editTransaction(transaction: Transaction) {
 async function refreshLedgerData() {
   await Promise.all([
     loadData(),
-    loadDateTransactions(selectedDate.value),
+    homeLayout.value.widgets.some(widget => widget.kind === 'calendar') || viewMode.value === 'calendar'
+      ? loadDateTransactions(selectedDate.value) : Promise.resolve('success'),
   ])
 }
 onBeforeUnmount(() => {
-  dataRequestGeneration.begin()
+  homeData.invalidate()
   dateTransactionsRequestGeneration.begin()
   refreshRequests.begin()
 })
 
+defineExpose({ formatMoney, handleDateSelect, loadMoreDateTransactions, addTransaction, editTransaction, isToday })
+
 </script>
 
 <template>
-  <div class="min-h-full bg-[#F2F2F7] dark:bg-black pb-24 md:pb-8">
-    <!-- Header Area -->
-    <div class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
-      <div class="max-w-3xl mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-3 md:gap-4">
-          <div class="w-11 h-11 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/20">
-            <Home class="text-white" :size="22" />
-          </div>
-          <div>
-            <h1 class="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Personal Ledger</h1>
-            <div class="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ currentMonth }}</div>
-          </div>
+  <div class="home-page min-h-full bg-[#F2F2F7] dark:bg-[#0B0B0D] pb-24 md:pb-8">
+    <div class="home-content max-w-3xl mx-auto px-4 md:px-8">
+      <div class="home-heading">
+        <div class="home-heading-title"><h1>首页</h1><span>{{ currentMonth }}</span></div>
+        <div class="home-heading-actions">
+          <button v-if="!preferences.editing" type="button" class="home-edit-trigger" aria-label="编辑小组件" :disabled="!preferences.ready" @click="startEditing"><SlidersHorizontal :size="17" aria-hidden="true" /><span>编辑小组件</span></button>
+          <button type="button" class="home-icon-action" :aria-label="showAmount ? '隐藏首页金额' : '显示首页金额'" :title="showAmount ? '隐藏金额' : '显示金额'" @click="showAmount = !showAmount"><component :is="showAmount ? Eye : EyeOff" :size="19" aria-hidden="true" /></button>
+          <button type="button" class="home-icon-action" aria-label="刷新首页数据" title="刷新" :disabled="loading" @click="refresh"><RefreshCw :size="18" aria-hidden="true" :class="{ 'animate-spin': loading }" /></button>
         </div>
-        
-        <button
-          type="button"
-          aria-label="刷新首页数据"
-          class="p-2.5 bg-gray-100/50 dark:bg-white/5 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 rounded-full transition"
-          :class="{ 'animate-spin': loading }"
-          @click="refresh"
-        >
-          <RefreshCw :size="20" />
-        </button>
       </div>
-    </div>
-
-    <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
       <div v-if="loadFailures.length" role="alert" class="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-800 dark:text-amber-200">
         {{ loadFailures.join('、') }}加载失败；对应数据为上次成功结果或尚未加载。
         <button type="button" class="ml-2 underline" @click="refresh">重试</button>
       </div>
-      <div v-if="dateTransactionsFailed && viewMode === 'calendar'" role="alert" class="text-sm text-amber-700">所选日期交易加载失败，请重试。</div>
-      <!-- Assets Card -->
-      <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl md:rounded-3xl p-4 md:p-6 text-white shadow-xl relative overflow-hidden group">
-        <!-- Decorative background elements -->
-        <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl group-hover:bg-white/10 transition duration-700"></div>
-        <div class="absolute bottom-0 left-0 w-48 h-48 bg-primary/20 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl"></div>
-        
-        <div class="relative z-10">
-          <div class="flex justify-between items-start mb-6">
-            <div>
-              <div class="flex items-center gap-2 text-white/60 text-sm mb-1">
-                <span>净资产</span>
-                <button
-                  type="button"
-                  :aria-label="showAmount ? '隐藏金额' : '显示金额'"
-                  @click="showAmount = !showAmount"
-                  class="hover:text-white transition"
-                >
-                  <Eye v-if="showAmount" :size="16" />
-                  <EyeOff v-else :size="16" />
-                </button>
-              </div>
-              <div class="text-3xl md:text-4xl font-bold font-nums tracking-tight">
-                {{ showAmount ? formatMoney(accountData?.net_assets) : '****' }}
-              </div>
-            </div>
-            <div class="bg-white/10 p-2.5 rounded-xl backdrop-blur-sm border border-white/10">
-              <Wallet class="text-white" :size="24" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-8 pt-4 border-t border-white/10">
-            <div>
-              <div class="text-white/60 text-xs mb-1">总资产</div>
-              <div class="text-lg font-semibold font-nums">
-                {{ showAmount ? formatMoney(accountData?.total_assets) : '****' }}
-              </div>
-            </div>
-            <div>
-              <div class="text-white/60 text-xs mb-1">总负债</div>
-              <div class="text-lg font-semibold font-nums text-red-300">
-                {{ showAmount ? formatMoney(accountData?.total_liabilities) : '****' }}
-              </div>
-            </div>
-          </div>
-        </div>
+      <div v-if="dateTransactionsFailed && viewMode === 'calendar'" role="alert" class="text-sm text-amber-700">所选日期交易加载失败。<button class="underline" @click="loadDateTransactions(selectedDate, dateFailedPage)">重试</button></div>
+      <div v-if="preferences.editing" class="widget-editor-toolbar" role="toolbar" aria-label="首页布局编辑">
+        <button type="button" class="widget-add-trigger" aria-label="添加小组件" @click="openGallery()"><Plus :size="18" aria-hidden="true" /><span>添加小组件</span></button>
+        <button type="button" class="widget-toolbar-icon" aria-label="撤销布局操作" title="撤销" :disabled="!canUndo" @click="preferences.undoEdit()"><Undo2 :size="18" aria-hidden="true" /></button>
+        <details><summary aria-label="更多布局操作" title="更多"><Ellipsis :size="18" aria-hidden="true" /></summary><button type="button" @click="preferences.restoreDefault()">恢复桌面与手机默认布局</button></details>
+        <span class="widget-toolbar-spacer" />
+        <button type="button" aria-label="取消编辑" @click="cancelEditing">取消</button>
+        <button type="button" class="widget-primary" aria-label="完成编辑" @click="finishEditing">完成</button>
       </div>
+      <div v-if="editingError" role="alert">{{ editingError }}<button type="button" @click="reloadLatestHome">载入最新布局（放弃当前草稿）</button><button type="button" @click="finishEditing">重试保存</button></div>
+      <p v-if="!homeLayout.widgets.length" class="widget-empty">首页还没有小组件。{{ preferences.editing ? '添加小组件，或从更多恢复默认布局。' : '点击编辑小组件开始添加。' }}</p>
+      <WidgetGrid :account-names="Object.fromEntries((accountData?.list ?? []).map(account => [account.id, account.name]))" ref="widgetGrid" :layout="homeLayout" :viewport="widgetViewport" :columns="widgetColumns" :editing="preferences.editing" :content-revision="homeReadModels" @move="preferences.moveWidget" @resize="preferences.resizeWidget" @remove="preferences.removeWidget" @configure="openGallery">
+        <template #default="{ widget }"><HomeWidget :ref="component => setCalendarRef(widget.kind, component)" :show-amounts="showAmount" :instance="widget" :read-models="homeReadModels" :viewport="widgetViewport" @navigate="handleWidgetNavigate" @select-transaction="editTransaction" @select-date="handleDateSelect" /></template>
+      </WidgetGrid>
+      <section v-if="homeLayout.widgets.some(w => w.kind === 'calendar') && viewMode === 'calendar'" :inert="preferences.editing || undefined" aria-label="所选日期交易" class="home-widget">
+        <h3>{{ selectedDate }} · {{ dateTransactionsTotal }} 笔</h3>
+        <p v-if="dateTransactionsLoading">正在加载</p><p v-else-if="dateTransactionsFailed" role="alert">日期交易加载失败。<button type="button" @click="loadDateTransactions(selectedDate, dateFailedPage)">重试日期交易</button></p>
+        <button v-for="{ transaction, presentation } in dateTransactionItems" :key="transaction.id" type="button" class="transaction-row" :aria-label="`${transactionTypes[transaction.type]} ${transaction.remark || presentation.title}`" @click="($event.currentTarget as HTMLElement).focus({ preventScroll: true }); editTransaction(transaction)">
+          <span>{{ transactionTypes[transaction.type] }}</span>
+          <span class="transaction-name">{{ transaction.remark || presentation.title }}</span>
+          <strong :class="`amount-${presentation.tone}`">{{ presentation.displayAmount }}</strong>
+        </button>
+        <button v-if="dateTransactions.length < dateTransactionsTotal" type="button" :disabled="dateTransactionsLoading" @click="loadMoreDateTransactions">加载更多日期交易</button>
+      </section>
+      <WidgetGallery :show-amounts="showAmount" :columns="widgetColumns" :available-width="previewGridWidth" :initial-size="homeLayout.widgets.find(w => w.id === configuringAccount)?.sizes[widgetViewport]" v-if="showGallery && preferences.editing" :layout="homeLayout" :viewport="widgetViewport" :accounts="accountData?.list ?? []" :accounts-failed="!accountData || loadFailures.includes('账户资产')" :initial-account-id="homeLayout.widgets.find(w => w.id === configuringAccount && w.kind === 'account')?.config.accountId" @close="closeGallery()" @add="addWidget" />
+      <!-- Legacy summary cards are replaced by HomeWidget; old semantic assertions remain in the test suite. -->
 
-      <!-- Quick Account Access -->
-      <div v-if="accountData?.list?.length" class="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20 dark:border-gray-700/50">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold text-gray-900 dark:text-white text-sm">我的账户</h3>
-          <button @click="router.push('/accounts')" class="text-xs text-primary flex items-center gap-1 hover:underline">
-            管理 <ChevronRight :size="14" />
-          </button>
-        </div>
-        <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-          <div 
-            v-for="acc in accountData.list.filter(a => !a.is_archived).slice(0, 6)" 
-            :key="acc.id"
-            class="flex-shrink-0 w-32 p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition flex flex-col justify-between h-20"
-            @click="router.push('/accounts')"
-          >
-            <div class="flex justify-between items-start">
-              <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{{ getAccountTypeName(acc.type) }}</span>
-            </div>
-            <div>
-              <div class="text-xs text-gray-900 dark:text-gray-300 font-medium truncate mb-0.5">{{ acc.name }}</div>
-              <div class="font-bold text-sm font-nums" :class="acc.current_balance >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative">
-                {{ showAmount ? formatMoney(acc.current_balance) : '****' }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Legacy lending card replaced by HomeWidget. -->
 
-      <!-- Monthly Overview -->
-      <div class="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20 dark:border-gray-700/50">
-        <div class="grid grid-cols-3 gap-4">
-          <div class="text-center">
-            <div class="flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-              <span>收入</span>
-            </div>
-            <div class="font-bold text-red-500 font-nums text-lg">+{{ formatMoney(overview?.income) }}</div>
-          </div>
-          <div class="text-center">
-            <div class="flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-              <span>支出</span>
-            </div>
-            <div class="font-bold text-green-500 font-nums text-lg">-{{ formatMoney(overview?.expense) }}</div>
-          </div>
-          <div class="text-center">
-            <div class="flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-gray-900 dark:bg-white"></span>
-              <span>结余</span>
-            </div>
-            <div class="font-bold font-nums text-lg" :class="(overview?.balance || 0) >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative">
-              {{ formatMoney(overview?.balance) }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Dashboard Grid: Budget & Debt -->
-      <div class="grid md:grid-cols-2 gap-4">
-        <!-- Family Card -->
-        <div
-          class="bg-gradient-to-br from-emerald-50/80 to-teal-50/80 dark:from-gray-800/80 dark:to-gray-800/80 backdrop-blur-xl rounded-3xl p-6 border border-white/20 dark:border-gray-700/50 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group shadow-sm"
-          @click="router.push('/family')"
-        >
-          <div class="absolute right-0 top-0 w-32 h-32 bg-emerald-100 dark:bg-emerald-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-
-          <div class="relative">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Users :size="18" class="text-emerald-600 dark:text-emerald-400" />
-                <span>家庭支出</span>
-              </h3>
-              <span class="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm">
-                {{ familySummary?.members?.length || 0 }}人
-              </span>
-            </div>
-
-            <div class="mb-4">
-              <div class="text-2xl font-bold font-nums text-gray-900 dark:text-white">
-                {{ formatMoney(familySummary?.total_expense) }}
-              </div>
-              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ currentMonth }}家庭归属统计</div>
-            </div>
-
-            <div class="flex items-center justify-between text-xs text-gray-500">
-              <span class="truncate">
-                {{ familySummary?.members?.[0]?.name ? `${familySummary.members[0].name} ${formatMoney(familySummary.members[0].expense_total)}` : '添加成员后自动汇总' }}
-              </span>
-              <span class="flex items-center gap-1">
-                管理 <ChevronRight :size="14" />
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- AI Insight Card -->
-        <div
-          class="bg-gradient-to-br from-cyan-50/80 to-slate-50/80 dark:from-gray-800/80 dark:to-gray-800/80 backdrop-blur-xl rounded-3xl p-6 border border-white/20 dark:border-gray-700/50 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group shadow-sm"
-          @click="router.push('/ai')"
-        >
-          <div class="absolute right-0 top-0 w-32 h-32 bg-cyan-100 dark:bg-cyan-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-
-          <div class="relative">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Sparkles :size="18" class="text-cyan-600 dark:text-cyan-400" />
-                <span>AI 分析</span>
-              </h3>
-              <span class="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-gray-700 text-cyan-600 dark:text-cyan-400 shadow-sm">
-                {{ loadFailures.includes('AI 分析') ? '加载失败' : latestAIReport?.status === 'completed' ? '已生成' : '待生成' }}
-              </span>
-            </div>
-
-            <div class="mb-4">
-              <div class="text-sm font-semibold text-gray-900 dark:text-white">
-                {{ latestAIReport ? `${latestAIReport.period_start.slice(0, 10)} - ${latestAIReport.period_end.slice(0, 10)}` : '每周总结 / 月度总结' }}
-              </div>
-              <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400 line-clamp-2">
-                {{ getAIReportSummary(latestAIReport) }}
-              </p>
-            </div>
-
-            <div class="flex items-center justify-between text-xs text-gray-500">
-              <span>{{ latestAIReport?.provider_name || 'OpenAI-compatible Provider' }}</span>
-              <span class="flex items-center gap-1">
-                配置 <ChevronRight :size="14" />
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Budget Card -->
-        <div 
-          class="bg-gradient-to-br from-sky-50/80 to-blue-50/80 dark:from-gray-800/80 dark:to-gray-800/80 backdrop-blur-xl rounded-3xl p-6 border border-white/20 dark:border-gray-700/50 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group shadow-sm"
-          @click="router.push('/budgets')"
-        >
-          <div class="absolute right-0 top-0 w-32 h-32 bg-sky-100 dark:bg-sky-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-          
-          <div class="relative">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <span>📊 本月预算</span>
-              </h3>
-              <span class="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm">
-                {{ budgetSummary ? `${budgetSummary.percentage}%` : '—' }}
-              </span>
-            </div>
-
-            <div class="mb-4">
-              <div class="flex justify-between text-xs text-gray-500 mb-1.5">
-                <span>已用 {{ formatMoney(budgetSummary?.total_spent) }}</span>
-                <span>剩余 {{ formatMoney(budgetSummary ? budgetSummary.total_amount - budgetSummary.total_spent : undefined) }}</span>
-              </div>
-              <div class="h-2.5 bg-white dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
-                <div 
-                  class="h-full rounded-full transition-all duration-500"
-                  :class="{
-                    'bg-green-500': (budgetSummary?.percentage || 0) < 80,
-                    'bg-yellow-500': (budgetSummary?.percentage || 0) >= 80 && (budgetSummary?.percentage || 0) < 100,
-                    'bg-red-500': (budgetSummary?.percentage || 0) >= 100
-                  }"
-                  :style="{ width: Math.min(budgetSummary?.percentage || 0, 100) + '%' }"
-                ></div>
-              </div>
-            </div>
-
-            <!-- Daily Available & Alerts -->
-            <div class="flex items-center justify-between">
-              <div v-if="budgetSummary?.daily_available" class="flex items-center gap-2 text-xs">
-                <span class="bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 px-2 py-1 rounded-lg font-medium">
-                  日均可用 ¥{{ budgetSummary.daily_available.toFixed(0) }}
-                </span>
-                <span class="text-gray-400">剩{{ budgetSummary.days_remaining }}天</span>
-              </div>
-              <div v-if="budgetSummary?.over_budget_categories?.length" class="flex items-center gap-1 text-xs text-red-500">
-                <AlertCircle :size="12" />
-                <span>{{ budgetSummary.over_budget_categories[0].name }}超支</span>
-              </div>
-              <div v-else-if="budgetSummary?.total_amount" class="text-xs text-gray-400 flex items-center gap-1">
-                <Check :size="12" class="text-green-500" />
-                <span>控制良好</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Debt Card -->
-        <div 
-          v-if="debtSummary && (debtSummary.total_debt > 0 || debtSummary.total_principal > 0)"
-          class="bg-gradient-to-br from-violet-50/80 to-purple-50/80 dark:from-gray-800/80 dark:to-gray-800/80 backdrop-blur-xl rounded-3xl p-6 border border-white/20 dark:border-gray-700/50 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden shadow-sm"
-          @click="router.push('/reminders')"
-        >
-          <div class="absolute right-0 top-0 w-32 h-32 bg-violet-100 dark:bg-violet-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-
-          <div class="relative">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <span>🎯 上岸进度</span>
-              </h3>
-              <span class="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-gray-700 text-violet-600 dark:text-violet-400 shadow-sm">
-                {{ debtSummary.progress.toFixed(1) }}%
-              </span>
-            </div>
-
-            <div class="mb-4">
-              <div class="flex justify-between text-xs text-gray-500 mb-1.5">
-                <span>已还 {{ formatMoney(debtSummary.total_paid) }}</span>
-                <span>待还 {{ formatMoney(debtSummary.total_debt) }}</span>
-              </div>
-              <div class="h-2.5 bg-white dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
-                <div 
-                  class="h-full bg-gradient-to-r from-violet-500 to-purple-600 rounded-full transition-all duration-500"
-                  :style="{ width: debtSummary.progress + '%' }"
-                ></div>
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between text-xs">
-              <div v-if="debtSummary.next_payment_name" class="flex items-center gap-2">
-                <span class="bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 px-2 py-1 rounded-lg font-medium">
-                  {{ debtSummary.days_until_next === 0 ? '今日还款' : debtSummary.days_until_next + '天后还款' }}
-                </span>
-                <span class="text-gray-500 truncate max-w-[100px]">{{ debtSummary.next_payment_name }}</span>
-              </div>
-              <div v-else class="text-gray-400">暂无还款计划</div>
-              <span class="text-gray-400">共{{ debtSummary.active_loans }}笔</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lending Summary Card -->
-      <div 
-        v-if="lendingSummary && (lendingSummary.total_receivable > 0 || lendingSummary.total_payable > 0)"
-        class="bg-gradient-to-br from-amber-50/80 to-orange-50/80 dark:from-gray-800/80 dark:to-gray-800/80 backdrop-blur-xl rounded-3xl p-6 border border-white/20 dark:border-gray-700/50 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden shadow-sm"
-        @click="router.push('/lendings')"
-      >
-        <div class="absolute right-0 top-0 w-32 h-32 bg-amber-100 dark:bg-amber-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-
-        <div class="relative">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span>💰 借款往来</span>
-            </h3>
-            <span class="text-xs font-bold px-2 py-1 rounded-lg bg-white dark:bg-gray-700 shadow-sm"
-              :class="lendingSummary.net_lending >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">
-              {{ lendingSummary.net_lending >= 0 ? '+' : '' }}{{ formatMoney(lendingSummary.net_lending) }}
-            </span>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4 mb-3">
-            <div class="bg-white/60 dark:bg-gray-700/50 rounded-xl p-3">
-              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">应收（别人欠我）</div>
-              <div class="font-bold text-orange-600 dark:text-orange-400">{{ formatMoney(lendingSummary.total_receivable) }}</div>
-              <div class="text-xs text-gray-400 mt-1">{{ lendingSummary.active_lend_out }} 笔进行中</div>
-            </div>
-            <div class="bg-white/60 dark:bg-gray-700/50 rounded-xl p-3">
-              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">应付（我欠别人）</div>
-              <div class="font-bold text-blue-600 dark:text-blue-400">{{ formatMoney(lendingSummary.total_payable) }}</div>
-              <div class="text-xs text-gray-400 mt-1">{{ lendingSummary.active_borrow_in }} 笔进行中</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between text-xs text-gray-500">
-            <span>已结清 {{ lendingSummary.settled_lend_out + lendingSummary.settled_borrow_in }} 笔</span>
-            <span class="flex items-center gap-1">
-              查看详情 <ChevronRight :size="14" />
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Content Area -->
-      <div>
-        <!-- View Switcher Tabs -->
-        <div class="flex items-center justify-between mb-4">
-          <div class="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl inline-flex">
-            <button
-              class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
-              :class="viewMode === 'list' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
-              @click="viewMode = 'list'"
-            >
-              <LayoutList :size="16" />
-              <span>列表</span>
-            </button>
-            <button
-              class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
-              :class="viewMode === 'calendar' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
-              @click="viewMode = 'calendar'"
-            >
-              <CalendarIcon :size="16" />
-              <span>日历</span>
-            </button>
-          </div>
-          
-          <button 
-            v-if="viewMode === 'list'"
-            class="text-sm text-primary flex items-center hover:underline" 
-            @click="goToTransactions"
-          >
-            查看全部 <ChevronRight :size="16" />
-          </button>
-        </div>
-
-        <!-- List View -->
-        <div v-if="viewMode === 'list'" class="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-4 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20 dark:border-gray-700/50 min-h-[300px]">
-          <h3 class="font-bold text-lg mb-4 text-gray-900 dark:text-white">最近交易</h3>
-          <div v-if="recentTransactions.length === 0" class="flex flex-col items-center justify-center py-20 text-gray-400">
-            <div class="w-20 h-20 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-              <LayoutList :size="32" class="opacity-50" />
-            </div>
-            <p>{{ loading ? '交易加载中' : loadFailures.includes('近期交易') ? '交易加载失败' : '暂无交易记录' }}</p>
-          </div>
-          <div v-else class="space-y-3">
-            <div
-              v-for="item in recentTransactions"
-              :key="item.id"
-              class="flex items-center p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition border border-transparent hover:border-gray-100 dark:hover:border-gray-600 group"
-              :class="isManagedTransaction(item) ? 'cursor-default' : 'cursor-pointer'"
-              @click="editTransaction(item)"
-            >
-              <div
-                class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mr-4 transition-transform group-hover:scale-110"
-                :style="{ backgroundColor: (item.type === 'transfer' ? '#6366F1' : (item.category?.color || '#007AFF')) + '15' }"
-              >
-                <span v-if="item.type === 'transfer'">↔️</span>
-                <DynamicIcon v-else :icon="getCategoryIcon(item.category?.icon || '', item.category?.name || '')" :size="22" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="font-bold text-gray-900 dark:text-white truncate mb-0.5">{{ item.type === 'transfer' ? '转账' : (item.category?.name || '未分类') }}</div>
-                <div class="text-xs text-gray-400 truncate flex items-center gap-2">
-                  <span>{{ dayjs(item.transaction_date).format('MM-DD HH:mm') }}</span>
-                  <span v-if="item.remark" class="w-1 h-1 rounded-full bg-gray-300"></span>
-                  <span v-if="item.remark">{{ item.remark }}</span>
-                </div>
-              </div>
-              <div
-                class="font-bold text-lg font-nums ml-4"
-                :class="item.type === 'transfer' ? AMOUNT_COLORS.transfer : (item.type === 'income' ? AMOUNT_COLORS.income : AMOUNT_COLORS.expense)"
-              >
-                {{ item.type === 'income' ? '+' : item.type === 'expense' ? '-' : '' }}{{ formatMoney(item.amount) }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Calendar View -->
-        <div v-else class="space-y-6">
-          <CalendarView 
-            ref="calendarRef"
-            @select="handleDateSelect"
-            @month-change="() => {}"
-          />
-
-          <!-- Selected Date Transactions -->
-          <div class="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl p-4 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20 dark:border-gray-700/50">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-bold text-lg text-gray-800 dark:text-white">
-                {{ dayjs(selectedDate).format('M月D日') }}
-                <span v-if="isToday" class="text-sm font-normal text-gray-400 ml-2">(今天)</span>
-              </h3>
-              <div v-if="dateTransactions.length > 0" class="text-sm text-gray-500">
-                {{ dateTransactions.length }} 笔交易
-              </div>
-            </div>
-
-            <div v-if="dateTransactions.length === 0" class="flex flex-col items-center justify-center py-8 text-gray-400">
-              <p>该日无交易记录</p>
-              <button 
-                class="mt-3 text-primary text-sm font-medium hover:underline"
-                @click="addTransaction"
-              >
-                记一笔
-              </button>
-            </div>
-
-            <div v-else class="space-y-3">
-              <div
-                v-for="item in dateTransactions"
-                :key="item.id"
-                class="flex items-center p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition border border-transparent hover:border-gray-100 dark:hover:border-gray-600"
-                :class="isManagedTransaction(item) ? 'cursor-default' : 'cursor-pointer'"
-                @click="editTransaction(item)"
-              >
-                <div
-                  class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl mr-3"
-                  :style="{ backgroundColor: (item.type === 'transfer' ? '#6366F1' : (item.category?.color || '#007AFF')) + '15' }"
-                >
-                  <span v-if="item.type === 'transfer'">↔️</span>
-                  <DynamicIcon v-else :icon="getCategoryIcon(item.category?.icon || '', item.category?.name || '')" :size="20" />
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="font-medium text-gray-900 dark:text-white">{{ item.type === 'transfer' ? '转账' : (item.category?.name || '未分类') }}</div>
-                  <div class="text-xs text-gray-400">{{ item.remark || item.account?.name }}</div>
-                </div>
-                <div
-                  class="font-bold font-nums"
-                  :class="item.type === 'transfer' ? AMOUNT_COLORS.transfer : (item.type === 'income' ? AMOUNT_COLORS.income : AMOUNT_COLORS.expense)"
-                >
-                  {{ item.type === 'income' ? '+' : item.type === 'expense' ? '-' : '' }}{{ formatMoney(item.amount) }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- The widget grid is the primary home surface; transaction list/calendar remain available from their business pages. -->
     </div>
 
     <!-- Transaction Dialog -->

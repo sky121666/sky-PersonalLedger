@@ -36,6 +36,18 @@ func (r *CategoryRepository) GetByUserID(userID uint, categoryType string) ([]mo
 	return categories, err
 }
 
+// GetHistoricalByUserID resolves names for existing ledger records without
+// making retired categories available when creating new records.
+func (r *CategoryRepository) GetHistoricalByUserID(userID uint, categoryType string) ([]model.Category, error) {
+	var categories []model.Category
+	query := r.db.Unscoped().Where("user_id = ?", userID)
+	if categoryType != "" {
+		query = query.Where("type = ?", categoryType)
+	}
+	err := query.Find(&categories).Error
+	return categories, err
+}
+
 func (r *CategoryRepository) Update(category *model.Category) error {
 	return r.db.Save(category).Error
 }

@@ -15,8 +15,8 @@ export const systemApi = {
     return put<EntryPathResponse>('/system/entry-path', { entry_path: entryPath })
   },
 
-  generateEntryPath(): Promise<EntryPathResponse> {
-    return post<EntryPathResponse>('/system/entry-path/generate')
+  generateEntryPath(options?: { draft?: boolean }): Promise<EntryPathResponse> {
+    return post<EntryPathResponse>(options?.draft ? '/system/entry-path/generate?draft=true' : '/system/entry-path/generate')
   },
 
   disableEntryPath(): Promise<EntryPathResponse> {
