@@ -1,6 +1,7 @@
 import { selectWidgetAccount } from './widgetGallery'
 import { expect, test, type Page } from '@playwright/test'
 import dayjs from 'dayjs'
+import { createDefaultHomeLayout, type HomeLayout } from '../src/components/home/model'
 
 const password = process.env.LEDGER_WEB_E2E_PASSWORD || 'LedgerWebE2ePass123!'
 
@@ -27,9 +28,10 @@ const transaction = {
   source: 'manual', recurring_id: null, account: { id: account.id, name: account.name },
 }
 
-async function mockHome(page: Page) {
+async function mockHome(page: Page, accounts = [account]) {
+  const totalAssets = accounts.reduce((sum, item) => sum + item.current_balance, 0)
   await page.route(/\/api\/v1\/accounts(?:\?|$)/, route => route.fulfill({ json: { code: 0, data: {
-    list: [account], total_assets: 1000, total_liabilities: 0, net_assets: 1000,
+    list: accounts, total_assets: totalAssets, total_liabilities: 0, net_assets: totalAssets,
   } } }))
   await page.route(/\/api\/v1\/statistics\/overview(?:\?|$)/, route => route.fulfill({ json: { code: 0, data: {
     income: 500, expense: 300, balance: 200, income_change: 0, expense_change: 0, daily_average: 10, transaction_count: 1,
@@ -107,7 +109,7 @@ async function removeBudget(page: Page) {
 
 const gridOf = (page: Page) => page.getByRole('region', { name: '首页小组件' })
 const ids = (page: Page) => gridOf(page).locator('[data-widget-id]').evaluateAll(els => els.map(el => el.getAttribute('data-widget-id')))
-async function edit(page: Page, width = 1440) { await page.setViewportSize({ width, height: 900 }); await mockHome(page); await login(page); await page.getByRole('button', { name: '编辑小组件', exact: true }).click() }
+async function edit(page: Page, width = 1440, accounts = [account]) { await page.setViewportSize({ width, height: 900 }); await mockHome(page, accounts); await login(page); await page.getByRole('button', { name: '编辑小组件', exact: true }).click() }
 async function widgetOptions(page: Page, label = '本月预算') {
   const menu = page.getByRole('region', { name: `${label}选项菜单`, exact: true })
   const trigger = gridOf(page).getByRole('button', { name: `${label}选项`, exact: true })
@@ -366,31 +368,76 @@ test('keyboard ordering and pointer edge scrolling use the existing scroll conta
   await page.screenshot({ path: info.outputPath('widget-editor-desktop.png') })
 })
 
-test('multiple configured account cards remain distinct and can be reconfigured with one undo', async ({ page }) => {
-  await edit(page)
-  const second = { ...account, id: 'widget-bank', name: '合成银行卡', type: 'bank', current_balance: 2000 }
-  const third = { ...account, id: 'widget-third', name: '合成零钱', current_balance: 3000 }
-  await page.route(/\/api\/v1\/accounts(?:\?|$)/, route => route.fulfill({ json: { code:0,data:{list:[account,second,third],total_assets:6000,total_liabilities:0,net_assets:6000} } }))
-  await page.getByRole('button', { name: '刷新首页数据' }).click()
-  for (const id of [account.id,second.id]) {
-    await page.getByRole('button', { name: '添加小组件', exact: true }).click()
-    const gallery=page.getByRole('dialog',{name:'组件画廊'});await gallery.getByRole('button',{name:'预览指定账户'}).click()
-    await selectWidgetAccount(gallery, id);await gallery.getByRole('button',{name:'添加到首页'}).click();await page.keyboard.press('Escape')
-  }
-  await page.getByRole('button', { name: '完成编辑' }).click()
-  await expect(gridOf(page).locator('[data-widget-id="account-widget-bank"]').getByText('2,000.00',{exact:true})).toBeVisible()
-  await expect(gridOf(page).locator('[data-widget-id="account-widget-cash"]').getByText('1,000.00',{exact:true})).toBeVisible()
-  await page.getByRole('button',{name:'编辑小组件',exact:true}).click()
-  await (await widgetOptions(page, '指定账户 · 合成现金')).getByRole('button',{name:'配置指定账户 · 合成现金',exact:true}).click()
-  const gallery=page.getByRole('dialog',{name:'组件画廊'})
-  await selectWidgetAccount(gallery, third.id)
-  await gallery.getByRole('button',{name:'更新账户组件',exact:true}).click()
-  await expect(gallery).toHaveCount(0)
-  await expect(gridOf(page).getByRole('button',{name:'拖动指定账户 · 合成零钱',exact:true})).toBeVisible()
-  await page.getByRole('button',{name:'撤销布局操作'}).click()
-  await expect(gridOf(page).getByRole('button',{name:'拖动指定账户 · 合成现金',exact:true})).toBeVisible()
+const secondAccount = { ...account, id: 'widget-bank', name: '合成银行卡', type: 'bank_card', current_balance: 2000 }
+const thirdAccount = { ...account, id: 'widget-third', name: '合成零钱', current_balance: 3000 }
 
-})
+async function expectAccountCard(page: Page, item: typeof account) {
+  const card = gridOf(page).locator(`[data-widget-id="account-${item.id}"]`)
+  await expect(card).toHaveCount(1)
+  await expect(card.locator('.widget-meta')).toContainText(item.name)
+  await expect(card.getByText(item.current_balance.toLocaleString('en-US', { minimumFractionDigits: 2 }), { exact: true })).toBeVisible()
+}
+
+for (const width of [390, 1440]) {
+  test(`multiple configured account cards remain distinct after saving and reloading at ${width}px`, async ({ page }) => {
+    await edit(page, width, [account, secondAccount])
+    await page.getByRole('button', { name: '添加小组件', exact: true }).click()
+    const gallery = page.getByRole('dialog', { name: '组件画廊' })
+    await gallery.getByRole('button', { name: '预览指定账户' }).click()
+    for (const item of [account, secondAccount]) {
+      await selectWidgetAccount(gallery, item.id)
+      await gallery.getByRole('button', { name: '添加到首页', exact: true }).click()
+      await expect(gallery.getByRole('button', { name: '定位已有组件', exact: true })).toBeVisible()
+    }
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: '完成编辑' }).click()
+    await expect(page.getByRole('button', { name: '编辑小组件', exact: true })).toBeVisible()
+    await page.reload()
+    await expectAccountCard(page, account)
+    await expectAccountCard(page, secondAccount)
+    await expect(gridOf(page).locator('[data-widget-id^="account-"]')).toHaveCount(2)
+  })
+
+  test(`saved account card can be reconfigured with one undo without affecting its neighbor at ${width}px`, async ({ page }) => {
+    // This journey starts from a saved layout; adding and persisting it is verified separately above.
+    // Keep the default widgets and let the application read the normal preference contract.
+    const layout = createDefaultHomeLayout()
+    const widgets: HomeLayout['widgets'] = [account, secondAccount].map(item => ({
+      id: `account-${item.id}`, kind: 'account', config: { accountId: item.id },
+      sizes: { desktop: 'small', mobile: 'small' },
+    }))
+    layout.widgets.push(...widgets)
+    for (const viewport of ['desktop', 'mobile'] as const) layout.orders[viewport].push(...widgets.map(widget => widget.id))
+    const key = 'personal-ledger:workspace:%2Fapi%2Fv1:501:home'
+    await page.route('**/api/v1/auth/profile', route => route.fulfill({ json: { code: 0, data: { id: 501 } } }))
+    await page.addInitScript(({ key, layout }) => {
+      if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ version: 1, revision: 'saved-accounts-fixture', value: layout }))
+    }, { key, layout })
+    await edit(page, width, [account, secondAccount, thirdAccount])
+    const snapshot = () => gridOf(page).locator('[data-widget-id]').evaluateAll(elements => elements.map(element => ({
+      id: element.getAttribute('data-widget-id'), size: element.getAttribute('data-widget-size'),
+    })))
+    const before = await snapshot()
+    await expectAccountCard(page, account)
+    await expectAccountCard(page, secondAccount)
+    await (await widgetOptions(page, '指定账户 · 合成现金')).getByRole('button', { name: '配置指定账户 · 合成现金', exact: true }).click()
+    const gallery = page.getByRole('dialog', { name: '组件画廊' })
+    await selectWidgetAccount(gallery, thirdAccount.id)
+    await gallery.getByRole('button', { name: '更新账户组件', exact: true }).click()
+    await expect(gallery).toHaveCount(0)
+    await expect.poll(snapshot).toEqual(before.map(item => item.id === 'account-widget-cash' ? { ...item, id: 'account-widget-third' } : item))
+    await expect(gridOf(page).locator('[data-widget-id="account-widget-cash"]')).toHaveCount(0)
+    await expectAccountCard(page, thirdAccount)
+    await expectAccountCard(page, secondAccount)
+    await expect(gridOf(page).locator('[data-widget-id^="account-"]')).toHaveCount(2)
+    await page.getByRole('button', { name: '撤销布局操作' }).click()
+    await expect.poll(snapshot).toEqual(before)
+    await expect(gridOf(page).locator('[data-widget-id="account-widget-third"]')).toHaveCount(0)
+    await expectAccountCard(page, account)
+    await expectAccountCard(page, secondAccount)
+    await expect(page.getByRole('button', { name: '撤销布局操作' })).toBeDisabled()
+  })
+}
 
 test('native touch outside a handle scrolls on Chromium; other engines use wheel scrolling', async ({ page, browserName }) => {
   await edit(page, 390)
