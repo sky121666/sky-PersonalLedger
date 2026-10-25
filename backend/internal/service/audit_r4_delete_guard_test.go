@@ -76,7 +76,8 @@ func newAuditR4Fixture(t *testing.T, lendingType, idOrder string, repaymentTrans
 	if err := repos.Transaction.DB().Raw("PRAGMA database_list").Scan(&dbs).Error; err != nil {
 		t.Fatal(err)
 	}
-	tmpDir, err := filepath.EvalSymlinks(os.Getenv("TMPDIR"))
+	// Match testing.T.TempDir's platform fallback when TMPDIR is unset (for example, Linux CI).
+	tmpDir, err := filepath.EvalSymlinks(os.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
