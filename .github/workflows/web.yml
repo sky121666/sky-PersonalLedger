@@ -8,11 +8,16 @@ permissions:
 
 jobs:
   web:
-    name: Test and build
+    name: Test and build (${{ matrix.browser }})
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
-    # Full single-worker Chromium, Firefox and WebKit runs exceed 20 minutes.
+    # Each browser gets a separate runner and temporary backend/database.
+    # Keep one worker within each browser to preserve fixture isolation.
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
 
     defaults:
       run:
@@ -77,4 +82,15 @@ jobs:
 
       - name: Run real-backend browser E2E
         working-directory: ${{ github.workspace }}
-        run: ./scripts/verify-web-e2e.sh
+        run: ./scripts/verify-web-e2e.sh --project=${{ matrix.browser }}
+
+      - name: Preserve browser failure evidence
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-e2e-${{ matrix.browser }}-${{ github.run_attempt }}
+          path: |
+            web/test-results
+            web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

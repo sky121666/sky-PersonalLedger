@@ -240,7 +240,7 @@ function selectEmoji(emoji: string) {
         <div 
           v-for="cat in categories" 
           :key="cat.id"
-          class="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all duration-200 group"
+          class="bg-white/70 dark:bg-gray-800/70 rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all duration-200 group"
         >
           <div class="flex justify-between items-start mb-3">
             <div 

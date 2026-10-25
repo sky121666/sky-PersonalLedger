@@ -160,6 +160,33 @@ test('custom category actions are visible without hover on a phone', async ({ pa
   await expect(page.getByRole('heading', { name: '编辑分类', exact: true })).toBeVisible()
 })
 
+for (const width of [390, 1440]) {
+  test(`a long category list remains editable after closing a dialog at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 })
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    const categories = Array.from({ length: 150 }, (_, index) => ({
+      id: `long-category-${index}`, name: `长列表模拟分类 ${index}`, type: 'expense',
+      icon: 'utensils', color: '#007AFF', is_system: false,
+    }))
+    await page.route(/\/api\/v1\/categories(?:\?|$)/, route => route.fulfill({
+      json: { code: 0, data: { list: categories } },
+    }))
+    await page.goto('/#/categories')
+    await page.getByRole('button', { name: '添加分类', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: '添加分类', exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    // Exercise normal actionability and auto-scrolling; never force-click the offscreen card.
+    const edit = page.getByRole('button', { name: '编辑分类 长列表模拟分类 149', exact: true })
+    await edit.click()
+    const dialog = page.getByRole('dialog', { name: '编辑分类', exact: true })
+    await expect(dialog.getByLabel('分类名称', { exact: true })).toHaveValue('长列表模拟分类 149')
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(edit).toBeFocused()
+  })
+}
+
 test('debt type choices do not collapse into vertical text on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 })
   await page.goto('/#/reminders?view=reminders')
