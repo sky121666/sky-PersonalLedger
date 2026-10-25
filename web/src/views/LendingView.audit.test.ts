@@ -58,7 +58,11 @@ it('keeps principal and occurrence date editable when creating a lending', async
   view.entry.form.value.principal = 250
   view.entry.form.value.lend_date = '2026-10-02T14:00'
   await view.entry.submitForm()
-  expect(view.create).toHaveBeenCalledWith(expect.objectContaining({ principal: 250, lend_date: '2026-10-02T06:00:00.000Z' }))
+  // datetime-local is interpreted in the user's timezone, not always UTC+8.
+  expect(view.create).toHaveBeenCalledWith(expect.objectContaining({
+    principal: 250,
+    lend_date: new Date(2026, 9, 2, 14, 0).toISOString(),
+  }))
 })
 
 it('updates supported lending details without resubmitting historical fields', async () => {
