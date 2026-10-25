@@ -363,7 +363,8 @@ const displayAccounts = computed(() => showArchived.value ? archivedAccounts.val
             <!-- Top Row: Icon & Name -->
             <div class="relative z-10 flex items-start justify-between text-white gap-2">
               <div class="flex items-center gap-3 min-w-0 flex-1">
-                <div class="w-11 h-11 rounded-xl bg-white/15 backdrop-blur-xl flex items-center justify-center shadow-lg border border-white/20 flex-shrink-0"
+                <!-- Keep the translucent material without a backdrop filter per account: long lists stall WebKit. -->
+                <div class="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center shadow-lg border border-white/20 flex-shrink-0"
                      style="box-shadow: 0 6px 12px rgba(0,0,0,0.12), inset 0 1px 1px rgba(255,255,255,0.2);">
                   <DynamicIcon :icon="account.icon || getAccountIcon(account.type)" :size="20" class="drop-shadow-md" />
                 </div>
@@ -435,7 +436,7 @@ const displayAccounts = computed(() => showArchived.value ? archivedAccounts.val
                 </div>
                 <!-- Logo/Type indicator bottom right -->
                 <RouterLink v-if="account.debt_tracking_mode === 'managed'" :to="{ path: '/reminders', query: { account_id: account.id } }"
-                  :aria-label="`管理负债 ${account.name}`" class="flex min-h-11 shrink-0 items-center rounded-xl border border-white/20 bg-white/15 px-3 text-xs font-semibold text-white backdrop-blur-xl">管理负债</RouterLink>
+                  :aria-label="`管理负债 ${account.name}`" class="flex min-h-11 shrink-0 items-center rounded-xl border border-white/20 bg-white/15 px-3 text-xs font-semibold text-white">管理负债</RouterLink>
                 <div v-else class="opacity-25 drop-shadow-lg">
                   <CreditCard :size="32" stroke-width="1.5" />
                 </div>

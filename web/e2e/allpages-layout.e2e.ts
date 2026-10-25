@@ -95,6 +95,35 @@ for (const width of [320, 390, 768, 820, 900, 1440]) {
 }
 
 for (const width of [390, 1440]) {
+  test(`a long account list keeps add and offscreen edit actions responsive at ${width}px`, async ({ page }) => {
+    test.setTimeout(60_000)
+    page.setDefaultTimeout(10_000)
+    await page.setViewportSize({ width, height: 844 })
+    const accounts = Array.from({ length: 60 }, (_, index) => ({
+      id: `long-account-${index}`, name: `长列表模拟账户 ${index}`, type: index % 2 ? 'credit' : 'cash',
+      debt_tracking_mode: index % 2 ? 'managed' : 'legacy',
+      icon: 'wallet', color: index % 2 ? '#007AFF' : '#34C759',
+      initial_balance: 100, current_balance: 100, is_archived: false,
+    }))
+    await page.route(/\/api\/v1\/accounts(?:\?|$)/, route => route.fulfill({
+      json: { code: 0, data: { list: accounts, total_assets: 3000, total_liabilities: 3000, net_assets: 0 } },
+    }))
+    await page.goto('/#/accounts')
+    await expect(page.locator('.card-premium')).toHaveCount(60)
+    await page.getByRole('button', { name: '添加新账户', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await page.screenshot({ path: test.info().outputPath(`long-accounts-top-${width}.png`), animations: 'disabled' })
+    const edit = page.getByRole('button', { name: '编辑账户 长列表模拟账户 59', exact: true })
+    await edit.click()
+    await expect(page.getByPlaceholder('例如：招商银行', { exact: true })).toHaveValue('长列表模拟账户 59')
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(edit).toBeFocused()
+    await page.screenshot({ path: test.info().outputPath(`long-accounts-${width}.png`), animations: 'disabled' })
+  })
+
   test(`accounts without a configured color retain a card background at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 })
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })

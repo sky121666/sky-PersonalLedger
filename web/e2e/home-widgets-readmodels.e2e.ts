@@ -113,8 +113,13 @@ for (const populated of [false, true]) {
       if (navigation === 'expanded') await page.getByRole('button', { name: '展开侧边栏', exact: true }).click()
       for (const width of widths) {
         await page.setViewportSize({ width, height: 900 })
-        const expectedColumns = async () => grid.evaluate(element => element.clientWidth < 400 ? 1 : element.clientWidth < 688 ? 2 : 4)
-        await expect.poll(async () => grid.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(await expectedColumns())
+        // WebKit can acknowledge a resize before media queries and ResizeObserver settle.
+        // Sample the actual width and columns together instead of freezing a pre-resize expectation.
+        await expect.poll(() => grid.evaluate((element, viewportWidth) => {
+          const expectedColumns = element.clientWidth < 400 ? 1 : element.clientWidth < 688 ? 2 : 4
+          const actualColumns = getComputedStyle(element).gridTemplateColumns.split(' ').length
+          return innerWidth === viewportWidth && actualColumns === expectedColumns
+        }, width), { message: `${navigation} ${width}px grid follows its current content width` }).toBe(true)
         const measure = () => grid.evaluate(element => {
           const bounds = element.getBoundingClientRect()
           const cards = Array.from(element.querySelectorAll<HTMLElement>('[data-widget-id]')).map(cell => {
