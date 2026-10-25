@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onBeforeUnmount, watch } from 'vue'
-import { X, ChevronDown, Calendar, FileText, CreditCard, Paperclip, Users, Tag as TagIcon } from 'lucide-vue-next'
+import { ChevronDown, Calendar, FileText, CreditCard, Paperclip, Users, Tag as TagIcon } from '@lucide/vue'
+import AppDialog from '@/components/ui/AppDialog.vue'
 import FileUpload from '@/components/FileUpload.vue'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 import { transactionApi, type CreateTransactionParams } from '@/api/transaction'
+import { authApi } from '@/api/auth'
+import { createTransactionJournal, isTransactionWriteRejection, type PendingTransactionWrite } from '@/utils/transactionWriteJournal'
 import { categoryApi, type Category } from '@/api/category'
 import { accountApi, type Account } from '@/api/account'
 import { familyApi, type FamilyMember } from '@/api/family'
@@ -31,9 +34,8 @@ const emit = defineEmits<{
 const loading = ref(false)
 const loadingInitialData = ref(false)
 const transactionLoadFailed = ref(false)
-const dialogElement = ref<HTMLElement | null>(null)
 const amountInput = ref<HTMLInputElement | null>(null)
-let previouslyFocusedElement: HTMLElement | null = null
+const transactionTrigger = ref<HTMLElement | null>(null)
 const categories = ref<Category[]>([])
 const accounts = ref<Account[]>([])
 const familyMembers = ref<FamilyMember[]>([])
@@ -41,6 +43,10 @@ const tags = ref<Tag[]>([])
 const dialogRequests = createRequestGeneration()
 const dialogGeneration = ref(0)
 const editTargetId = ref<string | null>(null)
+const pendingCreate = ref<PendingTransactionWrite | null>(null)
+const confirmationIssue = ref('')
+const attachmentsUploading = ref(false)
+let createJournal: ReturnType<typeof createTransactionJournal> | null = null
 
 const form = ref({
   type: 'expense' as 'income' | 'expense' | 'transfer',
@@ -65,13 +71,26 @@ const typeOptions = [
   { value: 'transfer', label: '转账' }
 ]
 
-const filteredCategories = computed(() => {
+const categoryGroups = computed(() => {
   if (form.value.type === 'transfer') return []
-  return categories.value.filter(c => c.type === form.value.type)
+  const groups = new Map<string, Category[]>()
+  for (const category of categories.value) {
+    if (category.type !== form.value.type) continue
+    const group = groups.get(category.name) || []
+    group.push(category)
+    groups.set(category.name, group)
+  }
+  return [...groups.values()]
 })
+// Group only the picker presentation; historical IDs and API results stay intact.
+const filteredCategories = computed(() => categoryGroups.value.map(group =>
+  group.find(category => category.id === form.value.category_id) || group[0]!
+))
+const duplicateCategoryGroups = computed(() => categoryGroups.value.filter(group => group.length > 1))
 
 const isValid = computed(() => {
   if (loadingInitialData.value || transactionLoadFailed.value) return false
+  if (pendingCreate.value && !editTargetId.value) return true
   const { type, amount, account_id, to_account_id, category_id } = form.value
   if (!amount || parseFloat(amount) <= 0) return false
   if (!account_id) return false
@@ -92,22 +111,44 @@ watch(() => [props.visible, props.editId] as const, async ([visible, id]) => {
   loading.value = false
   if (!visible) {
     loadingInitialData.value = false
-    await nextTick()
-    if (dialogRequests.isLatest(generation)) restorePreviousFocus()
     return
   }
-  previouslyFocusedElement = document.activeElement instanceof HTMLElement
+  transactionTrigger.value = document.activeElement instanceof HTMLElement
     ? document.activeElement
     : null
   loadingInitialData.value = true
   transactionLoadFailed.value = false
   resetForm('')
+  pendingCreate.value = null
+  confirmationIssue.value = ''
+  attachmentsUploading.value = false
+  createJournal = null
   try {
     await loadData(generation, editId)
     if (!isCurrentDialog(generation, editId)) return
     if (editId) {
       const loaded = await loadTransaction(editId, generation)
       if (isCurrentDialog(generation, editId)) transactionLoadFailed.value = !loaded
+    } else {
+      const profile = await authApi.getProfile()
+      if (!isCurrentDialog(generation, editId)) return
+      createJournal = createTransactionJournal(profile.id)
+      pendingCreate.value = createJournal.read()
+      if (pendingCreate.value) {
+        const payload = pendingCreate.value.payload
+        form.value = {
+          type: payload.type, amount: String(payload.amount), account_id: payload.account_id,
+          to_account_id: payload.to_account_id || '', category_id: payload.category_id || '',
+          member_id: payload.member_id || '', paid_by_member_id: payload.paid_by_member_id || '',
+          tag_names: parseTransactionTags(payload.tags), transaction_date: dayjs(payload.transaction_date).format('YYYY-MM-DDTHH:mm'),
+          remark: payload.remark || '', images: '',
+        }
+      }
+    }
+  } catch (error) {
+    if (isCurrentDialog(generation, editId)) {
+      transactionLoadFailed.value = true
+      toast.error((error as Error).message || '无法确认当前记账状态，请关闭后重试')
     }
   } finally {
     if (isCurrentDialog(generation, editId)) loadingInitialData.value = false
@@ -119,11 +160,13 @@ watch(() => [props.visible, props.editId] as const, async ([visible, id]) => {
 }, { immediate: true, flush: 'sync' })
 
 watch(() => form.value.type, () => {
-  if (!props.editId) {
-    form.value.category_id = ''
-    form.value.to_account_id = ''
-  }
-})
+  // Initial detail hydration may include a retired category. A user changing
+  // transaction type must choose again, even when that category is no longer
+  // present in the active options.
+  if (loadingInitialData.value) return
+  form.value.category_id = ''
+  form.value.to_account_id = ''
+}, { flush: 'sync' })
 
 async function loadData(generation: number, editId: string | null) {
   const options = await loadTransactionDialogOptions({
@@ -199,58 +242,20 @@ function close() {
   emit('update:visible', false)
 }
 
-function restorePreviousFocus() {
-  if (previouslyFocusedElement?.isConnected) {
-    previouslyFocusedElement.focus()
-  }
-  previouslyFocusedElement = null
-}
-
-function handleDialogKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    if (!loading.value) {
-      event.preventDefault()
-      close()
-    }
-    return
-  }
-  if (event.key !== 'Tab' || !dialogElement.value) return
-
-  const focusable = Array.from(
-    dialogElement.value.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-    )
-  ).filter((element) => element.getClientRects().length > 0)
-  if (focusable.length === 0) {
-    event.preventDefault()
-    dialogElement.value.focus()
-    return
-  }
-
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
 onBeforeUnmount(() => {
   dialogRequests.begin()
-  restorePreviousFocus()
 })
 
 async function submit() {
-  if (!isValid.value || loading.value) return
+  if (!isValid.value || loading.value || attachmentsUploading.value) return
   
   const generation = dialogGeneration.value
   const editId = editTargetId.value
   if (!isCurrentDialog(generation, editId)) return
   const submittedForm = { ...form.value, tag_names: [...form.value.tag_names] }
   const submittedOriginalImages = originalImages.value
+  const journal = createJournal
+  let attempted: PendingTransactionWrite | null = null
   loading.value = true
   try {
     // Convert datetime-local to ISO string
@@ -284,19 +289,52 @@ async function submit() {
           : '修改成功'
       )
     } else {
-      await transactionApi.create(params)
+      if (!journal) throw Error('尚未确认当前用户，请关闭后重新打开')
+      const stored = journal.read()
+      if (stored && pendingCreate.value && stored.key !== pendingCreate.value.key) throw Error('记账确认记录已变化，请关闭后重新打开')
+      const record = stored || pendingCreate.value || journal.stage(params)
+      attempted = journal.attempt(record)
+      if (isCurrentDialog(generation, editId)) pendingCreate.value = attempted
+      await transactionApi.create(attempted.payload)
+      notifyLedgerMutation()
+      if (!journal.clear(attempted)) throw Error('另一轮结果确认仍在进行，请继续确认上次记账')
+      if (isCurrentDialog(generation, editId)) pendingCreate.value = null
       if (isCurrentDialog(generation, editId)) toast.success('记账成功')
     }
     
-    notifyLedgerMutation()
+    if (editId) notifyLedgerMutation()
     if (isCurrentDialog(generation, editId)) {
       emit('success')
       close()
     }
   } catch (e: any) {
+    if (isCurrentDialog(generation, editId) && attempted && [40903, 40913].includes(e.code)) {
+      confirmationIssue.value = `${e.message || '原记账状态已变化'}。请先核对明细；结束确认不会新增或撤销交易。`
+    }
+    if (attempted?.attempt === 1 && isTransactionWriteRejection(e) && journal) {
+      try {
+        if (journal.clear(attempted) && isCurrentDialog(generation, editId)) pendingCreate.value = null
+      } catch (storageError) {
+        if (isCurrentDialog(generation, editId)) toast.error((storageError as Error).message)
+      }
+    }
     if (isCurrentDialog(generation, editId)) toast.error(e.message || '保存失败')
   } finally {
     if (isCurrentDialog(generation, editId)) loading.value = false
+  }
+}
+
+function finishCreateConfirmation() {
+  if (loading.value || !confirmationIssue.value || !pendingCreate.value || !createJournal) return
+  try {
+    const current = createJournal.read()
+    if (current && !createJournal.clear(pendingCreate.value)) throw Error('另一轮确认正在进行，请重新打开后核对')
+    pendingCreate.value = null
+    confirmationIssue.value = ''
+    resetForm()
+    toast.success('已结束本次确认，没有新增或撤销交易')
+  } catch (error) {
+    toast.error((error as Error).message)
   }
 }
 
@@ -309,25 +347,9 @@ function toggleTag(name: string) {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="visible" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" @click="close"></div>
-      
-      <form
-        ref="dialogElement"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="props.editId ? '编辑交易' : '新增交易'"
-        :aria-busy="loadingInitialData || loading"
-        tabindex="-1"
-        class="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-white/20 dark:border-gray-700/50"
-        @keydown="handleDialogKeydown"
-        @submit.prevent="submit"
-      >
-        <!-- Header -->
-        <div class="flex items-center justify-between p-4 bg-transparent z-10">
-          <div class="h-11 w-11" aria-hidden="true"></div>
-          
+  <AppDialog v-if="visible" :title="props.editId ? '编辑交易' : '新增交易'" close-label="关闭交易表单" :busy="loading || attachmentsUploading" :return-focus="transactionTrigger" sheet @close="close">
+    <form id="transaction-form" @submit.prevent="submit">
+        <div class="flex justify-center mb-4">
           <!-- Segmented Control -->
           <div class="flex bg-gray-100/80 dark:bg-gray-700/80 p-1 rounded-xl backdrop-blur-sm">
             <button
@@ -335,7 +357,7 @@ function toggleTag(name: string) {
               :key="opt.value"
               type="button"
               :aria-pressed="form.type === opt.value"
-              :disabled="loadingInitialData || transactionLoadFailed || loading"
+              :disabled="loadingInitialData || transactionLoadFailed || loading || !!pendingCreate"
               class="min-h-11 px-4 py-1.5 text-sm font-medium rounded-lg transition-all duration-200"
               :class="form.type === opt.value ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
               @click="form.type = opt.value as any"
@@ -344,18 +366,22 @@ function toggleTag(name: string) {
             </button>
           </div>
 
-          <button
-            type="button"
-            aria-label="关闭交易表单"
-            class="h-11 w-11 flex items-center justify-center hover:bg-gray-100/50 dark:hover:bg-gray-700/50 rounded-xl transition"
-            @click="close"
-          >
-            <X :size="20" class="text-gray-500" />
-          </button>
         </div>
-        
+
         <!-- Form Content -->
-        <fieldset :disabled="loadingInitialData || transactionLoadFailed || loading" class="flex-1 min-w-0 overflow-y-auto p-6 space-y-6">
+        <p v-if="pendingCreate" role="status" class="px-6 pb-2 text-sm text-amber-700 dark:text-amber-300">
+          上次记账结果尚未确认，已保留原金额及账户。请先确认上次结果。
+        </p>
+        <div v-if="confirmationIssue" role="alert" class="px-6 pb-3 text-sm text-amber-700 dark:text-amber-300">
+          <p>{{ confirmationIssue }}</p>
+          <div class="mt-2 flex flex-wrap gap-3">
+            <a href="#/transactions" class="inline-flex min-h-11 items-center text-primary underline" :aria-disabled="loading || attachmentsUploading" @click="loading || attachmentsUploading ? $event.preventDefault() : close()">查看明细</a>
+            <button type="button" :disabled="loading" class="min-h-11 underline" @click="finishCreateConfirmation">核对后结束确认</button>
+          </div>
+        </div>
+        <!-- Keep native fieldset layout separate from the scroll container. -->
+        <div class="min-w-0">
+        <fieldset :disabled="loadingInitialData || transactionLoadFailed || loading || !!pendingCreate" class="min-w-0 border-0 p-0 m-0 space-y-6">
           <!-- Amount Input -->
           <div>
             <label for="transaction-amount" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">金额</label>
@@ -368,7 +394,7 @@ function toggleTag(name: string) {
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                class="w-full h-16 pl-10 pr-4 text-3xl font-bold bg-gray-50/50 dark:bg-gray-700/50 dark:text-white rounded-2xl border-2 border-transparent outline-none focus:bg-white dark:focus:bg-gray-600 focus:border-primary/20 transition-all placeholder:text-gray-300 dark:placeholder:text-gray-500"
+                class="w-full h-16 pl-10 pr-4 text-3xl font-bold bg-gray-50/50 dark:bg-gray-700/50 dark:text-white rounded-2xl border-2 border-transparent outline-hidden focus:bg-white dark:focus:bg-gray-600 focus:border-primary/20 transition-all placeholder:text-gray-300 dark:placeholder:text-gray-500"
               />
             </div>
           </div>
@@ -407,6 +433,26 @@ function toggleTag(name: string) {
                 </span>
               </button>
             </div>
+            <details v-if="duplicateCategoryGroups.length" class="mt-4 rounded-xl bg-gray-50/60 p-3 dark:bg-white/5">
+              <summary class="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                同名分类 <span class="text-xs text-gray-500">展开选择原分类</span>
+              </summary>
+              <p class="mb-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">同名分类仅在此分组，历史记录保持原分类。</p>
+              <div v-for="group in duplicateCategoryGroups" :key="group[0]!.name" class="mb-3 last:mb-0">
+                <p class="mb-2 text-sm font-semibold">{{ group[0]!.name }} · {{ group.length }} 个分类</p>
+                <div class="grid grid-cols-2 gap-2">
+                  <button v-for="(category, index) in group" :key="category.id" type="button"
+                    :aria-label="`${category.name}，同名分类 ${index + 1}`" :aria-pressed="form.category_id === category.id"
+                    class="flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs"
+                    :class="form.category_id === category.id ? 'border-primary text-primary bg-primary/10' : 'border-transparent hover:bg-gray-100 dark:hover:bg-white/10'"
+                    @click="form.category_id = category.id">
+                    <DynamicIcon :icon="getCategoryEmoji(category.name, category.icon)" :size="18" />
+                    <span>{{ category.name }} · {{ index + 1 }}</span>
+                    <span v-if="form.category_id === category.id" class="ml-auto">已选</span>
+                  </button>
+                </div>
+              </div>
+            </details>
           </div>
           
           <!-- Account Selection -->
@@ -422,7 +468,7 @@ function toggleTag(name: string) {
                 <select
                   id="transaction-account"
                   v-model="form.account_id"
-                  class="w-full h-12 pl-11 pr-10 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none appearance-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
+                  class="w-full h-12 pl-11 pr-10 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden appearance-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
                 >
                   <option value="" disabled>请选择账户</option>
                   <option v-for="acc in accounts" :key="acc.id" :value="acc.id">
@@ -443,7 +489,7 @@ function toggleTag(name: string) {
                 <select
                   id="transaction-to-account"
                   v-model="form.to_account_id"
-                  class="w-full h-12 pl-11 pr-10 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none appearance-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
+                  class="w-full h-12 pl-11 pr-10 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden appearance-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
                 >
                   <option value="" disabled>请选择账户</option>
                   <option
@@ -470,7 +516,7 @@ function toggleTag(name: string) {
               <select
                 id="transaction-member"
                 v-model="form.member_id"
-                class="w-full h-12 pl-11 pr-10 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none appearance-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
+                class="w-full h-12 pl-11 pr-10 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden appearance-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
               >
                 <option value="">不指定成员</option>
                 <option v-if="form.member_id && !familyMembers.some(member => member.id === form.member_id)" :value="form.member_id">原归属成员（已停用或不可用）</option>
@@ -487,7 +533,7 @@ function toggleTag(name: string) {
             <select
               id="transaction-payer"
               v-model="form.paid_by_member_id"
-              class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
+              class="w-full h-12 px-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
             >
               <option value="">不指定付款成员</option>
               <option v-if="form.paid_by_member_id && !familyMembers.some(member => member.id === form.paid_by_member_id)" :value="form.paid_by_member_id">原付款成员（已停用或不可用）</option>
@@ -518,7 +564,7 @@ function toggleTag(name: string) {
           </div>
           
           <!-- Date & Remark -->
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label for="transaction-date" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">日期</label>
               <div class="relative">
@@ -529,7 +575,7 @@ function toggleTag(name: string) {
                   id="transaction-date"
                   v-model="form.transaction_date"
                   type="datetime-local"
-                  class="w-full h-12 pl-11 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
+                  class="w-full h-12 pl-11 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
                 />
               </div>
             </div>
@@ -545,7 +591,7 @@ function toggleTag(name: string) {
                   v-model="form.remark"
                   type="text"
                   placeholder="选填"
-                  class="w-full h-12 pl-11 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
+                  class="w-full h-12 pl-11 pr-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 dark:text-white"
                 />
               </div>
             </div>
@@ -559,6 +605,7 @@ function toggleTag(name: string) {
             <FileUpload
               :key="dialogGeneration"
               :disabled="loading"
+              @uploading-change="attachmentsUploading = $event"
               v-model="form.images"
               category="transactions"
               :ref-id="savedTransactionId || props.editId || ''"
@@ -569,20 +616,18 @@ function toggleTag(name: string) {
             保存后可添加附件
           </div>
         </fieldset>
+        </div>
         
-        <!-- Footer -->
-        <div class="p-6 border-t border-gray-100/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md">
+    </form>
+    <template #footer>
           <button
-            type="submit"
+            type="submit" form="transaction-form"
             class="w-full h-12 rounded-xl font-bold text-lg transition-all shadow-lg shadow-primary/20 active:scale-[0.98]"
             :class="isValid ? 'bg-primary text-white hover:bg-primary/90' : 'bg-gray-100/50 dark:bg-gray-700/50 text-gray-400 cursor-not-allowed shadow-none'"
-            :disabled="!isValid || loading"
-            @click="submit"
+            :disabled="!isValid || loading || attachmentsUploading"
           >
-            {{ loading ? '保存中...' : '保存记录' }}
+            {{ attachmentsUploading ? '附件上传中…' : loading ? '保存中...' : pendingCreate ? '确认上次记账结果' : '保存记录' }}
           </button>
-        </div>
-      </form>
-    </div>
-  </Teleport>
+    </template>
+  </AppDialog>
 </template>

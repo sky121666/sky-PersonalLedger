@@ -52,6 +52,10 @@ func (h *ReminderHandler) Create(c *gin.Context) {
 
 	reminder, err := h.service.Create(userID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrManagedDebt) {
+			debtResponseError(c, err)
+			return
+		}
 		if errors.Is(err, service.ErrAccountNotFound) {
 			response.NotFound(c, "account not found")
 			return
@@ -100,6 +104,10 @@ func (h *ReminderHandler) Update(c *gin.Context) {
 
 	reminder, err := h.service.Patch(id, userID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrReminderPaymentHistory) {
+			response.Error(c, http.StatusConflict, 40907, "该提醒仍有还款记录，不能改绑或解除账户；请先核对并撤销相关还款")
+			return
+		}
 		if errors.Is(err, service.ErrAttachmentRecoveryPending) {
 			response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
 			return
@@ -160,11 +168,27 @@ func (h *ReminderHandler) RecordPayment(c *gin.Context) {
 
 	reminder, err := h.service.RecordPayment(id, userID, req)
 	if err != nil {
-		if err == service.ErrReminderNotFound {
+		if errors.Is(err, service.ErrManagedDebt) {
+			debtResponseError(c, err)
+			return
+		}
+		if errors.Is(err, service.ErrReminderBalanceConflict) {
+			response.Error(c, http.StatusConflict, 40908, "提醒余额与账户负债不一致，请先核对；本次未扣款")
+			return
+		}
+		if errors.Is(err, service.ErrIdempotencyConflict) {
+			response.Error(c, http.StatusConflict, 40903, err.Error())
+			return
+		}
+		if errors.Is(err, service.ErrReminderNotFound) {
 			response.NotFound(c, "reminder not found")
 			return
 		}
-		response.BadRequest(c, err.Error())
+		if errors.Is(err, service.ErrInvalidReminderPayment) || errors.Is(err, service.ErrInvalidIdempotencyKey) || errors.Is(err, service.ErrSameAccount) || errors.Is(err, service.ErrAccountNotFound) {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		internalServerError(c, err, "failed to record reminder payment")
 		return
 	}
 

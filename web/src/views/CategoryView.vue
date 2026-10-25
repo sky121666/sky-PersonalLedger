@@ -1,12 +1,27 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import AppDialog from '@/components/ui/AppDialog.vue'
+import FinancePage from '@/components/ui/FinancePage.vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronLeft, Plus, Trash2, Edit2, Check, X, Grid3X3 } from 'lucide-vue-next'
+import { Plus, Trash2, Edit2, Check, Grid3X3 } from '@lucide/vue'
 import { categoryApi, type Category } from '@/api/category'
 import { toast } from '@/composables/useToast'
 import DynamicIcon from '@/components/DynamicIcon.vue'
 
+import { createRequestGeneration } from '@/utils/requestGeneration'
+
 const router = useRouter()
+const dialogTrigger = ref<HTMLElement | null>(null)
+const dialogFallback = ref<HTMLElement | null>(null)
+function captureDialogTrigger(event?: Event) {
+  if (typeof document === 'undefined') return
+  dialogTrigger.value = event?.currentTarget instanceof HTMLElement ? event.currentTarget : document.activeElement as HTMLElement | null
+}
+
+const categoryRequests = createRequestGeneration()
+const loadFailed = ref(false)
+const loadedType = ref('')
+onBeforeUnmount(() => categoryRequests.begin())
 
 // Extended emoji list for better coverage
 const CATEGORY_EMOJIS = [
@@ -56,6 +71,7 @@ const loading = ref(false)
 
 // Dialog state
 const showDialog = ref(false)
+const saving = ref(false)
 const editingCategory = ref<Category | null>(null)
 const form = ref({
   name: '',
@@ -67,6 +83,7 @@ const showEmojiPicker = ref(false)
 // Delete confirm
 const showDeleteModal = ref(false)
 const deletingId = ref<string | null>(null)
+const deleting = ref(false)
 
 onMounted(() => {
   loadCategories()
@@ -77,13 +94,22 @@ watch(activeTab, () => {
 })
 
 async function loadCategories() {
+  const generation = categoryRequests.begin()
+  const type = activeTab.value
   loading.value = true
+  loadFailed.value = false
+  if (loadedType.value !== type) categories.value = []
   try {
-    categories.value = await categoryApi.getList(activeTab.value)
+    const result = await categoryApi.getList(type)
+    if (!categoryRequests.isLatest(generation) || activeTab.value !== type) return
+    categories.value = result
+    loadedType.value = type
   } catch (e: any) {
+    if (!categoryRequests.isLatest(generation)) return
+    loadFailed.value = true
     toast.error('加载分类失败')
   } finally {
-    loading.value = false
+    if (categoryRequests.isLatest(generation)) loading.value = false
   }
 }
 
@@ -91,7 +117,8 @@ function goBack() {
   router.back()
 }
 
-function openCreate() {
+function openCreate(event?: Event) {
+  captureDialogTrigger(event)
   editingCategory.value = null
   form.value = {
     name: '',
@@ -101,7 +128,8 @@ function openCreate() {
   showDialog.value = true
 }
 
-function openEdit(cat: Category) {
+function openEdit(cat: Category, event?: Event) {
+  captureDialogTrigger(event)
   editingCategory.value = cat
   form.value = {
     name: cat.name,
@@ -118,11 +146,13 @@ function closeDialog() {
 }
 
 async function submitForm() {
+  if (saving.value) return
   if (!form.value.name.trim()) {
     toast.warning('请输入分类名称')
     return
   }
 
+  saving.value = true
   try {
     if (editingCategory.value) {
       await categoryApi.update(editingCategory.value.id, {
@@ -144,16 +174,20 @@ async function submitForm() {
     loadCategories()
   } catch (e: any) {
     toast.error(e.message || '保存失败')
+  } finally {
+    saving.value = false
   }
 }
 
-function confirmDelete(id: string) {
+function confirmDelete(id: string, event?: Event) {
+  captureDialogTrigger(event)
   deletingId.value = id
   showDeleteModal.value = true
 }
 
 async function handleDelete() {
-  if (!deletingId.value) return
+  if (!deletingId.value || deleting.value) return
+  deleting.value = true
   try {
     await categoryApi.delete(deletingId.value)
     showDeleteModal.value = false
@@ -162,6 +196,8 @@ async function handleDelete() {
     loadCategories()
   } catch (e: any) {
     toast.error(e.message || '删除失败')
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -172,32 +208,10 @@ function selectEmoji(emoji: string) {
 </script>
 
 <template>
-  <div class="min-h-full bg-[#F2F2F7] dark:bg-black pb-8">
-    <!-- Header -->
-    <div class="bg-white/70 dark:bg-[#1C1C1E]/70 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
-      <div class="max-w-3xl mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <button @click="goBack" class="p-2 -ml-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl transition">
-            <ChevronLeft :size="20" />
-          </button>
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
-            <Grid3X3 class="text-white" :size="28" />
-          </div>
-          <div>
-            <h1 class="text-xl font-bold text-gray-900 dark:text-white">分类管理</h1>
-            <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ categories.length }} 个分类</div>
-          </div>
-        </div>
-        <button
-          class="p-2.5 bg-gray-100/50 dark:bg-white/5 text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-full transition"
-          @click="openCreate"
-        >
-          <Plus :size="20" />
-        </button>
-      </div>
-    </div>
+  <FinancePage title="分类管理" :context="`${categories.length} 个分类`" :icon="Grid3X3" tone="purple" back-label="返回上一页" @back="goBack">
+    <template #actions><button ref="dialogFallback" type="button" aria-label="添加分类" class="finance-icon-button" @click="openCreate"><Plus :size="20" /></button></template>
 
-    <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
+    <div class="space-y-6">
       <!-- Tabs -->
       <div class="flex gap-1 p-1 bg-gray-100/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl">
         <button
@@ -216,6 +230,9 @@ function selectEmoji(emoji: string) {
         </button>
       </div>
 
+      <div v-if="loadFailed" role="alert" class="text-sm text-amber-700">
+        分类加载失败。<button class="underline" @click="loadCategories">重试</button>
+      </div>
       <!-- Category Grid -->
       <div v-if="loading" class="py-20 text-center text-gray-400">加载中...</div>
       
@@ -223,7 +240,7 @@ function selectEmoji(emoji: string) {
         <div 
           v-for="cat in categories" 
           :key="cat.id"
-          class="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all duration-200 group"
+          class="bg-white/70 dark:bg-gray-800/70 rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all duration-200 group"
         >
           <div class="flex justify-between items-start mb-3">
             <div 
@@ -232,16 +249,18 @@ function selectEmoji(emoji: string) {
             >
               <DynamicIcon :icon="cat.icon || '💳'" :size="24" />
             </div>
-            <div v-if="!cat.is_system" class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div v-if="!cat.is_system" class="flex flex-wrap justify-end gap-0.5">
               <button 
-                class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
-                @click="openEdit(cat)"
+                :aria-label="`编辑分类 ${cat.name}`"
+                class="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                @click="openEdit(cat, $event)"
               >
                 <Edit2 :size="14" />
               </button>
               <button 
-                class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"
-                @click="confirmDelete(cat.id)"
+                :aria-label="`删除分类 ${cat.name}`"
+                class="min-h-11 min-w-11 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"
+                @click="confirmDelete(cat.id, $event)"
               >
                 <Trash2 :size="14" />
               </button>
@@ -252,7 +271,7 @@ function selectEmoji(emoji: string) {
         </div>
       </div>
 
-      <div v-else class="py-20 text-center">
+      <div v-else-if="!loadFailed" class="py-20 text-center">
         <div class="w-20 h-20 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">
           {{ activeTab === 'expense' ? '📦' : '💰' }}
         </div>
@@ -267,34 +286,26 @@ function selectEmoji(emoji: string) {
     </div>
 
     <!-- Category Dialog -->
-    <Teleport to="body">
-      <div v-if="showDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeDialog"></div>
-        <div class="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-3xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 border border-white/20 dark:border-gray-700/50">
-          <div class="flex items-center justify-between p-6 border-b border-gray-100/50 dark:border-gray-700/50">
-            <h3 class="text-lg font-bold dark:text-white">{{ editingCategory ? '编辑分类' : '添加分类' }}</h3>
-            <button class="p-2 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 rounded-xl transition" @click="closeDialog">
-              <X :size="20" class="text-gray-500" />
-            </button>
-          </div>
-          
-          <div class="p-6 space-y-5">
+    <AppDialog v-if="showDialog" :title="editingCategory ? '编辑分类' : '添加分类'" :busy="saving" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(saving) || (closeDialog())">
+      <fieldset :disabled="saving" class="min-w-0 border-0 p-0 m-0"><div class="space-y-5">
             <!-- Icon & Name -->
             <div>
               <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">分类名称</label>
               <div class="flex items-center gap-3">
                 <button
-                  class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl border-2 border-dashed border-gray-200 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                  aria-label="选择分类图标"
+                  class="w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center text-3xl border-2 border-dashed border-gray-200 hover:border-primary/50 hover:bg-primary/5 transition-all"
                   :style="{ backgroundColor: form.color + '15', borderStyle: 'solid', borderColor: form.color + '50' }"
                   @click="showEmojiPicker = !showEmojiPicker"
                 >
                   <DynamicIcon :icon="form.icon" :size="28" />
                 </button>
-                <input
+                <input name="name" style="min-width: 0; max-width: 100%"
                   v-model="form.name"
                   type="text"
                   placeholder="例如：餐饮、交通"
-                  class="flex-1 h-12 px-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-lg dark:text-white"
+                  aria-label="分类名称"
+                  class="min-w-0 flex-1 h-12 px-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all font-medium text-lg dark:text-white"
                 />
               </div>
             </div>
@@ -302,10 +313,10 @@ function selectEmoji(emoji: string) {
             <!-- Emoji Picker -->
             <div v-if="showEmojiPicker" class="animate-in slide-in-from-top-2 duration-200">
               <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">选择图标</label>
-              <div class="grid grid-cols-10 gap-1 max-h-48 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <div class="grid grid-cols-5 sm:grid-cols-8 gap-1 max-h-48 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700 rounded-xl">
                 <button
-                  v-for="emoji in CATEGORY_EMOJIS"
-                  :key="emoji"
+                  v-for="(emoji, index) in CATEGORY_EMOJIS"
+                  :key="index" :aria-label="`选择图标 ${emoji}`" :aria-pressed="form.icon === emoji"
                   class="aspect-square flex items-center justify-center text-xl rounded-lg hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm transition"
                   :class="form.icon === emoji ? 'bg-white shadow-sm ring-2 ring-primary/30' : ''"
                   @click="selectEmoji(emoji)"
@@ -321,7 +332,7 @@ function selectEmoji(emoji: string) {
               <div class="flex flex-wrap gap-2">
                 <button
                   v-for="color in CATEGORY_COLORS"
-                  :key="color"
+                  :key="color" :aria-label="`选择颜色 ${color}`" :aria-pressed="form.color === color"
                   class="w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center"
                   :class="form.color === color ? 'border-gray-900 scale-110' : 'border-transparent hover:scale-105'"
                   :style="{ backgroundColor: color }"
@@ -332,43 +343,33 @@ function selectEmoji(emoji: string) {
               </div>
             </div>
 
-            <button
+
+          </div>
+      </fieldset>
+      <template #footer><button
               class="w-full h-12 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg shadow-primary/20"
               @click="submitForm"
-            >
+             :disabled="saving">
               保存
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+            </button></template>
+    </AppDialog>
 
     <!-- Delete Confirm Modal -->
-    <Teleport to="body">
-      <div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showDeleteModal = false"></div>
-        <div class="relative bg-white dark:bg-gray-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
-          <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 mx-auto text-red-500">
-            <Trash2 :size="24" />
-          </div>
-          <h3 class="text-lg font-bold text-center mb-2 dark:text-white">确认删除</h3>
-          <p class="text-gray-500 text-center text-sm mb-6">删除后该分类下的交易记录将变为「未分类」状态。</p>
-          <div class="flex gap-3">
-            <button
+    <AppDialog v-if="showDeleteModal" title="确认删除" :busy="deleting" :return-focus="dialogTrigger" :fallback-focus="dialogFallback" sheet @close="(deleting) || (showDeleteModal = false)">
+      <fieldset :disabled="deleting" class="min-w-0 border-0 p-0 m-0"><p class="text-gray-500 text-center text-sm mb-6">删除后该分类下的交易记录将变为「未分类」状态。</p>
+      </fieldset>
+      <template #footer><button
               class="flex-1 py-3 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"
               @click="showDeleteModal = false"
-            >
+             :disabled="deleting">
               取消
             </button>
             <button
               class="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition shadow-lg shadow-red-500/30"
               @click="handleDelete"
-            >
+             :disabled="deleting">
               确认删除
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-  </div>
+            </button></template>
+    </AppDialog>
+  </FinancePage>
 </template>

@@ -14,6 +14,7 @@ import (
 var (
 	ErrAccountNotFound     = errors.New("account not found")
 	ErrAccountHasBalance   = errors.New("cannot delete account with non-zero balance")
+	ErrAccountHasHistory   = errors.New("账户存在历史流水或业务引用，请归档账户")
 	ErrInvalidAccountPatch = errors.New("invalid account patch")
 )
 
@@ -26,35 +27,50 @@ func NewAccountService(repo *repository.AccountRepository) *AccountService {
 }
 
 type CreateAccountRequest struct {
-	Name           string        `json:"name" binding:"required"`
-	Type           string        `json:"type" binding:"required,oneof=cash bank_card alipay wechat credit loan mortgage car_loan consumer_loan receivable payable savings investment fund stock crypto prepaid qq_pay jd_pay apple_pay huabei baitiao other"`
-	Icon           string        `json:"icon"`
-	Color          string        `json:"color"`
-	InitialBalance money.Amount  `json:"initial_balance"`
-	PaymentDay     *int          `json:"payment_day"`
-	BillingDay     *int          `json:"billing_day"`
-	CreditLimit    *money.Amount `json:"credit_limit"`
-	InterestRate   *float64      `json:"interest_rate"`
-	StartDate      *string       `json:"start_date"`
-	TargetDate     *string       `json:"target_date"`
-	Remark         string        `json:"remark"`
+	DebtTrackingMode string        `json:"debt_tracking_mode" binding:"omitempty,oneof=legacy managed"`
+	Name             string        `json:"name" binding:"required"`
+	Type             string        `json:"type" binding:"required,oneof=cash bank_card alipay wechat credit loan mortgage car_loan consumer_loan receivable payable savings investment fund stock crypto prepaid qq_pay jd_pay apple_pay huabei baitiao other"`
+	Icon             string        `json:"icon"`
+	Color            string        `json:"color"`
+	InitialBalance   money.Amount  `json:"initial_balance"`
+	PaymentDay       *int          `json:"payment_day"`
+	BillingDay       *int          `json:"billing_day"`
+	CreditLimit      *money.Amount `json:"credit_limit"`
+	InterestRate     *float64      `json:"interest_rate"`
+	StartDate        *string       `json:"start_date"`
+	TargetDate       *string       `json:"target_date"`
+	Remark           string        `json:"remark"`
 }
 
 func (s *AccountService) Create(userID uint, req CreateAccountRequest) (*model.Account, error) {
+	if req.DebtTrackingMode == "" {
+		req.DebtTrackingMode = model.DebtModeLegacy
+	}
+	if req.DebtTrackingMode != model.DebtModeLegacy && req.DebtTrackingMode != model.DebtModeManaged {
+		return nil, ErrInvalidAccountPatch
+	}
+	if req.DebtTrackingMode == model.DebtModeManaged &&
+		(!IsDebtAccount(req.Type) || !validDebtMoney(req.InitialBalance) || req.InitialBalance < 0) {
+		return nil, ErrInvalidDebtRequest
+	}
 	account := &model.Account{
-		ID:             uuid.New().String(),
-		UserID:         userID,
-		Name:           req.Name,
-		Type:           req.Type,
-		Icon:           req.Icon,
-		Color:          req.Color,
-		InitialBalance: req.InitialBalance,
-		CurrentBalance: req.InitialBalance,
-		PaymentDay:     req.PaymentDay,
-		BillingDay:     req.BillingDay,
-		CreditLimit:    req.CreditLimit,
-		InterestRate:   req.InterestRate,
-		Remark:         req.Remark,
+		DebtTrackingMode: req.DebtTrackingMode,
+		ID:               uuid.New().String(),
+		UserID:           userID,
+		Name:             req.Name,
+		Type:             req.Type,
+		Icon:             req.Icon,
+		Color:            req.Color,
+		InitialBalance:   req.InitialBalance,
+		CurrentBalance:   req.InitialBalance,
+		PaymentDay:       req.PaymentDay,
+		BillingDay:       req.BillingDay,
+		CreditLimit:      req.CreditLimit,
+		InterestRate:     req.InterestRate,
+		Remark:           req.Remark,
+	}
+	if account.DebtTrackingMode == model.DebtModeManaged {
+		account.UnplannedDebt = account.InitialBalance
 	}
 
 	if req.StartDate != nil {
@@ -77,7 +93,12 @@ func (s *AccountService) Create(userID uint, req CreateAccountRequest) (*model.A
 			return err
 		}
 		if req.InitialBalance != 0 {
-			return s.createInitialBalanceTransactionTx(txdb, userID, account)
+			if err := s.createInitialBalanceTransactionTx(txdb, userID, account); err != nil {
+				return err
+			}
+		}
+		if account.DebtTrackingMode == model.DebtModeManaged {
+			return seedManagedDebtAccountTx(txdb, account)
 		}
 		return nil
 	}); err != nil {
@@ -362,6 +383,9 @@ func (s *AccountService) Update(id string, userID uint, req UpdateAccountRequest
 
 func (s *AccountService) Delete(id string, userID uint) error {
 	if err := s.repo.DeleteForUserIfBalanceAllows(id, userID); err != nil {
+		if errors.Is(err, repository.ErrAccountReferencesPreventDeletion) {
+			return ErrAccountHasHistory
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrAccountNotFound
 		}

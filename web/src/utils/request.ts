@@ -29,6 +29,14 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
 
 const refreshCoordinators = new Map<number, ReturnType<typeof createRefreshCoordinator>>()
 
+function requestError(message: string, status?: number, code?: unknown) {
+  const error = new Error(message) as Error & { status?: number; code?: number }
+  // Keep only the status needed by callers; never propagate config, headers or tokens.
+  if (typeof status === 'number') error.status = status
+  if (typeof code === 'number' && Number.isSafeInteger(code)) error.code = code
+  return error
+}
+
 function sessionChangedError() {
   return new Error('会话已变更，请重新操作')
 }
@@ -62,7 +70,7 @@ instance.interceptors.response.use(
     }
     const data = response.data
     if (data.code !== 0) {
-      return Promise.reject(new Error(data.message || 'Request failed'))
+      return Promise.reject(requestError(data.message || 'Request failed', response.status, data.code))
     }
     return data.data
   },
@@ -78,7 +86,7 @@ instance.interceptors.response.use(
     if (error.response?.status === 401) {
       const isSilentBootstrap = originalRequest?.headers.get('X-Session-Bootstrap') === '1'
       if (isSilentBootstrap) {
-        return Promise.reject(new Error('未找到可恢复的浏览器会话'))
+        return Promise.reject(requestError('未找到可恢复的浏览器会话', 401))
       }
 
       const refreshAction = originalRequest
@@ -133,27 +141,45 @@ instance.interceptors.response.use(
         requestUrl: originalRequest?.url
       })
       if (fallback.type === 'return-safe-error') {
-        return Promise.reject(new Error(fallback.message))
+        return Promise.reject(requestError(fallback.message, 401))
       }
 
       authStore.clearSession()
       void router.replace('/login?reason=expired')
-      return Promise.reject(new Error('登录已过期，请重新登录'))
+      return Promise.reject(requestError('登录已过期，请重新登录', 401))
     }
 
     // Handle rate limiting (429)
     if (error.response?.status === 429) {
-      const retryAfter = error.response.headers['retry-after'] || 60
-      return Promise.reject(new Error(`请求过于频繁，请 ${retryAfter} 秒后再试`))
+      const headerDelay = Number(error.response.headers?.['retry-after'])
+      const bodyDelay = Number(error.response.data?.retry_after)
+      const retryAfter = Number.isFinite(headerDelay) && headerDelay > 0
+        ? Math.ceil(headerDelay)
+        : Number.isFinite(bodyDelay) && bodyDelay > 0 ? Math.ceil(bodyDelay) : 60
+      return Promise.reject(requestError(`请求过于频繁，请 ${retryAfter} 秒后再试`, 429))
     }
 
     // Handle API token error (403)
     if (error.response?.status === 403 && error.response?.data?.code === 40300) {
-      return Promise.reject(new Error('API Token 无效或缺失'))
+      return Promise.reject(requestError('API Token 无效或缺失', 403))
     }
 
-    const message = error.response?.data?.message || (error.response ? '请求失败' : '网络连接失败')
-    return Promise.reject(new Error(message))
+    let data = error.response?.data
+    if (typeof Blob !== 'undefined' && data instanceof Blob) {
+      try {
+        data = JSON.parse(await data.text())
+      } catch {
+        data = undefined
+      }
+      // Reading a Blob yields; do not return details from a superseded session.
+      if (generation !== undefined && generation !== authStore.sessionGeneration) {
+        return Promise.reject(sessionChangedError())
+      }
+    }
+    const message = typeof data?.message === 'string' && data.message.trim()
+      ? data.message
+      : (error.response ? '请求失败' : '网络连接失败')
+    return Promise.reject(requestError(message, error.response?.status, data?.code))
   }
 )
 

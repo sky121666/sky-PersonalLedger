@@ -237,9 +237,20 @@ Manual report generation accepts an optional `mask_names` flag. Member names are
 Schema 11 adds only the private `provider_revision` column. Historical reports retain their
 content and empty revision, so they are readable but cannot satisfy the new cache check. Normal
 backup exports omit the revision, and restored reports also require regeneration before reuse.
-Prompt versions are `personal-ledger-v3` and `personal-ledger-v3-masked`. Web and mobile report
-generation allow 45 seconds for the backend's 30-second provider request; ordinary API requests
-retain their existing timeout. Generation serialization is local to one writable server instance.
+Prompt versions are `personal-ledger-v5` and `personal-ledger-v5-masked`. Web report generation
+allows 60 seconds for the backend's 45-second report request; ordinary API requests retain their
+existing timeout. The native mobile client still uses 45 seconds and is outside the current Web
+acceptance scope. Generation serialization is local to one writable server instance.
+
+Account changes include effective transaction projections, legacy reminder adjustments, and
+active external debt payments that have no account transaction projection. For the latter, only
+the owned operation's debt-side balance log is counted, using the operation's occurrence time
+and exact integer-cent delta. Multiple plan allocations do not multiply the account change.
+Reversed payments are excluded; existing projections, including soft-deleted ones, block the log
+fallback. Principal repayments are not income or spending, and repayment of already booked
+interest does not book that expense again. This is a read-only snapshot rule: it neither changes
+balances nor rewrites historical reports. Changed snapshots invalidate reuse on the next explicit
+generation; old report content remains available as history.
 
 Provider requests now carry a report-specific analysis task: weekly and monthly summaries,
 member-focused family analysis, budget progress, or aggregate-supported anomaly explanations.
@@ -272,4 +283,7 @@ disabling a schedule prevents subsequent sends and does not undo an external cal
 - Scheduler test proving automatic weekly reports use the previous complete week and do not run again on the same day.
 - Scheduler test proving users without an enabled provider are skipped rather than failing the whole run.
 - Snapshot tests proving raw remarks are excluded by default.
+- SQLite, PostgreSQL and MySQL tests for external/internal debt payments, allocation, reversal,
+  occurrence boundaries, projection deduplication, soft deletion and owner isolation; a fake
+  provider verifies exact masked input, cache invalidation and unchanged financial records.
 - UI tests for disabled state, connection test, and generated report rendering.

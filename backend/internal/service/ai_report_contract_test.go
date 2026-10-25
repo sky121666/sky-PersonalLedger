@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sky/personal-ledger/internal/model"
 	"github.com/sky/personal-ledger/internal/repository"
 )
 
@@ -32,6 +33,12 @@ func TestAIReportTypesProduceDistinctTasksAndBoundOutput(t *testing.T) {
 		}
 		messages := payload["messages"].([]any)
 		system := messages[0].(map[string]any)["content"].(string)
+		if !strings.Contains(system, "spent > amount") || !strings.Contains(system, "near-limit") {
+			t.Error("budget alert entries must not imply actual overspending without comparing amounts")
+		}
+		if !strings.Contains(system, "Simplified Chinese") {
+			t.Error("all report types must use the application's narrative language")
+		}
 		if seen[system] {
 			t.Error("different report types sent the same task")
 		}
@@ -48,6 +55,40 @@ func TestAIReportTypesProduceDistinctTasksAndBoundOutput(t *testing.T) {
 	}
 	if len(seen) != 4 {
 		t.Errorf("distinct task count=%d, want 4", len(seen))
+	}
+}
+
+func TestAIReportNewGuidanceDoesNotReuseLegacyResults(t *testing.T) {
+	for _, legacyVersion := range []string{"personal-ledger-v3-masked", "personal-ledger-v4-masked"} {
+		t.Run(legacyVersion, func(t *testing.T) {
+			server, calls := newCountingAIReportServer(t)
+			svc, providers, userID := newAIReportTestServices(t)
+			seedAIReportFacts(t, providers, userID, server.URL)
+			req := GenerateAIReportRequest{ReportType: "monthly", PeriodStart: "2026-05-01", PeriodEnd: "2026-05-24"}
+			first, err := svc.Generate(userID, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			db := providers.repo.DB()
+			if err := db.Model(&model.AIReport{}).Where("id = ?", first.ID).
+				Update("prompt_version", legacyVersion).Error; err != nil {
+				t.Fatal(err)
+			}
+			second, err := svc.Generate(userID, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if first.ID == second.ID || calls.Load() != 2 {
+				t.Fatal("new budget guidance reused the previous prompt's cached report")
+			}
+			var historical model.AIReport
+			if err := db.First(&historical, "id = ?", first.ID).Error; err != nil {
+				t.Fatal(err)
+			}
+			if historical.PromptVersion != legacyVersion || historical.ContentJSON != first.ContentJSON {
+				t.Fatal("generating with new guidance rewrote a historical report")
+			}
+		})
 	}
 }
 

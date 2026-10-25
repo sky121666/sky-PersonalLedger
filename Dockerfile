@@ -1,13 +1,12 @@
 # ============================================
 # Stage 1: 构建前端
 # ============================================
-FROM node:24.18.1-alpine3.24@sha256:f70403e87646dc51b45295f4b8b70cdad0b63d2297c4c9899119b03f7af7a6b3 AS frontend-builder
+FROM node:26.12.0-alpine3.24@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS frontend-builder
 
 WORKDIR /app/web
 
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
-COPY web/patches/ ./patches/
-RUN corepack enable && pnpm install --frozen-lockfile
+RUN npm install --global pnpm@12.11.2 && pnpm install --frozen-lockfile
 
 COPY web/ ./
 RUN pnpm run build
@@ -15,7 +14,7 @@ RUN pnpm run build
 # ============================================
 # Stage 2: 构建后端
 # ============================================
-FROM golang:1.26.6-alpine3.24@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83 AS backend-builder
+FROM golang:1.26.10-alpine3.24@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba AS backend-builder
 
 WORKDIR /app/backend
 
@@ -32,12 +31,11 @@ RUN CGO_ENABLED=1 GOOS=linux go build -mod=readonly -ldflags="-s -w -X main.Vers
 # ============================================
 # Stage 3: 最终镜像
 # ============================================
-FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
 WORKDIR /app
 
-# The pinned base includes OpenSSL 3.5.7; require the CVE-2026-14456 fix
-# instead of leaving preinstalled vulnerable libraries untouched by apk add.
+# Require the CVE-2026-14456 fix when resolving the runtime OpenSSL libraries.
 RUN apk add --no-cache ca-certificates su-exec tzdata wget \
     "libcrypto3>=3.5.8-r0" "libssl3>=3.5.8-r0" \
     && addgroup -S -g 10001 ledger \

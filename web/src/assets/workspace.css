@@ -1,0 +1,83 @@
+.widget-grid { display:grid; gap:16px; align-items:stretch; }
+.widget-cell { min-width:0; display:flex; }
+.widget-cell > * { width:100%; }
+
+/* Navigation shell. Business pages retain their own layout and theme tokens. */
+.ledger-workspace {
+  --workspace-ink: #1d1d1f;
+  --workspace-muted: #63636b;
+  --workspace-glass: rgb(255 255 255 / 82%);
+  --workspace-panel: rgb(255 255 255 / 96%);
+  --workspace-line: rgb(30 55 90 / 9%);
+  --workspace-accent: #007aff;
+  height: 100%; display: flex; flex-direction: column; min-width: 0;
+  background: #f2f2f7; color: var(--workspace-ink);
+}
+.dark .ledger-workspace { --workspace-ink: #f5f5f7; --workspace-muted: #a1a1aa; --workspace-glass: rgb(28 28 30 / 88%); --workspace-panel: rgb(28 28 30 / 96%); --workspace-line: rgb(255 255 255 / 10%); --workspace-accent: #409cff; background: #0b0b0d; }
+.ledger-workspace .workspace-glass { background: var(--workspace-glass); border: 1px solid var(--workspace-line); backdrop-filter: blur(22px) saturate(145%); -webkit-backdrop-filter: blur(22px) saturate(145%); box-shadow: 0 6px 24px rgb(20 45 80 / 5%); }
+.ledger-workspace .workspace-header { flex: none; min-height: 80px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; }
+.ledger-workspace .workspace-brand { display: flex; align-items: center; gap: 10px; flex: none; }
+.ledger-workspace .workspace-brand-name { font-size: 14px; font-weight: 650; letter-spacing: -.02em; }
+.ledger-workspace .workspace-brand-icon { width: 36px; height: 36px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(150deg, #53b0ff, #007aff 70%); color: white; box-shadow: inset 0 1px 1px rgb(255 255 255 / 45%), 0 3px 8px rgb(0 122 255 / 16%); flex: none; }
+.ledger-workspace .workspace-top-nav { min-width: 0; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 20px; }
+.ledger-workspace .workspace-destination { display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; min-width: 44px; min-height: 44px; padding: 10px 14px; border-radius: 14px; background: transparent; color: var(--workspace-muted); font-size: 13px; font-weight: 550; cursor: pointer; text-decoration: none; }
+.ledger-workspace .workspace-destination svg { flex: none; }
+.ledger-workspace .workspace-destination span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ledger-workspace .workspace-destination:hover, .ledger-workspace .workspace-icon-button:hover { background: rgb(118 118 128 / 8%); }
+.ledger-workspace [aria-current="page"], .ledger-workspace .workspace-destination.is-active { color: var(--workspace-accent); background: rgb(0 122 255 / 9%); }
+.ledger-workspace :is(button, a):focus-visible { outline: 3px solid var(--workspace-accent); outline-offset: 2px; }
+.ledger-workspace .workspace-utilities { display: flex; align-items: center; gap: 4px; flex: none; }
+.ledger-workspace .workspace-icon-button { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border: 0; border-radius: 13px; background: transparent; color: var(--workspace-muted); cursor: pointer; }
+.ledger-workspace .workspace-quick-add { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding: 0 13px; border: 0; border-radius: 15px; background: #007aff; color: white; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.ledger-workspace .workspace-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.ledger-workspace .workspace-content { position: relative; flex: 1; min-width: 0; overflow: auto; }
+.ledger-workspace .workspace-rail { display: flex; flex-direction: column; width: 72px; flex: none; margin: 12px 0 12px 12px; border-radius: 22px; padding: 10px; gap: 8px; min-height: 0; }
+.ledger-workspace .workspace-rail.is-expanded { width: 216px; }
+.ledger-workspace .workspace-rail-brand { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; font-weight: 650; font-size: 14px; white-space: nowrap; }
+.ledger-workspace .workspace-rail-add { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; border: 0; background: #007aff; color: white; border-radius: 14px; flex: none; cursor: pointer; }
+.ledger-workspace .workspace-rail-nav { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 4px; scrollbar-width: thin; }
+.ledger-workspace .workspace-rail-nav .workspace-destination { position: relative; flex: none; padding: 12px 8px; }
+.ledger-workspace .workspace-rail.is-expanded .workspace-destination { justify-content: flex-start; padding-left: 12px; }
+.ledger-workspace .workspace-rail-tooltip { position: fixed; margin-left: 140px; z-index: 90; display: none; padding: 6px 9px; border-radius: 8px; background: var(--workspace-ink); color: var(--workspace-glass); font-size: 12px; pointer-events: none; }
+.ledger-workspace .workspace-destination:is(:hover, :focus-visible) .workspace-rail-tooltip { display: block; }
+.ledger-workspace .workspace-rail-tools { display: flex; flex-wrap: wrap; flex: none; justify-content: center; gap: 4px; border-top: 1px solid var(--workspace-line); padding-top: 8px; }
+.ledger-workspace .workspace-function-layer { position: fixed; inset: 0; z-index: 65; }
+.ledger-workspace .workspace-function-backdrop { position: absolute; inset: 0; background: rgb(20 30 50 / 8%); }
+.ledger-workspace .workspace-functions { position: absolute; top: 76px; right: 24px; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 100px); display: flex; flex-direction: column; border-radius: 24px; padding: 12px; background: var(--workspace-panel); box-shadow: 0 20px 70px rgb(20 30 55 / 18%); }
+.ledger-workspace[data-mode="rail"] .workspace-functions { top: 16px; left: 96px; right: auto; }
+.ledger-workspace .workspace-functions-heading { display: flex; align-items: center; justify-content: space-between; padding-left: 12px; flex: none; }
+.ledger-workspace .workspace-functions-heading h2 { font-size: 15px; font-weight: 650; }
+.ledger-workspace .workspace-function-list { overflow-y: auto; min-height: 0; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; }
+.ledger-workspace .workspace-function-row { display: flex; min-width: 0; align-items: center; border-radius: 14px; }
+.ledger-workspace .workspace-function-link { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; min-height: 48px; padding: 4px 6px; border-radius: 12px; color: var(--workspace-ink); text-decoration: none; font-size: 13px; }
+.ledger-workspace .workspace-function-link:hover { background: rgb(118 118 128 / 8%); }
+.ledger-workspace .workspace-function-link > span:last-child { overflow-wrap: anywhere; }
+.ledger-workspace .workspace-function-icon { display: inline-flex; color: var(--workspace-accent); flex: none; }
+.ledger-workspace .workspace-pin { width: 44px; height: 44px; }
+.ledger-workspace .workspace-pin[aria-pressed="true"] { color: var(--workspace-accent); }
+.ledger-workspace .workspace-pin:disabled { opacity: .4; cursor: default; }
+.ledger-workspace .workspace-mode-toggle:disabled { opacity: .4; cursor: default; }
+.ledger-workspace .workspace-preference-note, .ledger-workspace .workspace-preference-notice { font-size: 12px; padding: 8px 16px; color: var(--workspace-muted); }
+.ledger-workspace .workspace-preference-notice button { color: var(--workspace-accent); text-decoration: underline; min-height: 44px; }
+.ledger-workspace .workspace-mobile-nav { position: fixed; z-index: 50; bottom: max(8px, env(safe-area-inset-bottom)); left: 12px; right: 12px; border-radius: 23px; display: flex; align-items: stretch; padding: 4px; }
+.ledger-workspace .workspace-mobile-nav .workspace-destination { flex: 1; min-width: 0; min-height: 56px; flex-direction: column; gap: 3px; padding: 6px 2px; font-size: 11px; }
+.ledger-workspace .mobile-content-safe { padding-bottom: calc(96px + env(safe-area-inset-bottom)); scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+@media (max-width: 1279px) { .ledger-workspace .workspace-brand-name { display: none; } .ledger-workspace .workspace-top-nav { flex: 1; justify-content: center; } .ledger-workspace .workspace-top-nav .workspace-destination { flex: 1; min-width: 0; padding: 10px 8px; } }
+@media (min-width: 768px) and (max-width: 1000px) { .ledger-workspace .workspace-header { padding: 10px 12px; gap: 8px; } .ledger-workspace .workspace-top-nav .workspace-destination { flex-direction: column; gap: 2px; padding: 5px 2px; font-size: 11px; } }
+@media (max-width: 767px) {
+  .ledger-workspace .workspace-header { min-height: 64px; padding: max(8px, env(safe-area-inset-top)) 12px 8px; gap: 8px; }
+  .ledger-workspace .workspace-functions { top: auto; bottom: calc(86px + env(safe-area-inset-bottom)); left: 12px; right: 12px; width: auto; max-height: calc(100dvh - 170px - env(safe-area-inset-bottom)); border-radius: 24px; }
+}
+@media (prefers-reduced-transparency: reduce) { .ledger-workspace .workspace-glass { backdrop-filter: none; -webkit-backdrop-filter: none; background: #fff; } .dark .ledger-workspace .workspace-glass { background: #1c1c1e; } }
+.home-content{padding-bottom:24px}.home-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:22px 0}
+.home-heading-title{display:flex;align-items:baseline;gap:12px;min-width:0}.home-heading-title h1{font-size:24px;font-weight:700;letter-spacing:-.04em}.home-heading-title>span{font-size:12px;color:var(--workspace-muted)}
+.home-heading-actions{display:flex;gap:2px;align-items:center}.home-heading-actions button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border-radius:13px;font-size:12px;color:var(--workspace-muted);cursor:pointer}.home-heading-actions button:hover{background:#76768012}.home-edit-trigger{padding:0 10px}.home-icon-action{width:44px;flex:none}
+.home-heading-actions button:disabled{cursor:not-allowed;opacity:.5}
+/* This almost-opaque sticky surface must not resample the scrolling widget grid beneath a modal. */
+.widget-editor-toolbar{position:sticky;top:8px;z-index:31;display:flex;gap:4px;align-items:center;padding:5px;margin:0 0 26px;border:1px solid var(--workspace-line);background:var(--workspace-panel,#f2f2f7);border-radius:18px;box-shadow:0 4px 16px #00000006}
+.widget-editor-toolbar button,.widget-editor-toolbar summary{display:flex;align-items:center;justify-content:center;gap:5px;min-height:44px;padding:8px 12px;border-radius:12px;font-size:13px;cursor:pointer;white-space:nowrap}.widget-editor-toolbar button:disabled{opacity:.4}.widget-editor-toolbar .widget-primary{background:#007aff;color:#fff}.widget-toolbar-spacer{flex:1}.widget-editor-toolbar .widget-toolbar-icon,.widget-editor-toolbar summary{width:44px;padding:0;list-style:none}.widget-editor-toolbar summary::-webkit-details-marker{display:none}.widget-add-trigger{color:var(--workspace-accent);background:#007aff12}
+.widget-editor-toolbar details{position:static}.widget-editor-toolbar details[open] button{position:absolute;top:calc(100% + 6px);left:6px;width:min(252px,calc(100% - 12px));white-space:normal;background:var(--workspace-panel);box-shadow:0 6px 30px #10204022;z-index:35}.widget-empty{padding:32px 8px;color:#63636b}.widget-calendar-preview{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;text-align:center}
+@media(max-width:767px){.home-heading{padding:12px 0 18px}.home-heading-title{flex-direction:column;gap:0}.home-heading-title h1{font-size:22px}.home-heading-actions .home-edit-trigger{font-size:12px}.widget-editor-toolbar{gap:0;top:4px;margin-bottom:24px}.widget-editor-toolbar button{padding:8px 9px}.widget-editor-toolbar .widget-toolbar-icon,.widget-editor-toolbar summary{width:44px}.home-content>.widget-grid{margin-top:8px}}
+
+.widget-drag-preview{position:fixed;z-index:70;pointer-events:none;opacity:.94;filter:drop-shadow(0 16px 24px #0003);will-change:transform}.widget-drag-preview>.widget-renderer{height:100%}
+@media(prefers-reduced-motion:no-preference){.ledger-workspace .workspace-rail{transition:width 240ms cubic-bezier(.22,1,.36,1)}.widget-editor-toolbar{animation:widget-toolbar-in 160ms ease-out}@keyframes widget-toolbar-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}}

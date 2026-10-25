@@ -223,7 +223,10 @@ func (s *TransactionImportService) Commit(userID uint, sessionID string) (*Trans
 
 	createdIDs := make([]string, 0, len(rows))
 	now := time.Now()
-	err = s.transactions.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	err = financeWriteTransaction(s.transactions.txRepo.DB(), func(txdb *gorm.DB) error {
+		if err := lockDebtUserTx(txdb, userID); err != nil {
+			return err
+		}
 		claimed := txdb.Model(&model.TransactionImportBatch{}).
 			Where("id = ? AND user_id = ? AND status IN ? AND expires_at > ?", session.ID, userID, []string{"previewed", "validated"}, now).
 			Updates(map[string]interface{}{"status": "committing", "updated_at": now})
@@ -272,7 +275,10 @@ func (s *TransactionImportService) Rollback(userID uint, sessionID string) (*Tra
 	}
 
 	now := time.Now()
-	err = s.transactions.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	err = financeWriteTransaction(s.transactions.txRepo.DB(), func(txdb *gorm.DB) error {
+		if err := lockDebtUserTx(txdb, userID); err != nil {
+			return err
+		}
 		claimed := txdb.Model(&model.TransactionImportBatch{}).
 			Where("id = ? AND user_id = ? AND status = ? AND expires_at > ?", session.ID, userID, "committed", now).
 			Updates(map[string]interface{}{"status": "rolling_back", "updated_at": now})
@@ -290,8 +296,21 @@ func (s *TransactionImportService) Rollback(userID uint, sessionID string) (*Tra
 			if transaction.Source != "import" || transaction.ImportFingerprint == nil {
 				return ErrTransactionImportState
 			}
-			if err := s.transactions.deleteWithTx(txdb, transaction.ID, userID); err != nil {
-				return err
+			if transaction.DebtOperationID != nil {
+				var operation model.DebtOperation
+				if err := txdb.First(&operation, "id = ? AND user_id = ?", *transaction.DebtOperationID, userID).Error; err != nil {
+					return ErrDebtDependency
+				}
+				if operation.SourceTransactionID == nil || *operation.SourceTransactionID != transaction.ID {
+					return ErrDebtDependency
+				}
+				if _, err := reverseDebtOperationTx(txdb, &operation, nil); err != nil {
+					return err
+				}
+			} else {
+				if err := s.transactions.deleteWithTx(txdb, transaction.ID, userID); err != nil {
+					return err
+				}
 			}
 		}
 		rolledBackAt := time.Now()
@@ -584,7 +603,8 @@ func existingImportFingerprints(txdb *gorm.DB, userID uint, fingerprints []strin
 			end = len(fingerprints)
 		}
 		var existing []string
-		if err := txdb.Model(&model.Transaction{}).
+		// Soft-deleted rows still reserve fingerprints in the unique index.
+		if err := txdb.Unscoped().Model(&model.Transaction{}).
 			Where("user_id = ? AND import_fingerprint IN ?", userID, fingerprints[start:end]).
 			Pluck("import_fingerprint", &existing).Error; err != nil {
 			return nil, err

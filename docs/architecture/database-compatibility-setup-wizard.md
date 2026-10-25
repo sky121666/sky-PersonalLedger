@@ -99,6 +99,36 @@ The database layer now runs a versioned migration list. Each migration has a num
 
 Migration v1 still uses GORM `AutoMigrate` to create the initial ledger schema across SQLite, PostgreSQL, and MySQL/MariaDB. Future schema changes should be added as new migration entries instead of editing the historical v1 migration. This keeps upgrade order auditable and avoids hidden schema drift between database engines.
 
+Migration v12 (`repayment_request_idempotency`) adds only `repayment_requests`. Its composite primary
+key is `(user_id, operation, target_id, key_hash)`; `payload_hash` binds the key to the accepted
+request. Existing balances and ledger rows are unchanged. Reminder payment and lending repayment
+accept optional JSON `idempotency_key` (at most 128 bytes). The target is locked before reading or
+inserting its claim, and the claim, balances, transaction and logs commit together. SQLite uses the
+existing finance write mutex; PostgreSQL/MySQL use the target row lock and the unique primary key.
+An exact retry returns HTTP 200 with the current target object and creates no further effects;
+changed content under the same scope/key returns HTTP 409/code 40903. Missing or empty keys retain
+legacy behavior. Deleted targets remain unavailable and cannot be recreated by replaying a key.
+
+Web clients save a new key and the exact payload in `sessionStorage` before the first submission.
+An unconfirmed operation survives dialog reopening and page reload within that browser session;
+its original payload remains locked until a retry confirms the result, including for paid-off targets.
+After successful payment, a deliberate additional payment needs a new key. Failed transactions do
+not consume their server-side keys. This client recovery does not persist across browser sessions.
+The backup contract carries completed claims with their ledger state.
+The schema guard prevents running a schema-11 binary against an upgraded database. Rollback requires
+restoring the pre-upgrade database snapshot with its matching application version; never remove
+only the migration record while retaining the new financial history.
+
+Account deletion and reference writes use the same account-lock protocol. Deletion locks the active
+account first, then checks historical references in a separate statement before deleting. Reminder
+creation/update/rebinding, lending creation, template creation/application and transaction reference
+validation lock and recheck active accounts inside their write transaction. Multiple accounts are
+locked in sorted ID order. SQLite financial writes share the existing process-local writer mutex;
+this guarantee assumes one writable application instance. Recurring transactions currently have
+only a model/migration and no API or service write path; their stored references still block deletion.
+Unknown reminder-payment database or post-commit read failures return HTTP 500 so clients retain the
+pending idempotency key. Only recognized business validation failures are returned as 4xx.
+
 ## Compatibility Notes
 
 - SQLite remains the default because it is easy to back up and needs no external service.

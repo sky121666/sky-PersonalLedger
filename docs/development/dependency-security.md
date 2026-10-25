@@ -1,37 +1,59 @@
 # Web 构建依赖安全
 
-## braces 的本地修复
+## Tailwind v4 与旧 braces 补丁
 
-`GHSA-vfj7-8cjw-p6xm` / `CVE-2026-93687` 影响 `braces <=3.0.3`。截至本次核验，上游尚未发布修复版本。9003 字符、4500 层嵌套可在默认 compile 或 expand 路径耗尽 Node 调用栈；字符数未超过原有 10000 上限。
+2026-10-15 的 Web 升级使用 Tailwind 4.3.3 及其 Vite 插件，源码扫描由
+`@tailwindcss/oxide` 执行。当前冻结依赖图不再包含 `braces`，因此移除了旧
+`braces@3.0.3` 补丁、补丁登记及 Docker 的补丁复制步骤。
 
-本项目通过 pnpm 10 的正式 `patch` / `patch-commit` 流程维护 `web/patches/braces@3.0.3.patch`，精确登记 `braces@3.0.3` 并由 lockfile 保存补丁 hash，不改上游版本号和许可证，也不配置 audit ignore 或调整告警等级。
+旧补丁曾防止 Tailwind 3 经 fast-glob / micromatch / chokidar 调用 braces 时发生
+无界递归；移除依据是消费链已退出依赖图，不是忽略漏洞告警。历史实现保留在 Git 历史中。
 
-补丁只处理本次递归深度根因：
+`pnpm verify:brace-depth` 保留原命令入口，现在检查整个锁文件中没有任何 braces
+版本或依赖边，同时确认实际安装的是 Tailwind 4 及其原生扫描器。如果任何未来依赖
+重新引入 braces，门禁必须失败；届时需审查上游修复，并恢复适用的深度攻击回归或补丁，
+不能直接放行。
 
-- 默认最大容器深度为 100，解析字符串时同时限制大括号和圆括号；转义、引号和字符类沿用原有解析语义。
-- compile、expand 和 stringify 的 AST 遍历同样限制深度，直接传入 AST 不能绕过字符串解析限制。
-- expand 转入 invalid、dollar 或空范围的 stringify 分支时保留已消耗的深度，不能重新从零计数。
-- 100 层仍可使用，101 层拒绝。超过限制是受控的输入错误，不能变成 `Maximum call stack size exceeded`。
+旧 overrides 也已根据新依赖图移除。冻结安装与实际构建用于发现平台原生依赖缺失；
+安全审计不配置 ignore，也不降低告警等级。
 
-上游 [PR #77](https://github.com/micromatch/braces/pull/77) 的草案默认不启用 `maxDepth`，依赖链没有传入该选项，因此不能直接视为当前项目已修复。新上游版本发布后，需核对其默认限制及兼容性，重新运行回归，再评估移除本地补丁。
+## pnpm 12 安装策略
 
-## 当前调用范围
+Node、pnpm 和直接依赖使用明确版本，锁文件由 pnpm 12.11.2 生成。
+`pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` 仅列出本次选择、尚处于 pnpm
+默认发布时间等待期的精确版本，不按包通配符豁免，不全局关闭等待期。后续升级应重新
+审查该列表，不能把这些例外扩展到未来版本。
 
-Tailwind 3.4.19 的 content 配置经 fast-glob 3.3.3 / micromatch 4.0.8 调用 braces 3.0.3；chokidar 3.6.0 也直接调用其 expand。模式来自已检出的 `web/tailwind.config.js`，当前为 `./index.html` 和 `./src/**/*.{vue,js,ts,jsx,tsx}`。这是构建和开发工具输入，不读取账本 API 的交易文本或运行中的上传目录。
+本次收尾刷新了上游允许范围内的传递依赖，包括 Rolldown 1.2.14、
+follow-redirects 1.16.1 和 Vue 3.5.44 编译工具包。Rolldown、对应平台 binding
+和 OXC 类型包的发布时间例外仍精确到版本。没有新增 overrides，也没有改写
+上游的固定版本：Tailwind 使用的 Lightning CSS 1.32.0、Vitest 使用的
+why-is-node-running 3.2.1 等仍遵循原始依赖声明。
 
-Docker 最终镜像只复制 Go 二进制和 `web/dist`，不复制 Node 或 `node_modules`。这一范围说明不降低上游告警级别；修改配置的源码仍须经过仓库审查，任意不可信模式也必须先被补丁拒绝。
+Docker 最终镜像只复制 Go 二进制和 `web/dist`，不复制 Node 或 `node_modules`。
+此边界不降低构建阶段的安全要求。
+Web CI 同时运行生产依赖 high 门禁和包含构建/测试依赖的 moderate 门禁。
+
+最终镜像扫描还发现了后端传递依赖的 GO-2026-6611 / CVE-2026-78669：
+Gin 引入的 `golang.org/x/net/http2` 来自旧的 x/net 0.57.0。
+现已更新到修复版本 0.60.0，并采用该模块要求的 x/crypto、x/sys、x/text
+及随依赖图选出的 x/sync 版本。该修复要求 Go 1.26.0，仍兼容本项目的
+Go 1.26.9。没有为此添加漏洞忽略；双架构镜像需重新通过现有扫描门禁。
 
 ## 安装与验收
 
-Docker 的依赖安装层先复制 `web/patches`。pnpm 的精确版本 patch 默认在无法应用时失败；不启用 `allowUnusedPatches` 或 `ignorePatchFailures`。每次冻结安装之后执行：
-
 ```bash
-pnpm --dir web install --frozen-lockfile
+pnpm --dir web install --frozen-lockfile --strict-peer-dependencies
 pnpm --dir web verify:brace-depth
+pnpm --dir web audit --prod --audit-level=high
+pnpm --dir web audit --audit-level=moderate
+pnpm --dir web test
+pnpm --dir web build
+pnpm --dir web verify:bundle
+pnpm --dir web verify:attachments
+./scripts/verify-web-e2e.sh
 ```
 
-回归脚本从实际安装的 Tailwind、micromatch、fast-glob 和 chokidar 定位传递依赖，不加载临时替代模块。它验证 36 项正常/100 层边界、24 项攻击变体，并额外检查 101 层边界、fallback 深度继承和实际消费链。补丁应用后仍需 Web 单元测试、生产构建、bundle、附件和真实后端浏览器 E2E；Docker 镜像构建与公开验收由发布流程完成。
-
-`pnpm audit --prod` 与包含构建依赖的 `pnpm audit` 分别报告。上游没有修复版本，后者仍会按 `braces@3.0.3` 报出这一 high advisory；本地源码修复不让版本匹配型扫描自动清零，不能声称 `audit-all=0`。保留审计输出、patch hash 和执行回归作为不同证据。展开结果数量仍遵循上游既有规则，本补丁不承诺解决其他资源耗尽类型。
-
-来源：[GitHub advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)、[上游问题 #70](https://github.com/micromatch/braces/issues/70)、[pnpm patch](https://pnpm.io/10.x/cli/patch)。
+生产依赖审计与包含构建依赖的完整审计分别报告，以当次命令结果为准。通过审计不等于
+所有安全风险均被排除；版本锁定、真实消费链检查、浏览器回归和隔离 Docker 构建仍是
+独立证据。发布验证与远程 CI 的执行状态也不能由本地检查替代。

@@ -15,9 +15,13 @@ import (
 )
 
 var (
+	ErrInvalidReminderPayment     = errors.New("invalid reminder payment")
 	ErrReminderNotFound           = errors.New("reminder not found")
 	ErrLinkedDebtBalanceImmutable = errors.New("linked reminder balance is managed by its debt account")
 	ErrInvalidReminderPatch       = errors.New("invalid reminder patch")
+	ErrReminderPaymentHistory     = errors.New("reminder account cannot change while payments remain")
+	ErrReminderBalanceConflict    = errors.New("reminder and account balances require reconciliation")
+	ErrReminderRollbackUnverified = errors.New("historical reminder payment cannot be safely reversed")
 )
 
 type ReminderService struct {
@@ -70,18 +74,36 @@ type CreateReminderRequest struct {
 }
 
 func (s *ReminderService) Create(userID uint, req CreateReminderRequest) (*model.Reminder, error) {
+	return s.withFinanceTransaction(func(txService *ReminderService) (*model.Reminder, error) { return txService.create(userID, req) })
+}
+
+func (s *ReminderService) withFinanceTransaction(fn func(*ReminderService) (*model.Reminder, error)) (*model.Reminder, error) {
+	var result *model.Reminder
+	err := financeWriteTransaction(s.txRepo.DB(), func(txdb *gorm.DB) error {
+		txService := *s
+		txService.repo = repository.NewReminderRepository(txdb)
+		txService.accountRepo = repository.NewAccountRepository(txdb)
+		txService.txRepo = repository.NewTransactionRepository(txdb)
+		var err error
+		result, err = fn(&txService)
+		return err
+	})
+	return result, err
+}
+
+func (s *ReminderService) create(userID uint, req CreateReminderRequest) (*model.Reminder, error) {
 	evidence, err := normalizeCreateAttachmentEvidence(req.Evidence)
 	if err != nil {
 		return nil, err
 	}
 	accountID := normalizeOptionalString(req.AccountID)
-	if err := s.ensureAccountBelongsToUser(accountID, userID); err != nil {
-		return nil, err
-	}
 	if accountID != nil {
-		account, err := s.accountRepo.GetByID(*accountID)
-		if err != nil || account.UserID != userID {
-			return nil, ErrAccountNotFound
+		account, err := getAccountForUserTx(s.txRepo.DB(), *accountID, userID)
+		if err != nil {
+			return nil, err
+		}
+		if account.DebtTrackingMode == model.DebtModeManaged {
+			return nil, ErrManagedDebt
 		}
 		if IsDebtAccount(account.Type) {
 			if req.CurrentBalance != nil && roundMoney(*req.CurrentBalance) != roundMoney(account.CurrentBalance) {
@@ -163,26 +185,37 @@ func (s *ReminderService) Update(id string, userID uint, req CreateReminderReque
 			return nil, ErrAttachmentRecoveryPending
 		}
 	}
-	reminder, err := s.GetByID(id, userID)
+	return s.withFinanceTransaction(func(txService *ReminderService) (*model.Reminder, error) { return txService.update(id, userID, req) })
+}
+
+func (s *ReminderService) update(id string, userID uint, req CreateReminderRequest) (*model.Reminder, error) {
+	reminder, err := getReminderForUserTx(s.txRepo.DB(), id, userID)
 	if err != nil {
 		return nil, err
 	}
 	originalUpdatedAt := reminder.UpdatedAt
 	accountID := normalizeOptionalString(req.AccountID)
-	if err := s.ensureAccountBelongsToUser(accountID, userID); err != nil {
+	if err := validateReminderBindingChangeTx(s.txRepo.DB(), reminder, accountID); err != nil {
 		return nil, err
 	}
 	if accountID != nil {
-		account, err := s.accountRepo.GetByID(*accountID)
-		if err != nil || account.UserID != userID {
-			return nil, ErrAccountNotFound
+		account, err := getAccountForUserTx(s.txRepo.DB(), *accountID, userID)
+		if err != nil {
+			return nil, err
 		}
 		if IsDebtAccount(account.Type) {
-			if req.CurrentBalance != nil && roundMoney(*req.CurrentBalance) != roundMoney(account.CurrentBalance) {
-				return nil, ErrLinkedDebtBalanceImmutable
+			if reminder.AccountID != nil && *reminder.AccountID == *accountID {
+				if req.CurrentBalance != nil && (reminder.CurrentBalance == nil || req.CurrentBalance.Cents() != reminder.CurrentBalance.Cents()) {
+					return nil, ErrLinkedDebtBalanceImmutable
+				}
+				req.CurrentBalance = reminder.CurrentBalance
+			} else {
+				if req.CurrentBalance != nil && roundMoney(*req.CurrentBalance) != roundMoney(account.CurrentBalance) {
+					return nil, ErrLinkedDebtBalanceImmutable
+				}
+				balance := account.CurrentBalance
+				req.CurrentBalance = &balance
 			}
-			balance := account.CurrentBalance
-			req.CurrentBalance = &balance
 		}
 	}
 
@@ -281,7 +314,11 @@ func (s *ReminderService) Patch(id string, userID uint, req PatchReminderRequest
 			return nil, ErrAttachmentRecoveryPending
 		}
 	}
-	reminder, err := s.GetByID(id, userID)
+	return s.withFinanceTransaction(func(txService *ReminderService) (*model.Reminder, error) { return txService.patch(id, userID, req) })
+}
+
+func (s *ReminderService) patch(id string, userID uint, req PatchReminderRequest) (*model.Reminder, error) {
+	reminder, err := getReminderForUserTx(s.txRepo.DB(), id, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -374,27 +411,36 @@ func (s *ReminderService) Patch(id string, userID uint, req PatchReminderRequest
 			updates["account_id"] = value
 		}
 	}
+	if err := validateReminderBindingChangeTx(s.txRepo.DB(), reminder, targetAccountID); err != nil {
+		return nil, err
+	}
 	var linkedDebtAccount *model.Account
 	if targetAccountID != nil {
-		account, err := s.accountRepo.GetByID(*targetAccountID)
-		if err != nil || account.UserID != userID {
-			return nil, ErrAccountNotFound
+		account, err := getAccountForUserTx(s.txRepo.DB(), *targetAccountID, userID)
+		if err != nil {
+			return nil, err
 		}
 		if IsDebtAccount(account.Type) {
 			linkedDebtAccount = account
 		}
 	}
 	if linkedDebtAccount != nil {
-		if req.CurrentBalance.Set && (req.CurrentBalance.Null || roundMoney(req.CurrentBalance.Value) != roundMoney(linkedDebtAccount.CurrentBalance)) {
-			return nil, ErrLinkedDebtBalanceImmutable
+		if reminder.AccountID != nil && *reminder.AccountID == *targetAccountID {
+			if req.CurrentBalance.Set && (req.CurrentBalance.Null || reminder.CurrentBalance == nil || req.CurrentBalance.Value.Cents() != reminder.CurrentBalance.Cents()) {
+				return nil, ErrLinkedDebtBalanceImmutable
+			}
+		} else {
+			if req.CurrentBalance.Set && (req.CurrentBalance.Null || roundMoney(req.CurrentBalance.Value) != roundMoney(linkedDebtAccount.CurrentBalance)) {
+				return nil, ErrLinkedDebtBalanceImmutable
+			}
+			updates["current_balance_cents"] = linkedDebtAccount.CurrentBalance
 		}
-		updates["current_balance_cents"] = linkedDebtAccount.CurrentBalance
 	} else if err := addReminderOptionalMoneyPatch(updates, "current_balance_cents", req.CurrentBalance); err != nil {
 		return nil, err
 	}
 
 	if len(updates) == 0 {
-		return reminder, nil
+		return s.repo.GetByID(id)
 	}
 	result := s.txRepo.DB().Model(&model.Reminder{}).
 		Where("id = ? AND user_id = ? AND updated_at = ?", id, userID, reminder.UpdatedAt).
@@ -406,6 +452,27 @@ func (s *ReminderService) Patch(id string, userID uint, req PatchReminderRequest
 		return nil, ErrConcurrentBalanceUpdate
 	}
 	return s.repo.GetByID(id)
+}
+
+func validateReminderBindingChangeTx(txdb *gorm.DB, reminder *model.Reminder, target *string) error {
+	current := normalizeOptionalString(reminder.AccountID)
+	target = normalizeOptionalString(target)
+	if (current == nil && target == nil) || (current != nil && target != nil && *current == *target) {
+		return nil
+	}
+	if reminder.TotalPaid != 0 || reminder.InterestPaid != 0 {
+		return ErrReminderPaymentHistory
+	}
+	var count int64
+	if err := txdb.Model(&model.Transaction{}).
+		Where("user_id = ? AND reminder_id = ?", reminder.UserID, reminder.ID).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count != 0 {
+		return ErrReminderPaymentHistory
+	}
+	return nil
 }
 
 func addReminderOptionalDayPatch(updates map[string]any, column string, field Optional[int]) error {
@@ -454,17 +521,6 @@ func addReminderOptionalDatePatch(updates map[string]any, column string, field O
 	return nil
 }
 
-func (s *ReminderService) ensureAccountBelongsToUser(accountID *string, userID uint) error {
-	if accountID == nil {
-		return nil
-	}
-	account, err := s.accountRepo.GetByID(*accountID)
-	if err != nil || account.UserID != userID {
-		return ErrAccountNotFound
-	}
-	return nil
-}
-
 func (s *ReminderService) Delete(id string, userID uint) error {
 	_, err := s.GetByID(id, userID)
 	if err != nil {
@@ -500,6 +556,7 @@ func (s *ReminderService) Toggle(id string, userID uint) (*model.Reminder, error
 }
 
 type RecordPaymentRequest struct {
+	IdempotencyKey  string       `json:"idempotency_key,omitempty" binding:"max=128"`
 	Amount          money.Amount `json:"amount" binding:"required,gt=0"`
 	PrincipalAmount money.Amount `json:"principal_amount"`
 	InterestAmount  money.Amount `json:"interest_amount"`
@@ -522,15 +579,42 @@ func (s *ReminderService) RecordPayment(id string, userID uint, req RecordPaymen
 			}
 			return err
 		}
+		if replay, err := claimRepaymentRequest(txdb, userID, "reminder", id, req.IdempotencyKey, req); err != nil || replay {
+			return err
+		}
 		if sourceAccountID != nil && reminder.AccountID != nil && *reminder.AccountID != "" && *sourceAccountID == *reminder.AccountID {
 			return ErrSameAccount
+		}
+
+		accounts, err := getAccountsForUserTx(txdb, userID, sourceAccountID, reminder.AccountID)
+		if err != nil {
+			return err
+		}
+		for _, account := range accounts {
+			if account.DebtTrackingMode == model.DebtModeManaged {
+				return ErrManagedDebt
+			}
+		}
+		var sourceAccount, debtAccount *model.Account
+		if sourceAccountID != nil {
+			sourceAccount = accounts[*sourceAccountID]
+		}
+		if reminder.AccountID != nil && *reminder.AccountID != "" {
+			debtAccount = accounts[*reminder.AccountID]
+			if IsDebtAccount(debtAccount.Type) &&
+				(reminder.CurrentBalance == nil || reminder.CurrentBalance.Cents() != debtAccount.CurrentBalance.Cents()) {
+				return ErrReminderBalanceConflict
+			}
+			if principalPaid > debtAccount.CurrentBalance {
+				return ErrInvalidReminderPayment
+			}
 		}
 
 		// Validate against the balance read in this transaction. PostgreSQL and
 		// MySQL hold a row lock; SQLite serializes this service path and still
 		// verifies the previous values in the conditional update below.
 		if reminder.CurrentBalance != nil && principalPaid > *reminder.CurrentBalance {
-			return fmt.Errorf("还款金额不能超过待还金额 ¥%.2f", reminder.CurrentBalance.Float64())
+			return fmt.Errorf("%w: 还款金额不能超过待还金额 ¥%.2f", ErrInvalidReminderPayment, reminder.CurrentBalance.Float64())
 		}
 
 		nextTotalPaid := reminder.TotalPaid.Add(req.Amount)
@@ -579,19 +663,6 @@ func (s *ReminderService) RecordPayment(id string, userID uint, req RecordPaymen
 			return ErrConcurrentBalanceUpdate
 		}
 
-		accounts, err := getAccountsForUserTx(txdb, userID, sourceAccountID, reminder.AccountID)
-		if err != nil {
-			return err
-		}
-		var sourceAccount *model.Account
-		if sourceAccountID != nil {
-			sourceAccount = accounts[*sourceAccountID]
-		}
-		var debtAccount *model.Account
-		if reminder.AccountID != nil && *reminder.AccountID != "" {
-			debtAccount = accounts[*reminder.AccountID]
-		}
-
 		var paymentTransaction *model.Transaction
 		if sourceAccount != nil {
 			paymentTransaction, err = s.createPaymentTransactionTx(txdb, userID, &reminder, req, principalPaid, interestPaid, sourceAccount)
@@ -626,10 +697,10 @@ func (s *ReminderService) RecordPayment(id string, userID uint, req RecordPaymen
 
 func normalizeReminderPaymentSplit(req RecordPaymentRequest) (money.Amount, money.Amount, error) {
 	if req.Amount <= 0 {
-		return 0, 0, fmt.Errorf("还款金额必须大于 0")
+		return 0, 0, fmt.Errorf("%w: 还款金额必须大于 0", ErrInvalidReminderPayment)
 	}
 	if req.PrincipalAmount < 0 || req.InterestAmount < 0 {
-		return 0, 0, fmt.Errorf("本金和利息不能为负数")
+		return 0, 0, fmt.Errorf("%w: 本金和利息不能为负数", ErrInvalidReminderPayment)
 	}
 	if req.PrincipalAmount == 0 && req.InterestAmount == 0 {
 		return req.Amount, 0, nil
@@ -644,7 +715,7 @@ func normalizeReminderPaymentSplit(req RecordPaymentRequest) (money.Amount, mone
 		interestPaid = req.Amount.Sub(principalPaid)
 	}
 	if principalPaid < 0 || interestPaid < 0 || principalPaid.Add(interestPaid).Cents() != req.Amount.Cents() {
-		return 0, 0, fmt.Errorf("本金+利息必须等于还款金额")
+		return 0, 0, fmt.Errorf("%w: 本金+利息必须等于还款金额", ErrInvalidReminderPayment)
 	}
 	return principalPaid, interestPaid, nil
 }
@@ -712,6 +783,9 @@ func applyDebtAccountPaymentTx(
 	transactionID *string,
 	reminderID *string,
 ) error {
+	if account != nil && account.DebtTrackingMode == model.DebtModeManaged {
+		return ErrManagedDebt
+	}
 	if principalPaid == 0 {
 		return nil
 	}
@@ -721,7 +795,7 @@ func applyDebtAccountPaymentTx(
 
 	nextBalance := account.CurrentBalance.Sub(principalPaid)
 	if nextBalance < 0 {
-		nextBalance = 0
+		return ErrInvalidReminderPayment
 	}
 	if err := logAccountBalanceChangeTx(
 		txdb,
@@ -792,6 +866,20 @@ func (s *ReminderService) findOrCreateRepaymentCategoryTx(txdb *gorm.DB, userID 
 	return &category.ID, nil
 }
 
+// Keep reminder-before-account lock order consistent with RecordPayment.
+// Do not preload Account here: that would acquire/read an association before
+// the caller explicitly locks its target accounts.
+func getReminderForUserTx(txdb *gorm.DB, id string, userID uint) (*model.Reminder, error) {
+	var reminder model.Reminder
+	if err := financeQueryForUpdate(txdb).First(&reminder, "id = ? AND user_id = ?", id, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrReminderNotFound
+		}
+		return nil, err
+	}
+	return &reminder, nil
+}
+
 func getAccountForUserTx(txdb *gorm.DB, accountID string, userID uint) (*model.Account, error) {
 	var account model.Account
 	if err := financeQueryForUpdate(txdb).
@@ -842,6 +930,10 @@ type ReminderDebtSummary struct {
 }
 
 func (s *ReminderService) GetDebtSummary(userID uint) (*ReminderDebtSummary, error) {
+	return s.getDebtSummaryAt(userID, time.Now())
+}
+
+func (s *ReminderService) getDebtSummaryAt(userID uint, now time.Time) (*ReminderDebtSummary, error) {
 	reminders, err := s.repo.GetByUserID(userID)
 	if err != nil {
 		return nil, err
@@ -850,8 +942,6 @@ func (s *ReminderService) GetDebtSummary(userID uint) (*ReminderDebtSummary, err
 	summary := &ReminderDebtSummary{
 		DaysUntilNext: 999,
 	}
-	now := time.Now()
-	today := now.Day()
 
 	for _, r := range reminders {
 		if r.Principal != nil {
@@ -874,14 +964,7 @@ func (s *ReminderService) GetDebtSummary(userID uint) (*ReminderDebtSummary, err
 			summary.ActiveLoans++
 
 			// Calculate next payment date
-			var daysUntil int
-			if r.PaymentDay >= today {
-				daysUntil = r.PaymentDay - today
-			} else {
-				// Next month
-				daysInMonth := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local).Day()
-				daysUntil = daysInMonth - today + r.PaymentDay
-			}
+			daysUntil := daysUntilNextMonthDay(now, r.PaymentDay)
 			if daysUntil < summary.DaysUntilNext {
 				summary.DaysUntilNext = daysUntil
 				summary.NextPaymentDay = r.PaymentDay

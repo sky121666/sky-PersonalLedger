@@ -8,10 +8,16 @@ permissions:
 
 jobs:
   web:
-    name: Test and build
+    name: Test and build (${{ matrix.browser }})
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Each browser gets a separate runner and temporary backend/database.
+    # Keep one worker within each browser to preserve fixture isolation.
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
 
     defaults:
       run:
@@ -19,15 +25,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 10.32.1
+          version: 12.11.2
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: '.node-version'
           cache: pnpm
@@ -36,7 +42,7 @@ jobs:
             web/pnpm-workspace.yaml
 
       - name: Setup Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
@@ -44,7 +50,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify bounded brace parsing through installed build dependencies
+      - name: Verify toolchain consistency
+        run: ../scripts/check-toolchain-consistency.sh --runtime
+
+      - name: Test active toolchain validation
+        run: python3 ../scripts/test_toolchain_consistency.py
+
+      - name: Verify the vulnerable brace parser is absent
         run: pnpm verify:brace-depth
 
       - name: Run tests
@@ -52,6 +64,9 @@ jobs:
 
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level=high
+
+      - name: Audit build and test dependencies
+        run: pnpm audit --audit-level=moderate
 
       - name: Verify deferred attachment cleanup
         run: pnpm verify:attachments
@@ -62,9 +77,20 @@ jobs:
       - name: Enforce production bundle budgets
         run: pnpm verify:bundle
 
-      - name: Install Chromium for E2E
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install browsers for E2E
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
 
       - name: Run real-backend browser E2E
         working-directory: ${{ github.workspace }}
-        run: ./scripts/verify-web-e2e.sh
+        run: ./scripts/verify-web-e2e.sh --project=${{ matrix.browser }}
+
+      - name: Preserve browser failure evidence
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-e2e-${{ matrix.browser }}-${{ github.run_attempt }}
+          path: |
+            web/test-results
+            web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

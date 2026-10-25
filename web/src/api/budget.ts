@@ -36,8 +36,8 @@ export interface BudgetSummary {
 }
 
 export const budgetApi = {
-  getList(): Promise<BudgetListResponse> {
-    return get<BudgetListResponse>('/budgets')
+  getList(month?: string): Promise<BudgetListResponse> {
+    return get<BudgetListResponse>('/budgets', { params: month ? { month } : undefined })
   },
 
   getSummary(): Promise<BudgetSummary> {

@@ -298,6 +298,29 @@ class ReleaseContractTests(unittest.TestCase):
             contract.publish(SimpleNamespace(source="source", tag=TAG, sha=SHA, tag_object=OBJECT, digest=DIGEST))
         self.assertEqual(len(creations), 1)
 
+    @patch.dict(os.environ, GITHUB_REPOSITORY=REPO)
+    @patch.object(contract, "api", return_value=None)
+    @patch.object(contract, "image_digest", return_value=DIGEST)
+    @patch.object(contract, "identity", return_value=(SHA, OBJECT))
+    @patch.object(contract, "compose_config", return_value={"services": {"personal-ledger": {"image": IMAGE}}})
+    @patch.object(contract, "command")
+    def test_publish_marks_only_prerelease_tags(self, command, compose, identity, digest, api):
+        for tag, prerelease in ((TAG, False), (TAG + "-rc.1", True)):
+            with self.subTest(tag=tag):
+                creations = []
+                def execute(argv, **kwargs):
+                    if argv[0] == "bash":
+                        Path(argv[-1]).write_bytes(b"generated compose fixture")
+                    else:
+                        creations.append(argv)
+                    return b""
+                command.side_effect = execute
+                with patch.object(contract, "verify_scan_attestation", return_value=[{"attestation": {"bundle": {"fixture": True}}}]):
+                    contract.publish(SimpleNamespace(source="source", tag=tag, sha=SHA, tag_object=OBJECT, digest=DIGEST))
+                self.assertEqual(len(creations), 1)
+                self.assertEqual(creations[0][:4], ["gh", "release", "create", tag])
+                self.assertEqual("--prerelease" in creations[0], prerelease)
+
     @patch.object(contract, "command")
     def test_external_compose_includes_are_not_resolved(self, command):
         for content in [b"include: ./outside.yml\n", b"services:\n  personal-ledger:\n    extends: other.yml\n"]:

@@ -155,10 +155,17 @@ for name in workflow_names:
     if "scripts/check-version-consistency.sh" not in source:
         failures.append(f"{path}: missing repository version consistency check")
 
-    if name in {"release", "release-web"} and not re.search(
+    if name == "release" and not re.search(
         r"prerelease:.*contains\(needs\.prepare\.outputs\.version, '-'\)", source
     ):
         failures.append(f"{path}: prerelease versions must be marked as prereleases")
+
+    # Docker/Web publishing now uses the create-only contract, not the release Action.
+    # test_release_contract.py verifies stable and prerelease command arguments.
+    if name == "release-web" and not re.search(
+        r'python3 scripts/release_contract\.py publish --tag "\$TARGET_TAG"', source
+    ):
+        failures.append(f"{path}: missing create-only release contract")
 
     for index, line in enumerate(lines):
         match = re.match(r"^(\s*)run:\s*(.*)$", line)

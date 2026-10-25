@@ -33,6 +33,26 @@ func normalizeBackupForRestore(backup *FullBackupData, targetUserID uint) error 
 		return nil
 	}
 
+	for _, row := range backup.DebtPlans {
+		if err := acceptUserID(row.UserID); err != nil {
+			return invalidBackupOwnership(err)
+		}
+	}
+	for _, row := range backup.DebtOperations {
+		if err := acceptUserID(row.UserID); err != nil {
+			return invalidBackupOwnership(err)
+		}
+	}
+	for _, row := range backup.DebtAllocations {
+		if err := acceptUserID(row.UserID); err != nil {
+			return invalidBackupOwnership(err)
+		}
+	}
+	for _, request := range backup.RepaymentRequests {
+		if err := acceptUserID(request.UserID); err != nil {
+			return invalidBackupOwnership(err)
+		}
+	}
 	for i := range backup.Accounts {
 		if err := acceptUserID(backup.Accounts[i].UserID); err != nil {
 			return invalidBackupOwnership(err)

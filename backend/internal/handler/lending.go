@@ -168,6 +168,12 @@ func (h *LendingHandler) GetSummary(c *gin.Context) {
 
 func handleLendingRequestError(c *gin.Context, err error) bool {
 	switch {
+	case errors.Is(err, service.ErrManagedDebt):
+		debtResponseError(c, err)
+	case errors.Is(err, service.ErrIdempotencyConflict):
+		response.Error(c, http.StatusConflict, 40903, err.Error())
+	case errors.Is(err, service.ErrInvalidIdempotencyKey):
+		response.BadRequest(c, err.Error())
 	case errors.Is(err, service.ErrAttachmentRecoveryPending):
 		response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
 	case errors.Is(err, service.ErrAccountNotFound):

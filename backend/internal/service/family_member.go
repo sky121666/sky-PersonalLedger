@@ -16,9 +16,10 @@ var (
 )
 
 type FamilyMemberService struct {
-	repo         *repository.FamilyMemberRepository
-	txRepo       *repository.TransactionRepository
-	categoryRepo *repository.CategoryRepository
+	repo          *repository.FamilyMemberRepository
+	txRepo        *repository.TransactionRepository
+	categoryRepo  *repository.CategoryRepository
+	uploadService *UploadService
 }
 
 func NewFamilyMemberService(repo *repository.FamilyMemberRepository, txRepos ...*repository.TransactionRepository) *FamilyMemberService {
@@ -31,6 +32,11 @@ func NewFamilyMemberService(repo *repository.FamilyMemberRepository, txRepos ...
 
 func (s *FamilyMemberService) WithCategoryRepository(categoryRepo *repository.CategoryRepository) *FamilyMemberService {
 	s.categoryRepo = categoryRepo
+	return s
+}
+
+func (s *FamilyMemberService) WithUploadService(uploads *UploadService) *FamilyMemberService {
+	s.uploadService = uploads
 	return s
 }
 
@@ -52,6 +58,11 @@ type UpdateFamilyMemberRequest struct {
 }
 
 func (s *FamilyMemberService) Create(userID uint, req CreateFamilyMemberRequest) (*model.FamilyMember, error) {
+	releaseStorage := acquireAttachmentStorageRead()
+	defer releaseStorage()
+	if err := s.uploadService.validateStoredAvatarReference(userID, strings.TrimSpace(req.Avatar)); err != nil {
+		return nil, err
+	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return nil, ErrFamilyMemberNameEmpty
@@ -92,6 +103,11 @@ func (s *FamilyMemberService) List(userID uint) ([]model.FamilyMember, error) {
 }
 
 func (s *FamilyMemberService) Update(id string, userID uint, req UpdateFamilyMemberRequest) (*model.FamilyMember, error) {
+	releaseStorage := acquireAttachmentStorageRead()
+	defer releaseStorage()
+	if err := s.uploadService.validateStoredAvatarReference(userID, strings.TrimSpace(req.Avatar)); err != nil {
+		return nil, err
+	}
 	member, err := s.GetByID(id, userID)
 	if err != nil {
 		return nil, err

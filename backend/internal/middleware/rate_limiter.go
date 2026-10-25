@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"math"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -30,6 +31,11 @@ type RateLimiter struct {
 }
 
 const defaultRateLimitMaxEntries = 10000
+
+// RetryAfterSeconds rounds up so the client will not retry before the lock expires.
+func RetryAfterSeconds(until time.Time) int {
+	return max(1, int(math.Ceil(time.Until(until).Seconds())))
+}
 
 func NewRateLimiter() *RateLimiter {
 	rl := &RateLimiter{
@@ -242,7 +248,8 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		// Check IP rate limit
 		allowed, lockedUntil := rl.CheckIP(ip)
 		if !allowed {
-			remainingSeconds := int(time.Until(lockedUntil).Seconds())
+			remainingSeconds := RetryAfterSeconds(lockedUntil)
+			c.Header("Retry-After", strconv.Itoa(remainingSeconds))
 			c.JSON(429, gin.H{
 				"code":         42901,
 				"message":      "Too many login attempts. Please try again later.",
@@ -382,9 +389,18 @@ func (grl *GlobalRateLimiter) Middleware() gin.HandlerFunc {
 
 		ip := c.ClientIP()
 		if !grl.Allow(ip) {
+			grl.mu.RLock()
+			until := time.Now().Add(grl.window)
+			if requests := grl.requests[ip]; len(requests) > 0 {
+				until = requests[0].Add(grl.window)
+			}
+			grl.mu.RUnlock()
+			retryAfter := RetryAfterSeconds(until)
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
 			c.JSON(429, gin.H{
-				"code":    42903,
-				"message": "Too many requests. Please slow down.",
+				"code":        42903,
+				"message":     "Too many requests. Please slow down.",
+				"retry_after": retryAfter,
 			})
 			c.Abort()
 			return

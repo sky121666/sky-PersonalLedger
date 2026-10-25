@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,7 +9,6 @@ import (
 	"github.com/sky/personal-ledger/internal/money"
 	"github.com/sky/personal-ledger/internal/repository"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var (
@@ -24,11 +22,14 @@ var (
 	ErrInvalidLendingPatch     = errors.New("invalid lending patch")
 )
 
-var sqliteFinanceWriteMu sync.Mutex
-
 func parseDateTime(s string) (time.Time, error) {
 	parsed, err := parseTransactionDate(s)
 	if err == nil {
+		return parsed, nil
+	}
+	// Older Web clients saved this exact local value in pending repayments.
+	// Accept it without rewriting the payload used by the idempotency claim.
+	if parsed, err := time.ParseInLocation("2006-01-02T15:04", s, time.Local); err == nil {
 		return parsed, nil
 	}
 	return time.Time{}, ErrInvalidDateTime
@@ -120,7 +121,7 @@ func (s *LendingService) Create(userID uint, req CreateLendingRequest) (*model.L
 		lending.DueDate = &dueDate
 	}
 
-	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	if err := financeWriteTransaction(s.txRepo.DB(), func(txdb *gorm.DB) error {
 		var account *model.Account
 		if accountID != nil {
 			foundAccount, err := getAccountForUserTx(txdb, *accountID, userID)
@@ -369,6 +370,7 @@ func (s *LendingService) Delete(id string, userID uint) error {
 }
 
 type RecordRepaymentRequest struct {
+	IdempotencyKey    string       `json:"idempotency_key,omitempty" binding:"max=128"`
 	Amount            money.Amount `json:"amount" binding:"required,gt=0"`
 	RecordDate        string       `json:"record_date" binding:"required"`
 	AccountID         *string      `json:"account_id"`
@@ -411,6 +413,9 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrLendingNotFound
 			}
+			return err
+		}
+		if replay, err := claimRepaymentRequest(txdb, userID, "lending", lendingID, req.IdempotencyKey, req); err != nil || replay {
 			return err
 		}
 		if lending.IsSettled || lending.CurrentBalance <= 0 {
@@ -528,20 +533,11 @@ func (s *LendingService) RecordRepayment(lendingID string, userID uint, req Reco
 }
 
 func financeWriteTransaction(db *gorm.DB, fn func(*gorm.DB) error) error {
-	if db.Dialector.Name() == "sqlite" {
-		sqliteFinanceWriteMu.Lock()
-		defer sqliteFinanceWriteMu.Unlock()
-	}
-	return db.Transaction(fn)
+	return repository.FinanceWriteTransaction(db, fn)
 }
 
 func financeQueryForUpdate(db *gorm.DB) *gorm.DB {
-	switch db.Dialector.Name() {
-	case "postgres", "mysql":
-		return db.Clauses(clause.Locking{Strength: "UPDATE"})
-	default:
-		return db
-	}
+	return repository.FinanceQueryForUpdate(db)
 }
 
 func normalizeOptionalString(value *string) *string {

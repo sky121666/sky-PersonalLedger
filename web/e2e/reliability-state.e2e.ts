@@ -32,7 +32,7 @@ async function mockAccounts(page: Page) {
 
 test('late editor A cannot replace B and remark editing retains its separate payer', async ({ page }) => {
   await mockAccounts(page)
-  await page.route(/\/api\/v1\/categories(?:\?|$)/, route => route.fulfill({ json: { code: 0, data: [{ id: 'reliable-food', name: '餐饮', type: 'expense', color: '#3B82F6' }] } }))
+  await page.route(/\/api\/v1\/categories(?:\?|$)/, route => route.fulfill({ json: { code: 0, data: { list: [{ id: 'reliable-food', name: '餐饮', type: 'expense', color: '#3B82F6' }] } } }))
   await page.route('**/api/v1/family/members', route => route.fulfill({ json: { code: 0, data: [
     { id: 'child-A', name: '孩子A', is_enabled: true }, { id: 'parent-B', name: '家长B', is_enabled: true },
   ] } }))
@@ -70,7 +70,14 @@ test('late editor A cannot replace B and remark editing retains its separate pay
     await expect(dialog.getByLabel('付款成员', { exact: true })).toHaveValue('parent-B')
   }
   await dialog.getByLabel('备注', { exact: true }).fill('仅修改备注')
-  await dialog.getByRole('button', { name: '保存记录' }).click()
+  const save = dialog.getByRole('button', { name: '保存记录' })
+  await save.scrollIntoViewIfNeeded()
+  expect(await save.evaluate(button => {
+    const bounds = button.getBoundingClientRect()
+    const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+    return hit === button || button.contains(hit)
+  })).toBe(true)
+  await save.click()
   await expect(page.getByText('修改成功', { exact: true })).toBeVisible()
   expect(saved).toMatchObject({ amount: 200, member_id: 'child-A', paid_by_member_id: 'parent-B', remark: '仅修改备注' })
 })
@@ -79,7 +86,14 @@ test('optional AI failure leaves core assets visible and refresh reports partial
   await mockAccounts(page)
   await page.route(/\/api\/v1\/ai\/reports(?:\?|$)/, route => route.fulfill({ status: 503, json: { code: 500, message: 'controlled AI failure' } }))
   await login(page)
-  await expect(page.getByRole('alert')).toContainText('AI 分析加载失败')
+  await page.getByRole('button', { name: '编辑小组件', exact: true }).click()
+  await page.getByRole('button', { name: '添加小组件', exact: true }).click()
+  const gallery = page.getByRole('dialog', { name: '组件画廊' })
+  await gallery.getByRole('button', { name: '预览AI 分析', exact: true }).click()
+  await gallery.getByRole('button', { name: '添加到首页', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '完成编辑', exact: true }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'AI 分析加载失败' }).first()).toBeVisible()
   await expect(page.getByText('1,234.00', { exact: true }).first()).toBeVisible()
   await page.getByRole('button', { name: '刷新首页数据' }).click()
   await expect(page.getByText('核心数据已刷新，部分辅助数据加载失败', { exact: true })).toBeVisible()

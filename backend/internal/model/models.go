@@ -24,28 +24,32 @@ type User struct {
 }
 
 type Account struct {
-	ID             string         `gorm:"primaryKey;size:36" json:"id"`
-	UserID         uint           `gorm:"not null;index;index:idx_accounts_user_archived_sort,priority:1" json:"user_id"`
-	Name           string         `gorm:"size:100;not null" json:"name"`
-	Type           string         `gorm:"size:20;not null" json:"type"`
-	Icon           string         `gorm:"size:100" json:"icon"`
-	Color          string         `gorm:"size:20" json:"color"`
-	InitialBalance money.Amount   `gorm:"column:initial_balance_cents;not null;default:0" json:"initial_balance"`
-	CurrentBalance money.Amount   `gorm:"column:current_balance_cents;not null;default:0" json:"current_balance"`
-	PaymentDay     *int           `json:"payment_day"`
-	BillingDay     *int           `json:"billing_day"`
-	CreditLimit    *money.Amount  `gorm:"column:credit_limit_cents" json:"credit_limit"`
-	InterestRate   *float64       `gorm:"type:decimal(5,2)" json:"interest_rate"`
-	TotalPaid      money.Amount   `gorm:"column:total_paid_cents;not null;default:0" json:"total_paid"`
-	StartDate      *time.Time     `json:"start_date"`
-	TargetDate     *time.Time     `json:"target_date"`
-	PaidOffAt      *time.Time     `json:"paid_off_at"`
-	Remark         string         `gorm:"type:text" json:"remark"`
-	IsArchived     bool           `gorm:"default:false;index:idx_accounts_user_archived_sort,priority:2" json:"is_archived"`
-	SortOrder      int            `gorm:"default:0;index:idx_accounts_user_archived_sort,priority:3" json:"sort_order"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+	DebtTrackingMode string         `gorm:"size:16;not null;default:legacy" json:"debt_tracking_mode"`
+	UnplannedDebt    money.Amount   `gorm:"column:unplanned_debt_cents;not null;default:0" json:"unplanned_debt"`
+	UnappliedPayment money.Amount   `gorm:"column:unapplied_payment_cents;not null;default:0" json:"unapplied_payment"`
+	DebtUnclassified money.Amount   `gorm:"column:debt_unclassified_cents;not null;default:0" json:"debt_unclassified"`
+	ID               string         `gorm:"primaryKey;size:36" json:"id"`
+	UserID           uint           `gorm:"not null;index;index:idx_accounts_user_archived_sort,priority:1" json:"user_id"`
+	Name             string         `gorm:"size:100;not null" json:"name"`
+	Type             string         `gorm:"size:20;not null" json:"type"`
+	Icon             string         `gorm:"size:100" json:"icon"`
+	Color            string         `gorm:"size:20" json:"color"`
+	InitialBalance   money.Amount   `gorm:"column:initial_balance_cents;not null;default:0" json:"initial_balance"`
+	CurrentBalance   money.Amount   `gorm:"column:current_balance_cents;not null;default:0" json:"current_balance"`
+	PaymentDay       *int           `json:"payment_day"`
+	BillingDay       *int           `json:"billing_day"`
+	CreditLimit      *money.Amount  `gorm:"column:credit_limit_cents" json:"credit_limit"`
+	InterestRate     *float64       `gorm:"type:decimal(5,2)" json:"interest_rate"`
+	TotalPaid        money.Amount   `gorm:"column:total_paid_cents;not null;default:0" json:"total_paid"`
+	StartDate        *time.Time     `json:"start_date"`
+	TargetDate       *time.Time     `json:"target_date"`
+	PaidOffAt        *time.Time     `json:"paid_off_at"`
+	Remark           string         `gorm:"type:text" json:"remark"`
+	IsArchived       bool           `gorm:"default:false;index:idx_accounts_user_archived_sort,priority:2" json:"is_archived"`
+	SortOrder        int            `gorm:"default:0;index:idx_accounts_user_archived_sort,priority:3" json:"sort_order"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type Category struct {
@@ -63,6 +67,7 @@ type Category struct {
 }
 
 type Transaction struct {
+	DebtOperationID   *string      `gorm:"size:36;index" json:"debt_operation_id,omitempty"`
 	ID                string       `gorm:"primaryKey;size:36" json:"id"`
 	UserID            uint         `gorm:"not null;index;uniqueIndex:idx_transactions_user_import_fingerprint,priority:1;index:idx_transactions_user_date,priority:1;index:idx_transactions_user_type_date,priority:1" json:"user_id"`
 	AccountID         string       `gorm:"size:36;not null;index" json:"account_id"`
@@ -274,18 +279,24 @@ type NotificationLog struct {
 
 // AccountLog stores account balance change history
 type AccountLog struct {
-	ID            string       `gorm:"primaryKey;size:36" json:"id"`
-	UserID        uint         `gorm:"not null;index;index:idx_account_logs_user_account_created,priority:1" json:"user_id"`
-	AccountID     string       `gorm:"size:36;not null;index;index:idx_account_logs_user_account_created,priority:2" json:"account_id"`
-	Type          string       `gorm:"size:30;not null;index" json:"type"` // income, expense, transfer_in, transfer_out, rollback, adjustment
-	Amount        money.Amount `gorm:"column:amount_cents;not null" json:"amount"`
-	BalanceBefore money.Amount `gorm:"column:balance_before_cents;not null" json:"balance_before"`
-	BalanceAfter  money.Amount `gorm:"column:balance_after_cents;not null" json:"balance_after"`
-	TransactionID *string      `gorm:"size:36;index" json:"transaction_id,omitempty"`
-	ReminderID    *string      `gorm:"size:36;index" json:"reminder_id,omitempty"`
-	LendingID     *string      `gorm:"size:36;index" json:"lending_id,omitempty"`
-	Remark        string       `gorm:"size:500" json:"remark"`
-	CreatedAt     time.Time    `gorm:"index;index:idx_account_logs_user_account_created,priority:3" json:"created_at"`
+	DebtOperationID    *string      `gorm:"size:36;index" json:"debt_operation_id,omitempty"`
+	DebtEffectRole     string       `gorm:"size:20" json:"debt_effect_role,omitempty"`
+	UnplannedDebtDelta money.Amount `gorm:"column:unplanned_debt_delta_cents;not null" json:"unplanned_debt_delta,omitempty"`
+	UnappliedDelta     money.Amount `gorm:"column:unapplied_delta_cents;not null" json:"unapplied_delta,omitempty"`
+	PrincipalPaidDelta money.Amount `gorm:"column:principal_paid_delta_cents;not null" json:"principal_paid_delta,omitempty"`
+	UnclassifiedDelta  money.Amount `gorm:"column:unclassified_delta_cents;not null" json:"unclassified_delta,omitempty"`
+	ID                 string       `gorm:"primaryKey;size:36" json:"id"`
+	UserID             uint         `gorm:"not null;index;index:idx_account_logs_user_account_created,priority:1" json:"user_id"`
+	AccountID          string       `gorm:"size:36;not null;index;index:idx_account_logs_user_account_created,priority:2" json:"account_id"`
+	Type               string       `gorm:"size:30;not null;index" json:"type"` // income, expense, transfer_in, transfer_out, rollback, adjustment
+	Amount             money.Amount `gorm:"column:amount_cents;not null" json:"amount"`
+	BalanceBefore      money.Amount `gorm:"column:balance_before_cents;not null" json:"balance_before"`
+	BalanceAfter       money.Amount `gorm:"column:balance_after_cents;not null" json:"balance_after"`
+	TransactionID      *string      `gorm:"size:36;index" json:"transaction_id,omitempty"`
+	ReminderID         *string      `gorm:"size:36;index" json:"reminder_id,omitempty"`
+	LendingID          *string      `gorm:"size:36;index" json:"lending_id,omitempty"`
+	Remark             string       `gorm:"size:500" json:"remark"`
+	CreatedAt          time.Time    `gorm:"index;index:idx_account_logs_user_account_created,priority:3" json:"created_at"`
 
 	Account *Account `gorm:"foreignKey:AccountID" json:"account,omitempty"`
 }

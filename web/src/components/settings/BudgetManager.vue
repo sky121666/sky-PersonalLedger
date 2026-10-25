@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { Plus, Trash2, Edit2, X, Target, AlertCircle } from 'lucide-vue-next'
+import { Plus, Trash2, Edit2, X, Target, AlertCircle } from '@lucide/vue'
 import { budgetApi, type Budget } from '@/api/budget'
 import { categoryApi, type Category } from '@/api/category'
 import { toast } from '@/composables/useToast'
@@ -277,7 +277,7 @@ function close() {
               <label class="block text-xs font-medium text-gray-400 mb-1.5">选择分类</label>
               <select 
                 v-model="form.categoryId"
-                class="w-full h-10 px-3 bg-gray-50 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+                class="w-full h-10 px-3 bg-gray-50 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 text-sm"
                 :disabled="!!editingBudget"
               >
                 <option value="" disabled>请选择分类</option>
@@ -295,7 +295,7 @@ function close() {
                   v-model="form.amount"
                   type="number"
                   placeholder="0"
-                  class="w-full h-12 pl-8 pr-4 bg-gray-50 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 font-bold text-lg"
+                  class="w-full h-12 pl-8 pr-4 bg-gray-50 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 font-bold text-lg"
                   autoFocus
                 />
               </div>

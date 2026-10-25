@@ -5,7 +5,7 @@ import {
   ShoppingBag, Smartphone, Flower2, Scroll, Building2, TrendingUp,
   PieChart, BarChart2, Bitcoin, Ticket, ClipboardList, FileText, Wallet,
   Home, Car, Repeat, Receipt, Calendar, Star, Tag
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const props = defineProps<{
   icon: string

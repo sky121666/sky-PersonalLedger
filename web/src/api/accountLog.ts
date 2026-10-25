@@ -11,6 +11,7 @@ export interface AccountLog {
   transaction_id?: string
   reminder_id?: string
   lending_id?: string
+  debt_operation_id?: string
   remark: string
   created_at: string
   account?: {

@@ -60,7 +60,7 @@ func (s *TemplateService) Create(userID uint, req CreateTemplateRequest) (*model
 		Remark:     req.Remark,
 	}
 
-	err := s.txService.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	err := financeWriteTransaction(s.txService.txRepo.DB(), func(txdb *gorm.DB) error {
 		if err := s.txService.validateTransactionReferencesTx(txdb, userID, CreateTransactionRequest{
 			Type:       req.Type,
 			AccountID:  req.AccountID,
@@ -109,7 +109,7 @@ type ApplyTemplateRequest struct {
 
 func (s *TemplateService) Apply(id string, userID uint, req ApplyTemplateRequest) (*model.Transaction, error) {
 	var transaction *model.Transaction
-	err := s.txService.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	err := financeWriteTransaction(s.txService.txRepo.DB(), func(txdb *gorm.DB) error {
 		template, err := s.templateRepo.GetByIDForUserWithDB(txdb, id, userID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {

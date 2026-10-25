@@ -110,7 +110,7 @@ func (s *UploadService) referencedUploadPaths(userID uint) (map[string]struct{},
 	}
 
 	var familyAvatars []string
-	if err := s.db.Model(&model.FamilyMember{}).Where("user_id = ?", userID).Pluck("avatar", &familyAvatars).Error; err != nil {
+	if err := s.db.Unscoped().Model(&model.FamilyMember{}).Where("user_id = ?", userID).Pluck("avatar", &familyAvatars).Error; err != nil {
 		return nil, err
 	}
 	for _, value := range familyAvatars {
@@ -127,7 +127,9 @@ func (s *UploadService) referencedUploadPaths(userID uint) (map[string]struct{},
 		{model: &model.LendingRecord{}, column: "evidence"},
 	} {
 		var values []string
-		if err := s.db.Model(query.model).Where("user_id = ?", userID).Pluck(query.column, &values).Error; err != nil {
+		// Backups retain tombstones and their references. These files are not
+		// orphans; purging historical attachments requires an explicit policy.
+		if err := s.db.Unscoped().Model(query.model).Where("user_id = ?", userID).Pluck(query.column, &values).Error; err != nil {
 			return nil, err
 		}
 		addLists(values)
@@ -158,4 +160,23 @@ func normalizeStoredUploadReference(value string) string {
 		return ""
 	}
 	return filepath.ToSlash(cleaned)
+}
+
+// The caller holds the attachment barrier through metadata persistence.
+func (s *UploadService) validateStoredAvatarReference(userID uint, value string) error {
+	reference, internal, err := parseStoredUploadReference(value)
+	if err != nil {
+		return ErrUploadPathInvalid
+	}
+	if !internal {
+		return nil
+	}
+	if reference.owner != userID {
+		return ErrUploadPathForbidden
+	}
+	paths, err := json.Marshal([]string{fmt.Sprintf("%d/%s", userID, reference.suffix)})
+	if err != nil {
+		return err
+	}
+	return s.validateStoredAttachmentPaths(userID, string(paths))
 }

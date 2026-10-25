@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronLeft, Download } from 'lucide-vue-next'
+import { Download, BarChart3, TrendingUp, ReceiptText, CalendarDays, Award } from '@lucide/vue'
+import FinancePage from '@/components/ui/FinancePage.vue'
+import SelectionControl from '@/components/ui/SelectionControl.vue'
+import { chartAxisLimit, chartBarPercent } from '@/utils/chartScale'
 import { exportApi, type YearlyReport } from '@/api/export'
 import { statisticsApi, type AssetTrendItem } from '@/api/statistics'
 import { toast } from '@/composables/useToast'
@@ -13,27 +16,38 @@ const router = useRouter()
 
 const loading = ref(false)
 const exporting = ref(false)
+const loadFailed = ref(false)
+const yearsFailed = ref(false)
 const selectedYear = ref(new Date().getFullYear())
 const availableYears = ref<number[]>([])
 const report = ref<YearlyReport | null>(null)
 const assetTrendData = ref<AssetTrendItem[]>([])
 const currentNetWorth = ref(0)
+const activeAsset = ref<AssetTrendItem | null>(null)
+const statisticsOptions = [{ value: 'month', label: '本月' }, { value: 'year', label: '年度' }]
 const ledgerMutationRevision = useLedgerMutationRevision()
 const reportRequests = createRequestGeneration()
+const yearRequests = createRequestGeneration()
+onBeforeUnmount(() => { reportRequests.begin(); yearRequests.begin() })
 
 onMounted(async () => {
   await loadYears()
   await loadReport()
 })
 
-watch(ledgerMutationRevision, () => void loadReport())
+watch(ledgerMutationRevision, () => { void loadYears(); void loadReport() })
 
 async function loadYears() {
+  const generation = yearRequests.begin()
   try {
     const years = await exportApi.getAvailableYears()
-    availableYears.value = years.length > 0 ? years : [new Date().getFullYear()]
+    if (!yearRequests.isLatest(generation)) return
+    yearsFailed.value = false
+    availableYears.value = [...new Set([...years, selectedYear.value])].sort((a, b) => b - a)
   } catch (e) {
-    availableYears.value = [new Date().getFullYear()]
+    if (!yearRequests.isLatest(generation)) return
+    yearsFailed.value = true
+    if (!availableYears.value.length) availableYears.value = [selectedYear.value]
   }
 }
 
@@ -41,6 +55,12 @@ async function loadReport() {
   const requestGeneration = reportRequests.begin()
   const requestedYear = selectedYear.value
   loading.value = true
+  loadFailed.value = false
+  activeAsset.value = null
+  if (report.value?.year !== requestedYear) {
+    report.value = null
+    assetTrendData.value = []
+  }
   try {
     const [reportData, assetTrend] = await Promise.all([
       exportApi.getYearlyReport(requestedYear),
@@ -55,6 +75,7 @@ async function loadReport() {
     currentNetWorth.value = assetTrend.current_net_worth
   } catch (e: any) {
     if (reportRequests.isLatest(requestGeneration)) {
+      loadFailed.value = true
       toast.error('加载报告失败')
     }
   } finally {
@@ -80,8 +101,8 @@ async function handleExportCSV() {
 }
 
 function formatMoney(value: number | undefined) {
-  if (value === undefined) return '0'
-  return value.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  if (value === undefined) return '—'
+  return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const maxMonthlyAmount = computed(() => {
@@ -96,261 +117,92 @@ const maxNetWorth = computed(() => {
   return Math.max(...nonZeroValues.map(item => Math.abs(item.net_worth)))
 })
 
+const assetAxis = computed(() => chartAxisLimit(maxNetWorth.value))
+const monthlyAxis = computed(() => chartAxisLimit(maxMonthlyAmount.value))
+
 function getNetWorthHeight(value: number) {
   if (Math.abs(value) < 0.01) return 0
   if (maxNetWorth.value === 0) return 0
-  return (Math.abs(value) / maxNetWorth.value) * 100
+  return chartBarPercent(Math.abs(value), assetAxis.value) / 2
 }
 
 function getMonthLabel(monthStr: string) {
   const month = parseInt(monthStr.split('-')[1])
   return month + '月'
 }
+
+
+function assetKeyboard(event: KeyboardEvent, index: number) {
+  if (event.key === 'Escape') { activeAsset.value = null; return }
+  if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return
+  event.preventDefault()
+  const buttons = (event.currentTarget as HTMLElement).parentElement?.querySelectorAll<HTMLButtonElement>('button')
+  if (!buttons?.length) return
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 :
+    (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length
+  buttons[next]?.focus({ preventScroll: true })
+}
 </script>
 
 <template>
-  <div class="min-h-full bg-[#F2F2F7] dark:bg-black text-gray-900 dark:text-white">
-    <!-- Header -->
-    <div class="bg-white/80 dark:bg-[#1C1C1E]/80 pt-4 pb-4 px-4 md:px-8 sticky top-0 z-30 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10">
-      <div class="max-w-3xl mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-2 min-w-0">
-          <button @click="router.back()" class="p-2 -ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-white rounded-xl transition flex-shrink-0">
-            <ChevronLeft :size="20" />
-          </button>
-          <h1 class="text-lg font-semibold text-gray-900 dark:text-white truncate">年度报告</h1>
-        </div>
-        <div class="flex items-center gap-1 flex-shrink-0">
-          <select 
-            v-model="selectedYear" 
-            @change="loadReport"
-            class="px-2 py-1.5 bg-gray-100 dark:bg-white/10 rounded-lg text-sm font-medium border-0 outline-none"
-          >
-            <option v-for="year in availableYears" :key="year" :value="year" class="bg-white dark:bg-gray-900">{{ year }}年</option>
-          </select>
-          <button 
-            @click="handleExportCSV" 
-            :disabled="exporting"
-            class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-white transition disabled:opacity-50"
-          >
-            <Download :size="18" />
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="loading" class="flex items-center justify-center min-h-[60vh]">
-      <div class="w-8 h-8 border-2 border-gray-200 dark:border-white/20 border-t-gray-900 dark:border-t-white rounded-full animate-spin"></div>
-    </div>
-
-    <div v-else-if="report" class="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-4">
-      <!-- Hero Section -->
-      <div class="relative bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-5 sm:p-8 text-white overflow-hidden">
-        <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
-        <div class="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl"></div>
-        <div class="relative text-center">
-          <div class="text-5xl sm:text-7xl font-black mb-2">{{ selectedYear }}</div>
-          <div class="text-white/80 text-sm mb-4 sm:mb-6">年度财务总结</div>
-          <div class="grid grid-cols-3 gap-2 sm:gap-4 mt-4 sm:mt-6">
-            <div class="bg-white/10 backdrop-blur rounded-xl sm:rounded-2xl p-2.5 sm:p-4">
-              <div class="text-white/60 text-[10px] sm:text-xs mb-0.5 sm:mb-1">总收入</div>
-              <div class="text-sm sm:text-xl font-bold font-nums truncate">¥{{ formatMoney(report.total_income) }}</div>
-            </div>
-            <div class="bg-white/10 backdrop-blur rounded-xl sm:rounded-2xl p-2.5 sm:p-4">
-              <div class="text-white/60 text-[10px] sm:text-xs mb-0.5 sm:mb-1">总支出</div>
-              <div class="text-sm sm:text-xl font-bold font-nums truncate">¥{{ formatMoney(report.total_expense) }}</div>
-            </div>
-            <div class="bg-white/10 backdrop-blur rounded-xl sm:rounded-2xl p-2.5 sm:p-4">
-              <div class="text-white/60 text-[10px] sm:text-xs mb-0.5 sm:mb-1">净结余</div>
-              <div class="text-sm sm:text-xl font-bold font-nums truncate">{{ report.net_savings >= 0 ? '+' : '' }}¥{{ formatMoney(report.net_savings) }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Asset Trend -->
-      <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-gray-900 dark:text-white">📈 资产趋势</h3>
-          <div class="text-right">
-            <div class="text-xs text-gray-400">当前净资产</div>
-            <div class="text-lg font-bold font-nums" :class="currentNetWorth >= 0 ? 'text-emerald-500' : 'text-red-500'">
-              ¥{{ formatMoney(currentNetWorth) }}
-            </div>
-          </div>
-        </div>
-        <div v-if="assetTrendData.length === 0" class="py-8 text-center text-gray-400 text-sm">
-          暂无数据
-        </div>
-        <div v-else class="h-36 flex items-end gap-1.5">
-          <div 
-            v-for="item in assetTrendData" 
-            :key="item.month" 
-            class="flex-1 flex flex-col items-center gap-1 group relative"
-          >
-            <!-- Tooltip -->
-            <div class="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none font-medium">
-              {{ item.net_worth >= 0 ? '' : '-' }}¥{{ formatMoney(Math.abs(item.net_worth)) }}
-            </div>
-            <div class="w-full h-28 flex items-end justify-center">
-              <div 
-                v-if="Math.abs(item.net_worth) > 0.01"
-                class="w-full rounded-t transition-all duration-300 group-hover:scale-105 cursor-pointer"
-                :class="item.net_worth > 0 ? 'bg-gradient-to-t from-emerald-500 to-emerald-400' : 'bg-gradient-to-t from-red-500 to-red-400'"
-                :style="{ height: `${Math.max(getNetWorthHeight(item.net_worth), 8)}%` }"
-              ></div>
-              <div 
-                v-else
-                class="w-full h-0.5 bg-gray-300 dark:bg-gray-600 rounded"
-              ></div>
-            </div>
-            <span class="text-[9px] text-gray-400 font-medium">{{ getMonthLabel(item.month) }}</span>
-          </div>
-        </div>
-        <div class="flex items-center justify-center gap-4 mt-3 text-xs text-gray-500">
-          <div class="flex items-center gap-1.5">
-            <div class="w-3 h-3 bg-gradient-to-t from-emerald-500 to-emerald-400 rounded"></div>
-            <span>正资产</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <div class="w-3 h-3 bg-gradient-to-t from-red-500 to-red-400 rounded"></div>
-            <span>负资产</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Monthly Trend -->
-      <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6">
-        <h3 class="font-bold text-gray-900 dark:text-white mb-4">📊 月度收支</h3>
-        <div class="space-y-3">
-          <div v-for="(month, index) in report.monthly_data" :key="index" class="group">
-            <div class="flex items-center gap-3">
-              <div class="w-8 text-xs text-gray-500 font-medium">{{ month.month }}月</div>
-              <div class="flex-1 h-7 flex gap-0.5 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden p-0.5">
-                <div 
-                  class="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded transition-all"
-                  :style="{ width: Math.max((month.income / maxMonthlyAmount * 100), 0) + '%' }"
-                ></div>
-                <div 
-                  class="h-full bg-gradient-to-r from-orange-400 to-pink-500 rounded transition-all"
-                  :style="{ width: Math.max((month.expense / maxMonthlyAmount * 100), 0) + '%' }"
-                ></div>
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center gap-4 pt-3 text-xs text-gray-500">
-            <div class="flex items-center gap-1.5">
-              <div class="w-3 h-3 bg-gradient-to-r from-blue-500 to-cyan-400 rounded"></div>
-              <span>收入</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <div class="w-3 h-3 bg-gradient-to-r from-orange-400 to-pink-500 rounded"></div>
-              <span>支出</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Categories Grid -->
-      <div class="grid md:grid-cols-2 gap-4">
-        <!-- Top Expenses -->
-        <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6">
-          <h3 class="font-bold text-gray-900 dark:text-white mb-4">💸 支出分类</h3>
-          <div class="space-y-3">
-            <div v-for="(cat, index) in report.top_expenses.slice(0, 5)" :key="cat.category_id" class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl flex items-center justify-center text-lg" 
-                :class="index === 0 ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-800'">
-                <DynamicIcon :icon="cat.category_icon || '📦'" :size="18" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ cat.category_name }}</span>
-                  <span class="text-sm font-bold text-gray-900 dark:text-white ml-2">¥{{ formatMoney(cat.amount) }}</span>
-                </div>
-                <div class="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                  <div class="h-full bg-gradient-to-r from-orange-400 to-pink-500 rounded-full" :style="{ width: cat.percentage + '%' }"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top Incomes -->
-        <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6">
-          <h3 class="font-bold text-gray-900 dark:text-white mb-4">💰 收入来源</h3>
-          <div v-if="report.top_incomes.length === 0" class="flex items-center justify-center h-40 text-gray-400 text-sm">
-            暂无收入数据
-          </div>
-          <div v-else class="space-y-3">
-            <div v-for="(cat, index) in report.top_incomes.slice(0, 5)" :key="cat.category_id" class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl flex items-center justify-center text-lg"
-                :class="index === 0 ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-800'">
-                <DynamicIcon :icon="cat.category_icon || '💵'" :size="18" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ cat.category_name }}</span>
-                  <span class="text-sm font-bold text-gray-900 dark:text-white ml-2">¥{{ formatMoney(cat.amount) }}</span>
-                </div>
-                <div class="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                  <div class="h-full bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-full" :style="{ width: cat.percentage + '%' }"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-4 text-white">
-          <div class="text-3xl font-bold">{{ report.transaction_count }}</div>
-          <div class="text-white/70 text-xs mt-1">笔交易</div>
-        </div>
-        <div class="bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl p-4 text-white">
-          <div class="text-3xl font-bold">{{ report.active_days }}</div>
-          <div class="text-white/70 text-xs mt-1">活跃天数</div>
-        </div>
-        <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white">
-          <div class="text-xl font-bold font-nums">¥{{ formatMoney(report.average_expense) }}</div>
-          <div class="text-white/70 text-xs mt-1">月均支出</div>
-        </div>
-        <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 text-white">
-          <div class="text-xl font-bold font-nums">¥{{ formatMoney(report.average_income) }}</div>
-          <div class="text-white/70 text-xs mt-1">月均收入</div>
-        </div>
-      </div>
-
-      <!-- Highlights -->
-      <div class="bg-white dark:bg-[#1C1C1E] rounded-3xl p-6">
-        <h3 class="font-bold text-gray-900 dark:text-white mb-4">🏆 年度亮点</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 text-center">
-            <div class="text-2xl mb-1">🔥</div>
-            <div class="text-xl font-bold text-red-500">{{ report.max_expense_month || '-' }}</div>
-            <div class="text-xs text-gray-500 mt-1">花钱最多</div>
-          </div>
-          <div class="bg-green-50 dark:bg-green-900/20 rounded-2xl p-4 text-center">
-            <div class="text-2xl mb-1">💚</div>
-            <div class="text-xl font-bold text-green-500">{{ report.min_expense_month || '-' }}</div>
-            <div class="text-xs text-gray-500 mt-1">花钱最少</div>
-          </div>
-          <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl p-4 text-center">
-            <div class="text-2xl mb-1">⭐</div>
-            <div class="text-xl font-bold text-yellow-500">{{ report.best_savings_month || '-' }}</div>
-            <div class="text-xs text-gray-500 mt-1">最佳结余</div>
-          </div>
-          <div v-if="report.max_single_expense > 0" class="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-4 text-center">
-            <div class="text-2xl mb-1">💎</div>
-            <div class="text-lg font-bold text-purple-500 font-nums">¥{{ formatMoney(report.max_single_expense) }}</div>
-            <div class="text-xs text-gray-500 mt-1">最大单笔</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Footer -->
-      <div class="text-center py-8">
-        <div class="text-xs text-gray-400 dark:text-gray-600">Personal Ledger · {{ selectedYear }}</div>
-      </div>
-    </div>
-  </div>
+  <FinancePage title="年度报告" :context="`${selectedYear} 年`" :icon="BarChart3" tone="cyan">
+    <template #actions><SelectionControl model-value="year" label="统计范围" :options="statisticsOptions" @update:model-value="$event === 'month' && router.push('/statistics')" /></template>
+    <div class="report-controls"><label class="finance-muted">报告年份<select v-model="selectedYear" aria-label="报告年份" class="finance-input" @change="loadReport"><option v-for="year in availableYears" :key="year" :value="year">{{ year }}年</option></select></label><button class="finance-icon-button" aria-label="导出年度 CSV" :disabled="exporting" @click="handleExportCSV"><Download :size="18" /></button></div>
+    <div v-if="yearsFailed" role="alert" class="finance-card finance-card-padding text-sm text-amber-700">年份列表加载失败，当前年份仍可查询。<button class="underline" @click="loadYears">重新加载年份</button></div>
+    <div v-if="loadFailed" role="alert" class="finance-card finance-card-padding text-sm text-amber-700">{{ selectedYear }} 年报告加载失败。{{ report ? '显示该年上次成功结果。' : '尚无可用结果。' }}<button class="underline" @click="loadReport">重新加载报告</button></div>
+    <p v-if="loading" role="status" class="finance-muted py-8 text-center">正在加载 {{ selectedYear }} 年报告…</p>
+    <template v-else-if="report">
+      <section class="finance-card finance-card-padding report-summary"><p class="finance-muted">{{ report.year }} 年结余</p><strong class="report-savings font-nums">{{ report.net_savings < 0 ? '−' : '' }}¥{{ formatMoney(Math.abs(report.net_savings)) }}</strong><span class="finance-muted">年度财务总结</span><div class="report-summary-parts"><span>收入 <strong class="income font-nums">¥{{ formatMoney(report.total_income) }}</strong></span><span>支出 <strong class="expense font-nums">¥{{ formatMoney(report.total_expense) }}</strong></span></div></section>
+      <section class="finance-card finance-card-padding"><div class="finance-card-heading"><div><h2>净资产走势</h2><p class="finance-muted mt-1">最近 12 个月 · 独立于报告年份</p></div><TrendingUp :size="18" class="finance-muted" aria-hidden="true" /></div>
+        <p v-if="!assetTrendData.length" class="finance-muted py-8 text-center">暂无数据</p>
+        <div v-else class="report-signed-chart"><div class="report-signed-axis" aria-hidden="true"><span>{{ formatMoney(assetAxis) }}</span><span>0</span><span>−{{ formatMoney(assetAxis) }}</span></div><div class="report-signed-bars" role="group" aria-label="净资产走势，正值向上，负值向下">
+          <button v-for="(item,index) in assetTrendData" :key="item.month" class="report-signed-slot" :data-asset-month="item.month" :aria-label="`${item.month} 净资产 ${formatMoney(item.net_worth)} 元`" :tabindex="activeAsset ? activeAsset.month === item.month ? 0 : -1 : index === assetTrendData.length - 1 ? 0 : -1" @focus="activeAsset = item" @click="activeAsset = item" @pointerenter="$event.pointerType === 'mouse' && (activeAsset = item)" @keydown="assetKeyboard($event,index)"><i v-if="item.net_worth !== 0" class="report-signed-bar" :class="item.net_worth < 0 ? 'is-negative' : 'is-positive'" :style="{ height: `${getNetWorthHeight(item.net_worth)}%`, [item.net_worth < 0 ? 'top' : 'bottom']: '50%' }"></i><span>{{ getMonthLabel(item.month) }}</span></button>
+        </div></div>
+        <div class="report-asset-value" role="status"><span class="finance-muted">{{ activeAsset ? `${activeAsset.month} 净资产` : '当前净资产' }}</span><strong class="font-nums" :class="(activeAsset?.net_worth ?? currentNetWorth) < 0 ? 'expense' : ''">{{ (activeAsset?.net_worth ?? currentNetWorth) < 0 ? '−' : '' }}¥{{ formatMoney(Math.abs(activeAsset?.net_worth ?? currentNetWorth)) }}</strong></div>
+      </section>
+      <section class="finance-card finance-card-padding"><div class="finance-card-heading"><h2>月度收支</h2><span class="finance-muted">单位：元</span></div><div v-for="month in report.monthly_data" :key="month.month" class="report-month-row"><span>{{ month.month }}</span><div><div class="report-month-series"><i class="income" :style="{ width: `${chartBarPercent(month.income,monthlyAxis)}%` }"></i><span>收入 ¥{{ formatMoney(month.income) }}</span></div><div class="report-month-series"><i class="expense" :style="{ width: `${chartBarPercent(month.expense,monthlyAxis)}%` }"></i><span>支出 ¥{{ formatMoney(month.expense) }}</span></div></div></div></section>
+      <div class="report-category-grid"><section v-for="group in [{ title: '支出分类', items: report.top_expenses, income: false }, { title: '收入来源', items: report.top_incomes, income: true }]" :key="group.title" class="finance-card finance-card-padding"><div class="finance-card-heading"><h2>{{ group.title }}</h2></div><p v-if="!group.items.length" class="finance-muted py-6 text-center">暂无数据</p><div v-for="cat in group.items.slice(0,5)" :key="cat.category_id" class="report-category-row"><span class="report-category-icon"><DynamicIcon :icon="cat.category_icon || 'wallet'" :size="18" /></span><span>{{ cat.category_name }}</span><strong class="font-nums">¥{{ formatMoney(cat.amount) }}</strong></div></section></div>
+      <section class="finance-card finance-card-padding report-metrics"><div><ReceiptText :size="17" aria-hidden="true" /><strong>{{ report.transaction_count }}</strong><span>笔交易</span></div><div><CalendarDays :size="17" aria-hidden="true" /><strong>{{ report.active_days }}</strong><span>活跃天数</span></div><div><strong class="font-nums">¥{{ formatMoney(report.average_expense) }}</strong><span>月均支出</span></div><div><strong class="font-nums">¥{{ formatMoney(report.average_income) }}</strong><span>月均收入</span></div></section>
+      <section class="finance-card finance-card-padding"><div class="finance-card-heading"><h2>年度亮点</h2><Award :size="18" class="finance-muted" aria-hidden="true" /></div><div class="report-highlights"><div><strong>{{ report.max_expense_month || '—' }}</strong><span>支出最多月份</span></div><div><strong>{{ report.min_expense_month || '—' }}</strong><span>支出最少月份</span></div><div><strong>{{ report.best_savings_month || '—' }}</strong><span>最佳结余月份</span></div><div v-if="report.max_single_expense > 0"><strong class="font-nums">¥{{ formatMoney(report.max_single_expense) }}</strong><span>最大单笔支出</span></div></div></section>
+    </template>
+  </FinancePage>
 </template>
+
+<style scoped>
+.report-controls { display: flex; justify-content: flex-end; align-items: flex-end; gap: 10px; }
+.report-controls label { display: flex; align-items: center; gap: 8px; }
+.report-controls select { width: 120px; }
+.report-savings { display: block; margin: 8px 0 7px; font-size: 36px; font-weight: 600; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.report-summary-parts { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-top: 20px; font-size: 13px; color: var(--fp-secondary); }
+.report-summary-parts strong { font-weight: 550; margin-left: 6px; }
+.income { color: var(--fp-green); }
+.expense { color: var(--fp-red); }
+.report-signed-chart { display: grid; grid-template-columns: 72px minmax(0,1fr); gap: 8px; margin-top: 24px; padding-bottom: 28px; }
+.report-signed-axis { display: flex; flex-direction: column; justify-content: space-between; text-align: right; height: 260px; color: var(--fp-secondary); font-size: 10px; }
+.report-signed-bars { height: 260px; position: relative; display: flex; gap: 10px; border-top: 1px solid var(--fp-line); border-bottom: 1px solid var(--fp-line); background: linear-gradient(to bottom,transparent calc(50% - .5px),var(--fp-line) 50%,transparent calc(50% + .5px)); }
+.report-signed-slot { position: relative; flex: 1; min-width: 0; height: 100%; background: none; }
+.report-signed-slot:focus-visible { outline-offset: -2px; }
+.report-signed-bar { position: absolute; left: 20%; width: 60%; max-width: 32px; border-radius: 4px; background: var(--fp-blue); }
+.report-signed-bar.is-negative { background: var(--fp-red); }
+.report-signed-slot > span { position: absolute; left: 50%; top: calc(100% + 8px); transform: translateX(-50%); color: var(--fp-secondary); font-size: 10px; white-space: nowrap; }
+.report-asset-value { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--fp-line); }
+.report-asset-value strong { font-size: 21px; font-weight: 600; }
+.report-month-row { display: grid; grid-template-columns: 36px minmax(0,1fr); gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--fp-line); font-size: 12px; }
+.report-month-row > span { color: var(--fp-secondary); }
+.report-month-series { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; min-height: 24px; }
+.report-month-series i { display: block; height: 5px; border-radius: 3px; flex: none; max-width: 100%; }
+.report-month-series i.income { background: var(--fp-green); }
+.report-month-series i.expense { background: var(--fp-red); }
+.report-month-series span { font-size: 11px; color: var(--fp-secondary); }
+.report-category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.report-category-row { display: flex; align-items: center; gap: 10px; min-height: 54px; border-top: 1px solid var(--fp-line); font-size: 13px; }
+.report-category-row > span:nth-child(2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.report-category-row strong { font-weight: 500; white-space: nowrap; }
+.report-category-icon { width: 28px; height: 28px; flex: none; border-radius: 10px; background: var(--fp-soft); display: grid; place-items: center; color: var(--fp-blue); }
+.report-metrics,.report-highlights { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 20px; }
+.report-metrics > div,.report-highlights > div { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.report-metrics svg { color: var(--fp-secondary); }
+.report-metrics strong,.report-highlights strong { font-size: 18px; font-weight: 550; overflow-wrap: anywhere; }
+.report-metrics span,.report-highlights span { flex: 1 0 100%; color: var(--fp-secondary); font-size: 12px; }
+@media (max-width:767px) { .report-savings { font-size: 32px; } .report-signed-chart { grid-template-columns: 58px minmax(0,1fr); gap: 6px; } .report-signed-bars { gap: 3px; } .report-category-grid { grid-template-columns: 1fr; } .report-metrics,.report-highlights { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 12px; } }
+</style>

@@ -15,9 +15,9 @@ import {
   RotateCw,
   Settings2,
   Wallet
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { toast } from '@/composables/useToast'
-import { setSetupToken } from '@/utils/setupAccess'
+import { clearSetupToken, setSetupToken } from '@/utils/setupAccess'
 
 type SetupStep = 'database' | 'password' | 'complete'
 
@@ -84,7 +84,7 @@ onMounted(async () => {
   const routeSetupToken = Array.isArray(route.query.setup_token)
     ? route.query.setup_token[0]
     : route.query.setup_token
-  if (setSetupToken(routeSetupToken)) {
+  if (typeof routeSetupToken === 'string' && routeSetupToken.trim() && setSetupToken(routeSetupToken)) {
     const nextQuery = { ...route.query }
     delete nextQuery.setup_token
     await router.replace({ path: route.path, query: nextQuery })
@@ -92,6 +92,7 @@ onMounted(async () => {
 
   await authStore.checkAuth()
   if (authStore.initialized === true) {
+    clearSetupToken()
     router.replace(authStore.isLoggedIn ? '/' : '/login')
     return
   }
@@ -104,6 +105,7 @@ async function loadSetupStatus() {
   try {
     setupStatus.value = await setupApi.getStatus()
     if (setupStatus.value.initialized) {
+      clearSetupToken()
       router.replace(authStore.isLoggedIn ? '/' : '/login')
       return
     }
@@ -175,6 +177,7 @@ async function createAccessPassword() {
   creatingPassword.value = true
   try {
     await authStore.init(password.value)
+    clearSetupToken()
     toast.success('初始化成功')
     currentStep.value = 'complete'
   } catch (e: any) {
@@ -461,7 +464,7 @@ function enterLedger() {
                 id="setup-sqlite-path"
                 v-model="databaseForm.path"
                 type="text"
-                class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                 :disabled="!canEditDatabase"
               />
             </div>
@@ -473,7 +476,7 @@ function enterLedger() {
                 v-model="databaseForm.dsn"
                 type="password"
                 autocomplete="new-password"
-                class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                 :disabled="!canEditDatabase"
               />
             </div>
@@ -486,7 +489,7 @@ function enterLedger() {
                     id="setup-database-host"
                     v-model="databaseForm.host"
                     type="text"
-                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     :disabled="!canEditDatabase"
                   />
                 </div>
@@ -497,7 +500,7 @@ function enterLedger() {
                     v-model.number="databaseForm.port"
                     type="number"
                     min="1"
-                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     :disabled="!canEditDatabase"
                   />
                 </div>
@@ -510,7 +513,7 @@ function enterLedger() {
                     id="setup-database-name"
                     v-model="databaseForm.database"
                     type="text"
-                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     :disabled="!canEditDatabase"
                   />
                 </div>
@@ -520,7 +523,7 @@ function enterLedger() {
                     id="setup-database-username"
                     v-model="databaseForm.username"
                     type="text"
-                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     :disabled="!canEditDatabase"
                   />
                 </div>
@@ -533,7 +536,7 @@ function enterLedger() {
                   v-model="databaseForm.password"
                   type="password"
                   autocomplete="new-password"
-                  class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   :disabled="!canEditDatabase"
                 />
               </div>
@@ -577,7 +580,7 @@ function enterLedger() {
                     id="setup-database-ssl-mode"
                     v-model="databaseForm.ssl_mode"
                     type="text"
-                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     :disabled="!canEditDatabase"
                   />
                 </div>
@@ -587,7 +590,7 @@ function enterLedger() {
                     id="setup-database-timezone"
                     v-model="databaseForm.timezone"
                     type="text"
-                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     :disabled="!canEditDatabase"
                   />
                 </div>
@@ -601,7 +604,7 @@ function enterLedger() {
                     v-model.number="databaseForm.max_open_conns"
                     type="number"
                     min="0"
-                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     :disabled="!canEditDatabase"
                   />
                 </div>
@@ -612,7 +615,7 @@ function enterLedger() {
                     v-model.number="databaseForm.max_idle_conns"
                     type="number"
                     min="0"
-                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    class="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     :disabled="!canEditDatabase"
                   />
                 </div>
@@ -668,7 +671,7 @@ function enterLedger() {
                   v-model="password"
                   :type="showPassword ? 'text' : 'password'"
                   minlength="8"
-                  class="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 pr-14 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  class="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 pr-14 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   autocomplete="new-password"
                   :disabled="creatingPassword"
                   @keyup.enter="createAccessPassword"
@@ -693,7 +696,7 @@ function enterLedger() {
                   v-model="confirmPassword"
                   :type="showConfirmPassword ? 'text' : 'password'"
                   minlength="8"
-                  class="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 pr-14 text-sm font-medium text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  class="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 pr-14 text-sm font-medium text-gray-900 outline-hidden transition focus:border-primary focus:ring-2 focus:ring-primary/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   autocomplete="new-password"
                   :disabled="creatingPassword"
                   @keyup.enter="createAccessPassword"

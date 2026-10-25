@@ -29,8 +29,8 @@ var (
 	ErrAIReportScheduleDisabled  = errors.New("AI automatic report schedule was disabled before sending")
 )
 
-const aiReportPromptVersion = "personal-ledger-v3"
-const aiReportMaskedPromptVersion = "personal-ledger-v3-masked"
+const aiReportPromptVersion = "personal-ledger-v5"
+const aiReportMaskedPromptVersion = "personal-ledger-v5-masked"
 
 var aiErrorSecretPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(authorization:\s*bearer\s+)[^\s,;]+`),
@@ -39,7 +39,7 @@ var aiErrorSecretPatterns = []*regexp.Regexp{
 }
 
 type aiReportGenerationLockEntry struct {
-	mu   sync.Mutex
+	gate chan struct{}
 	refs int
 }
 
@@ -186,6 +186,15 @@ type aiReportAccountSnapshot struct {
 }
 
 func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*AIReportResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), aiReportRequestTimeout)
+	defer cancel()
+	return s.generate(ctx, userID, req)
+}
+
+func (s *AIReportService) generate(ctx context.Context, userID uint, req GenerateAIReportRequest) (*AIReportResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	reportType := strings.TrimSpace(req.ReportType)
 	if reportType == "" {
 		return nil, ErrAIReportTypeRequired
@@ -203,7 +212,10 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 	}
 	maskNames := shouldMaskAIReportNames(req)
 	promptVersion := aiReportPromptVersionForRequest(req)
-	unlock := lockAIReportGeneration(userID, reportType, start, end, provider.ID, promptVersion)
+	unlock, err := lockAIReportGeneration(ctx, userID, reportType, start, end, provider.ID, promptVersion)
+	if err != nil {
+		return nil, err
+	}
 	defer unlock()
 	// The selected provider may have changed or been disabled while this
 	// request waited for a previous generation to finish.
@@ -221,6 +233,9 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 	// configuration are unchanged. Keep older reports as historical snapshots.
 	cached, err := s.repo.GetReusableCompleted(userID, reportType, start, end, provider.ID, provider.Model, promptVersion)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	if err == nil && cached.SnapshotJSON == snapshotJSON && cached.ProviderRevision == providerRevision {
@@ -244,8 +259,6 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	apiKey, err := revealAISecretWithKeyring(provider.APIKeyCiphertext, s.credentialKeys)
 	if err != nil {
 		return s.markReportFailed(report, err)
@@ -255,6 +268,9 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 			return s.markReportFailed(report, err)
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return s.markReportFailed(report, err)
+	}
 	releaseAttempt, err := s.generationLimits.acquire(userID)
 	if err != nil {
 		return s.markReportFailed(report, err)
@@ -262,6 +278,9 @@ func (s *AIReportService) Generate(userID uint, req GenerateAIReportRequest) (*A
 	defer releaseAttempt()
 	content, err := s.client.GenerateReport(ctx, provider.BaseURL, apiKey, provider.Model, snapshotJSON, reportType)
 	if err != nil {
+		return s.markReportFailed(report, err)
+	}
+	if err := ctx.Err(); err != nil {
 		return s.markReportFailed(report, err)
 	}
 
@@ -305,7 +324,10 @@ func aiReportPromptVersionForRequest(req GenerateAIReportRequest) string {
 	return aiReportPromptVersion
 }
 
-func lockAIReportGeneration(userID uint, reportType string, start time.Time, end time.Time, providerID string, promptVersion string) func() {
+func lockAIReportGeneration(ctx context.Context, userID uint, reportType string, start time.Time, end time.Time, providerID string, promptVersion string) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	key := fmt.Sprintf(
 		"%d|%s|%s|%s|%s|%s",
 		userID,
@@ -318,21 +340,33 @@ func lockAIReportGeneration(userID uint, reportType string, start time.Time, end
 	aiReportGenerationLocks.Lock()
 	entry := aiReportGenerationLocks.entries[key]
 	if entry == nil {
-		entry = &aiReportGenerationLockEntry{}
+		entry = &aiReportGenerationLockEntry{gate: make(chan struct{}, 1)}
 		aiReportGenerationLocks.entries[key] = entry
 	}
 	entry.refs++
 	aiReportGenerationLocks.Unlock()
 
-	entry.mu.Lock()
-	return func() {
-		entry.mu.Unlock()
+	releaseRef := func() {
 		aiReportGenerationLocks.Lock()
 		entry.refs--
 		if entry.refs == 0 && aiReportGenerationLocks.entries[key] == entry {
 			delete(aiReportGenerationLocks.entries, key)
 		}
 		aiReportGenerationLocks.Unlock()
+	}
+	// Waiters share the caller's budget and must release their reference on cancel.
+	select {
+	case <-ctx.Done():
+		releaseRef()
+		return nil, ctx.Err()
+	case entry.gate <- struct{}{}:
+		unlock := func() { <-entry.gate; releaseRef() }
+		// Cancellation and an available slot can become ready simultaneously.
+		if err := ctx.Err(); err != nil {
+			unlock()
+			return nil, err
+		}
+		return unlock, nil
 	}
 }
 
@@ -699,6 +733,10 @@ func parseAIReportPeriod(startText string, endText string) (time.Time, time.Time
 }
 
 func sanitizeAIError(err error) string {
+	var timeout interface{ Timeout() bool }
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
+		return "AI 服务响应超时，本次没有收到可用报告，请稍后手动重试。"
+	}
 	message := strings.TrimSpace(err.Error())
 	lowerMessage := strings.ToLower(message)
 	if strings.Contains(message, "://") ||

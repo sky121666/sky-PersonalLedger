@@ -63,18 +63,20 @@ func NewTransactionService(
 }
 
 type CreateTransactionRequest struct {
-	Type              string       `json:"type" binding:"required,oneof=income expense transfer"`
-	Amount            money.Amount `json:"amount" binding:"required,gt=0"`
-	AccountID         string       `json:"account_id" binding:"required"`
-	ToAccountID       *string      `json:"to_account_id"`
-	CategoryID        *string      `json:"category_id"`
-	TransactionDate   string       `json:"transaction_date" binding:"required"`
-	Remark            string       `json:"remark"`
-	Images            string       `json:"images"`
-	Tags              string       `json:"tags"`
-	MemberID          *string      `json:"member_id"`
-	PaidByMemberID    *string      `json:"paid_by_member_id"`
-	importFingerprint *string
+	Type                 string       `json:"type" binding:"required,oneof=income expense transfer"`
+	Amount               money.Amount `json:"amount" binding:"required,gt=0"`
+	AccountID            string       `json:"account_id" binding:"required"`
+	ToAccountID          *string      `json:"to_account_id"`
+	CategoryID           *string      `json:"category_id"`
+	TransactionDate      string       `json:"transaction_date" binding:"required"`
+	Remark               string       `json:"remark"`
+	Images               string       `json:"images"`
+	Tags                 string       `json:"tags"`
+	MemberID             *string      `json:"member_id"`
+	PaidByMemberID       *string      `json:"paid_by_member_id"`
+	importFingerprint    *string
+	IdempotencyKey       string `json:"idempotency_key"`
+	requestTransactionID string
 }
 
 type UpdateTransactionAttachmentsRequest struct {
@@ -93,7 +95,21 @@ func (s *TransactionService) Create(userID uint, req CreateTransactionRequest) (
 		req.Images = ""
 	}
 	var transaction *model.Transaction
-	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	if err := financeWriteTransaction(s.txRepo.DB(), func(txdb *gorm.DB) error {
+		if req.IdempotencyKey != "" {
+			id, replay, err := claimTransactionRequest(txdb, userID, req)
+			if err != nil {
+				return err
+			}
+			if replay {
+				transaction, err = s.txRepo.GetByIDForUserWithDB(repository.FinanceQueryForUpdate(txdb), id, userID)
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrTransactionRequestUnavailable
+				}
+				return err
+			}
+			req.requestTransactionID = id
+		}
 		var err error
 		transaction, err = s.createWithTx(txdb, userID, req, "manual")
 		return err
@@ -132,6 +148,9 @@ func (s *TransactionService) createWithTx(txdb *gorm.DB, userID uint, req Create
 		PaidByMemberID:    req.PaidByMemberID,
 		Source:            source,
 		ImportFingerprint: req.importFingerprint,
+	}
+	if req.requestTransactionID != "" {
+		transaction.ID = req.requestTransactionID
 	}
 	normalizedImages, err := normalizeTransactionAttachmentImages(transaction.ID, userID, req.Images)
 	if err != nil {
@@ -182,13 +201,12 @@ func (s *TransactionService) validateTransactionReferencesTx(txdb *gorm.DB, user
 			return ErrSameAccount
 		}
 	}
-	if err := ensureAccountBelongsToUserTx(txdb, req.AccountID, userID); err != nil {
-		return err
-	}
+	var targetAccountID *string
 	if req.Type == "transfer" {
-		if err := ensureAccountBelongsToUserTx(txdb, *req.ToAccountID, userID); err != nil {
-			return err
-		}
+		targetAccountID = req.ToAccountID
+	}
+	if _, err := getAccountsForUserTx(txdb, userID, &req.AccountID, targetAccountID); err != nil {
+		return err
 	}
 	if req.CategoryID != nil && *req.CategoryID != "" {
 		var category model.Category
@@ -209,17 +227,6 @@ func (s *TransactionService) validateTransactionReferencesTx(txdb *gorm.DB, user
 	}
 	if req.PaidByMemberID != nil && *req.PaidByMemberID != "" {
 		return ensureFamilyMemberBelongsToUserTx(txdb, *req.PaidByMemberID, userID)
-	}
-	return nil
-}
-
-func ensureAccountBelongsToUserTx(txdb *gorm.DB, accountID string, userID uint) error {
-	var account model.Account
-	if err := txdb.Select("id").First(&account, "id = ? AND user_id = ?", accountID, userID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrAccountNotFound
-		}
-		return err
 	}
 	return nil
 }
@@ -433,7 +440,7 @@ func (s *TransactionService) Update(id string, userID uint, req CreateTransactio
 	}
 
 	var updated *model.Transaction
-	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	if err := financeWriteTransaction(s.txRepo.DB(), func(txdb *gorm.DB) error {
 		current, err := s.txRepo.GetByIDForUserWithDB(
 			txdb.Clauses(clause.Locking{Strength: "UPDATE"}),
 			id,
@@ -540,7 +547,7 @@ func (s *TransactionService) UpdateAttachments(id string, userID uint, req Updat
 	}
 
 	var updated *model.Transaction
-	if err := s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	if err := financeWriteTransaction(s.txRepo.DB(), func(txdb *gorm.DB) error {
 		current, err := s.txRepo.GetByIDForUserWithDB(
 			txdb.Clauses(clause.Locking{Strength: "UPDATE"}),
 			id,
@@ -555,7 +562,7 @@ func (s *TransactionService) UpdateAttachments(id string, userID uint, req Updat
 		if isSystemTransaction(current) {
 			return ErrSystemTransactionImmutable
 		}
-		if isBusinessManagedTransaction(current) {
+		if isBusinessManagedTransaction(current) && current.DebtOperationID == nil {
 			return ErrManagedTransactionImmutable
 		}
 
@@ -622,7 +629,7 @@ func normalizeTransactionAttachmentImages(transactionID string, userID uint, val
 }
 
 func (s *TransactionService) Delete(id string, userID uint) error {
-	return s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	return financeWriteTransaction(s.txRepo.DB(), func(txdb *gorm.DB) error {
 		return s.deleteWithTx(txdb, id, userID)
 	})
 }
@@ -641,6 +648,13 @@ func (s *TransactionService) deleteWithTx(txdb *gorm.DB, id string, userID uint)
 	}
 	if isSystemTransaction(transaction) {
 		return ErrSystemTransactionImmutable
+	}
+	if transaction.DebtOperationID != nil {
+		return ErrManagedTransactionImmutable
+	}
+
+	if err := guardLendingInitialTransactionDeleteTx(txdb, transaction); err != nil {
+		return err
 	}
 
 	reminder, err := loadLinkedReminderForRollbackTx(txdb, transaction)
@@ -696,14 +710,17 @@ func isBusinessManagedTransaction(transaction *model.Transaction) bool {
 		return false
 	}
 	source := normalizedTransactionSource(transaction)
-	return source == "lending" || source == "reminder" ||
+	return transaction.DebtOperationID != nil || source == "lending" || source == "reminder" ||
 		transaction.LendingID != nil || transaction.ReminderID != nil
 }
 
 func (s *TransactionService) DeleteBatch(ids []string, userID uint) error {
 	orderedIDs := append([]string(nil), ids...)
 	sort.Strings(orderedIDs)
-	return s.txRepo.DB().Transaction(func(txdb *gorm.DB) error {
+	return financeWriteTransaction(s.txRepo.DB(), func(txdb *gorm.DB) error {
+		if err := s.preflightLendingTransactionDeletesTx(txdb, orderedIDs, userID); err != nil {
+			return err
+		}
 		for _, id := range orderedIDs {
 			if err := s.deleteWithTx(txdb, id, userID); err != nil {
 				return err

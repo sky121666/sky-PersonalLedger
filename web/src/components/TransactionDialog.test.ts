@@ -8,6 +8,7 @@ afterEach(() => dialogs.splice(0).forEach(dialog => dialog.unmount()))
 function setup(getById: any, update = vi.fn().mockResolvedValue({}), cleanup = vi.fn().mockResolvedValue([])) {
   const toast = { error: vi.fn(), success: vi.fn() }
   const dialog = componentScript('components/TransactionDialog.vue', ['form', 'submit', 'close', 'loadingInitialData', 'loading', 'transactionLoadFailed'], {
+    '@/api/auth': { authApi: { getProfile: async () => ({ id: 1 }) } },
     '@/api/transaction': { transactionApi: { getById, update, create: vi.fn() } },
     '@/api/category': { categoryApi: { getList: async () => [{ id: 'food', type: 'expense' }] } },
     '@/api/account': { accountApi: { getList: async () => ({ list: [{ id: 'account' }] }) } },
@@ -85,6 +86,24 @@ describe('transaction editor operation identity', () => {
 })
 
 describe('editor edge cases', () => {
+  it.each(['income', 'transfer'])('clears an unavailable historical category when changing to %s', async type => {
+    const dialog = setup(async () => ({ ...tx('A'), category_id: 'retired-category' }))
+    await open(dialog, 'A')
+    expect(dialog.entry.form.value.category_id).toBe('retired-category')
+    dialog.entry.form.value.type = type
+    await flushWork()
+    expect(dialog.entry.form.value.category_id).toBe('')
+  })
+  it('clears an incompatible category when editing changes expense to income', async () => {
+    const dialog = setup(async () => tx('A'))
+    await open(dialog, 'A')
+    expect(dialog.entry.form.value.category_id).toBe('food')
+    dialog.entry.form.value.type = 'income'
+    await flushWork()
+    expect(dialog.entry.form.value.category_id).toBe('')
+    await dialog.entry.submit()
+    expect(dialog.update).not.toHaveBeenCalled()
+  })
   it('switches the fixed target when editId changes while the dialog stays open', async () => {
     const a = deferred()
     const dialog = setup((id: string) => id === 'A' ? a.promise : Promise.resolve(tx('B', 200)))

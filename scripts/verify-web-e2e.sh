@@ -40,6 +40,8 @@ port="${LEDGER_WEB_E2E_PORT:-$(pick_port)}"
 base_url="http://127.0.0.1:$port"
 backend_binary="$tmp_dir/ledger-server"
 mkdir -p "$tmp_dir/uploads" "$tmp_dir/backups"
+# Ensure config discovery stops in this fixture directory, before /data.
+printf '{}\n' >"$tmp_dir/config.yaml"
 
 (
   cd "$repo_root/backend"
@@ -47,6 +49,8 @@ mkdir -p "$tmp_dir/uploads" "$tmp_dir/backups"
 )
 
 (
+  cd "$tmp_dir"
+  exec env -i PATH="$PATH" HOME="$HOME" TZ=Asia/Shanghai \
   LEDGER_SERVER_PORT="$port" \
   LEDGER_SERVER_MODE=debug \
   LEDGER_SERVER_WEB_PATH="$repo_root/web/dist" \
@@ -82,7 +86,9 @@ fi
 echo "Running Web E2E against isolated backend at $base_url"
 (
   cd "$repo_root/web"
+  TZ=Asia/Shanghai \
   LEDGER_WEB_E2E_BASE_URL="$base_url" \
+  LEDGER_WEB_E2E_ISOLATED=1 \
   LEDGER_WEB_E2E_PASSWORD="${LEDGER_WEB_E2E_PASSWORD:-LedgerWebE2ePass123!}" \
-  pnpm test:e2e
+  pnpm test:e2e "$@"
 )

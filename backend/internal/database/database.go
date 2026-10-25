@@ -140,6 +140,16 @@ var schemaMigrations = []versionedMigration{
 			return tx.Migrator().AddColumn(&model.AIReport{}, "ProviderRevision")
 		},
 	},
+	{
+		Version: 12,
+		Name:    "repayment_request_idempotency",
+		Apply:   func(tx *gorm.DB) error { return tx.AutoMigrate(&model.RepaymentRequest{}) },
+	},
+	{
+		Version: 13,
+		Name:    "managed_debt_plans_and_payment_evidence",
+		Apply:   migrateManagedDebt,
+	},
 }
 
 type moneyColumnMigration struct {

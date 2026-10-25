@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Plus, Trash2, Edit2, Check, X } from 'lucide-vue-next'
+import { Plus, Trash2, Edit2, Check, X } from '@lucide/vue'
 import { categoryApi, type Category } from '@/api/category'
 import { toast } from '@/composables/useToast'
 import { CATEGORY_EMOJIS, CATEGORY_COLORS, getCategoryEmoji } from '@/utils/constants'
@@ -179,7 +179,7 @@ function close() {
                     v-model="form.name"
                     type="text"
                     placeholder="例如：餐饮、交通"
-                    class="flex-1 h-12 px-4 bg-gray-50 rounded-xl border-0 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    class="flex-1 h-12 px-4 bg-gray-50 rounded-xl border-0 outline-hidden focus:ring-2 focus:ring-primary/20 transition-all"
                     autoFocus
                   />
                 </div>

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/service"
@@ -105,6 +106,10 @@ func writeFamilyMemberError(c *gin.Context, err error) {
 		response.NotFound(c, err.Error())
 	case errors.Is(err, service.ErrFamilyMemberNameEmpty):
 		response.BadRequest(c, err.Error())
+	case errors.Is(err, service.ErrAttachmentRecoveryPending):
+		response.Error(c, http.StatusServiceUnavailable, 50302, "attachment recovery is pending")
+	case errors.Is(err, service.ErrUploadPathInvalid), errors.Is(err, service.ErrUploadPathForbidden), errors.Is(err, service.ErrAttachmentFileUnavailable):
+		response.BadRequest(c, "头像文件无效或已丢失，请重新上传头像")
 	default:
 		internalServerError(c, err, "failed to process family member")
 	}

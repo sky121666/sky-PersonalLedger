@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight } from '@lucide/vue'
 import { statisticsApi, type TrendItem } from '@/api/statistics'
+
+import { createRequestGeneration } from '@/utils/requestGeneration'
+import { useLedgerMutationRevision } from '@/composables/useLedgerMutation'
 
 dayjs.locale('zh-cn')
 
 const props = defineProps<{
+  hideAmounts?: boolean
   initialDate?: string // YYYY-MM
+  preview?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -19,6 +24,11 @@ const emit = defineEmits<{
 const currentDate = ref(dayjs(props.initialDate || undefined))
 const trendData = ref<TrendItem[]>([])
 const loading = ref(false)
+const loadFailed = ref(false)
+const loadedMonth = ref('')
+const requests = createRequestGeneration()
+const ledgerMutationRevision = useLedgerMutationRevision()
+onBeforeUnmount(() => requests.begin())
 const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
 
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
@@ -80,15 +90,32 @@ function getDayData(dateStr: string) {
   return trendData.value.find(item => item.date === dateStr)
 }
 
-async function loadData() {
+async function loadData(): Promise<'success' | 'failed' | 'stale'> {
+  const month = currentDate.value.format('YYYY-MM')
+  if (props.preview) {
+    trendData.value = [
+      { date: `${month}-20`, income: 8000, expense: 36, balance: 7964 },
+      { date: `${month}-18`, income: 0, expense: 128, balance: -128 },
+    ]
+    loadedMonth.value = month
+    return 'success'
+  }
+  const generation = requests.begin()
   loading.value = true
+  loadFailed.value = false
+  if (loadedMonth.value !== month) trendData.value = []
   try {
-    const res = await statisticsApi.getTrend(currentDate.value.format('YYYY-MM'))
+    const res = await statisticsApi.getTrend(month)
+    if (!requests.isLatest(generation) || currentDate.value.format('YYYY-MM') !== month) return 'stale'
     trendData.value = res.items
-  } catch (e) {
-    console.error(e)
+    loadedMonth.value = month
+    return 'success'
+  } catch {
+    if (!requests.isLatest(generation)) return 'stale'
+    loadFailed.value = true
+    return 'failed'
   } finally {
-    loading.value = false
+    if (requests.isLatest(generation)) loading.value = false
   }
 }
 
@@ -100,6 +127,14 @@ function prevMonth() {
 function nextMonth() {
   currentDate.value = currentDate.value.add(1, 'month')
   emit('month-change', currentDate.value.format('YYYY-MM'))
+}
+
+function previousMonthLabel() {
+  return `上个月，${currentDate.value.subtract(1, 'month').format('YYYY年M月')}`
+}
+
+function nextMonthLabel() {
+  return `下个月，${currentDate.value.add(1, 'month').format('YYYY年M月')}`
 }
 
 function selectDate(date: dayjs.Dayjs) {
@@ -123,6 +158,8 @@ function formatMoney(val: number) {
   return val.toFixed(0)
 }
 
+watch(ledgerMutationRevision, () => void loadData())
+
 watch(() => currentDate.value.format('YYYY-MM'), () => {
   loadData()
 }, { immediate: true })
@@ -137,17 +174,23 @@ defineExpose({
     <!-- Header -->
     <div class="flex items-center justify-between mb-5">
       <div class="flex items-center gap-3">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white">{{ currentDate.format('YYYY年M月') }}</h2>
+        <h2 class="calendar-heading">{{ currentDate.format('YYYY年M月') }}</h2>
       </div>
-      <div class="flex items-center gap-2">
-        <button 
-          class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100/50 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all" 
+      <div class="calendar-nav">
+        <button
+          type="button"
+          class="calendar-nav-button"
+          :aria-label="previousMonthLabel()"
+          :title="previousMonthLabel()"
           @click="prevMonth"
         >
           <ChevronLeft :size="20" />
         </button>
-        <button 
-          class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100/50 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all" 
+        <button
+          type="button"
+          class="calendar-nav-button"
+          :aria-label="nextMonthLabel()"
+          :title="nextMonthLabel()"
           @click="nextMonth"
         >
           <ChevronRight :size="20" />
@@ -155,6 +198,11 @@ defineExpose({
       </div>
     </div>
 
+    <div v-if="loadFailed" role="alert" class="mb-3 text-sm text-amber-700">
+      {{ currentDate.format('YYYY年M月') }}金额加载失败，{{ loadedMonth === currentDate.format('YYYY-MM') ? '显示上次结果。' : '尚无可用结果。' }}
+      <button class="underline" @click="loadData">重试</button>
+    </div>
+    <div v-if="loading" class="mb-3 text-sm text-gray-500">正在加载日历金额…</div>
     <!-- Week Header -->
     <div class="grid grid-cols-7 mb-3">
       <div 
@@ -172,7 +220,7 @@ defineExpose({
       <div
         v-for="day in calendarDays"
         :key="day.dateStr"
-        class="py-2 flex flex-col items-center cursor-pointer transition-colors rounded-xl hover:bg-white/40 dark:hover:bg-gray-700/40"
+        class="calendar-day py-2 flex flex-col items-center cursor-pointer transition-colors rounded-xl hover:bg-white/40 dark:hover:bg-gray-700/40"
         :class="[
           day.isCurrentMonth 
             ? 'text-gray-900 dark:text-white' 
@@ -201,14 +249,14 @@ defineExpose({
           class="flex flex-col items-center mt-1 space-y-0"
         >
           <div 
-            v-if="day.data.income > 0" 
-            class="text-[10px] font-medium text-green-600 dark:text-green-400"
+            v-if="!hideAmounts && day.data.income > 0"
+            class="calendar-amount text-green-700 dark:text-green-300"
           >
             +{{ formatMoney(day.data.income) }}
           </div>
           <div 
-            v-if="day.data.expense > 0" 
-            class="text-[10px] font-medium text-red-500 dark:text-red-400"
+            v-if="!hideAmounts && day.data.expense > 0"
+            class="calendar-amount calendar-amount-expense"
           >
             -{{ formatMoney(day.data.expense) }}
           </div>
@@ -217,3 +265,25 @@ defineExpose({
     </div>
   </div>
 </template>
+
+<style scoped>
+.calendar-nav { display: flex; align-items: center; gap: 2px; }
+.calendar-nav-button { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 50%; color: #6e6e73; transition: background-color 150ms ease, color 150ms ease; }
+.calendar-nav-button:hover { background: rgb(118 118 128 / 10%); color: #1c1c1e; }
+.calendar-nav-button:focus-visible { outline: 2px solid #007aff; outline-offset: 2px; }
+.calendar-heading { color: #1c1c1e; font-size: 20px; line-height: 1.35; font-weight: 650; letter-spacing: -.022em; }
+.calendar-amount { min-height: 13px; font-size: 10px; line-height: 1.3; font-weight: 550; font-variant-numeric: tabular-nums; }
+.calendar-amount-expense { color: #d33b40; }
+:global(.dark) .calendar-nav-button { color: #aaaab2; }
+:global(.dark) .calendar-nav-button:hover { background: rgb(255 255 255 / 9%); color: #f5f5f7; }
+:global(.dark) .calendar-heading { color: #f5f5f7; }
+:global(.dark) .calendar-amount-expense { color: #ffa1a5; }
+@media (max-width: 380px) {
+  .calendar-heading { font-size: 18px; }
+  .calendar-nav-button { width: 44px; height: 44px; }
+  .calendar-amount { letter-spacing: -.02em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .calendar-nav-button { transition: none; }
+}
+</style>

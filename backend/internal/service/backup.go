@@ -21,6 +21,7 @@ var ErrInvalidBackupFormat = errors.New("invalid backup file")
 var ErrBackupFileTooLarge = errors.New("backup file exceeds restore size limit")
 var ErrBackupRecordLimitExceeded = errors.New("backup record limit exceeded")
 var ErrAttachmentRecoveryPending = errors.New("committed attachment recovery is pending")
+var ErrBackupAttachmentIntegrity = errors.New("backup attachment references are incomplete")
 
 const defaultMaxBackupRestoreBytes int64 = 64 << 20
 
@@ -110,6 +111,10 @@ func (s *BackupService) WithUploadService(uploadService *UploadService) *BackupS
 }
 
 type FullBackupData struct {
+	DebtPlans            []model.DebtPlan            `json:"debt_plans,omitempty"`
+	DebtOperations       []model.DebtOperation       `json:"debt_operations,omitempty"`
+	DebtAllocations      []model.DebtAllocation      `json:"debt_allocations,omitempty"`
+	RepaymentRequests    []model.RepaymentRequest    `json:"repayment_requests,omitempty"`
 	Version              string                      `json:"version"`
 	ExportedAt           time.Time                   `json:"exported_at"`
 	SourceUserID         uint                        `json:"source_user_id,omitempty"`
@@ -220,6 +225,11 @@ func (s *BackupService) createBackupSnapshot(snapshot *gorm.DB, userID uint) (*F
 		return nil, err
 	}
 
+	var repaymentRequests []model.RepaymentRequest
+	if err := snapshot.Where("user_id = ?", userID).Order("created_at ASC").Find(&repaymentRequests).Error; err != nil {
+		return nil, err
+	}
+
 	var accountLogs []model.AccountLog
 	if err := snapshot.Where("user_id = ?", userID).Order("created_at ASC, id ASC").Find(&accountLogs).Error; err != nil {
 		return nil, err
@@ -255,6 +265,7 @@ func (s *BackupService) createBackupSnapshot(snapshot *gorm.DB, userID uint) (*F
 		return nil, fmt.Errorf("backup attachments: %w", err)
 	}
 	backup := &FullBackupData{
+		RepaymentRequests:    repaymentRequests,
 		Version:              currentBackupVersion,
 		ExportedAt:           time.Now(),
 		SourceUserID:         userID,
@@ -274,6 +285,12 @@ func (s *BackupService) createBackupSnapshot(snapshot *gorm.DB, userID uint) (*F
 		NotificationLogs:     notificationLogs,
 		NotificationSettings: newNotificationSettingsBackup(notificationSettings),
 		Attachments:          attachments,
+	}
+	if err := captureDebtBackup(snapshot, userID, backup); err != nil {
+		return nil, err
+	}
+	if err := s.validateBackupExportAttachmentReferences(userID, backup); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrBackupAttachmentIntegrity, err)
 	}
 	serialized, err := json.Marshal(backup)
 	if err != nil {
@@ -324,6 +341,12 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 		return err
 	}
 	if err := s.rejectCrossUserBackupReferences(userID, &backup); err != nil {
+		return err
+	}
+	if err := validateDebtBackup(&backup); err != nil {
+		return err
+	}
+	if err := s.rejectDebtBackupIDCollisions(userID, &backup); err != nil {
 		return err
 	}
 
@@ -459,11 +482,21 @@ func (s *BackupService) RestoreBackup(userID uint, file *multipart.FileHeader) e
 			}
 		}
 
+		for _, request := range backup.RepaymentRequests {
+			request.UserID = userID
+			if err := tx.Create(&request).Error; err != nil {
+				return err
+			}
+		}
+
 		for _, accountLog := range backup.AccountLogs {
 			accountLog.UserID = userID
 			if err := tx.Omit(clause.Associations).Create(&accountLog).Error; err != nil {
 				return err
 			}
+		}
+		if err := restoreDebtBackupTx(tx, userID, &backup); err != nil {
+			return err
 		}
 
 		for _, notificationLog := range backup.NotificationLogs {
@@ -544,6 +577,7 @@ func (s *BackupService) finalizeCommittedAttachmentRestore(plan *attachmentResto
 
 func (s *BackupService) clearUserData(userID uint) {
 	// Delete in reverse order of dependencies
+	s.db.Where("user_id = ?", userID).Delete(&model.RepaymentRequest{})
 	s.db.Unscoped().Where("user_id = ?", userID).Delete(&model.AccountLog{})
 	s.db.Where("user_id = ?", userID).Delete(&model.NotificationLog{})
 	s.transactionRepo.DeleteAllByUserID(userID)
@@ -559,6 +593,14 @@ func (s *BackupService) clearUserData(userID uint) {
 }
 
 func (s *BackupService) clearUserDataTx(tx *gorm.DB, userID uint) error {
+	for _, item := range []any{&model.DebtAllocation{}, &model.DebtOperation{}, &model.DebtPlan{}} {
+		if err := tx.Where("user_id = ?", userID).Delete(item).Error; err != nil {
+			return err
+		}
+	}
+	if err := tx.Where("user_id = ?", userID).Delete(&model.RepaymentRequest{}).Error; err != nil {
+		return err
+	}
 	if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&model.AccountLog{}).Error; err != nil {
 		return err
 	}

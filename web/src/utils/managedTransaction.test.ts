@@ -26,4 +26,10 @@ describe('isManagedTransaction', () => {
   it('fails closed when a link field is present even if legacy data stored an empty id', () => {
     expect(isManagedTransaction({ source: 'manual', lending_id: '' })).toBe(true)
   })
+
+  it('protects multi-plan operation projections from ordinary edit/delete', () => {
+    expect(isManagedTransaction({ source: 'import', debt_operation_id: 'operation-1' })).toBe(true)
+    expect(isManagedTransaction({ source: 'debt_interest' })).toBe(true)
+    expect(isManagedTransaction({ source: 'manual', debt_operation_id: null })).toBe(false)
+  })
 })

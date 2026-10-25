@@ -16,6 +16,7 @@ export interface Transaction {
   source: string
   reminder_id?: string | null
   lending_id?: string | null
+  debt_operation_id?: string | null
   recurring_id: string | null
   // Nested objects from backend
   account?: {
@@ -62,6 +63,7 @@ export interface TransactionListParams {
 }
 
 export interface CreateTransactionParams {
+  idempotency_key?: string
   type: 'income' | 'expense' | 'transfer'
   amount: number
   account_id: string

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sky/personal-ledger/internal/service"
 	"github.com/sky/personal-ledger/pkg/response"
@@ -40,6 +42,10 @@ func (h *SystemHandler) SetEntryPath(c *gin.Context) {
 	}
 
 	if err := h.service.SetEntryPath(req.EntryPath); err != nil {
+		if errors.Is(err, service.ErrEntryPathInvalid) {
+			response.BadRequest(c, err.Error())
+			return
+		}
 		internalServerError(c, err, "failed to update entry path")
 		return
 	}
@@ -58,14 +64,23 @@ func (h *SystemHandler) SetEntryPath(c *gin.Context) {
 
 // GenerateEntryPath generates a random entry path
 func (h *SystemHandler) GenerateEntryPath(c *gin.Context) {
-	path, err := h.service.GenerateRandomPath()
+	var path string
+	var err error
+	draft := c.Query("draft") == "true"
+	if draft {
+		path, err = h.service.GenerateRandomPathDraft()
+	} else {
+		// Preserve the existing endpoint behavior for older clients.
+		path, err = h.service.GenerateRandomPath()
+	}
 	if err != nil {
 		internalServerError(c, err, "failed to generate entry path")
 		return
 	}
 	response.Success(c, gin.H{
 		"entry_path": path,
-		"enabled":    true,
+		"enabled":    !draft,
+		"draft":      draft,
 		"message":    "random entry path generated",
 	})
 }

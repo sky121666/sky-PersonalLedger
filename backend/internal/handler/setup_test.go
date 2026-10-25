@@ -9,8 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"github.com/sky/personal-ledger/internal/config"
 	"github.com/sky/personal-ledger/internal/database"
 	"github.com/sky/personal-ledger/internal/model"
@@ -411,9 +413,23 @@ func TestMergeDatabaseConfigBuildsMySQLDSNFromStructuredFields(t *testing.T) {
 	if dbConfig.Path != "" {
 		t.Fatalf("path = %q, want empty", dbConfig.Path)
 	}
-	for _, want := range []string{"ledger:secret@tcp(127.0.0.1:3307)/ledger_test", "charset=utf8mb4", "parseTime=true", "loc=Local"} {
+	for _, want := range []string{"ledger:secret@tcp(127.0.0.1:3307)/ledger_test", "charset=utf8mb4", "parseTime=true"} {
 		if !strings.Contains(dbConfig.DSN, want) {
 			t.Fatalf("dsn = %q, want to contain %q", dbConfig.DSN, want)
+		}
+	}
+	parsed, err := mysqldriver.ParseDSN(dbConfig.DSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, instant := range []time.Time{
+		time.Date(2026, time.January, 15, 12, 0, 0, 0, time.UTC),
+		time.Date(2026, time.July, 15, 12, 0, 0, 0, time.UTC),
+	} {
+		_, got := instant.In(parsed.Loc).Zone()
+		_, want := instant.In(time.Local).Zone()
+		if got != want {
+			t.Fatalf("MySQL DSN local offset = %d, want %d", got, want)
 		}
 	}
 }

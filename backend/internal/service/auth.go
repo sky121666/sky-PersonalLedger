@@ -39,6 +39,7 @@ type AuthService struct {
 	categoryRepo     *repository.CategoryRepository
 	accountRepo      *repository.AccountRepository
 	jwtManager       *jwt.Manager
+	uploadService    *UploadService
 }
 
 func NewAuthService(
@@ -512,6 +513,11 @@ func (s *AuthService) GetProfile(userID uint) (*UserProfile, error) {
 }
 
 func (s *AuthService) UpdateProfile(userID uint, nickname, email, avatar, bio string) (*UserProfile, error) {
+	releaseStorage := acquireAttachmentStorageRead()
+	defer releaseStorage()
+	if err := s.uploadService.validateStoredAvatarReference(userID, avatar); err != nil {
+		return nil, err
+	}
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
@@ -527,6 +533,11 @@ func (s *AuthService) UpdateProfile(userID uint, nickname, email, avatar, bio st
 	}
 
 	return s.GetProfile(userID)
+}
+
+func (s *AuthService) WithUploadService(uploads *UploadService) *AuthService {
+	s.uploadService = uploads
+	return s
 }
 
 var _ = gorm.ErrRecordNotFound // ensure gorm is imported

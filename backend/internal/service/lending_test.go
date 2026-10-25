@@ -44,6 +44,52 @@ func TestLendingRepaymentPreservesFinalCentUntilPaid(t *testing.T) {
 	}
 }
 
+func TestLegacyMinuteRepaymentReplaysWithoutChangingRequestIdentity(t *testing.T) {
+	_, repos, userID := newTransactionTestService(t)
+	svc := newLendingTestService(repos)
+	accountID := createAccountForTest(t, repos, userID, 1000)
+	lending, err := svc.Create(userID, CreateLendingRequest{
+		Type: "borrow_in", ContactName: "Legacy pending repayment", Principal: 100,
+		LendDate: "2026-10-14T08:30",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := RecordRepaymentRequest{
+		IdempotencyKey: "legacy-minute-repayment", Amount: 40, RecordDate: "2026-10-15T08:30",
+		AccountID: &accountID, CreateTransaction: true,
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		result, err := svc.RecordRepayment(lending.ID, userID, req)
+		if err != nil {
+			t.Fatalf("repayment attempt %d: %v", attempt, err)
+		}
+		assertFloatEqual(t, "remaining lending", result.CurrentBalance, 60)
+	}
+	account, err := repos.Account.GetByID(accountID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertFloatEqual(t, "one account debit", account.CurrentBalance, 960)
+	record := requireSingleLendingRecord(t, repos, lending.ID)
+	expectedDate := time.Date(2026, 10, 15, 8, 30, 0, 0, time.Local)
+	if !record.RecordDate.Equal(expectedDate) {
+		t.Fatalf("legacy local date = %v, want %v", record.RecordDate, expectedDate)
+	}
+	if ids := findLendingTransactionIDs(t, repos, userID, lending.ID); len(ids) != 1 {
+		t.Fatalf("repayment transactions = %d, want 1", len(ids))
+	}
+	req.RecordDate = expectedDate.Format(time.RFC3339)
+	if _, err := svc.RecordRepayment(lending.ID, userID, req); !errors.Is(err, ErrIdempotencyConflict) {
+		t.Fatalf("changed payload under original key = %v, want conflict", err)
+	}
+	for _, invalid := range []string{"2026-13-15T08:30", "2026-10-15T25:30", "2026-10-15T08:30garbage"} {
+		if _, err := parseDateTime(invalid); !errors.Is(err, ErrInvalidDateTime) {
+			t.Fatalf("invalid date %q: %v", invalid, err)
+		}
+	}
+}
+
 func TestLendingRejectsInvalidAndSubCentAmountsWithoutWriting(t *testing.T) {
 	_, repos, userID := newTransactionTestService(t)
 	svc := newLendingTestService(repos)
